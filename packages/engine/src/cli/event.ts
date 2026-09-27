@@ -2683,6 +2683,17 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
             }
       return { exitCode: 0, stdout: `${JSON.stringify(body)}\n`, stderr: '' }
     }
+    // A session's first recorded event can be this very append (agents-parity
+    // 3.5, D14). Registration is lazy on the first REAL event (record-hygiene
+    // D2), and the PostToolUse shim does it — but live Codex thread 01a0d6ae's
+    // only command was its write-back, which ran BEFORE that hook fired, so the
+    // fold already knew the session from its session_ended (a tool-unknown
+    // stub) and the shim's registered() check found nothing to do: no tool, no
+    // start time, a stub warning on every read. A CLI append is a real event,
+    // so it registers the session itself, through the one idempotent path,
+    // with the agent's own name as the tool — what the shim would have written
+    // for it. Idempotent, so a hook-registered session costs one cached fold.
+    if (session !== 'cli') ctx.registerSession(slug, session, { tool: args.source }, { source, actor: args.actor as Actor })
     // appendAndProject validates the payload against its type's schema BEFORE
     // any write — invalid type/payload throws here with zero appends.
     const event = ctx.appendAndProject(slug, args.type, payload, {
