@@ -83,4 +83,4 @@ Progress: 38 done, 6 dropped, 1 remaining
 - [-] 7.7 Proof: a live Codex end-to-end on a scratch repo (init with the picker → oriented session → MCP writes → write-back gate → drive run) with the operator's consent for the usage it spends, plus SPEC updates (§Host tiers moves Codex out of Tier 3, §Hooks, §CLI, §Driver) and acceptance criteria. (dropped)
 
 Active phase: Phase 4 — Release
-Next action: On sofar-e8's quiet-host signal: gated merge of r1-fixes-l36 (a3025d71) into main with main's fmt drift fixed as its own formatting-only commit; then run the mini check twice (`node test-e2e/l36-mini-check/run.mjs --engine ~/IO/sofar-l36 --label l36`; `--engine ~/.bench/sofar-0.34.0-rc.3 --label rc3 --expect fail`) and report both RESULT.json files; the operator may then ask for the chain-A S1–S9 smoke on the merged build.
+Next action: On sofar-e8's quiet-host signal: gated merge of r1-fixes-l36 (a3025d71) into main with main's fmt drift as its own formatting-only commit, then the mini check on l36 and on rc.3 (--expect fail), both RESULT.json reported; the chain-A smoke follows if the operator asks.
