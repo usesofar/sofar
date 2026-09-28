@@ -21,6 +21,7 @@ import {
   isKnownEventType,
   type GuardDomain,
   type KnownEventType,
+  validatePayload,
 } from '@sofar/schema'
 import { ACTORS, SOURCES, type Actor, type Source } from '../core/envelope'
 import { crossConflictsFromOpenSessions, type CrossFileConflict } from '../core/cross-conflicts'
@@ -2693,7 +2694,11 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
     // so it registers the session itself, through the one idempotent path,
     // with the agent's own name as the tool — what the shim would have written
     // for it. Idempotent, so a hook-registered session costs one cached fold.
-    if (session !== 'cli') ctx.registerSession(slug, session, { tool: args.source }, { source, actor: args.actor as Actor })
+    // Only once the payload has passed its type's validation: a refused
+    // append writes nothing, and that includes the registration.
+    if (session !== 'cli' && validatePayload(args.type, payload).ok) {
+      ctx.registerSession(slug, session, { tool: args.source }, { source, actor: args.actor as Actor })
+    }
     // appendAndProject validates the payload against its type's schema BEFORE
     // any write — invalid type/payload throws here with zero appends.
     const event = ctx.appendAndProject(slug, args.type, payload, {

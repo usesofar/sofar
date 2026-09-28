@@ -357,6 +357,23 @@ describe('a session whose first recorded event is a CLI append (agents-parity 3.
     ])
   })
 
+  it('a refused append writes nothing — no registration either — so the log is byte-identical', () => {
+    const root = initedRepo()
+    runNew(root, 'proj', { bind: true, goal: 'g' }, PLAIN, PLAIN)
+    const path = join(root, '.sofar', 'initiatives', 'proj', 'events.jsonl')
+    const before = readFileSync(path)
+    const refused = [
+      // fails its type's schema
+      runAppend(root, { slug: 'proj', type: 'session_ended', payload: '{"summary":"only half"}', session: ID, source: 'codex', actor: 'agent' }),
+      // unknown type
+      runAppend(root, { slug: 'proj', type: 'bogus_event', payload: '{}', session: ID, source: 'codex', actor: 'agent' }),
+      // reverses nothing here, but the actor is invalid
+      runAppend(root, { slug: 'proj', type: 'note_added', payload: '{"text":"x"}', session: ID, source: 'codex', actor: 'robot' }),
+    ]
+    for (const res of refused) expect(res.exitCode).toBe(1)
+    expect(readFileSync(path).equals(before)).toBe(true)
+  })
+
   it('`cli` is never a session, so an append with no id to adopt registers nothing', () => {
     const root = initedRepo()
     runNew(root, 'proj', { bind: true, goal: 'g' }, PLAIN, PLAIN)

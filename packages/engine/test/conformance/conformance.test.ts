@@ -91,18 +91,29 @@ describe('concurrent appends through the CLI', () => {
     const tail = after.subarray(before.length).toString('utf8')
     expect(tail.endsWith('\n')).toBe(true)
     const lines = tail.slice(0, -1).split('\n')
-    expect(lines).toHaveLength(WRITERS * PER_WRITER)
+    // Each writer's first append registers its session (agents-parity D14):
+    // exactly one session_started per writer, ahead of that writer's notes.
+    expect(lines).toHaveLength(WRITERS * (PER_WRITER + 1))
     const ids = new Set<string>()
     const seen = new Map<number, number[]>()
+    const started = new Map<string, number>()
     for (const line of lines) {
-      const event = JSON.parse(line) as { id: string; payload: { text: string; writer: number; i: number } }
+      const event = JSON.parse(line) as { id: string; type: string; session: string; payload: { text: string; writer: number; i: number } }
       expect(event.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
       ids.add(event.id)
+      if (event.type === 'session_started') {
+        expect(started.has(event.session)).toBe(false)
+        started.set(event.session, ids.size)
+        continue
+      }
+      expect(event.type).toBe('note_added')
+      expect(started.get(event.session)).toBeLessThan(ids.size)
       const list = seen.get(event.payload.writer) ?? []
       list.push(event.payload.i)
       seen.set(event.payload.writer, list)
     }
-    expect(ids.size).toBe(WRITERS * PER_WRITER)
+    expect(ids.size).toBe(WRITERS * (PER_WRITER + 1))
+    expect([...started.keys()].sort()).toEqual(Array.from({ length: WRITERS }, (_, w) => `writer-${w}`))
     for (let w = 0; w < WRITERS; w++) {
       // Each writer appended sequentially, so its own notes land in order.
       expect(seen.get(w)).toEqual(Array.from({ length: PER_WRITER }, (_, i) => i))
