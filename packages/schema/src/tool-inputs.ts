@@ -345,7 +345,7 @@ const planTaskSchema = {
     status: { enum: [...TASK_STATUSES] },
     route: {
       ...taskRouteSchema,
-      description: 'Routing hints for `sofar drive`.',
+      description: 'Routing for `sofar drive`.',
     },
   },
   required: ['id', 'title'],
@@ -557,7 +557,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_get_state',
     description:
-      'Read an initiative. The default digest is what SessionStart injected: do not re-read it.',
+      'Read an initiative. The digest is what SessionStart injected: never re-read it.',
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_get_state,
   },
   {
@@ -593,7 +593,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_update_plan',
     description:
-      'Full plan replace (goal, brief, phases), not a merge: an omitted status means `pending`, so restate every status you keep. `brief` = the operator\'s roadmap or spec, verbatim; kept when omitted. One task: sofar_update_task.',
+      'Full plan replace (goal, brief, phases), not a merge: an omitted status means `pending`, so restate every status you keep. `brief` = the operator\'s roadmap or spec, verbatim, kept if omitted. To add one task, sofar_update_task with title.',
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_update_plan,
   },
   {
