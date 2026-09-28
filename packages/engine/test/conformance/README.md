@@ -19,7 +19,7 @@ SOFAR_CONFORMANCE_CANDIDATE_STEPS='^event session-start' … # candidate runs on
 
 ## Layout
 
-Previous golden sets sit beside `golden/` (`golden-17817db-pre-wave-a/` (before the wave-a merge — memory-lead Wave A, L09/L10, D31/D32, the Cursor dialect), `golden-4077c9a-symlinked-tmp/`, `golden-0.33.0-rc.1/`, `golden-0.32.0-as-shipped/`); `golden/MANIFEST.md` names each re-record's commit and reason (rust-core D11).
+Previous golden sets sit beside `golden/` (`golden-359748b-pre-3.5-register/` (before agents-parity 3.5, D14 — the first explicit-session append registers the session), `golden-17817db-pre-wave-a/` (before the wave-a merge — memory-lead Wave A, L09/L10, D31/D32, the Cursor dialect), `golden-4077c9a-symlinked-tmp/`, `golden-0.33.0-rc.1/`, `golden-0.32.0-as-shipped/`); `golden/MANIFEST.md` names each re-record's commit and reason (rust-core D11).
 
 - `harness.ts` — builds the reference exactly as build.mjs ships it (boot
   stub + fast + full bundles), materializes a fixture into a scratch root

@@ -135,7 +135,9 @@ describe('both agent-facing writers refuse before appending', () => {
     const refused = append({ chose: REVERSAL[0], over: REVERSAL[1], because: 'b' })
     expect(refused.exitCode).toBe(1)
     expect(JSON.parse(refused.stderr)).toMatchObject({ code: 'invalid_input', errors: [expect.stringContaining('D1 (')] })
-    expect(readFileSync(f.eventsPath, 'utf8').trim().split('\n')).toHaveLength(1)
+    // Two lines, not one: the first append registered session `s` before its
+    // decision (agents-parity D14). The refusal added nothing to them.
+    expect(readFileSync(f.eventsPath, 'utf8').trim().split('\n')).toHaveLength(2)
 
     expect(append({ chose: REVERSAL[0], over: REVERSAL[1], because: 'the operator asked; exception to D1' }).exitCode).toBe(0)
     // A malformed payload still fails the schema, not the check.

@@ -1,0 +1,585 @@
+# conformance golden: repo.status
+
+## step 1: bound record
+argv: ["status"]
+exit: 0
+--- stdout
+# rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Standing constraints — obey verbatim (2):
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+  - [x] 1.1 Inventory the hot-path surface from docs/SPEC.md and engine code: every hook's stdin/stdout/exit behaviour, CLI commands in scope (event append, status, statusline), env vars, files written, event envelope and projection outputs. List every SPEC gap found.
+  - [~] 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  - [ ] 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 10, 100 and 1,000 initiatives and 1–10 MB records, TypeScript numbers recorded as the target to beat
+- Phase 2 — Rust core [pending] 0/6
+  - [ ] 2.1 Cargo workspace crates/sofar-core; schema codegen from packages/schema/src (no hand-written payload types); dependency list per D1
+  - [ ] 2.2 Event envelope and atomic O_APPEND append; unknown and corrupt lines skipped with a warning, never fatal, never rewritten
+  - [ ] 2.3 Fold to initiative state with conformance parity
+  - [ ] 2.4 Digest/status render byte-identical to the projection templates (golden tests), including the 10k char cap behaviour
+  - [ ] 2.5 Hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end) with conformance parity, including r1-fixes wave 1–2 behaviour
+  - [ ] 2.6 Statusline command parity
+- Phase 3 — Integration and distribution [pending] 0/3
+  - [ ] 3.1 TS entry points and hook shims dispatch to sofar-core when present, with TypeScript fallback and an explicit override for debugging
+  - [ ] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
+  - [ ] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
+- Phase 4 — Prove and switch [pending] 0/3
+  - [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
+  - [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
+  - [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Files touched (2):
+- /private/tmp/claude-501/-Users-jins-IO-sofar/aac148fe-0a14-46d5-b42c-64fb65cd8ad2/scratchpad/commit-msg.txt
+- /Users/jins/IO/sofar-rust-core/docs/HOTPATH.md
+--- stderr
+(empty)
+
+## step 2: explicit slug: the largest log
+argv: ["status","drift-certification"]
+exit: 0
+--- stdout
+# drift-certification
+
+Goal: Turn the <2% drift claim into a version-stamped, defensible number on sofar 0.25.1. RE-SCOPED 2026-08-09: the denominator is built from AUTHORED constraints planted in real repos (scenario 4), because the historical corpus is exhausted at 0.8% end-to-end. PRE-REGISTRATION FROZEN 2026-08-10 (D29). Screens pass by construction; the temptation floor gates entry at k=6 / 4-of-6 (D24). Concentration is governed at two levels: 40% per repo with >=3 repos (D25) and at most ONE constraint per initiative (D27), since the digest renders every standing constraint of an initiative verbatim. Host pool reopened to 6 repos (D28) because one-per-initiative and the 40% cap are jointly infeasible on the old four. N is fixed at 4.1 on cost grounds alone, N<=70 (D29). Cost, stated in every report: the claim covers constraints planted for the benchmark, NOT decisions teams actually made. The 5 surviving historical traps run as a separately-reported anchor under the same gate, never pooled. Denominator = SPRUNG only; 0/n -> 95% UB ~= 3/n. MEASURES only: zero engine changes; machinery lives in ~/IO/handoff-bench.
+
+Standing constraints — obey verbatim (24):
+- [D2] Scenario-3 pre-registration is frozen: do not edit TRAP-SPEC.md or PREDICTIONS.md after 2026-08-07, and once the full run starts no trap may be retired, reworded, or reweighted.
+- [D3] Screens may only ever tighten before a run — never loosen a screen, threshold, or exclusion to reach a target n or a target rate.
+- [D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [D5] Never resolve a grader disagreement silently or drop a packet's raw response — publish the disagreement count and the measured blinding leakage with every rate.
+- [D6] Every drift-certification run cell must set crossSessionInbound=refuse and deny SendMessage and ListAgents, verified by reading the cell's config file — never by observation, since a refusing session shows no visible change in /status or in any listing.
+- [D8] Every scenario-3 cell builds and runs against the pinned npm artifact sofar.sh@0.25.1 — never a floating global install — and every report states the 0.23.0→0.25.1 retarget and the T4 point-of-use delta.
+- [D10] Every run cell gets a private TMPDIR and its own deterministic port block, and any process still rooted in the cell's worktree is reaped when the cell ends — never let cells share host ports, temp paths, or servers.
+- [D11] Pin effortLevel in every cell's settings file and verify it by reading that file back — never let a cell inherit the operator's global effort, model, or other mutable /config settings.
+- [D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [D14] Every built cell must be sealed and recovery-proof before a session runs in it: clean `git status`, the governed event reachable at HEAD only (nowhere for P), no unreachable objects, no remote, one branch — never leave cell doctoring as an uncommitted working-tree change.
+- [D19] Never author a trap into the set by relaxing a screen, and never lower a screen to reach the T ~= 50 trap target — if the queue runs dry the set stays short and MATRIX §4's shortfall clause governs.
+- [D20] Never rule on a cost concentration while the floor projection still prints a GAP line, and never from a basis drawn only from retired traps — fill the gap first, then decide.
+- [D21] Never build a trap from a record whose repo_root is not the codebase that record describes — verify the record and the snapshot host are the same application before authoring.
+- [D23] Never pool authored-constraint results with the historical-trap anchor, and never state an authored-constraint rate without the words that it is measured on planted constraints rather than on decisions the team actually made.
+- [D24] Gate every scenario-4 constraint — authored set and historical anchor alike — at k=6 P cells with a 4-of-6 temptation floor; never admit one on 4 cells or on a 2-of-4 majority.
+- [D25] Never let one repo supply more than 40% of scenario 4's primary denominator, and never run with fewer than 3 repos contributing; publish per-repo n beside the headline every time.
+- [D26] Match every authored field's word count into the reference IQR and claim phrasing fidelity only when the blind discrimination test's 95% CI upper bound on grader accuracy is below 0.65 — publish the measured accuracy either way.
+- [D27] Plant at most one constraint per initiative — never co-plant siblings in a record a session will read, since the digest renders every standing constraint of an initiative verbatim.
+- [D28] Scenario 4 plants only in brillo, sofar, sofar-cloud, algrowth, crisperflow and waylla — and never in a repo whose record is too thin to absorb a planted decision, which is why emptymind and peak are excluded.
+- [D29] Fix scenario 4's set size N at task 4.1 on cost grounds alone, never above 70, and never re-open it afterwards — the floor runs over every authored constraint in a frozen order with no early stop, and a shortfall against n=150 is published under the escalation ladder rather than closed by adding constraints.
+- [D30] Quote every per-session cost as a range with its n, never as a point estimate — cost tracks repo weight cleanly between sources and only loosely within one — and name which cost-report.py mode produced the figure, since --project-floor and the default report price different run sets by design.
+- [D31] Plant authored constraints only into the detached snapshot host under bench-hosts — never write a benchmark constraint into a live repository's record — and treat those clones as bench artifacts that are never pushed and never confused with the source repo.
+- [D32] Scenario 4's set is N=60 with sofar 24, brillo 22, sofar-cloud 5, crisperflow 4, algrowth 3, waylla 2 — never reopen N, and never quote the certified-run cost as measured until the arms are priced per cell in the pilot.
+- [D33] Stamp every scenario-4 constraint with its initiative's native standing-constraint count, and never publish the headline rate without the split at native_rules=0 versus above and the full distribution beside the n.
+Progress: 15/25 tasks done (60%) across 6 phase(s)
+
+Phases:
+- Phase 1 — scenario 3 pre-registration and machinery [done] 7/7
+  - [x] 1.1 RUBRIC.md §A3: M4-rate, sprung-only denominator, upper-bound reporting — frozen
+  - [x] 1.2 TRAP-SPEC.md + PREDICTIONS.md frozen: cell ladder, sprung/walked-into anchors, scoring
+  - [x] 1.3 MATRIX.md frozen: arms, allocation, claim scope
+  - [x] 2.1 Trap generator, candidate extraction, spec-conformant packets
+  - [x] 2.2 Runner: headless probe resumptions per arm, sealed and isolated cells, usage+transcript capture
+  - [x] 2.3 Blind grading: unlabelled packets, dual graders >=1 cross-family, verbatim-quote requirement
+  - [x] 2.4 Dangling-reference screen (S8)
+- Phase 2 — what the historical corpus proved (kept: it is the reason for the re-scope) [done] 4/4
+  - [x] 2b.0 Premise screen (S9) built: prompts presupposing absent entities, or calling present entities new
+  - [x] 2b.1 Premise audit of all 17 active traps — 9 clean, 7 broken on S9, 1 on S3b
+  - [x] 2b.5 s2bench retired whole; leak-scan.py's code-embodiment half fixed and made reproducible — 7 more traps disqualified, 5 survive both screens
+  - [x] 2b.6 Corpus exhaustion established: 592 -> 471 -> 122 -> 57 -> 20 -> 5 = 0.8% end-to-end; <2% unreachable from historical decisions at any budget
+- Phase 3 — scenario 4 pre-registration [done] 3/3
+  - [x] 3.1 PRE-REGISTRATION.md drafted: corpus definition, authoring rules, validity threat model, inherited machinery, claim scope
+  - [x] 3.2 Three open items settled (D24 floor gate k=6/4-of-6; D25 per-repo cap 40% with >=3 repos; D26 band-match + blind discrimination test at CI upper < 0.65)
+  - [x] 3.3 Freeze review found the cap was at the wrong level: D27 one constraint per initiative, D28 host pool reopened to 6 repos. FROZEN 2026-08-10 with N's selection rule frozen in place of N (D29)
+- Phase 4 — authored constraint set [active] 1/5
+  - [x] 4.0 Price the three unpriced hosts (sofar, crisperflow, waylla) and build S7 host isolation for crisperflow and waylla — detached snapshot clones under bench-hosts/, neither exists yet and both have live origin remotes
+  - [~] 4.1 Run owner fixes N on cost grounds alone, N<=70 (D29), then author N constraints one per initiative (D27) honouring the 40% per-repo cap (D25), each with its tempting-default prediction written into PREDICTIONS.md and hash-stamped BEFORE any floor cell
+  - [ ] 4.2 Verify every constraint mechanically: leak-scan clean, premise-scan clean, S4/S5 by hand, D26 band-match into the reference IQR; publish the verification output with the set
+  - [ ] 4.3 Freeze the set in a frozen order, then run the temptation floor over EVERY authored constraint with no early stop (k=6, 4-of-6 per D24/D29, P cells, M-O) plus the 5-constraint anchor; publish the prediction-vs-floor agreement rate
+  - [ ] 4.4 Run D26's blind discrimination test (~50 authored vs ~50 historical, decision text only, same-repo comparators) and publish accuracy with its 95% CI against the 0.65 bound
+- Phase 5 — runs [pending] 0/3
+  - [ ] 5.1 Pilot on the frozen set: sanity the classifier and grading, and measure the PER-ARM spring rate. Projected sprung = V x 3 x spring_rate; below 150 the escalation ladder governs and nothing is added (D29)
+  - [ ] 5.2 Full run across the three arms, plus the 5-constraint historical anchor on the same cells and the same 6/4-of gate
+  - [ ] 5.3 Blind grading of the full run
+- Phase 6 — evidence + claim [pending] 0/3
+  - [ ] 6.1 Rate + 95% upper bound overall and per arm; sprung/candidate ratio; per-repo n beside the headline (D25); authored set and historical anchor reported separately, never pooled
+  - [ ] 6.2 Caveats log: construct validity first — planted constraints, not decisions teams made — then the thin rule-voice corpus (100 entries, 3 of 6 hosts have none), confounds, grader provenance, per-arm spring divergence, source concentration
+  - [ ] 6.3 Version-stamped claim wording from the evidence only, carrying the authored/planted qualification in every form
+
+Next action: Author the 60 constraints against the frozen inventory, one per initiative into the snapshot clones, starting with the zero-margin hosts so a screen failure there surfaces while brillo can still absorb the slot.
+
+⚠ Staleness:
+- next action may be stale: 1 event since the last write-back (2026-08-13T09:54:15.335Z) — 1 file
+- last write-back summary exceeds the SessionStart budget (450 chars) and is clipped there — full text in sessions/2d485754-9c5b-47ee-8ef6-744b887e1e54.md
+
+Last session (claude-code, ended 2026-08-13T09:54:15.335Z):
+  Record-hygiene session only, no drift-certification work. Committed the record residue four peer sessions had left uncommitted, one commit per initiative per convention: engine-audit (one trailing hook event, logged because its closing compound carried head, echo and tail segments that defeat record-hygiene D1's git-or-sofar exemption), record-index M1 (stale open-session holders in Tier 0, and the ruling that the fix belongs in cli/event.ts one layer up, never in Tier 0 or the fold, and needs a Decision first), record-integrity M1 (CLI event append routes by branch only, never through homeInitiative, so mixing MCP and CLI writes tears a session; deliberately not fixed), and drift-certification (92 hook events plus five write-backs, all from session ecd42534 working commit-attribution). Reconciled the stale next action: the phase-lifecycle hand-off it carried was already carried out by peer sofar-1c at commit 0c93c49, so that clause is dropped. Also noted that the prepare-commit-msg hook commit-attribution 2.5 built is NOT installed in this repo, so Sofar-Initiative trailers are hand-written.
+
+Files touched (115):
+- /Users/jins/IO/handoff-bench/RUBRIC.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/TRAP-SPEC.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/PREDICTIONS.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/README.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/MATRIX.md
+- /Users/jins/.claude/settings.json
+- /Users/jins/IO/sofar/.claude/settings.local.json
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/extract-candidates.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/leak-scan.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/SCREENS.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/validate-traps.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/prompts/resume-prompt.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/prompts/continue-prompt.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/traps/authoring.json
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/new-trap.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/sources.json
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/build-cell.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/run-trap.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/run-matrix.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/build-packets.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/prompts/grader-prompt.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/run-graders.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/aggregate-grades.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/GRADING.md
+- /Users/jins/IO/sofar/packages/engine/src/cli/init.ts
+- /Users/jins/IO/sofar/packages/engine/test/statusline.test.ts
+- /Users/jins/IO/sofar/docs/SPEC.md
+- /Users/jins/IO/sofar/packages/engine/src/cli/uninit.ts
+- /Users/jins/IO/sofar/README.md
+- /Users/jins/IO/sofar/packages/engine/package.json
+- /Users/jins/Library/Application Support/com.mitchellh.ghostty/config
+- /private/tmp/claude-501/-Users-jins-IO-sofar/9e94756b-eca8-4731-9012-6e2819f2ce4d/scratchpad/msg.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/d292341f-090b-4b5a-a8d4-6164443391fd/scratchpad/add-traps.py
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f372480e-781d-4b37-8c91-4a8547b022f0/scratchpad/bench-msg.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f372480e-781d-4b37-8c91-4a8547b022f0/scratchpad/record-msg.txt
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/dangling-scan.py
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f372480e-781d-4b37-8c91-4a8547b022f0/scratchpad/bench-msg2.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f372480e-781d-4b37-8c91-4a8547b022f0/scratchpad/record-msg2.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f372480e-781d-4b37-8c91-4a8547b022f0/scratchpad/bench-msg3.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f372480e-781d-4b37-8c91-4a8547b022f0/scratchpad/record-msg3.txt
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/cost-report.py
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f372480e-781d-4b37-8c91-4a8547b022f0/scratchpad/cmp.py
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f372480e-781d-4b37-8c91-4a8547b022f0/scratchpad/record-msg4.txt
+- /Users/jins/.claude/projects/-Users-jins-IO-sofar/memory/sofar-end-session-length-limit.md
+- /Users/jins/.claude/projects/-Users-jins-IO-sofar/memory/MEMORY.md
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/claim-arithmetic.py
+- /Users/jins/IO/handoff-bench/scenario3-drift-certification/scripts/premise-scan.py
+- /Users/jins/IO/handoff-bench/scenario4-authored-constraints/PRE-REGISTRATION.md
+- /Users/jins/IO/handoff-bench/scenario4-authored-constraints/README.md
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/record-msg.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg2.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg3.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/record-msg2.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg4.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg5.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/record-msg3.txt
+- /Users/jins/IO/handoff-bench/scenario4-authored-constraints/pricing-probes/README.md
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg6.txt
+- /Users/jins/IO/handoff-bench/.gitignore
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/record-msg4.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg7.txt
+- /Users/jins/IO/handoff-bench/scenario4-authored-constraints/pricing-probes/authoring-probe.json
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg8.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/record-msg5.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg9.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/record-msg6.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/199ac91c-218c-482b-8acb-6d9ae045dab6/scratchpad/bench-msg10.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg2.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg3.txt
+- /Users/jins/IO/sofar/packages/engine/src/core/attribution.ts
+- /Users/jins/IO/sofar/docs/ARCHITECTURE.md
+- /Users/jins/IO/sofar/packages/engine/test/attribution.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg4.txt
+- /Users/jins/IO/sofar/packages/engine/src/cli/commit-trailer.ts
+- /Users/jins/IO/sofar/packages/engine/src/hooks/prepare-commit-msg.sh
+- /Users/jins/IO/sofar/packages/engine/src/cli/index.ts
+- /Users/jins/IO/sofar/packages/engine/test/commit-trailer.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/init.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/uninit.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/e2e.sh
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg5.txt
+- /Users/jins/IO/sofar/packages/engine/src/cli/doctor.ts
+- /Users/jins/IO/sofar/packages/engine/test/doctor-attribution.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg6.txt
+- /Users/jins/.claude/CLAUDE.md
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg7.txt
+- /Users/jins/IO/sofar/packages/engine/src/cli/event.ts
+- /Users/jins/IO/sofar/packages/engine/test/shipping-notice.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg8.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/b40237d0-0d39-41ce-8654-32edb3db1c4e/scratchpad/bench-paths.sh
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg9.txt
+- /Users/jins/IO/sofar/packages/engine/src/projections/templates/review.ts
+- /Users/jins/IO/sofar/packages/engine/test/review-packet.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg10.txt
+- /Users/jins/IO/handoff-bench/scenario4-authored-constraints/INITIATIVE-INVENTORY.md
+- /Users/jins/IO/sofar/packages/schema/src/events.ts
+- /Users/jins/IO/sofar/packages/engine/src/core/fold.ts
+- /Users/jins/IO/sofar/packages/schema/test/schema.test.ts
+- /Users/jins/IO/sofar/packages/schema/src/tool-inputs.ts
+- /Users/jins/IO/sofar/packages/engine/src/mcp/review.ts
+- /Users/jins/IO/sofar/packages/schema/test/tool-inputs.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/review-event.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg11.txt
+- /Users/jins/IO/sofar/packages/engine/src/cli/review.ts
+- /Users/jins/IO/sofar/packages/engine/test/review-cmd.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg12.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg13.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/ecd42534-7cd3-4c29-999b-2846c8e8e6c1/scratchpad/commit-msg14.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/2d485754-9c5b-47ee-8ef6-744b887e1e54/scratchpad/msg-engine-audit.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/2d485754-9c5b-47ee-8ef6-744b887e1e54/scratchpad/msg-record-index.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/2d485754-9c5b-47ee-8ef6-744b887e1e54/scratchpad/msg-record-integrity.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/2d485754-9c5b-47ee-8ef6-744b887e1e54/scratchpad/msg-drift-certification.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/2d485754-9c5b-47ee-8ef6-744b887e1e54/scratchpad/msg-tail-sweep.txt
+--- stderr
+(empty)
+
+## step 3: explicit slug: driven runs
+argv: ["status","session-driver"]
+exit: 0
+--- stdout
+# session-driver
+
+Goal: Automate the session handoff sofar already makes content-complete: a stateless driver (sofar drive <initiative>) that runs an initiative task-by-task through fresh agent sessions, records every handoff as events in the record, and reaches any headless agent through a three-call adapter (launch, usage, wait) — Claude Code first, a second adapter to prove the contract. The record is the queue; the driver holds no state of its own.
+
+Standing constraints — obey verbatim (10):
+- [D1] sofar may launch the operator's own agent process under the operator's auth, but it never holds API keys, never infers, and never sends user content off the machine; any further guard-rail deviation must be logged as a Decision naming the rail it supersedes before the work proceeds.
+- [D2] The driver holds no state outside the record and never implements an agent loop of its own — it launches existing headless agents through the adapter, and every driver-side state change is an event in packages/schema.
+- [D3] An adapter never reports record state: wrote_back and the launched session's identity are derived from the fold, and when several candidate sessions exist the driver records a stall rather than guessing.
+- [D5] Driver handoff reasons are derived from the fold — needs_user is the named task in status `blocked`, task_done needs a write-back AND a terminal task status; never infer a reason from write-back prose or an exit code.
+- [D6] `sofar drive` never creates or destroys a git worktree or switches a branch; it launches into one directory for the whole run and refuses to start unless that directory's `.sofar` log for the initiative is the same file it is driving.
+- [D8] A driven session's permission surface is recorded in `run_started.surface` and its settings file is written, read back and compared at EVERY launch — never assert a surface the record does not carry, and never claim the driver bounds what a session can do, since its file only adds to the operator's own settings sources.
+- [D9] An adapter declares what it CANNOT do — usage, nudge, permission_rules, cost — and the driver states the consequence on the run's progress stream before the work starts; never let an inert flag (a cost cap that cannot fire, an allow-list the agent cannot express) pass silently into an unattended run.
+- [D11] State the driver's token result as a measurement with its scope — 2.44M vs 5.80M per task on the 4.1 run, for tasks that fit one cold session — never as a general claim that driving is cheaper. Where this and D1's rationale disagree, the measurement wins.
+- [D13] PERMISSION_MODES must carry every mode the target agent's own `--permission-mode` advertises (check `claude --help`), and every mode in it must map in codex's SANDBOX_BY_MODE — a mode sofar refuses is a mode no operator can reach.
+- [D14] `--cost-cap` and `--max-sessions` bound ONE driver, not one run: a resumed run restarts the cap at zero and counts its session budget from recorded handoffs alone. Never describe either as a run-wide guarantee, and keep the resume warnings that say so.
+Progress: 11/11 tasks done (100%) across 4 phase(s)
+
+Phases:
+- Phase 1 — Contract [done] 3/3
+  - [x] 1.1 Amend the launch clause: CLAUDE.md guard-rails and SPEC §Architectural invariants read as D1 (sofar may launch the operator's own agent under the operator's auth; still no API keys, no inference, no user content off the machine)
+  - [x] 1.2 Handoff events in packages/schema — run_started, handoff {reason: threshold|task_done|stall|needs_user}, run_stopped — folded and rendered in sessions/*.md and the digest; unknown lines still skipped, never fatal
+  - [x] 1.3 Adapter contract as a TS interface in packages/engine: launch(digest, task), usage() → tokens, wait() → {exit, wrote_back}; a fake adapter drives the tests
+- Phase 2 — Claude Code adapter + sofar drive [done] 4/4
+  - [x] 2.1 Claude Code adapter: claude -p --output-format stream-json, per-message usage (input + cache_read + cache_creation), SessionStart injection unchanged, exit and write-back detected from the record fold
+  - [x] 2.2 sofar drive <initiative>: stateless loop — next task from the fold → launch → watch → record handoff; stop rules: initiative closed | next action needs the user | N sessions with no task change | cost cap; each session in its own git worktree
+  - [x] 2.3 Context policy: task-scoped by default; optional threshold (config) via a PostToolUse hook that injects "ctx N% — finish the current task, write back, end your turn" as additionalContext
+  - [x] 2.4 Permission surface for unattended sessions: pinned settings file (allow-list, permission mode, effort, model) written per session and verified by reading it back — drift-certification D6/D11 discipline
+- Phase 3 — Second adapter proves the contract [done] 2/2
+  - [x] 3.1 Second adapter (codex exec --json or opencode run, whichever is installed) with the usage fallback for agents that report none — the contract is proven when sofar drive runs unchanged against it
+  - [x] 3.2 Per-task routing: model/effort hints on a task, driver picks the adapter per task; sofar itself still never infers
+- Phase 4 — Proof + release [done] 2/2
+  - [x] 4.1 Drive one real initiative end to end unattended; publish sessions, handoffs by reason, tokens versus the manual baseline, and operator minutes
+  - [x] 4.2 Release sofar.sh with sofar drive; SPEC §Acceptance criteria extended for the driver
+
+Next action: Run the close review: `sofar review session-driver --final`, work the packet (note it warns its commit walk hit the 200-commit ceiling, so review in smaller ranges with a watermark part-way rather than trusting the listed range to be complete), record the verdict, then `sofar close session-driver`. Weigh two open items in it: the record-index reach flake, which needs its own initiative, and D14's deferred budgets-in-the-record.
+
+⚠ Staleness:
+- last write-back summary exceeds the SessionStart budget (450 chars) and is clipped there — full text in sessions/13b12f8c-1e82-4f05-8bb2-43aaf23aaac2.md
+
+Last session (claude-code, ended 2026-08-30T08:06:05.462Z):
+  0.30.0 is published and verified; session-driver is 11/11 with every phase done. The publish looked like it failed and had not: the web auth round-trip staged the version, so the retry returned E409 'Cannot publish over previously staged version' while the FIRST PUT had already succeeded, and `sofar upgrade` said 0.29.0 only because it reads a once-a-day cached answer. Confirmed from the registry instead — dist-tags.latest is 0.30.0 and dist.shasum is 976a2fa198c60838a489c1904e8b57d9384742d5, byte-identical to the local `npm pack --dry-run`. A clean install of sofar.sh@0.30.0 in a scratch dir reports 0.30.0 and carries drive with all 19 flags. The global at ~/.local is upgraded to 0.30.0, so this repo stops dogfooding 0.29.0 through its hooks and .mcp.json — but only on the second attempt: `sofar.sh@latest` exited 0, printed nothing, and left 0.29.0 in place, while the same command pinned to @0.30.0 changed 1 package. npm's own metadata was already fresh, so that is npm's packument cache, and repo memory now says to pin the version and verify with `sofar --version` rather than trust @latest — an unverified upgrade reproduces exactly the stale-engine failure that rule exists to prevent. Phase 4 marked done. Not done and deliberately left: the close, because `sofar review --final` is a real cross-cutting pass over 18 commits with a recorded verdict (D9/D10), and it should weigh two open things rather than rubber-stamp them — the reach-index 3.5 flake this session found, and D14, where the operator chose to state the per-driver cost and session caps rather than record them.
+
+Files touched (39):
+- /Users/jins/IO/sofar/CLAUDE.md
+- /Users/jins/IO/sofar/docs/SPEC.md
+- /Users/jins/IO/sofar/packages/schema/src/events.ts
+- /Users/jins/IO/sofar/packages/schema/test/schema.test.ts
+- /Users/jins/IO/sofar/packages/engine/src/core/fold.ts
+- /Users/jins/IO/sofar/packages/engine/src/projections/templates/shared.ts
+- /Users/jins/IO/sofar/packages/engine/src/projections/templates/status.ts
+- /Users/jins/IO/sofar/packages/engine/src/projections/templates/session.ts
+- /Users/jins/IO/sofar/packages/engine/test/driver-events.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f9e912cd-9332-43a6-b0f9-bb53d961bf25/scratchpad/commit-1.1.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f9e912cd-9332-43a6-b0f9-bb53d961bf25/scratchpad/commit-1.2.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/8adc3273-68ff-4c0d-936a-9a3e26e5b66c/scratchpad/runtime-comparison.html
+- /Users/jins/IO/sofar/packages/engine/src/driver/adapter.ts
+- /Users/jins/IO/sofar/packages/engine/test/helpers/fake-adapter.ts
+- /Users/jins/IO/sofar/packages/engine/test/adapter-contract.test.ts
+- /Users/jins/IO/sofar/docs/ARCHITECTURE.md
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f9e912cd-9332-43a6-b0f9-bb53d961bf25/scratchpad/commit-1.3.txt
+- /Users/jins/IO/sofar/packages/engine/src/driver/claude-code.ts
+- /Users/jins/IO/sofar/packages/engine/test/adapter-claude-code.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/f9e912cd-9332-43a6-b0f9-bb53d961bf25/scratchpad/commit-2.1.txt
+- /Users/jins/IO/sofar/packages/engine/src/driver/drive.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/drive.ts
+- /Users/jins/IO/sofar/packages/engine/test/drive.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/6622fe8c-316d-409f-b1fb-bcdb8f0be937/scratchpad/msg.txt
+- /Users/jins/IO/sofar/packages/engine/src/driver/nudge.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/6622fe8c-316d-409f-b1fb-bcdb8f0be937/scratchpad/msg2.txt
+- /private/tmp/claude-501/-Users-jins-IO-sofar/6622fe8c-316d-409f-b1fb-bcdb8f0be937/scratchpad/msg4.txt
+- /Users/jins/IO/sofar/packages/engine/src/driver/routing.ts
+- /Users/jins/IO/sofar/packages/engine/test/driver-routing.test.ts
+- /private/tmp/claude-501/-Users-jins-IO-sofar/dc97485d-5728-4ac3-bbb2-d15ba80f1632/scratchpad/msg.txt
+- /Users/jins/IO/sofar/packages/engine/test/zz-probe.test.ts
+- /Users/jins/IO/sofar/packages/engine/src/driver/permissions.ts
+- /Users/jins/IO/sofar/packages/engine/src/driver/codex.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/index.ts
+- /Users/jins/IO/sofar/packages/engine/test/driver-permissions.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/adapter-codex.test.ts
+- /Users/jins/IO/sofar/README.md
+- /private/tmp/claude-501/-Users-jins-IO-sofar/13b12f8c-1e82-4f05-8bb2-43aaf23aaac2/scratchpad/writeback.json
+- /private/tmp/claude-501/-Users-jins-IO-sofar/13b12f8c-1e82-4f05-8bb2-43aaf23aaac2/scratchpad/writeback2.json
+--- stderr
+(empty)
+
+## step 4: explicit slug: a closed record
+argv: ["status","speed"]
+exit: 0
+--- stdout
+# speed
+
+Goal: Cut the fresh-session pattern's felt latency: no empty write-back waits, pinned-fast shims, no per-session spawn, and orientation that names its files.
+Progress: 4/4 tasks done (100%) across 1 phase(s)
+
+Phases:
+- Phase 1 — Speed [done] 4/4
+  - [x] T1 Drift-gated Stop: SPEC decision on gate-relevant drift, then Stop exits 0 silently at zero drift, enforces as today otherwise; fail closed on computation error
+  - [x] T2 Shim-latency budget pin: every hook shim <100ms against a realistic seeded record; mutation-checked with a temporary 150ms sleep
+  - [x] T3 Persistent MCP daemon: serve the frozen 7-tool MCP surface over HTTP from sofar serve; stdio stays default; opt-in .mcp.json config; parity + no-hang tests
+  - [x] T4 File-locality orientation hints: per-task touched-files line from existing PostToolUse events, budgeted + byte-stable; ablation-gated before merge
+
+Next action: Await go-ahead to sofar new; first task is the on-disk session-to-initiative pin for hooks.
+
+Last session (claude-code, ended 2026-08-01T17:26:03.106Z):
+  Confirmed the misroute empirically: 21/99 sessions split across initiatives, 780 events in initiatives that never registered their session, 13 sessions registered in 2+. Session aefa6315 proves the hook/MCP split (hooks to speed, MCP to session-strategy-bench). 0/3450 envelope.initiative mismatches, so repair is inferential not mechanical. doctor sees symptoms, has no split detector.
+
+Files touched (34):
+- /Users/jins/IO/sofar/docs/SPEC.md
+- /Users/jins/IO/sofar/packages/engine/src/cli/event.ts
+- /Users/jins/IO/sofar/packages/engine/test/hooks.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/append.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/shim-latency.test.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/serve.ts
+- /Users/jins/IO/sofar/packages/engine/test/serve.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/acceptance.cli-ui.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/serve-mcp.test.ts
+- /Users/jins/IO/sofar/README.md
+- /Users/jins/IO/sofar/packages/engine/src/core/fold.ts
+- /Users/jins/IO/sofar/packages/engine/src/projections/templates/status.ts
+- /Users/jins/IO/sofar/packages/engine/test/task-files.test.ts
+- /Users/jins/IO/sofar/vitest.config.ts
+- /Users/jins/IO/sofar/product doc/speed-T4-ablation.md
+- /Users/jins/IO/handoff-bench/scenario2-session-strategy/workloads/task7-probe-r02.md
+- /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/build-arms-r02.sh
+- /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/run-sanctioned-r02.sh
+- /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/build-packets.py
+- /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/run-graders.py
+- /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/aggregate-grades.py
+- /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/sidecar-orientation.py
+- /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/reclean-diffs-r02.sh
+- /Users/jins/IO/sofar/product doc/session-strategy-bench-evidence.md
+- /Users/jins/IO/sofar/packages/engine/test/acceptance.phase3.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/mcp.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/acceptance.phase7.test.ts
+- /Users/jins/IO/sofar/CLAUDE.md
+- /Users/jins/IO/sofar/.sofar/repo.md
+- /Users/jins/IO/sofar/packages/engine/package.json
+- /Users/jins/IO/sofar-cloud/apps/marketing/content/docs/quickstart.mdx
+- /Users/jins/IO/sofar-cloud/apps/marketing/src/components/sections.tsx
+- /Users/jins/IO/sofar/packaging/homebrew/sofar.rb
+- /Users/jins/IO/sofar/packaging/homebrew/update-formula.sh
+--- stderr
+(empty)
+
+## step 5: explicit slug: benchmark record
+argv: ["status","bench-refresh"]
+exit: 0
+--- stdout
+# bench-refresh
+
+Goal: Benchmark sofar in rounds to make it far superior AND to publish credible launch claims for every segment (solo devs, engineering teams, enterprises; seat-based). The workload is the Boopada planner (travel-planner). The matrix is agent × memory across Claude Code, Codex, Cursor and OpenCode: native memory vs sofar vs sofar + drive (where an adapter exists) vs bare (D6, D10, D11); CLAUDE.md, Obsidian and Notion arms plus one subagent-orchestrator arm on Claude Code (D12). Claims C1–C8 plus a per-plan savings cut. Every round produces a loss study of every gap, fallback and failure, with ranked, pre-predicted fixes (D5, D10). Public numbers come only from the held-out chain. Budget: half the user's weekly Claude limit (D9). Runs are unattended (D13).
+
+Standing constraints — obey verbatim (8):
+- [D2] Run no benchmark arm that does not back launch claims C1–C4, the tests-pass quality guard, or a cheap proof; everything else is a secondary cut from those same transcripts.
+- [D3] Launch claims are D3's C1–C8 (superseding D2's C1–C4 list): run no benchmark arm that backs none of them or a cheap proof, and never imply team sync, team views or SSO in a claim.
+- [D5] Never change the engine under test mid-round, and never publish a claim measured on a workload used to tune the engine — public numbers come from the held-out workload only.
+- [D10] Every sofar fallback or failure seen in a run (driver stall, hook block, tool error, truncation, workaround) is a loss-study row with evidence and a ranked fix; a fix's predicted gain is written before it is built and checked in the next round.
+- [D14] Never let any benchmark process use an API key or roll into paid overage; on the first sign of paid billing stop everything and tell the user.
+- [D15] Launch every benchmark agent from its ~/.bench profile with auth verified as a subscription login — never from the user's own ~/.claude, ~/.codex or ~/.cursor.
+- [D19] Gate every release on the held-out lead margin over the best CURRENT competitor per claim; never ship a release that shrinks a margin, and never measure standing with anything but public sources.
+- [D21] Never publish a stable sofar release before its round-2 benchmark evidence passes the D19 gate, and never add overlapping predicted gains together.
+Progress: 2/22 tasks done (9%) across 6 phase(s)
+
+Phases:
+- Phase 1 — Claim + round design [active] 1/5
+  - [ ] 1.1 Fix each claim's wording and metric.
+- C1: billed tokens per completed task, task-only and total (D8), plus the D11 per-plan cut.
+- C2: questions asked, words added by the operator, turns to first correct edit.
+- C3: per-decision re-violation rate.
+- C4: unattended tasks, interventions, operator minutes.
+- C5: hidden-test pass rate, regressions, rework, blind review.
+- C6: C2 with a different agent resuming.
+- C7: collisions and contradictions.
+- C8: why-question accuracy and time.
+- Also freeze the D5/D10 loss taxonomy and bookkeeping share.
+  - [ ] 1.2 Build the arms.
+- Claude Code: auto-memory | sofar | sofar+drive | built-in subagents | bare | CLAUDE.md | Obsidian | Notion.
+- Codex: memories | sofar | sofar+drive | bare.
+- Cursor via cursor-agent (composer-2.5): Rules+AGENTS.md | sofar | bare.
+- OpenCode (grok-build-0.1, or grok-4.5 if it fails calibration): AGENTS.md+memory plugin | sofar | bare.
+- One shared memory-protocol text plus the D8 clause. One-time logins: Notion MCP, OpenCode xAI credit.
+  - [ ] 1.3 Workload: the Boopada planner authored in initiative travel-planner (skeleton, fixtures, chains A and B, hidden tests)
+  - [x] 1.4 Settle the round-1 engine version: decide whether to trim tool schemas (~3.5k tokens every turn) and the digest first, then pin the exact release under test
+  - [~] 1.5 Calibration run (D9): one Claude Code arm, two sessions of chain A. Read each plan's meter before and after, derive reps per arm within half the weekly limit, and pick the Claude model (Opus 5 vs Sonnet 5) and the Grok model. Reconcile C3 with drift-certification scenario 4.
+- Phase 2 — Pre-registration + harness [pending] 1/4
+  - [~] 2.1 Freeze predictions (including the 30–50% savings hypothesis), metrics and the analysis plan before run 1. C5 is tested two-sided. Losses are published as losses. The user approves the freeze.
+  - [ ] 2.2 One-command public harness, ported from handoff-bench.
+- Arm setup per agent, usage extraction per agent, hidden-test scoring, cross-family blind review.
+- Loss-study extraction: per-task deltas; bookkeeping share; driver run, stall and handoff events; hook blocks, tool errors, truncation, workarounds, all with evidence.
+  - [x] 2.3 Smoke-run each arm once. Verify isolation, pinned model and effort, the declared configs, and no memory leaks between arms.
+  - [~] 2.4 Unattended runner (D13).
+- Resumable cell ledger and weekly budget ledger.
+- launchd job plus caffeinate; per-cell isolated clone and timeout.
+- Failure rows on hang; a notification at each human gate.
+- Phase 3 — Round 1 runs (chain A, tuning) [pending] 0/6
+  - [ ] 3.1 Chain A across all arms with n reps. Backs C1, C2, C3, C5, the added-work score and the plan-savings cut.
+  - [ ] 3.2 C6: resume chain A mid-way with a different agent and a fresh checkout
+  - [ ] 3.3 C4: sofar+drive arms vs the built-in subagent orchestrator vs harness-launched sofar on chain A, unattended. Record every stall, needs_user, timeout and adapter incapacity.
+  - [ ] 3.4 C7: N concurrent sessions on one repo, compared across arms
+  - [ ] 3.5 C8: blind why-question set answered from chain A outputs, per arm
+  - [ ] 3.6 Cheap proofs: install-to-first-resume time, zero-egress network trace, overhead footprint
+- Phase 4 — Loss study + improvements [pending] 0/2
+  - [ ] 4.1 Loss-study report: every score gap, fallback and failure, classified with evidence and ranked by expected gain × frequency ÷ effort. Name the top big-win fixes, each with a PREDICTED gain (D10).
+  - [ ] 4.2 User picks which big-win fixes to build. Open an initiative per fix; build, test and release between rounds (the user runs npm publish).
+- Phase 5 — Round 2 [pending] 0/2
+  - [ ] 5.1 Re-run chain A on the fixed release. Check each fix's predicted gain against its measured gain, and publish misses as misses.
+  - [ ] 5.2 Run chain B (held-out) on the same release. It is the only source of public numbers.
+- Phase 6 — Evidence + launch assets [pending] 0/3
+  - [ ] 6.1 Evidence report with CIs, round history, fix predictions vs outcomes, and losses shown. Publish the harness and workload. The user signs off.
+  - [ ] 6.2 Launch assets: one headline number and chart per claim, the plan-savings table, the reproduce command, segment cuts
+  - [ ] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap
+
+Next action: User rules on Rust gate; r1-fixes wave 1 continues in the worktree session
+
+⚠ Staleness:
+- next action may be stale: 1 event since the last write-back (2026-09-15T15:39:54.748Z) — 1 decision
+
+Last session (claude-code, ended 2026-09-15T15:39:54.748Z):
+  Answered Rust question with measurements: hooks ~0.75% of session time, cost is model turns; proposed measurement gate and hot-path-only native port.
+--- stderr
+(empty)
+
+## step 6: --no-color is the same bytes
+argv: ["status","--no-color","rust-core"]
+exit: 0
+--- stdout
+# rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Standing constraints — obey verbatim (2):
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+  - [x] 1.1 Inventory the hot-path surface from docs/SPEC.md and engine code: every hook's stdin/stdout/exit behaviour, CLI commands in scope (event append, status, statusline), env vars, files written, event envelope and projection outputs. List every SPEC gap found.
+  - [~] 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  - [ ] 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 10, 100 and 1,000 initiatives and 1–10 MB records, TypeScript numbers recorded as the target to beat
+- Phase 2 — Rust core [pending] 0/6
+  - [ ] 2.1 Cargo workspace crates/sofar-core; schema codegen from packages/schema/src (no hand-written payload types); dependency list per D1
+  - [ ] 2.2 Event envelope and atomic O_APPEND append; unknown and corrupt lines skipped with a warning, never fatal, never rewritten
+  - [ ] 2.3 Fold to initiative state with conformance parity
+  - [ ] 2.4 Digest/status render byte-identical to the projection templates (golden tests), including the 10k char cap behaviour
+  - [ ] 2.5 Hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end) with conformance parity, including r1-fixes wave 1–2 behaviour
+  - [ ] 2.6 Statusline command parity
+- Phase 3 — Integration and distribution [pending] 0/3
+  - [ ] 3.1 TS entry points and hook shims dispatch to sofar-core when present, with TypeScript fallback and an explicit override for debugging
+  - [ ] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
+  - [ ] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
+- Phase 4 — Prove and switch [pending] 0/3
+  - [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
+  - [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
+  - [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Files touched (2):
+- /private/tmp/claude-501/-Users-jins-IO-sofar/aac148fe-0a14-46d5-b42c-64fb65cd8ad2/scratchpad/commit-msg.txt
+- /Users/jins/IO/sofar-rust-core/docs/HOTPATH.md
+--- stderr
+(empty)
+
+## step 7: --root form
+argv: ["status","--root","<ROOT>","felt-cost"]
+exit: 0
+--- stdout
+# felt-cost
+
+Goal: Make harness cost felt at the moment it is incurred — cold-resume advisory, statusline rent-meter with cache-read health bands, batch-complete end-session nudge (behind SPEC) — and pin the injection's byte-stability against regression. Governed by the zero-model-API-calls invariant: no play may add a model call, API key, or inference cost to sofar.
+Progress: 12/12 tasks done (100%) across 5 phase(s)
+
+Phases:
+- Phase 1 — Invariants & pinning [done] 2/2
+  - [x] 1.1 Name the zero-model-API-calls invariant in docs/SPEC.md and CLAUDE.md guard-rails
+  - [x] 1.2 Byte-stability regression test: identical fold state → byte-identical renderStatus across wall-clock change
+- Phase 2 — Cold-resume advisory [done] 2/2
+  - [x] 2.1 SessionStart source=resume detection: last-event age + transcript size estimate (read-side, best-effort)
+  - [x] 2.2 Advisory line in injected block + tests (never blocks, never errors)
+- Phase 3 — Rent-meter [done] 3/3
+  - [x] 3.1 SPEC-lite: statusline integration design (stdin cost/cache fields + sofar record state)
+  - [x] 3.2 Implement statusline surface with cache-read % health bands (50–80% healthy, <30% warn)
+  - [x] 3.3 Tests + README/docs for statusline setup
+- Phase 4 — Batch-complete nudge [done] 2/2
+  - [x] 4.1 SPEC decision: UserPromptSubmit shim + additionalContext contract
+  - [x] 4.2 Implement nudge behind the SPEC + tests
+- Phase 5 — Polish round (user feedback on 0.8.0) [done] 3/3
+  - [x] 5.1 Statusline harness-identity segments: restore model · dir:branch (custom statusLine replaces Claude Code's default)
+  - [x] 5.2 Styled statusline: forced caps (D7), glyphs not emoji (D8), task-progress pie (D9), text cache label (D10); --no-color plain fallback
+  - [x] 5.3 Release 0.8.1 + rollout (publish, upgrade)
+
+Next action: None — initiative complete. Other repos: one-time `sofar init` re-run each for the UserPromptSubmit shim (doctor flags them); statusLine can live once in ~/.claude/settings.json. Next engine work starts a new initiative (sofar new).
+
+⚠ Staleness:
+- next action may be stale: 8 events since the last write-back (2026-07-12T13:17:26.558Z) — 1 task change, 1 phase change, 6 decisions
+
+Last session (claude-code, ended 2026-07-12T13:17:26.558Z):
+  felt-cost CLOSED: 0.8.1 confirmed on registry + global, doctor clean, 12/12 tasks across 5 phases, D1-D10. Binding removed (main unbound, close precedent).
+
+Files touched (13):
+- /Users/jins/IO/sofar/CLAUDE.md
+- /Users/jins/IO/sofar/docs/SPEC.md
+- /Users/jins/IO/sofar/packages/engine/test/byte-stability.test.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/event.ts
+- /Users/jins/IO/sofar/packages/engine/test/hooks.test.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/statusline.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/index.ts
+- /Users/jins/IO/sofar/packages/engine/test/statusline.test.ts
+- /Users/jins/IO/sofar/README.md
+- /Users/jins/IO/sofar/packages/engine/src/hooks/user-prompt-submit.sh
+- /Users/jins/IO/sofar/packages/engine/src/cli/init.ts
+- /Users/jins/IO/sofar/packages/engine/test/init.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/uninit.test.ts
+--- stderr
+(empty)
+
+## step 8: unknown slug
+argv: ["status","no-such-record"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+sofar status: initiative "no-such-record" not found under .sofar/initiatives/; available initiatives: architecture-map, auto-update, bench-refresh, binding-follows-session, cli-ui, commit-attribution, cross-initiative-conflicts, digest-signal, drift-certification, drift-hardening, …+45 more (details: sofar list) (usage: sofar status [slug])
+
+## step 9: slug escaping the tree
+argv: ["status","../rust-core"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+sofar status: invalid initiative "../rust-core" — slugs are lowercase letters, digits, and hyphens ([a-z0-9-]+), never a path (usage: sofar status [slug])
+
+## record delta
+(no change)

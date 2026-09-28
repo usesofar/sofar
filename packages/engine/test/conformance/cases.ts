@@ -605,7 +605,10 @@ export const CASES: ConformanceCase[] = [
         before: (m) => writeFileSync(join(m.root, '.git', 'HEAD'), 'ref: refs/heads/blank\n'),
       }),
       s('session-start on the empty record', ['event', 'session-start'], start()),
-      s('append to the empty record', ['event', 'append', '--type', 'initiative_created', '--payload', '{"slug":"never-written","goal":"now written"}']),
+      // Its own session: the first explicit-session append registers it there
+      // (agents-parity D14). The hooks' session stays unregistered, so the
+      // unbound-branch steps below still meet a session homed nowhere.
+      s('append to the empty record', ['event', 'append', '--type', 'initiative_created', '--session', 'sess-writer', '--payload', '{"slug":"never-written","goal":"now written"}']),
       s('unbound branch: the notice', ['event', 'session-start'], start(), {
         before: (m) => writeFileSync(join(m.root, '.git', 'HEAD'), 'ref: refs/heads/unbound\n'),
       }),

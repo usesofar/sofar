@@ -1,0 +1,77 @@
+# conformance golden: open.O2-update-segment
+
+## step 1: cache says a newer version exists
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mmain[39m [2m·[22m [33m◔[39m [35mbaseline[39m 1/4 [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m [2m·[22m [36m↑99.0.0[39m
+--- stderr
+(empty)
+
+## step 2: plain form
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:main · baseline 1/4 · ctx 42% · cache 90% ✓ · update 99.0.0
+--- stderr
+(empty)
+
+## step 3: installed but not restarted
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:main · baseline 1/4 · ctx 42% · cache 90% ✓ · restart for 99.0.0
+--- stderr
+(empty)
+
+## step 4: cache is up to date: no segment
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:main · baseline 1/4 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 5: status prints the update line on stderr
+argv: ["status"]
+exit: 0
+--- stdout
+# baseline
+
+Goal: a small healthy record for the hook lifecycle
+
+Standing constraints — obey verbatim (1):
+- [D2] Never rewrite events.jsonl; unknown lines are skipped with a warning.
+Progress: 1/4 tasks done (25%) across 2 phase(s)
+
+Phases:
+- Build [active] 1/3
+  - [x] 1.1 first task
+  - [~] 1.2 second task
+  - [ ] 1.3 third task
+- Ship [pending] 0/1
+  - [ ] 2.1 release
+
+Next action: implement 1.2 against the fixture
+
+⚠ Staleness:
+- next action may be stale: 5 events since the last write-back (2026-09-01T10:09:00.000Z) — 5 files
+
+Last session (claude-code, ended 2026-09-01T10:09:00.000Z):
+  finished 1.1 and set 1.2 active
+
+Files touched (5):
+- src/module/file-0.ts
+- src/module/file-1.ts
+- src/module/file-2.ts
+- src/module/file-3.ts
+- src/module/file-4.ts
+--- stderr
+ℹ sofar 99.0.0 is available (you have 0.33.0-rc.2+trunk) — run `sofar upgrade`.
+
+## record delta
+(no change)

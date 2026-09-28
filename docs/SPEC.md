@@ -4887,6 +4887,17 @@ fires, and a Codex session is Tier 3 (§Host tiers).
   pointer. Last writer wins, so two sessions sharing one worktree pass
   their own `--session`. Derived, never truth: no event records the
   pointer, and a pointer write never changes a hook's output or exit.
+  AN APPEND REGISTERS ITS SESSION FIRST (agents-parity 3.5, D14): a type
+  other than session_started, for a session other than `cli` that this
+  record has not registered, is preceded by a session_started through the
+  same idempotent path, with the `--source` name as its tool — what the
+  PostToolUse shim would have written. Registration is lazy on a session's
+  first REAL event (record-hygiene D2), and when the agent's first command
+  is the write-back itself, that event is the append: live Codex thread
+  01a0d6ae ran `sofar event append --type session_ended` before its
+  PostToolUse fired, the fold then knew the session only from its
+  session_ended (a tool-unknown stub), and the shim's registration found
+  nothing to do.
   SELF-RECORDING COMMANDS ARE EXEMPT (record-hygiene D1): a Bash command
   whose every shell segment leads with `git` or `sofar` appends NOTHING.
   Both keep their own ledger — git its history, sofar the record itself —

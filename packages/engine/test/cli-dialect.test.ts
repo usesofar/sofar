@@ -297,3 +297,89 @@ describe('the CLI surfaces teach the decision `rule` (r1-fixes 4.1.1, L07, D27)'
     expect(runStatus(root, undefined, PLAIN, 100).stdout).toMatch(/Standing constraints[^\n]*\n[^\n]*Always do x/)
   })
 })
+
+describe('a session whose first recorded event is a CLI append (agents-parity 3.5, D14)', () => {
+  // Live thread 01a0d6ae (agents-parity 3.3's check): the agent's only command
+  // was the write-back itself, which ran before its PostToolUse fired, so the
+  // fold knew the session from its session_ended (a tool-unknown stub) and the
+  // hook's lazy registration found nothing to do. The record carried no
+  // session_started, no tool and no start time for the thread.
+  const ID = '01a0d6ae-03f7-7a13-b935-5031047312c2'
+  const WRITE_BACK = JSON.stringify({ summary: 'done', next_action: 'next' })
+  const log = (root: string): Array<{ type: string; session: string; source: string; payload: Record<string, unknown> }> =>
+    readFileSync(join(root, '.sofar', 'initiatives', 'proj', 'events.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l) as { type: string; session: string; source: string; payload: Record<string, unknown> })
+  const withoutHostEnv = <T>(id: string | undefined, body: () => T): T => {
+    const before = process.env.CODEX_THREAD_ID
+    if (id === undefined) delete process.env.CODEX_THREAD_ID
+    else process.env.CODEX_THREAD_ID = id
+    try {
+      return body()
+    } finally {
+      if (before === undefined) delete process.env.CODEX_THREAD_ID
+      else process.env.CODEX_THREAD_ID = before
+    }
+  }
+
+  it('registers the named session, as its --source, before the event — instead of the fold stubbing it', () => {
+    const root = initedRepo()
+    runNew(root, 'proj', { bind: true, goal: 'g' }, PLAIN, PLAIN)
+    const res = withoutHostEnv(undefined, () =>
+      runAppend(root, { slug: 'proj', type: 'session_ended', payload: WRITE_BACK, session: ID, source: 'codex', actor: 'agent' }),
+    )
+    expect(res.exitCode, res.stderr).toBe(0)
+    const own = log(root).filter((e) => e.session === ID)
+    expect(own.map((e) => [e.type, e.source])).toEqual([
+      ['session_started', 'codex'],
+      ['session_ended', 'codex'],
+    ])
+    expect(own[0]!.payload).toEqual({ tool: 'codex' })
+    const { state, warnings } = foldLog(join(root, '.sofar', 'initiatives', 'proj', 'events.jsonl'))
+    expect(warnings).toEqual([])
+    expect(state.sessions.map((s) => [s.id, s.tool, s.summary])).toEqual([[ID, 'codex', 'done']])
+    // The hook's lazy registration, or a by-hand start, now finds it registered.
+    const again = runAppend(root, { slug: 'proj', type: 'session_started', payload: '{"tool":"codex"}', session: ID, source: 'codex', actor: 'agent' })
+    expect((JSON.parse(again.stdout) as { already_started?: boolean }).already_started).toBe(true)
+    expect(log(root).filter((e) => e.type === 'session_started')).toHaveLength(1)
+  })
+
+  it('the live shape: a bare write-back under CODEX_THREAD_ID, run before any hook fired', () => {
+    const root = initedRepo()
+    runNew(root, 'proj', { bind: true, goal: 'g' }, PLAIN, PLAIN)
+    const res = withoutHostEnv(ID, () => runAppend(root, { slug: 'proj', type: 'session_ended', payload: WRITE_BACK, source: 'codex', actor: 'agent' }))
+    expect(res.exitCode, res.stderr).toBe(0)
+    expect((JSON.parse(res.stdout) as { session?: string }).session).toBe(ID)
+    expect(log(root).filter((e) => e.session === ID).map((e) => [e.type, e.payload.tool])).toEqual([
+      ['session_started', 'codex'],
+      ['session_ended', undefined],
+    ])
+  })
+
+  it('a refused append writes nothing — no registration either — so the log is byte-identical', () => {
+    const root = initedRepo()
+    runNew(root, 'proj', { bind: true, goal: 'g' }, PLAIN, PLAIN)
+    const path = join(root, '.sofar', 'initiatives', 'proj', 'events.jsonl')
+    const before = readFileSync(path)
+    const refused = [
+      // fails its type's schema
+      runAppend(root, { slug: 'proj', type: 'session_ended', payload: '{"summary":"only half"}', session: ID, source: 'codex', actor: 'agent' }),
+      // unknown type
+      runAppend(root, { slug: 'proj', type: 'bogus_event', payload: '{}', session: ID, source: 'codex', actor: 'agent' }),
+      // reverses nothing here, but the actor is invalid
+      runAppend(root, { slug: 'proj', type: 'note_added', payload: '{"text":"x"}', session: ID, source: 'codex', actor: 'robot' }),
+    ]
+    for (const res of refused) expect(res.exitCode).toBe(1)
+    expect(readFileSync(path).equals(before)).toBe(true)
+  })
+
+  it('`cli` is never a session, so an append with no id to adopt registers nothing', () => {
+    const root = initedRepo()
+    runNew(root, 'proj', { bind: true, goal: 'g' }, PLAIN, PLAIN)
+    const res = withoutHostEnv(undefined, () => runAppend(root, { slug: 'proj', type: 'note_added', payload: '{"text":"hi"}', source: 'cli', actor: 'agent' }))
+    expect(res.exitCode, res.stderr).toBe(0)
+    expect((JSON.parse(res.stdout) as { session?: string }).session).toBe('cli')
+    expect(log(root).filter((e) => e.type === 'session_started')).toEqual([])
+  })
+})

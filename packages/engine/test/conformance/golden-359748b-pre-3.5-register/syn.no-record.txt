@@ -1,0 +1,84 @@
+# conformance golden: syn.no-record
+
+## step 1: session-start with no .sofar
+argv: ["event","session-start"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 2: post-tool
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/x.ts","old_string":"a","new_string":"b"},"tool_response":{}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 3: user-prompt
+argv: ["event","user-prompt"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 4: stop
+argv: ["event","stop"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 5: session-end
+argv: ["event","session-end"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionEnd","reason":"exit"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 6: statusline
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:main · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 7: status
+argv: ["status"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+sofar status: no initiative bound to branch "main" in .sofar/bindings.json — pass `initiative` explicitly or bind the branch; no initiatives exist yet — create one with `sofar new <slug>` (usage: sofar status [slug])
+
+## step 8: append
+argv: ["event","append","--type","note_added","--payload","{\"text\":\"x\"}"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"unknown_initiative","message":"no initiative bound to branch \"main\" in .sofar/bindings.json — pass `initiative` explicitly or bind the branch; no initiatives exist yet — create one with `sofar new <slug>`"}
+
+## step 9: nudge still delivered
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/x.ts","old_string":"a","new_string":"b"},"tool_response":{}}
+env: {"SOFAR_DRIVE_NUDGE":"<ROOT>/nudge.json"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## record delta
+(no change)
