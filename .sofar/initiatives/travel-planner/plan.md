@@ -33,4 +33,4 @@ Progress: 7/9 tasks done (77%)
 - [ ] 4.1 Pick the best final repo by score (hidden-test quality plus blind review of added work), never by arm
 - [ ] 4.2 Product track: swap in live providers (licensed flight, hotel, FX, weather and advisory APIs) and an LLM Advisor behind the same interfaces; user decides on release
 
-Next action: Run owner: close 3.3 (chain A and chain B tests both validated against sealed references); chain B enters the harness only at round-2 pre-registration
+Next action: sofar-50: pin a5e19d7 in the record, then score chain B M2/M3 from proven-tests-B.json.

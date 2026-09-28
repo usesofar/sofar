@@ -4,7 +4,7 @@
 
 Goal: Benchmark sofar in rounds to make it far superior AND to publish credible launch claims for every segment (solo devs, engineering teams, enterprises; seat-based). The workload is the Boopada planner (travel-planner). The matrix is agent × memory across Claude Code, Codex, Cursor and OpenCode: native memory vs sofar vs sofar + drive (where an adapter exists) vs bare (D6, D10, D11); CLAUDE.md, Obsidian and Notion arms plus one subagent-orchestrator arm on Claude Code (D12). Claims C1–C8 plus a per-plan savings cut. Every round produces a loss study of every gap, fallback and failure, with ranked, pre-predicted fixes (D5, D10). Public numbers come only from the held-out chain. Budget: half the user's weekly Claude limit (D9). Runs are unattended (D13).
 
-Progress: 17/26 tasks done (65%)
+Progress: 19 done, 1 dropped, 6 remaining
 
 ## Phase 1 — Claim + round design [done] — 5/5 done
 
@@ -53,7 +53,7 @@ Progress: 17/26 tasks done (65%)
 - [x] 4.1 Loss-study report: every score gap, fallback and failure, classified with evidence and ranked by expected gain × frequency ÷ effort. Name the top big-win fixes, each with a PREDICTED gain (D10).
 - [x] 4.2 User picks which big-win fixes to build. Open an initiative per fix; build, test and release between rounds (the user runs npm publish).
 
-## Phase 5 — Round 2 [active] — 3/8 done
+## Phase 5 — Round 2 [active] — 4/8 (1 dropped) done
 
 - [x] 5.0 Freeze PRE-REGISTRATION-R2; the user approves.
 - Done: chain B's side (note 01M2R0AG); rc.2 cut at cf8c117, tag v0.33.0-rc.2 (09-21); 6.3/6.5/6.7 proven live (note 01M2QEB1) and in the cut; trimmed round 1 and the 4.1 report (handoff-bench 4e4ac2c).
@@ -67,16 +67,16 @@ Progress: 17/26 tasks done (65%)
 - Round 2: measured on chain B by forking claude-sofar and claude-automemory after S5 onto Cursor (PRE-REGISTRATION-R2 §8b, D33).
 - [ ] 3.5 C8: blind why-question set answered from chain A outputs, per arm
 - Round 2: CHAIN-C8 (one session, six questions, what and why graded separately) on forks of every chain-B sessions cell after S10 (PRE-REGISTRATION-R2 §8b, D33).
-- [ ] 5.3 Blind cross-family scoring of agent-added work (D8) for rounds 1 and 2: count, value review by a grader from another model family, and the regressions each addition caused. Round 1's is still open (ROUND-1-REPORT §7), including codex-bare/r1's re-run S10.
-- [ ] 3.4 C7: N concurrent sessions on one repo, compared across arms
-- When it runs, it starts from a round-2 checkpoint fork rather than a fresh chain prefix (D33).
+- [x] 5.3 Blind cross-family scoring of agent-added work (D8) for rounds 1 and 2: count, value review by a grader from another model family, and the regressions each addition caused. Round 1's is still open (ROUND-1-REPORT §7), including codex-bare/r1's re-run S10.
+- [-] 3.4 C7: N concurrent sessions on one repo, compared across arms
+- When it runs, it starts from a round-2 checkpoint fork rather than a fresh chain prefix (D33). (dropped)
 
-## Phase 6 — Evidence + launch assets [pending] — 0/4 done
+## Phase 6 — Evidence + launch assets [pending] — 1/4 done
 
-- [ ] 3.6 Cheap proofs: install-to-first-resume time, zero-egress network trace, overhead footprint
+- [x] 3.6 Cheap proofs: install-to-first-resume time, zero-egress network trace, overhead footprint
 - [ ] 6.1 Evidence report with CIs, round history, fix predictions vs outcomes, and losses shown. Publish the harness and workload. The user signs off.
 - [ ] 6.2 Launch assets: one headline number and chart per claim, the plan-savings table, the reproduce command, segment cuts
 - [ ] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap
 
 Active phase: Phase 5 — Round 2
-Next action: Operator pastes (or amends) the 5.3 D45 confirmation; then implement --grade per the ruling and run the 40-unit overlap first.
+Next action: After the L36 merge lands: run the staged smoke (install_l36_engine.sh, make_plist.sh, bootstrap via sofar-e8, readout.py); then finalize ROUND-2-REPORT.md with the smoke result and put the D19 ruling to the operator.

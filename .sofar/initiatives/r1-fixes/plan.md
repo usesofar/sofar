@@ -4,7 +4,7 @@
 
 Goal: Turn round-1 benchmark evidence into an industry-leading sofar release: waves 1–3 of the combined improvement plan plus the quick-work lane. Each fix states its predicted gain before it is built (bench-refresh D10) and ships only if round 2's held-out lead margin over the best current competitor holds or grows (D19). Built on branch r1-fixes in its own worktree; round 1 stays on the pinned 0.32.0 install (D5).
 
-Progress: 38 done, 6 dropped, 1 remaining
+Progress: 38 done, 7 dropped, 0 remaining
 
 ## Phase 1 — Wave 1: correctness and quick wins [done] — 6/6 done
 
@@ -35,12 +35,12 @@ Progress: 38 done, 6 dropped, 1 remaining
 - [x] 3.2 Decision counters plus supersession/valid_until so stale decisions leave the digest without a model. PREDICT: C3 no worse at −10% digest.
 - [x] 3.3 Relevant-lessons injection: keyword/BM25 match of rejected approaches and past failures at UserPromptSubmit, no model. PREDICT: C3 +5 pts.
 
-## Phase 4 — Release [active] — 10/11 done
+## Phase 4 — Release [active] — 10/11 (1 dropped) done
 
 - [x] 4.1 Fold in round 1's own loss-study rows (bench-refresh 4.1) as added tasks, each with a predicted gain
 - [x] 4.2 Release candidate: full test suite and SPEC acceptance criteria; the D18 read-path gate (`npm run bench:read-paths`) passes on BOTH pinned fixtures (real record and synthetic 10 MB) against the pinned 0.32.0 as-shipped baseline, both tables recorded in this task's note as RC evidence together with the `SOFAR_LESSONS=off` ablation switch for the round-2 addendum; published ONLY as a local pinned build or the npm `next` tag — no stable publish (bench-refresh D20)
 - [x] 4.3 Hand the release candidate to bench-refresh round 2, with the quick-work addendum chain frozen before it runs; attribute overlapping predicted gains by ablation, never by summing them (bench-refresh D20)
-- [ ] 4.4 Stable npm publish by the run owner, only after round-2 evidence passes the D19 held-out lead-margin gate (bench-refresh D20)
+- [-] 4.4 Stable npm publish by the run owner, only after round-2 evidence passes the D19 held-out lead-margin gate (bench-refresh D20) (dropped)
 - [x] 4.1.1 L07: teach the decision `rule` field on every CLI surface — the AGENTS block's decision example, `sofar event types` decision_logged example, the codex driver preamble — with 'when the operator states it for the whole project'. PREDICT: CLI sofar cells record ≥5 of 6 planted decisions as rules in ≥2 of 3 reps; Cursor sofar M3 at E ≥ cursor-rules; Codex sofar M3 at E ≥ 85%.
 - [x] 4.1.2 L08: at append time, with no model, detect a decision whose chose/over inverts a standing decision's over/chose; warn naming the prior decision and require `supersedes`, on MCP and CLI. PREDICT: 0 reversing decisions logged without supersedes; Cursor sofar A2 at E ≥ 67% (C3 overlaps L07 — attribute by each fix's own observable, never summed).
 - [x] 4.1.3 L09: hooks write the live session id to a gitignored per-worktree pointer; CLI appends without --session adopt it; the CLI block says to omit --session (extends 1.2, whose lock does not stop an agent minting a second id). PREDICT: launches with more than 1 session id in Cursor cells = 0; hook sessions without session_ended = 0.
