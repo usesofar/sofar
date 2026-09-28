@@ -1,0 +1,38 @@
+We're building Pantry, a tiny kitchen-inventory CLI. Here's the roadmap so you
+have the whole picture. We'll go roughly in this order, one piece per session:
+
+1. Items (today): add and list what's in the pantry.
+2. Low marks: a per-item low mark; `list` flags items at or under it.
+3. Remove and undo: `remove <item>` is a soft delete; `undo` restores the last
+   removal; removed items never list.
+4. Shopping list: `shop` prints the items at or under their low mark.
+5. Recipes: `recipe add <name> <item>=<qty>,...` and `recipes`.
+6. Cook: `cook <name>` subtracts a recipe's quantities, refusing when short.
+7. Expiry: `expires <item> <YYYY-MM-DD>`; `expiring` lists items within 3 days
+   of PANTRY_TODAY.
+8. Report: `report` prints the counts of items, low items and expiring items.
+9. Say: `node pantry.js say "<text>"`, a one-line text command box. It
+   understands exactly these commands and prints ONE line of JSON,
+   {"reply": string, "changed": boolean}:
+   - "add <item> x<n>": adds n of the item (creating it); reply
+     "added <n> <item>, now <total>"; changed true
+   - "how much <item>": reply "<item>: <qty>", or "<item>: none" when the item
+     is unknown; changed false
+   - "use <item> x<n>": subtracts n, never below 0; reply
+     "used <n> <item>, now <total>"; changed true
+   - "list": reply the items sorted by name as "<item> <qty>" joined by "; ",
+     or "pantry is empty"; changed false
+   - "forget <item>": removes the item entirely; reply "forgot <item>",
+     changed true; or "nothing called <item>", changed false, when unknown
+   Anything else gets the reply
+   "commands: add <item> x<n>; how much <item>; use <item> x<n>; list; forget <item>"
+   with changed false.
+
+Today: items.
+
+- `node pantry.js add <item> <n>` adds n of an item, creating it or adding to
+  its quantity. n is a positive integer; anything else is an error (exit 1,
+  message on stderr).
+- `node pantry.js list` prints one line per item, "<item> <qty>", sorted by
+  name; nothing when the pantry is empty.
+- Item names are single lowercase words; the CLI lowercases what it is given.

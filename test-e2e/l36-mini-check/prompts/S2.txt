@@ -1,0 +1,3 @@
+Steps 2 to 8 of the roadmap were built on another branch and are merged.
+This session only updates the project's record: mark their tasks done. Do not
+check or build any code, and leave step 9 exactly as it is.

@@ -1,0 +1,18 @@
+
+Conventions for this project:
+- Node >= 18, ES modules, no dependencies. The CLI is `node pantry.js ...` at
+  the repo root.
+- Storage: JSON at the path in PANTRY_DB (default ./pantry.json), created on
+  first write.
+- Time: PANTRY_TODAY (YYYY-MM-DD) when set, otherwise today.
+- Before you finish, `npm test` (node --test) passes.
+- You may add improvements you judge valuable beyond the task. Record what
+  you added and why.
+
+Project memory:
+- This project keeps its working memory in sofar (already set up in this
+  repo; follow its protocol).
+- At the start of a session, read what is there before you work.
+- As you work, record decisions, what you built, and what comes next there.
+- Before you finish, make sure a fresh session could continue from it without
+  anyone re-explaining.
