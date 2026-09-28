@@ -4,7 +4,7 @@
 
 Goal: Benchmark sofar in rounds to make it far superior AND to publish credible launch claims for every segment (solo devs, engineering teams, enterprises; seat-based). The workload is the Boopada planner (travel-planner). The matrix is agent × memory across Claude Code, Codex, Cursor and OpenCode: native memory vs sofar vs sofar + drive (where an adapter exists) vs bare (D6, D10, D11); CLAUDE.md, Obsidian and Notion arms plus one subagent-orchestrator arm on Claude Code (D12). Claims C1–C8 plus a per-plan savings cut. Every round produces a loss study of every gap, fallback and failure, with ranked, pre-predicted fixes (D5, D10). Public numbers come only from the held-out chain. Budget: half the user's weekly Claude limit (D9). Runs are unattended (D13).
 
-Progress: 16/26 tasks done (61%)
+Progress: 17/26 tasks done (65%)
 
 ## Phase 1 — Claim + round design [done] — 5/5 done
 
@@ -53,7 +53,7 @@ Progress: 16/26 tasks done (61%)
 - [x] 4.1 Loss-study report: every score gap, fallback and failure, classified with evidence and ranked by expected gain × frequency ÷ effort. Name the top big-win fixes, each with a PREDICTED gain (D10).
 - [x] 4.2 User picks which big-win fixes to build. Open an initiative per fix; build, test and release between rounds (the user runs npm publish).
 
-## Phase 5 — Round 2 [active] — 2/8 done
+## Phase 5 — Round 2 [active] — 3/8 done
 
 - [x] 5.0 Freeze PRE-REGISTRATION-R2; the user approves.
 - Done: chain B's side (note 01M2R0AG); rc.2 cut at cf8c117, tag v0.33.0-rc.2 (09-21); 6.3/6.5/6.7 proven live (note 01M2QEB1) and in the cut; trimmed round 1 and the 4.1 report (handoff-bench 4e4ac2c).
@@ -62,7 +62,7 @@ Progress: 16/26 tasks done (61%)
 - Drive adapters exist for all three agents: Codex since 0.32.0; Cursor since r1-fixes 6.8 (e0ae4de, on main, not in rc.2).
 - Unverified: whether headless runs wait for an ultracode workflow, and whether sub-agent tokens reach each tool's usage output.
 - [ ] 5.1 Re-run chain A on the fixed release. Check each fix's predicted gain against its measured gain, and publish misses as misses. (active)
-- [ ] 5.2 Run chain B (held-out) on the same release. It is the only source of public numbers.
+- [x] 5.2 Run chain B (held-out) on the same release. It is the only source of public numbers.
 - [ ] 3.2 C6: resume chain A mid-way with a different agent and a fresh checkout
 - Round 2: measured on chain B by forking claude-sofar and claude-automemory after S5 onto Cursor (PRE-REGISTRATION-R2 §8b, D33).
 - [ ] 3.5 C8: blind why-question set answered from chain A outputs, per arm
@@ -79,4 +79,4 @@ Progress: 16/26 tasks done (61%)
 - [ ] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap
 
 Active phase: Phase 5 — Round 2
-Next action: Operator: bootout round2.cursor, run fix_cursor_sofar_layout.sh, re-bootstrap (note 01M3AHKR).
+Next action: Operator pastes (or amends) the 5.3 D45 confirmation; then implement --grade per the ruling and run the 40-unit overlap first.

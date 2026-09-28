@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator reads roadmap-h2 morning summary; rules round names.
+Next action: Check ~/chain-b-queue.log; watch chain B.
