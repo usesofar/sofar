@@ -4,7 +4,7 @@
 
 Goal: Turn round-1 benchmark evidence into an industry-leading sofar release: waves 1–3 of the combined improvement plan plus the quick-work lane. Each fix states its predicted gain before it is built (bench-refresh D10) and ships only if round 2's held-out lead margin over the best current competitor holds or grows (D19). Built on branch r1-fixes in its own worktree; round 1 stays on the pinned 0.32.0 install (D5).
 
-Progress: 37 done, 6 dropped, 1 remaining
+Progress: 38 done, 6 dropped, 1 remaining
 
 ## Phase 1 — Wave 1: correctness and quick wins [done] — 6/6 done
 
@@ -35,7 +35,7 @@ Progress: 37 done, 6 dropped, 1 remaining
 - [x] 3.2 Decision counters plus supersession/valid_until so stale decisions leave the digest without a model. PREDICT: C3 no worse at −10% digest.
 - [x] 3.3 Relevant-lessons injection: keyword/BM25 match of rejected approaches and past failures at UserPromptSubmit, no model. PREDICT: C3 +5 pts.
 
-## Phase 4 — Release [active] — 9/10 done
+## Phase 4 — Release [active] — 10/11 done
 
 - [x] 4.1 Fold in round 1's own loss-study rows (bench-refresh 4.1) as added tasks, each with a predicted gain
 - [x] 4.2 Release candidate: full test suite and SPEC acceptance criteria; the D18 read-path gate (`npm run bench:read-paths`) passes on BOTH pinned fixtures (real record and synthetic 10 MB) against the pinned 0.32.0 as-shipped baseline, both tables recorded in this task's note as RC evidence together with the `SOFAR_LESSONS=off` ablation switch for the round-2 addendum; published ONLY as a local pinned build or the npm `next` tag — no stable publish (bench-refresh D20)
@@ -47,6 +47,7 @@ Progress: 37 done, 6 dropped, 1 remaining
 - [x] 4.1.4 L10: an unbound `sofar status` prints the most recently active initiative's digest plus the initiative list, and exits 0. PREDICT: failed first `sofar status` in Codex cells = 0; −1 tool call per Codex session.
 - [x] 4.1.5 L11 (only if cheap, per the ruling): accept a phase by number or unique case-insensitive name on phase updates, and list phase ids in the digest. PREDICT: phase-update invalid_input = 0.
 - [x] 4.5 Fold: O(1) files_touched membership, not in rc.2 (the next RC). applyEvent's file_touched arm runs `state.files_touched.includes(path)` on every event, so the fold is O(file events × distinct paths). On rust-core 1.5's team100 corpus (95.6 MB bound log, 60,686 paths in 67,901 file events) that is ~70% of the fold: replayOne self time 2.9 of 4.2 s, and the Rust core's mirror shows the same. Keep an insertion-ordered Set beside the array. It is behaviour-identical (order and first occurrence kept, no golden moves). Predicted: the team100 fold 3.6 s → ~1.1 s, every hook there −60%, ~−40% at 19 MB. rust-core mirrors it after it lands (rust-core D1).
+- [x] 4.6 L36 (bench-refresh chain A, note "CHAIN-A FIX CHECKS … and L36"): the operator's roadmap survives decomposition. Fix 1.3's "one initiative per project or roadmap" makes agents store S1's roadmap as their own one-line tasks (rc.2 Claude sofar: 14 tasks, repo.md untouched); at S9 ("the next item on the roadmap from our first session") the verbatim spec is gone and the S9 suite scores 0/7 in 3/3 reps (0.32.0: 7/7, roadmap kept verbatim in repo.md). Add a plan `brief`: the operator's words verbatim, kept across plan replaces like goal, rendered as a fixed digest block after the goal and in full in plan.md, taught by both protocol blocks and sofar_update_plan; Rust mirror per rust-core D1. PREDICT: chain A Claude sofar S9 suite 0/7 ×3 → 7/7 in ≥2 of 3 reps and M3 at E ≥ 0.95; CLI cells keep one initiative with a plan (1.3's observable) in ≥2/3 reps.
 
 ## Phase 5 — Next release (after the RC; round 2 measures 179b8fd exactly) [done] — 2/2 done
 
@@ -82,4 +83,4 @@ Progress: 37 done, 6 dropped, 1 remaining
 - [-] 7.7 Proof: a live Codex end-to-end on a scratch repo (init with the picker → oriented session → MCP writes → write-back gate → drive run) with the operator's consent for the usage it spends, plus SPEC updates (§Host tiers moves Codex out of Tier 3, §Hooks, §CLI, §Driver) and acceptance criteria. (dropped)
 
 Active phase: Phase 4 — Release
-Next action: 4.4: after round 2's evidence passes D19, stage 0.33.0 stable from cf8c117; the operator publishes
+Next action: When sofar-e8 signals the host quiet: gated merge of r1-fixes-l36 (9a8df894) into main — fresh scratch worktree, --no-ff, npm ci/build/typecheck, full suite (file count vs main), cargo release build, SOFAR_CORE conformance, SOFAR_CONFORMANCE_BIN fold-parity + real-logs, render parity both sides, schema:check; note main's pre-existing fmt drift (host.rs, user_prompt.rs, session_start.rs) before the fmt gate.
