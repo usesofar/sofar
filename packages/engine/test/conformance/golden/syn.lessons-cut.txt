@@ -5,10 +5,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"zanzibar quokka"}
 exit: 0
 --- stdout
-sofar: ruled out before — [cutoff D1] quokka meadow (matched: quokka, zanzibar; full text in cutoff/decisions.md)
-sofar: main @ ce11ce1, never pushed.
-sofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.
-<no trailing newline>
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [cutoff D1] quokka meadow (matched: quokka, zanzibar; full text in cutoff/decisions.md)\nsofar: main @ ce11ce1, never pushed.\nsofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"baseline 1.2"}}
 --- stderr
 (empty)
 --- artifact
@@ -54,9 +51,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-done","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"zanzibar harbor quokka"}
 exit: 0
 --- stdout
-sofar: decided before — [cutoff D1] chose zanzibar harbor (matched: harbor, quokka, zanzibar; full text in cutoff/decisions.md)
-sofar: main @ ce11ce1, never pushed.
-<no trailing newline>
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [cutoff D1] chose zanzibar harbor (matched: harbor, quokka, zanzibar; full text in cutoff/decisions.md)\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"baseline 1.2"}}
 --- stderr
 (empty)
 
@@ -65,8 +60,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-done","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"quokka"}
 exit: 0
 --- stdout
-sofar: main @ ce11ce1, never pushed.
-<no trailing newline>
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"baseline 1.2"}}
 --- stderr
 (empty)
 
@@ -75,9 +69,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"zanzibar quokka"}
 exit: 0
 --- stdout
-sofar: main @ ce11ce1, never pushed.
-sofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.
-<no trailing newline>
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.\nsofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"baseline 1.2"}}
 --- stderr
 (empty)
 --- artifact
@@ -124,10 +116,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"copper kettle violet"}
 exit: 0
 --- stdout
-sofar: noted before — [cutoff note 2026-09-02] copper kettle violet orchard pebble (matched: copper, kettle, violet)
-sofar: main @ ce11ce1, never pushed.
-sofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.
-<no trailing newline>
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [cutoff note 2026-09-02] copper kettle violet orchard pebble (matched: copper, kettle, violet)\nsofar: main @ ce11ce1, never pushed.\nsofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"baseline 1.2"}}
 --- stderr
 (empty)
 --- artifact

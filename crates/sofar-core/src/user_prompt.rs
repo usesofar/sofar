@@ -10,7 +10,9 @@ use crate::cross_conflicts::{CrossFileConflict, cross_conflicts_from_open_sessio
 use crate::fold::{GuardViolation, InitiativeState, SessionState, session_debt};
 use crate::fold_cli::CmdResult;
 use crate::git::{GitState, read_git_state};
+use crate::cli::Hook;
 use crate::home::resolve_session_first;
+use crate::host::{CLAUDE_CODE, hook_host, session_title, title_to_apply, with_session_title};
 use crate::hook::{clip_to, parse_hook, str_field};
 use crate::index_lexicon::refresh_lexicon;
 use crate::index_tier0::{refresh_tier0, refresh_tier0_known};
@@ -25,7 +27,9 @@ use crate::post_tool::{GUARD_RULES_MAX, render_subject};
 use crate::projections::{RunLiveness, retire_enabled, task_progress};
 use crate::session_pointer::{clear_session_pointer, write_session_pointer};
 use crate::shipwatch::{note_engine, note_upstream};
-use crate::status::{FileConflict, QUICK_LANE, open_session_file_conflicts, open_session_files};
+use crate::status::{
+    FileConflict, QUICK_LANE, focus_task, open_session_file_conflicts, open_session_files,
+};
 use crate::text::{cmp_utf16, utf16_len, utf16_prefix};
 use crate::told::{add_told, read_told, told_key};
 use crate::version::engine_version;
@@ -630,8 +634,20 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         return silent();
     };
     let state = fold_state(&layout, &slug);
+    // The session's name follows the record's focus task (session-naming D1)
+    // — decided before the registration check, because a session's first
+    // prompt usually lands before its first event registers it.
+    let title = if hook_host(&hook).tool == CLAUDE_CODE {
+        title_to_apply(
+            &hook,
+            &session_title(&slug, focus_task(&state).map(|(t, _)| t.id.as_str())),
+            &layout,
+        )
+    } else {
+        None
+    };
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        return silent();
+        return with_session_title(Hook::UserPrompt, silent(), title.as_deref());
     };
     let mut lines: Vec<String> = Vec::new();
     let mine = my_file_conflicts(&state, session_id);
@@ -695,11 +711,12 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
             "sofar: {debt} unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop."
         ));
     }
-    if lines.is_empty() {
+    let result = if lines.is_empty() {
         silent()
     } else {
         ok(lines.join("\n"))
-    }
+    };
+    with_session_title(Hook::UserPrompt, result, title.as_deref())
 }
 
 /// `handleStop`: exit 2 with the block on stderr when this session owes a write-back.

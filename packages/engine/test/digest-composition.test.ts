@@ -6,6 +6,7 @@ import { handleSessionStart } from '../src/cli/event'
 import { REPO_MD_STUB } from '../src/cli/init'
 import { emptyState, type InitiativeState } from '../src/core/fold'
 import { dropMemoryCopies, minutiaeHead, renderStatus, STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
+import { hookContext } from './helpers/hook-output'
 
 /**
  * memory-lead 1.3 (D4) — digest composition.
@@ -147,7 +148,7 @@ describe('repo memory', () => {
     mkdirSync(join(root, '.sofar', 'initiatives', 'demo'), { recursive: true })
     writeFileSync(join(root, '.sofar', 'bindings.json'), '{"main":"demo"}\n')
     const start = () =>
-      handleSessionStart(root, JSON.stringify({ session_id: 's1', hook_event_name: 'SessionStart', source: 'startup', cwd: root })).stdout
+      hookContext(handleSessionStart(root, JSON.stringify({ session_id: 's1', hook_event_name: 'SessionStart', source: 'startup', cwd: root })))
 
     writeFileSync(join(root, '.sofar', 'repo.md'), `${REPO_MD_STUB}\n- Run npm test before pushing.\n`)
     const out = start()

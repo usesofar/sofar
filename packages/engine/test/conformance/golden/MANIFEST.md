@@ -1,5 +1,21 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded from the TypeScript reference for **session-naming 1.1/1.2
+(D1)**, on top of main 26b37e1: every SessionStart and UserPromptSubmit
+whose payload names no `session_title` now hands Claude Code the session's
+title (`<slug> <focus task id>`), so its stdout is the one-line
+`{"hookSpecificOutput":{"hookEventName", "additionalContext"?, "sessionTitle"}}`
+object instead of the plain block — the block itself is unchanged inside
+`additionalContext`. 22 goldens moved for that reason alone; `repo.append`,
+`repo.status`, the fold and render parity sets and every non-hook case are
+byte-identical. `repo.session-start` gains six steps pinning when the title
+is withheld (the operator's own title, another folder's derived name, a
+slug-shaped title of no record here, a Cursor payload) and when it is
+replaced (this cwd's derived name, a title of ours on another record);
+`repo.hook-lifecycle` gains the operator-titled silent prompt. The previous
+set is kept as `golden-26b37e1-pre-session-title/`. Verified against
+`target/release/sofar-core` through the stub (`SOFAR_CORE=`): 32/32.
+
 Re-recorded from the TypeScript reference at **agents-parity a2680069**
 (agents-parity 3.5, D14: the first explicit-session append registers the
 session). Three goldens changed, each gaining one session_started line

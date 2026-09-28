@@ -4,9 +4,12 @@
 //! (any with a string `cursor_version`) is converted on the way in and the
 //! result on the way out; a Claude Code invocation passes straight through.
 
+use std::path::Path;
+
 use crate::cli::Hook;
 use crate::fold_cli::CmdResult;
 use crate::json::{self, Json, Object, stringify};
+use crate::layout::Layout;
 use crate::text::{js_trim, utf16_len};
 
 /// Which agent fired a hook — recorded on session registration and diagnostics rows.
@@ -74,13 +77,15 @@ pub fn from_cursor(hook: &Object) -> Object {
     out
 }
 
-/// `contextOf`: the context a handler's stdout carries.
+/// `contextOf`: the context a handler's stdout carries — plain text, or
+/// `hookSpecificOutput` JSON (`PostToolUse` always; `SessionStart` and
+/// `UserPromptSubmit` when a session title rides along, session-naming D1).
 fn context_of(name: Hook, stdout: &str) -> Option<String> {
     let text = js_trim(stdout);
     if text.is_empty() {
         return None;
     }
-    if name != Hook::PostTool {
+    if name != Hook::PostTool && !text.starts_with("{\"hookSpecificOutput\"") {
         return Some(text.to_owned());
     }
     let Json::Obj(decoded) = json::parse(text).ok()? else {
@@ -102,6 +107,104 @@ fn json_line(key: &str, value: &str) -> String {
     let mut o = Object::with_capacity(1);
     o.insert(key, Json::Str(value.to_owned()));
     format!("{}\n", stringify(&Json::Obj(o)))
+}
+
+/// The Claude Code event whose stdout may carry a session title (session-naming D1).
+fn title_event(name: Hook) -> Option<&'static str> {
+    match name {
+        Hook::SessionStart => Some("SessionStart"),
+        Hook::UserPrompt => Some("UserPromptSubmit"),
+        _ => None,
+    }
+}
+
+/// `sessionTitle`: the record's slug and its focus task id, or the slug alone.
+#[must_use]
+pub fn session_title(slug: &str, task_id: Option<&str>) -> String {
+    match task_id {
+        Some(id) => format!("{slug} {id}"),
+        None => slug.to_owned(),
+    }
+}
+
+/// node's posix `basename`: trailing separators dropped, then the last segment.
+fn js_basename(path: &str) -> &str {
+    let trimmed = path.trim_end_matches('/');
+    trimmed.rsplit('/').next().unwrap_or("")
+}
+
+/// `isDerivedName`: the host's own name — this payload's cwd folder plus two
+/// hex characters of the session id (`sofar-d3`, read from claude 2.1.283).
+#[must_use]
+pub fn is_derived_name(title: &str, cwd: Option<&str>) -> bool {
+    let Some(cwd) = cwd else {
+        return false;
+    };
+    let folder = js_basename(cwd);
+    if folder.is_empty() {
+        return false;
+    }
+    let Some(rest) = title.strip_prefix(folder).and_then(|r| r.strip_prefix('-')) else {
+        return false;
+    };
+    rest.len() == 2 && rest.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+/// `titleToApply`: the title to hand the host, or None to hand none
+/// (session-naming D1) — over an absent title, the derived name, or one of
+/// ours (first token an initiative of this repo); never over the operator's.
+#[must_use]
+pub fn title_to_apply(hook: &Object, proposed: &str, layout: &Layout) -> Option<String> {
+    let current = hook
+        .get("session_title")
+        .and_then(Json::as_str)
+        .map_or("", js_trim);
+    if current == proposed {
+        return None;
+    }
+    if current.is_empty() {
+        return Some(proposed.to_owned());
+    }
+    let cwd = hook.get("cwd").and_then(Json::as_str);
+    if is_derived_name(current, cwd) {
+        return Some(proposed.to_owned());
+    }
+    let token = current.split(' ').next().unwrap_or("");
+    if token.is_empty()
+        || !token
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    {
+        return None;
+    }
+    if Path::exists(&layout.initiative_dir(token)) {
+        Some(proposed.to_owned())
+    } else {
+        None
+    }
+}
+
+/// `withSessionTitle`: the result untouched without a title (byte-identical
+/// to every release before session-naming); with one, the
+/// `hookSpecificOutput` object the host reads the title from, the context
+/// (when any) under `additionalContext`.
+#[must_use]
+pub fn with_session_title(name: Hook, result: CmdResult, title: Option<&str>) -> CmdResult {
+    let (Some(title), Some(event)) = (title, title_event(name)) else {
+        return result;
+    };
+    let mut specific = Object::with_capacity(3);
+    specific.insert("hookEventName", Json::Str(event.to_owned()));
+    if !js_trim(&result.stdout).is_empty() {
+        specific.insert("additionalContext", Json::Str(result.stdout.clone()));
+    }
+    specific.insert("sessionTitle", Json::Str(title.to_owned()));
+    let mut o = Object::with_capacity(1);
+    o.insert("hookSpecificOutput", Json::Obj(specific));
+    CmdResult {
+        stdout: format!("{}\n", stringify(&Json::Obj(o))),
+        ..result
+    }
 }
 
 /// `toCursor`: a handler's Claude Code result, as Cursor reads it.
@@ -159,6 +262,67 @@ pub fn for_host(name: Hook, input: &str, handler: impl Fn(&str) -> CmdResult) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn derived_names_are_the_cwd_folder_plus_two_hex() {
+        assert!(is_derived_name("sofar-d3", Some("/Users/x/IO/sofar")));
+        assert!(is_derived_name("sofar-d3", Some("/Users/x/IO/sofar/")));
+        assert!(is_derived_name("sofar-app-43", Some("/Users/x/IO/sofar-app")));
+        assert!(!is_derived_name("sofar-d3", Some("/Users/x/IO/other")));
+        assert!(!is_derived_name("sofar-d3x", Some("/Users/x/IO/sofar")));
+        assert!(!is_derived_name("sofar-D3", Some("/Users/x/IO/sofar")));
+        assert!(!is_derived_name("sofar-d", Some("/Users/x/IO/sofar")));
+        assert!(!is_derived_name("sofar-d3", None));
+        assert!(!is_derived_name("-d3", Some("/")));
+    }
+
+    #[test]
+    fn title_to_apply_replaces_only_absent_derived_or_ours() {
+        let dir = crate::testing::scratch_dir("host-title");
+        let layout = Layout::new(&dir);
+        std::fs::create_dir_all(layout.initiative_dir("earlier-record")).unwrap();
+        let hook = |title: Option<&str>, cwd: &str| {
+            let mut o = Object::new();
+            if let Some(t) = title {
+                o.insert("session_title", Json::Str(t.to_owned()));
+            }
+            o.insert("cwd", Json::Str(cwd.to_owned()));
+            o
+        };
+        let want = "demo 1.1";
+        let apply = |title: Option<&str>, cwd: &str| title_to_apply(&hook(title, cwd), want, &layout);
+        assert_eq!(apply(None, "/w/sofar").as_deref(), Some(want));
+        assert_eq!(apply(Some(""), "/w/sofar").as_deref(), Some(want));
+        assert_eq!(apply(Some("sofar-d3"), "/w/sofar").as_deref(), Some(want));
+        assert_eq!(apply(Some("earlier-record 2.2"), "/w/sofar").as_deref(), Some(want));
+        assert_eq!(apply(Some("earlier-record"), "/w/sofar").as_deref(), Some(want));
+        assert_eq!(apply(Some(want), "/w/sofar"), None);
+        assert_eq!(apply(Some("  demo 1.1 "), "/w/sofar"), None);
+        assert_eq!(apply(Some("my own name"), "/w/sofar"), None);
+        assert_eq!(apply(Some("MacCap 2"), "/w/sofar"), None);
+        assert_eq!(apply(Some("never-a-record 2.2"), "/w/sofar"), None);
+        assert_eq!(apply(Some("sofar-d3"), "/w/other"), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn with_session_title_wraps_exactly_the_typescript_bytes() {
+        let plain = CmdResult { exit_code: 0, stdout: "# Sofar status: demo\n".into(), stderr: String::new() };
+        assert_eq!(with_session_title(Hook::SessionStart, plain.clone(), None), plain);
+        assert_eq!(with_session_title(Hook::Stop, plain.clone(), Some("demo 1.1")), plain);
+        let titled = with_session_title(Hook::SessionStart, plain, Some("demo 1.1"));
+        assert_eq!(
+            titled.stdout,
+            "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"# Sofar status: demo\\n\",\"sessionTitle\":\"demo 1.1\"}}\n"
+        );
+        let silent = CmdResult { exit_code: 0, stdout: String::new(), stderr: String::new() };
+        assert_eq!(
+            with_session_title(Hook::UserPrompt, silent, Some("demo")).stdout,
+            "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"sessionTitle\":\"demo\"}}\n"
+        );
+        // the context is read back through context_of whichever form it took
+        assert_eq!(context_of(Hook::SessionStart, &titled.stdout).as_deref(), Some("# Sofar status: demo\n"));
+    }
 
     fn obj(text: &str) -> Object {
         match json::parse(text).unwrap() {

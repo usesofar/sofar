@@ -13,6 +13,7 @@ import {
   handleUserPrompt,
   STOP_BLOCK_MESSAGE,
 } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 
 /**
  * Decision guards (drift-hardening Phase 5, D3) — the mechanical tier.
@@ -343,7 +344,7 @@ describe('prompt surface (5.2) — the crossing reaches the agent while it works
   it('leads the injected lines and carries the rule verbatim', () => {
     const result = handleUserPrompt(crossedRepo(), hookStdin())
     expect(result.exitCode).toBe(0)
-    const lines = result.stdout.split('\n')
+    const lines = hookContext(result).split('\n')
     expect(lines[0]).toContain('[D1] guard crossed')
     expect(lines[0]).toContain(`"${RULE}"`)
   })

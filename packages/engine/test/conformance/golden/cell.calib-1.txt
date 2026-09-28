@@ -54,77 +54,7 @@ argv: ["event","session-start"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
 exit: 0
 --- stdout
-# Sofar status: boopada-planner
-
-Goal: Build Boopada, a trip planner, one roadmap piece per session. Monorepo (bun, Next.js apps/web, @workspace/providers fixture bundle), SQLite at BOOPADA_DB_PATH, JSON API under /api, one traveller, no login.
-
-Next task: P3-trips Create a trip from legs of cities and nights, with a draft day-by-day plan
-  in 3. Trips [pending] 0/1
-
-Next action: Start roadmap piece 3, trips (task P3-trips): create a trip from legs of cities and nights with a draft day-by-day plan. Add migration 3 with a nullable deleted_at on every trip table, register trips in SOFT_DELETABLE (lib/deletions.ts) and lib/undo.ts per D5 so a trip delete logs ONE deletion and its children share the deleted_at, validate city ids like lib/bucket.ts does, and consider letting a leg start from a bucket item.
-
-Last session (claude-code, ended 2026-09-15T09:07:00.406Z):
-  Shipped phase 2, the bucket list, in c4d31f2. Built: migration 2 in apps/web/lib/db.ts (bucket_items + deletions tables; added a transaction() helper); lib/bucket.ts (store + create/patch validation, unknown_city via providers.locale.getCity, Money per D1); lib/deletions.ts (softDelete, undoLatestDeletion, canU… (clipped — full text in sessions/1fdc5dfb-a750-4766-bb09-94c211ad3703.md)
-
-Phases:
-- 3. Trips [pending] 0/1
-- 4. Itinerary editing [pending] 0/1
-- 5. Itinerary view [pending] 0/1
-- 6. Location to-dos [pending] 0/1
-- 7. Suggestions and transport [pending] 0/1
-- 8. Curation advisor [pending] 0/1
-- 9. Chat command box [pending] 0/1
-- done: 1. Traveller profile, 2. Bucket list (5/5 tasks)
-Progress: 5/12 tasks done (41%) across 9 phase(s)
-
-Memory (3; full text in memory.md):
-- [M3] `bun test` runs every apps/web test file in ONE process, so module caches are shared: set BOOPADA_DB_PATH per file in beforeAll (getDb caches per path), and a file that sets BOOPADA_NOW must call `resetProviders()` after setting it and again after deleting it in afterAll, or the…
-- [M2] A green `bun run build` does NOT prove the app runs: Next 16 builds with Turbopack and route handlers are only executed on request. Smoke-test every session with `cd apps/web && PORT=3987 BOOPADA_DB_PATH=/tmp/x/b.sqlite bun run start` then curl the routes — that is how the node:…
-- [M1] Provider gotcha: `providers.fx.getRates(base)` omits `base` itself from `rates`…
-
-Repo memory (.sofar/repo.md):
-## Commands
-
-```bash
-bun install
-bun run lint        # biome check .  (2 pre-existing a11y warnings in packages/ui; warnings do not fail)
-bun run typecheck
-bun run test        # turbo test -> bun test in apps/web and packages/providers
-bun run build       # turbo build -> next build (Turbopack)
-cd apps/web && PORT=3987 bun run start
-```
-
-## Conventions
-
-- Monorepo on bun + turbo. App is `apps/web` (Next.js 16, App Router).
-  Travel data comes from `@workspace/providers` fixtures, shared UI from
-  `@workspace/ui`. One
-…truncated — read .sofar/repo.md for the rest
-
-Recent decisions (last 5 of 6; full text in decisions.md):
-- [D2] 2026-09-15 (rule below) Interests are exactly the providers' seven activity categor… — over Free-text interest tags
-- [D3] 2026-09-15 (rule below) One SQLite handle opened through createRequire — over Importing bun:sqlite directly, or better-sqlite3
-- [D4] 2026-09-15 (rule below) Load node:sqlite through `process.getBuiltinModule("node:sq… — over createRequire for both, which D3 originally chose
-- [D5] 2026-09-15 (rule below) App-wide soft delete: every traveller-made table has a null… — over Hard DELETE with a confirm dialog
-- [D6] 2026-09-15 Bucket item shape: { id (integer), title, city_id | null, notes | null, estimated_daily_s… — over Free-text city names; decimal-string spend
-Earlier rejected approaches — do NOT re-propose (1 older):
-- [D1] Decimal strings or floats, as the providers quote and as the earlier …
-
-Next ids: D7 (decision), M4 (memory)
-
-Session: conf-session — adopted on Claude Code; else pass to sofar_start_session.
-Git: main @ ce11ce1 — in sync with origin/main
-
-Standing constraints — obey verbatim (5):
-- [D5] Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.
-- [D3] Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.
-- [D4] Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.
-- [D2] Reject any interest that is not one of the seven provider activity categories; never accept free text.
-- [D1] Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.
-
-Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
-
-(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: boopada-planner\n\nGoal: Build Boopada, a trip planner, one roadmap piece per session. Monorepo (bun, Next.js apps/web, @workspace/providers fixture bundle), SQLite at BOOPADA_DB_PATH, JSON API under /api, one traveller, no login.\n\nNext task: P3-trips Create a trip from legs of cities and nights, with a draft day-by-day plan\n  in 3. Trips [pending] 0/1\n\nNext action: Start roadmap piece 3, trips (task P3-trips): create a trip from legs of cities and nights with a draft day-by-day plan. Add migration 3 with a nullable deleted_at on every trip table, register trips in SOFT_DELETABLE (lib/deletions.ts) and lib/undo.ts per D5 so a trip delete logs ONE deletion and its children share the deleted_at, validate city ids like lib/bucket.ts does, and consider letting a leg start from a bucket item.\n\nLast session (claude-code, ended 2026-09-15T09:07:00.406Z):\n  Shipped phase 2, the bucket list, in c4d31f2. Built: migration 2 in apps/web/lib/db.ts (bucket_items + deletions tables; added a transaction() helper); lib/bucket.ts (store + create/patch validation, unknown_city via providers.locale.getCity, Money per D1); lib/deletions.ts (softDelete, undoLatestDeletion, canU… (clipped — full text in sessions/1fdc5dfb-a750-4766-bb09-94c211ad3703.md)\n\nPhases:\n- 3. Trips [pending] 0/1\n- 4. Itinerary editing [pending] 0/1\n- 5. Itinerary view [pending] 0/1\n- 6. Location to-dos [pending] 0/1\n- 7. Suggestions and transport [pending] 0/1\n- 8. Curation advisor [pending] 0/1\n- 9. Chat command box [pending] 0/1\n- done: 1. Traveller profile, 2. Bucket list (5/5 tasks)\nProgress: 5/12 tasks done (41%) across 9 phase(s)\n\nMemory (3; full text in memory.md):\n- [M3] `bun test` runs every apps/web test file in ONE process, so module caches are shared: set BOOPADA_DB_PATH per file in beforeAll (getDb caches per path), and a file that sets BOOPADA_NOW must call `resetProviders()` after setting it and again after deleting it in afterAll, or the…\n- [M2] A green `bun run build` does NOT prove the app runs: Next 16 builds with Turbopack and route handlers are only executed on request. Smoke-test every session with `cd apps/web && PORT=3987 BOOPADA_DB_PATH=/tmp/x/b.sqlite bun run start` then curl the routes — that is how the node:…\n- [M1] Provider gotcha: `providers.fx.getRates(base)` omits `base` itself from `rates`…\n\nRepo memory (.sofar/repo.md):\n## Commands\n\n```bash\nbun install\nbun run lint        # biome check .  (2 pre-existing a11y warnings in packages/ui; warnings do not fail)\nbun run typecheck\nbun run test        # turbo test -> bun test in apps/web and packages/providers\nbun run build       # turbo build -> next build (Turbopack)\ncd apps/web && PORT=3987 bun run start\n```\n\n## Conventions\n\n- Monorepo on bun + turbo. App is `apps/web` (Next.js 16, App Router).\n  Travel data comes from `@workspace/providers` fixtures, shared UI from\n  `@workspace/ui`. One\n…truncated — read .sofar/repo.md for the rest\n\nRecent decisions (last 5 of 6; full text in decisions.md):\n- [D2] 2026-09-15 (rule below) Interests are exactly the providers' seven activity categor… — over Free-text interest tags\n- [D3] 2026-09-15 (rule below) One SQLite handle opened through createRequire — over Importing bun:sqlite directly, or better-sqlite3\n- [D4] 2026-09-15 (rule below) Load node:sqlite through `process.getBuiltinModule(\"node:sq… — over createRequire for both, which D3 originally chose\n- [D5] 2026-09-15 (rule below) App-wide soft delete: every traveller-made table has a null… — over Hard DELETE with a confirm dialog\n- [D6] 2026-09-15 Bucket item shape: { id (integer), title, city_id | null, notes | null, estimated_daily_s… — over Free-text city names; decimal-string spend\nEarlier rejected approaches — do NOT re-propose (1 older):\n- [D1] Decimal strings or floats, as the providers quote and as the earlier …\n\nNext ids: D7 (decision), M4 (memory)\n\nSession: conf-session — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ ce11ce1 — in sync with origin/main\n\nStanding constraints — obey verbatim (5):\n- [D5] Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.\n- [D3] Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.\n- [D4] Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.\n- [D2] Reject any interest that is not one of the seven provider activity categories; never accept free text.\n- [D1] Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"boopada-planner P3-trips"}}
 --- stderr
 (empty)
 
@@ -169,8 +99,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-sofar: main @ ce11ce1, pushed (in sync with origin/main).
-<no trailing newline>
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, pushed (in sync with origin/main).","sessionTitle":"boopada-planner P3-trips"}}
 --- stderr
 (empty)
 

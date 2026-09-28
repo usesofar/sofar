@@ -210,6 +210,13 @@ export const CASES: ConformanceCase[] = [
       s('empty stdin', ['event', 'session-start']),
       s('--root as a separate token', ['event', 'session-start', '--root', '<ROOT>'], start()),
       s('--root=dir form', ['event', 'session-start', '--root=<ROOT>'], start()),
+      // session title (session-naming D1): the untitled runs above carry it; these pin when it is withheld
+      s("the operator's own title: plain block, no title", ['event', 'session-start'], start({ session_title: 'my own name' })),
+      s("the host's derived name for this cwd: replaced", ['event', 'session-start'], start({ cwd: '/work/repo', session_title: 'repo-1f' })),
+      s("another folder's derived name: left alone", ['event', 'session-start'], start({ cwd: '/work/repo', session_title: 'other-1f' })),
+      s('a title of ours on another record: replaced', ['event', 'session-start'], start({ session_title: 'rust-core 9.9' })),
+      s('a slug-shaped title of no record here: left alone', ['event', 'session-start'], start({ session_title: 'never-a-record 9.9' })),
+      s('a Cursor payload never gets a title', ['event', 'session-start'], start({ cursor_version: '2026.09.10' })),
     ],
   },
   {
@@ -231,7 +238,8 @@ export const CASES: ConformanceCase[] = [
     name: 'repo.hook-lifecycle',
     fixture: REPO,
     steps: [
-      s('prompt before registration: silent', ['event', 'user-prompt'], prompt()),
+      s('prompt before registration: silent (title only, session-naming D1)', ['event', 'user-prompt'], prompt()),
+      s("prompt before registration with the operator's title: empty", ['event', 'user-prompt'], prompt({ session_title: 'my own name' })),
       s('stop before registration: passes', ['event', 'stop'], stop()),
       s('Edit registers the session and appends file_touched', ['event', 'post-tool'], edit('<ROOT>/packages/engine/src/core/fold.ts')),
       s('Write', ['event', 'post-tool'], hook('PostToolUse', { tool_name: 'Write', tool_input: { file_path: '<ROOT>/docs/NEW.md', content: 'x' } })),

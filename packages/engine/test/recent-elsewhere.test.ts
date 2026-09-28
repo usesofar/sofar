@@ -9,6 +9,7 @@ import {
   recentWorkElsewhereNotice,
   RECENT_ELSEWHERE_BUDGET,
 } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 
 /**
  * session-orientation 2.2 — the line that tells a FRESH session its record came
@@ -79,12 +80,9 @@ const T = {
 }
 const NOW = Date.parse('2026-08-13T11:30:00.000Z')
 
-/** The whole SessionStart block, as the shim would print it. */
+/** The whole SessionStart block, as the shim would print it (the context, whichever form carried it). */
 function block(root: string, session = 'FRESH'): string {
-  return handleSessionStart(
-    root,
-    JSON.stringify({ session_id: session, cwd: root, source: 'startup' }),
-  ).stdout
+  return hookContext(handleSessionStart(root, JSON.stringify({ session_id: session, cwd: root, source: 'startup' })))
 }
 
 describe('recent work elsewhere (session-orientation 2.2)', () => {

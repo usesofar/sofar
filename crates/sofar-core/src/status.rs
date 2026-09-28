@@ -548,7 +548,10 @@ fn pick_focus(phase: &PhaseState) -> Option<&TaskState> {
         .or_else(|| phase.tasks.iter().find(|t| t.status == "blocked"))
 }
 
-fn focus_task(state: &InitiativeState) -> Option<(&TaskState, &PhaseState)> {
+/// `focusTask`: the task the digest leads with, and the task a session's
+/// title names (session-naming D1, `host::session_title`).
+#[must_use]
+pub fn focus_task(state: &InitiativeState) -> Option<(&TaskState, &PhaseState)> {
     let pick = pick_focus;
     if let Some(name) = state.current.active_phase.as_deref()
         && let Some(active) = state.phases.iter().find(|p| p.name == name)

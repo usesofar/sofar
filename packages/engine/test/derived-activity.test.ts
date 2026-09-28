@@ -10,6 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { hookContext } from './helpers/hook-output'
 import { commitsByTask, parseAttribution, taskOfSubject, TRAILER_KEY } from '../src/core/attribution'
 import { ACTIVITY_GUIDANCE, activityEnabled, testShapedCommand, withActivityGuidance } from '../src/core/derived'
 import { makeEvent } from '../src/core/envelope'
@@ -229,17 +230,17 @@ describe('commits by task, read from git (D24 (4))', () => {
     appendEvent(log, makeEvent({ initiative: 'demo', session: 'cli', source: 'cli', actor: 'human', type: 'initiative_created', payload: { slug: 'demo', goal: 'g' } }))
 
     const input = JSON.stringify({ session_id: 'S1' })
-    const on = handleSessionStart(root, input)
-    expect(on.stdout).toContain(
+    const on = hookContext(handleSessionStart(root, input))
+    expect(on).toContain(
       `Commits (this record, last 3 walked): 2.5 ×2, other ×1 — newest ${head7} 2.5: second. Files, commands, test outcomes and commits are captured — write only why.`,
     )
     const was = process.env.SOFAR_ACTIVITY
     process.env.SOFAR_ACTIVITY = 'off'
     try {
-      const off = handleSessionStart(root, input)
-      expect(off.stdout).not.toContain('Commits (this record')
+      const off = hookContext(handleSessionStart(root, input))
+      expect(off).not.toContain('Commits (this record')
       // Everything else in the block is untouched by the switch.
-      expect(off.stdout!.replace(/\n\nCommits \(this record[^\n]*/, '')).toBe(on.stdout!.replace(/\n\nCommits \(this record[^\n]*/, ''))
+      expect(off.replace(/\n\nCommits \(this record[^\n]*/, '')).toBe(on.replace(/\n\nCommits \(this record[^\n]*/, ''))
     } finally {
       if (was === undefined) delete process.env.SOFAR_ACTIVITY
       else process.env.SOFAR_ACTIVITY = was

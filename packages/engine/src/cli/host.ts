@@ -1,4 +1,5 @@
-import { resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { basename, join, resolve } from 'node:path'
 import { CODEX_SESSION_TAIL, SESSION_ADOPT_TAIL } from '../projections/templates/status'
 import type { HookResult } from './event'
 
@@ -135,12 +136,15 @@ export function fromCursor(hook: Obj): Obj {
   return out
 }
 
-/** The context a handler's stdout carries, whichever Claude Code form it took. */
+/**
+ * The context a handler's stdout carries, whichever Claude Code form it took:
+ * plain text, or `hookSpecificOutput` JSON (PostToolUse always; SessionStart
+ * and UserPromptSubmit when a session title rides along, session-naming D1).
+ */
 function contextOf(name: HookName, stdout: string): string | null {
   const text = stdout.trim()
   if (text.length === 0) return null
-  if (name !== 'post-tool') return text
-  // PostToolUse speaks hookSpecificOutput JSON for Claude Code.
+  if (name !== 'post-tool' && !text.startsWith('{"hookSpecificOutput"')) return text
   try {
     const decoded: unknown = JSON.parse(text)
     const specific = isObj(decoded) ? decoded.hookSpecificOutput : undefined
@@ -177,6 +181,80 @@ export function toCursor(name: HookName, result: HookResult): HookResult {
       ? context
       : `${context.slice(0, CURSOR_CONTEXT_MAX - 1)}…`
   return { ...result, stdout: json({ additional_context: clipped }) }
+}
+
+/** The Claude Code events whose stdout may carry a session title (session-naming D1). */
+const CLAUDE_TITLE_EVENTS: Readonly<Partial<Record<HookName, string>>> = {
+  'session-start': 'SessionStart',
+  'user-prompt': 'UserPromptSubmit',
+}
+
+/**
+ * The title sofar proposes for a session (session-naming D1): the record's
+ * slug and the id of its focus task — the task the digest's own
+ * "Current task" / "Next task" line names — or the slug alone while the
+ * record has no open task. `agents-parity 3.4` reads in the sidebar, in
+ * `ListAgents` and in every peer line what the derived `sofar-d3` never
+ * could: which record and which task this session serves.
+ */
+export function sessionTitle(slug: string, taskId: string | null): string {
+  return taskId === null ? slug : `${slug} ${taskId}`
+}
+
+/**
+ * Is `title` the name the host derived on its own — the working directory's
+ * folder plus two hex characters of the session id (`sofar-d3`), read from
+ * claude 2.1.283? Only that shape, and only for THIS payload's cwd.
+ */
+export function isDerivedName(title: string, cwd: string | null): boolean {
+  if (cwd === null) return false
+  const folder = basename(cwd)
+  if (folder.length === 0 || !title.startsWith(`${folder}-`)) return false
+  return /^[0-9a-f]{2}$/.test(title.slice(folder.length + 1))
+}
+
+/**
+ * The title to hand the host, or null to hand none (session-naming D1). A
+ * proposed title replaces only an absent one, the host's derived name, or one
+ * of ours — a title whose first token is an initiative of this repo, so a
+ * session that re-homes or moves task is renamed and a session the operator
+ * named (`/rename`, `--name`) is never touched. An unchanged title is not
+ * re-sent: the host is idempotent on it, but the plain form stays plain.
+ */
+export function titleToApply(hook: Obj, proposed: string, sofarDir: string): string | null {
+  const current = typeof hook.session_title === 'string' ? hook.session_title.trim() : ''
+  if (current === proposed) return null
+  if (current.length === 0) return proposed
+  if (isDerivedName(current, typeof hook.cwd === 'string' ? hook.cwd : null)) return proposed
+  const token = current.split(' ', 1)[0] ?? ''
+  if (!/^[a-z0-9-]+$/.test(token)) return null
+  return existsSync(join(sofarDir, 'initiatives', token)) ? proposed : null
+}
+
+/**
+ * A handler's Claude Code result with a session title attached. With no title
+ * the result is returned untouched — byte-identical to every release before
+ * session-naming — so the plain form is still the common case for a session
+ * already named. With one, stdout becomes the `hookSpecificOutput` object the
+ * host reads the title from, carrying the context (when any) under
+ * `additionalContext`, which the host injects exactly as it injects plain
+ * stdout on these two events (read from claude 2.1.283; no spill threshold
+ * applies there, unlike Codex).
+ */
+export function withSessionTitle(name: HookName, result: HookResult, title: string | null): HookResult {
+  const event = CLAUDE_TITLE_EVENTS[name]
+  if (title === null || event === undefined) return result
+  const context = result.stdout.trim()
+  return {
+    ...result,
+    stdout: json({
+      hookSpecificOutput: {
+        hookEventName: event,
+        ...(context.length > 0 ? { additionalContext: result.stdout } : {}),
+        sessionTitle: title,
+      },
+    }),
+  }
 }
 
 /** The Codex event whose context carrier each context-bearing hook fills. */

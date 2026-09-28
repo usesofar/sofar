@@ -13,6 +13,7 @@ import {
   handleUserPrompt,
   PARALLEL_WRAP_BUDGET,
 } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 import { runDoctor } from '../src/cli/doctor'
 import { readGitState } from '../src/core/git'
 import { unwrittenSessions } from '../src/projections/templates/status'
@@ -701,7 +702,7 @@ describe('cross-session awareness (Phase 4)', () => {
       }),
     )
 
-    const out = handleUserPrompt(f.root, JSON.stringify({ session_id: 'mine', cwd: '/tmp' })).stdout
+    const out = hookContext(handleUserPrompt(f.root, JSON.stringify({ session_id: 'mine', cwd: '/tmp' })))
     // The budget bounds the wrap LINE, not the whole hook payload — the git
     // line is a separate, independently bounded line (4.4).
     const wrap = out.split('\n').find((l) => l.includes('wrapped while you worked'))!

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { TRAILER_KEY } from '../src/core/attribution'
 import { handleSessionStart, handleUserPrompt } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { noteEngine, noteUpstream, SHIPWATCH_MAX_MARKS } from '../src/core/shipwatch'
@@ -91,11 +92,11 @@ function commit(root: string, subject: string, slug?: string): void {
 
 /** Orient the session, which is also what seeds the movement gate. */
 function orient(root: string): string {
-  return handleSessionStart(root, JSON.stringify({ session_id: SESSION })).stdout
+  return hookContext(handleSessionStart(root, JSON.stringify({ session_id: SESSION })))
 }
 
 function prompt(root: string): string {
-  return handleUserPrompt(root, JSON.stringify({ session_id: SESSION })).stdout
+  return hookContext(handleUserPrompt(root, JSON.stringify({ session_id: SESSION })))
 }
 
 /**

@@ -182,11 +182,16 @@ describe('a Cursor session end to end, through the hook table', () => {
     expect(closed?.payload).toEqual({ reason: 'completed' })
   })
 
-  it('leaves a Claude Code invocation exactly as it was', () => {
+  it('leaves a Claude Code invocation exactly as it was — Claude Code\'s own form, never Cursor\'s keys', () => {
     const fixture = fx()
     const out = run('session-start', fixture.root, { session_id: 'claude-1', hook_event_name: 'SessionStart', source: 'startup' })
-    expect(out.stdout.startsWith('{')).toBe(false)
+    // the untitled session is handed its title in hookSpecificOutput (session-naming D1); Cursor's additional_context never appears
+    expect(out.stdout.startsWith('{"hookSpecificOutput"')).toBe(true)
+    expect(out.stdout).not.toContain('additional_context')
     expect(out.stdout).toContain('Session: claude-1')
+    const titled = run('session-start', fixture.root, { session_id: 'claude-1', hook_event_name: 'SessionStart', source: 'startup', session_title: 'demo' })
+    expect(titled.stdout.startsWith('{')).toBe(false)
+    expect(titled.stdout).toContain('Session: claude-1')
 
     run('post-tool', fixture.root, { session_id: 'claude-1', tool_name: 'Edit', tool_input: { file_path: 'b.ts' } })
     const held = run('stop', fixture.root, { session_id: 'claude-1', stop_hook_active: false })

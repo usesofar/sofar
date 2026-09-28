@@ -10,6 +10,7 @@ import { neighbourRecords, refreshNeighbours, refreshTier1 } from '../src/core/i
 import { appendEvent } from '../src/core/log'
 import { handleSessionStart } from '../src/cli/event'
 import { STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
+import { hookContext } from './helpers/hook-output'
 
 /**
  * record-index 3.3 — LAYER 2, the priming line.
@@ -67,9 +68,9 @@ const decide = (sofar: string, slug: string, session: string): void => {
   emit(sofar, slug, session, 'decision_logged', { chose: 'c', over: 'o', because: 'b' })
 }
 
-/** The whole SessionStart block, as the shim would print it. */
+/** The whole SessionStart block, as the shim would print it (the context, whichever form carried it). */
 function block(root: string, session = 'S'): string {
-  return handleSessionStart(root, JSON.stringify({ session_id: session, cwd: root, source: 'startup' })).stdout
+  return hookContext(handleSessionStart(root, JSON.stringify({ session_id: session, cwd: root, source: 'startup' })))
 }
 
 function section(root: string): string[] {
