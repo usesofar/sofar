@@ -120,6 +120,7 @@ describe('a Codex session end to end, through the hook table', () => {
     expect(out.exitCode).toBe(0)
     const decoded = JSON.parse(out.stdout) as Json
     expect(checkSchema('session-start.command.output', decoded)).toEqual([])
+    expect(out.stdout).not.toContain('sessionTitle') // a Codex session keeps its own name (session-naming D1)
     const context = (decoded as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext
     expect(context).toContain(`Session: ${SESSION}`)
   })
@@ -464,6 +465,7 @@ describe('the shims themselves, run by their hooks.json command through the buil
     const decoded = JSON.parse(start.stdout) as Json
     expect(checkSchema('session-start.command.output', decoded)).toEqual([])
     expect(JSON.stringify(decoded)).toContain(`Session: ${SESSION}`)
+    expect(JSON.stringify(decoded)).not.toContain('sessionTitle') // Claude Code's key, session-naming D1
 
     const patch = fire(repo, 'PostToolUse', payload('post-tool-use.apply-patch', { cwd: repo.sub }))
     expect(patch.status).toBe(0)

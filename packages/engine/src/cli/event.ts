@@ -94,6 +94,7 @@ import {
   type ToolContext,
 } from '../mcp/context'
 import {
+  focusTask,
   enforceStatusLimit,
   hasRealAlternative,
   minutiaeHead,
@@ -107,6 +108,9 @@ import {
   hookHost,
   patchedFiles,
   postToolProvesSuccess,
+  sessionTitle,
+  titleToApply,
+  withSessionTitle,
   type DeclaredHost,
   type HookHost,
 } from './host'
@@ -864,7 +868,14 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
         ...(repoMemory !== null ? { memory_bytes: repoMemory.length } : {}),
       },
     })
-    return { ...OK, stdout: status }
+    // The session's name (session-naming D1): the slug and the focus task the
+    // block itself leads with, handed to Claude Code as a title and applied by
+    // the host to its registry — the address peers message. Only Claude Code
+    // reads the key, and only an absent, derived or sofar-owned title is
+    // replaced; otherwise the block goes out plain, byte-identical.
+    const title =
+      host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null), ctx.sofarDir) : null
+    return withSessionTitle('session-start', { ...OK, stdout: status }, title)
   } catch {
     return { ...OK }
   }
@@ -2452,9 +2463,10 @@ function slugOf(command: string): string | null {
   return m === null ? null : m[1]!
 }
 
-export function handleUserPrompt(rootDir: string, input: string): HookResult {
+export function handleUserPrompt(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
+    const host = declared ?? hookHost(hook)
     const sessionId = strField(hook, 'session_id')
     if (sessionId === null) return { ...OK }
     writeSessionPointer(rootDir, sessionId, 'hook') // D29
@@ -2464,8 +2476,13 @@ export function handleUserPrompt(rootDir: string, input: string): HookResult {
     const { ctx, slug } = bound
 
     const state = ctx.foldState(slug)
+    // The session's name follows the record's focus task (session-naming D1)
+    // — decided before the registration check, because a session's first
+    // prompt usually lands before its first event registers it.
+    const title =
+      host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null), ctx.sofarDir) : null
     const me = state.sessions.find((s) => s.id === sessionId)
-    if (me === undefined) return { ...OK } // not ours to nudge
+    if (me === undefined) return withSessionTitle('user-prompt', { ...OK }, title) // not ours to nudge
 
     // Live hazard first (a sibling is IN this file now), then news (what a
     // sibling finished), then state (where the repo stands), then the nudge
@@ -2549,7 +2566,7 @@ export function handleUserPrompt(rootDir: string, input: string): HookResult {
       )
     }
 
-    return lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }
+    return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)
   } catch {
     return { ...OK }
   }

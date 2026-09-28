@@ -5,6 +5,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { handleUserPrompt } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 import { callTool, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
 
 /**
@@ -60,7 +61,7 @@ function touch(root: string, session: string, path: string, ts: string): void {
 }
 
 function prompt(root: string, session: string): string {
-  return handleUserPrompt(root, JSON.stringify({ session_id: session, cwd: '/tmp' })).stdout
+  return hookContext(handleUserPrompt(root, JSON.stringify({ session_id: session, cwd: '/tmp' })))
 }
 
 /** Two live sessions, both holding src/core/fold.ts. */

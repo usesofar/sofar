@@ -5,58 +5,7 @@ argv: ["event","session-start"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
 exit: 0
 --- stdout
-# Sofar status: budget
-
-Goal: a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long eno…
-
-Current task: 21.1 task 21.1: a realistically sized task title that keeps going a realistically sized task title that keeps going a realistically sized task title that keeps going
-  in Phase 21: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [active] 0/25
-  files: src/area-11/file-29.ts, src/area-11/file-28.ts, src/area-11/file-27.ts, src/area-11/file-26.ts, src/area-11/file-25.ts, src/area-11/file-24.ts, src/area-11/file-23.ts, src/area-11/file-22.ts
-  - 21.2 task 21.2: a realistically sized task title that keeps going a realistical… (blocked)
-  - 21.3 task 21.3: a realistically sized task title that keeps going a realistical… (active)
-  - 21.4 task 21.4: a realistically sized task title that keeps going a realistical… (active)
-  - 21.5 task 21.5: a realistically sized task title that keeps going a realistical… (active)
-  - 21.6 task 21.6: a realistically sized task title that keeps going a realistical… (active)
-  - 21.7 task 21.7: a realistically sized task title that keeps going a realistical… (active)
-  - …and 18 more (plan.md)
-
-Next action: next 9: next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next …
-⚠ next action may be stale: 62 events since write-back (60 files, 2 task changes)
-Blocked on: task 21.2: waiting on the run owner
-
-Last session (claude-code) open, no write-back yet — derived: 30 files (src/area-11/file-0.ts, src/area-11/file-1.ts, src/area-11/file-2.ts, src/area-11/file-3.ts, src/area-11/file-4.ts, src/area-11/file-5.ts, src/area-11/file-6.ts, src/area-11/file-7.ts, src/area-11/file-8.ts, src/area-11/file-9.ts, src/area-11/file-10.ts, src/area-11/file-11.ts, src/area-11/file-12.ts, src/area-11/file-13.ts, src/area-11/file-14.ts, src/area-11/file-15.ts, src/area-11/file-16.ts, src/area-11/file-17.ts, src/area-11/file-18.ts, src/area-11/file-19.ts, +10 more), task changes: 21.14 → active
-  (details in sessions/budget-sess-11.md)
-
-⚠ 1 other session(s) did work without writing back: budget-sess-10
-
-Phases:
-- Phase 21: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [active] 0/25
-- Phase 22: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 23: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 24: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 25: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 26: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 27: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 28: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 29: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 30: a descriptive phase name that runs long a descriptive ph
-…truncated — run sofar status for full detail
-
-Standing constraints — obey verbatim (10):
-- [D19] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D17] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D15] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D13] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D11] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D9] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D7] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D5] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D3] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D1] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-
-Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
-
-(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: budget\n\nGoal: a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long eno…\n\nCurrent task: 21.1 task 21.1: a realistically sized task title that keeps going a realistically sized task title that keeps going a realistically sized task title that keeps going\n  in Phase 21: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [active] 0/25\n  files: src/area-11/file-29.ts, src/area-11/file-28.ts, src/area-11/file-27.ts, src/area-11/file-26.ts, src/area-11/file-25.ts, src/area-11/file-24.ts, src/area-11/file-23.ts, src/area-11/file-22.ts\n  - 21.2 task 21.2: a realistically sized task title that keeps going a realistical… (blocked)\n  - 21.3 task 21.3: a realistically sized task title that keeps going a realistical… (active)\n  - 21.4 task 21.4: a realistically sized task title that keeps going a realistical… (active)\n  - 21.5 task 21.5: a realistically sized task title that keeps going a realistical… (active)\n  - 21.6 task 21.6: a realistically sized task title that keeps going a realistical… (active)\n  - 21.7 task 21.7: a realistically sized task title that keeps going a realistical… (active)\n  - …and 18 more (plan.md)\n\nNext action: next 9: next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next action prose next …\n⚠ next action may be stale: 62 events since write-back (60 files, 2 task changes)\nBlocked on: task 21.2: waiting on the run owner\n\nLast session (claude-code) open, no write-back yet — derived: 30 files (src/area-11/file-0.ts, src/area-11/file-1.ts, src/area-11/file-2.ts, src/area-11/file-3.ts, src/area-11/file-4.ts, src/area-11/file-5.ts, src/area-11/file-6.ts, src/area-11/file-7.ts, src/area-11/file-8.ts, src/area-11/file-9.ts, src/area-11/file-10.ts, src/area-11/file-11.ts, src/area-11/file-12.ts, src/area-11/file-13.ts, src/area-11/file-14.ts, src/area-11/file-15.ts, src/area-11/file-16.ts, src/area-11/file-17.ts, src/area-11/file-18.ts, src/area-11/file-19.ts, +10 more), task changes: 21.14 → active\n  (details in sessions/budget-sess-11.md)\n\n⚠ 1 other session(s) did work without writing back: budget-sess-10\n\nPhases:\n- Phase 21: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [active] 0/25\n- Phase 22: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25\n- Phase 23: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25\n- Phase 24: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25\n- Phase 25: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25\n- Phase 26: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25\n- Phase 27: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25\n- Phase 28: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25\n- Phase 29: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25\n- Phase 30: a descriptive phase name that runs long a descriptive ph\n…truncated — run sofar status for full detail\n\nStanding constraints — obey verbatim (10):\n- [D19] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D17] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D15] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D13] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D11] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D9] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D7] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D5] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D3] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n- [D1] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"budget 21.1"}}
 --- stderr
 (empty)
 
@@ -1511,9 +1460,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"budget-sess-11","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-sofar: main @ ce11ce1, never pushed.
-sofar: 31 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.
-<no trailing newline>
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.\nsofar: 31 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"budget 21.1"}}
 --- stderr
 (empty)
 

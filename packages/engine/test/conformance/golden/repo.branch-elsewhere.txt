@@ -5,67 +5,7 @@ argv: ["event","session-start"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
 exit: 0
 --- stdout
-# Sofar status: session-driver
-
-Goal: Automate the session handoff sofar already makes content-complete: a stateless driver (sofar drive <initiative>) that runs an initiative task-by-task through fresh agent sessions, records every handoff as events in the record, and reaches any headless agent through a three-call adapter (launch, usage, wait) — Claude Code first, a second adapter to prove the contract. The record is the queue; the …
-
-Next action: Run the close review: `sofar review session-driver --final`, work the packet (note it warns its commit walk hit the 200-commit ceiling, so review in smaller ranges with a watermark part-way rather than trusting the listed range to be complete), record the verdict, then `sofar close session-driver`. Weigh two open items in it: the record-index reach flake, which needs its own initiative, and D14's deferred budgets-in-the-record.
-
-Phases:
-- done: Phase 1, Phase 2, Phase 3, Phase 4 (11/11 tasks)
-Progress: 11/11 tasks done (100%) across 4 phase(s)
-
-Memory (4; full text in memory.md):
-- [M3] Claude Code 2.1.251's `--permission-mode` advertises acceptEdits | auto | bypassPermissions | manual | dontAsk | plan, and still accepts the unadvertised `default` (verified by running it, not by reading --help). Commander in the claude binary DOES enforce the choices list, so a…
-- [M1] Driver end-to-end without an API call: put a stub `claude` on PATH that prints a `{"type":"system","subtype":"init","session_id":...}` line, then registers itself in the record with `sofar event append <slug> --root <repo> --session <id> --type session_started|task_status_change…
-- [M4] After a publish, `npm install -g --prefix ~/.local sofar.sh@latest` can silentl…
-- [M2] Capturing a headless agent's real stream shapes costs nothing: point it at an u…
-
-Repo memory (.sofar/repo.md):
-# Repo memory — sofar
-
-- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
-  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
-  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
-  aliases (pre-publish). Historical event/projection text and the archived
-  docs still say harness — that is history, never rewritten.
-- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
-  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
-…truncated — read .sofar/repo.md for the rest
-
-Recent decisions (last 5 of 14; full text in decisions.md):
-- [D13] 2026-08-30 (rule below) The permission vocabulary is the AGENT's, and `--agent-arg`… — over Keeping sofar's own curated subset of modes
-- [D14] 2026-08-30 (rule below) `--cost-cap` and `--max-sessions` stay per-DRIVER, and the … — over Adding `cost_usd` to the handoff payload and a recorded fact for a la…
-Earlier rejected approaches — do NOT re-propose (9 older):
-- …and 9 more (see decisions.md)
-
-Next ids: D15 (decision), M5 (memory)
-
-Adjacent records — 255 decisions across 38 other initiatives that have worked this one's files, densest first:
-- repo-memory-capture — 8 shared files, 3 decisions
-- drift-certification — 7 shared files, 33 decisions
-- commit-attribution — 6 shared files, 22 decisions
-…and 35 more. Adjacency, not aboutness — offered as worth reading, never as a rule.
-
-Session: conf-session — adopted on Claude Code; else pass to sofar_start_session.
-Git: main @ c0ffee0 — in sync with origin/main
-
-⚠ More recent work is in ANOTHER record: rust-core (last event <AGO> ago) vs session-driver (<AGO> ago), which this branch is bound to and which the block below describes. If rust-core is the work you were asked to continue, re-home now — call sofar_start_session with initiative "rust-core". If it is a parallel session's work, ignore this and stay put.
-
-Standing constraints — obey verbatim (10):
-- [D14] `--cost-cap` and `--max-sessions` bound ONE driver, not one run: a resumed run restarts the cap at zero and counts its session budget from recorded handoffs alone. Never describe either as a run-wide guarantee, and keep the resume warnings that say so.
-- [D9] An adapter declares what it CANNOT do — usage, nudge, permission_rules, cost — and the driver states the consequence on the run's progress stream before the work starts; never let an inert flag (a cost cap that cannot fire, an allow-list the agent cannot express) pass silently into an unattended run.
-- [D8] A driven session's permission surface is recorded in `run_started.surface` and its settings file is written, read back and compared at EVERY launch — never assert a surface the record does not carry, and never claim the driver bounds what a session can do, since its file only adds to the operator's own settings sources.
-- [D11] State the driver's token result as a measurement with its scope — 2.44M vs 5.80M per task on the 4.1 run, for tasks that fit one cold session — never as a general claim that driving is cheaper. Where this and D1's rationale disagree, the measurement wins.
-- [D6] `sofar drive` never creates or destroys a git worktree or switches a branch; it launches into one directory for the whole run and refuses to start unless that directory's `.sofar` log for the initiative is the same file it is driving.
-- [D3] An adapter never reports record state: wrote_back and the launched session's identity are derived from the fold, and when several candidate sessions exist the driver records a stall rather than guessing.
-- [D13] PERMISSION_MODES must carry every mode the target agent's own `--permission-mode` advertises (check `claude --help`), and every mode in it must map in codex's SANDBOX_BY_MODE — a mode sofar refuses is a mode no operator can reach.
-- …and 3 more (see decisions.md)
-- …and 84 more from other records (their decisions.md)
-
-Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
-
-(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: session-driver\n\nGoal: Automate the session handoff sofar already makes content-complete: a stateless driver (sofar drive <initiative>) that runs an initiative task-by-task through fresh agent sessions, records every handoff as events in the record, and reaches any headless agent through a three-call adapter (launch, usage, wait) — Claude Code first, a second adapter to prove the contract. The record is the queue; the …\n\nNext action: Run the close review: `sofar review session-driver --final`, work the packet (note it warns its commit walk hit the 200-commit ceiling, so review in smaller ranges with a watermark part-way rather than trusting the listed range to be complete), record the verdict, then `sofar close session-driver`. Weigh two open items in it: the record-index reach flake, which needs its own initiative, and D14's deferred budgets-in-the-record.\n\nPhases:\n- done: Phase 1, Phase 2, Phase 3, Phase 4 (11/11 tasks)\nProgress: 11/11 tasks done (100%) across 4 phase(s)\n\nMemory (4; full text in memory.md):\n- [M3] Claude Code 2.1.251's `--permission-mode` advertises acceptEdits | auto | bypassPermissions | manual | dontAsk | plan, and still accepts the unadvertised `default` (verified by running it, not by reading --help). Commander in the claude binary DOES enforce the choices list, so a…\n- [M1] Driver end-to-end without an API call: put a stub `claude` on PATH that prints a `{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":...}` line, then registers itself in the record with `sofar event append <slug> --root <repo> --session <id> --type session_started|task_status_change…\n- [M4] After a publish, `npm install -g --prefix ~/.local sofar.sh@latest` can silentl…\n- [M2] Capturing a headless agent's real stream shapes costs nothing: point it at an u…\n\nRepo memory (.sofar/repo.md):\n# Repo memory — sofar\n\n- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):\n  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP\n  server \"sofar\" with sofar_* tools, record dir `.sofar/`. No back-compat\n  aliases (pre-publish). Historical event/projection text and the archived\n  docs still say harness — that is history, never rewritten.\n- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,\n  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision\n…truncated — read .sofar/repo.md for the rest\n\nRecent decisions (last 5 of 14; full text in decisions.md):\n- [D13] 2026-08-30 (rule below) The permission vocabulary is the AGENT's, and `--agent-arg`… — over Keeping sofar's own curated subset of modes\n- [D14] 2026-08-30 (rule below) `--cost-cap` and `--max-sessions` stay per-DRIVER, and the … — over Adding `cost_usd` to the handoff payload and a recorded fact for a la…\nEarlier rejected approaches — do NOT re-propose (9 older):\n- …and 9 more (see decisions.md)\n\nNext ids: D15 (decision), M5 (memory)\n\nAdjacent records — 255 decisions across 38 other initiatives that have worked this one's files, densest first:\n- repo-memory-capture — 8 shared files, 3 decisions\n- drift-certification — 7 shared files, 33 decisions\n- commit-attribution — 6 shared files, 22 decisions\n…and 35 more. Adjacency, not aboutness — offered as worth reading, never as a rule.\n\nSession: conf-session — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ c0ffee0 — in sync with origin/main\n\n⚠ More recent work is in ANOTHER record: rust-core (last event <AGO> ago) vs session-driver (<AGO> ago), which this branch is bound to and which the block below describes. If rust-core is the work you were asked to continue, re-home now — call sofar_start_session with initiative \"rust-core\". If it is a parallel session's work, ignore this and stay put.\n\nStanding constraints — obey verbatim (10):\n- [D14] `--cost-cap` and `--max-sessions` bound ONE driver, not one run: a resumed run restarts the cap at zero and counts its session budget from recorded handoffs alone. Never describe either as a run-wide guarantee, and keep the resume warnings that say so.\n- [D9] An adapter declares what it CANNOT do — usage, nudge, permission_rules, cost — and the driver states the consequence on the run's progress stream before the work starts; never let an inert flag (a cost cap that cannot fire, an allow-list the agent cannot express) pass silently into an unattended run.\n- [D8] A driven session's permission surface is recorded in `run_started.surface` and its settings file is written, read back and compared at EVERY launch — never assert a surface the record does not carry, and never claim the driver bounds what a session can do, since its file only adds to the operator's own settings sources.\n- [D11] State the driver's token result as a measurement with its scope — 2.44M vs 5.80M per task on the 4.1 run, for tasks that fit one cold session — never as a general claim that driving is cheaper. Where this and D1's rationale disagree, the measurement wins.\n- [D6] `sofar drive` never creates or destroys a git worktree or switches a branch; it launches into one directory for the whole run and refuses to start unless that directory's `.sofar` log for the initiative is the same file it is driving.\n- [D3] An adapter never reports record state: wrote_back and the launched session's identity are derived from the fold, and when several candidate sessions exist the driver records a stall rather than guessing.\n- [D13] PERMISSION_MODES must carry every mode the target agent's own `--permission-mode` advertises (check `claude --help`), and every mode in it must map in codex's SANDBOX_BY_MODE — a mode sofar refuses is a mode no operator can reach.\n- …and 3 more (see decisions.md)\n- …and 84 more from other records (their decisions.md)\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"session-driver"}}
 --- stderr
 (empty)
 
@@ -181,8 +121,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-sofar: main @ c0ffee0, pushed (in sync with origin/main).
-<no trailing newline>
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ c0ffee0, pushed (in sync with origin/main).","sessionTitle":"session-driver"}}
 --- stderr
 (empty)
 
@@ -191,67 +130,7 @@ argv: ["event","session-start"]
 stdin: {"session_id":"aefa6315-3725-4e4d-9f9a-224ff6f86ddb","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
 exit: 0
 --- stdout
-# Sofar status: session-strategy-bench
-
-Goal: Automated controlled benchmark: one long session vs fresh-sessions-per-task (Sofar pattern), measuring cost shape, output quality, and time. Second scenario of handoff-bench; reuses its harness, blind-grading machinery, and evidence format. MEASURES only — read-side; zero engine/injection changes; findings that suggest engine changes are logged as proposals.
-
-Next action: When the driver exits: extract telemetry, run the sidecar, grade (A+B primary, C robustness), write the R02 evidence section.
-
-Last session (claude-code, ended 2026-08-13T14:58:50.576Z):
-  Phase-close repair from phase-lifecycle 4.3 (D5). No bench work: read plan.md and the event log, closed Phase 5 (3/3 tasks, freeze confirmed), and LEFT PHASE 6 OPEN — all five of its tasks were marked done in one minute, only four have a confirming note, and a W1-L control re-run landed afterwards whose three-way drift t… (clipped — full text in sessions/01KZXT38PBSSKXMFYGN7K54QVX.md)
-
-⚠ 1 other session(s) did work without writing back: 8d40de69-7589-4f67-8ffc-da71d4e99951
-
-Phases:
-- Phase 6 — S2-R02 execution + evidence [pending — all tasks done; mark phase done?] 5/5
-- done: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5 (15/15 tasks)
-Progress: 20/20 tasks done (100%) across 6 phase(s)
-
-Repo memory (.sofar/repo.md):
-# Repo memory — sofar
-
-- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
-  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
-  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
-  aliases (pre-publish). Historical event/projection text and the archived
-  docs still say harness — that is history, never rewritten.
-- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
-  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
-…truncated — read .sofar/repo.md for the rest
-
-Recent decisions (last 5 of 12; full text in decisions.md):
-- [D8] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
-- [D9] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
-- [D10] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
-- [D11] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
-- [D12] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
-Earlier rejected approaches — do NOT re-propose (7 older):
-- [D1] Post-hoc analysis of whatever the data shows, or predictions written/…
-- [D2] Letting benchmark findings drive engine/injection tweaks in-flight wi…
-- [D3] Building a new bench, single-family
-- [D4] Running arm L with sofar wired
-- [D5] Running bench worktrees inside the live brillo checkout
-- …and 2 more (see decisions.md)
-
-Next ids: D13 (decision), M1 (memory)
-
-Adjacent records — 7 decisions across 1 other initiative that have worked this one's files, densest first:
-- speed — 4 shared files, 7 decisions
-Adjacency, not aboutness — offered as worth reading, never as a rule.
-
-Session: aefa6315-3725-4e4d-9f9a-224ff6f86ddb — adopted on Claude Code; else pass to sofar_start_session.
-Git: main @ c0ffee0 — in sync with origin/main
-
-Repo-wide rules from other records (4 of 94, most relevant first):
-- [bench-refresh D10] Every sofar fallback or failure seen in a run (driver stall, hook block, tool error, truncation, workaround) is a loss-study row with evidence and a ranked fix; a fix's predicted gain is written before it is built and checked in the next round.
-- [session-driver D5] Driver handoff reasons are derived from the fold — needs_user is the named task in status `blocked`, task_done needs a write-back AND a terminal task status; never infer a reason from write-back prose or an exit code.
-- [in-session-drive D1] A driven run started from inside an agent session must be detached from that agent's process, must state its preflight refusals and D9 warnings to the caller before returning, and must refuse while the calling session is registered on the driven initiative with no write-back.
-- [session-driver D14] `--cost-cap` and `--max-sessions` bound ONE driver, not one run: a resumed run restarts the cap at zero and counts its session budget from recorded handoffs alone. Never describe either as a run-wide guarantee, and keep the resume warnings that say so.
-- …and 90 more in other records (their decisions.md)
-
-Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
-
-(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: session-strategy-bench\n\nGoal: Automated controlled benchmark: one long session vs fresh-sessions-per-task (Sofar pattern), measuring cost shape, output quality, and time. Second scenario of handoff-bench; reuses its harness, blind-grading machinery, and evidence format. MEASURES only — read-side; zero engine/injection changes; findings that suggest engine changes are logged as proposals.\n\nNext action: When the driver exits: extract telemetry, run the sidecar, grade (A+B primary, C robustness), write the R02 evidence section.\n\nLast session (claude-code, ended 2026-08-13T14:58:50.576Z):\n  Phase-close repair from phase-lifecycle 4.3 (D5). No bench work: read plan.md and the event log, closed Phase 5 (3/3 tasks, freeze confirmed), and LEFT PHASE 6 OPEN — all five of its tasks were marked done in one minute, only four have a confirming note, and a W1-L control re-run landed afterwards whose three-way drift t… (clipped — full text in sessions/01KZXT38PBSSKXMFYGN7K54QVX.md)\n\n⚠ 1 other session(s) did work without writing back: 8d40de69-7589-4f67-8ffc-da71d4e99951\n\nPhases:\n- Phase 6 — S2-R02 execution + evidence [pending — all tasks done; mark phase done?] 5/5\n- done: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5 (15/15 tasks)\nProgress: 20/20 tasks done (100%) across 6 phase(s)\n\nRepo memory (.sofar/repo.md):\n# Repo memory — sofar\n\n- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):\n  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP\n  server \"sofar\" with sofar_* tools, record dir `.sofar/`. No back-compat\n  aliases (pre-publish). Historical event/projection text and the archived\n  docs still say harness — that is history, never rewritten.\n- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,\n  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision\n…truncated — read .sofar/repo.md for the rest\n\nRecent decisions (last 5 of 12; full text in decisions.md):\n- [D8] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…\n- [D9] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…\n- [D10] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…\n- [D11] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…\n- [D12] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…\nEarlier rejected approaches — do NOT re-propose (7 older):\n- [D1] Post-hoc analysis of whatever the data shows, or predictions written/…\n- [D2] Letting benchmark findings drive engine/injection tweaks in-flight wi…\n- [D3] Building a new bench, single-family\n- [D4] Running arm L with sofar wired\n- [D5] Running bench worktrees inside the live brillo checkout\n- …and 2 more (see decisions.md)\n\nNext ids: D13 (decision), M1 (memory)\n\nAdjacent records — 7 decisions across 1 other initiative that have worked this one's files, densest first:\n- speed — 4 shared files, 7 decisions\nAdjacency, not aboutness — offered as worth reading, never as a rule.\n\nSession: aefa6315-3725-4e4d-9f9a-224ff6f86ddb — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ c0ffee0 — in sync with origin/main\n\nRepo-wide rules from other records (4 of 94, most relevant first):\n- [bench-refresh D10] Every sofar fallback or failure seen in a run (driver stall, hook block, tool error, truncation, workaround) is a loss-study row with evidence and a ranked fix; a fix's predicted gain is written before it is built and checked in the next round.\n- [session-driver D5] Driver handoff reasons are derived from the fold — needs_user is the named task in status `blocked`, task_done needs a write-back AND a terminal task status; never infer a reason from write-back prose or an exit code.\n- [in-session-drive D1] A driven run started from inside an agent session must be detached from that agent's process, must state its preflight refusals and D9 warnings to the caller before returning, and must refuse while the calling session is registered on the driven initiative with no write-back.\n- [session-driver D14] `--cost-cap` and `--max-sessions` bound ONE driver, not one run: a resumed run restarts the cap at zero and counts its session budget from recorded handoffs alone. Never describe either as a run-wide guarantee, and keep the resume warnings that say so.\n- …and 90 more in other records (their decisions.md)\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"session-strategy-bench"}}
 --- stderr
 (empty)
 

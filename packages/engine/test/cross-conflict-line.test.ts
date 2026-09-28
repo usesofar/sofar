@@ -14,6 +14,7 @@ import { refreshTier0 } from '../src/core/index-tier0'
 import { INDEX_SCHEMA_VERSION, indexDir } from '../src/core/index-store'
 import { appendEvent, serializeEvent } from '../src/core/log'
 import { CROSS_CONFLICT_BUDGET, handleUserPrompt } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
 
 /**
@@ -242,7 +243,7 @@ const open = (root: string, slug: string, session: string, file: string): void =
 }
 
 function prompt(root: string, session: string): string {
-  return handleUserPrompt(root, JSON.stringify({ session_id: session, cwd: '/tmp' })).stdout
+  return hookContext(handleUserPrompt(root, JSON.stringify({ session_id: session, cwd: '/tmp' })))
 }
 
 /** Session A on `demo`, session B on `other`, both holding one file. */

@@ -4587,6 +4587,40 @@ fires, and a Codex session is Tier 3 (§Host tiers).
   HARD LIMIT:
   output ≤6,000 chars (memory-lead D4; 10,000 before) — projection generator
   must guarantee this, cutting before the protected end (§Digest composition).
+- Session title (session-naming 1.1, D1) — the name a Claude Code session
+  shows in its sidebar, in `ListAgents` and as the address `SendMessage`
+  delivers to. Claude Code derives one from the working directory's folder
+  and two hex characters of the session id (`sofar-d3`), which says nothing
+  about the work. Both the SessionStart and the UserPromptSubmit shim hand
+  the host `<slug> <focus task id>` (`agents-parity 3.4`; the slug alone
+  while the record has no open task — the same task the block's
+  "Current task" / "Next task" line names) as
+  `hookSpecificOutput.sessionTitle`, which the host applies as the
+  session's title (both hooks receive the current `session_title` on
+  stdin). PROVEN live on claude 2.1.283 (session-naming 1.4, two interactive
+  pty sessions and one print-mode session on a scratch repo wired to the
+  build): the transcript's `customTitle`, the terminal title and the header
+  became `baseline 1.2` within the first turn, and a session launched with
+  `--name` kept its own title. NOT taken by that build: the peer registry's
+  `name` (`~/.claude/sessions/<pid>.json`, the address `SendMessage` and
+  `ListAgents` use) stayed derived for the whole run, although the registry
+  schema admits `nameSource: "hook"`; a later build may take it, and nothing
+  of ours changes when it does. The context
+  then rides as `additionalContext` in the same object, which the host
+  injects exactly as it injects plain stdout on these two events. The title
+  is handed over ONLY over an absent title, the host's derived name for this
+  payload's cwd, or a title of ours (first token an initiative of this
+  repo — so a session that re-homes or moves task is renamed); a title the
+  operator typed (`/rename`, `--name`) is never touched, and an unchanged
+  title is not re-sent — in every such case the shim prints the plain form
+  it always did, byte for byte. Cursor and Codex outputs never carry the
+  key. sofar writes NOTHING to the host's session registry (peer-messaging
+  D1): it hands over a string, and the host does the renaming. Cost: the
+  slug and focus task are already in memory when the block renders; the
+  only I/O the title adds is one `exists` stat of
+  `.sofar/initiatives/<first token>`, and a session whose title is already
+  right costs nothing at all. Two sessions on one task collide, and the
+  host suffixes the second as it does any collision.
 - UserPromptSubmit shim (felt-cost 4.1/4.2, D5) → the batch-complete nudge:
   when the prompt's session_id is registered AND sessionDebt(state, me) —
   THIS session's own unwritten mutations plus unattributed drift, the same

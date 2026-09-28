@@ -15,6 +15,7 @@ import {
   REPO_MEMORY_TRUNCATION_MARKER,
   STATUS_CHAR_LIMIT,
 } from '../src/projections/templates/status'
+import { hookContext } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
 
 /**
@@ -140,22 +141,25 @@ describe('acceptance 1 — SessionStart output ≤10,000 chars on a large synthe
     const fixture = fx()
     seedLargeInitiative(fixture)
 
-    // handler-level
+    // handler-level. The cap bounds the CONTEXT the model is handed; the
+    // title envelope around it (session-naming D1) is not injected.
     const result = handleSessionStart(fixture.root, JSON.stringify({ ...base }))
     expect(result.exitCode).toBe(0)
-    expect(result.stdout.length).toBeGreaterThan(0)
-    expect(result.stdout.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
-    expect(result.stdout).toContain('Goal: An enormous goal.')
-    expect(result.stdout).toContain('Next action: next action 9')
+    const block = hookContext(result)
+    expect(block.length).toBeGreaterThan(0)
+    expect(block.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
+    expect(block).toContain('Goal: An enormous goal.')
+    expect(block).toContain('Next action: next action 9')
 
     // built-CLI level (context injection is stdout of `sofar event session-start`)
     const fresh = fx()
     seedLargeInitiative(fresh)
     const proc = runEvent(fresh, 'session-start', { ...base })
     expect(proc.status).toBe(0)
-    expect(proc.stdout.length).toBeGreaterThan(0)
-    expect(proc.stdout.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
-    expect(proc.stdout).toContain('Goal: An enormous goal.')
+    const injected = hookContext(proc.stdout)
+    expect(injected.length).toBeGreaterThan(0)
+    expect(injected.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
+    expect(injected).toContain('Goal: An enormous goal.')
   })
 
   it('a huge hand-written repo.md (6.5, BD40) is budget-clipped and the global cap still holds', () => {
@@ -169,17 +173,19 @@ describe('acceptance 1 — SessionStart output ≤10,000 chars on a large synthe
     // handler-level: section present, clipped, cap intact
     const result = handleSessionStart(fixture.root, JSON.stringify({ ...base }))
     expect(result.exitCode).toBe(0)
-    expect(result.stdout.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
-    expect(result.stdout).toContain('Repo memory (.sofar/repo.md):')
-    expect(result.stdout).toContain('Always run npm test.')
-    expect(result.stdout).toContain(REPO_MEMORY_TRUNCATION_MARKER)
-    expect(result.stdout).toContain('Goal: An enormous goal.') // the record still leads
+    const block = hookContext(result)
+    expect(block.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
+    expect(block).toContain('Repo memory (.sofar/repo.md):')
+    expect(block).toContain('Always run npm test.')
+    expect(block).toContain(REPO_MEMORY_TRUNCATION_MARKER)
+    expect(block).toContain('Goal: An enormous goal.') // the record still leads
 
     // built-CLI level: same guarantees through the real injection path
     const proc = runEvent(fixture, 'session-start', { ...base })
     expect(proc.status).toBe(0)
-    expect(proc.stdout.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
-    expect(proc.stdout).toContain('Repo memory (.sofar/repo.md):')
+    const injected = hookContext(proc.stdout)
+    expect(injected.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
+    expect(injected).toContain('Repo memory (.sofar/repo.md):')
     expect(proc.stdout).toContain(REPO_MEMORY_TRUNCATION_MARKER)
   })
 

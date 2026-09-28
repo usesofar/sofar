@@ -20,6 +20,7 @@ import type { Caps } from '../src/cli/ui'
 import { createToolContext, resolveSessionFirst } from '../src/mcp/context'
 import { startSession } from '../src/mcp/start-session'
 import { STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
+import { hookContext, hookTitle } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
 
 /**
@@ -227,7 +228,10 @@ describe('no ceremony in the lane (D14 C)', () => {
     const f = fx()
     handlePostTool(f.root, edit('src/a.ts'))
     handlePostTool(f.root, edit('src/b.ts', 'claude-quick-2'))
-    const out = handleSessionStart(f.root, hook({ session_id: 'claude-quick-3' })).stdout
+    const start = handleSessionStart(f.root, hook({ session_id: 'claude-quick-3' }))
+    // the lane names the session too, by its slug alone (session-naming D1)
+    expect(hookTitle(start)).toBe(QUICK_LANE)
+    const out = hookContext(start)
     expect(out).toMatch(/^# Sofar: quick-work lane \(quick\)/)
     expect(out).toContain('no sofar new, no plan, no write-back')
     expect(out).toContain('sofar_log_decision — one line of why')
@@ -252,7 +256,7 @@ describe('no ceremony in the lane (D14 C)', () => {
       over: 'raising the timeout',
       because: 'the failure is a reset, not slowness',
     })
-    const out = handleSessionStart(f.root, hook({ session_id: 'claude-quick-2' })).stdout
+    const out = hookContext(handleSessionStart(f.root, hook({ session_id: 'claude-quick-2' })))
     expect(out).toContain('[D1]')
     expect(out).toContain('retry the flaky upload once')
     expect(out).toMatch(/^Recent quick work \(1 session, 1 decision since/m)

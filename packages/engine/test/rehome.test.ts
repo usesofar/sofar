@@ -6,6 +6,7 @@ import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { handlePostTool, handleSessionStart } from '../src/cli/event'
 import { runStatusline } from '../src/cli/statusline'
+import { hookContext } from './helpers/hook-output'
 import { createToolContext } from '../src/mcp/context'
 import { endSession } from '../src/mcp/end-session'
 import { startSession } from '../src/mcp/start-session'
@@ -132,8 +133,7 @@ const record = (root: string, session: string): string =>
     .pop()!
 
 const block = (root: string, session: string): string =>
-  handleSessionStart(root, JSON.stringify({ session_id: session, cwd: root, source: 'startup' }))
-    .stdout
+  hookContext(handleSessionStart(root, JSON.stringify({ session_id: session, cwd: root, source: 'startup' })))
 
 const edit = (root: string, session: string): void => {
   handlePostTool(

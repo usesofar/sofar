@@ -9,6 +9,7 @@ import { renderStatus } from '../src/projections/templates/status'
 import { handlePostTool, handleSessionStart, handleStop, STOP_BLOCK_MESSAGE } from '../src/cli/event'
 import { runExport, runImport } from '../src/cli/transfer'
 import { createSpinner } from '../src/cli/ui/spinner'
+import { hookContext } from './helpers/hook-output'
 import {
   callToolText,
   connectServer,
@@ -347,11 +348,15 @@ describe('behavioral guard — guaranteed-plain surfaces under FORCE_COLOR=1 + C
     )
 
     expect(result.exitCode).toBe(0)
-    expect(result.stdout.startsWith(`# Sofar status: ${fixture.slug}`)).toBe(true)
-    expect(result.stdout).toContain('Session: claude-hostile-1')
-    expect(result.stdout).toContain('Repo memory (.sofar/repo.md):')
-    expect(result.stdout).not.toMatch(ESC)
-    expect(result.stdout).not.toMatch(CONTROL)
+    // the whole wire form — title envelope included (session-naming D1) — is plain, and so is the block inside it
+    const block = hookContext(result)
+    expect(block.startsWith(`# Sofar status: ${fixture.slug}`)).toBe(true)
+    expect(block).toContain('Session: claude-hostile-1')
+    expect(block).toContain('Repo memory (.sofar/repo.md):')
+    for (const text of [result.stdout, block]) {
+      expect(text).not.toMatch(ESC)
+      expect(text).not.toMatch(CONTROL)
+    }
     expect(result.stderr).toBe('')
   })
 

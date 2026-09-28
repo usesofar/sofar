@@ -192,7 +192,24 @@ stdout, exit 0 always:
 - Nothing resolves AND repo has no `.sofar/initiatives` entries → empty.
 - Nothing resolves but initiatives exist → the unbound notice (verbatim in
   `unboundNotice`, ≤10 slugs named, `, …+N more`), capped by `enforceStatusLimit`.
-- Otherwise `preface + "\n\n" + status` (or `status` alone when the preface
+- Otherwise the block below — plain, OR wrapped as
+  `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":<block>,"sessionTitle":<title>}}`
+  + `\n` (JSON.stringify key order; `additionalContext` omitted when the
+  block trims to empty) when a session title is handed over (session-naming
+  D1, `host.ts withSessionTitle`). The title is `<slug> <focus task id>` —
+  `focusTask`: the active phase's active, else pending, else blocked task,
+  else the same pick over the first phase neither done nor dropped — or the
+  slug alone with no such task. It is handed over only when the host is
+  Claude Code (no `cursor_version`, not `--host codex`) AND `titleToApply`
+  says so: the payload's `session_title` (JS-trimmed; absent reads as empty)
+  differs from the title, and is empty, OR is the host's derived name for
+  this payload's `cwd` (`<basename(cwd)>-` + exactly two of `[0-9a-f]`; node
+  posix basename: trailing `/` stripped, last segment), OR has a first
+  space-delimited token of `[a-z0-9-]+` that names an existing
+  `.sofar/initiatives/<token>` (one `exists` stat, the only I/O the title
+  adds). Anything else — the operator's own title — leaves the plain form.
+  Nothing resolving hands no title.
+- The block: `preface + "\n\n" + status` (or `status` alone when the preface
   is empty), the composed output re-capped by `enforceStatusLimit`. Preface
   parts, in this order, joined by `\n\n`, each omitted when null:
   1. recent-work-elsewhere line (`via === 'branch'` only; strictly newer
@@ -268,7 +285,12 @@ change); `open.json`/`meta.json` when logs grew; NEVER events.jsonl.
 Silent (exit 0, empty) when: no session_id; unresolved; session not
 registered in the bound log. Otherwise stdout = lines joined by `\n` (no
 trailing newline added by the handler; `mirror` adds none to stdout), in
-THIS order (each omitted when null/empty):
+THIS order (each omitted when null/empty). Then the session title
+(session-naming D1): decided after the fold and BEFORE the registration
+check, by the same `titleToApply` rule as session-start, and wrapped the
+same way with `hookEventName` `UserPromptSubmit` — so an unregistered
+session's "silent" prompt is `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":<title>}}`
++ `\n` when a title is due, and a nudge rides as `additionalContext` beside it.
 1. guard-crossing lines (`sessionGuardViolations(state, me, me.ended)`,
    ≤2 rules, ≤3 subjects each, `(+N more)`, overflow line names `sofar doctor`)
 2. live file-conflict line (≤3 paths, `(+N more)`, clip 300)

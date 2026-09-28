@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { validateDiagnosticRow } from '@sofar/schema/diagnostics'
 import { handlePostTool, handlePostToolFailure, handleSessionStart, SUBCOMMANDS } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 import { runDiagnostics } from '../src/cli/diagnostics'
 import { runExport } from '../src/cli/transfer'
 import { pullStream } from '../src/client/pull'
@@ -418,7 +419,8 @@ describe('hook capture (1.2)', () => {
     expect(first.stdout.length).toBeGreaterThan(0)
     const { rows } = readDiagnostics(fixture.root, fixture.slug)
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ kind: 'injection', session: 'sess-1', data: { hook: 'SessionStart', bytes: first.stdout.length } })
+    // sized to the CONTEXT the model sees — the title envelope around it (session-naming D1) is not injected
+    expect(rows[0]).toMatchObject({ kind: 'injection', session: 'sess-1', data: { hook: 'SessionStart', bytes: hookContext(first).length } })
     expect((rows[0]!.data as { memory_bytes?: number }).memory_bytes).toBeGreaterThan(0)
     // Byte-stability: a second start renders the same block despite the store now holding a row.
     const second = handleSessionStart(fixture.root, hookStdin({}))

@@ -11,6 +11,7 @@ import {
 } from '../src/core/fold'
 import { appendEvent, serializeEvent } from '../src/core/log'
 import { FILE_CONFLICT_BUDGET, handleUserPrompt } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 import { callTool, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
 
 /**
@@ -272,7 +273,7 @@ function touch(root: string, session: string, path: string, ts: string): void {
 }
 
 function prompt(root: string, session: string): string {
-  return handleUserPrompt(root, JSON.stringify({ session_id: session, cwd: '/tmp' })).stdout
+  return hookContext(handleUserPrompt(root, JSON.stringify({ session_id: session, cwd: '/tmp' })))
 }
 
 describe('2.1 live file-conflict warning', () => {

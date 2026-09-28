@@ -5,6 +5,7 @@
 
 use std::path::Path;
 
+use crate::cli::Hook;
 use crate::attribution::{
     CommitAttribution, cached_attribution, commits_by_task, read_shipping_from,
 };
@@ -16,7 +17,7 @@ use crate::fold_cli::CmdResult;
 use crate::git::read_git_state;
 use crate::home::{LaneAvailability, ResolvedVia, lane_availability, resolve_session_first};
 use crate::hook::{clip_to, parse_hook, str_field};
-use crate::host::hook_host;
+use crate::host::{CLAUDE_CODE, hook_host, session_title, title_to_apply, with_session_title};
 use crate::index_tier1::{refresh_guards, refresh_neighbours, repo_rules};
 use crate::json::{Json, Object, number_to_string};
 use crate::layout::{Layout, initiative_slugs};
@@ -25,6 +26,7 @@ use crate::record_copies::{home_dir, worktree_leads, worktree_leads_notice};
 use crate::session_pointer::write_session_pointer;
 use crate::shipwatch::note_upstream;
 use crate::status::{
+    focus_task,
     QUICK_LANE, StatusOptions, enforce_status_limit, is_closed_initiative_status, render_status,
     session_id_line,
 };
@@ -485,6 +487,19 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             retire: retire_enabled(),
         },
     );
+    // The session's name (session-naming D1): the slug and the focus task the
+    // block leads with, handed to Claude Code as a title. Only an absent,
+    // derived or sofar-owned title is replaced; otherwise the block goes out
+    // plain, byte-identical.
+    let title = if hook_host(&hook).tool == CLAUDE_CODE {
+        title_to_apply(
+            &hook,
+            &session_title(&slug, focus_task(&state).map(|(t, _)| t.id.as_str())),
+            &layout,
+        )
+    } else {
+        None
+    };
     let mut data = Object::with_capacity(3);
     data.insert("hook", Json::Str("SessionStart".to_owned()));
     #[allow(clippy::cast_precision_loss, reason = "block sizes are small")]
@@ -504,7 +519,7 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             host_tool: Some(hook_host(&hook).tool.to_owned()),
         },
     );
-    ok(status)
+    with_session_title(Hook::SessionStart, ok(status), title.as_deref())
 }
 
 #[cfg(test)]

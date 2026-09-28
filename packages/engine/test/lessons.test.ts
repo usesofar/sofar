@@ -5,6 +5,7 @@ import { appendEvent } from '../src/core/log'
 import { foldLog } from '../src/core/fold'
 import { LESSON_MAX, LESSON_RUNNER_UP_RATIO, relevantLessons } from '../src/core/lessons'
 import { handlePostTool, handleUserPrompt, LESSON_LINE_BUDGET } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
 
 /**
@@ -143,7 +144,8 @@ describe('sofar event user-prompt — the lessons line (r1-fixes 3.3, D16)', () 
     const noPrompt = JSON.stringify({ session_id: SESSION, hook_event_name: 'UserPromptSubmit', cwd: '/tmp' })
     expect(handleUserPrompt(f.root, noPrompt).stdout).not.toContain('ruled out before')
     expect(handleUserPrompt(f.root, prompt('continue')).stdout).not.toContain('ruled out before')
-    expect(handleUserPrompt(f.root, prompt('rewrite the committed log to scrub it', 'nobody')).stdout).toBe('')
+    // an unregistered session is handed its title and nothing else (session-naming D1)
+    expect(hookContext(handleUserPrompt(f.root, prompt('rewrite the committed log to scrub it', 'nobody')))).toBe('')
   })
 
   it('sits after a guard crossing and before the concurrent-edit hazard', () => {

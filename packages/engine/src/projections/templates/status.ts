@@ -904,7 +904,12 @@ function assemble(blocks: Block[], limit: number): string {
 }
 
 /** The task a session is about to work (D4): see the D4 order on focusTask's callers. */
-function focusTask(state: InitiativeState): { task: TaskState; phase: InitiativeState['phases'][number] } | undefined {
+/**
+ * The task the digest leads with — the active phase's active, else pending,
+ * else blocked task, else the first open phase's — and the task a session's
+ * title names (session-naming D1, cli/host.ts sessionTitle).
+ */
+export function focusTask(state: InitiativeState): { task: TaskState; phase: InitiativeState['phases'][number] } | undefined {
   const pick = (phase: InitiativeState['phases'][number]): TaskState | undefined =>
     phase.tasks.find((t) => t.status === 'active') ??
     phase.tasks.find((t) => t.status === 'pending') ??

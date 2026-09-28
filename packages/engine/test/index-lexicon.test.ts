@@ -7,6 +7,7 @@ import { LEXICON_BUCKETS, lexiconBucket, rankLexicon, refreshLexicon } from '../
 import { indexedLessons, indexFloor, LESSON_MIN_SCORE } from '../src/core/lessons'
 import { appendEvent } from '../src/core/log'
 import { handleUserPrompt } from '../src/cli/event'
+import { hookContext } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
 
 /**
@@ -57,7 +58,7 @@ function pad(f: Fixture, slug: string, n: number): void {
 }
 
 function lessonLinesOf(stdout: string): string[] {
-  return stdout.split('\n').filter((l) => /^sofar: (ruled out|decided|noted) before/.test(l))
+  return hookContext(stdout).split('\n').filter((l) => /^sofar: (ruled out|decided|noted) before/.test(l))
 }
 
 describe('the tier (D15)', () => {
