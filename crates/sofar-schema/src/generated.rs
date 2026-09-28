@@ -391,6 +391,9 @@ pub struct PlanPhaseInput {
 #[doc = "Full plan structure carried by plan_updated (full replace, SPEC §MCP tools)."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct PlanStructure {
+    #[doc = "The operator's own words the plan was made from — a roadmap, a spec, a list of steps — VERBATIM (r1-fixes 4.6, L36). Kept when a later replace omits it, like goal: tasks are the agent's summary of it and lose words, and finishing every task does not finish the brief."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub brief: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub goal: ::std::option::Option<::std::string::String>,
     pub phases: ::std::vec::Vec<PlanPhaseInput>,

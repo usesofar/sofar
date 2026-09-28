@@ -311,6 +311,10 @@ pub struct Current {
 pub struct InitiativeState {
     pub slug: String,
     pub goal: String,
+    /// The plan's brief (r1-fixes 4.6, L36): the operator's words the plan was
+    /// made from, verbatim; kept when a replace omits it, like `goal`.
+    #[serde(default)]
+    pub brief: String,
     pub status: String,
     pub status_ts: Option<String>,
     pub status_note: Option<String>,
@@ -348,6 +352,7 @@ pub fn empty_state() -> InitiativeState {
     InitiativeState {
         slug: String::new(),
         goal: String::new(),
+        brief: String::new(),
         status: "active".to_owned(),
         status_ts: None,
         status_note: None,
@@ -860,6 +865,9 @@ fn apply_event(
             };
             if let Some(goal) = plan.get("goal").and_then(Json::as_str) {
                 goal.clone_into(&mut state.goal);
+            }
+            if let Some(brief) = plan.get("brief").and_then(Json::as_str) {
+                brief.clone_into(&mut state.brief);
             }
             let phases = plan.get("phases").and_then(Json::as_arr).unwrap_or(&[]);
             state.phases = phases
@@ -2224,6 +2232,7 @@ impl InitiativeState {
         let mut o = Object::with_capacity(20);
         put(&mut o, "slug", &self.slug);
         put(&mut o, "goal", &self.goal);
+        put(&mut o, "brief", &self.brief);
         put(&mut o, "status", &self.status);
         put_null(&mut o, "status_ts", self.status_ts.as_deref());
         put_null(&mut o, "status_note", self.status_note.as_deref());
@@ -2727,6 +2736,11 @@ impl InitiativeState {
         Some(InitiativeState {
             slug: rs(o, "slug")?,
             goal: rs(o, "goal")?,
+            // Absent in a state written before r1-fixes 4.6: no brief yet.
+            brief: o
+                .get("brief")
+                .and_then(Json::as_str)
+                .map_or_else(String::new, ToOwned::to_owned),
             status: rs(o, "status")?,
             status_ts: ns(o, "status_ts")?,
             status_note: ns(o, "status_note")?,

@@ -30,6 +30,9 @@ pub const REPO_MEMORY_TRUNCATION_MARKER: &str = "…truncated — read .sofar/re
 
 const SESSION_ID_BUDGET: usize = 120;
 const GOAL_BUDGET: usize = 400;
+/// The plan's brief (r1-fixes 4.6, L36): a FIXED block after the goal; the rest is in plan.md.
+const BRIEF_BUDGET: usize = 1_500;
+const BRIEF_HEADER: &str = "Brief — the operator's words, verbatim; the plan is this record's reading of it, and a finished task list does not finish the brief:";
 const NEXT_TASK_TITLE_BUDGET: usize = 1_000;
 const SIBLING_TITLE_BUDGET: usize = 80;
 const MAX_SIBLINGS: usize = 6;
@@ -420,6 +423,25 @@ impl Default for StatusOptions {
             retire: true,
         }
     }
+}
+
+/// `briefLines`: the header, then the brief clipped to `BRIEF_BUDGET` UTF-16 units with the plan.md pointer.
+fn brief_lines(state: &InitiativeState) -> Vec<String> {
+    let mut lines = vec![BRIEF_HEADER.to_owned()];
+    if utf16_len(&state.brief) <= BRIEF_BUDGET {
+        lines.extend(state.brief.split('\n').map(str::to_owned));
+    } else {
+        lines.extend(
+            utf16_prefix(&state.brief, BRIEF_BUDGET)
+                .split('\n')
+                .map(str::to_owned),
+        );
+        lines.push(format!(
+            "…truncated — the whole brief is in .sofar/initiatives/{}/plan.md",
+            state.slug
+        ));
+    }
+    lines
 }
 
 fn goal_line(state: &InitiativeState) -> String {
@@ -835,6 +857,14 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         head.push(String::new());
     }
     fixed(&mut blocks, head);
+
+    // (1b) The plan's brief (r1-fixes 4.6, L36), fixed; never rendered before
+    // one was recorded.
+    if !state.brief.is_empty() && !lane {
+        let mut lines = brief_lines(state);
+        lines.push(String::new());
+        fixed(&mut blocks, lines);
+    }
 
     // (2) The next task's spec.
     if let Some((task, phase)) = focus {
@@ -1639,6 +1669,12 @@ pub fn render_full_status(
             &state.goal
         }
     ));
+    // The brief in full (r1-fixes 4.6): a terminal surface, uncapped.
+    if !state.brief.is_empty() {
+        lines.push(String::new());
+        lines.push(BRIEF_HEADER.to_owned());
+        lines.extend(state.brief.split('\n').map(str::to_owned));
+    }
 
     let standing = standing_constraint_lines(&state.decisions, None, retire, None);
     if !standing.is_empty() {

@@ -602,6 +602,9 @@ fn validate_plan(plan: Option<&Json>, errors: &mut Vec<String>) {
     if plan.contains_key("goal") && !str(plan.get("goal")) {
         errors.push("plan.goal: must be a non-empty string".to_owned());
     }
+    if plan.contains_key("brief") && !str(plan.get("brief")) {
+        errors.push("plan.brief: must be a non-empty string".to_owned());
+    }
     let Some(phases) = plan.get("phases").and_then(Json::as_arr) else {
         errors.push("plan.phases: must be an array".to_owned());
         return;
