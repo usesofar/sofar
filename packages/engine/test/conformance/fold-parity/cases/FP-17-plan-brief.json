@@ -1,0 +1,10 @@
+{
+  "tail_at": 3,
+  "seeds": [
+    50,
+    51,
+    52
+  ],
+  "order_independence": true,
+  "note": "r1-fixes 4.6 (L36): plan.brief is the operator's words verbatim, sticky like goal — a plan_updated with a new brief replaces it, one without keeps the last, one with an empty string is an invalid line. The final state is the S9 shape: every task done, the roadmap whole. The tail starts at the first task done"
+}

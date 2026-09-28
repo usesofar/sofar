@@ -649,7 +649,7 @@ Session loop:
 ${PROTOCOL_END}
 `
 
-export const PROTOCOL_BLOCK = `${PROTOCOL_START}
+export const PROTOCOL_BLOCK_V11 = `${PROTOCOL_START}
 ## Sofar protocol (jurisdiction is total)
 
 This repo's work memory lives in sofar records under \`.sofar/\`.
@@ -712,6 +712,79 @@ Session loop:
 ${PROTOCOL_END}
 `
 
+/**
+ * r1-fixes 4.6 (L36): PLAN — the operator's roadmap or spec goes in the plan's
+ * brief verbatim before it is decomposed. Everything else is V11.
+ */
+export const PROTOCOL_BLOCK = `${PROTOCOL_START}
+## Sofar protocol (jurisdiction is total)
+
+This repo's work memory lives in sofar records under \`.sofar/\`.
+1. ALL work state lives in sofar records — never in tool memory, scratch
+   files, ad-hoc notes, or a message from another session. If it is worth
+   keeping, it goes in the record.
+2. Work that matches no existing initiative requires creating one first:
+   run \`sofar new <slug>\` before proceeding.
+3. Bindings (\`.sofar/bindings.json\`) resolve which record a session
+   serves — the current git branch selects the initiative.
+
+Session loop:
+- START: the SessionStart hook has ALREADY injected the record above —
+  goal, progress, next action, decisions, rejected approaches, and the
+  next D/M ids (cite the decision you are about to log by that id). Do not
+  call \`sofar_get_state\` to re-read it: that digest is the same
+  projection rendered with fewer fields, so it can only tell you less.
+  Reach for it only when the injected block is missing or truncated, or
+  to read a DIFFERENT initiative. The files under \`.sofar/\` are
+  projections of the same record: open one only for full text the block
+  points to.
+  On Claude Code, sofar's tools adopt this session from its own id: there is
+  no start call. Elsewhere, call \`sofar_start_session\` first with the
+  \`session_id\` from the injected "Session:" line — it pins which record
+  your writes land in and attaches them to YOUR session.
+- RE-HOME the moment the work turns out to belong to a DIFFERENT record
+  than the one injected: call \`sofar_start_session\` with that
+  \`initiative\` (plus the \`session_id\` from the "Session:" line).
+  Passing \`initiative\` to any other tool routes ONE write; re-homing moves the SESSION,
+  because \`sofar_end_session\` takes no \`initiative\` and always follows the home.
+- PLAN: when the operator hands you a roadmap, a spec or a list of steps,
+  put their words in the plan's \`brief\` VERBATIM (\`sofar_update_plan\`)
+  before you decompose them into phases and tasks. Tasks are your summary
+  and lose words; the brief is what "the next item on the roadmap" means in
+  a later session, and a finished task list does not finish the brief. A
+  replace that omits \`brief\` keeps the last one.
+- DURING: work; the record is written once, at wrap-up. Keep track of what
+  the session decides and changes — \`sofar_end_session\` carries all of it.
+  Call \`sofar_log_decision\` mid-session only for a decision a concurrent
+  session must see before you finish. A rule is worded as the operator
+  worded it, with their exact words in \`quote\`. A note or summary is WHY:
+  files, commands, test outcomes and commits are captured by hooks and
+  derived, never restated.
+- DRIVING: when the operator asks for the work to run under sofar drive
+  ("run this in sofar drive"), write back FIRST with \`sofar_end_session\`
+  — the run's first session resumes from your next action — then start it
+  with \`sofar drive <slug> --detach\`, adding \`--allow\` for what proving
+  a task needs (the test command) and \`--session-timeout\`. Relay what it
+  prints: the run id, every warning, how to stop it. When it says
+  keep-awake is unset, ask the operator and save the answer with
+  \`sofar drive --keep-awake-setting on|off\`. Do not start a watcher:
+  sofar's rewake hook watches the run you detached and, when it stops or
+  its driver dies, wakes this session with ONE line — relay it (a
+  needs_user stop carries the operator's question). Only when
+  \`.claude/hooks/drive-await.sh\` is absent, run
+  \`sofar drive <slug> --await\` in a background shell instead; it prints
+  that same line and exits. Do not write to that record again while the
+  run goes. \`sofar drive <slug> --stop\` ends it.
+- BEFORE FINISHING: write back with ONE \`sofar_end_session\` call —
+  summary and next action, plus the session's \`decisions\` (each as
+  sofar_log_decision's arguments), \`tasks\` (status changes; a task the
+  plan lacks, with its \`title\`), \`phases\`, \`memories\` (operational
+  facts every later session needs: a release command, a failure mode and
+  its diagnosis, a convention) and \`notes\`. The Stop hook blocks sessions
+  that skip this.
+${PROTOCOL_END}
+`
+
 /** Superseded CLAUDE.md blocks, oldest first. */
 export const SHIPPED_PROTOCOL_BLOCKS: readonly string[] = [
   PROTOCOL_BLOCK_V1,
@@ -724,6 +797,7 @@ export const SHIPPED_PROTOCOL_BLOCKS: readonly string[] = [
   PROTOCOL_BLOCK_V8,
   PROTOCOL_BLOCK_V9,
   PROTOCOL_BLOCK_V10,
+  PROTOCOL_BLOCK_V11,
 ]
 
 /**
@@ -1403,7 +1477,7 @@ ${PROTOCOL_END}
  * against its "Session:" line. Live 3.2's Codex write-back landed under `cli`
  * and nothing in the block told the agent to look.
  */
-export const AGENTS_PROTOCOL_BLOCK = `${PROTOCOL_START}
+export const AGENTS_PROTOCOL_BLOCK_V10 = `${PROTOCOL_START}
 ## Sofar protocol (jurisdiction is total)
 
 This repo's work memory lives in sofar records under \`.sofar/\`. Any
@@ -1517,6 +1591,129 @@ Prohibitions:
 ${PROTOCOL_END}
 `
 
+/**
+ * r1-fixes 4.6 (L36): PLAN names the brief — the operator's roadmap or spec,
+ * verbatim, before decomposition. Everything else is V10.
+ */
+export const AGENTS_PROTOCOL_BLOCK = `${PROTOCOL_START}
+## Sofar protocol (jurisdiction is total)
+
+This repo's work memory lives in sofar records under \`.sofar/\`. Any
+agent can drive the whole loop with the \`sofar\` CLI below — no MCP
+support is required.
+1. ALL work state lives in sofar records — never in tool memory, scratch
+   files, ad-hoc notes, or a message from another session. If it is worth
+   keeping, it goes in the record.
+2. Work that matches no existing initiative requires creating one first:
+   run \`sofar new <slug> --goal "<one line>"\` before proceeding, then
+   append its plan (PLAN below). One initiative per project or roadmap —
+   its features and roadmap items are phases and tasks inside it, never
+   initiatives of their own.
+3. Bindings (\`.sofar/bindings.json\`) resolve which record a session
+   serves — the current git branch selects the initiative.
+
+Two facts about THIS session decide how you use the loop:
+- INJECTED: a "# Sofar status" block with a "Session:" line is already
+  in your context — sofar's hooks loaded the record (Cursor, Codex,
+  Claude Code). Orient from it; do NOT run \`sofar status\` to read it again.
+  Their Stop hook blocks a session that ends without writing back.
+- MCP TOOLS: \`sofar_*\` tools are available (Cursor lists them once the
+  operator approves the sofar MCP server; Codex loads them from a trusted
+  project's \`.codex/config.toml\`). Then write through them, not the
+  CLI: call \`sofar_start_session\` first with the \`session_id\` from the
+  "Session:" line, and finish with ONE \`sofar_end_session\` call — summary
+  and next action, plus the session's \`decisions\`, \`tasks\`, \`phases\`,
+  \`memories\` and \`notes\`. A memory is an operational fact every later
+  session needs (a release command, a failure mode and its diagnosis, a
+  convention); anything about this work is a note.
+Without MCP tools, every write is one \`sofar event append\` call:
+
+Session loop on the CLI:
+- BEFORE any work: unless the record is already INJECTED (above),
+  run \`sofar status\` and orient from it. Detail lives
+  in \`.sofar/initiatives/<slug>/plan.md\` and \`decisions.md\`. Do not
+  ask for context the record already answers.
+- RECORD: every append takes an optional LEADING slug —
+  \`sofar event append <slug> --type …\` — naming the record it lands in.
+  Omit it and the write follows the current branch's binding, which is not
+  the same thing as the record you registered in and can move mid-session.
+  So decide the slug once, before the first append, and pass it on EVERY
+  append this session — above all on the session_ended one, because a
+  write-back filed in the wrong record is the event the next session reads
+  first. If the work belongs to a record other than the one \`sofar status\`
+  shows, that is the slug to pass, every time; there is no session-level
+  re-homing on this path. \`sofar remember\` takes the same record as
+  \`--initiative <slug>\`, and follows the branch without it.
+- START: register this session WITHOUT --session (repeating it is a
+  harmless no-op):
+  \`sofar event append <slug> --type session_started --source <tool> --payload '{"tool":"<tool>"}'\`
+  (<tool> is your agent's name — codex, cursor, opencode; any name works).
+  sofar joins the session your hooks already registered, or starts one and
+  prints its id, and every append without --session lands in that same
+  session — so never invent an id. Each append prints the session it
+  landed in; if that is not the id on your "Session:" line, pass
+  \`--session <that id>\` on every append from then on (two sessions
+  sharing this worktree at once must each pass their own).
+- PLAN: a new initiative gets its plan before the first edit, and a plan
+  is replanned the same way when phases or tasks change. When the operator
+  hands you a roadmap, a spec or a list of steps, their words go in the
+  plan's "brief" VERBATIM before you decompose them: tasks are your summary
+  and lose words; the brief is what "the next item on the roadmap" means in
+  a later session, and a finished task list does not finish the brief. A
+  replace that omits "brief" keeps the last one. plan_updated is
+  a FULL replace — resend every phase and task, with statuses, each time:
+  \`sofar event append <slug> --source <tool> --type plan_updated --payload '{"plan":{"goal":"<goal>","brief":"<roadmap or spec, verbatim>","phases":[{"name":"Phase 1 — <name>","status":"active","tasks":[{"id":"1.1","title":"<task>","status":"pending"}]}]}}'\`
+- DURING: log work as it happens with \`sofar event append <slug> --source <tool>\` plus:
+  task status:  \`--type task_status_changed --payload '{"id":"<task-id>","status":"pending|active|done|blocked|dropped"}'\`
+  phase status: \`--type phase_status_changed --payload '{"phase":"<phase name as in the plan>","status":"active|done"}'\`
+  decisions:    \`--type decision_logged --payload '{"chose":"...","over":"...","because":"...","rule":"..."}'\`
+  notes:        \`--type note_added --payload '{"text":"..."}'\`
+  A decision's "rule" is ONE short imperative every later session must obey.
+  Add it when the operator states the choice for the whole project —
+  \`sofar status\` shows it to every later session as a standing constraint.
+  Omit it for a one-off choice.
+  Every other event type, its fields and who writes it: \`sofar event types\`.
+  Payload prose is WHY: files, commands, test outcomes and commits are
+  captured by hooks and derived, never restated.
+  Quotes, apostrophes or newlines in a payload: skip the shell quoting and
+  pass it on stdin under a quoted heredoc (\`--payload @<file>\` reads a file):
+      sofar event append <slug> --source <tool> --type note_added --payload - <<'EOF'
+      {"text":"it's fine to write \\"anything\\" here"}
+      EOF
+- DURING, for operational facts: a release command, a failure mode and how
+  it is diagnosed, a convention every later session needs is NOT a decision.
+  Promote it the moment you learn it with \`sofar remember "<fact>"\` (text
+  with quotes: \`sofar remember - <<'EOF'\` … \`EOF\`), or it lives only in
+  your own context and dies with the session. An outdated fact is replaced,
+  never edited: \`sofar remember "<fact>" --supersedes "<slug> M<n>"\`.
+- DRIVING: when the operator asks for the work to run under sofar drive
+  ("run this in sofar drive"), write back FIRST (the session_ended append
+  below) — the run's first session resumes from your next_action — then
+  start it with \`sofar drive <slug> --detach\`, adding \`--allow\` for what
+  proving a task needs (the test command) and \`--session-timeout\`. Relay
+  what it prints: the run id, every warning, how to stop it. When it says
+  keep-awake is unset, ask the operator and save the answer with
+  \`sofar drive --keep-awake-setting on|off\`. If your shell can run a
+  command in the background, run \`sofar drive <slug> --await\` there: it
+  prints ONE line when the run stops or its driver dies, and exits — relay
+  it (a needs_user stop carries the operator's question). If it cannot,
+  tell the operator the run shows in \`sofar status\`, and on each prompt
+  where sofar's hooks run. Do not append to that record again while the
+  run goes. \`sofar drive <slug> --stop\` ends it. A sandbox with no
+  network cannot host a run.
+- BEFORE FINISHING (MANDATORY): write back —
+  \`sofar event append <slug> --type session_ended --source <tool> --payload '{"summary":"<what happened>","next_action":"<single next step>"}'\`
+  A session that skips this abandons its state and the next session starts blind.
+
+Prohibitions:
+- Never hand-edit generated projections (plan.md, decisions.md,
+  sessions/*) — they are rebuilt from events.jsonl on every append.
+- Never edit events.jsonl directly — truth is append-only, via the CLI.
+- Corrections are new \`correction\` events referencing the bad event's id
+  (then append the corrected event fresh); history is never rewritten.
+${PROTOCOL_END}
+`
+
 /** Superseded AGENTS.md blocks, oldest first. */
 export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [
   AGENTS_PROTOCOL_BLOCK_V1,
@@ -1528,6 +1725,7 @@ export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [
   AGENTS_PROTOCOL_BLOCK_V7,
   AGENTS_PROTOCOL_BLOCK_V8,
   AGENTS_PROTOCOL_BLOCK_V9,
+  AGENTS_PROTOCOL_BLOCK_V10,
 ]
 
 // REPO_MD_STUB moved to ./shared (ui-free) so event.ts can import it without

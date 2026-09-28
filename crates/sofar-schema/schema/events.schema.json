@@ -183,6 +183,10 @@
         "goal": {
           "type": "string"
         },
+        "brief": {
+          "type": "string",
+          "description": "The operator's own words the plan was made from — a roadmap, a spec, a list of steps — VERBATIM (r1-fixes 4.6, L36). Kept when a later replace omits it, like goal: tasks are the agent's summary of it and lose words, and finishing every task does not finish the brief."
+        },
         "phases": {
           "type": "array",
           "items": {

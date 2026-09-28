@@ -367,6 +367,21 @@ export function buildCases(): FoldParityCase[] {
     l.ev('session_ended', { session_id: 'S1', summary: 's', next_action: 'n' }, { session: 'S1' })
     cases.push({ id: 'FP-16-session-rehome', lines: l.lines, sidecar: { tail_at: 3, seeds: [47, 48, 49], order_independence: true, note: 'binding-follows-session D5: a rehome session_started for a session already registered here folds silently (tool and started unchanged); a plain repeat still warns; rehome false is an invalid line; a rehome for an unknown session registers it. The tail starts at the rehome line' } })
   }
+  {
+    // r1-fixes 4.6 (L36): the plan's brief — the operator's roadmap verbatim —
+    // folds like goal: set by a plan_updated that carries it, replaced by one
+    // that carries another, kept by one that omits it, refused empty. The
+    // final state is round 2's S9 shape: every task done, the brief whole.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('plan_updated', { plan: { goal: 'Build the planner', brief: 'Rough idea: a trip planner.', phases: [{ name: 'Phase 1 — Roadmap', status: 'active', tasks: [{ id: 'p1', title: 'Profile' }, { id: 'p2', title: 'Bucket list' }, { id: 'p3', title: 'Chat with the fixed command set' }] }] } }, { session: 'A' })
+    l.ev('task_status_changed', { id: 'p1', status: 'done' }, { session: 'A' })
+    l.ev('task_status_changed', { id: 'p2', status: 'done' }, { session: 'A' })
+    l.ev('plan_updated', { plan: { brief: 'Roadmap, one piece per session:\n1. Profile.\n2. Bucket list.\n3. Chat: exactly these commands:\n   - "add <activity name> to day <n>"\n   - "undo"', phases: [{ name: 'Phase 1 — Roadmap', status: 'active', tasks: [{ id: 'p1', title: 'Profile', status: 'done' }, { id: 'p2', title: 'Bucket list', status: 'done' }, { id: 'p3', title: 'Chat with the fixed command set', status: 'done' }] }] } }, { session: 'A' }) // replaces it
+    l.ev('plan_updated', { plan: { phases: [{ name: 'Phase 1 — Roadmap', status: 'done', tasks: [{ id: 'p1', title: 'Profile', status: 'done' }, { id: 'p2', title: 'Bucket list', status: 'done' }, { id: 'p3', title: 'Chat with the fixed command set', status: 'done' }] }] } }, { session: 'A' }) // no brief: kept
+    l.ev('plan_updated', { plan: { brief: '', phases: [] } }, { session: 'A' }) // invalid: empty brief
+    cases.push({ id: 'FP-17-plan-brief', lines: l.lines, sidecar: { tail_at: 3, seeds: [50, 51, 52], order_independence: true, note: 'r1-fixes 4.6 (L36): plan.brief is the operator\'s words verbatim, sticky like goal — a plan_updated with a new brief replaces it, one without keeps the last, one with an empty string is an invalid line. The final state is the S9 shape: every task done, the roadmap whole. The tail starts at the first task done' } })
+  }
   return cases
 }
 

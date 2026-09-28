@@ -838,6 +838,13 @@ pub fn render_plan(state: &InitiativeState) -> String {
         }
     ));
     lines.push(String::new());
+    // The brief in full (r1-fixes 4.6, L36), where the digest's clipped block points.
+    if !state.brief.is_empty() {
+        lines.push("Brief (the operator's words, verbatim):".to_owned());
+        lines.push(String::new());
+        lines.extend(state.brief.split('\n').map(str::to_owned));
+        lines.push(String::new());
+    }
     lines.push(format!(
         "Progress: {}",
         progress_text(task_progress(&state.phases))

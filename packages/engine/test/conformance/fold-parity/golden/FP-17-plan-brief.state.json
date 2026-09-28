@@ -1,0 +1,67 @@
+{
+  "state": {
+    "brief": "Roadmap, one piece per session:\n1. Profile.\n2. Bucket list.\n3. Chat: exactly these commands:\n   - \"add <activity name> to day <n>\"\n   - \"undo\"",
+    "current": {
+      "active_phase": null,
+      "next_action": null
+    },
+    "cursor": "01KDVDNGTRA1CVY50ZJ9M36D87",
+    "decisions": [],
+    "drop_notes": {},
+    "files_touched": [],
+    "freshness": {
+      "events_since_writeback": {
+        "commands": 0,
+        "decisions": 0,
+        "files": 0,
+        "memories": 0,
+        "notes": 0,
+        "phases": 0,
+        "reviews": 0,
+        "tasks": 2
+      },
+      "last_writeback_ts": null,
+      "notes": [],
+      "unattributed_mutations": 2
+    },
+    "goal": "Build the planner",
+    "guard_violations": [],
+    "memories": [],
+    "phases": [
+      {
+        "name": "Phase 1 — Roadmap",
+        "status": "done",
+        "tasks": [
+          {
+            "id": "p1",
+            "status": "done",
+            "title": "Profile"
+          },
+          {
+            "id": "p2",
+            "status": "done",
+            "title": "Bucket list"
+          },
+          {
+            "id": "p3",
+            "status": "done",
+            "title": "Chat with the fixed command set"
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "runs": [],
+    "sessions": [],
+    "slug": "demo",
+    "status": "active",
+    "status_note": null,
+    "status_overrides": [],
+    "status_ts": null,
+    "successor": null,
+    "task_files": {}
+  },
+  "warnings": [
+    "line 7: invalid plan_updated payload (plan.brief: must be a non-empty string) — skipped"
+  ]
+}

@@ -554,6 +554,12 @@ export interface InitiativeState {
   slug: string
   goal: string
   /**
+   * The plan's brief: the operator's words the plan was made from, verbatim
+   * (r1-fixes 4.6, L36). '' until a plan_updated carries one; a replace that
+   * omits it keeps the last, exactly as goal does.
+   */
+  brief: string
+  /**
    * The initiative's own status. `active` unless an initiative_status_changed
    * event says otherwise, so a log written before that event existed folds
    * exactly as it always did — the default is what makes this additive.
@@ -695,6 +701,7 @@ export function emptyState(): InitiativeState {
   return {
     slug: '',
     goal: '',
+    brief: '',
     status: 'active',
     status_ts: null,
     status_note: null,
@@ -1586,6 +1593,7 @@ function applyEvent(
     case 'plan_updated': {
       const p = event.payload as unknown as PlanUpdatedPayload
       if (p.plan.goal !== undefined) state.goal = p.plan.goal
+      if (p.plan.brief !== undefined) state.brief = p.plan.brief
       state.phases = p.plan.phases.map((phase) => ({
         name: phase.name,
         status: phase.status ?? 'pending',

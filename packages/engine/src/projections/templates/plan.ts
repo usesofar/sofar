@@ -9,6 +9,9 @@ export function renderPlan(state: InitiativeState): string {
   const lines: string[] = [GENERATED_HEADER, '']
   lines.push(`# Plan: ${state.slug || '(unnamed initiative)'}`, '')
   lines.push(`Goal: ${state.goal || '(none recorded)'}`, '')
+  // The brief in full (r1-fixes 4.6, L36): the operator's words the plan was
+  // made from, where the digest's clipped block points.
+  if (state.brief.length > 0) lines.push("Brief (the operator's words, verbatim):", '', ...state.brief.split('\n'), '')
 
   lines.push(`Progress: ${progressText(taskProgress(state.phases))}`, '')
 

@@ -1,5 +1,14 @@
 # Render-parity manifest (rust-core D11)
 
+At **r1-fixes 4.6 (L36, branch r1-fixes-l36)**: `fold-parity.cases.FP-17-plan-brief`
+ADDED, recorded from the TypeScript templates: the plan's brief — the
+operator's roadmap verbatim — as the fixed digest block after the goal, in
+plan.md, and in `sofar status`; the final state is round 2's S9 shape (every
+task done, the brief whole). No existing render golden moved: no fixture
+carries a brief, and a record without one renders byte-identically. Every
+fold-parity `golden/*.state.json` gained the one key `"brief": ""` (the
+state's new field, `''` until a plan_updated carries one), nothing else.
+
 At **main a4f270a**: `synthetic.driven.drv` ADDED with the new synthetic
 fixture (a resumed run in every surface).
 

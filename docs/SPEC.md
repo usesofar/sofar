@@ -152,7 +152,9 @@ initiative-lifecycle 2.1 — overrides? — what the close-time audit found stil
 outstanding when the close went ahead anyway; commit-attribution 5.2 —
 successor? — the slug the work continues in, REQUIRED for `superseded` and
 rejected on every other status; initiative-supersession D1, see
-§Initiative statuses) · plan_updated (full plan structure) ·
+§Initiative statuses) · plan_updated (full plan structure; `plan.brief?` —
+the operator's roadmap or spec in their own words, verbatim, kept when a
+later replace omits it, like `goal`; r1-fixes 4.6, L36) ·
 phase_status_changed (phase, status: pending|active|done|blocked|dropped,
 note? — REQUIRED for `dropped`; the note explains the CURRENT status and is
 cleared by any later event that omits it; phase-lifecycle 2.1) ·
@@ -879,7 +881,14 @@ HARD CAP STATUS_CHAR_LIMIT = 6,000.
 ORDER (a section with nothing to say renders nothing; blocks are separated by
 one blank line):
 1. `# Sofar status: <slug>` (lane: `# Sofar: quick-work lane (<slug>)`),
-   `Goal: <≤400>`, and in the lane its three how-lines.
+   `Goal: <≤400>`, and in the lane its three how-lines. Then, when the plan
+   has a brief (r1-fixes 4.6, L36) and not in the lane, a FIXED block:
+   `Brief — the operator's words, verbatim; the plan is this record's reading
+   of it, and a finished task list does not finish the brief:` followed by
+   the brief clipped to BRIEF_BUDGET = 1,500 chars, and past that
+   `…truncated — the whole brief is in .sofar/initiatives/<slug>/plan.md`.
+   Fixed, not yielding: the brief is the source the tasks summarise, so the
+   cap never cuts it first. plan.md and `sofar status` carry it in full.
 2. FOCUS TASK (not in the lane): the active phase's first `active` task, else
    its first `pending`, else its first `blocked`; with none, the same pick in
    each phase not `done`/`dropped`, in plan order. `Current task:` (status
@@ -4111,6 +4120,14 @@ sofar_start_session.`
 - sofar_update_plan({initiative?, plan}) → ok, warnings?   # full-structure replace;
   an omitted status means `pending`, NOT unchanged — restate every status
   you intend to keep, and expect a fold warning if a resolved one is dropped.
+  THE BRIEF (r1-fixes 4.6, L36): `plan.brief` is the operator's own words the
+  plan was made from — a roadmap, a spec, a list of steps — verbatim. Like
+  `goal` it is optional and STICKY: a replace that omits it keeps the last one,
+  so re-planning never erodes it. Round 2's chain A lost every S9 recovery
+  probe ("the next item on the roadmap from our first session") because
+  fix 1.3's one-initiative plan held only the agent's one-line tasks and the
+  operator's words were nowhere in the record. Both protocol blocks tell the
+  agent to put them in the brief BEFORE decomposing them.
   PHASE NOTES (phase-lifecycle 6.1, D8, D9): the plan has no slot for a
   note and the fold's plan_updated rebuilds phases without one, so the TOOL
   carries them: after the plan_updated it appends one phase_status_changed
@@ -6087,6 +6104,17 @@ stay the underlying derivation's, and exit codes are styling-independent.
   a handle naming no memory or an already-superseded one fails with no
   append; the MCP tool accepts the same field. The AGENTS.md block shows the
   heredoc form and `--supersedes`, and every payload it shows validates.
+- **Brief (r1-fixes 4.6, L36):** a plan_updated whose plan carries `brief`
+  folds it into state; a later plan_updated without one keeps it, with one
+  replaces it, and an empty string is refused. A record whose brief holds a
+  nine-step roadmap with a verbatim command list, decomposed into nine
+  one-line tasks all done, renders the command lines verbatim in the
+  SessionStart digest under the brief header, in plan.md and in `sofar
+  status`; past 1,500 chars the digest ends the block with the plan.md
+  pointer. A record with no brief renders byte-identically to before. Both
+  protocol blocks name the brief, the AGENTS.md plan example carries it, and
+  sofar_update_plan's input schema accepts it. The previous blocks are in
+  the shipped ledgers (CLAUDE.md V11, AGENTS.md V10).
 - **Less bookkeeping (r1-fixes 2.1):** sofar_update_task answers bare
   {ok, event_id} on `active` with a standing rule in the record;
   sofar_end_session with `tasks` appends the changes in order under the
