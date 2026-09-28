@@ -6,14 +6,14 @@ use std::path::Path;
 
 use crate::append::{append_and_project, fold_state};
 use crate::attribution::{AttributionQuery, CommitAttribution, read_attribution_query};
+use crate::cli::Hook;
 use crate::cross_conflicts::{CrossFileConflict, cross_conflicts_from_open_sessions};
 use crate::fold::{GuardViolation, InitiativeState, SessionState, session_debt};
 use crate::fold_cli::CmdResult;
 use crate::git::{GitState, read_git_state};
-use crate::cli::Hook;
 use crate::home::resolve_session_first;
-use crate::host::{CLAUDE_CODE, hook_host, session_title, title_to_apply, with_session_title};
 use crate::hook::{clip_to, parse_hook, str_field};
+use crate::host::{CLAUDE_CODE, hook_host, session_title, title_to_apply, with_session_title};
 use crate::index_lexicon::refresh_lexicon;
 use crate::index_tier0::{refresh_tier0, refresh_tier0_known};
 use crate::json::{Json, Object};

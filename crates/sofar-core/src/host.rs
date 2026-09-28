@@ -147,7 +147,10 @@ pub fn is_derived_name(title: &str, cwd: Option<&str>) -> bool {
     let Some(rest) = title.strip_prefix(folder).and_then(|r| r.strip_prefix('-')) else {
         return false;
     };
-    rest.len() == 2 && rest.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    rest.len() == 2
+        && rest
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// `titleToApply`: the title to hand the host, or None to hand none
@@ -267,7 +270,10 @@ mod tests {
     fn derived_names_are_the_cwd_folder_plus_two_hex() {
         assert!(is_derived_name("sofar-d3", Some("/Users/x/IO/sofar")));
         assert!(is_derived_name("sofar-d3", Some("/Users/x/IO/sofar/")));
-        assert!(is_derived_name("sofar-app-43", Some("/Users/x/IO/sofar-app")));
+        assert!(is_derived_name(
+            "sofar-app-43",
+            Some("/Users/x/IO/sofar-app")
+        ));
         assert!(!is_derived_name("sofar-d3", Some("/Users/x/IO/other")));
         assert!(!is_derived_name("sofar-d3x", Some("/Users/x/IO/sofar")));
         assert!(!is_derived_name("sofar-D3", Some("/Users/x/IO/sofar")));
@@ -290,12 +296,19 @@ mod tests {
             o
         };
         let want = "demo 1.1";
-        let apply = |title: Option<&str>, cwd: &str| title_to_apply(&hook(title, cwd), want, &layout);
+        let apply =
+            |title: Option<&str>, cwd: &str| title_to_apply(&hook(title, cwd), want, &layout);
         assert_eq!(apply(None, "/w/sofar").as_deref(), Some(want));
         assert_eq!(apply(Some(""), "/w/sofar").as_deref(), Some(want));
         assert_eq!(apply(Some("sofar-d3"), "/w/sofar").as_deref(), Some(want));
-        assert_eq!(apply(Some("earlier-record 2.2"), "/w/sofar").as_deref(), Some(want));
-        assert_eq!(apply(Some("earlier-record"), "/w/sofar").as_deref(), Some(want));
+        assert_eq!(
+            apply(Some("earlier-record 2.2"), "/w/sofar").as_deref(),
+            Some(want)
+        );
+        assert_eq!(
+            apply(Some("earlier-record"), "/w/sofar").as_deref(),
+            Some(want)
+        );
         assert_eq!(apply(Some(want), "/w/sofar"), None);
         assert_eq!(apply(Some("  demo 1.1 "), "/w/sofar"), None);
         assert_eq!(apply(Some("my own name"), "/w/sofar"), None);
@@ -307,21 +320,38 @@ mod tests {
 
     #[test]
     fn with_session_title_wraps_exactly_the_typescript_bytes() {
-        let plain = CmdResult { exit_code: 0, stdout: "# Sofar status: demo\n".into(), stderr: String::new() };
-        assert_eq!(with_session_title(Hook::SessionStart, plain.clone(), None), plain);
-        assert_eq!(with_session_title(Hook::Stop, plain.clone(), Some("demo 1.1")), plain);
+        let plain = CmdResult {
+            exit_code: 0,
+            stdout: "# Sofar status: demo\n".into(),
+            stderr: String::new(),
+        };
+        assert_eq!(
+            with_session_title(Hook::SessionStart, plain.clone(), None),
+            plain
+        );
+        assert_eq!(
+            with_session_title(Hook::Stop, plain.clone(), Some("demo 1.1")),
+            plain
+        );
         let titled = with_session_title(Hook::SessionStart, plain, Some("demo 1.1"));
         assert_eq!(
             titled.stdout,
             "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"# Sofar status: demo\\n\",\"sessionTitle\":\"demo 1.1\"}}\n"
         );
-        let silent = CmdResult { exit_code: 0, stdout: String::new(), stderr: String::new() };
+        let silent = CmdResult {
+            exit_code: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+        };
         assert_eq!(
             with_session_title(Hook::UserPrompt, silent, Some("demo")).stdout,
             "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"sessionTitle\":\"demo\"}}\n"
         );
         // the context is read back through context_of whichever form it took
-        assert_eq!(context_of(Hook::SessionStart, &titled.stdout).as_deref(), Some("# Sofar status: demo\n"));
+        assert_eq!(
+            context_of(Hook::SessionStart, &titled.stdout).as_deref(),
+            Some("# Sofar status: demo\n")
+        );
     }
 
     fn obj(text: &str) -> Object {

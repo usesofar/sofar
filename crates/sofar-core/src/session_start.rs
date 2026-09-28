@@ -5,10 +5,10 @@
 
 use std::path::Path;
 
-use crate::cli::Hook;
 use crate::attribution::{
     CommitAttribution, cached_attribution, commits_by_task, read_shipping_from,
 };
+use crate::cli::Hook;
 use crate::date::{js_date_parse, js_round, now_ms};
 use crate::diagnostics::{RowInput, record_diagnostic};
 use crate::digest_cache::cached_digest_state;
@@ -26,9 +26,8 @@ use crate::record_copies::{home_dir, worktree_leads, worktree_leads_notice};
 use crate::session_pointer::write_session_pointer;
 use crate::shipwatch::note_upstream;
 use crate::status::{
-    focus_task,
-    QUICK_LANE, StatusOptions, enforce_status_limit, is_closed_initiative_status, render_status,
-    session_id_line,
+    QUICK_LANE, StatusOptions, enforce_status_limit, focus_task, is_closed_initiative_status,
+    render_status, session_id_line,
 };
 use crate::text::{date_part, js_trim, utf16_len};
 use crate::told::clear_told;
