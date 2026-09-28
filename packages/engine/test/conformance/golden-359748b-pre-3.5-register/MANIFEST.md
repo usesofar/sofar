@@ -1,18 +1,5 @@
 # Golden manifest (rust-core D11)
 
-Re-recorded from the TypeScript reference at **agents-parity a2680069**
-(agents-parity 3.5, D14: the first explicit-session append registers the
-session). Three goldens changed, each gaining one session_started line
-(`tool` = the `--source` name) ahead of the append and the session's
-`sessions/<id>.md` projection in the record delta: `repo.append` (the
-`explicit slug` step, session conf-cli), `syn.driven` (`a handoff lands`,
-session sess-run-2) and `syn.lifecycle` (`append to the empty record`,
-which now names its own session, sess-writer, so the unbound-branch steps
-after it still meet a session homed nowhere — before this the step joined
-the hooks' pointer session, which D14 would have homed on never-written).
-Every other golden is byte-identical. The previous set is kept as
-`golden-359748b-pre-3.5-register/`.
-
 Re-recorded for **drive-visibility 3.7** (the rewake hook): `argv.fast-path`
 gains four lines, the `sofar event drive-await` entry in the hook help. No
 other golden changed — the hook is wired by `sofar init`, which the goldens

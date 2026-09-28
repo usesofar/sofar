@@ -1,0 +1,307 @@
+# conformance golden: repo.hook-lifecycle
+
+## step 1: prompt before registration: silent
+argv: ["event","user-prompt"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 2: stop before registration: passes
+argv: ["event","stop"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 3: Edit registers the session and appends file_touched
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/packages/engine/src/core/fold.ts","old_string":"a","new_string":"b"},"tool_response":{}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/core/fold.ts is governed by [architecture-map D1], a standing rule: \"Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.\" (guard: path:packages/engine/src/**,packages/schema/src/**). Work against it needs a decision that supersedes architecture-map D1.\nsofar: packages/engine/src/core/fold.ts is governed by [phase-lifecycle D2], a standing rule: \"Never derive phase status from task status — not in the fold, not as a side effect of a task write. Doctor's stale-phase axis and closeout's phases_unresolved finding both exist to say \"tasks done, phase not finished\", and derivation deletes that sentence.\" (guard: path:**/core/fold.ts,**/core/closeout.ts). Work against it needs a decision that supersedes phase-lifecycle D2.\nsofar: [initiative-supersession D1] names packages/engine/src/core/fold.ts. Its standing rule: \"Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.\".\nsofar: …and 3 more decision(s) on packages/engine/src/core/fold.ts (in commit-attribution, record-graph, harness-build) — sofar find packages/engine/src/core/fold.ts."}}
+--- stderr
+(empty)
+
+## step 4: Write
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"<ROOT>/docs/NEW.md","content":"x"}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 5: MultiEdit
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"MultiEdit","tool_input":{"file_path":"<ROOT>/packages/engine/src/cli/event.ts","edits":[]}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/cli/event.ts is governed by [architecture-map D1], a standing rule: \"Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.\" (guard: path:packages/engine/src/**,packages/schema/src/**). Work against it needs a decision that supersedes architecture-map D1.\nsofar: packages/engine/src/cli/event.ts is governed by [commit-attribution D15], a standing rule: \"The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.\" (guard: path:packages/engine/src/core/shipwatch.ts,packages/engine/src/cli/event.ts). Work against it needs a decision that supersedes commit-attribution D15.\nsofar: packages/engine/src/cli/event.ts is governed by [commit-attribution D17], a standing rule: \"On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.\" (guard: path:packages/engine/src/core/attribution.ts,packages/engine/src/cli/event.ts). Work against it needs a decision that supersedes commit-attribution D17.\nsofar: …and 4 more decision(s) on packages/engine/src/cli/event.ts (in commit-attribution, record-graph, initiative-lifecycle) — sofar find packages/engine/src/cli/event.ts."}}
+--- stderr
+(empty)
+
+## step 6: Bash with secrets is redacted
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"export OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz0123456789 && curl -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghijklmnop\" https://user:hunter2@example.com/x --token=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -p AKIAIOSFODNN7EXAMPLE","description":"x"},"tool_response":{}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: export OPENAI_API_KEY=[redacted] && curl -H \"Authorization:… is governed by [bench-refresh D14], a standing rule: \"Never let any benchmark process use an API key or roll into paid overage; on the first sign of paid billing stop everything and tell the user.\" (guard: cmd:*ANTHROPIC_API_KEY=*,*OPENAI_API_KEY=*,*XAI_API_KEY=*,*CURSOR_API_KEY=*,*opencode run*,*--api-key*). Work against it needs a decision that supersedes bench-refresh D14."}}
+--- stderr
+(empty)
+
+## step 7: Bash that only touches git and sofar is exempt
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git status && sofar status | head -3; GIT_PAGER=cat git log -1","description":"x"},"tool_response":{}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 8: Bash with a subshell cannot be scanned: logged
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m \"$(cat msg)\"","description":"x"},"tool_response":{}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 9: Bash with an unbalanced quote: logged
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git status && echo 'oops","description":"x"},"tool_response":{}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 10: Read tool appends nothing
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"<ROOT>/README.md"}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: [harness-build D42] 2026-07-07 names README.md: chose BD42: README.md at repo root over a hand-maintained packages/engine/README.md."}}
+--- stderr
+(empty)
+
+## step 11: Edit without file_path appends nothing
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 12: prompt after drift: nudge and push state
+argv: ["event","user-prompt"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+sofar: rust-core @ 7535e75, never pushed.
+<no trailing newline>
+--- stderr
+(empty)
+
+## step 13: stop blocks the unwritten session
+argv: ["event","stop"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+exit: 2
+--- stdout
+(empty)
+--- stderr
+Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
+
+## step 14: stop_hook_active short-circuits
+argv: ["event","stop"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":true}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 15: session-end closes the session
+argv: ["event","session-end"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionEnd","reason":"exit"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 16: session-end again is a no-op
+argv: ["event","session-end"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionEnd","reason":"other"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 17: write-back through append
+argv: ["event","append","--type","session_ended","--session","conf-session","--source","hook","--payload","{\"summary\":\"conformance lifecycle finished\",\"next_action\":\"read the golden\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>"}
+--- stderr
+(empty)
+
+## step 18: stop passes once written back
+argv: ["event","stop"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 19: prompt after write-back
+argv: ["event","user-prompt"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+sofar: rust-core @ 7535e75, never pushed.
+<no trailing newline>
+--- stderr
+(empty)
+
+## step 20: status shows the session
+argv: ["status"]
+exit: 0
+--- stdout
+# rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Standing constraints — obey verbatim (2):
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+  - [x] 1.1 Inventory the hot-path surface from docs/SPEC.md and engine code: every hook's stdin/stdout/exit behaviour, CLI commands in scope (event append, status, statusline), env vars, files written, event envelope and projection outputs. List every SPEC gap found.
+  - [~] 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  - [ ] 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 10, 100 and 1,000 initiatives and 1–10 MB records, TypeScript numbers recorded as the target to beat
+- Phase 2 — Rust core [pending] 0/6
+  - [ ] 2.1 Cargo workspace crates/sofar-core; schema codegen from packages/schema/src (no hand-written payload types); dependency list per D1
+  - [ ] 2.2 Event envelope and atomic O_APPEND append; unknown and corrupt lines skipped with a warning, never fatal, never rewritten
+  - [ ] 2.3 Fold to initiative state with conformance parity
+  - [ ] 2.4 Digest/status render byte-identical to the projection templates (golden tests), including the 10k char cap behaviour
+  - [ ] 2.5 Hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end) with conformance parity, including r1-fixes wave 1–2 behaviour
+  - [ ] 2.6 Statusline command parity
+- Phase 3 — Integration and distribution [pending] 0/3
+  - [ ] 3.1 TS entry points and hook shims dispatch to sofar-core when present, with TypeScript fallback and an explicit override for debugging
+  - [ ] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
+  - [ ] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
+- Phase 4 — Prove and switch [pending] 0/3
+  - [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
+  - [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
+  - [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
+
+Next action: read the golden
+
+Last session (claude-code, ended <TS>):
+  conformance lifecycle finished
+
+Files touched (5):
+- /private/tmp/claude-501/-Users-jins-IO-sofar/aac148fe-0a14-46d5-b42c-64fb65cd8ad2/scratchpad/commit-msg.txt
+- /Users/jins/IO/sofar-rust-core/docs/HOTPATH.md
+- <ROOT>/packages/engine/src/core/fold.ts
+- <ROOT>/docs/NEW.md
+- <ROOT>/packages/engine/src/cli/event.ts
+--- stderr
+(empty)
+
+## step 21: statusline after the run
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## record delta
+=== .sofar/initiatives/rust-core/events.jsonl (appended 2516 bytes after 28249 unchanged)
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"claude-code"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"edit","path":"<ROOT>/packages/engine/src/core/fold.ts"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"write","path":"<ROOT>/docs/NEW.md"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"edit","path":"<ROOT>/packages/engine/src/cli/event.ts"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"command_run","payload":{"cmd":"export OPENAI_API_KEY=[redacted] && curl -H \"Authorization: Bearer [redacted] https://user:[redacted]@example.com/x --token=[redacted] -p [redacted]","ok":true}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"command_run","payload":{"cmd":"git status && sofar status | head -3; GIT_PAGER=cat git log -1","ok":true}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"command_run","payload":{"cmd":"git commit -m \"$(cat msg)\"","ok":true}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"command_run","payload":{"cmd":"git status && echo 'oops","ok":true}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_closed","payload":{"reason":"exit"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_ended","payload":{"next_action":"read the golden","summary":"conformance lifecycle finished"}}
+=== .sofar/initiatives/rust-core/plan.md (rewritten, 2885 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Plan: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Progress: 1/15 tasks done (6%)
+
+## Phase 1 — Contract [active] — 1/3 done
+
+- [x] 1.1 Inventory the hot-path surface from docs/SPEC.md and engine code: every hook's stdin/stdout/exit behaviour, CLI commands in scope (event append, status, statusline), env vars, files written, event envelope and projection outputs. List every SPEC gap found.
+- [ ] 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first. (active)
+- [ ] 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 10, 100 and 1,000 initiatives and 1–10 MB records, TypeScript numbers recorded as the target to beat
+
+## Phase 2 — Rust core [pending] — 0/6 done
+
+- [ ] 2.1 Cargo workspace crates/sofar-core; schema codegen from packages/schema/src (no hand-written payload types); dependency list per D1
+- [ ] 2.2 Event envelope and atomic O_APPEND append; unknown and corrupt lines skipped with a warning, never fatal, never rewritten
+- [ ] 2.3 Fold to initiative state with conformance parity
+- [ ] 2.4 Digest/status render byte-identical to the projection templates (golden tests), including the 10k char cap behaviour
+- [ ] 2.5 Hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end) with conformance parity, including r1-fixes wave 1–2 behaviour
+- [ ] 2.6 Statusline command parity
+
+## Phase 3 — Integration and distribution [pending] — 0/3 done
+
+- [ ] 3.1 TS entry points and hook shims dispatch to sofar-core when present, with TypeScript fallback and an explicit override for debugging
+- [ ] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
+- [ ] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
+
+## Phase 4 — Prove and switch [pending] — 0/3 done
+
+- [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
+- [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
+- [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
+
+Active phase: Phase 1 — Contract
+Next action: read the golden
+=== .sofar/initiatives/rust-core/sessions/conf-session.md (added, 588 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session conf-session
+
+- Initiative: rust-core
+- Tool: claude-code
+- Started: <TS>
+- Ended: <TS> (closed: exit)
+
+## Summary
+
+conformance lifecycle finished
+
+## Next action
+
+read the golden
+
+## Activity (derived from mechanical events)
+
+- Derived: 3 files (<ROOT>/packages/engine/src/core/fold.ts, <ROOT>/docs/NEW.md, <ROOT>/packages/engine/src/cli/event.ts), 4 commands
+- Files:
+  - <ROOT>/packages/engine/src/core/fold.ts
+  - <ROOT>/docs/NEW.md
+  - <ROOT>/packages/engine/src/cli/event.ts
+- Commands run: 4

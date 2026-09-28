@@ -1,0 +1,213 @@
+# conformance golden: repo.statusline
+
+## step 1: styled, every segment
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 2: --no-color
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 3: NO_COLOR env (empty value counts)
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+env: {"NO_COLOR":""}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 4: --color with NO_COLOR: NO_COLOR wins
+argv: ["statusline","--color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+env: {"NO_COLOR":"1"}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 5: model name variants
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"display_name":"Claude Opus 5 (200k Context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Claude Opus 5 (200k) · root:rust-core · rust-core 1/15 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 6: sonnet
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"display_name":"Sonnet 5"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[36mSonnet 5[39m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 7: haiku
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"display_name":"Haiku 4.5"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[32mHaiku 4.5[39m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 8: unknown family
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"display_name":"GPT-5"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1mGPT-5[22m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 9: ctx at 70 and 90 thresholds
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":69.5}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 70%
+--- stderr
+(empty)
+
+## step 10: ctx 90
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":90}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 90%
+--- stderr
+(empty)
+
+## step 11: cache below 10k tokens: dim, no mark
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"current_usage":{"input_tokens":500,"cache_read_input_tokens":400}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m [2mcache 44%[22m
+--- stderr
+(empty)
+
+## step 12: cache share under 30%: warning mark
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"current_usage":{"input_tokens":9000,"cache_read_input_tokens":2000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m [31mcache 18% ⚠[39m
+--- stderr
+(empty)
+
+## step 13: cache share 30-50%: no mark
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"current_usage":{"input_tokens":6000,"cache_read_input_tokens":4500}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m cache 43%
+--- stderr
+(empty)
+
+## step 14: usage at the top level
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":10},"current_usage":{"input_tokens":1,"cache_read_input_tokens":99999}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 10% · cache 100% ✓
+--- stderr
+(empty)
+
+## step 15: usage under cost
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":10},"cost":{"current_usage":{"input_tokens":50000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 10% · cache 0% ⚠
+--- stderr
+(empty)
+
+## step 16: zero denominator omits the cache segment
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"current_usage":{"input_tokens":0,"cache_read_input_tokens":0}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15
+--- stderr
+(empty)
+
+## step 17: session homed in another record
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"aefa6315-3725-4e4d-9f9a-224ff6f86ddb","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · session-strategy-bench 20/20 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 18: cwd only, no workspace
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 19: no fields at all
+argv: ["statusline","--no-color"]
+stdin: {}
+exit: 0
+--- stdout
+rust-core 1/15
+--- stderr
+(empty)
+
+## step 20: unparseable stdin
+argv: ["statusline","--no-color"]
+stdin: nope
+exit: 0
+--- stdout
+rust-core 1/15
+--- stderr
+(empty)
+
+## step 21: empty stdin
+argv: ["statusline","--no-color"]
+exit: 0
+--- stdout
+rust-core 1/15
+--- stderr
+(empty)
+
+## step 22: --root form
+argv: ["statusline","--no-color","--root","<ROOT>"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<HOME>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<HOME>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · home · rust-core 1/15 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 23: directory outside any record
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<HOME>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<HOME>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+env: {}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · home · rust-core 1/15 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## record delta
+(no change)

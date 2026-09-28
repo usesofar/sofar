@@ -1,0 +1,861 @@
+# conformance golden: repo.session-start
+
+## step 1: startup on the bound record
+argv: ["event","session-start"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Session: conf-session — adopted on Claude Code; else pass to sofar_start_session.
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 2: same stdin again: byte-stable
+argv: ["event","session-start"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Session: conf-session — adopted on Claude Code; else pass to sofar_start_session.
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 3: resume with a cold transcript (advisory)
+argv: ["event","session-start"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"resume"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Session: conf-session — adopted on Claude Code; else pass to sofar_start_session.
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+⚠ Cold resume: ~<AGO> since this record's last event — past any prompt-cache TTL, so this transcript (~29k tokens, rough estimate) re-warms at full input price. If the resume is deliberate, carry on; otherwise a fresh session oriented from this block is the cheaper path.
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 4: resume with a small transcript (no advisory)
+argv: ["event","session-start"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"resume"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Session: conf-session — adopted on Claude Code; else pass to sofar_start_session.
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 5: session already written back on this record
+argv: ["event","session-start"]
+stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Session: 38d26db0-c497-44bf-b41d-11623a8486f5 — adopted on Claude Code; else pass to sofar_start_session.
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 6: session homed in another record (via session)
+argv: ["event","session-start"]
+stdin: {"session_id":"aefa6315-3725-4e4d-9f9a-224ff6f86ddb","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+# Sofar status: session-strategy-bench
+
+Goal: Automated controlled benchmark: one long session vs fresh-sessions-per-task (Sofar pattern), measuring cost shape, output quality, and time. Second scenario of handoff-bench; reuses its harness, blind-grading machinery, and evidence format. MEASURES only — read-side; zero engine/injection changes; findings that suggest engine changes are logged as proposals.
+
+Next action: When the driver exits: extract telemetry, run the sidecar, grade (A+B primary, C robustness), write the R02 evidence section.
+
+Last session (claude-code, ended 2026-08-13T14:58:50.576Z):
+  Phase-close repair from phase-lifecycle 4.3 (D5). No bench work: read plan.md and the event log, closed Phase 5 (3/3 tasks, freeze confirmed), and LEFT PHASE 6 OPEN — all five of its tasks were marked done in one minute, only four have a confirming note, and a W1-L control re-run landed afterwards whose three-way drift t… (clipped — full text in sessions/01KZXT38PBSSKXMFYGN7K54QVX.md)
+
+⚠ 1 other session(s) did work without writing back: 8d40de69-7589-4f67-8ffc-da71d4e99951
+
+Phases:
+- Phase 6 — S2-R02 execution + evidence [pending — all tasks done; mark phase done?] 5/5
+- done: Phase 1, Phase 2, Phase 3, Phase 4, Phase 5 (15/15 tasks)
+Progress: 20/20 tasks done (100%) across 6 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (last 5 of 12; full text in decisions.md):
+- [D8] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
+- [D9] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
+- [D10] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
+- [D11] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
+- [D12] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
+Earlier rejected approaches — do NOT re-propose (7 older):
+- [D1] Post-hoc analysis of whatever the data shows, or predictions written/…
+- [D2] Letting benchmark findings drive engine/injection tweaks in-flight wi…
+- [D3] Building a new bench, single-family
+- [D4] Running arm L with sofar wired
+- [D5] Running bench worktrees inside the live brillo checkout
+- …and 2 more (see decisions.md)
+
+Next ids: D13 (decision), M1 (memory)
+
+Adjacent records — 7 decisions across 1 other initiative that have worked this one's files, densest first:
+- speed — 4 shared files, 7 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Session: aefa6315-3725-4e4d-9f9a-224ff6f86ddb — adopted on Claude Code; else pass to sofar_start_session.
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Repo-wide rules from other records (4 of 94, most relevant first):
+- [bench-refresh D10] Every sofar fallback or failure seen in a run (driver stall, hook block, tool error, truncation, workaround) is a loss-study row with evidence and a ranked fix; a fix's predicted gain is written before it is built and checked in the next round.
+- [session-driver D5] Driver handoff reasons are derived from the fold — needs_user is the named task in status `blocked`, task_done needs a write-back AND a terminal task status; never infer a reason from write-back prose or an exit code.
+- [in-session-drive D1] A driven run started from inside an agent session must be detached from that agent's process, must state its preflight refusals and D9 warnings to the caller before returning, and must refuse while the calling session is registered on the driven initiative with no write-back.
+- [session-driver D14] `--cost-cap` and `--max-sessions` bound ONE driver, not one run: a resumed run restarts the cap at zero and counts its session budget from recorded handoffs alone. Never describe either as a run-wide guarantee, and keep the resume warnings that say so.
+- …and 90 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 7: empty session_id reads as absent
+argv: ["event","session-start"]
+stdin: {"session_id":"","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 8: no session_id at all
+argv: ["event","session-start"]
+stdin: {"hook_event_name":"SessionStart","source":"clear"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 9: unparseable stdin
+argv: ["event","session-start"]
+stdin: not json at all
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 10: stdin is a JSON array
+argv: ["event","session-start"]
+stdin: [1,2]
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 11: empty stdin
+argv: ["event","session-start"]
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 12: --root as a separate token
+argv: ["event","session-start","--root","<ROOT>"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Session: conf-session — adopted on Claude Code; else pass to sofar_start_session.
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## step 13: --root=dir form
+argv: ["event","session-start","--root=<ROOT>"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+# Sofar status: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Current task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  in Phase 1 — Contract [active] 1/3
+  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+- Phase 2 — Rust core [pending] 0/6
+- Phase 3 — Integration and distribution [pending] 0/3
+- Phase 4 — Prove and switch [pending] 0/3
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Repo memory (.sofar/repo.md):
+# Repo memory — sofar
+
+- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):
+  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP
+  server "sofar" with sofar_* tools, record dir `.sofar/`. No back-compat
+  aliases (pre-publish). Historical event/projection text and the archived
+  docs still say harness — that is history, never rewritten.
+- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,
+  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision
+…truncated — read .sofar/repo.md for the rest
+
+Recent decisions (2; full text in decisions.md):
+- [D1] 2026-09-15 (rule below) Adopt Rust for sofar's HOT PATH, incrementally, starting no… — over - A big-bang rewrite now
+- [D2] 2026-09-15 (rule below) Byte parity is defined against the TypeScript engine's Java… — over Rust-native defaults (char/byte lengths, Unicode-aware regex classes,…
+
+Next ids: D3 (decision), M1 (memory)
+
+Adjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:
+- travel-planner — 1 shared file, 5 decisions
+Adjacency, not aboutness — offered as worth reading, never as a rule.
+
+Session: conf-session — adopted on Claude Code; else pass to sofar_start_session.
+Git: rust-core @ 7535e75 — no origin ref — never pushed
+
+Standing constraints — obey verbatim (2):
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+Repo-wide rules from other records (4 of 92, most relevant first):
+- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.
+- [architecture-map D1] Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.
+- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.
+- [record-citations D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- …and 88 more in other records (their decisions.md)
+
+Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
+
+(generated by sofar — full detail in plan.md, decisions.md, sessions/)
+--- stderr
+(empty)
+
+## record delta
+(no change)
