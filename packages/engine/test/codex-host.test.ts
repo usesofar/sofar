@@ -285,8 +285,16 @@ describe('the AGENTS.md block a Codex session reads (agents-parity 2.3, D8)', ()
     expect(cliLoop).not.toContain('sofar_')
   })
 
-  it('is the 6.7 block with only those lines changed, and the 6.7 block is in the ledger', () => {
-    const undone = undo33(AGENTS_PROTOCOL_BLOCK).replace(
+  it('is the 3.3 block with only PLAN changed (r1-fixes 4.6), and that block is in the ledger', () => {
+    const v10 = SHIPPED_AGENTS_PROTOCOL_BLOCKS[9]! // V10 by version: the 3.3 block
+    const plan = (b: string): string => /- PLAN:[\s\S]*?(?=\n- DURING)/.exec(b)![0]
+    expect(AGENTS_PROTOCOL_BLOCK.replace(plan(AGENTS_PROTOCOL_BLOCK), plan(v10))).toBe(v10)
+    expect(v10).not.toContain('brief')
+  })
+
+  it('the 3.3 block is the 6.7 block with only those lines changed, and the 6.7 block is in the ledger', () => {
+    const v10 = SHIPPED_AGENTS_PROTOCOL_BLOCKS[9]! // V10 by version: the 3.3 block, before 4.6's PLAN
+    const undone = undo33(v10).replace(
       '(Cursor, Codex,\n  Claude Code). Orient from it; do NOT run `sofar status` to read it again.\n  Their Stop hook blocks a session that ends without writing back.\n',
       '(Cursor, Claude Code).\n  Orient from it; do NOT run `sofar status` to read it again.\n',
     ).replace(

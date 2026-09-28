@@ -1,5 +1,6 @@
 {
   "state": {
+    "brief": "",
     "current": {
       "active_phase": "Phase 1 — first",
       "blocked_on": "task 1.2: waiting",

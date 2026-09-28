@@ -56,6 +56,16 @@ export const REPO_MEMORY_TRUNCATION_MARKER =
 // the final guard covers pathological futures, not expected inputs.
 const SESSION_ID_BUDGET = 120 // session ids are external input — never trust their size
 const GOAL_BUDGET = 400
+// The plan's brief (r1-fixes 4.6, L36): the operator's roadmap or spec,
+// verbatim, as a FIXED block after the goal. Round 2's chain A lost every S9
+// recovery probe because the record held only the agent's one-line tasks;
+// the brief is the source those tasks summarise, so the cap never cuts it
+// first. Long briefs continue in plan.md.
+export const BRIEF_BUDGET = 1_500
+export const BRIEF_HEADER =
+  'Brief — the operator\'s words, verbatim; the plan is this record\'s reading of it, and a finished task list does not finish the brief:'
+export const briefTruncationMarker = (slug: string): string =>
+  `…truncated — the whole brief is in .sofar/initiatives/${slug}/plan.md`
 // The next task's spec (memory-lead 1.3, D4): plan tasks carry it in the
 // title, which renders whole to this budget; its open siblings as heads.
 const NEXT_TASK_TITLE_BUDGET = 1_000
@@ -249,6 +259,8 @@ export function renderFullStatus(
     }
   }
   lines.push(`Goal: ${state.goal || '(none recorded)'}`)
+  // The brief in full (r1-fixes 4.6): a terminal surface, uncapped.
+  if (state.brief.length > 0) lines.push('', BRIEF_HEADER, ...state.brief.split('\n'))
 
   // Standing constraints (drift-hardening 2.1) — terminal surface, uncapped.
   // In force only (r1-fixes 3.2, D25), switch-aware like the digest.
@@ -388,6 +400,13 @@ const TASK_MARKS: Record<string, string> = {
  * nudge inside its bracket. Constant-bounded suffix, so phase lines stay
  * budget-safe wherever names are clipped.
  */
+/** The digest's brief block: header, then the text clipped to BRIEF_BUDGET with a pointer to plan.md. */
+function briefLines(state: InitiativeState): string[] {
+  const text = state.brief
+  if (text.length <= BRIEF_BUDGET) return [BRIEF_HEADER, ...text.split('\n')]
+  return [BRIEF_HEADER, ...text.slice(0, BRIEF_BUDGET).split('\n'), briefTruncationMarker(state.slug)]
+}
+
 function phaseMark(phase: { name: string; status: string }, staleNames: ReadonlySet<string>): string {
   return staleNames.has(phase.name)
     ? `[${phase.status} — all tasks done; mark phase done?]`
@@ -534,6 +553,10 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
     '',
     ...(lane ? [...LANE_HOW_LINES, ''] : []),
   ])
+
+  // (1b) The plan's brief (r1-fixes 4.6, L36), fixed: never rendered before
+  // one was recorded, so every earlier digest is byte-identical.
+  if (state.brief.length > 0 && !lane) fixed([...briefLines(state), ''])
 
   // (2) The next task's spec. Plan tasks carry their spec in the title, so the
   // title renders whole up to its budget — round 1's S9 opened plan.md for a

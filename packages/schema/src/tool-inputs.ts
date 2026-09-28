@@ -329,7 +329,7 @@ const taskRouteSchema = {
     agent: {
       type: 'string',
       minLength: 1,
-      description: 'Adapter `sofar drive` must launch this task with (e.g. `claude-code`).',
+      description: 'Adapter for `sofar drive` (e.g. `claude-code`).',
     },
     model: { type: 'string', minLength: 1 },
     effort: { type: 'string', minLength: 1 },
@@ -345,7 +345,7 @@ const planTaskSchema = {
     status: { enum: [...TASK_STATUSES] },
     route: {
       ...taskRouteSchema,
-      description: 'Routing hints for `sofar drive`; what the run pinned wins.',
+      description: 'Routing hints for `sofar drive`.',
     },
   },
   required: ['id', 'title'],
@@ -367,6 +367,8 @@ const planSchema = {
   type: 'object',
   properties: {
     goal: { type: 'string', minLength: 1 },
+    // The operator's words, verbatim (r1-fixes 4.6, L36); described in the tool's own line — the surface is capped (D13).
+    brief: { type: 'string', minLength: 1 },
     phases: { type: 'array', items: planPhaseSchema },
   },
   required: ['phases'],
@@ -591,7 +593,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_update_plan',
     description:
-      'Replace the whole plan (goal + phases with tasks) — a full replace, not a merge: an omitted status means `pending`, so restate every status you keep. To add one task, sofar_update_task with title.',
+      'Full plan replace (goal, brief, phases), not a merge: an omitted status means `pending`, so restate every status you keep. `brief` = the operator\'s roadmap or spec, verbatim; kept when omitted. One task: sofar_update_task.',
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_update_plan,
   },
   {
@@ -602,7 +604,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_remember',
     description:
-      'Promote an operational fact to repo memory — a release command, a failure mode, a convention every session must know (decisions go to sofar_log_decision). Recorded as `<slug> M<n>`.',
+      'Promote an operational fact to repo memory — a release command, a failure mode, a convention every session must know (decisions: sofar_log_decision). Recorded as `<slug> M<n>`.',
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_remember,
   },
 ]

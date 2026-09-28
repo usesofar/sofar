@@ -718,8 +718,13 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     expect(flat(AGENTS_PROTOCOL_BLOCK)).not.toContain('rewake')
     // rc.1's block is in the ledger, so init refreshes it and doctor calls it stale.
     const v10 = SHIPPED_PROTOCOL_BLOCKS[9]! // V10, by version
+    const v11 = SHIPPED_PROTOCOL_BLOCKS[10]! // V11: D17's block, before r1-fixes 4.6 added PLAN
     // D17 changed DRIVING alone.
-    expect(PROTOCOL_BLOCK.replace(driving(PROTOCOL_BLOCK), driving(v10))).toBe(v10)
+    expect(v11.replace(driving(v11), driving(v10))).toBe(v10)
+    // 4.6 added the PLAN bullet alone (the brief, L36).
+    const plan = (b: string): string => /- PLAN:[\s\S]*?(?=\n- DURING)/.exec(b)![0]
+    expect(PROTOCOL_BLOCK.replace(`${plan(PROTOCOL_BLOCK)}\n`, '')).toBe(v11)
+    expect(v11).not.toContain('brief')
     expect(flat(v10)).toContain('Then run `sofar drive <slug> --await` in a background shell: silent until the run stops')
     expect(classifyProtocolBlock(v10, PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS)).toBe('stale')
   })

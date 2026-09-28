@@ -124,6 +124,13 @@ export interface PlanPhaseInput {
 /** Full plan structure carried by plan_updated (full replace, SPEC §MCP tools). */
 export interface PlanStructure {
   goal?: string
+  /**
+   * The operator's own words the plan was made from — a roadmap, a spec, a
+   * list of steps — VERBATIM (r1-fixes 4.6, L36). Kept when a later replace
+   * omits it, like goal: tasks are the agent's summary of it and lose words,
+   * and finishing every task does not finish the brief.
+   */
+  brief?: string
   phases: PlanPhaseInput[]
 }
 
@@ -788,6 +795,7 @@ function validatePlan(plan: unknown, errors: string[]): void {
     return
   }
   if (plan.goal !== undefined && !str(plan.goal)) errors.push('plan.goal: must be a non-empty string')
+  if (plan.brief !== undefined && !str(plan.brief)) errors.push('plan.brief: must be a non-empty string')
   if (!Array.isArray(plan.phases)) {
     errors.push('plan.phases: must be an array')
     return
@@ -1286,8 +1294,8 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   },
   plan_updated: {
     writer: 'agent',
-    summary: 'the WHOLE plan — a full replace: resend every phase and task each time, or the omitted ones vanish',
-    fields: `plan: {goal?, phases: [{name, status?: ${PHASE_STATUSES.join('|')}, tasks: [{id, title, status?: ${TASK_STATUSES.join('|')}, route?: {agent?, model?, effort?}, verify?: {cmd, cwd?, timeout_ms?}}]}]}`,
+    summary: 'the WHOLE plan — a full replace: resend every phase and task each time, or the omitted ones vanish; brief is the operator\'s roadmap or spec verbatim, kept when omitted',
+    fields: `plan: {goal?, brief?, phases: [{name, status?: ${PHASE_STATUSES.join('|')}, tasks: [{id, title, status?: ${TASK_STATUSES.join('|')}, route?: {agent?, model?, effort?}, verify?: {cmd, cwd?, timeout_ms?}}]}]}`,
     example: {
       plan: {
         goal: 'Ship the booking flow',
