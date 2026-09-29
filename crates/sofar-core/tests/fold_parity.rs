@@ -49,8 +49,8 @@ fn cases() -> Vec<Case> {
     ids.sort();
     assert_eq!(
         ids.len(),
-        17,
-        "the seventeen D22 cases (FP-09 from r1-fixes 2.5, FP-10 from 3.2/D25, FP-11 from drive-visibility 2.2, FP-12 from rust-core 1.6, FP-13 from memory-lead 2.8, FP-14 from memory-lead 2.3 and typed-judge 2.4, FP-15 from memory-lead 2.4, FP-16 from binding-follows-session D5, FP-17 from r1-fixes 4.6)"
+        18,
+        "the eighteen D22 cases (FP-09 from r1-fixes 2.5, FP-10 from 3.2/D25, FP-11 from drive-visibility 2.2, FP-12 from rust-core 1.6, FP-13 from memory-lead 2.8, FP-14 from memory-lead 2.3 and typed-judge 2.4, FP-15 from memory-lead 2.4, FP-16 from binding-follows-session D5, FP-17 from r1-fixes 4.6, FP-18 from linked-context 2.2)"
     );
     ids.into_iter()
         .map(|id| {

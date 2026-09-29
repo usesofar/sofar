@@ -48,6 +48,9 @@ pub struct TaskState {
     pub route: Option<Json>,
     /// The acceptance command (r1-fixes 3.1, D19), verbatim from the plan.
     pub verify: Option<Json>,
+    /// The task's DECLARED links (linked-context 2.2, SPEC §Links): canonical
+    /// qualified handles, carried and never resolved. Empty when none.
+    pub waits_on: Vec<String>,
     pub verification: Option<TaskVerification>,
     /// The latest check run per decision (memory-lead 2.3, D9), oldest
     /// decision first: `verification_recorded` carrying `decision`. Kept
@@ -869,6 +872,15 @@ fn apply_event(
             if let Some(brief) = plan.get("brief").and_then(Json::as_str) {
                 brief.clone_into(&mut state.brief);
             }
+            // waits_on is the one task field a full replace keeps when the
+            // task omits it (SPEC §Links: absent leaves the set unchanged,
+            // linked-context D10) — matched by id, first task wins.
+            let mut prior_waits: HashMap<String, Vec<String>> = HashMap::new();
+            for task in state.phases.iter().flat_map(|ph| &ph.tasks) {
+                if !task.waits_on.is_empty() && !prior_waits.contains_key(&task.id) {
+                    prior_waits.insert(task.id.clone(), task.waits_on.clone());
+                }
+            }
             let phases = plan.get("phases").and_then(Json::as_arr).unwrap_or(&[]);
             state.phases = phases
                 .iter()
@@ -882,14 +894,22 @@ fn apply_event(
                         .unwrap_or(&[])
                         .iter()
                         .filter_map(Json::as_obj)
-                        .map(|task| TaskState {
-                            id: req_str(task, "id"),
-                            title: req_str(task, "title"),
-                            status: status_or_pending(task),
-                            route: task.get("route").cloned(),
-                            verify: task.get("verify").cloned(),
-                            verification: None,
-                            checks: None,
+                        .map(|task| {
+                            let id = req_str(task, "id");
+                            let waits_on = match task.get("waits_on") {
+                                Some(w) => waits_on_of(w),
+                                None => prior_waits.get(&id).cloned().unwrap_or_default(),
+                            };
+                            TaskState {
+                                id,
+                                title: req_str(task, "title"),
+                                status: status_or_pending(task),
+                                route: task.get("route").cloned(),
+                                verify: task.get("verify").cloned(),
+                                waits_on,
+                                verification: None,
+                                checks: None,
+                            }
                         })
                         .collect(),
                     note: None,
@@ -917,6 +937,7 @@ fn apply_event(
                 status: status_or_pending(p),
                 route: None,
                 verify: p.get("verify").cloned(),
+                waits_on: p.get("waits_on").map(waits_on_of).unwrap_or_default(),
                 verification: None,
                 checks: None,
             };
@@ -936,6 +957,10 @@ fn apply_event(
                 return;
             };
             task.status.clone_from(&status);
+            // Present replaces the declared set, `[]` clears it, absent keeps it.
+            if let Some(w) = p.get("waits_on") {
+                task.waits_on = waits_on_of(w);
+            }
             // A task done while a run is open is one that run must have
             // verified before accepting (D19).
             if status == "done"
@@ -1887,6 +1912,16 @@ fn put_count(o: &mut Object, key: &str, value: u64) {
     #[allow(clippy::cast_precision_loss, reason = "a fold never counts past 2^53")]
     o.insert(key, Json::Num(value as f64));
 }
+/// A validated `waits_on` payload value as the task carries it (`[]` clears).
+fn waits_on_of(value: &Json) -> Vec<String> {
+    value
+        .as_arr()
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|h| h.as_str().map(str::to_owned))
+        .collect()
+}
+
 fn str_arr(items: &[String]) -> Json {
     Json::Arr(items.iter().map(|s| Json::Str(s.clone())).collect())
 }
@@ -1903,6 +1938,9 @@ impl TaskState {
         }
         if let Some(v) = &self.verify {
             o.insert("verify", v.clone());
+        }
+        if !self.waits_on.is_empty() {
+            o.insert("waits_on", str_arr(&self.waits_on));
         }
         if let Some(v) = &self.verification {
             o.insert("verification", v.to_json());
@@ -2417,6 +2455,14 @@ impl TaskState {
             status: rs(o, "status")?,
             route: o.get("route").cloned(),
             verify: o.get("verify").cloned(),
+            waits_on: match o.get("waits_on") {
+                None => Vec::new(),
+                Some(w) => w
+                    .as_arr()?
+                    .iter()
+                    .map(|h| h.as_str().map(str::to_owned))
+                    .collect::<Option<_>>()?,
+            },
             verification: match o.get("verification") {
                 None => None,
                 Some(v) => Some(TaskVerification::from_json(v.as_obj()?)?),

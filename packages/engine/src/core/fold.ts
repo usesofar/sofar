@@ -82,6 +82,13 @@ export interface TaskState {
   /** The acceptance command (r1-fixes 3.1, D19), carried through from the plan like `route`. */
   verify?: TaskVerify
   /**
+   * The task's DECLARED links (linked-context 2.2, SPEC §Links): canonical
+   * qualified handles, in the order the latest setting event wrote them.
+   * Carried, never resolved — resolution is the links tier's (Phase 4).
+   * Absent when the set is empty.
+   */
+  waits_on?: string[]
+  /**
    * The latest verification the driver recorded for this task (D19). A pass
    * counts only while `checked` names the current tree and `command` is the
    * one that would run now — the driver re-fingerprints before trusting it.
@@ -1542,6 +1549,11 @@ function supersededIndex(decisions: readonly DecisionState[], p: DecisionLoggedP
   return Number.isInteger(n) && n < ordinal ? n - 1 : -1
 }
 
+/** A declared set as the task carries it: a copy when non-empty, no key otherwise. */
+function waitsOn(set: string[] | undefined): { waits_on?: string[] } {
+  return set !== undefined && set.length > 0 ? { waits_on: [...set] } : {}
+}
+
 function findTask(state: InitiativeState, id: string): TaskState | undefined {
   for (const phase of state.phases) {
     const task = phase.tasks.find((t) => t.id === id)
@@ -1594,6 +1606,15 @@ function applyEvent(
       const p = event.payload as unknown as PlanUpdatedPayload
       if (p.plan.goal !== undefined) state.goal = p.plan.goal
       if (p.plan.brief !== undefined) state.brief = p.plan.brief
+      // waits_on is the one task field a full replace keeps when the task
+      // omits it (SPEC §Links: absent leaves the set unchanged, linked-context
+      // D10) — matched by id, first task wins like findTask.
+      const priorWaits = new Map<string, string[]>()
+      for (const phase of state.phases) {
+        for (const task of phase.tasks) {
+          if (!priorWaits.has(task.id) && task.waits_on !== undefined) priorWaits.set(task.id, task.waits_on)
+        }
+      }
       state.phases = p.plan.phases.map((phase) => ({
         name: phase.name,
         status: phase.status ?? 'pending',
@@ -1603,6 +1624,7 @@ function applyEvent(
           status: task.status ?? 'pending',
           ...(task.route !== undefined ? { route: task.route } : {}),
           ...(task.verify !== undefined ? { verify: task.verify } : {}),
+          ...waitsOn(task.waits_on ?? priorWaits.get(task.id)),
         })),
       }))
       break
@@ -1627,6 +1649,7 @@ function applyEvent(
         title: p.title,
         status: p.status ?? 'pending',
         ...(p.verify !== undefined ? { verify: p.verify } : {}),
+        ...waitsOn(p.waits_on),
       })
       break
     }
@@ -1638,6 +1661,11 @@ function applyEvent(
         break
       }
       task.status = p.status
+      // Present replaces the declared set, `[]` clears it, absent keeps it.
+      if (p.waits_on !== undefined) {
+        if (p.waits_on.length > 0) task.waits_on = [...p.waits_on]
+        else delete task.waits_on
+      }
       // A task done while a run is open is one that run must have verified
       // before accepting (D19); kept on the run so a resumed driver can see a
       // done task whose check never landed.

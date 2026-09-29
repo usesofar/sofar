@@ -193,6 +193,21 @@ pub fn is_qualified_decision_handle(s: &str) -> bool {
         .is_some_and(|(slug, handle)| is_initiative_slug(slug) && is_decision_handle(handle))
 }
 
+/// `WAITS_ON_HANDLE_RE = /^[a-z0-9-]+(?: (?:D[0-9]+|T[0-9]+|[0-9]+\.[0-9]+|M[0-9]+))?$/`
+/// (linked-context 2.1, SPEC §Links): a bare slug, or slug, one space, target.
+#[must_use]
+pub fn is_waits_on_handle(s: &str) -> bool {
+    let digits = |t: &str| !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit());
+    let Some((slug, target)) = s.split_once(' ') else {
+        return is_initiative_slug(s);
+    };
+    is_initiative_slug(slug)
+        && (target.strip_prefix(['D', 'T', 'M']).is_some_and(digits)
+            || target
+                .split_once('.')
+                .is_some_and(|(a, b)| digits(a) && digits(b)))
+}
+
 /// `NATIVE_ORIGIN_RE = /^claude-memory:([^@/\\\n]+)@([0-9a-f]{16})$/`
 /// (memory-lead D14): a file name with no `@`, `/`, `\\` or newline, then the
 /// first 16 lowercase hex of its sha256.
@@ -594,6 +609,21 @@ fn validate_verify(verify: Option<&Json>, path: &str, errors: &mut Vec<String>) 
     }
 }
 
+/// `waits_on` (linked-context 2.1): absent, or an array of canonical qualified handles (`[]` clears).
+fn validate_waits_on(value: Option<&Json>, path: &str, errors: &mut Vec<String>) {
+    let Some(value) = value else { return };
+    let ok = value.as_arr().is_some_and(|items| {
+        items
+            .iter()
+            .all(|h| matches!(h, Json::Str(s) if is_waits_on_handle(s)))
+    });
+    if !ok {
+        errors.push(format!(
+            "{path}: must be an array of qualified handles (`<slug>` or `<slug> D<n>|T<n>|<n>.<n>|M<n>`) when present"
+        ));
+    }
+}
+
 fn validate_plan(plan: Option<&Json>, errors: &mut Vec<String>) {
     let Some(plan) = plan.and_then(Json::as_obj) else {
         errors.push("plan: must be an object".to_owned());
@@ -658,6 +688,11 @@ fn validate_plan(plan: Option<&Json>, errors: &mut Vec<String>) {
             validate_verify(
                 task.get("verify"),
                 &format!("plan.phases[{pi}].tasks[{ti}].verify"),
+                errors,
+            );
+            validate_waits_on(
+                task.get("waits_on"),
+                &format!("plan.phases[{pi}].tasks[{ti}].waits_on"),
                 errors,
             );
         }
@@ -730,6 +765,7 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                 ));
             }
             validate_verify(p.get("verify"), "verify", e);
+            validate_waits_on(p.get("waits_on"), "waits_on", e);
         }
         "task_status_changed" => {
             must(e, str(p.get("id")), "id: must be a non-empty string");
@@ -740,6 +776,7 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                 ));
             }
             must(e, opt_str(p.get("note")), "note: must be a string");
+            validate_waits_on(p.get("waits_on"), "waits_on", e);
         }
         "decision_logged" => {
             must(e, str(p.get("chose")), "chose: must be a non-empty string");

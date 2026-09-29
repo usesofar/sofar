@@ -382,6 +382,26 @@ export function buildCases(): FoldParityCase[] {
     l.ev('plan_updated', { plan: { brief: '', phases: [] } }, { session: 'A' }) // invalid: empty brief
     cases.push({ id: 'FP-17-plan-brief', lines: l.lines, sidecar: { tail_at: 3, seeds: [50, 51, 52], order_independence: true, note: 'r1-fixes 4.6 (L36): plan.brief is the operator\'s words verbatim, sticky like goal — a plan_updated with a new brief replaces it, one without keeps the last, one with an empty string is an invalid line. The final state is the S9 shape: every task done, the roadmap whole. The tail starts at the first task done' } })
   }
+  {
+    // linked-context 2.2 (SPEC §Links, D10): the fold carries a task's
+    // declared waits_on and never resolves it. Present replaces, [] clears,
+    // absent keeps — on task_status_changed, task_added and plan task input
+    // alike, so a full-replace plan that omits it keeps the set by id. A
+    // handle outside the canonical grammar makes the line invalid.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('plan_updated', { plan: { phases: [{ name: 'Phase 1', tasks: [{ id: '1.1', title: 'A', waits_on: ['other 2.1', 'other'] }, { id: '1.2', title: 'B' }] }] } }, { session: 'A' })
+    l.ev('task_status_changed', { id: '1.2', status: 'blocked', note: 'needs other D3', waits_on: ['other D3'] }, { session: 'A' })
+    l.ev('task_status_changed', { id: '1.1', status: 'active' }, { session: 'A' }) // absent: kept
+    l.ev('task_added', { phase: 'Phase 1', id: '1.3', title: 'C', waits_on: ['demo 1.1', 'third T4'] }, { session: 'A' })
+    l.ev('plan_updated', { plan: { phases: [{ name: 'Phase 1', tasks: [{ id: '1.1', title: 'A', status: 'active' }, { id: '1.2', title: 'B', status: 'blocked', waits_on: [] }, { id: '1.3', title: 'C', waits_on: ['other M2'] }] }] } }, { session: 'A' }) // keep, clear, replace
+    l.ev('task_status_changed', { id: '1.2', status: 'active', waits_on: ['other D3', 'other D4'] }, { session: 'A' })
+    l.ev('task_status_changed', { id: '1.3', status: 'active', waits_on: [] }, { session: 'A' }) // cleared
+    l.ev('task_status_changed', { id: '1.1', status: 'done', waits_on: ['D3'] }, { session: 'A' }) // invalid: bare
+    l.ev('task_status_changed', { id: '1.1', status: 'done', waits_on: 'other' }, { session: 'A' }) // invalid: not a list
+    l.ev('task_added', { phase: 'Phase 1', id: '1.4', title: 'D', waits_on: ['Other D1'] }, { session: 'A' }) // invalid: uppercase slug
+    cases.push({ id: 'FP-18-declared-waits-on', lines: l.lines, sidecar: { tail_at: 3, seeds: [53, 54, 55], order_independence: true, note: 'linked-context 2.2 (D10): a task carries its declared waits_on verbatim and unresolved — present replaces, [] clears, absent keeps, and a full-replace plan task that omits it keeps the set by id. A handle outside the canonical grammar (bare, uppercase, not a list) is an invalid line. The tail starts at the first status change carrying a set' } })
+  }
   return cases
 }
 
