@@ -4,7 +4,7 @@
 
 Goal: Benchmark sofar in rounds to make it far superior AND to publish credible launch claims for every segment (solo devs, engineering teams, enterprises; seat-based). The workload is the Boopada planner (travel-planner). The matrix is agent × memory across Claude Code, Codex, Cursor and OpenCode: native memory vs sofar vs sofar + drive (where an adapter exists) vs bare (D6, D10, D11); CLAUDE.md, Obsidian and Notion arms plus one subagent-orchestrator arm on Claude Code (D12). Claims C1–C8 plus a per-plan savings cut. Every round produces a loss study of every gap, fallback and failure, with ranked, pre-predicted fixes (D5, D10). Public numbers come only from the held-out chain. Budget: half the user's weekly Claude limit (D9). Runs are unattended (D13).
 
-Progress: 23 done, 1 dropped, 2 remaining
+Progress: 24 done, 1 dropped, 1 remaining
 
 ## Phase 1 — Claim + round design [done] — 5/5 done
 
@@ -71,12 +71,12 @@ Progress: 23 done, 1 dropped, 2 remaining
 - [-] 3.4 C7: N concurrent sessions on one repo, compared across arms
 - When it runs, it starts from a round-2 checkpoint fork rather than a fresh chain prefix (D33). (dropped)
 
-## Phase 6 — Evidence + launch assets [pending] — 2/4 done
+## Phase 6 — Evidence + launch assets [pending] — 3/4 done
 
 - [x] 3.6 Cheap proofs: install-to-first-resume time, zero-egress network trace, overhead footprint
 - [x] 6.1 Evidence report with CIs, round history, fix predictions vs outcomes, and losses shown. Publish the harness and workload. The user signs off.
 - [ ] 6.2 Launch assets: one headline number and chart per claim, the plan-savings table, the reproduce command, segment cuts
-- [ ] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap (active)
+- [x] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap
 
 Active phase: Phase 5 — Round 2
 Next action: 6.3: get the operator's decision on the local one-pager rewrite (re-send to partners themselves) and the paths of any other public copies of the R04 figures / @alignlabs/sofar install name (sofar.sh site, npm README, PDF) — draft the same edits there; then 6.2 waits for round 3. No runner commits before the freeze; Codex work waits for Oct 4 20:27 IST; the operator bootstraps the round-3 plists after the freeze.
