@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: When Stage 1 ends: relay the pick; L19 in a quiet window; operator freezes.
+Next action: L19 in the first quiet slot; bootstrap the rep-1 trio 2026-10-04 16:30 IST.
