@@ -46,5 +46,5 @@ Progress: 19/24 tasks done (79%)
 - [ ] 5.4 Run round 3, report per claim with per-rep values; publish only what clears the pre-registered margin
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: Record the competitor screen's Stage 0 verdicts in R3 §4.3; then the operator runs L19, P2/H1–H6 smokes and Stage 1, and H5 lands for the runner hash.
+Next action: Operator: run L19, the P2/H1–H6 smokes and competitor Stage 1 (commands in R3 §9, §4.3); rule H9's family key and R3-P6; land H5; then I record the runner hash and bring the freeze packet.
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
