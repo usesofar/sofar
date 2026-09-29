@@ -716,7 +716,7 @@ ${PROTOCOL_END}
  * r1-fixes 4.6 (L36): PLAN — the operator's roadmap or spec goes in the plan's
  * brief verbatim before it is decomposed. Everything else is V11.
  */
-export const PROTOCOL_BLOCK = `${PROTOCOL_START}
+export const PROTOCOL_BLOCK_V12 = `${PROTOCOL_START}
 ## Sofar protocol (jurisdiction is total)
 
 This repo's work memory lives in sofar records under \`.sofar/\`.
@@ -785,6 +785,23 @@ Session loop:
 ${PROTOCOL_END}
 `
 
+/**
+ * linked-context 5.4: LINKS — name another record as `<slug> <id>`, and
+ * declare waits_on when blocked on it. Everything else is V12, which stays a
+ * byte-exact literal; this block inserts the bullet before DURING.
+ */
+export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V12.replace(
+  '- DURING: work; the record is written once',
+  `- LINKS: name another record's task, decision or memory as \`<slug> <id>\`
+  (\`billing 2.3\`, \`billing D4\`, \`billing M2\`) — a bare id means this
+  record's. When a task cannot finish until something in another record
+  moves, mark it blocked AND declare it: \`waits_on: ["<slug> <id>"]\` (or
+  the whole \`<slug>\`) on the task change. A cite is only offered as worth
+  reading; a declared wait is what the Travel block reports as moved or
+  resolved.
+- DURING: work; the record is written once`,
+)
+
 /** Superseded CLAUDE.md blocks, oldest first. */
 export const SHIPPED_PROTOCOL_BLOCKS: readonly string[] = [
   PROTOCOL_BLOCK_V1,
@@ -798,6 +815,7 @@ export const SHIPPED_PROTOCOL_BLOCKS: readonly string[] = [
   PROTOCOL_BLOCK_V9,
   PROTOCOL_BLOCK_V10,
   PROTOCOL_BLOCK_V11,
+  PROTOCOL_BLOCK_V12,
 ]
 
 /**
@@ -1595,7 +1613,7 @@ ${PROTOCOL_END}
  * r1-fixes 4.6 (L36): PLAN names the brief — the operator's roadmap or spec,
  * verbatim, before decomposition. Everything else is V10.
  */
-export const AGENTS_PROTOCOL_BLOCK = `${PROTOCOL_START}
+export const AGENTS_PROTOCOL_BLOCK_V11 = `${PROTOCOL_START}
 ## Sofar protocol (jurisdiction is total)
 
 This repo's work memory lives in sofar records under \`.sofar/\`. Any
@@ -1714,6 +1732,23 @@ Prohibitions:
 ${PROTOCOL_END}
 `
 
+/**
+ * linked-context 5.4: LINKS, as in PROTOCOL_BLOCK, with the CLI append that
+ * declares the wait. Everything else is V11, kept a byte-exact literal.
+ */
+export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V11.replace(
+  '- DURING, for operational facts:',
+  `- LINKS: name another record's task, decision or memory as \`<slug> <id>\`
+  (\`billing 2.3\`, \`billing D4\`, \`billing M2\`) — a bare id means this
+  record's. When a task cannot finish until something in another record
+  moves, mark it blocked AND declare it, lowercase and qualified:
+  \`--type task_status_changed --payload '{"id":"<task-id>","status":"blocked","waits_on":["billing 2.3"]}'\`
+  (or the whole \`"billing"\`; with MCP tools, \`waits_on\` on the task
+  change). A cite is only offered as worth reading; a declared wait is what
+  the Travel block reports as moved or resolved.
+- DURING, for operational facts:`,
+)
+
 /** Superseded AGENTS.md blocks, oldest first. */
 export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [
   AGENTS_PROTOCOL_BLOCK_V1,
@@ -1726,6 +1761,7 @@ export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [
   AGENTS_PROTOCOL_BLOCK_V8,
   AGENTS_PROTOCOL_BLOCK_V9,
   AGENTS_PROTOCOL_BLOCK_V10,
+  AGENTS_PROTOCOL_BLOCK_V11,
 ]
 
 // REPO_MD_STUB moved to ./shared (ui-free) so event.ts can import it without

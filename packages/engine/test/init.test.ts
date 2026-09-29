@@ -688,6 +688,23 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     expect(AGENTS_PROTOCOL_BLOCK).not.toContain('sofar event append --type')
   })
 
+  it('teaches both dialects to cite another record as <slug> <id> and declare waits_on when blocked (linked-context 5.4)', () => {
+    const flat = (b: string): string => b.replace(/\s+/g, ' ')
+    const links = (b: string): string => /\n- LINKS:[\s\S]*?(?=\n- DURING)/.exec(b)![0]
+    for (const block of [PROTOCOL_BLOCK, AGENTS_PROTOCOL_BLOCK].map(flat)) {
+      expect(block).toContain("- LINKS: name another record's task, decision or memory as `<slug> <id>`")
+      expect(block).toContain('a bare id means this record\'s')
+      expect(block).toContain('mark it blocked AND declare it')
+    }
+    expect(flat(PROTOCOL_BLOCK)).toContain('`waits_on: ["<slug> <id>"]`')
+    // The CLI append stores the handle as written, and the payload takes only
+    // canonical ones — so the example is a real handle (cli-dialect validates it).
+    expect(AGENTS_PROTOCOL_BLOCK).toContain('`--type task_status_changed --payload \'{"id":"<task-id>","status":"blocked","waits_on":["billing 2.3"]}\'`')
+    // Only LINKS was added: the current block minus it is the last shipped one, byte for byte.
+    expect(PROTOCOL_BLOCK.replace(links(PROTOCOL_BLOCK), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-1))
+    expect(AGENTS_PROTOCOL_BLOCK.replace(links(AGENTS_PROTOCOL_BLOCK), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
+  })
+
   const driving = (b: string): string => /- DRIVING:[\s\S]*?(?=\n- BEFORE FINISHING)/.exec(b)![0]
 
   it('tells a driving agent to settle keep-awake and watch the run with --await (drive-visibility 3.6)', () => {

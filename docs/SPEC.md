@@ -1260,6 +1260,12 @@ log it is read from. A handle naming no existing slug is refused at write; a
 handle naming nothing inside an existing record is accepted with a dangling
 warning; a `waits_on` cycle is warned, never refused (linked-context 2.3).
 The fold carries the set on the task and does not resolve it.
+Both protocol blocks (linked-context 5.4) carry a LINKS bullet: name another
+record's task, decision or memory as `<slug> <id>` (a bare id means the home
+record's), and when a task cannot finish until another record moves, mark it
+`blocked` and declare `waits_on`. The AGENTS.md example appends a canonical
+handle, because `sofar event append` files the payload as written and the
+payload validator takes only canonical handles.
 
 **Handle grammar.** One grammar for both kinds; canonical form is the
 lowercase slug, one space, the target:

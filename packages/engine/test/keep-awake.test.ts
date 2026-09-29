@@ -122,7 +122,9 @@ describe('the assertion', () => {
     awake.start((l) => progress.push(l))
     await until(() => fake.argv() !== undefined)
     expect(fake.argv()).toBe('-i -w 4242')
-    expect(pidsRunning(`${fake.bin} -i -w 4242`)).toHaveLength(1)
+    // Polled, not read once: under a loaded parallel suite one pgrep scan can
+    // come back empty while the process table churns (flaked in the full run).
+    await until(() => pidsRunning(`${fake.bin} -i -w 4242`).length === 1)
     awake.release()
     awake.release() // idempotent
     await until(() => pidsRunning(`${fake.bin} -i -w 4242`).length === 0)
