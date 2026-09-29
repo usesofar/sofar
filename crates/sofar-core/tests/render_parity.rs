@@ -132,6 +132,7 @@ fn options_from(value: &Json) -> StatusOptions {
         lane: o.get("lane").is_some_and(Json::is_true),
         activity: o.get("activity").map(Json::is_true),
         retire: true,
+        travel: sofar_core::travel::TravelInput::default(),
     }
 }
 

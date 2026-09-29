@@ -86,6 +86,7 @@ pub mod statusline;
 pub mod statusline_facts;
 pub mod text;
 pub mod told;
+pub mod travel;
 pub mod ui;
 pub mod update_cache;
 pub mod user_prompt;

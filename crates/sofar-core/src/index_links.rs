@@ -1787,6 +1787,34 @@ pub fn refresh_links(layout: &Layout, slug: &str) -> Vec<Link> {
     links
 }
 
+/// `linkInDegrees`: each target's repo-wide in-degree as links-in.json holds
+/// it; empty when absent or corrupt (a target it lacks counts as 1).
+#[must_use]
+pub fn link_in_degrees(layout: &Layout) -> std::collections::HashMap<String, usize> {
+    read_inbound(layout)
+        .map(|f| {
+            f.targets
+                .into_iter()
+                .map(|t| (t.to, t.from.len()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// `readTravel`: the travel block's whole input for one home (linked-context
+/// 5.2) — its links, refreshed, and their targets' in-degrees; the links tier
+/// only, never reach or a graph (D2).
+#[must_use]
+pub fn read_travel(layout: &Layout, slug: &str) -> crate::travel::TravelInput {
+    let links = refresh_links(layout, slug);
+    let indegree = if links.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        link_in_degrees(layout)
+    };
+    crate::travel::TravelInput { links, indegree }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

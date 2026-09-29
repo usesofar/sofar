@@ -407,6 +407,9 @@ pub struct StatusOptions {
     /// `SOFAR_RETIRE` itself; here the caller passes it (templates read no
     /// env), defaulting to on.
     pub retire: bool,
+    /// The links tier's input to the travel block (linked-context 5.2);
+    /// empty renders zero bytes.
+    pub travel: crate::travel::TravelInput,
 }
 
 impl Default for StatusOptions {
@@ -421,6 +424,7 @@ impl Default for StatusOptions {
             lane: false,
             activity: None,
             retire: true,
+            travel: crate::travel::TravelInput::default(),
         }
     }
 }
@@ -817,6 +821,9 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         .map(|(term, _)| term)
         .collect();
     let rendered_memories: RefCell<Vec<usize>> = RefCell::new(Vec::new());
+    // What travel dedupes against (linked-context 5.2): bound as those blocks render.
+    let rendered_repo_memory: RefCell<String> = RefCell::new(String::new());
+    let rendered_rule_lines: RefCell<Vec<String>> = RefCell::new(Vec::new());
     let mut blocks: Vec<Block<'_>> = Vec::new();
     let fixed = |blocks: &mut Vec<Block<'_>>, lines: Vec<String>| {
         if !lines.is_empty() {
@@ -1042,10 +1049,38 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         fixed(&mut blocks, state_lines);
     }
 
-    // (4) The last written-back session — yielding (precedence 4).
+    // (3b) Travel — yielding (precedence 3), zero bytes with nothing eligible.
+    let seeds = if options.travel.links.is_empty() {
+        Vec::new()
+    } else {
+        crate::travel::travel_seeds(state, focus.map(|(t, _)| t))
+    };
+    if !seeds.is_empty() {
+        let travel = &options.travel;
+        let focus_terms_ref = &focus_terms;
+        let repo_text = &rendered_repo_memory;
+        let rule_lines = &rendered_rule_lines;
+        let slug = state.slug.as_str();
+        blocks.push(Block::Yielding {
+            rank: 3,
+            preferred: crate::travel::TRAVEL_BUDGET,
+            render: Box::new(move |budget: usize| {
+                let shown = crate::travel::TravelShown {
+                    rules: crate::travel::rule_handles(&rule_lines.borrow()),
+                    memories: crate::travel::repo_memory_handles(&repo_text.borrow()),
+                };
+                let entries =
+                    crate::travel::travel_entries(slug, &seeds, travel, focus_terms_ref, &shown);
+                crate::travel::travel_lines(&entries, slug, budget)
+            }),
+            lines: Vec::new(),
+        });
+    }
+
+    // (4) The last written-back session — yielding (precedence 5).
     if let Some(last) = last_with_summary(&state.sessions) {
         blocks.push(Block::Yielding {
-            rank: 4,
+            rank: 5,
             preferred: SESSION_SUMMARY_BUDGET,
             render: Box::new(move |budget: usize| {
                 let header = format!(
@@ -1306,6 +1341,7 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     let repo_memory = js_trim(options.repo_memory.as_deref().unwrap_or("")).to_owned();
     if !repo_memory.is_empty() {
         let rendered = &rendered_memories;
+        let repo_text = &rendered_repo_memory;
         let slug = state.slug.clone();
         blocks.push(Block::Yielding {
             rank: 2,
@@ -1317,16 +1353,14 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
                     return Vec::new();
                 }
                 let header = "Repo memory (.sofar/repo.md):";
-                vec![
-                    header.to_owned(),
-                    clip_block_detect(
-                        kept,
-                        budget.saturating_sub(utf16_len(header) + 2),
-                        REPO_MEMORY_TRUNCATION_MARKER,
-                    )
-                    .0,
-                    String::new(),
-                ]
+                let text = clip_block_detect(
+                    kept,
+                    budget.saturating_sub(utf16_len(header) + 2),
+                    REPO_MEMORY_TRUNCATION_MARKER,
+                )
+                .0;
+                repo_text.borrow_mut().clone_from(&text);
+                vec![header.to_owned(), text, String::new()]
             }),
             lines: Vec::new(),
         });
@@ -1413,7 +1447,7 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         );
         let pointer = |n: usize| format!("- …and {n} more (see decisions.md)");
         blocks.push(Block::Yielding {
-            rank: 3,
+            rank: 4,
             preferred: DECISION_WINDOW_BUDGET + REJECTED_LEDGER_BUDGET,
             render: Box::new(move |budget: usize| {
                 let reserve = if rejected.is_empty() {
@@ -1578,6 +1612,7 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         &focus_terms,
         &own_in_force,
     );
+    rendered_rule_lines.borrow_mut().clone_from(&elsewhere);
     if !rules.is_empty() || !elsewhere.is_empty() {
         let mut lines = rules.clone();
         lines.extend(elsewhere.iter().cloned());
