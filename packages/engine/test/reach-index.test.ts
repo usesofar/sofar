@@ -359,7 +359,7 @@ describe('linked-context 3.1 — every citation source, each edge citing its sou
   })
 
   it('scans titles, status notes, next actions and notes with the unchanged grammar', () => {
-    const { sofar } = repo()
+    const { root, sofar } = repo()
     start(sofar, 'alpha', 'A')
     const d1 = decide(sofar, 'alpha', 'A')
     plan(sofar, 'alpha', 'A', [{ id: '2.1', title: 'target task' }])
@@ -403,6 +403,13 @@ describe('linked-context 3.1 — every citation source, each edge citing its sou
         expect(JSON.stringify(source.payload).toLowerCase()).toMatch(/alpha (d1|2\.1)/)
       }
     }
+
+    // find names the write-back as the source, not the session as an author (3.2).
+    const out = runFind(root, 'task:alpha#2.1', { hops: 1 }, { color: false, unicode: false, animate: false })
+    expect(out.stdout).toContain(`next action cites task:alpha#2.1 · event ${ended.id}`)
+    expect(out.stdout).toContain(`cites task:alpha#2.1 · event ${status.id}`)
+    const reverse = runFind(root, 'session:B', { hops: 1 }, { color: false, unicode: false, animate: false })
+    expect(reverse.stdout).toContain(`cited by the next action of session:B · event ${ended.id}`)
   })
 
   it('keeps the grammar rules: no future decision, no self-label, no dangling edge', () => {

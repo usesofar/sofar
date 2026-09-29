@@ -110,10 +110,12 @@ function viaPhrase(hit: ReachHit, from: string): string {
       return hit.kind === 'note' ? `noted by ${from}` : `noted ${from}`
     // Citation edges are directed: arriving over `cites` means the node we came
     // from cites THIS one, and vice versa.
+    // A session cites only through its write-back's next_action (linked-context
+    // 3.1), so name that source rather than let the session read as the author.
     case 'cites':
-      return `cited by ${from}`
+      return hit.via.from.startsWith('session:') ? `cited by the next action of ${from}` : `cited by ${from}`
     case 'cited_by':
-      return `cites ${from}`
+      return hit.kind === 'session' ? `next action cites ${from}` : `cites ${from}`
   }
 }
 

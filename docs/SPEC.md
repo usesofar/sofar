@@ -1032,8 +1032,9 @@ occurrence (exactly ONE edge per sourcing event; carries event_id + ts)
   noted       session    -> note       note_added
   worked      task       -> file       file_touched x every task ACTIVE then
   tested      task       -> command    test-shaped command_run with a KNOWN ok x every task ACTIVE then (r1-fixes 2.5, D24)
-derived from decision prose (closed lexical grammar; no event_id)
-  cites       decision   -> decision | task
+derived from record text (closed lexical grammar; event_id + ts = the SOURCING event)
+  cites       decision | note | task | session  -> decision | task
+              one edge per (sourcing event, target); sources per §Links (linked-context 3.2)
 structural (predecessor's folded `successor`; no event_id; initiative-supersession D1)
   superseded_by  initiative -> initiative   only when the successor is a record here
 ```
@@ -1121,6 +1122,15 @@ CLAUDE.md and §Architectural invariants already treat as repo-wide law.
 - `relatedTasks(graph, taskNodeId)` → co-touched-file neighbours ranked by
   shared-path count, cross-initiative included. Joins on file-node identity
   as recorded.
+- `taskCitations(graph, taskNodeId)` → the `cites` edges out of and into a
+  task, each naming its other end and sourcing event, newest first
+  (linked-context 3.2). `sofar related` renders them as `Cites` / `Cited by`
+  blocks, only when non-empty, and offers them — never as what the task
+  waits on (§Links). `sofar why` is unchanged: no cite ends at a file.
+  The graph's cite set equals the reach index's — source node, target and
+  sourcing event — pinned over this repo's record by
+  test/reach-graph-parity.test.ts. Dangling handles stay on decision nodes
+  alone.
 - `repoGeneral(graph)` → decisions cited from initiatives other than their
   own, ranked by DISTINCT citing initiatives, then citation volume, then
   oldest. Uncapped at derivation (the overlappingWritebacks precedent) — it

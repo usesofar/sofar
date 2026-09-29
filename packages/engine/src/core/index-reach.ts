@@ -263,13 +263,22 @@ function taskRow(state: SlugReachState, id: string): TaskRow {
 }
 
 /**
+ * The text a title anchor compares: the stored, clipped title. Exported so
+ * buildGraph moves a title cite's anchor on exactly the events this index does
+ * (linked-context 3.2) — the two may never cite different events for one cite.
+ */
+export function titleKey(title: string): string {
+  return clipProse(title, REACH_PROSE)
+}
+
+/**
  * Record a task's title. The anchor moves only when the TEXT changes: a plan
  * replace restating a title did not write it, and citing that replace would
  * name an event that says nothing new about the task.
  */
 function setTitle(state: SlugReachState, id: string, title: string, event: IndexedEvent): void {
   const row = taskRow(state, id)
-  const clipped = clipProse(title, REACH_PROSE)
+  const clipped = titleKey(title)
   if (row.event !== '' && row.title === clipped) return
   row.title = clipped
   row.event = event.id

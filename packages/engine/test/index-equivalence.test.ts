@@ -481,7 +481,7 @@ function touchersFromIndex(sofar: string): unknown {
 function citationsFromIndex(index: ReachIndex): string[] {
   const out: string[] = []
   for (const [from, edges] of index.edges) {
-    for (const edge of edges) if (edge.kind === 'cites') out.push(`${from} -> ${edge.to}`)
+    for (const edge of edges) if (edge.kind === 'cites') out.push(`${from} -> ${edge.to} @ ${edge.event_id}`)
   }
   return out.sort()
 }
@@ -490,7 +490,7 @@ function citationsFromLogs(root: string): string[] {
   const graph = buildGraph(root)
   const out: string[] = []
   for (const [from, edges] of graph.outgoing) {
-    for (const edge of edges) if (edge.kind === 'cites') out.push(`${from} -> ${edge.to}`)
+    for (const edge of edges) if (edge.kind === 'cites') out.push(`${from} -> ${edge.to} @ ${edge.event_id}`)
   }
   return out.sort()
 }

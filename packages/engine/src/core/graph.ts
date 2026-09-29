@@ -4,6 +4,9 @@ import {
   validatePayload,
   type FileTouchedPayload,
   type PhaseStatus,
+  type PlanUpdatedPayload,
+  type SessionEndedPayload,
+  type TaskAddedPayload,
   type TaskStatus,
   type TaskStatusChangedPayload,
 } from '@sofar/schema'
@@ -23,6 +26,7 @@ import {
 } from './adjacency'
 import { extractCitations, type Citation } from './citations'
 import { decodeLines, foldLines, type InitiativeState } from './fold'
+import { titleKey } from './index-reach'
 import { byCodeUnit } from './order'
 
 /**
@@ -198,6 +202,31 @@ interface PerInitiative {
   state: InitiativeState
   /** Decision node ids in ulid order — index i is the `D<i+1>` handle. */
   decisionIds: string[]
+  /** Note node ids in ulid order. */
+  noteIds: string[]
+  /** Task id → the event whose text is its title now (see titleKey). */
+  titles: Map<string, TextEvent>
+  /** Task id → status notes, in replay order — any id, final plan or not. */
+  statusNotes: Map<string, TextEvent[]>
+  /** session_ended write-backs with a next_action, from a real session. */
+  nextActions: (TextEvent & { session: string })[]
+}
+
+/** One event's citing text: the event, its ts, and the text it holds. */
+interface TextEvent {
+  id: string
+  ts: string
+  text: string
+}
+
+/** One text that cites (linked-context 3.2): the node it is FROM and the event whose text it is. */
+interface CiteSource {
+  from: string
+  event_id: string
+  ts: string
+  text: string
+  /** Only a decision carries `dangling[]` (SPEC §Record graph). */
+  decision?: DecisionNode
 }
 
 export function buildGraph(rootDir: string): RecordGraph {
@@ -300,6 +329,21 @@ export function buildGraph(rootDir: string): RecordGraph {
     // under the same skip rules — voided, unknown and payload-invalid events
     // contribute neither node nor edge.
     const decisionIds: string[] = []
+    const noteIds: string[] = []
+    // The citation sources outside decisions and notes (linked-context 3.2),
+    // under the reach index's rules so the two answer alike: a title's anchor
+    // is the event that last CHANGED its text, a task_added for an id the
+    // plan holds is skipped (the fold's rule), a duplicated id in one plan
+    // resolves to its first task.
+    const planned: string[] = []
+    const titles = new Map<string, TextEvent>()
+    const statusNotes = new Map<string, TextEvent[]>()
+    const nextActions: (TextEvent & { session: string })[] = []
+    const setTitle = (taskId: string, title: string, id: string, ts: string): void => {
+      const prior = titles.get(taskId)
+      if (prior !== undefined && titleKey(prior.text) === titleKey(title)) return
+      titles.set(taskId, { id, ts, text: title })
+    }
 
     for (const { event } of parsed) {
       if (voided.has(event.id)) continue
@@ -356,8 +400,46 @@ export function buildGraph(rootDir: string): RecordGraph {
           })
           break
         }
+        case 'plan_updated': {
+          const p = event.payload as unknown as PlanUpdatedPayload
+          planned.length = 0
+          const titled = new Set<string>()
+          for (const phase of p.plan.phases) {
+            for (const task of phase.tasks) {
+              planned.push(task.id)
+              if (titled.has(task.id)) continue
+              titled.add(task.id)
+              setTitle(task.id, task.title, event.id, event.ts)
+            }
+          }
+          break
+        }
+        case 'task_added': {
+          const p = event.payload as unknown as TaskAddedPayload
+          if (planned.includes(p.id)) break
+          planned.push(p.id)
+          setTitle(p.id, p.title, event.id, event.ts)
+          break
+        }
+        case 'task_status_changed': {
+          const p = event.payload as unknown as TaskStatusChangedPayload
+          if (typeof p.note !== 'string') break
+          const list = statusNotes.get(p.id)
+          const row = { id: event.id, ts: event.ts, text: p.note }
+          if (list === undefined) statusNotes.set(p.id, [row])
+          else list.push(row)
+          break
+        }
+        case 'session_ended': {
+          const p = event.payload as unknown as SessionEndedPayload
+          // `cli` is not a session identity (BD44): its write-back has no node to cite from.
+          if (typeof p.next_action !== 'string' || event.session === 'cli' || event.session === '') break
+          nextActions.push({ session: event.session, id: event.id, ts: event.ts, text: p.next_action })
+          break
+        }
         case 'note_added': {
           const id = `note:${event.id}`
+          noteIds.push(id)
           nodes.set(id, {
             kind: 'note',
             id,
@@ -401,10 +483,14 @@ export function buildGraph(rootDir: string): RecordGraph {
       edges.push(edge)
     }
 
-    perInitiative.push({ slug, state, decisionIds })
+    perInitiative.push({ slug, state, decisionIds, noteIds, titles, statusNotes, nextActions })
   }
 
   // --- `cites`: a second pass, because a citation may name any initiative.
+  // Every citation source SPEC §Links names (linked-context 3.2, mirroring the
+  // reach index's 3.1 pass): each edge carries the SOURCING event — the one
+  // whose own text holds the handle — and there is one edge per (sourcing
+  // event, target), so a text naming a target twice is one citation.
   const knownSlugs = perInitiative.map((p) => p.slug)
   const decisionsBySlug = new Map(perInitiative.map((p) => [p.slug, p.decisionIds]))
   const tasksBySlug = new Map(
@@ -412,24 +498,36 @@ export function buildGraph(rootDir: string): RecordGraph {
   )
   const citeEdges: GraphEdge[] = []
 
-  for (const { slug, decisionIds } of perInitiative) {
-    for (const decisionId of decisionIds) {
-      const node = nodes.get(decisionId) as DecisionNode | undefined
-      if (node === undefined) continue
-      const text = `${node.chose}\n${node.over}\n${node.because}`
-      for (const citation of extractCitations(text, slug, knownSlugs)) {
-        const target = resolveCitation(citation, decisionId, decisionsBySlug, tasksBySlug)
+  for (const per of perInitiative) {
+    const { slug } = per
+    for (const source of citeSources(per, nodes)) {
+      const linked = new Set<string>()
+      for (const citation of extractCitations(source.text, slug, knownSlugs)) {
+        const target = resolveCitation(citation, source.event_id, decisionsBySlug, tasksBySlug)
         if (target === undefined) {
-          if (!node.dangling.includes(citation.raw)) node.dangling.push(citation.raw)
+          const node = source.decision
+          if (node !== undefined && !node.dangling.includes(citation.raw)) node.dangling.push(citation.raw)
           continue
         }
-        if (target === decisionId) continue // self-label, not a citation
-        citeEdges.push({ kind: 'cites', from: decisionId, to: target, initiative: slug })
+        if (target === source.from) continue // self-label, not a citation
+        if (linked.has(target)) continue
+        linked.add(target)
+        citeEdges.push({
+          kind: 'cites',
+          from: source.from,
+          to: target,
+          initiative: slug,
+          event_id: source.event_id,
+          ts: source.ts,
+        })
       }
     }
   }
-  // Ordered by citing decision ulid — deterministic across the whole repo.
-  citeEdges.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? -1 : 1))
+  // Ordered by citing node, then sourcing event, then target — deterministic
+  // across the whole repo.
+  citeEdges.sort(
+    (a, b) => byCodeUnit(a.from, b.from) || byCodeUnit(a.event_id!, b.event_id!) || byCodeUnit(a.to, b.to),
+  )
   edges.push(...citeEdges)
 
   // --- `superseded_by`: structural, from the predecessor's folded status
@@ -461,14 +559,60 @@ export function buildGraph(rootDir: string): RecordGraph {
 }
 
 /**
+ * Every citing text one initiative holds, in a fixed order — decisions, notes,
+ * then each final-plan task's title and status notes in plan order, then
+ * write-backs (the reach index's citeSources, over the graph's own nodes).
+ *
+ * A task's texts cite FROM its task node; a write-back's from the session
+ * that wrote it, since the next action is that session's own close.
+ */
+function citeSources(per: PerInitiative, nodes: ReadonlyMap<string, GraphNode>): CiteSource[] {
+  const sources: CiteSource[] = []
+  for (const id of per.decisionIds) {
+    const node = nodes.get(id)
+    if (node === undefined || node.kind !== 'decision') continue
+    sources.push({
+      from: id,
+      event_id: id.slice('decision:'.length),
+      ts: node.ts,
+      text: `${node.chose}\n${node.over}\n${node.because}`,
+      decision: node,
+    })
+  }
+  for (const id of per.noteIds) {
+    const node = nodes.get(id)
+    if (node === undefined || node.kind !== 'note') continue
+    sources.push({ from: id, event_id: id.slice('note:'.length), ts: node.ts, text: node.text })
+  }
+  const seen = new Set<string>()
+  for (const phase of per.state.phases) {
+    for (const task of phase.tasks) {
+      if (seen.has(task.id)) continue
+      seen.add(task.id)
+      const from = taskNodeId(per.slug, task.id)
+      const title = per.titles.get(task.id)
+      if (title !== undefined) sources.push({ from, event_id: title.id, ts: title.ts, text: title.text })
+      for (const note of per.statusNotes.get(task.id) ?? []) {
+        sources.push({ from, event_id: note.id, ts: note.ts, text: note.text })
+      }
+    }
+  }
+  for (const row of per.nextActions) {
+    sources.push({ from: sessionNodeId(row.session), event_id: row.id, ts: row.ts, text: row.text })
+  }
+  return sources
+}
+
+/**
  * Resolve one citation to a node id, or undefined (dangling). Literal only:
  * `D<n>` is the nth decision of that initiative in ulid order, `T<n>` /
  * `<n>.<n>` is the task with that EXACT id in its final plan, and a decision
- * target must sort BEFORE the citing decision — nothing cites the future.
+ * target must not sort AFTER the sourcing event — nothing cites the future (a
+ * decision's own ordinal comes back as itself: the caller drops the self-label).
  */
 function resolveCitation(
   citation: Citation,
-  citingDecisionId: string,
+  sourceEventId: string,
   decisionsBySlug: ReadonlyMap<string, readonly string[]>,
   tasksBySlug: ReadonlyMap<string, ReadonlySet<string>>,
 ): string | undefined {
@@ -477,7 +621,7 @@ function resolveCitation(
     const ids = decisionsBySlug.get(citation.slug)
     if (ids === undefined || ordinal < 1 || ordinal > ids.length) return undefined
     const target = ids[ordinal - 1]
-    if (target === undefined || target > citingDecisionId) return undefined
+    if (target === undefined || target.slice('decision:'.length) > sourceEventId) return undefined
     return target
   }
   const tasks = tasksBySlug.get(citation.slug)
@@ -778,6 +922,71 @@ export function relatedTasks(graph: RecordGraph, taskNode: string): RelatedTasks
   result.omitted = Math.max(0, neighbours.length - GRAPH_RESULT_CAP)
   result.neighbours = neighbours.slice(0, GRAPH_RESULT_CAP)
   return result
+}
+
+/** One end of a `cites` edge, as a surface shows it (linked-context 3.2). */
+export interface CitationEnd {
+  /** The node at the OTHER end of the edge. */
+  id: string
+  kind: GraphNodeKind
+  /** `<slug> D<n>`, `<slug> <task>`, `note`, `session <id>` — the handle a reader looks up. */
+  handle: string
+  /** envelope.initiative of the sourcing event. */
+  initiative: string
+  /** The sourcing event — whose own text holds the handle. */
+  event_id: string
+  ts: string
+}
+
+export interface TaskCitations {
+  /** What this task's title and status notes cite. */
+  cites: CitationEnd[]
+  /** Every decision, note, task and write-back that cites this task. */
+  cited_by: CitationEnd[]
+  omitted: { cites: number; cited_by: number }
+}
+
+/**
+ * taskCitations (linked-context 3.2): the DERIVED links at a task — offered
+ * as worth reading, never as what the task waits on (SPEC §Links). Newest
+ * sourcing event first, capped like every other query list.
+ */
+export function taskCitations(graph: RecordGraph, taskNode: string): TaskCitations {
+  const end = (edge: GraphEdge, other: string): CitationEnd => ({
+    id: other,
+    kind: graph.nodes.get(other)?.kind ?? 'task',
+    handle: citationHandle(graph, other),
+    initiative: edge.initiative,
+    event_id: edge.event_id ?? '',
+    ts: edge.ts ?? '',
+  })
+  const byNewest = (a: CitationEnd, b: CitationEnd): number =>
+    a.ts !== b.ts ? (a.ts < b.ts ? 1 : -1) : byCodeUnit(a.id, b.id) || byCodeUnit(a.event_id, b.event_id)
+  const out = (graph.outgoing.get(taskNode) ?? []).filter((e) => e.kind === 'cites').map((e) => end(e, e.to))
+  const inc = (graph.incoming.get(taskNode) ?? []).filter((e) => e.kind === 'cites').map((e) => end(e, e.from))
+  const omitted = { cites: 0, cited_by: 0 }
+  return {
+    cites: capList(out.sort(byNewest), omitted, 'cites'),
+    cited_by: capList(inc.sort(byNewest), omitted, 'cited_by'),
+    omitted,
+  }
+}
+
+function citationHandle(graph: RecordGraph, nodeId: string): string {
+  const node = graph.nodes.get(nodeId)
+  if (node === undefined) return nodeId
+  switch (node.kind) {
+    case 'decision':
+      return `${node.initiative} D${node.ordinal}`
+    case 'task':
+      return `${node.initiative} ${node.task_id}`
+    case 'note':
+      return `${node.initiative} note`
+    case 'session':
+      return `next action of session ${node.session_id}`
+    default:
+      return nodeId
+  }
 }
 
 /** A decision other initiatives reached for — repo-general by behaviour. */
