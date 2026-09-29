@@ -30,6 +30,14 @@ the `session-start` conformance cases (2.5), and the full status's is
 `repo.status` under `SOFAR_CONFORMANCE_BIN`. This suite is what those cannot
 give — every fixture initiative, every variant, and the cap on each of them.
 
+`travel-parity.json` (linked-context 5.5) is the travel block's own
+fixture: typed cases in `travel-parity.test.ts`, stored as inputs plus the
+entries and lines `templates/travel.ts` renders, replayed through
+`travel.rs` by `render_parity.rs`. It covers what no fixture record holds:
+cites and hub damping, seed merge, dedupe, budget fallbacks, and a UTF-16
+clip that halves a surrogate pair. Re-record with `TRAVEL_PARITY_RECORD=1
+npx vitest run travel-parity`.
+
 Re-record only when a template changes on purpose; the golden diff is the
 review artifact and `MANIFEST.md` names the TypeScript commit and the reason
 per changed golden (rust-core D11). A golden that changed unintentionally is
