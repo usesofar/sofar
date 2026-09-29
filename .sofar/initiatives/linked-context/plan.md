@@ -27,13 +27,13 @@ Progress: 14 done, 1 dropped, 11 remaining
 ## Phase 4 — Hot links tier (materialised at write time) [pending] — 3/3 done
 
 - [x] 4.1 index-tier1 links/<slug>.json on the neighbours pattern: outgoing declared + derived links with a target status snapshot, cursor-incremental, stat-checked read, parity test against the from-logs answer (record-index D18 pattern). PREDICT: Rust warm session-start +≤0.5ms, TS within D18 +10%, cold +≤5% — verified pass @47c89a6 (attempt 1)
-- [x] 4.2 Staleness: reverse index of inbound links per target, revalidated by the target log's tail (warmth lastAppendAt, never mtime) so a target that moved re-snapshots at O(links), never a neighbour fold
-- [x] 4.3 graph-hotpath test extended: hot paths may import the links tier only; reach and buildGraph stay banned (record-graph D2, record-index 4.1)
+- [x] 4.2 Staleness: reverse index of inbound links per target, revalidated by the target log's tail (warmth lastAppendAt, never mtime) so a target that moved re-snapshots at O(links), never a neighbour fold — verification fail (attempt 1, exit 1)
+- [x] 4.3 graph-hotpath test extended: hot paths may import the links tier only; reach and buildGraph stay banned (record-graph D2, record-index 4.1) — verification fail (attempt 1, exit 1)
 
 ## Phase 5 — Digest travel + write-time nudges [pending] — 2/5 done
 
-- [x] 5.1 TS render of the travel block in templates/status.ts from the links tier; Phase 1 goldens pass
-- [x] 5.2 Rust links-tier reader + status.rs render, byte parity on the same goldens (check-before-parse typed reader, rust-core D42 L2). PREDICT: travel read ≤1ms at team100
+- [x] 5.1 TS render of the travel block in templates/status.ts from the links tier; Phase 1 goldens pass — verification fail (attempt 1, exit 1)
+- [x] 5.2 Rust links-tier reader + status.rs render, byte parity on the same goldens (check-before-parse typed reader, rust-core D42 L2). PREDICT: travel read ≤1ms at team100 — verification fail (attempt 1, exit 1)
 - [ ] 5.3 Offered nudges, never blocks: end_session warns when a next_action or blocked note cites another record without waits_on; `sofar new` lists ≤3 existing initiatives by BM25 over goals
 - [ ] 5.4 Protocol block for Claude Code, Cursor and Codex (D35): cite other records as <slug> <id>; declare waits_on when blocked
 - [ ] 5.5 TS/Rust travel parity fixture (render-parity/travel-parity.json) for what the syn.travel goldens cannot reach: cites and hub damping, seed merge, dedupe, budget fallbacks, UTF-16 label clipping; replayed by tests/render_parity.rs

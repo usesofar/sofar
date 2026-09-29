@@ -47,6 +47,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           env: testState,
+          setupFiles: ['packages/engine/test/setup-plain-env.ts'],
           sequence: { groupOrder: 0 },
           // Spawn- and git-heavy tests (conformance, attribution cache) blow
           // the 5 s default when concurrent sessions load the machine (load
