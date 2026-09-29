@@ -46,5 +46,5 @@ Progress: 19/24 tasks done (79%)
 - [ ] 5.4 Run round 3, report per claim with per-rep values; publish only what clears the pre-registered margin
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: Operator rules Codex (D32 gate vs second plan; hand-testing luna), runs Stage 1, redoes L19 quietly, freezes; I apply the Codex ruling and record Stage 1 and L19.
+Next action: Re-record the runner hash on bench-refresh's wrapper-fix sha; Stage 1 re-runs; operator rules Codex, redoes L19 quietly, freezes.
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
