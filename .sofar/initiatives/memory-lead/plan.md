@@ -46,5 +46,5 @@ Progress: 19/24 tasks done (79%)
 - [ ] 5.4 Run round 3, report per claim with per-rep values; publish only what clears the pre-registered margin
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: Blind Chain L author writes SEGMENTS-L.md (compact=15 on S21–S24) and reports its hash; I record it in §2/§9. Operator runs the smoke (incl. H5 --max-turns on 2.1.284), Stage 1, L19 readings, and freezes.
+Next action: bench-refresh sends the lineage-fix and competitor-arms shas → re-record the runner hash; smoke + Stage 1 results → tick boxes; operator's L19 readings and freeze.
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
