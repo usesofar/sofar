@@ -199,11 +199,19 @@ const SHIMS: ShimCase[] = [
   },
 ]
 
+// The pin times a shim in an ordinary session: a run under `sofar drive` or
+// inside an agent would otherwise hand the shim its SOFAR_DRIVE_* / CLAUDE*
+// env and time the driven path instead (linked-context M1).
+const shimEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !/^(SOFAR_|CLAUDE)/.test(k)),
+)
+
 function spawnShim(subcommand: string, stdin: Record<string, unknown>): { ms: number; status: number | null } {
   const startedAt = performance.now()
   const result = spawnSync(process.execPath, [bundle, 'event', subcommand, '--root', root], {
     input: JSON.stringify(stdin),
     encoding: 'utf8',
+    env: shimEnv,
   })
   const ms = performance.now() - startedAt
   if (result.error) throw result.error
