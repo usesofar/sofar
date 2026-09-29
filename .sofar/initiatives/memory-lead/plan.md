@@ -4,7 +4,7 @@
 
 Goal: Make sofar measurably the best work memory for AI coding agents: never below any agent's native memory on any rep, bookkeeping at or below native overhead, and a lead of at least 25-30% (target 2x) on held-out long-horizon, cross-agent, decision-churn work. The lead must survive a native memory that syncs across machines and teammates, so it may never rest on native memory being machine-local.
 
-Progress: 19/24 tasks done (79%)
+Progress: 20/24 tasks done (83%)
 
 ## Phase 1 — Wave A: parity at native overhead (ships in 0.33.0-rc.2) [done] — 4/4 done
 
@@ -38,13 +38,13 @@ Progress: 19/24 tasks done (79%)
 - [x] 4.1 Moat spec: assume Claude Code (and others) ship shared cloud memory; list the advantages that survive: vendor-neutral cross-agent memory, branch- and PR-aware records that merge with the code, typed decisions with supersession and provenance to commits and tests, executable enforcement, deterministic zero-model capture, team governance of rules. Each maps to a benchmark claim with a falsifier.
 - [ ] 4.2 Retire any public claim or roadmap item whose advantage rests only on native memory being machine-local (blocked)
 
-## Phase 5 — Proof: held-out Chain L (round 3) [pending] — 2/4 done
+## Phase 5 — Proof: held-out Chain L (round 3) [pending] — 3/4 done
 
 - [x] 5.1 Chain L design and budget: ~30 sessions, ~24 planted decisions (guarded, superseded once or twice, why-only), segments across Claude, Codex, fresh clone, concurrent worktrees and a forced compaction. Arms MUST include a native-memory-SYNCED arm (memory dir carried across machines, clones and teammates; Codex idle gate 0) standing in for future cloud memory. Scoped to the D17 cap before authoring.
 - [x] 5.2 Author Chain L, hidden tests and a sealed reference by an author blind to fix-building; mutation-validate every planted decision — waits for a blind author in a fresh session (operator, 2026-09-22)
-- [ ] 5.3 Round-3 pre-registration frozen with lead predictions (≥25–30%, target 2×) against the synced native arm (active)
-- [ ] 5.4 Run round 3, report per claim with per-rep values; publish only what clears the pre-registered margin
+- [x] 5.3 Round-3 pre-registration frozen with lead predictions (≥25–30%, target 2×) against the synced native arm
+- [ ] 5.4 Run round 3, report per claim with per-rep values; publish only what clears the pre-registered margin (active)
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: Operator: redo L19 in a quiet window, then freeze PRE-REGISTRATION-R3 §2–§8 in own words; Codex segments wait for 2026-10-04 20:27 IST.
+Next action: Operator: run L19 in the first quiet slot; bootstrap the rep-1 trio (round-3-sofar-r1, native-synced-r1, competitor-r1) at 2026-10-04 16:30 IST.
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
