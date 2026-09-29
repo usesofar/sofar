@@ -46,5 +46,5 @@ Progress: 19/24 tasks done (79%)
 - [ ] 5.4 Run round 3, report per claim with per-rep values; publish only what clears the pre-registered margin
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: Operator confirms H9's reading (per cell vs per live segment) and the R3-P6 falsifier; bench-refresh builds H9 and H5; S1 re-scores 8/8; smokes and Stage 1 run. Then I take the runner hash and bring the freeze packet.
+Next action: Operator confirms H9's reading and the R3-P6 falsifier, and records the L19 meter reading; bench-refresh builds H9 and H5; smokes and Stage 1 run. Then I take the runner hash and bring the freeze packet.
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
