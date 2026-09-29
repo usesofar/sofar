@@ -1201,6 +1201,131 @@ identity across every log — the very property the cross-initiative join rests
 on — and `overlappingWritebacks` needs write-back prose for a `next_action`
 that is per-initiative by construction (BD9).
 
+## Links (linked-context — declared waits_on, derived cites)
+Records relate to each other ONLY through links at task grain. There is no
+parent/child initiative and no sub-initiative (linked-context D5): a
+dependency is task→target across records and a record often depends on
+several others, which a tree cannot say. An umbrella is an ordinary
+initiative whose tasks link to its members. Phases split work inside a
+record; supersession (§Initiative statuses) covers replacement.
+
+**Two kinds, split by WHO declared the relevance (record-index D2).**
+- `waits_on` — DECLARED. A list of handles carried on a TASK, written by the
+  agent or operator on purpose ("this task cannot finish until that moves").
+  It may be ASSERTED: a surface states it as fact.
+- `cites` — DERIVED. Scanned by the closed lexical grammar (§Record graph)
+  from text already in the record: decision prose (today), and task titles,
+  task status notes, `session_ended.next_action` and `note_added` text
+  (linked-context Phase 3). It may only be OFFERED as worth reading — never
+  rendered as a dependency, never as "waits on".
+No third kind exists. Occurrence adjacency (co-touched files, shared
+sessions — §Record graph) is not a link: it answers `sofar related`, not
+"what does this task wait on". When one source holds both a declared and a
+derived link to the same target, the declared one wins and the cite is not
+also offered.
+
+A link's SOURCE is the task for `waits_on` and for task-text cites, and the
+sourcing event for decision, note and next-action cites. Its ANCHOR is the
+event that established it: for `waits_on`, the latest event that set the
+handle on the task; for a cite, the sourcing event. Every "since" below is
+measured from the anchor in ulid order.
+
+**Declared field.** `waits_on?: string[]` is an additive optional payload
+field on `task_status_changed`, `task_added` and plan task input (schema in
+linked-context 2.1; old readers ignore it). Absent leaves the task's set
+unchanged; present REPLACES it; `[]` clears it. The stored form is always the
+CANONICAL QUALIFIED handle — write surfaces qualify an unqualified `D<n>`,
+`T<n>` or `<n>.<n>` to the home slug before the append, the memory_promoted
+`supersedes` precedent — so a stored handle means the same thing whichever
+log it is read from. A handle naming no existing slug is refused at write; a
+handle naming nothing inside an existing record is accepted with a dangling
+warning; a `waits_on` cycle is warned, never refused (linked-context 2.3).
+The fold carries the set on the task and does not resolve it.
+
+**Handle grammar.** One grammar for both kinds; canonical form is the
+lowercase slug, one space, the target:
+```
+handle  := slug " " target          qualified — both kinds
+         | slug                     whole initiative — waits_on ONLY
+target  := "D" n | "T" n | n "." n | "M" n
+slug    := [a-z0-9-]+  naming a directory under .sofar/initiatives/
+n       := [0-9]+
+```
+- `D<n>` a decision by ordinal, `T<n>` and `<n>.<n>` a task by EXACT id in
+  the final plan, `M<n>` a promoted memory by ordinal — each resolved in the
+  named record exactly as §Record graph resolves it.
+- Slug binding is case-insensitive in scanned prose (§Record graph); a
+  declared handle is stored lowercase.
+- `M<n>` is QUALIFIED-ONLY, in both kinds (linked-context D3). Memory
+  ordinals are per-initiative and existing prose uses bare `M<n>` for
+  milestones, so a bare `M<n>` is never a handle and never dangles.
+  `.sofar/repo.md` lines carry no ids and are never targets.
+- Bare `<n>.<n>` is not a handle in scanned prose (§Record graph); in a
+  declared list an unqualified entry is qualified to home before storage, so
+  the stored form is never bare.
+- A bare slug is a handle ONLY inside a declared `waits_on`. In prose a bare
+  slug is not a citation (§Initiative statuses) — scanning it would make
+  every mention of a record's name an edge.
+- `BD<n>` and `D-<label>` stay outside the grammar entirely.
+- The derived-cite rules of §Record graph hold unchanged: a decision cannot
+  cite the future, a self-label is dropped. They decide whether a cite
+  EXISTS; the states below apply only to links that exist.
+
+**Resolution states.** Every link target has exactly one state, derived at
+read time from the target record's folded state — never stored in any log
+(the links tier of linked-context Phase 4 caches it, derived and rebuildable,
+record-index D1). Precedence when more than one could apply:
+`dangling` > `resolved` > `moved` > `open`.
+
+| target | resolved when | moved when (unresolved) |
+|---|---|---|
+| task `<n>.<n>` / `T<n>` | status `done` or `dropped` (§Task statuses); or its record is closed `done`/`dropped` | a `task_status_changed` on it sorts after the anchor; or its record is closed `superseded` |
+| decision `D<n>` | retired: superseded, or its `until` task resolved | never — a decision does not change in force |
+| memory `M<n>` | superseded (`superseded_by` set; `sofar_remember` in §MCP tools) | never |
+| initiative `<slug>` | status `done` or `dropped` | its status changed after the anchor without closing; or it is `superseded` (see below) |
+
+- `open` — the target exists and is unresolved, and nothing above moved it.
+- `moved` — the target exists, is unresolved, and changed after the anchor.
+  The answer to "is it still worth waiting on" has changed; the wait has not
+  ended.
+- `resolved` — the target no longer holds anything back. Carries the event
+  id that resolved it (`at`) and what did — the status, the superseding
+  `D<m>` or `M<m>`, the `until` task — so a reader can compare `at` against
+  its own anchor (linked-context D4: waits resolved since the block).
+- `dangling` — the handle binds to nothing: the slug names no record, the id
+  names nothing in it (a task the final plan lacks, an ordinal past the last
+  decision or memory), or a superseded initiative's successor is missing.
+  Dangling is a finding, never discarded (§Record graph). It is re-derived on
+  every read, so a handle that dangles today resolves once its target is
+  written.
+
+Waiting on a decision means waiting for it to be RETIRED — a constraint held
+until a task resolves or a successor replaces it. A task that needs a
+decision to be MADE waits on the task that makes it, never on a `D<n>` that
+does not exist yet.
+
+**Supersession follows ONE hop.** An initiative target closed `superseded`
+is read through its `successor`: successor `done`/`dropped` → `resolved`
+(`at` is the successor's closing event); successor open → `moved`, naming
+the successor; successor itself `superseded` → `moved`, naming the FIRST
+successor, not followed further; successor missing → `dangling`. One hop
+bounds the read to two logs per target and cannot loop on a supersession
+cycle. An unresolved TASK in a superseded record is `moved` (the work
+continues in the successor) and never follows the hop: task ids are
+per-record, so no task in the successor is "the same task".
+
+**Resolution is per target, never transitive.** A link's state reads its own
+target only; the targets' own `waits_on` are not followed. That is what makes
+a `waits_on` cycle harmless to read (it is warned at write for the agent's
+sake, not the reader's) and keeps each state O(1) target reads. How far
+travel reaches from a task is the travel block's contract (linked-context
+1.2), not this one.
+
+**Deterministic and model-free.** Every state is a pure function of the
+logs present: same logs, same states, byte-identical in TypeScript and Rust
+(rust-core D1). No inference decides a state — "moved" is an event after the
+anchor, never a reading of prose (§Architectural invariants).
+
 ## Commit attribution (commit-attribution — read from git, never recorded)
 The record cannot see git and git cannot see the record. That gap is why a
 session could not tell whether ITS work had shipped: §Git state answers "is
