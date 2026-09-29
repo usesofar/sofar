@@ -2,8 +2,57 @@
 
 # Plan: linked-context
 
-Goal: A session serves the network of threads around its task, not one log: task text, blocked notes, next actions and note prose become citation sources under the existing closed grammar; a typed waits_on link names what a blocked task waits on and the fold reports when the target has since moved; repo-memory lines become nodes so M<n> resolves; the SessionStart digest carries a bounded one-hop travel block rendered from existing projection fields (byte-stable, Rust-renderable, never generated prose); and an on-demand answer packet composes ranked, id-cited atoms for a question. Deterministic throughout, zero model calls; judge-ranked selection is typed-judge's job. Design in roadmap-h2 notes 01M2ZDKDRACY87BA26VWN825VP and 01M2ZESQFZWVM8TYHXG19YYVZN. Parked until taken up.
+Goal: A session serves the network of threads around its task, not one log. Declared `waits_on` links (asserted) and derived citations from task, note and next-action text (offered) connect records at task grain. A write-time hot tier lets the SessionStart digest show, within budget, whether what a blocked or next task waits on has since moved. Deterministic, zero model calls, byte-parity TS/Rust, D18 budget held. No sub-initiatives: grouping is links only (D5). Find gets faster without touching context (Phase 8).
 
-Progress: 0/0 tasks done (0%)
+Progress: 0 done, 1 dropped, 24 remaining
 
-(no plan recorded yet — call sofar_update_plan)
+## Phase 1 — Contract (SPEC + goldens before code, rust-core D1) [pending] — 0/3 done
+
+- [ ] 1.1 SPEC link vocabulary: declared waits_on (asserted) vs derived cites (offered) per record-index D2; qualified handle grammar <slug> D<n>|T<n>|<n>.<n>|M<n>; per-target resolution states open/moved/resolved/dangling (decision superseded or until-task resolved; task done/dropped; initiative closed, superseded follows successor one hop; memory superseded)
+- [ ] 1.2 SPEC travel block: only the next task and blocked tasks seed it; one hop TO a record, never through (record-index D12); order open waits → resolved-since-block → offered cites ranked by focus terms (memory-lead D5) with 1/log(in-degree) hub damping; whole entries, cap 6 targets / 600 chars carved from the existing 6k cap, numeric omitted (record-graph D6); dedupe against foreign rules and repo memory already rendered; zero bytes when no links
+- [ ] 1.3 Golden fixtures in conformance/golden: open wait, resolved wait, dangling handle, supersession chain, cap overflow, cycle, no links → byte-identical digest to today
+
+## Phase 2 — Declared links (schema + write surfaces) [pending] — 0/3 done
+
+- [ ] 2.1 packages/schema: optional waits_on handle list on TaskStatusChangedPayload, PlanTaskInput and TaskAddedPayload; validators, EVENT_TYPE_REFERENCE, schema:emit + Rust regen; additive optional field per the user/ok/exit precedent (old readers ignore it); note the fingerprint bump invalidates snapshot/checkpoint/digest caches once
+- [ ] 2.2 Fold carries declared handles on the task (single log only; resolution is NOT the fold's job — it lives in the links tier, Phase 4)
+- [ ] 2.3 Write surfaces: sofar_update_task, sofar_update_plan, sofar_end_session task changes and `sofar new --waits-on` accept waits_on; unknown slug rejected, unbound id warned (dangling), waits_on cycle warned (beads-style readiness predicate)
+
+## Phase 3 — Derived links (citation sources) [pending] — 0/3 done
+
+- [ ] 3.1 Reach index scans task text, status notes, session_ended next_action and note prose with the unchanged closed grammar; task nodes minted; linkCitations generalised beyond decisions; edges carry the sourcing event_id; INDEX_SCHEMA_VERSION 9→10 (one cold rebuild)
+- [ ] 3.2 buildGraph second pass mirrors 3.1; find/related/why show the new edge sources; reach-vs-graph parity test over this repo's record
+- [ ] 3.3 Memory nodes, qualified-only <slug> M<n> — the disambiguation rule repo-memory-capture D3 asked for; repo.md lines stay unnumbered and out of the graph
+
+## Phase 4 — Hot links tier (materialised at write time) [pending] — 0/3 done
+
+- [ ] 4.1 index-tier1 links/<slug>.json on the neighbours pattern: outgoing declared + derived links with a target status snapshot, cursor-incremental, stat-checked read, parity test against the from-logs answer (record-index D18 pattern). PREDICT: Rust warm session-start +≤0.5ms, TS within D18 +10%, cold +≤5%
+- [ ] 4.2 Staleness: reverse index of inbound links per target, revalidated by the target log's tail (warmth lastAppendAt, never mtime) so a target that moved re-snapshots at O(links), never a neighbour fold
+- [ ] 4.3 graph-hotpath test extended: hot paths may import the links tier only; reach and buildGraph stay banned (record-graph D2, record-index 4.1)
+
+## Phase 5 — Digest travel + write-time nudges [pending] — 0/4 done
+
+- [ ] 5.1 TS render of the travel block in templates/status.ts from the links tier; Phase 1 goldens pass
+- [ ] 5.2 Rust links-tier reader + status.rs render, byte parity on the same goldens (check-before-parse typed reader, rust-core D42 L2). PREDICT: travel read ≤1ms at team100
+- [ ] 5.3 Offered nudges, never blocks: end_session warns when a next_action or blocked note cites another record without waits_on; `sofar new` lists ≤3 existing initiatives by BM25 over goals
+- [ ] 5.4 Protocol block for Claude Code, Cursor and Codex (D35): cite other records as <slug> <id>; declare waits_on when blocked
+
+## Phase 6 — Proof (predict first, ablate, bench-refresh D10/D5) [pending] — 0/4 done
+
+- [ ] 6.1 read-paths D18 gate: session-start/user-prompt/stop/statusline p50 ≤+10% on repo and i1000-10mb, ABAB n≥25, arm SOFAR_TRAVEL=off|index
+- [ ] 6.2 Digest-bytes histogram over every real record before/after. PREDICT: 0 bytes added where no open link; ≤600 chars max; readiness-gated vs all-links ablation
+- [ ] 6.3 Cross-record resume scenario: blocked task whose target resolved — with travel the session notices the unblock unprompted; turns/tokens vs predictions in typed-judge note 01M2ZV3KEV2XA467NW7TN6WYWZ
+- [ ] 6.4 Ranking ablations: hub-damped vs raw citation count, focus-ranked vs newest-first, dedupe on/off — precision@3 against a hand-labelled link set from this repo
+
+## Phase 7 — Answer packets (later) [pending] — 0/2 (1 dropped) done
+
+- [ ] 7.1 find compose mode: BM25 + traversal gather, deterministic order (waits_on, cites, adjacency), clipped at budget with ids kept, changed-since line
+- [-] 7.2 Judge-ranked variant delegated to typed-judge C1/D2 — not built here (dropped)
+
+## Phase 8 — Find speed [pending] — 0/3 done
+
+- [ ] 8.1 Measure sofar find cold (stale reach), warm and per-hop on repo and i1000-10mb, ABAB n≥25; set the predictions for 8.2/8.3 from it before building (bench-refresh D10)
+- [ ] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
+- [ ] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
+
+Next action: 1.1: write the SPEC link vocabulary in docs/SPEC.md per the plan title and D2-D5

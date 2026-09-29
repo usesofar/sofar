@@ -83,4 +83,4 @@ Progress: 38 done, 7 dropped, 0 remaining
 - [-] 7.7 Proof: a live Codex end-to-end on a scratch repo (init with the picker → oriented session → MCP writes → write-back gate → drive run) with the operator's consent for the usage it spends, plus SPEC updates (§Host tiers moves Codex out of Tier 3, §Hooks, §CLI, §Driver) and acceptance criteria. (dropped)
 
 Active phase: Phase 4 — Release
-Next action: Release session stages 0.34.0-rc.4 from main at or after 4a59303b (the L36 merge); the operator pushes main and r1-fixes-l36; round 3 measures 4.6's PREDICT across reps.
+Next action: On the operator's go-ahead, plan linked-context from roadmap-h2 note 01M2ZDKDRACY87BA26VWN825VP

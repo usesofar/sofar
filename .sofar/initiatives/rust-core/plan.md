@@ -4,7 +4,7 @@
 
 Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
 
-Progress: 19/25 tasks done (76%)
+Progress: 19/26 tasks done (73%)
 
 ## Phase 1 — Contract [done] — 7/7 done
 
@@ -38,12 +38,13 @@ Progress: 19/25 tasks done (76%)
 - [x] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
 - [x] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
 
-## Phase 4 — Prove and switch [pending] — 1/4 done
+## Phase 4 — Prove and switch [pending] — 1/5 done
 
 - [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
 - [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
 - [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
 - [x] 4.4 memory-lead 3.2 (reassigned to this lane 2026-09-22): read-time hook under 20 ms at 50+ initiatives and team100 scale, proven with npm run perf on a quiet host (D5, D12)
+- [ ] 4.5 Rust reader for the sharded reach index and sofar find, byte parity with TS on find goldens. Waits on linked-context 8.3 (shard format frozen); predict from linked-context 8.1's baseline before building
 
 ## Phase 5 — Bindings (carried over from engine-core) [pending] — 1/4 done
 
