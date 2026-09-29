@@ -90,8 +90,8 @@ function importGraph(files: readonly string[]): Map<string, string[]> {
 
 const rel = (file: string): string => file.slice(SRC_DIR.length + 1)
 
-/** BFS from root; the first import chain reaching core/graph.ts, or null. */
-function chainIntoGraph(root: string, graph: ReadonlyMap<string, string[]>): string[] | null {
+/** BFS from root; the first import chain reaching `target` (core/graph.ts by default), or null. */
+function chainIntoGraph(root: string, graph: ReadonlyMap<string, string[]>, target = GRAPH): string[] | null {
   const parent = new Map<string, string | null>([[root, null]])
   const queue = [root]
   while (queue.length > 0) {
@@ -99,7 +99,7 @@ function chainIntoGraph(root: string, graph: ReadonlyMap<string, string[]>): str
     for (const dep of graph.get(current) ?? []) {
       if (parent.has(dep)) continue
       parent.set(dep, current)
-      if (dep === GRAPH) {
+      if (dep === target) {
         const chain: string[] = []
         for (let node: string | null = dep; node !== null; node = parent.get(node) ?? null) {
           chain.unshift(rel(node))
@@ -210,6 +210,49 @@ describe('the reach index stays out of the hot path', () => {
         if (bundle.includes(marker)) violations.push(`${entry} carries ${marker}`)
       }
     }
+    expect(violations).toEqual([])
+  })
+})
+
+/**
+ * The links tier is the ONE index a hot path may read for travel
+ * (linked-context 4.3, D2): `links/<slug>.json` and `links-in.json` are sized
+ * by a record's links, refreshed at write time, so the SessionStart travel
+ * block pays O(links), never a neighbour fold. Reach and buildGraph stay
+ * banned (record-graph D2, record-index 4.1), and the links tier must not
+ * become the barrel that smuggles them in.
+ *
+ * sofar-core has no reach or graph module at all, so the Rust hot path is
+ * held by construction; this lock is the TypeScript half.
+ */
+describe('hot paths read the links tier only', () => {
+  const files = walkTs(SRC_DIR)
+  const graph = importGraph(files)
+  const LINKS = join(SRC_DIR, 'core', 'index-links.ts')
+  const REACH = join(SRC_DIR, 'core', 'index-reach.ts')
+  /** A string literal only core/index-links.ts carries — survives mangling. */
+  const LINKS_MARKER = 'links-in.json'
+  const HOT_ENTRIES = ['fast.ts', 'boot.ts', 'event.ts', 'statusline.ts']
+
+  it('the links tier reaches neither buildGraph nor the reach index', () => {
+    // Positive control: the full CLI reaches reach (`sofar find`), so the walk sees it.
+    expect(chainIntoGraph(join(SRC_DIR, 'cli', 'index.ts'), graph, REACH)).not.toBeNull()
+    expect(chainIntoGraph(LINKS, graph)).toBeNull()
+    expect(chainIntoGraph(LINKS, graph, REACH)).toBeNull()
+  })
+
+  it('the write-time and session-start paths do read it — the door is the one in use', () => {
+    // Positive control: without it, a refactor that dropped the tier from the
+    // hot path would leave the two bans above passing over nothing.
+    expect(readFileSync(LINKS, 'utf8')).toContain(LINKS_MARKER)
+    for (const root of [join(SRC_DIR, 'cli', 'event.ts'), join(SRC_DIR, 'mcp', 'context.ts')]) {
+      expect(chainIntoGraph(root, graph, LINKS), rel(root)).not.toBeNull()
+    }
+    expect(bundleOf('event.ts')).toContain(LINKS_MARKER)
+  })
+
+  it('no hot bundle carries graph code, whichever tier it reads', () => {
+    const violations = HOT_ENTRIES.filter((entry) => bundleOf(entry).includes('omitted from the graph'))
     expect(violations).toEqual([])
   })
 })
