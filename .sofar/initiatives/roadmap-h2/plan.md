@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator types the smoke and Stage-1 go in bench-refresh's terminal; then gives the L19 readings; then the freeze.
+Next action: When Stage 1 ends: relay the pick; L19 in a quiet window; operator freezes.
