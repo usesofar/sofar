@@ -8,7 +8,7 @@ Progress: 1 done, 1 dropped, 23 remaining
 
 ## Phase 1 — Contract (SPEC + goldens before code, rust-core D1) [pending] — 1/3 done
 
-- [x] 1.1 SPEC link vocabulary: declared waits_on (asserted) vs derived cites (offered) per record-index D2; qualified handle grammar <slug> D<n>|T<n>|<n>.<n>|M<n>; per-target resolution states open/moved/resolved/dangling (decision superseded or until-task resolved; task done/dropped; initiative closed, superseded follows successor one hop; memory superseded)
+- [x] 1.1 SPEC link vocabulary: declared waits_on (asserted) vs derived cites (offered) per record-index D2; qualified handle grammar <slug> D<n>|T<n>|<n>.<n>|M<n>; per-target resolution states open/moved/resolved/dangling (decision superseded or until-task resolved; task done/dropped; initiative closed, superseded follows successor one hop; memory superseded) — verification fail (attempt 1, exit 1)
 - [ ] 1.2 SPEC travel block: only the next task and blocked tasks seed it; one hop TO a record, never through (record-index D12); order open waits → resolved-since-block → offered cites ranked by focus terms (memory-lead D5) with 1/log(in-degree) hub damping; whole entries, cap 6 targets / 600 chars carved from the existing 6k cap, numeric omitted (record-graph D6); dedupe against foreign rules and repo memory already rendered; zero bytes when no links
 - [ ] 1.3 Golden fixtures in conformance/golden: open wait, resolved wait, dangling handle, supersession chain, cap overflow, cycle, no links → byte-identical digest to today
 
