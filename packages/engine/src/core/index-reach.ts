@@ -78,6 +78,7 @@ import { byCodeUnit } from './order'
 
 const REACH_FILE = 'reach.json'
 const REACH_META = 'meta-reach.json'
+const REACH_TERMS = 'reach-terms.json'
 
 /**
  * Stored-prose budget. Comfortably above the 96-char render budget, so a line
@@ -133,8 +134,12 @@ interface DecisionRow {
   chose: string
   /** Scanned citation handles as [word, handle], BOUND at query time (citations.ts). */
   cites: [string, string][]
-  /** Terms of the WHOLE decision — chose, over and because (lexicon.ts). */
-  terms: Record<string, number>
+  /**
+   * Terms of the WHOLE decision — chose, over and because (lexicon.ts).
+   * Stored in reach-terms.json, not reach.json (8.3, D27): absent on a row
+   * read without that file, which only a text query needs.
+   */
+  terms?: Record<string, number>
   /** Total tokens, so ranking never has to sum them (lexicon.ts). */
   len: number
 }
@@ -147,8 +152,8 @@ interface NoteRow {
   text: string
   /** Scanned citation handles of the whole note, as [word, handle]. */
   cites: [string, string][]
-  /** Terms of the whole note, which the clip may not hold all of. */
-  terms: Record<string, number>
+  /** Terms of the whole note, which the clip may not hold all of. Absent as a decision's may be. */
+  terms?: Record<string, number>
   len: number
 }
 
@@ -220,6 +225,18 @@ function isReachDisk(v: unknown): v is ReachDisk {
   return r.version === INDEX_SCHEMA_VERSION && typeof r.initiatives === 'object' && r.initiatives !== null
 }
 
+/** reach-terms.json (8.3, D27): every decision's and note's term set, by its event id. */
+interface TermsDisk {
+  version: number
+  terms: Record<string, Record<string, number>>
+}
+
+function isTermsDisk(v: unknown): v is TermsDisk {
+  if (typeof v !== 'object' || v === null) return false
+  const r = v as Record<string, unknown>
+  return r.version === INDEX_SCHEMA_VERSION && typeof r.terms === 'object' && r.terms !== null
+}
+
 const emptyReach = (): SlugReachState => ({
   decisions: [],
   notes: [],
@@ -250,9 +267,9 @@ function cloneReach(state: SlugReachState): SlugReachState {
     decisions: state.decisions.map((d) => ({
       ...d,
       cites: cloneCites(d.cites),
-      terms: { ...d.terms },
+      ...(d.terms !== undefined ? { terms: { ...d.terms } } : {}),
     })),
-    notes: state.notes.map((n) => ({ ...n, cites: cloneCites(n.cites), terms: { ...n.terms } })),
+    notes: state.notes.map((n) => ({ ...n, cites: cloneCites(n.cites), ...(n.terms !== undefined ? { terms: { ...n.terms } } : {}) })),
     memories: state.memories.map((m) => ({ ...m })),
     files,
     tasks: [...state.tasks],
@@ -504,6 +521,8 @@ export interface ReachIndex {
   sessions: Set<string>
   /** Every decision and note as scorable prose — the corpus a text query ranks. */
   lexicon: LexicalDoc[]
+  /** Lexicon docs whose terms were not loaded (8.3): withTerms fills them before a text query ranks. */
+  termless: Map<string, LexicalDoc>
 }
 
 /**
@@ -526,6 +545,12 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
   const paths = new Set<string>()
   const sessions = new Set<string>()
   const lexicon: LexicalDoc[] = []
+  const termless = new Map<string, LexicalDoc>()
+  const addDoc = (id: string, row: DecisionRow | NoteRow): void => {
+    const doc: LexicalDoc = { id, ts: row.ts, terms: row.terms ?? {}, tokens: row.len }
+    lexicon.push(doc)
+    if (row.terms === undefined) termless.set(row.id, doc)
+  }
 
   const link = (from: string, edge: ReachEdge): void => {
     const list = edges.get(from)
@@ -571,7 +596,7 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
         ordinal: ordinals.length + 1,
       })
       ordinals.push(id)
-      lexicon.push({ id, ts: row.ts, terms: row.terms, tokens: row.len })
+      addDoc(id, row)
       const stamp = { initiative: slug, event_id: row.id, ts: row.ts }
       held.push({ kind: 'decided', to: id, ...stamp })
       if (row.session === 'cli' || row.session.length === 0) return
@@ -585,7 +610,7 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
     for (const row of state.notes) {
       const id = `note:${row.id}`
       nodes.set(id, { kind: 'note', id, initiative: slug, label: row.text, ts: row.ts })
-      lexicon.push({ id, ts: row.ts, terms: row.terms, tokens: row.len })
+      addDoc(id, row)
       const stamp = { initiative: slug, event_id: row.id, ts: row.ts }
       held.push({ kind: 'noted', to: id, ...stamp })
       if (row.session === 'cli' || row.session.length === 0) continue
@@ -671,7 +696,7 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
   }
 
   linkCitations(states, decisions, memories, nodes, link)
-  return { nodes, edges, contents, decisions, memories, paths: [...paths].sort(), sessions, lexicon }
+  return { nodes, edges, contents, decisions, memories, paths: [...paths].sort(), sessions, lexicon, termless }
 }
 
 /** One text that cites: the node it is FROM, and the event whose text it is. */
@@ -796,22 +821,89 @@ function linkCitations(
  * the next find re-reads the same tail from the same cursor. A rebuild or a
  * longer tail persists as before, which bounds what that re-read can cost.
  */
-export function refreshReach(sofarDir: string, options: { lazy?: boolean } = {}): ReachIndex {
-  const prior = readIndexFile<ReachDisk>(sofarDir, REACH_FILE, isReachDisk)
+export function refreshReach(sofarDir: string, options: { lazy?: boolean; terms?: boolean } = {}): ReachIndex {
   const lazy = options.lazy === true
+  // TERMS (8.3, D27): only a lazy query may go without them — anything that
+  // can persist must hold every row's terms, or it would write a termless file.
+  const wantTerms = !lazy || options.terms !== false
+  let prior = readIndexFile<ReachDisk>(sofarDir, REACH_FILE, isReachDisk)?.initiatives ?? null
+  let joined = prior === null || !lacksTerms(prior) // a pre-8.3 file carries them inline
+  if (!joined && wantTerms) {
+    // A row whose id the terms file lacks means the two files came apart: a
+    // cold rebuild, never a guess (record-index D16).
+    if (joinTerms(prior!, readIndexFile<TermsDisk>(sofarDir, REACH_TERMS, isTermsDisk)?.terms ?? null)) joined = true
+    else prior = null
+  }
+  if (prior === null) joined = true
   const { states, changed, cursors, applied, rebuilt } = passOverRecord<SlugReachState>(
     sofarDir,
     REACH_META,
-    prior === null ? null : prior.initiatives,
+    prior,
     { empty: emptyReach, clone: cloneReach, apply: (state, event) => applyReach(state, event) },
     { persist: !lazy },
   )
   if (changed && !(lazy && !rebuilt && applied <= REACH_LAZY_TAIL)) {
+    // Must persist, but read without terms: redo it whole. Rare — a rebuild
+    // or a long tail — and this pass wrote nothing, so nothing is torn.
+    if (!joined) return refreshReach(sofarDir)
     // Cursor file first, as passOverRecord orders the pair when it persists.
     if (lazy) writeIndexMeta(sofarDir, { version: INDEX_SCHEMA_VERSION, cursors }, REACH_META)
-    writeIndexFile(sofarDir, REACH_FILE, { version: INDEX_SCHEMA_VERSION, initiatives: states })
+    const { core, terms } = splitTerms(states)
+    writeIndexFile(sofarDir, REACH_FILE, { version: INDEX_SCHEMA_VERSION, initiatives: core })
+    writeIndexFile(sofarDir, REACH_TERMS, { version: INDEX_SCHEMA_VERSION, terms })
   }
   return reachView(states)
+}
+
+/**
+ * The index with every lexicon doc's terms loaded — what a text query ranks.
+ * An index read with `terms: false` gets them from reach-terms.json by event
+ * id; a doc the file lacks (the pair came apart) sends the whole read back
+ * through refreshReach with terms, which rebuilds rather than guess.
+ */
+export function withTerms(sofarDir: string, index: ReachIndex): ReachIndex {
+  if (index.termless.size === 0) return index
+  const terms = readIndexFile<TermsDisk>(sofarDir, REACH_TERMS, isTermsDisk)?.terms
+  if (terms === undefined || [...index.termless.keys()].some((id) => terms[id] === undefined)) return refreshReach(sofarDir, { lazy: true })
+  for (const [id, doc] of index.termless) doc.terms = terms[id]!
+  index.termless.clear()
+  return index
+}
+
+function lacksTerms(states: Record<string, SlugReachState>): boolean {
+  return Object.values(states).some((s) => s.decisions.some((d) => d.terms === undefined) || s.notes.some((n) => n.terms === undefined))
+}
+
+/** Put each row's terms back from the terms file, by event id. False when any is missing. */
+function joinTerms(states: Record<string, SlugReachState>, terms: Record<string, Record<string, number>> | null): boolean {
+  if (terms === null) return false
+  for (const state of Object.values(states)) {
+    for (const row of [...state.decisions, ...state.notes]) {
+      if (row.terms !== undefined) continue
+      const found = terms[row.id]
+      if (found === undefined) return false
+      row.terms = found
+    }
+  }
+  return true
+}
+
+/** The states without their terms, and the terms by row event id. Leaves `states` intact. */
+function splitTerms(states: Record<string, SlugReachState>): {
+  core: Record<string, SlugReachState>
+  terms: Record<string, Record<string, number>>
+} {
+  const core: Record<string, SlugReachState> = {}
+  const terms: Record<string, Record<string, number>> = {}
+  const strip = <R extends DecisionRow | NoteRow>(row: R): R => {
+    if (row.terms !== undefined) terms[row.id] = row.terms
+    const { terms: _dropped, ...rest } = row
+    return rest as R
+  }
+  for (const [slug, state] of Object.entries(states)) {
+    core[slug] = { ...state, decisions: state.decisions.map(strip), notes: state.notes.map(strip) }
+  }
+  return { core, terms }
 }
 
 /**
@@ -1248,6 +1340,13 @@ export function findFrom(
   query: string,
   options: ResolveSeedOptions & { hops?: number } = {},
 ): ReachResult {
-  const index = refreshReach(sofarDir, { lazy: true })
-  return reachFrom(index, resolveQuery(index, query, options), options.hops ?? REACH_DEFAULT_HOPS)
+  // Terms only when the literal ladder finds nothing (8.3, D27): no path,
+  // slug, session or handle seed reads them, and they are most of the bytes.
+  let index = refreshReach(sofarDir, { lazy: true, terms: false })
+  let seed = resolveSeed(index, query, options)
+  if (seed.kind === null) {
+    index = withTerms(sofarDir, index)
+    seed = lexicalSeed(index, query)
+  }
+  return reachFrom(index, seed, options.hops ?? REACH_DEFAULT_HOPS)
 }

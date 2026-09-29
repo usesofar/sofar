@@ -3004,7 +3004,10 @@ rests on.
   meta-graph.json     # Tier 1 derived cursors
   graph.json          # TIER 1 DERIVED — path → session → (ts, touches)
   meta-reach.json     # Tier 1 reach cursors
-  reach.json          # TIER 1 REACH — clipped prose, citation handles, terms
+  reach.json          # TIER 1 REACH — clipped prose, citation handles
+  reach-terms.json    # reach's term sets by decision/note event id, read
+                      #   only by a text query or a persisting refresh
+                      #   (linked-context 8.3, D27); a missing id rebuilds
   shipwatch.json      # NOT A TIER — per-session origin/<branch> marks
                       #   (commit-attribution 3.4); own version, no cursor
   session.json        # NOT A TIER — the live-session pointer (r1-fixes
@@ -3089,7 +3092,7 @@ parse and rewrite:
 | `guards.json` | does any decision ANYWHERE guard or name this subject; which rules does every other record hold | PostToolUse, SessionStart, get_state | every read and edit; once per session | decisions that guard, name a file or carry a rule |
 | `labels.json` | which standing decision ANYWHERE would a new one reverse | the three decision writers | on a decision append | standing decisions with both clauses ≤600 chars |
 | `graph.json` | who else has touched this path | PostToolUse dedupe, priming line | after a guard MATCHES; once per session | the repo's whole touch history |
-| `reach.json` | what else bears on this | `sofar find` | persisted at write-back (`sofar_end_session`, only once the file exists) and by a query that rebuilds or reads a tail of more than 500 events; a shorter tail is caught up in memory and neither the file nor its cursor is written (linked-context 8.2, D26) | prose + terms of every decision and note |
+| `reach.json` | what else bears on this | `sofar find` | persisted at write-back (`sofar_end_session`, only once the file exists) and by a query that rebuilds or reads a tail of more than 500 events; a shorter tail is caught up in memory and neither the file nor its cursor is written (linked-context 8.2, D26) | prose of every decision and note; their terms in `reach-terms.json`, which only a text query reads (8.3, D27) |
 | `lexicon.json` + `lexicon-p00..31.json` + `lexicon-h.json` | which decision, note or stall anywhere a prompt's words reach (memory-lead 3.1, D15) | UserPromptSubmit shim | every prompt; rewritten only when a decision, note or stall handoff arrived | doc table: one line per doc; postings: 32 term-hash shards, a query reads its own; heads: read only to render |
 
 Read frequency, not taste, draws these lines — and they coincide with D2's

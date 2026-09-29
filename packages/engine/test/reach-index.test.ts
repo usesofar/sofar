@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -593,7 +593,8 @@ describe('3.4 the reach half stays equal to a cold build', () => {
     touch(sofar, 'alpha', 'A', 'src/a.ts')
     refreshReach(sofar)
     const dir = join(sofar, '.index')
-    expect(readFileSafe(dir).sort()).toEqual(['.gitignore', 'meta-reach.json', 'reach.json'])
+    // reach-terms.json is the reach half's own too (8.3, D27).
+    expect(readFileSafe(dir).sort()).toEqual(['.gitignore', 'meta-reach.json', 'reach-terms.json', 'reach.json'])
   })
 
   it('ignores cli-sourced touches, exactly as the touched edge does', () => {
@@ -707,6 +708,59 @@ describe('lazy reach refresh (linked-context 8.2)', () => {
     rmSync(join(sofar, '.index', 'meta-reach.json'))
     refreshReach(sofar)
     expect(files(sofar)[0]).toBe(warm)
+  })
+
+  it('8.3 (D27): terms live in reach-terms.json, and every answer equals the monolithic one', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    decide(sofar, 'alpha', 'A', { chose: 'shard the reach index by field', because: 'term sets dominate the bytes' })
+    note(sofar, 'alpha', 'A', 'the lexicon ranks decision prose; see alpha D1')
+    start(sofar, 'beta', 'B')
+    touch(sofar, 'beta', 'B', 'src/a.ts')
+    const monolithic = refreshReach(sofar) // eager: every row holds its terms
+    const expected = (q: string) => reachFrom(monolithic, resolveQuery(monolithic, q), 2)
+    const [core] = files(sofar)
+    expect(core).not.toContain('"terms"')
+    expect(readFileSync(join(sofar, '.index', 'reach-terms.json'), 'utf8')).toContain('lexicon')
+    for (const q of ['src/a.ts', 'alpha D1', 'alpha', 'B', 'term sets dominate', 'lexicon ranks prose']) {
+      expect(findFrom(sofar, q), q).toEqual(expected(q))
+    }
+  })
+
+  it('8.3: a literal find never needs the terms file; a text find without it rebuilds, never guesses', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    decide(sofar, 'alpha', 'A', { chose: 'keep the reach index lean' })
+    const eager = refreshReach(sofar)
+    const lexical = reachFrom(eager, resolveQuery(eager, 'lean reach index'), 2)
+    const before = files(sofar)
+    rmSync(join(sofar, '.index', 'reach-terms.json'))
+    expect(findFrom(sofar, 'src/a.ts', { hops: 1 }).reached).toBeGreaterThan(0)
+    expect(files(sofar)).toEqual(before) // nothing rebuilt, nothing written
+    expect(findFrom(sofar, 'lean reach index')).toEqual(lexical)
+    expect(existsSync(join(sofar, '.index', 'reach-terms.json'))).toBe(true) // the rebuild restored the pair
+  })
+
+  it('8.3: a terms file missing a row is a cold rebuild, equal to one from scratch', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    decide(sofar, 'alpha', 'A', { chose: 'first' })
+    decide(sofar, 'alpha', 'A', { chose: 'second' })
+    refreshReach(sofar)
+    const path = join(sofar, '.index', 'reach-terms.json')
+    const disk = JSON.parse(readFileSync(path, 'utf8'))
+    delete disk.terms[Object.keys(disk.terms)[0]!]
+    writeFileSync(path, JSON.stringify(disk))
+    note(sofar, 'alpha', 'A', 'a tail to persist')
+    refreshReach(sofar)
+    const repaired = files(sofar)[0]
+    rmSync(join(sofar, '.index', 'reach.json'))
+    rmSync(join(sofar, '.index', 'meta-reach.json'))
+    rmSync(path)
+    refreshReach(sofar)
+    expect(files(sofar)[0]).toBe(repaired)
   })
 
   it('refreshBuiltReach persists a built reach and never builds an absent one', () => {
