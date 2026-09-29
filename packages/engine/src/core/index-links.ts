@@ -824,6 +824,31 @@ export function buildInbound(
 }
 
 /**
+ * Each target's repo-wide in-degree — the distinct tasks linking to it, the
+ * travel block's hub damping (SPEC §Travel block) — as links-in.json holds
+ * it. Read after refreshLinks, which rewrites it on every full path; empty
+ * when absent or corrupt, and a target it lacks counts as 1.
+ */
+export function linkInDegrees(sofarDir: string): Map<string, number> {
+  const inbound = readInbound(sofarDir)
+  return new Map((inbound?.targets ?? []).map((t) => [t.to, t.from.length]))
+}
+
+/**
+ * The travel block's whole input for one home (linked-context 5.1): its links,
+ * refreshed, and their targets' in-degrees — the links tier only, never reach
+ * or buildGraph (D2). Empty on any failure: the digest renders without it.
+ */
+export function readTravel(sofarDir: string, slug: string): { links: Link[]; indegree: Map<string, number> } {
+  try {
+    const links = refreshLinks(sofarDir, slug)
+    return { links, indegree: links.length === 0 ? new Map() : linkInDegrees(sofarDir) }
+  } catch {
+    return { links: [], indegree: new Map() }
+  }
+}
+
+/**
  * The O(links) answer for a home whose own log did not move but a target's
  * did (linked-context 4.2): each cached link re-snapshotted from the reverse
  * index's fact at its own anchor, never a pass, never links.json. The reverse

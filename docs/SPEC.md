@@ -1364,7 +1364,11 @@ D2) — never reach.json, never buildGraph, never a neighbour's log.
   since the block — one resolved before its anchor was never waited on); a
   cite target `open` or `moved`. A resolved or dangling cite is not offered
   (doctor reports dangling). One target reached by several seeds is ONE
-  entry naming every seed, in seed order; declared beats derived.
+  entry naming every seed, in seed order; declared beats derived: when any
+  seed declares it the entry is a wait naming the declaring seeds, else a
+  cite naming the citing ones. Its state, `at` and `what` are those of the
+  EARLIEST-anchored of those links (linked-context D21), so "moved" and
+  "resolved since" read from when the first of them began.
 - ORDER — three groups, never interleaved: (1) OPEN WAITS, asserted: `moved`,
   then `dangling`, then `open`; (2) RESOLVED SINCE THE BLOCK, asserted, newest
   `at` first; (3) OFFERED CITES, ranked by `shared / L(d)` descending, where

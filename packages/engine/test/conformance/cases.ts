@@ -845,24 +845,14 @@ export const CASES: ConformanceCase[] = [
   },
   // ---- the travel block (linked-context 1.3, SPEC §Travel block) ----------
   // One case per home record in the `travel` fixture, bound by branch. The
-  // block is hand-written from SPEC; everything around it is today's digest.
-  ...(
-    [
-      ['open-wait', 'linked-context 5.1'],
-      ['resolved-wait', 'linked-context 5.1'],
-      ['dangling', 'linked-context 5.1'],
-      ['supersession', 'linked-context 5.1'],
-      ['cap-overflow', 'linked-context 5.1'],
-      ['cycle-a', 'linked-context 5.1'],
-      ['no-links', undefined],
-      ['quiet-links', undefined],
-    ] as const
-  ).map(([home, ahead]): ConformanceCase => ({
-    name: `syn.travel-${home}`,
-    fixture: synthetic('travel', { branch: home, head: CELL_SHA }),
-    steps: [s('startup on the home record', ['event', 'session-start'], start())],
-    ...(ahead !== undefined ? { ahead } : {}),
-  })),
+  // block was hand-written from SPEC ahead of the code (1.3); 5.1 renders it.
+  ...(['open-wait', 'resolved-wait', 'dangling', 'supersession', 'cap-overflow', 'cycle-a', 'no-links', 'quiet-links'] as const).map(
+    (home): ConformanceCase => ({
+      name: `syn.travel-${home}`,
+      fixture: synthetic('travel', { branch: home, head: CELL_SHA }),
+      steps: [s('startup on the home record', ['event', 'session-start'], start())],
+    }),
+  ),
 ]
 
 /**

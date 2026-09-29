@@ -4,7 +4,7 @@
 
 Goal: A session serves the network of threads around its task, not one log. Declared `waits_on` links (asserted) and derived citations from task, note and next-action text (offered) connect records at task grain. A write-time hot tier lets the SessionStart digest show, within budget, whether what a blocked or next task waits on has since moved. Deterministic, zero model calls, byte-parity TS/Rust, D18 budget held. No sub-initiatives: grouping is links only (D5). Find gets faster without touching context (Phase 8).
 
-Progress: 12 done, 1 dropped, 12 remaining
+Progress: 13 done, 1 dropped, 11 remaining
 
 ## Phase 1 — Contract (SPEC + goldens before code, rust-core D1) [pending] — 3/3 done
 
@@ -30,9 +30,9 @@ Progress: 12 done, 1 dropped, 12 remaining
 - [x] 4.2 Staleness: reverse index of inbound links per target, revalidated by the target log's tail (warmth lastAppendAt, never mtime) so a target that moved re-snapshots at O(links), never a neighbour fold
 - [x] 4.3 graph-hotpath test extended: hot paths may import the links tier only; reach and buildGraph stay banned (record-graph D2, record-index 4.1)
 
-## Phase 5 — Digest travel + write-time nudges [pending] — 0/4 done
+## Phase 5 — Digest travel + write-time nudges [pending] — 1/4 done
 
-- [ ] 5.1 TS render of the travel block in templates/status.ts from the links tier; Phase 1 goldens pass
+- [x] 5.1 TS render of the travel block in templates/status.ts from the links tier; Phase 1 goldens pass
 - [ ] 5.2 Rust links-tier reader + status.rs render, byte parity on the same goldens (check-before-parse typed reader, rust-core D42 L2). PREDICT: travel read ≤1ms at team100
 - [ ] 5.3 Offered nudges, never blocks: end_session warns when a next_action or blocked note cites another record without waits_on; `sofar new` lists ≤3 existing initiatives by BM25 over goals
 - [ ] 5.4 Protocol block for Claude Code, Cursor and Codex (D35): cite other records as <slug> <id>; declare waits_on when blocked
@@ -55,4 +55,4 @@ Progress: 12 done, 1 dropped, 12 remaining
 - [ ] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
 - [ ] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
 
-Next action: Phase 5 first task: digest travel block
+Next action: Phase 5 task 5.2: Rust links-tier reader + travel render
