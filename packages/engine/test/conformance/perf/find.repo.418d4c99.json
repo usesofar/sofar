@@ -1,0 +1,58 @@
+{
+  "fixture": "repo",
+  "seed": "record-index D2",
+  "n": 25,
+  "cli": "/Users/jins/IO/sofar-linked-context/packages/engine/dist/cli.js",
+  "reach_json_bytes": 3521038,
+  "load_avg": {
+    "start": 4.81,
+    "end": 5.03,
+    "cpus": 14
+  },
+  "recorded_at": "2026-09-29T18:51:58.472Z",
+  "verdict": "ok",
+  "results": [
+    {
+      "case": "cold",
+      "hops": 2,
+      "p50_ms": 579.9,
+      "p90_ms": 725.5,
+      "stdout_bytes": 13065
+    },
+    {
+      "case": "stale",
+      "hops": 2,
+      "p50_ms": 205.1,
+      "p90_ms": 241.1,
+      "stdout_bytes": 13065
+    },
+    {
+      "case": "warm-h1",
+      "hops": 1,
+      "p50_ms": 172.3,
+      "p90_ms": 205.2,
+      "stdout_bytes": 2649
+    },
+    {
+      "case": "warm-h2",
+      "hops": 2,
+      "p50_ms": 173.5,
+      "p90_ms": 207.2,
+      "stdout_bytes": 13065
+    },
+    {
+      "case": "warm-h3",
+      "hops": 3,
+      "p50_ms": 173.7,
+      "p90_ms": 201.4,
+      "stdout_bytes": 21753
+    },
+    {
+      "case": "floor",
+      "hops": null,
+      "p50_ms": 72.6,
+      "p90_ms": 86.1,
+      "stdout_bytes": 18
+    }
+  ]
+}
