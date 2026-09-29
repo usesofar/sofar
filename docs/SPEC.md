@@ -899,8 +899,9 @@ one blank line):
    pending) and `  - …and N more (plan.md)`.
 3. `Next action: <≤500>`, the parallel write-backs, the staleness line, the
    notes since write-back, `Blocked on:` and the concurrent-edit lines — as
-   before.
-4. `Last session (…):` with its summary (YIELDING, precedence 4, preferred
+   before. Then, as its own block, TRAVEL (YIELDING, precedence 3,
+   preferred 600; zero bytes when it has no entry; §Travel block).
+4. `Last session (…):` with its summary (YIELDING, precedence 5, preferred
    450; omitted when fewer than 120 chars remain for it); `Driven:`; the
    lane's recent quick work; the derived-resume and unwritten-session lines.
 5. `Phases:` (open phases itemized ≤12, done and dropped collapsed) and
@@ -919,7 +920,7 @@ one blank line):
    passing it; a TOP-LEVEL bullet (`- ` or `* ` at column 0, with its
    indented continuation lines) naming `<slug> M<n>` for a memory section 6
    rendered is dropped as that memory's copy.
-8. DECISION INDEX (YIELDING, precedence 3, preferred 1,450 — window ≤1,000
+8. DECISION INDEX (YIELDING, precedence 4, preferred 1,450 — window ≤1,000
    plus ledger ≤450; §MCP tools gives the line shapes): the ledger's header
    and count pointer are reserved first when a ledger exists, the window
    keeps its NEWEST lines that fit, and ledger entries fill what remains
@@ -1318,8 +1319,82 @@ per-record, so no task in the successor is "the same task".
 target only; the targets' own `waits_on` are not followed. That is what makes
 a `waits_on` cycle harmless to read (it is warned at write for the agent's
 sake, not the reader's) and keeps each state O(1) target reads. How far
-travel reaches from a task is the travel block's contract (linked-context
-1.2), not this one.
+travel reaches from a task is the travel block's contract (§Travel block),
+not this one.
+
+**Travel block (linked-context 1.2, D4, D8).** The digest's view of the
+network around the work: what the next and blocked tasks link to in OTHER
+records, and whether it has moved. It reads the links tier only (linked-context
+D2) — never reach.json, never buildGraph, never a neighbour's log.
+- SEEDS — the focus task (§Digest composition, item 2) and every `blocked`
+  task in a phase not `done`/`dropped`, focus first, then plan order. No other
+  task seeds it: an active or pending task that is not the focus is not being
+  worked, and a done one waits on nothing. In the quick-work lane there is no
+  focus and blocked tasks alone seed.
+- LINKS — only those whose SOURCE is a seed: its `waits_on` and the cites in
+  its title and status notes (§Links). A decision, note or next-action cite
+  has no task source and never travels. A target in the HOME record is
+  skipped — the focus, phases and decision index already render it — so
+  travel is cross-record only.
+- ONE HOP TO a record, never THROUGH it (record-index D12). A target renders
+  its own state and label; its `waits_on`, cites and tasks are not followed;
+  an initiative target is a destination, rendered with its status and never
+  expanded to what it holds. The one supersession hop (§Links) is the only
+  read past the target, and it names the successor without entering it.
+- ELIGIBLE — a `waits_on` target in state `open`, `moved` or `dangling`; a
+  `waits_on` target `resolved` with `at` sorting AFTER its anchor (resolved
+  since the block — one resolved before its anchor was never waited on); a
+  cite target `open` or `moved`. A resolved or dangling cite is not offered
+  (doctor reports dangling). One target reached by several seeds is ONE
+  entry naming every seed, in seed order; declared beats derived.
+- ORDER — three groups, never interleaved: (1) OPEN WAITS, asserted: `moved`,
+  then `dangling`, then `open`; (2) RESOLVED SINCE THE BLOCK, asserted, newest
+  `at` first; (3) OFFERED CITES, ranked by `shared / L(d)` descending, where
+  `shared` is the target label's RELEVANCE score against the focus
+  (§Digest composition, memory-lead D5), `d` the target's repo-wide in-degree
+  (distinct sources of `waits_on` and cites to it, as the links tier carries
+  it, ≥1) and `L(d)` its bit length (1 → 1, 2–3 → 2, 4–7 → 3, …) — the
+  1/log₂ hub damping of record-index D9, in integers, compared by
+  cross-multiplication so TypeScript and Rust agree to the byte. Ties in every
+  group: first seed in seed order, then the seed's own list order (`waits_on`
+  as stored; cites in first-occurrence order), then the handle bytewise.
+- DEDUPE — against what the digest already shows. A decision target whose
+  rule the Repo-wide rules block rendered (§Digest composition, item 10): an
+  offered cite is dropped; a wait keeps its line with the label replaced by
+  `(rule above)`. A memory target `<slug> M<n>` named by a top-level bullet
+  the Repo memory block rendered: the same, `(repo memory above)`. Dropped
+  entries do not count in `<N>`.
+- LINES — whole entries only; a label is clipped to 80 chars inside its
+  entry, never across the budget. The label is the target's task title,
+  decision chose (the HEADS cut of item 8), memory text or initiative goal.
+  ```
+  Travel — linked targets in other records (<shown> of <N>):
+  - <seeds> waits on <handle> — <state>[ (<what>)] — <label>
+  - <seeds> waited on <handle> — resolved (<what>) — <label>
+  - <seeds> cites <handle> — worth reading — <label>
+  - …and <K> more (sofar find <home slug>)
+  ```
+  `<seeds>` is `,`-joined task ids; `waits on` becomes `wait on` for more
+  than one. `<what>` for moved is the target's current status or `superseded
+  → <successor>`; for resolved it is the status, `superseded by D<m>`/`M<m>`,
+  or `until <slug> <id> done`; dangling carries none. A cite line never says
+  "waits".
+- CAP — at most TRAVEL_TARGET_CAP (6) entries and TRAVEL_BUDGET (600) chars
+  including the header and overflow line, carved from the 6,000 cap
+  (§Digest composition: YIELDING, precedence 3), never added to it.
+  Precedence 3 claims budget after Memory and Repo memory so DEDUPE reads
+  what they actually rendered, and before the decision index and last
+  session, which yield to it. Entries
+  fill in order while they fit whole with a 40-char reserve for the overflow
+  line; the rest are omitted. The builder returns the typed entries and a
+  NUMERIC `omitted` (record-graph D6); only the renderer writes `…and K more`.
+  When not even the header and the first entry fit, the block is the single
+  line `Travel: <N> linked target(s) in other records (sofar find <home
+  slug>)`, or nothing if that does not fit either.
+- ZERO BYTES — no eligible entry after dedupe means no header, no line, no
+  blank separator: a record with no cross-record links, or whose links are
+  all quiet (cites resolved, waits resolved before their anchors), renders
+  byte-identically to a digest built before links existed.
 
 **Deterministic and model-free.** Every state is a pure function of the
 logs present: same logs, same states, byte-identical in TypeScript and Rust
