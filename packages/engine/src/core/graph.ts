@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import {
   validatePayload,
   type FileTouchedPayload,
+  type MemoryPromotedPayload,
   type PhaseStatus,
   type PlanUpdatedPayload,
   type SessionEndedPayload,
@@ -60,6 +61,7 @@ export type GraphNodeKind =
   | 'command'
   | 'decision'
   | 'note'
+  | 'memory'
 
 /** STRUCTURAL — from each initiative's FINAL folded plan. */
 export interface InitiativeNode {
@@ -144,6 +146,22 @@ export interface NoteNode {
   text: string
 }
 
+/**
+ * A promoted memory (linked-context 3.3). A citation TARGET only, reached by a
+ * qualified `<slug> M<n>` (D3); `.sofar/repo.md` lines carry no ids and are
+ * never nodes.
+ */
+export interface MemoryNode {
+  kind: 'memory'
+  id: string
+  initiative: string
+  session: string
+  ts: string
+  /** 1-based position among this initiative's memory_promoted in ulid order — the `M<n>` handle. */
+  ordinal: number
+  text: string
+}
+
 export type GraphNode =
   | InitiativeNode
   | PhaseNode
@@ -153,6 +171,7 @@ export type GraphNode =
   | CommandNode
   | DecisionNode
   | NoteNode
+  | MemoryNode
 
 /**
  * The node-id and edge vocabulary lives in core/adjacency.ts, below both this
@@ -204,6 +223,8 @@ interface PerInitiative {
   decisionIds: string[]
   /** Note node ids in ulid order. */
   noteIds: string[]
+  /** Memory node ids in ulid order — index i is the `<slug> M<i+1>` handle. */
+  memoryIds: string[]
   /** Task id → the event whose text is its title now (see titleKey). */
   titles: Map<string, TextEvent>
   /** Task id → status notes, in replay order — any id, final plan or not. */
@@ -330,6 +351,7 @@ export function buildGraph(rootDir: string): RecordGraph {
     // contribute neither node nor edge.
     const decisionIds: string[] = []
     const noteIds: string[] = []
+    const memoryIds: string[] = []
     // The citation sources outside decisions and notes (linked-context 3.2),
     // under the reach index's rules so the two answer alike: a title's anchor
     // is the event that last CHANGED its text, a task_added for an id the
@@ -450,6 +472,20 @@ export function buildGraph(rootDir: string): RecordGraph {
           })
           break
         }
+        case 'memory_promoted': {
+          const id = `memory:${event.id}`
+          memoryIds.push(id)
+          nodes.set(id, {
+            kind: 'memory',
+            id,
+            initiative: event.initiative,
+            session: event.session,
+            ts: event.ts,
+            ordinal: memoryIds.length,
+            text: (event.payload as unknown as MemoryPromotedPayload).text,
+          })
+          break
+        }
       }
     }
 
@@ -483,7 +519,7 @@ export function buildGraph(rootDir: string): RecordGraph {
       edges.push(edge)
     }
 
-    perInitiative.push({ slug, state, decisionIds, noteIds, titles, statusNotes, nextActions })
+    perInitiative.push({ slug, state, decisionIds, noteIds, memoryIds, titles, statusNotes, nextActions })
   }
 
   // --- `cites`: a second pass, because a citation may name any initiative.
@@ -493,6 +529,7 @@ export function buildGraph(rootDir: string): RecordGraph {
   // event, target), so a text naming a target twice is one citation.
   const knownSlugs = perInitiative.map((p) => p.slug)
   const decisionsBySlug = new Map(perInitiative.map((p) => [p.slug, p.decisionIds]))
+  const memoriesBySlug = new Map(perInitiative.map((p) => [p.slug, p.memoryIds]))
   const tasksBySlug = new Map(
     perInitiative.map((p) => [p.slug, new Set(p.state.phases.flatMap((ph) => ph.tasks.map((t) => t.id)))]),
   )
@@ -502,8 +539,9 @@ export function buildGraph(rootDir: string): RecordGraph {
     const { slug } = per
     for (const source of citeSources(per, nodes)) {
       const linked = new Set<string>()
-      for (const citation of extractCitations(source.text, slug, knownSlugs)) {
-        const target = resolveCitation(citation, source.event_id, decisionsBySlug, tasksBySlug)
+      // `M<n>` scanned, bound qualified-only (linked-context 3.3, D3).
+      for (const citation of extractCitations(source.text, slug, knownSlugs, { memories: true })) {
+        const target = resolveCitation(citation, source.event_id, decisionsBySlug, memoriesBySlug, tasksBySlug)
         if (target === undefined) {
           const node = source.decision
           if (node !== undefined && !node.dangling.includes(citation.raw)) node.dangling.push(citation.raw)
@@ -606,22 +644,26 @@ function citeSources(per: PerInitiative, nodes: ReadonlyMap<string, GraphNode>):
 /**
  * Resolve one citation to a node id, or undefined (dangling). Literal only:
  * `D<n>` is the nth decision of that initiative in ulid order, `T<n>` /
- * `<n>.<n>` is the task with that EXACT id in its final plan, and a decision
- * target must not sort AFTER the sourcing event — nothing cites the future (a
+ * `<n>.<n>` is the task with that EXACT id in its final plan, `<slug> M<n>` is
+ * the nth memory_promoted of that initiative, and a decision or memory target
+ * must not sort AFTER the sourcing event — nothing cites the future (a
  * decision's own ordinal comes back as itself: the caller drops the self-label).
  */
 function resolveCitation(
   citation: Citation,
   sourceEventId: string,
   decisionsBySlug: ReadonlyMap<string, readonly string[]>,
+  memoriesBySlug: ReadonlyMap<string, readonly string[]>,
   tasksBySlug: ReadonlyMap<string, ReadonlySet<string>>,
 ): string | undefined {
-  if (/^D\d+$/.test(citation.handle)) {
-    const ordinal = Number(citation.handle.slice(1))
-    const ids = decisionsBySlug.get(citation.slug)
+  const ordered = /^([DM])(\d+)$/.exec(citation.handle)
+  if (ordered !== null) {
+    const [prefix, bySlug] = ordered[1] === 'D' ? ['decision:', decisionsBySlug] : ['memory:', memoriesBySlug]
+    const ordinal = Number(ordered[2])
+    const ids = bySlug.get(citation.slug)
     if (ids === undefined || ordinal < 1 || ordinal > ids.length) return undefined
     const target = ids[ordinal - 1]
-    if (target === undefined || target.slice('decision:'.length) > sourceEventId) return undefined
+    if (target === undefined || target.slice(prefix.length) > sourceEventId) return undefined
     return target
   }
   const tasks = tasksBySlug.get(citation.slug)
@@ -982,6 +1024,8 @@ function citationHandle(graph: RecordGraph, nodeId: string): string {
       return `${node.initiative} ${node.task_id}`
     case 'note':
       return `${node.initiative} note`
+    case 'memory':
+      return `${node.initiative} M${node.ordinal}`
     case 'session':
       return `next action of session ${node.session_id}`
     default:

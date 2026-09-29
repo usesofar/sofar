@@ -808,7 +808,8 @@ and the labels tier; 8 when 2.3 added each ruled entry's `check` and the
 check command's file tokens to its mentions; 9 when 2.8 added every
 decision's id, and each label entry's id, for supersession by stamped id; 10
 when linked-context 3.1 added task nodes and the task, note and next-action
-citation sources to the reach index).
+citation sources to the reach index; 11 when linked-context 3.3 added memory
+nodes and scanned `M<n>` in every source).
 
 **Labels tier (memory-lead 2.2, D8).** labels.json on its own cursor
 (meta-labels.json), read only by sofar_log_decision, sofar_end_session and
@@ -1007,11 +1008,12 @@ file:<repo-relative path>    path
 command:<event ulid>         initiative, session, ts, cmd
 decision:<event ulid>        initiative, session, ts, ordinal, chose/over/because, dangling[]
 note:<event ulid>            initiative, session, ts, text
+memory:<event ulid>          initiative, session, ts, ordinal, text   (memory_promoted; linked-context 3.3)
 ```
 Three families, and the difference is the point. STRUCTURAL nodes
 (initiative, phase, task) come from each initiative's FINAL folded state, so
 a plan_updated that drops a task drops its node — they describe the plan as
-it now stands. OCCURRENCE nodes (command, decision, note) are one per
+it now stands. OCCURRENCE nodes (command, decision, note, memory) are one per
 sourcing event, keyed by its ulid: an occurrence has no identity apart from
 the event that recorded it. JOIN nodes (session, file) are deliberately NOT
 slug-scoped — the session id and the repo-relative path are the same
@@ -1033,7 +1035,7 @@ occurrence (exactly ONE edge per sourcing event; carries event_id + ts)
   worked      task       -> file       file_touched x every task ACTIVE then
   tested      task       -> command    test-shaped command_run with a KNOWN ok x every task ACTIVE then (r1-fixes 2.5, D24)
 derived from record text (closed lexical grammar; event_id + ts = the SOURCING event)
-  cites       decision | note | task | session  -> decision | task
+  cites       decision | note | task | session  -> decision | task | memory
               one edge per (sourcing event, target); sources per §Links (linked-context 3.2)
 structural (predecessor's folded `successor`; no event_id; initiative-supersession D1)
   superseded_by  initiative -> initiative   only when the successor is a record here
@@ -1078,13 +1080,13 @@ concatenated decision text (chose + over + because):
   record is cited pervasively (BD22/BD16 7x each on the live record);
   recording those tokens would flood `dangling[]`, which is reserved for
   grammar-matched handles precisely so it stays a finding, not noise.
-- `M<n>` (a promoted memory, repo-memory-capture D2) is OPT-IN and matched
-  only by the `.sofar/repo.md` scan, which reads qualified handles and never
-  resolves. It is absent from the decision-prose grammar because promoted
-  memories have no nodes to resolve against, so matching it there would send
-  every legitimate mention to `dangling[]` — the same flooding the BD<n>
-  exclusion exists to prevent. Minting memory nodes would lift the
-  restriction; until then M<n> resolves nowhere.
+- `M<n>` (a promoted memory, repo-memory-capture D2) is QUALIFIED-ONLY
+  (linked-context D3, 3.3): `<slug> M<n>` is a handle in every citation
+  source; a bare `M<n>` is not — memory ordinals are per-initiative and prose
+  uses bare `M<n>` for milestones — so it never binds home and never lands in
+  `dangling[]`. Memory nodes lifted the restriction repo-memory-capture D3
+  deferred on; the `.sofar/repo.md` scan reads the same qualified handles
+  and still never resolves. repo.md lines carry no ids and are never nodes.
 
 Resolution is literal and refuses to guess:
 - `D<n>` → the nth decision_logged in that initiative's log in ulid order,
@@ -1094,8 +1096,12 @@ Resolution is literal and refuses to guess:
   §Architectural invariants cites by that handle.
 - `T<n>` / `<n>.<n>` → the task with that EXACT id in that initiative's
   final plan.
+- `<slug> M<n>` → the nth memory_promoted in that initiative's log in ulid
+  order, 1-based (`memory.ordinal`) — the handle `sofar remember` prints.
 - A decision target resolves only when its event id sorts BEFORE the citing
-  decision's: a decision cannot cite the future.
+  decision's: a decision cannot cite the future. A memory target obeys the
+  same rule (linked-context D15): its ordinal is positional too, so a handle
+  written before the memory existed named nothing.
 - A decision naming its OWN ordinal is a self-label, not a citation, and is
   dropped (no self-edges).
 - Anything else is DANGLING: carried on the citing decision node as
@@ -5789,7 +5795,8 @@ Shims contain no logic — they invoke the sofar CLI.
   and neither traversed through (initiative-supersession 3.3; record-index
   D12 stands). Seeds resolve LITERALLY FIRST,
   in a fixed order — node id, initiative slug, decision handle (`<slug> D<n>`,
-  `<slug>#D<n>`, or `D<n>` with `--initiative`), session id, then path across
+  `<slug>#D<n>`, or `D<n>` with `--initiative`) or memory handle (`<slug> M<n>`
+  or `<slug>#M<n>`, qualified only — linked-context 3.3), session id, then path across
   checkouts. A query denoting NONE of those is treated as a question and matched
   against decision and note prose (record-index 3.5): tokenized, plurals and
   tenses folded, ranked by BM25 over the whole record with NO model, and reported

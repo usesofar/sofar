@@ -77,6 +77,7 @@ const TITLES: Record<ReachHit['kind'], string> = {
   initiative: 'Initiatives',
   decision: 'Decisions',
   task: 'Tasks',
+  memory: 'Memories',
   note: 'Notes',
   file: 'Files',
   session: 'Sessions',
@@ -161,6 +162,9 @@ function shortNode(rootDir: string, result: ReachResult, nodeId: string): string
       if (hit.id === nodeId && hit.kind === 'decision' && hit.ordinal !== undefined) {
         return `${hit.initiative} D${hit.ordinal}`
       }
+      if (hit.id === nodeId && hit.kind === 'memory' && hit.ordinal !== undefined) {
+        return `${hit.initiative} M${hit.ordinal}`
+      }
     }
   }
   if (nodeId.startsWith('session:')) {
@@ -170,6 +174,7 @@ function shortNode(rootDir: string, result: ReachResult, nodeId: string): string
   if (nodeId.startsWith('initiative:')) return nodeId.slice('initiative:'.length)
   if (nodeId.startsWith('decision:')) return `decision ${nodeId.slice('decision:'.length)}`
   if (nodeId.startsWith('note:')) return `note ${nodeId.slice('note:'.length)}`
+  if (nodeId.startsWith('memory:')) return `memory ${nodeId.slice('memory:'.length)}`
   if (nodeId.startsWith('task:')) return taskHandle(nodeId)
   return nodeId
 }
@@ -197,6 +202,8 @@ function headOf(rootDir: string, hit: ReachHit): string {
       return `${hit.initiative} D${hit.ordinal ?? '?'}  ${distance}  ${day(hit.ts)}`
     case 'note':
       return `${hit.initiative}  ${distance}  ${day(hit.ts)}`
+    case 'memory':
+      return `${hit.initiative} M${hit.ordinal ?? '?'}  ${distance}  ${day(hit.ts)}`
     case 'task':
       return `${taskHandle(hit.id)}  ${distance}  ${day(hit.ts)}`
     case 'file':
@@ -215,7 +222,9 @@ function blocksOf(rootDir: string, result: ReachResult): Block[] {
     title: `${TITLES[group.kind]} (${group.hits.length + group.omitted})`,
     entries: group.hits.map((hit) => {
       const detail: string[] = []
-      if (hit.kind === 'decision' || hit.kind === 'note' || hit.kind === 'task') detail.push(clip(hit.label, PROSE))
+      if (hit.kind === 'decision' || hit.kind === 'note' || hit.kind === 'task' || hit.kind === 'memory') {
+        detail.push(clip(hit.label, PROSE))
+      }
       // An initiative was not traversed to — it is reported because a member
       // was, so it cites holding that member rather than an edge of its own.
       const relation =

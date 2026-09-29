@@ -7,3 +7,4 @@ which is how `sofar doctor` sees that a promoted fact reached repo memory.
 
 - **M1** (2026-09-29T10:54:11.365Z) — Tests run inside a sofar drive inherit SOFAR_DRIVE_NUDGE; any hook test that falls back to process.env must pass env: {} or it goes silent. Latency pin needs its own XDG_STATE_HOME (shared state made SessionStart 114-123ms in-suite).
 - **M2** (2026-09-29T11:30:21.803Z) — After any schema change, rebuild with `cargo build --release -p sofar-core`. digest-cache.test.ts runs target/release/sofar-core, so a stale binary fails TS/Rust v3 parity on the schema hash alone.
+- **M3** (2026-09-29T15:13:59.744Z) — Driven sessions cannot set env vars on commands (SOFAR_CONFORMANCE_RECORD=1 is denied), so an INDEX_SCHEMA_VERSION bump's golden drift in repo.lessons / syn.lessons-cut (lexicon*.json hashes only, sizes unchanged) is patched by hand from the vitest diff; also bump the version literal in crates/sofar-core/src/index_store.rs's meta round-trip test.

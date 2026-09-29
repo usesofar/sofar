@@ -446,6 +446,78 @@ describe('linked-context 3.1 — every citation source, each edge citing its sou
   })
 })
 
+describe('linked-context 3.3 — memory nodes, qualified-only <slug> M<n>', () => {
+  const remember = (sofar: string, slug: string, session: string, text: string): EventEnvelope =>
+    emit(sofar, slug, event(slug, session, 'memory_promoted', { text }))
+
+  function cites(sofar: string): string[] {
+    const out: string[] = []
+    for (const [from, edges] of refreshReach(sofar).edges) {
+      for (const e of edges) if (e.kind === 'cites') out.push(`${from} -> ${e.to} @ ${e.event_id}`)
+    }
+    return out.sort()
+  }
+
+  it('mints one node per memory_promoted, numbered per initiative, and binds only the qualified handle', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const m1 = remember(sofar, 'alpha', 'A', 'cargo build --release after a schema change')
+    const m2 = remember(sofar, 'alpha', 'A', 'drive tests inherit SOFAR_DRIVE_NUDGE')
+    start(sofar, 'beta', 'B')
+    // Bare M1 / M2 are milestones in prose — never handles, never home-bound.
+    remember(sofar, 'beta', 'B', 'beta has its own M1')
+    const cited = note(sofar, 'beta', 'B', 'per Alpha M2, and M1 is a milestone; alpha M9 names nothing')
+
+    const index = refreshReach(sofar)
+    expect(index.nodes.get(`memory:${m1.id}`)).toMatchObject({ kind: 'memory', initiative: 'alpha', ordinal: 1 })
+    expect(index.nodes.get(`memory:${m2.id}`)).toMatchObject({ kind: 'memory', ordinal: 2 })
+    expect(index.memories.get('beta')).toHaveLength(1)
+    expect(cites(sofar)).toEqual([`note:${cited.id} -> memory:${m2.id} @ ${cited.id}`])
+    expect(index.edges.get(`memory:${m2.id}`)).toEqual([
+      expect.objectContaining({ kind: 'cited_by', to: `note:${cited.id}`, event_id: cited.id }),
+    ])
+  })
+
+  it('a memory cannot be cited before it was promoted', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    note(sofar, 'alpha', 'A', 'alpha M1 is coming')
+    remember(sofar, 'alpha', 'A', 'the fact')
+    expect(cites(sofar)).toEqual([])
+  })
+
+  it('resolves a qualified memory handle as a seed, and never a bare one', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const m1 = remember(sofar, 'alpha', 'A', 'the fact')
+    const index = refreshReach(sofar)
+    expect(resolveSeed(index, 'alpha M1')).toMatchObject({ kind: 'memory', ids: [`memory:${m1.id}`] })
+    expect(resolveSeed(index, 'Alpha#M1')).toMatchObject({ kind: 'memory', ids: [`memory:${m1.id}`] })
+    expect(resolveSeed(index, 'M1', { initiative: 'alpha' }).kind).toBeNull()
+    expect(resolveSeed(index, 'alpha M2').kind).toBeNull()
+  })
+
+  it('matches buildGraph, and a warm index equals a cold one', () => {
+    const { root, sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    remember(sofar, 'alpha', 'A', 'the fact')
+    const warm1 = cites(sofar)
+    emit(
+      sofar,
+      'alpha',
+      event('alpha', 'A', 'decision_logged', { chose: 'keep alpha M1', over: 'o', because: 'b' }),
+    )
+    const warm2 = cites(sofar)
+    expect(warm2.length).toBe(warm1.length + 1)
+    const graph = buildGraph(root)
+      .edges.filter((e) => e.kind === 'cites')
+      .map((e) => `${e.from} -> ${e.to} @ ${e.event_id}`)
+    expect(graph.sort()).toEqual(warm2)
+    rmSync(join(sofar, '.index'), { recursive: true, force: true })
+    expect(cites(sofar)).toEqual(warm2)
+  })
+})
+
 describe('3.4 seeds — literal, ordered, never a search', () => {
   it('resolves a path across every checkout that recorded it', () => {
     const { root, sofar } = repo()

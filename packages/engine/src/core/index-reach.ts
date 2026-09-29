@@ -2,6 +2,7 @@ import type {
   DecisionLoggedPayload,
   FileTouchedPayload,
   InitiativeStatusChangedPayload,
+  MemoryPromotedPayload,
   NoteAddedPayload,
   PlanUpdatedPayload,
   SessionEndedPayload,
@@ -52,6 +53,11 @@ import { byCodeUnit } from './order'
  * only, because a task is both a citation target and, through its title and
  * status notes, a citation source. They carry citation edges and nothing
  * else: occurrence adjacency for a task is `sofar related`'s question.
+ *
+ * Promoted memories are nodes too (`memory:<event id>`, linked-context 3.3) —
+ * a citation TARGET only, reached by a QUALIFIED `<slug> M<n>` (D3), since a
+ * memory's ordinal is per-initiative and a bare `M<n>` names milestones in
+ * prose. `.sofar/repo.md` is hand-written and carries no ids: never a node.
  *
  * WHAT IT DOES NOT CARRY, and why:
  *  - Prose is CLIPPED at REACH_PROSE. This index exists to say what is worth
@@ -159,10 +165,20 @@ interface TaskRow {
   notes: CiteRow[]
 }
 
+/** One memory_promoted — a citation target, never a source. */
+interface MemoryRow {
+  id: string
+  ts: string
+  /** Memory text, clipped to REACH_PROSE — the node's label. */
+  text: string
+}
+
 interface SlugReachState {
   /** decision_logged in replay order — index i is the `D<i+1>` handle. */
   decisions: DecisionRow[]
   notes: NoteRow[]
+  /** memory_promoted in replay order — index i is the `<slug> M<i+1>` handle. */
+  memories: MemoryRow[]
   /** path → session → [event id of the most recent touch, its ts, touch count]. */
   files: Record<string, Record<string, [string, string, number]>>
   /** Task ids the FINAL plan holds, in plan order — the task nodes. */
@@ -197,6 +213,7 @@ function isReachDisk(v: unknown): v is ReachDisk {
 const emptyReach = (): SlugReachState => ({
   decisions: [],
   notes: [],
+  memories: [],
   files: {},
   tasks: [],
   taskRows: {},
@@ -226,6 +243,7 @@ function cloneReach(state: SlugReachState): SlugReachState {
       terms: { ...d.terms },
     })),
     notes: state.notes.map((n) => ({ ...n, cites: cloneCites(n.cites), terms: { ...n.terms } })),
+    memories: state.memories.map((m) => ({ ...m })),
     files,
     tasks: [...state.tasks],
     taskRows,
@@ -251,7 +269,9 @@ function clipProse(text: string, max: number): string {
 
 /** The closed grammar over one text, stored unbound as [word, handle] (citations.ts). */
 function scan(text: string): [string, string][] {
-  return scanCitations(text).map((s) => [s.word, s.handle] as [string, string])
+  // `M<n>` is scanned so a qualified `<slug> M<n>` can bind (linked-context 3.3);
+  // bindHandle drops the unqualified ones.
+  return scanCitations(text, { memories: true }).map((s) => [s.word, s.handle] as [string, string])
 }
 
 function taskRow(state: SlugReachState, id: string): TaskRow {
@@ -332,6 +352,12 @@ function applyReach(state: SlugReachState, event: IndexedEvent): void {
       })
       return
     }
+    case 'memory_promoted': {
+      // Pushed unconditionally, like decisions: the POSITION is the M<n> handle.
+      const p = event.payload as unknown as MemoryPromotedPayload
+      state.memories.push({ id: event.id, ts: event.ts, text: clipProse(p.text, REACH_PROSE) })
+      return
+    }
     case 'task_status_changed': {
       const p = event.payload as unknown as TaskStatusChangedPayload
       if (typeof p.note !== 'string') return
@@ -408,7 +434,7 @@ function applyReach(state: SlugReachState, event: IndexedEvent): void {
 // The keyed view.
 // ---------------------------------------------------------------------------
 
-export type ReachNodeKind = 'initiative' | 'session' | 'file' | 'decision' | 'note' | 'task'
+export type ReachNodeKind = 'initiative' | 'session' | 'file' | 'decision' | 'note' | 'task' | 'memory'
 
 export interface ReachNode {
   kind: ReachNodeKind
@@ -418,7 +444,7 @@ export interface ReachNode {
   /** Path, session id, slug, or clipped prose — what a surface shows. */
   label: string
   ts: string
-  /** `D<n>` within its own initiative, for a decision. */
+  /** `D<n>` within its own initiative for a decision, `M<n>` for a memory. */
   ordinal?: number
 }
 
@@ -462,6 +488,8 @@ export interface ReachIndex {
   contents: Map<string, ReachEdge[]>
   /** slug → decision node ids in ordinal order — the `D<n>` lookup. */
   decisions: Map<string, string[]>
+  /** slug → memory node ids in ordinal order — the `<slug> M<n>` lookup. */
+  memories: Map<string, string[]>
   /** Recorded paths, for path resolution. */
   paths: string[]
   /** Session ids the index knows, for seed resolution. */
@@ -486,6 +514,7 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
   const edges = new Map<string, ReachEdge[]>()
   const contents = new Map<string, ReachEdge[]>()
   const decisions = new Map<string, string[]>()
+  const memories = new Map<string, string[]>()
   const paths = new Set<string>()
   const sessions = new Set<string>()
   const lexicon: LexicalDoc[] = []
@@ -597,6 +626,24 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
         ts: row?.ts ?? '',
       })
     }
+
+    // Memory nodes (linked-context 3.3): like tasks, not in `contents` and
+    // with no session edge — a memory earns its place in an answer by a
+    // qualified citation.
+    const remembered: string[] = []
+    for (const row of state.memories) {
+      const id = `memory:${row.id}`
+      nodes.set(id, {
+        kind: 'memory',
+        id,
+        initiative: slug,
+        label: row.text,
+        ts: row.ts,
+        ordinal: remembered.length + 1,
+      })
+      remembered.push(id)
+    }
+    memories.set(slug, remembered)
   }
 
   // Supersession, both ways, on `contents` alone (initiative-supersession
@@ -615,8 +662,8 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
     contents.get(target)?.push({ kind: 'supersedes', to: initiativeNodeId(slug), ...stamp })
   }
 
-  linkCitations(states, decisions, nodes, link)
-  return { nodes, edges, contents, decisions, paths: [...paths].sort(), sessions, lexicon }
+  linkCitations(states, decisions, memories, nodes, link)
+  return { nodes, edges, contents, decisions, memories, paths: [...paths].sort(), sessions, lexicon }
 }
 
 /** One text that cites: the node it is FROM, and the event whose text it is. */
@@ -673,7 +720,9 @@ function citeSources(slug: string, state: SlugReachState): CiteSource[] {
  * that initiative in replay order and must sort BEFORE the sourcing event,
  * since nothing cites the future and a decision does not cite itself; `T<n>`
  * and `<slug> <n>.<n>` are the task with that exact id in the final plan, and
- * a task naming itself is a self-label, not a citation. An unresolved handle
+ * a task naming itself is a self-label, not a citation. `<slug> M<n>` is the
+ * nth memory_promoted of that initiative, qualified only (D3), and like a
+ * decision ordinal it must sort BEFORE the sourcing event (D15). An unresolved handle
  * mints no edge — `sofar doctor`'s dangling report stays the one place that
  * question is answered, and this one never contradicts it.
  *
@@ -683,6 +732,7 @@ function citeSources(slug: string, state: SlugReachState): CiteSource[] {
 function linkCitations(
   states: Record<string, SlugReachState>,
   decisions: ReadonlyMap<string, string[]>,
+  memories: ReadonlyMap<string, string[]>,
   nodes: ReadonlyMap<string, ReachNode>,
   link: (from: string, edge: ReachEdge) => void,
 ): void {
@@ -701,6 +751,9 @@ function linkCitations(
           // Node ids carry the `decision:` prefix; the ORDER test is on the
           // event ids beneath them, which are ulids and therefore comparable.
           if (targetId !== undefined && targetId.slice('decision:'.length) >= source.event_id) continue
+        } else if (/^M\d+$/.test(citation.handle)) {
+          targetId = memories.get(citation.slug)?.[Number(citation.handle.slice(1)) - 1]
+          if (targetId !== undefined && targetId.slice('memory:'.length) >= source.event_id) continue
         } else {
           targetId = taskNodeId(citation.slug, citation.handle)
         }
@@ -806,7 +859,8 @@ export interface ResolveSeedOptions {
  * The order IS the disambiguation rule, most explicit first:
  *   1. a node id — `file:…`, `session:…`, `decision:…`, `note:…`, `task:…`, `initiative:…`
  *   2. a known initiative slug
- *   3. a decision handle — `<slug> D<n>` / `<slug>#D<n>`, or `D<n>` with an initiative
+ *   3. a decision handle — `<slug> D<n>` / `<slug>#D<n>`, or `D<n>` with an initiative;
+ *      a memory handle — `<slug> M<n>` / `<slug>#M<n>`, qualified only (linked-context D3)
  *   4. a known session id
  *   5. a path, resolved across checkouts (matchRecordedPaths)
  *
@@ -826,7 +880,7 @@ export function resolveSeed(
 
   const node = index.nodes.get(trimmed)
   if (node !== undefined) return { query, kind: node.kind, ids: [node.id] }
-  if (/^(session|decision|note|task|initiative):/.test(trimmed)) return miss // an id, and it is not here
+  if (/^(session|decision|note|task|memory|initiative):/.test(trimmed)) return miss // an id, and it is not here
   if (trimmed.startsWith('file:')) return seedPath(index, query, trimmed.slice('file:'.length))
 
   const initiativeId = initiativeNodeId(trimmed)
@@ -837,6 +891,13 @@ export function resolveSeed(
     const slug = (handle[1] ?? options.initiative)?.toLowerCase()
     const id = slug === undefined ? undefined : index.decisions.get(slug)?.[Number(handle[2]!.slice(1)) - 1]
     return id === undefined ? miss : { query, kind: 'decision', ids: [id] }
+  }
+
+  // A memory handle is qualified-only (linked-context D3): no home fallback.
+  const memory = /^([A-Za-z0-9-]+)[ \t#]+(M\d+)$/.exec(trimmed)
+  if (memory !== null) {
+    const id = index.memories.get(memory[1]!.toLowerCase())?.[Number(memory[2]!.slice(1)) - 1]
+    return id === undefined ? miss : { query, kind: 'memory', ids: [id] }
   }
 
   if (index.sessions.has(trimmed)) return { query, kind: 'session', ids: [sessionNodeId(trimmed)] }
@@ -967,7 +1028,7 @@ export interface ReachResult {
 }
 
 /** Group order: what a reader should look at first, not alphabetical. */
-const GROUP_ORDER: ReachNodeKind[] = ['initiative', 'decision', 'task', 'note', 'file', 'session']
+const GROUP_ORDER: ReachNodeKind[] = ['initiative', 'decision', 'task', 'memory', 'note', 'file', 'session']
 
 /**
  * Breadth-first from the seed, out to `hops` edges.
@@ -1113,9 +1174,9 @@ function initiativeHits(
   return [...best.values()]
 }
 
-/** The event id inside an occurrence node id (`decision:`/`note:`), else null. */
+/** The event id inside an occurrence node id (`decision:`/`note:`/`memory:`), else null. */
 function eventIdOf(nodeId: string): string | null {
-  const match = /^(?:decision|note):(.+)$/.exec(nodeId)
+  const match = /^(?:decision|note|memory):(.+)$/.exec(nodeId)
   return match === null ? null : match[1]!
 }
 

@@ -32,7 +32,7 @@ import { writeFileAtomic } from './atomic'
  */
 
 /** Bump on ANY change to the on-disk shape. Old versions cold-start. */
-export const INDEX_SCHEMA_VERSION = 10
+export const INDEX_SCHEMA_VERSION = 11
 
 /** How far one initiative's log has been consumed. */
 export interface InitiativeCursor {

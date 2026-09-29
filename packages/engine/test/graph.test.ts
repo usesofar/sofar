@@ -495,6 +495,27 @@ describe('citation resolution — the cites edge', () => {
     expect(cites[0]?.from).toBe(`decision:${citing.id}`)
     expect(cites[0]?.to).toBe(`decision:${cited.id}`) // felt-cost D1, not the home decoy
   })
+
+  it('a qualified <slug> M<n> cites a memory node; a bare M<n> is no handle and never dangles (linked-context 3.3)', () => {
+    const root = makeRoot()
+    const m1 = ev('alpha', 'memory_promoted', { text: 'the first fact' })
+    const m2 = ev('alpha', 'memory_promoted', { text: 'the second fact' })
+    writeLog(root, 'alpha', [ev('alpha', 'initiative_created', { slug: 'alpha', goal: 'g' }), m1, m2])
+    const citing = ev('beta', 'decision_logged', {
+      chose: 'follow Alpha M2',
+      over: 'milestone M1 and M7',
+      because: 'alpha M9 is past the last memory',
+    })
+    writeLog(root, 'beta', [...planned('beta'), citing])
+
+    const graph = buildGraph(root)
+    expect(graph.nodes.get(`memory:${m1.id}`)).toMatchObject({ kind: 'memory', initiative: 'alpha', ordinal: 1 })
+    expect(graph.nodes.get(`memory:${m2.id}`)).toMatchObject({ kind: 'memory', ordinal: 2, text: 'the second fact' })
+    expect(edgesOfKind(graph, 'cites').map((e) => `${e.from} -> ${e.to}`)).toEqual([
+      `decision:${citing.id} -> memory:${m2.id}`,
+    ])
+    expect((graph.nodes.get(`decision:${citing.id}`) as DecisionNode).dangling).toEqual(['alpha M9'])
+  })
 })
 
 describe('orphan task nodes — every edge endpoint resolves', () => {
