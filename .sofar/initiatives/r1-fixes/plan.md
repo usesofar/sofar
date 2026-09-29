@@ -83,4 +83,4 @@ Progress: 38 done, 7 dropped, 0 remaining
 - [-] 7.7 Proof: a live Codex end-to-end on a scratch repo (init with the picker → oriented session → MCP writes → write-back gate → drive run) with the operator's consent for the usage it spends, plus SPEC updates (§Host tiers moves Codex out of Tier 3, §Hooks, §CLI, §Driver) and acceptance criteria. (dropped)
 
 Active phase: Phase 4 — Release
-Next action: When the linked-context run stops, compare its per-task tokens against the task-policy runs (drive-cost 1.1)
+Next action: Operator: rule on linked-context 6.3 (live vs deterministic proxy) and approve merging branch linked-context into main
