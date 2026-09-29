@@ -834,12 +834,23 @@ export function linkInDegrees(sofarDir: string): Map<string, number> {
   return new Map((inbound?.targets ?? []).map((t) => [t.to, t.from.length]))
 }
 
+/** Env switch: `SOFAR_TRAVEL=off` (also `0`, `false`) — the read-path gate's ablation arm (linked-context 6.1). */
+export const TRAVEL_ENV = 'SOFAR_TRAVEL'
+
+/** Travel is on unless SOFAR_TRAVEL says off; `index` (the default) reads the links tier. */
+export function travelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const v = env[TRAVEL_ENV]?.trim().toLowerCase()
+  return !(v === 'off' || v === '0' || v === 'false')
+}
+
 /**
  * The travel block's whole input for one home (linked-context 5.1): its links,
  * refreshed, and their targets' in-degrees — the links tier only, never reach
  * or buildGraph (D2). Empty on any failure: the digest renders without it.
+ * Empty, untouched, under SOFAR_TRAVEL=off.
  */
 export function readTravel(sofarDir: string, slug: string): { links: Link[]; indegree: Map<string, number> } {
+  if (!travelEnabled()) return { links: [], indegree: new Map() }
   try {
     const links = refreshLinks(sofarDir, slug)
     return { links, indegree: links.length === 0 ? new Map() : linkInDegrees(sofarDir) }

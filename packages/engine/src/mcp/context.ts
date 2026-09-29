@@ -23,7 +23,7 @@ import {
   type InitiativeState,
 } from '../core/fold'
 import { currentBranch } from '../core/git'
-import { refreshLinks } from '../core/index-links'
+import { refreshLinks, travelEnabled } from '../core/index-links'
 import { ensureIndexDir } from '../core/index-store'
 import { QUICK_LANE } from '../core/lane'
 import { initiativeSlugs } from '../core/listing'
@@ -665,9 +665,10 @@ export function createToolContext(rootDir: string): ToolContext {
         regenerateProjections(initiativeDir(slug), foldState(slug))
         // The links tier is materialised at write time (linked-context 4.1):
         // derived and disposable, so a failure costs the next reader a full
-        // pass, never the write.
+        // pass, never the write. Skipped under SOFAR_TRAVEL=off, so the
+        // ablation arm pays nothing for the tier; its cursors catch up later.
         try {
-          refreshLinks(sofarDir, slug)
+          if (travelEnabled()) refreshLinks(sofarDir, slug)
         } catch {
           // see above
         }

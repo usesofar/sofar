@@ -7,7 +7,7 @@ import type { TaskStatusChangedPayload } from '@sofar/schema'
 import { afterAll, describe, expect, it } from 'vitest'
 import { bindHandle, canonicalSlugs, scanCitations, titleKey } from '../src/core/citations'
 import { appendToCheckpoint, decodeLines, replayDecoded, type InitiativeState } from '../src/core/fold'
-import { atAnchor, LINK_LABEL_SOURCE, linkLine, refreshLinks, refreshLinkStates, type Inbound, type Link } from '../src/core/index-links'
+import { atAnchor, LINK_LABEL_SOURCE, linkLine, readTravel, refreshLinks, refreshLinkStates, travelEnabled, type Inbound, type Link } from '../src/core/index-links'
 import { indexDir, readIndexMeta } from '../src/core/index-store'
 import { initiativeSlugs } from '../src/core/listing'
 import { retiredOrdinals } from '../src/core/retire'
@@ -301,6 +301,23 @@ describe('links tier (linked-context 4.1)', () => {
       '1.2 waits_on alpha 1.2 — moved (blocked) — write surfaces accept the field',
     ])
     expect(refreshLinks(sofar, 'no-links')).toEqual([])
+  })
+
+  it('SOFAR_TRAVEL=off (the 6.1 gate arm) reads nothing and writes no tier; unset or index reads it', () => {
+    expect([undefined, 'index', 'on'].map((v) => travelEnabled({ SOFAR_TRAVEL: v }))).toEqual([true, true, true])
+    expect(['off', ' OFF ', '0', 'false'].map((v) => travelEnabled({ SOFAR_TRAVEL: v }))).toEqual([false, false, false, false])
+    const sofar = travelRecord()
+    const saved = process.env.SOFAR_TRAVEL
+    try {
+      process.env.SOFAR_TRAVEL = 'off'
+      expect(readTravel(sofar, 'open-wait')).toEqual({ links: [], indegree: new Map() })
+      expect(existsSync(join(indexDir(sofar), 'links'))).toBe(false)
+      process.env.SOFAR_TRAVEL = 'index'
+      expect(readTravel(sofar, 'open-wait').links.length).toBeGreaterThan(0)
+    } finally {
+      if (saved === undefined) delete process.env.SOFAR_TRAVEL
+      else process.env.SOFAR_TRAVEL = saved
+    }
   })
 
   it('cites: the record-graph grammar over titles and status notes, declared beating derived', () => {

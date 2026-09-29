@@ -1,0 +1,56 @@
+{
+  "fixture": "i1000-10mb",
+  "root": "/var/folders/0h/2l96vz9973d4p1vcc5p53q480000gn/T/sofar-read-paths-dTx5eA",
+  "isolated": true,
+  "session": "perf-bound-sess-1484",
+  "n": 25,
+  "budget": 0.1,
+  "baseline": "/Users/jins/IO/sofar-linked-context/packages/engine/dist/cli.js",
+  "candidate": "/Users/jins/IO/sofar-linked-context/packages/engine/dist/cli.js",
+  "arm": {
+    "env": "SOFAR_TRAVEL",
+    "baseline": "off",
+    "candidate": "index"
+  },
+  "load_avg": {
+    "start": 5.15,
+    "end": 5.12,
+    "cpus": 14
+  },
+  "recorded_at": "2026-09-29T17:43:42.243Z",
+  "verdict": "ok",
+  "results": [
+    {
+      "hook": "session-start",
+      "baseline_p50_ms": 113.2,
+      "candidate_p50_ms": 115.1,
+      "delta_ms": 1.9,
+      "delta_pct": 1.6,
+      "ok": true
+    },
+    {
+      "hook": "user-prompt",
+      "baseline_p50_ms": 99.7,
+      "candidate_p50_ms": 98,
+      "delta_ms": -1.7,
+      "delta_pct": -1.7,
+      "ok": true
+    },
+    {
+      "hook": "stop",
+      "baseline_p50_ms": 76.8,
+      "candidate_p50_ms": 79,
+      "delta_ms": 2.2,
+      "delta_pct": 2.8,
+      "ok": true
+    },
+    {
+      "hook": "statusline",
+      "baseline_p50_ms": 63.5,
+      "candidate_p50_ms": 63.3,
+      "delta_ms": -0.2,
+      "delta_pct": -0.4,
+      "ok": true
+    }
+  ]
+}

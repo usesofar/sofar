@@ -1801,11 +1801,27 @@ pub fn link_in_degrees(layout: &Layout) -> std::collections::HashMap<String, usi
         .unwrap_or_default()
 }
 
+/// `travelEnabled`: `SOFAR_TRAVEL=off` (also `0`, `false`) is the read-path
+/// gate's ablation arm (linked-context 6.1); `index`, the default, reads the
+/// tier.
+#[must_use]
+pub fn travel_enabled() -> bool {
+    let Some(raw) = std::env::var_os("SOFAR_TRAVEL") else {
+        return true;
+    };
+    let v = raw.to_string_lossy();
+    let v = crate::text::js_trim(&v).to_lowercase();
+    !(v == "off" || v == "0" || v == "false")
+}
+
 /// `readTravel`: the travel block's whole input for one home (linked-context
 /// 5.2) — its links, refreshed, and their targets' in-degrees; the links tier
-/// only, never reach or a graph (D2).
+/// only, never reach or a graph (D2). Empty, untouched, under `SOFAR_TRAVEL=off`.
 #[must_use]
 pub fn read_travel(layout: &Layout, slug: &str) -> crate::travel::TravelInput {
+    if !travel_enabled() {
+        return crate::travel::TravelInput::default();
+    }
     let links = refresh_links(layout, slug);
     let indegree = if links.is_empty() {
         std::collections::HashMap::new()

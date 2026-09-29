@@ -9,6 +9,8 @@
  *   npm run bench:read-paths -- --baseline ~/.bench/sofar-0.32.0/node_modules/sofar.sh/dist/cli.js \
  *       --candidate packages/engine/dist/cli.js [--fixture repo|i1000-10mb] [--root <repo>] [--session <id>] \
  *       [--n 25] [--budget 0.10] [--record <file.json>] [--isolate on|off]
+ *   npm run bench:read-paths -- --candidate packages/engine/dist/cli.js --arm SOFAR_TRAVEL=off,index
+ *       (one build against itself: a feature behind an env switch, linked-context 6.1)
  *
  * ISOLATED by default (memory-lead 2.2): baseline and candidate each run on
  * their OWN copy of the fixture — a `git clone --local` of the repo, or a
@@ -57,11 +59,25 @@ const args = Object.fromEntries(
     return acc
   }, []),
 )
-const baseline = at(args.baseline)
-const candidate = at(args.candidate)
-if (!baseline || !candidate) {
-  console.error('usage: read-paths.mjs --baseline <cli.js> --candidate <cli.js> [--root <repo>] [--session <id>] [--n 25] [--budget 0.10]')
+// `--arm NAME=<off>,<on>` (linked-context 6.1): ONE build timed against
+// itself, the baseline side with NAME=<off> and the candidate with NAME=<on>
+// in its environment — the gate for a feature behind an env switch, which
+// needs no second install to compare against. `--baseline` defaults to
+// `--candidate` then.
+const arm = args.arm === undefined ? undefined : /^([A-Z_][A-Z0-9_]*)=([^,]+),([^,]+)$/.exec(args.arm)
+if (args.arm !== undefined && arm === null) {
+  console.error(`--arm ${args.arm}: expected NAME=<baseline value>,<candidate value>`)
   process.exit(2)
+}
+const candidate = at(args.candidate)
+const baseline = at(args.baseline) ?? (arm ? candidate : undefined)
+if (!baseline || !candidate) {
+  console.error('usage: read-paths.mjs --baseline <cli.js> --candidate <cli.js> [--arm NAME=<a>,<b>] [--root <repo>] [--session <id>] [--n 25] [--budget 0.10]')
+  process.exit(2)
+}
+const envOf = {
+  baseline: arm ? { ...process.env, [arm[1]]: arm[2] } : process.env,
+  candidate: arm ? { ...process.env, [arm[1]]: arm[3] } : process.env,
 }
 for (const [label, bin] of [['baseline', baseline], ['candidate', candidate]]) {
   if (!existsSync(bin)) {
@@ -225,7 +241,7 @@ let over = 0
 const loadStart = loadavg()[0]
 const results = []
 console.log(`read paths on ${root} — n=${n} interleaved, budget +${Math.round(budget * 100)}%, load avg ${loadStart.toFixed(2)} on ${cpus().length} cpus`)
-console.log(`baseline  ${baseline}\ncandidate ${candidate}`)
+console.log(`baseline  ${baseline}${arm ? ` (${arm[1]}=${arm[2]})` : ''}\ncandidate ${candidate}${arm ? ` (${arm[1]}=${arm[3]})` : ''}`)
 for (const [name, [cmd, sub, input]] of Object.entries(cases)) {
   const t = { baseline: [], candidate: [] }
   for (let i = 0; i < n + 2; i++) {
@@ -233,7 +249,10 @@ for (const [name, [cmd, sub, input]] of Object.entries(cases)) {
       const bin = which === 'baseline' ? baseline : candidate
       const cwd = roots[which]
       const t0 = performance.now()
-      const r = spawnSync('node', sub ? [bin, cmd, sub] : [bin, cmd], { cwd, input: JSON.stringify(input(cwd)), encoding: 'utf8' })
+      // A .js is the TypeScript CLI under node; anything else (sofar-core) runs itself.
+      const argv = sub ? [cmd, sub] : [cmd]
+      const [exe, exeArgs] = bin.endsWith('.js') ? ['node', [bin, ...argv]] : [bin, argv]
+      const r = spawnSync(exe, exeArgs, { cwd, env: envOf[which], input: JSON.stringify(input(cwd)), encoding: 'utf8' })
       const ms = performance.now() - t0
       // A hook exits 0, or 2 for a Stop block; anything else is a broken
       // binary timing its own crash, which would read as a win.
@@ -267,6 +286,7 @@ if (args.record !== undefined) {
     budget,
     baseline,
     candidate,
+    ...(arm ? { arm: { env: arm[1], baseline: arm[2], candidate: arm[3] } } : {}),
     load_avg: { start: Number(loadStart.toFixed(2)), end: Number(loadEnd.toFixed(2)), cpus: cpus().length },
     recorded_at: new Date().toISOString(),
     verdict: drift > 0.5 ? 'repeat' : over > 0 ? 'over-budget' : 'ok',
