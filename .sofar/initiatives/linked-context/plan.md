@@ -47,7 +47,7 @@ Progress: 24 done, 1 dropped, 1 remaining
 
 ## Phase 7 — Answer packets (later) [pending] — 1/2 (1 dropped) done
 
-- [x] 7.1 find compose mode: BM25 + traversal gather, deterministic order (waits_on, cites, adjacency), clipped at budget with ids kept, changed-since line
+- [x] 7.1 find compose mode: BM25 + traversal gather, deterministic order (waits_on, cites, adjacency), clipped at budget with ids kept, changed-since line — verification fail (attempt 1, exit 1)
 - [-] 7.2 Judge-ranked variant delegated to typed-judge C1/D2 — not built here (dropped)
 
 ## Phase 8 — Find speed [done] — 3/3 done
