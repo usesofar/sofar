@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs'
 import { qualifyWaitsOn, WAITS_ON_INPUT_GRAMMAR } from '@sofar/schema/tool-inputs'
+import { extractCitations } from '../core/citations'
 import type { InitiativeState } from '../core/fold'
+import { initiativeSlugs } from '../core/listing'
 import { ToolError, type ToolContext } from './context'
 
 /**
@@ -211,4 +213,50 @@ export function homeViewOf(state: InitiativeState): { tasks: Set<string>; waits:
     if (t.waits_on !== undefined) waits.set(t.id, t.waits_on)
   }
   return { tasks, waits }
+}
+
+/** A declared set covers a handle when it holds it, or holds the handle's whole record. */
+function covers(set: readonly string[] | undefined, handle: string): boolean {
+  return set !== undefined && (set.includes(handle) || set.includes(handle.split(' ')[0]!))
+}
+
+/**
+ * The write-back's offered nudge (linked-context 5.3, SPEC §Links): prose
+ * that cites ANOTHER record where a declared wait may have been meant. A
+ * `blocked` change's note citing a handle its task does not wait on, and a
+ * next_action citing one no task waits on, each get one warning line per
+ * handle. Offered, never a refusal — a cite is often just worth reading.
+ * `waits` is the home's declared sets as the batch leaves them.
+ */
+export function citeNudges(
+  sofarDir: string,
+  home: string,
+  waits: ReadonlyMap<string, readonly string[]>,
+  blocked: ReadonlyArray<{ taskId: string; note: string }>,
+  nextAction: string | undefined,
+): string[] {
+  if (blocked.length === 0 && nextAction === undefined) return []
+  const slugs = initiativeSlugs(sofarDir)
+  const cited = (text: string): string[] => [
+    ...new Set(
+      extractCitations(text, home, slugs, { memories: true })
+        .filter((c) => c.qualified && c.slug !== home)
+        .map((c) => `${c.slug} ${c.handle}`),
+    ),
+  ]
+  const warnings: string[] = []
+  for (const { taskId, note } of blocked) {
+    for (const h of cited(note)) {
+      if (covers(waits.get(taskId), h)) continue
+      warnings.push(`task ${taskId} is blocked and its note cites ${h} without waits_on — if it cannot finish until that moves, declare waits_on ["${h}"]`)
+    }
+  }
+  if (nextAction !== undefined) {
+    const all = [...waits.values()]
+    for (const h of cited(nextAction)) {
+      if (all.some((set) => covers(set, h))) continue
+      warnings.push(`next_action cites ${h} and no task waits on it — if a task cannot finish until that moves, declare waits_on ["${h}"] on it`)
+    }
+  }
+  return warnings
 }

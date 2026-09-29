@@ -1,9 +1,11 @@
 import { existsSync, mkdirSync } from 'node:fs'
-import { createToolContext, currentBranch, ToolError } from '../mcp/context'
+import { createToolContext, currentBranch, initiativeSlugs, ToolError, type ToolContext } from '../mcp/context'
 import { applyClose } from '../mcp/close-initiative'
 import { declareWaitsOn } from '../mcp/waits-on'
 import { BindingsAbort, writeBinding } from '../core/bindings'
 import { QUICK_LANE } from '../core/lane'
+import { lexicalCounts, rankLexical, type LexicalDoc } from '../core/lexicon'
+import { clip } from '../projections/templates/shared'
 import { isClosedInitiativeStatus } from '@sofar/schema'
 import { SLUG_RE } from '@sofar/schema/tool-inputs'
 import { errMessage, fail, ok, type CmdResult } from './shared'
@@ -197,6 +199,7 @@ export function runNew(
       report.push(`task ${task.id} waits on ${waits.handles.join(', ')}`)
       for (const warning of waits.warnings) report.push(`warning: ${warning}`)
     }
+    for (const line of similarRecords(ctx, slug, goal, supersedes)) report.push(line)
     if (bind && branch !== null) {
       mkdirSync(ctx.sofarDir, { recursive: true })
       writeBinding(ctx.bindingsPath, branch, slug)
@@ -223,6 +226,35 @@ export function runNew(
     throw err
   }
   return ok(`${renderConfirmation(report, caps)}\n`)
+}
+
+/** How many existing records `sofar new` offers (linked-context 5.3). */
+export const SIMILAR_CAP = 3
+
+/**
+ * The open records whose goal reads most like the new one's, by BM25 over
+ * goals (linked-context 5.3) — offered so related work is LINKED rather than
+ * duplicated or nested (D5). Nothing when no goal was given; the records the
+ * new one supersedes and the quick lane are not offered.
+ */
+function similarRecords(ctx: ToolContext, slug: string, goal: string, supersedes: readonly string[]): string[] {
+  if (goal === DEFAULT_GOAL) return []
+  const goals = new Map<string, string>()
+  const docs: LexicalDoc[] = []
+  for (const s of initiativeSlugs(ctx.sofarDir)) {
+    if (s === slug || s === QUICK_LANE || supersedes.includes(s)) continue
+    const state = ctx.foldState(s)
+    if (isClosedInitiativeStatus(state.status) || state.goal === DEFAULT_GOAL) continue
+    const terms = lexicalCounts(state.goal)
+    goals.set(s, state.goal)
+    docs.push({ id: s, ts: '', terms, tokens: Object.values(terms).reduce((a, b) => a + b, 0) })
+  }
+  const matches = rankLexical(docs, goal, SIMILAR_CAP).matches.filter((m) => m.score > 0)
+  if (matches.length === 0) return []
+  return [
+    ...matches.map((m) => `similar goal: ${m.id} — ${clip(goals.get(m.id)!, 80)}`),
+    `if this work waits on one, declare it on a task: waits_on ["${matches[0]!.id}"]`,
+  ]
 }
 
 export function runSwitch(

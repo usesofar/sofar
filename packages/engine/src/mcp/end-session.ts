@@ -18,6 +18,7 @@ import { homeInitiative, ToolError, type ToolContext } from './context'
 import { judgeOptionsFor } from './log-decision'
 import { resolvePhaseOrThrow } from './update-phase'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
+import { citeNudges, homeViewOf } from './waits-on'
 
 /**
  * A colliding write-back, plus how to reach the session that wrote it
@@ -67,7 +68,8 @@ export interface EndSessionResult extends ToolOkResult {
   /** Handles the batched `memories` took, in order (`<slug> M<n>`). */
   memories?: string[]
   /**
-   * Rule-fidelity warnings for the batched decisions (memory-lead D2), then the
+   * Declared waits_on warnings and cite nudges (linked-context 2.3, 5.3), then
+   * rule-fidelity warnings for the batched decisions (memory-lead D2), then the
    * write-time judges' lines (typed-judge 3.1, 3.3, 3.2); never a refusal.
    */
   warnings?: string[]
@@ -137,8 +139,15 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
     check(where, 'phase_status_changed', { phase: phase.name, status: ph.status, ...(note !== undefined ? { note } : {}) })
   })
 
+  // Cites where a declared wait may have been meant (linked-context 5.3),
+  // read against the sets this batch leaves behind.
+  const waits = homeViewOf(state).waits
+  tasks.filter((t) => t.waits_on !== undefined).forEach((t, k) => waits.set(t.task_id, declared.handles[k]!))
+  const blocked = tasks.filter((t) => t.status === 'blocked' && t.note !== undefined).map((t) => ({ taskId: t.task_id, note: t.note! }))
+  const nudges = citeNudges(ctx.sofarDir, slug, waits, blocked, args.next_action)
+
   const decisions: string[] = []
-  const warnings: string[] = [...declared.warnings]
+  const warnings: string[] = [...declared.warnings, ...nudges]
   const drafts: DecisionDraft[] = []
   const seen: DecisionState[] = [...state.decisions]
   const foreign = (args.decisions ?? []).length > 0 ? foreignDecisions(ctx.sofarDir, slug) : undefined

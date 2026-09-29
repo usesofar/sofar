@@ -200,3 +200,65 @@ describe('sofar new --waits-on', () => {
     expect(existsSync(join(f.root, '.sofar', 'initiatives', 'umbrella'))).toBe(false)
   })
 })
+
+describe('offered nudges (linked-context 5.3)', () => {
+  const quiet = { color: false, unicode: false } as never
+
+  it('end_session warns a blocked note or next_action citing another record without waits_on, and files anyway', () => {
+    const f = fx()
+    f.ctx.session.set({ id: 'S1', tool: 'claude-code', initiative: 'demo' })
+    const r = endSession(f.ctx, {
+      summary: 's',
+      next_action: 'Pick up other 1.1 then demo 2.2; other 1.2 is only background',
+      tasks: [
+        { task_id: '2.1', status: 'blocked', note: 'needs other 1.1 and OTHER D1 first; see 2.2' },
+        { task_id: '2.2', status: 'pending', waits_on: ['other 1.2'] },
+      ],
+    })
+    expect(r.warnings).toEqual([
+      'task 2.1 is blocked and its note cites other 1.1 without waits_on — if it cannot finish until that moves, declare waits_on ["other 1.1"]',
+      'task 2.1 is blocked and its note cites other D1 without waits_on — if it cannot finish until that moves, declare waits_on ["other D1"]',
+      'next_action cites other 1.1 and no task waits on it — if a task cannot finish until that moves, declare waits_on ["other 1.1"] on it',
+    ])
+    expect(f.waits('demo', '2.1')).toBeUndefined()
+    expect(foldLog(f.eventsPath).state.phases.flatMap((p) => p.tasks).find((t) => t.id === '2.1')?.status).toBe('blocked')
+  })
+
+  it('a declared wait — the handle or its whole record, stored or in the same batch — silences the nudge', () => {
+    const f = fx()
+    updateTask(f.ctx, { task_id: '2.2', status: 'pending', waits_on: ['other'] })
+    f.ctx.session.set({ id: 'S1', tool: 'claude-code', initiative: 'demo' })
+    const r = endSession(f.ctx, {
+      summary: 's',
+      next_action: 'continue once other 1.1 lands',
+      tasks: [{ task_id: '2.1', status: 'blocked', note: 'waiting on other 1.2', waits_on: ['other 1.2'] }],
+    })
+    expect(r.warnings).toBeUndefined()
+  })
+
+  it('sofar new offers at most three open records by goal, never closed or unrelated ones', () => {
+    const f = fx()
+    const goals: Record<string, string> = {
+      'trip-api': 'Trip planner API for booking flights and hotels',
+      'trip-search': 'Search flights for the trip planner',
+      'trip-hotels': 'Hotel inventory for the trip planner',
+      'trip-old': 'Trip planner prototype for flights',
+      billing: 'Invoices and payment reminders',
+    }
+    for (const [slug, goal] of Object.entries(goals)) expect(runNew(f.root, slug, { bind: false, goal }, quiet, quiet).exitCode).toBe(0)
+    runNew(f.root, 'trip-v2', { bind: false, goal: 'placeholder', supersedes: ['trip-old'] }, quiet, quiet)
+    const r = runNew(f.root, 'trip-mobile', { bind: false, goal: 'Mobile app for the trip planner: flights and hotels' }, quiet, quiet)
+    expect(r.exitCode).toBe(0)
+    const similar = r.stdout.split('\n').filter((l) => l.startsWith('similar goal: '))
+    expect(similar).toHaveLength(3)
+    expect(similar[0]).toBe('similar goal: trip-api — Trip planner API for booking flights and hotels')
+    expect(r.stdout).not.toMatch(/trip-old|billing/)
+    expect(r.stdout).toContain('if this work waits on one, declare it on a task: waits_on ["trip-api"]')
+  })
+
+  it('sofar new offers nothing without a goal or a shared word', () => {
+    const f = fx()
+    expect(runNew(f.root, 'a', { bind: false }, quiet, quiet).stdout).not.toContain('similar goal')
+    expect(runNew(f.root, 'b', { bind: false, goal: 'zebra xylophone' }, quiet, quiet).stdout).not.toContain('similar goal')
+  })
+})

@@ -4227,8 +4227,9 @@ sofar_start_session.`
   is read by already counts them (task_done needs both halves,
   session-driver D5). `tasks_applied` is present iff `tasks` was passed;
   `decisions` lists the `D<n>` handles and `memories` the `<slug> M<n>`
-  handles the batch took, and `warnings` carries §Rule fidelity's warning
-  for each batched rule, then the write-time judge's lines for the batched
+  handles the batch took, and `warnings` carries the declared-waits_on
+  lines and cite nudges (see "Declared waits_on on the write surfaces"
+  below), then §Rule fidelity's warning for each batched rule, then the write-time judge's lines for the batched
   decisions (typed-judge 3.1, see §Judge), judged against the fold the batch
   was planned on, then the filing judge's lines for the batched decisions,
   memories and notes and its evidence lines for the tasks the batch marked
@@ -4307,6 +4308,17 @@ sofar_start_session.`
     task → task through OPEN targets only (a done/dropped task holds nothing
     back); a whole-initiative target stands for its open tasks; `D<n>` and
     `M<n>` have no out-edges. A write that closes the task is not walked.
+  - Cite nudges (linked-context 5.3) — offered, never a refusal; the batch
+    files as written. A write-back scans a `blocked` task change's `note`
+    and its `next_action` with the citation grammar (§Record graph, memories
+    on) for QUALIFIED handles naming another record. A note handle its task
+    does not wait on, and a next_action handle no task waits on, each add one
+    line, in text order, deduped per source; a set holding the handle or
+    its whole-record slug covers it, read as the batch leaves the sets:
+    `task <id> is blocked and its note cites <handle> without waits_on — if
+    it cannot finish until that moves, declare waits_on ["<handle>"]` and
+    `next_action cites <handle> and no task waits on it — if a task cannot
+    finish until that moves, declare waits_on ["<handle>"] on it`.
 - sofar_update_phase({initiative?, phase, status, note?})
   → {ok, event_id, tasks_done, tasks_total}   # phase-lifecycle D2, 2.2/2.3.
   Appends phase_status_changed. Phase status is WRITTEN, never derived from
@@ -5685,7 +5697,15 @@ Shims contain no logic — they invoke the sofar CLI.
   umbrella shape of §Links. Handles are resolved as on every write surface
   (see "Declared waits_on on the write surfaces" under §MCP tools); an unknown
   slug refuses BEFORE anything is created, dangling and cycle lines print as
-  `warning:` detail lines.
+  `warning:` detail lines. With `--goal`, `sofar new` then offers up to 3
+  OPEN records whose goal reads most like it (linked-context 5.3): BM25
+  (`rankLexical`) of the new goal over each other record's goal, skipping
+  closed records, those this one supersedes, `quick` and records still on
+  the default goal; score 0 is not offered, ties go to the slug bytewise. One
+  `similar goal: <slug> — <goal clipped to 80>` detail line each, then
+  `if this work waits on one, declare it on a task: waits_on ["<top slug>"]`
+  — related work is linked, never nested (linked-context D5). Offered only;
+  nothing is written.
 - `sofar close [slug] [--drop] [--reason <text>] [--superseded-by <slug>]` —
   record the initiative terminal (`done`; `dropped`, which REQUIRES
   `--reason`; or `superseded`, which names the existing record the work
