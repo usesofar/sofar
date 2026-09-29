@@ -4,7 +4,7 @@
 
 Goal: Benchmark sofar in rounds to make it far superior AND to publish credible launch claims for every segment (solo devs, engineering teams, enterprises; seat-based). The workload is the Boopada planner (travel-planner). The matrix is agent × memory across Claude Code, Codex, Cursor and OpenCode: native memory vs sofar vs sofar + drive (where an adapter exists) vs bare (D6, D10, D11); CLAUDE.md, Obsidian and Notion arms plus one subagent-orchestrator arm on Claude Code (D12). Claims C1–C8 plus a per-plan savings cut. Every round produces a loss study of every gap, fallback and failure, with ranked, pre-predicted fixes (D5, D10). Public numbers come only from the held-out chain. Budget: half the user's weekly Claude limit (D9). Runs are unattended (D13).
 
-Progress: 22 done, 1 dropped, 3 remaining
+Progress: 23 done, 1 dropped, 2 remaining
 
 ## Phase 1 — Claim + round design [done] — 5/5 done
 
@@ -71,12 +71,12 @@ Progress: 22 done, 1 dropped, 3 remaining
 - [-] 3.4 C7: N concurrent sessions on one repo, compared across arms
 - When it runs, it starts from a round-2 checkpoint fork rather than a fresh chain prefix (D33). (dropped)
 
-## Phase 6 — Evidence + launch assets [pending] — 1/4 done
+## Phase 6 — Evidence + launch assets [pending] — 2/4 done
 
 - [x] 3.6 Cheap proofs: install-to-first-resume time, zero-egress network trace, overhead footprint
-- [ ] 6.1 Evidence report with CIs, round history, fix predictions vs outcomes, and losses shown. Publish the harness and workload. The user signs off.
+- [x] 6.1 Evidence report with CIs, round history, fix predictions vs outcomes, and losses shown. Publish the harness and workload. The user signs off.
 - [ ] 6.2 Launch assets: one headline number and chart per claim, the plan-savings table, the reproduce command, segment cuts
-- [ ] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap
+- [ ] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap (active)
 
 Active phase: Phase 5 — Round 2
 Next action: Nothing runs. When the operator's luna hand-test lands (memory-lead/roadmap-h2), adjust launchCodex only if a config key is needed; otherwise Codex waits for the Oct 4 20:27 IST reset (D32). Then: freeze (memory-lead), lever-4 jobs.json for the six round-3 plists (BENCH_SKELETON_COMMIT=89d4b69, SEGMENTS-L.md compact=15 on S21–S24 — check the file carries it), bootstrap by the operator. Housekeeping: dev worktree ~/IO/handoff-bench-r3dev (branch round3-runner-dev, node_modules symlinks untracked) can be removed once round3-runner is frozen; finished launchd labels can be booted out by the operator.
