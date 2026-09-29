@@ -1,4 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { findFrom } from '../src/core/index-reach'
 import { describe, expect, it } from 'vitest'
 import { TOOL_INPUT_SCHEMAS, TOOL_NAMES, type ToolName } from '@sofar/schema/tool-inputs'
 import { ALWAYS_LOADED_TOOLS, createSofarServer, SERVER_INSTRUCTIONS, SERVER_NAME, serverInstructions } from '../src/mcp/server'
@@ -353,6 +355,23 @@ describe('MCP tools round-trip (2.2)', () => {
       expect(event.source).toBe('cli')
       expect(event.session).toBe(started.body.session_id)
     }
+    await client.close()
+  })
+
+  it('end_session brings a built reach index current (linked-context 8.2, D26)', async () => {
+    const fixture = makeRepoFixture()
+    const { client } = await connectServer(fixture.root)
+    const sofar = join(fixture.root, '.sofar')
+    const started = await callTool<{ session_id: string }>(client, 'sofar_start_session', { tool: 'claude-code' })
+    findFrom(sofar, fixture.slug) // someone asked a question: reach.json exists
+    const reach = join(sofar, '.index', 'reach.json')
+    const before = readFileSync(reach, 'utf8')
+    await callTool(client, 'sofar_add_note', { text: 'a note the next find should not have to catch up' })
+    expect(readFileSync(reach, 'utf8')).toBe(before) // an ordinary write leaves reach alone
+    await callTool(client, 'sofar_end_session', { session_id: started.body.session_id, summary: 's', next_action: 'n' })
+    const after = readFileSync(reach, 'utf8')
+    expect(after).not.toBe(before)
+    expect(after).toContain('a note the next find should not have to catch up')
     await client.close()
   })
 })

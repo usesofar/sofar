@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -7,10 +7,12 @@ import { buildGraph, whyFile } from '../src/core/graph'
 import {
   findFrom,
   reachFrom,
+  refreshBuiltReach,
   refreshReach,
   resolveQuery,
   resolveSeed,
   LEXICAL_SEED_CAP,
+  REACH_LAZY_TAIL,
   REACH_MAX_HOPS,
   type ReachHit,
   type ReachResult,
@@ -649,6 +651,75 @@ describe('3.4 `sofar find` — offered, never asserted', () => {
     start(sofar, 'alpha', 'A')
     touch(sofar, 'alpha', 'A', 'src/a.ts')
     expect(findFrom(sofar, 'src/a.ts', { hops: 1 }).reached).toBe(1)
+  })
+})
+
+/**
+ * linked-context 8.2 (D26) — find keeps off the persist path. A short tail is
+ * caught up in memory and neither half of the pair is written; a rebuild or a
+ * long tail persists; the write-back persists, but only once reach exists.
+ */
+describe('lazy reach refresh (linked-context 8.2)', () => {
+  const files = (sofar: string): [string, string] => [
+    readFileSync(join(sofar, '.index', 'reach.json'), 'utf8'),
+    readFileSync(join(sofar, '.index', 'meta-reach.json'), 'utf8'),
+  ]
+
+  it('answers a short tail from memory and writes neither reach.json nor its cursor', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    findFrom(sofar, 'src/a.ts') // the cold build persists
+    const before = files(sofar)
+    touch(sofar, 'alpha', 'A', 'src/b.ts')
+    const found = findFrom(sofar, 'src/b.ts', { hops: 1 })
+    expect(found.seed.kind).toBe('file')
+    expect(files(sofar)).toEqual(before)
+    refreshReach(sofar) // an eager refresh persists the same tail
+    expect(files(sofar)[0]).not.toBe(before[0])
+  })
+
+  it('persists a tail longer than REACH_LAZY_TAIL', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    findFrom(sofar, 'alpha')
+    const before = files(sofar)
+    for (let i = 0; i <= REACH_LAZY_TAIL; i++) touch(sofar, 'alpha', 'A', `src/f${i}.ts`)
+    findFrom(sofar, 'src/f0.ts')
+    const after = files(sofar)
+    expect(after[0]).not.toBe(before[0])
+    expect(after[1]).not.toBe(before[1])
+  })
+
+  it('never leaves the pair apart: lazy finds, then an eager refresh, equal a cold rebuild', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    findFrom(sofar, 'src/a.ts')
+    for (let i = 0; i < 5; i++) {
+      touch(sofar, 'alpha', 'A', `src/g${i}.ts`)
+      note(sofar, 'alpha', 'A', `lazy note ${i} cites beta D1`)
+      findFrom(sofar, `src/g${i}.ts`)
+    }
+    refreshReach(sofar)
+    const warm = files(sofar)[0]
+    rmSync(join(sofar, '.index', 'reach.json'))
+    rmSync(join(sofar, '.index', 'meta-reach.json'))
+    refreshReach(sofar)
+    expect(files(sofar)[0]).toBe(warm)
+  })
+
+  it('refreshBuiltReach persists a built reach and never builds an absent one', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    refreshBuiltReach(sofar)
+    expect(existsSync(join(sofar, '.index', 'reach.json'))).toBe(false)
+    findFrom(sofar, 'src/a.ts')
+    touch(sofar, 'alpha', 'A', 'src/b.ts')
+    const before = files(sofar)
+    refreshBuiltReach(sofar)
+    expect(files(sofar)[0]).not.toBe(before[0])
   })
 })
 

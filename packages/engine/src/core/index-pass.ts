@@ -95,6 +95,20 @@ export interface PassResult<S> {
    * the state was derived from (the links tier, linked-context 4.1).
    */
   cursors: Record<string, InitiativeCursor>
+  /** Events read and replayed this pass, across every log. */
+  applied: number
+  /** True when any log was read whole: no prior state or cursor to resume from. */
+  rebuilt: boolean
+}
+
+export interface PassOptions {
+  /**
+   * False: write NOTHING, not even the cursor file, and leave persisting to
+   * the caller (linked-context 8.2). A cursor written without the state it
+   * produced would resume past events that state never saw (record-index
+   * D16), so a caller that skips its payload write skips both halves.
+   */
+  persist?: boolean
 }
 
 /** The `ref` of a correction, or null when the payload does not carry one. */
@@ -126,6 +140,7 @@ export function passOverRecord<S>(
   metaFile: string,
   prior: Record<string, S> | null,
   reducer: SlugReducer<S>,
+  options: PassOptions = {},
 ): PassResult<S> {
   const meta: IndexMeta = readIndexMeta(sofarDir, metaFile) ?? {
     version: INDEX_SCHEMA_VERSION,
@@ -134,6 +149,8 @@ export function passOverRecord<S>(
   const states: Record<string, S> = {}
   let changed = prior === null
   let stateChanged = prior === null
+  let applied = 0
+  let anyRebuilt = prior === null
 
   for (const slug of initiativeSlugs(sofarDir)) {
     const log = join(sofarDir, 'initiatives', slug, 'events.jsonl')
@@ -170,6 +187,7 @@ export function passOverRecord<S>(
     // "nothing was resumed". Losing either would make the pair silently
     // separable again.
     const rebuilt = read.full || priorState === undefined
+    if (rebuilt) anyRebuilt = true
     if (read.full) voided = new Set() // a rebuild re-derives every void below
 
     // Corrections first, exactly as the fold's pre-pass does: a correction
@@ -205,6 +223,7 @@ export function passOverRecord<S>(
     }
 
     states[slug] = state
+    applied += events.length
     // A rebuild that read nothing (an absent or unreadable log) lands on the
     // same empty state it had, so it is not a change — otherwise a record with
     // one logless initiative would rewrite every index file on every pass.
@@ -241,8 +260,8 @@ export function passOverRecord<S>(
     stateChanged = true
   }
 
-  if (changed) writeIndexMeta(sofarDir, meta, metaFile)
-  return { states, changed, stateChanged, cursors: meta.cursors }
+  if (changed && options.persist !== false) writeIndexMeta(sofarDir, meta, metaFile)
+  return { states, changed, stateChanged, cursors: meta.cursors, applied, rebuilt: anyRebuilt }
 }
 
 export { DEFAULT_META_FILE }

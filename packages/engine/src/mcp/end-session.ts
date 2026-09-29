@@ -8,6 +8,7 @@ import { isAbsolute, join } from 'node:path'
 import type { JudgeOptions } from '../core/judge'
 import { writebackJudgeWarnings } from '../core/writeback-judge'
 import { evidenceWarnings, filingWarnings, type DoneTask, type FiledEntry } from '../core/filing-judge'
+import { refreshBuiltReach } from '../core/index-reach'
 import { readSince } from '../core/index-tail'
 import { foreignDecisions } from '../core/index-tier1'
 import { relevanceJudgements, type NoteCandidate } from '../core/relevance-judge'
@@ -442,6 +443,9 @@ function endSessionFiled(
     summary: args.summary,
     next_action: args.next_action,
   })
+  // Reach catches up here, persisted, once per session (linked-context 8.2,
+  // D26): a find reads the rest lazily, and no hook ever refreshes it.
+  refreshBuiltReach(ctx.sofarDir)
   const applied = {
     ...(args.tasks !== undefined ? { tasks_applied: args.tasks.length } : {}),
     ...(batch.decisions.length > 0 ? { decisions: batch.decisions } : {}),

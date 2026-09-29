@@ -19,7 +19,9 @@ import {
 } from './adjacency'
 import { bindHandle, canonicalSlugs, scanCitations, titleKey } from './citations'
 import { passOverRecord } from './index-pass'
-import { INDEX_SCHEMA_VERSION, readIndexFile, writeIndexFile } from './index-store'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { INDEX_SCHEMA_VERSION, indexDir, readIndexFile, writeIndexFile, writeIndexMeta } from './index-store'
 import type { IndexedEvent } from './index-tail'
 import { lexicalCounts, rankLexical, type LexicalDoc } from './lexicon'
 import { byCodeUnit } from './order'
@@ -99,6 +101,14 @@ export const LEXICAL_SEED_CAP = 5
 export const REACH_DEFAULT_HOPS = 2
 /** Ceiling on the budget — past 3 hops the answer is "the repo", which is not an answer. */
 export const REACH_MAX_HOPS = 3
+
+/**
+ * Longest tail a lazy refresh catches up without persisting (8.2, D26).
+ * Applying one event costs well under a millisecond and rewriting the file
+ * ~21 ms at this repo's 3.5 MB, so a find re-reading up to this many events
+ * still undercuts one rewrite; a longer tail persists and resets it.
+ */
+export const REACH_LAZY_TAIL = 500
 
 /**
  * Ceiling on nodes VISITED, independent of the per-kind result caps.
@@ -777,19 +787,45 @@ function linkCitations(
  * half's OWN cursor — asking a question never advances, or is limited by, the
  * cursors the guard and priming halves keep. An absent, stale or unparseable
  * file is a cold rebuild from the logs (D1): slower, and right.
+ *
+ * LAZY (linked-context 8.2, D26) is the query's mode: a tail of at most
+ * REACH_LAZY_TAIL events is caught up in memory and NOTHING is written —
+ * rewriting the whole file was 21 of a stale find's 23 extra ms, and the
+ * hooks append on every edit, so a find mid-session is almost always behind.
+ * Neither half is written, never one without the other (record-index D16):
+ * the next find re-reads the same tail from the same cursor. A rebuild or a
+ * longer tail persists as before, which bounds what that re-read can cost.
  */
-export function refreshReach(sofarDir: string): ReachIndex {
+export function refreshReach(sofarDir: string, options: { lazy?: boolean } = {}): ReachIndex {
   const prior = readIndexFile<ReachDisk>(sofarDir, REACH_FILE, isReachDisk)
-  const { states, changed } = passOverRecord<SlugReachState>(
+  const lazy = options.lazy === true
+  const { states, changed, cursors, applied, rebuilt } = passOverRecord<SlugReachState>(
     sofarDir,
     REACH_META,
     prior === null ? null : prior.initiatives,
     { empty: emptyReach, clone: cloneReach, apply: (state, event) => applyReach(state, event) },
+    { persist: !lazy },
   )
-  if (changed) {
+  if (changed && !(lazy && !rebuilt && applied <= REACH_LAZY_TAIL)) {
+    // Cursor file first, as passOverRecord orders the pair when it persists.
+    if (lazy) writeIndexMeta(sofarDir, { version: INDEX_SCHEMA_VERSION, cursors }, REACH_META)
     writeIndexFile(sofarDir, REACH_FILE, { version: INDEX_SCHEMA_VERSION, initiatives: states })
   }
   return reachView(states)
+}
+
+/**
+ * Bring reach.json current and persist it, but only where someone has asked
+ * a question before (the file exists): the write-back's refresh (8.2), so the
+ * next find starts with an empty tail. A repo that never runs find never pays
+ * a cold build at write-back. Derived and disposable: a failure is swallowed.
+ */
+export function refreshBuiltReach(sofarDir: string): void {
+  try {
+    if (existsSync(join(indexDir(sofarDir), REACH_FILE))) refreshReach(sofarDir)
+  } catch {
+    // the next find catches up
+  }
 }
 
 /** Read the reach half without refreshing. Null when there is nothing usable on disk. */
@@ -1212,6 +1248,6 @@ export function findFrom(
   query: string,
   options: ResolveSeedOptions & { hops?: number } = {},
 ): ReachResult {
-  const index = refreshReach(sofarDir)
+  const index = refreshReach(sofarDir, { lazy: true })
   return reachFrom(index, resolveQuery(index, query, options), options.hops ?? REACH_DEFAULT_HOPS)
 }
