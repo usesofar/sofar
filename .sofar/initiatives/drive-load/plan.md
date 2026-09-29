@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: On operator go-ahead, plan drive-load from note 01M3PCDC: nice/taskpolicy the session group and verify, cap vitest maxWorkers and cargo jobs, async verify in its own process group with group kill, retry a timeout-only verify fail once before reopening.
+Next action: Kill orphaned tsc pid 4843 on operator OK, then plan drive-load from note 01M3PCDC.
