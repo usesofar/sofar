@@ -4,17 +4,18 @@
 
 Goal: Make sofar drive cheap by default without losing continuity: saved drive defaults (threshold, window, cost cap) applied to every run, context-gauge handoff on by default when the adapter knows the model window, and a real per-task cost line (cache read / cache write / output) in place of the summed ctx-token figure. Measured on the linked-context runs of 2026-09-29 (4.1: 39.3M summed ctx, 99% cache reads, 149 turns, 410k peak).
 
-Progress: 0/6 tasks done (0%)
+Progress: 0/7 tasks done (0%)
 
 ## Phase 1 — Measure [pending] — 0/1 done
 
 - [ ] 1.1 Baseline from the 2026-09-29 linked-context runs: per task summed ctx, cache read/write, output, turns, peak ctx (task policy, runs 01M3PD3J… and 01M3PQW5…) vs the threshold-25% run 01M3PZHS…; PREDICT the saving before 2.x ships (bench-refresh D10)
 
-## Phase 2 — Defaults [pending] — 0/3 done
+## Phase 2 — Defaults [pending] — 0/4 done
 
 - [ ] 2.1 Saved drive defaults in ~/.config/sofar/config.json on the keep-awake pattern: policy, threshold-pct, context-window, cost-cap, max-sessions; flags outrank saved values; `sofar drive --save-defaults` and `--show-defaults`
 - [ ] 2.2 Threshold handoff on by default when the adapter reports the model's context window (never guessed); plain task policy only when the window is unknown, with a warning naming the flag
 - [ ] 2.3 Handoff nudge requires a mid-task state note (what is done, what is half-done and why, what was tried and failed) before the session ends, so a mid-task handoff loses no reasoning
+- [ ] 2.4 Hermetic verify: the driver runs the verify command (and sessions) with FORCE_COLOR/COLORTERM/CLICOLOR_FORCE scrubbed, and vitest config pins them off, so a colour-forcing terminal cannot reopen green tasks (drive-cost M1)
 
 ## Phase 3 — Report [pending] — 0/1 done
 
