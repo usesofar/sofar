@@ -4178,7 +4178,7 @@ sofar_start_session.`
   is planned and validated AS A WHOLE against one fold before any append —
   one bad entry files nothing, not the good ones and not the write-back:
   `invalid_input` naming the entry (`tasks[1] (9.9): …`). Entries:
-  `tasks` {task_id, status, note?, title?, phase?} — planned exactly as
+  `tasks` {task_id, status, note?, title?, phase?, waits_on?} — planned exactly as
   sofar_update_task (phase-lifecycle D7), so a `title` naming a different
   task than the one the plan holds is refused. A task the plan has
   appends task_status_changed; one it lacks WITH a title appends task_added
@@ -4237,7 +4237,7 @@ sofar_start_session.`
   peer fields are added at the tool layer, never on the folded
   ParallelWriteback — who is reachable is a fact about live host processes,
   and folding it in would make one log fold differently on two machines.
-- sofar_update_task({initiative?, task_id, status, note?, title?, phase?}) → ok
+- sofar_update_task({initiative?, task_id, status, note?, title?, phase?, waits_on?}) → ok
   # ADDS a task (phase-lifecycle D7, superseding D4): a task_id the plan
   # lacks WITH a `title` appends task_added {phase, id, title, status} into
   # `phase` (resolved like sofar_update_phase; default the active phase),
@@ -4258,6 +4258,28 @@ sofar_start_session.`
   # ~600 chars per activation, while the point-of-use GUARD (§Hooks) is the
   # half that enforces. Changes landing at wrap-up ride sofar_end_session's
   # `tasks` — one call, not one per task.
+  Declared waits_on on the write surfaces (linked-context 2.3, §Links):
+  `waits_on` is accepted by sofar_update_task, each sofar_end_session
+  `tasks` entry, each sofar_update_plan task and `sofar new --waits-on`,
+  all through one resolver (engine mcp/waits-on.ts). Input entries are
+  `<slug>`, `<slug> D<n>|T<n>|<n>.<n>|M<n>` (slug any case) or a bare
+  `D<n>|T<n>|<n>.<n>`, qualified to the home slug; stored lowercase,
+  canonical, deduped in first-seen order. A bare `M<n>` is `invalid_input`
+  (qualified-only, linked-context D3). It rides the ONE event that sets the
+  task: task_status_changed for a held task, task_added for an add (not the
+  note's follow-up status change), the task in plan_updated for a replace.
+  - A slug naming no record under .sofar/initiatives/ is `invalid_input`;
+    nothing is filed (for a write-back, the whole batch).
+  - A handle naming nothing in an existing record — a task the plan AFTER
+    the write lacks (so a task the same write adds binds), a `D<n>`/`M<n>`
+    past the last ordinal, a superseded initiative whose successor is
+    missing — is filed, and `warnings` carries `… is dangling — <why>`.
+  - A cycle is filed, and `warnings` carries `waits_on cycle: <a> → … →
+    <a>` (beads' readiness predicate: a task is ready when nothing it waits
+    on is open, so a loop of open tasks never becomes ready). Edges run
+    task → task through OPEN targets only (a done/dropped task holds nothing
+    back); a whole-initiative target stands for its open tasks; `D<n>` and
+    `M<n>` have no out-edges. A write that closes the task is not walked.
 - sofar_update_phase({initiative?, phase, status, note?})
   → {ok, event_id, tasks_done, tasks_total}   # phase-lifecycle D2, 2.2/2.3.
   Appends phase_status_changed. Phase status is WRITTEN, never derived from
@@ -5620,7 +5642,7 @@ Shims contain no logic — they invoke the sofar CLI.
   blank line), preserving all user content; .sofar/ is kept with a notice
   unless --purge deletes it (--purge alone may also delete files the run
   emptied — the byte-clean round-trip). Idempotent (added Phase 8, BD45).
-- `sofar new <slug> [--goal] [--supersedes <a>,<b>]` / `sofar switch <slug>`
+- `sofar new <slug> [--goal] [--supersedes <a>,<b>] [--waits-on <h>,<h>]` / `sofar switch <slug>`
   — create/select initiative; bind current branch in bindings.json. `switch`
   onto a CLOSED slug reopens it (§Initiative statuses, D3): appends status
   `active`, announces the revival, then binds. `--supersedes` names the
@@ -5629,7 +5651,14 @@ Shims contain no logic — they invoke the sofar CLI.
   each is closed as `superseded` by the new slug — bind first so the branch
   ends on live work, since closing unbinds (§Initiative statuses). `sofar new
   quick` refuses: `quick` is the quick-work lane (§Hooks), which creates
-  itself on the first edit of an unbound branch.
+  itself on the first edit of an unbound branch. `--waits-on` (linked-context
+  2.3, D11) declares what the new record waits on: a declared link lives on a
+  task and a new record has none, so after create it appends a plan_updated
+  seeding `Phase 1` / task `1.1 Wait on <handles>` carrying the set — the
+  umbrella shape of §Links. Handles are resolved as on every write surface
+  (see "Declared waits_on on the write surfaces" under §MCP tools); an unknown
+  slug refuses BEFORE anything is created, dangling and cycle lines print as
+  `warning:` detail lines.
 - `sofar close [slug] [--drop] [--reason <text>] [--superseded-by <slug>]` —
   record the initiative terminal (`done`; `dropped`, which REQUIRES
   `--reason`; or `superseded`, which names the existing record the work

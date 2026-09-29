@@ -129,13 +129,18 @@ program
     '--supersedes <slugs>',
     'comma-separated initiatives this one continues: each is closed as `superseded` by the new slug once it exists',
   )
+  .option(
+    '--waits-on <handles>',
+    'comma-separated handles the new record waits on (`<slug>` or `<slug> D<n>|T<n>|<n>.<n>|M<n>`): seeds task 1.1 carrying them',
+  )
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action((slug: string, opts: { goal?: string; bind?: boolean; supersedes?: string; root?: string }) => {
+  .action((slug: string, opts: { goal?: string; bind?: boolean; supersedes?: string; waitsOn?: string; root?: string }) => {
     emit(
       runNew(rootOf(opts), slug, {
         ...(opts.goal !== undefined ? { goal: opts.goal } : {}),
         bind: opts.bind !== false,
         ...(opts.supersedes !== undefined ? { supersedes: opts.supersedes.split(',') } : {}),
+        ...(opts.waitsOn !== undefined ? { waitsOn: opts.waitsOn.split(',') } : {}),
       }),
     )
   })

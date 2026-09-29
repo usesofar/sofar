@@ -228,6 +228,7 @@ a commit.
 | `mcp/end-session.ts` | `sofar_end_session` — the write-back. Reports parallel write-backs and reachable peers. |
 | `mcp/log-decision.ts` | `sofar_log_decision` — including standing constraints and guards. |
 | `mcp/update-task.ts`, `mcp/update-plan.ts` | Task status, whole-plan replace. |
+| `mcp/waits-on.ts` | Declared `waits_on` at write time, shared by every surface that takes it: qualify to canonical handles, refuse an unknown slug, warn dangling handles and cycles of open tasks. |
 | `mcp/update-phase.ts` | Phase status, addressed by exact phase name. Unknown name = typed error, not the fold's create-on-miss; already-at-status = no event. |
 | `mcp/add-note.ts` | `sofar_add_note`. |
 | `mcp/remember.ts` | `sofar_remember`. |

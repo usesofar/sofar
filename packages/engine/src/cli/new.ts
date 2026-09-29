@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { createToolContext, currentBranch, ToolError } from '../mcp/context'
 import { applyClose } from '../mcp/close-initiative'
+import { declareWaitsOn } from '../mcp/waits-on'
 import { BindingsAbort, writeBinding } from '../core/bindings'
 import { QUICK_LANE } from '../core/lane'
 import { isClosedInitiativeStatus } from '@sofar/schema'
@@ -45,7 +46,18 @@ export interface NewOptions {
    * predecessor, so the log reads exactly as if they had been run by hand.
    */
   supersedes?: string[]
+  /**
+   * --waits-on <handles> (linked-context 2.3, D11): what the new record waits
+   * on. Declared links live on a TASK and a new record has none, so the set
+   * seeds the plan's first task, `1.1 Wait on …`, in `Phase 1` — the umbrella
+   * shape SPEC §Links names. Checked before anything is created.
+   */
+  waitsOn?: string[]
 }
+
+/** The phase and task `--waits-on` seeds (D11). */
+export const WAITS_ON_SEED_PHASE = 'Phase 1'
+export const WAITS_ON_SEED_TASK = '1.1'
 
 // ---------------------------------------------------------------------------
 // Confirmation styling (cli-ui 2.5). Wording is identical styled or plain —
@@ -137,6 +149,22 @@ export function runNew(
     }
   }
 
+  // Same rule for declared links: an unknown slug refuses the whole command.
+  let waits: { handles: string[]; warnings: string[] } | undefined
+  if (options.waitsOn !== undefined) {
+    const raw = options.waitsOn.map((s) => s.trim()).filter((s) => s.length > 0)
+    try {
+      const declared = declareWaitsOn(ctx, slug, { tasks: new Set([WAITS_ON_SEED_TASK]), waits: new Map() }, [
+        { taskId: WAITS_ON_SEED_TASK, raw },
+      ])
+      waits = { handles: declared.handles[0]!, warnings: declared.warnings }
+    } catch (err) {
+      if (err instanceof ToolError) return fail(renderFailure(`sofar new: --waits-on: ${(err.errors ?? [err.message]).join('; ')} — nothing created`, errCaps))
+      throw err
+    }
+    if (waits.handles.length === 0) return fail(renderFailure('sofar new: --waits-on names no handle — nothing created', errCaps))
+  }
+
   // Resolve the branch BEFORE creating anything, so a bind failure leaves
   // the repo untouched.
   const bind = options.bind !== false
@@ -163,6 +191,12 @@ export function runNew(
       actor: 'human',
     })
     report.push(`created .sofar/initiatives/${slug}/ (goal: ${goal})`)
+    if (waits !== undefined) {
+      const task = { id: WAITS_ON_SEED_TASK, title: `Wait on ${waits.handles.join(', ')}`, waits_on: waits.handles }
+      ctx.appendAndProject(slug, 'plan_updated', { plan: { phases: [{ name: WAITS_ON_SEED_PHASE, tasks: [task] }] } }, CLI_ACTOR)
+      report.push(`task ${task.id} waits on ${waits.handles.join(', ')}`)
+      for (const warning of waits.warnings) report.push(`warning: ${warning}`)
+    }
     if (bind && branch !== null) {
       mkdirSync(ctx.sofarDir, { recursive: true })
       writeBinding(ctx.bindingsPath, branch, slug)

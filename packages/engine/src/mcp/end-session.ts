@@ -17,7 +17,7 @@ import { ruleFidelityWarning } from '../core/rule-fidelity'
 import { homeInitiative, ToolError, type ToolContext } from './context'
 import { judgeOptionsFor } from './log-decision'
 import { resolvePhaseOrThrow } from './update-phase'
-import { heldTasks, planTaskChange } from './update-task'
+import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 
 /**
  * A colliding write-back, plus how to reach the session that wrote it
@@ -116,8 +116,14 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
   // sofar_update_task's planner (phase-lifecycle D7); a task this batch adds
   // is held for the entries after it.
   const held = heldTasks(state)
-  ;(args.tasks ?? []).forEach((t, i) => {
-    const planned = planTaskChange(state, slug, t, held)
+  const tasks = args.tasks ?? []
+  // Declared links (linked-context 2.3) bind against the plan the whole
+  // batch leaves behind; an unknown slug refuses the batch like any entry.
+  const declared = declareTaskWaits(ctx, slug, state, tasks, held)
+  let nextDeclared = 0
+  tasks.forEach((t, i) => {
+    const waits = t.waits_on !== undefined ? declared.handles[nextDeclared++] : undefined
+    const planned = planTaskChange(state, slug, t, held, waits)
     if (!planned.ok) return refuse(`tasks[${i}] (${t.task_id})`, planned.errors)
     appends.push(...planned.appends)
     if (!held.has(t.task_id)) held.set(t.task_id, t.title!)
@@ -132,7 +138,7 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
   })
 
   const decisions: string[] = []
-  const warnings: string[] = []
+  const warnings: string[] = [...declared.warnings]
   const drafts: DecisionDraft[] = []
   const seen: DecisionState[] = [...state.decisions]
   const foreign = (args.decisions ?? []).length > 0 ? foreignDecisions(ctx.sofarDir, slug) : undefined
