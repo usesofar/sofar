@@ -83,4 +83,4 @@ Progress: 38 done, 7 dropped, 0 remaining
 - [-] 7.7 Proof: a live Codex end-to-end on a scratch repo (init with the picker → oriented session → MCP writes → write-back gate → drive run) with the operator's consent for the usage it spends, plus SPEC updates (§Host tiers moves Codex out of Tier 3, §Hooks, §CLI, §Driver) and acceptance criteria. (dropped)
 
 Active phase: Phase 4 — Release
-Next action: sofar-e8 runs the 3-h chain-A smoke on main 4a59303b (staged smoke-l36 plists, install_l36_engine.sh from a clean checkout at that commit); the operator pushes main (1a4c63bc) and r1-fixes-l36 (8e63c5a8) when ready; round 3 measures 4.6's PREDICT.
+Next action: Release session stages 0.34.0-rc.4 from main at or after 4a59303b (the L36 merge); the operator pushes main and r1-fixes-l36; round 3 measures 4.6's PREDICT across reps.
