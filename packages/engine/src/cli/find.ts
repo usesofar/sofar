@@ -67,7 +67,7 @@ function plural(n: number, one: string, many = `${one}s`): string {
 }
 
 /** Repo-relative for BODY lines; identity (the Seed block) is never shortened. */
-function shortPath(rootDir: string, path: string): string {
+export function shortPath(rootDir: string, path: string): string {
   if (!isAbsolute(path)) return path
   const rel = relative(rootDir, path)
   return rel === '' || rel.startsWith('..') || isAbsolute(rel) ? path : rel
@@ -93,7 +93,7 @@ const TITLES: Record<ReachHit['kind'], string> = {
  * ways depending on which end was reached — say the right one, or a session
  * ends up reported as having been touched by a file.
  */
-function viaPhrase(hit: ReachHit, from: string): string {
+export function viaPhrase(hit: ReachHit, from: string): string {
   // Supersession is the one edge between two RECORDS, and it reads from the
   // record the reader started at: this hit is where the seed went, or what
   // the seed took over.
@@ -144,7 +144,7 @@ const TEXT_CAVEAT =
  * from the result (every decision in it carries its ordinal) or from the seed,
  * which the caller typed and is not otherwise in the hit list.
  */
-function shortNode(rootDir: string, result: ReachResult, nodeId: string): string {
+export function shortNode(rootDir: string, result: ReachResult, nodeId: string): string {
   // A LITERAL seed is named by what the caller typed, which is how they think of
   // it. A text seed is not: the query is a sentence, and a row reading "logged
   // by why is the cursor rebuilt" names nothing. Its matches carry handles, so
@@ -180,7 +180,7 @@ function shortNode(rootDir: string, result: ReachResult, nodeId: string): string
 }
 
 /** `task:<slug>#<id>` as the handle the record cites it by, `<slug> <id>`. */
-function taskHandle(nodeId: string): string {
+export function taskHandle(nodeId: string): string {
   return nodeId.slice('task:'.length).replace('#', ' ')
 }
 
@@ -273,7 +273,7 @@ function seedLine(result: ReachResult): string {
     : `sofar find — ${seed.query}  [${seed.kind}, ${scope}]`
 }
 
-const MISS = [
+export const MISS = [
   'nothing in the record denotes that seed, and no decision or note uses those words',
   '',
   'a seed is a path (matched across checkouts), a session id, an initiative slug,',
@@ -330,7 +330,7 @@ function renderPlain(rootDir: string, result: ReachResult): string {
   return `${lines.join('\n').replace(/\n+$/, '')}\n`
 }
 
-const caveatFor = (result: ReachResult): string =>
+export const caveatFor = (result: ReachResult): string =>
   result.seed.kind === 'text' ? TEXT_CAVEAT : CAVEAT
 
 const matchedBlocks = (result: ReachResult): Block[] =>
@@ -338,7 +338,7 @@ const matchedBlocks = (result: ReachResult): Block[] =>
     ? []
     : [matchedBlock(result.seed.matches, result.seed.omitted ?? 0)]
 
-const TRUNCATED =
+export const TRUNCATED =
   'expansion stopped at the visit ceiling — this seed reaches too much of the record for the answer to be complete'
 
 function renderStyled(rootDir: string, result: ReachResult, caps: Caps): string {

@@ -4,7 +4,7 @@
 
 Goal: A session serves the network of threads around its task, not one log. Declared `waits_on` links (asserted) and derived citations from task, note and next-action text (offered) connect records at task grain. A write-time hot tier lets the SessionStart digest show, within budget, whether what a blocked or next task waits on has since moved. Deterministic, zero model calls, byte-parity TS/Rust, D18 budget held. No sub-initiatives: grouping is links only (D5). Find gets faster without touching context (Phase 8).
 
-Progress: 23 done, 1 dropped, 2 remaining
+Progress: 24 done, 1 dropped, 1 remaining
 
 ## Phase 1 — Contract (SPEC + goldens before code, rust-core D1) [pending] — 3/3 done
 
@@ -43,18 +43,18 @@ Progress: 23 done, 1 dropped, 2 remaining
 - [x] 6.1 read-paths D18 gate: session-start/user-prompt/stop/statusline p50 ≤+10% on repo and i1000-10mb, ABAB n≥25, arm SOFAR_TRAVEL=off|index — verified pass @c5fe052 (attempt 1)
 - [x] 6.2 Digest-bytes histogram over every real record before/after. PREDICT: 0 bytes added where no open link; ≤600 chars max; readiness-gated vs all-links ablation — verified pass @c0192be (attempt 1)
 - [ ] 6.3 Cross-record resume scenario: blocked task whose target resolved — with travel the session notices the unblock unprompted; turns/tokens vs predictions in typed-judge note 01M2ZV3KEV2XA467NW7TN6WYWZ (blocked)
-- [x] 6.4 Ranking ablations: hub-damped vs raw citation count, focus-ranked vs newest-first, dedupe on/off — precision@3 against a hand-labelled link set from this repo
+- [x] 6.4 Ranking ablations: hub-damped vs raw citation count, focus-ranked vs newest-first, dedupe on/off — precision@3 against a hand-labelled link set from this repo — verified pass @ab133a5 (attempt 1)
 
-## Phase 7 — Answer packets (later) [pending] — 0/2 (1 dropped) done
+## Phase 7 — Answer packets (later) [pending] — 1/2 (1 dropped) done
 
-- [ ] 7.1 find compose mode: BM25 + traversal gather, deterministic order (waits_on, cites, adjacency), clipped at budget with ids kept, changed-since line
+- [x] 7.1 find compose mode: BM25 + traversal gather, deterministic order (waits_on, cites, adjacency), clipped at budget with ids kept, changed-since line
 - [-] 7.2 Judge-ranked variant delegated to typed-judge C1/D2 — not built here (dropped)
 
 ## Phase 8 — Find speed [done] — 3/3 done
 
-- [x] 8.1 Measure sofar find cold (stale reach), warm and per-hop on repo and i1000-10mb, ABAB n≥25; set the predictions for 8.2/8.3 from it before building (bench-refresh D10)
-- [x] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
-- [x] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
+- [x] 8.1 Measure sofar find cold (stale reach), warm and per-hop on repo and i1000-10mb, ABAB n≥25; set the predictions for 8.2/8.3 from it before building (bench-refresh D10) — verified pass @ab133a5 (attempt 1)
+- [x] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh) — verified pass @ab133a5 (attempt 1)
+- [x] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads — verified pass @ab133a5 (attempt 1)
 
-Next action: 7.1: write SPEC contract for find --compose from the sketch note, then build
+Next action: Operator answers the 6.3 question (live run vs deterministic proxy); nothing else runnable remains
 Blocked on: task 6.3: Operator question: measuring turns/tokens means live Claude Code sessions (the l36-mini-check launch shape: bench profile, a root outside the worktree), and those spend your quota. Driven sessions cannot build them (M4). Choose one: (a) approve a live run, with arms travel on/off, the reps, and the model; or (b) accept a deterministic proxy. The proxy renders the blocked record's digest in-process with travel on/off, confirms the resolved-wait line appears only with travel, and prices the pull turn saved as the bytes of `sofar status <target>`.

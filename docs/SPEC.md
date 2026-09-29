@@ -5853,6 +5853,46 @@ Shims contain no logic — they invoke the sofar CLI.
   only that the words are there, never that they answer the question. An
   expansion that hits the visit ceiling says so rather than presenting a partial
   answer as whole.
+- `sofar find <seed> --compose [--budget <chars>] [--since <event id|ISO>]
+  [--hops <n>] [--initiative <slug>]` — the answer packet (linked-context 7.1):
+  the same seed ladder and traversal as `sofar find`, flattened into one
+  budgeted list of ATOMS an agent can paste into its context. CLI only; no MCP
+  tool. Plain text always, never styled, so the bytes do not depend on the
+  terminal. GATHER: the seed's reach result, plus the DECLARED waits read from
+  the links tier (reach carries no `waits_on` edge) for the seed record when
+  the seed is an initiative, for a task seed, and for every task the traversal
+  reached — only links whose source task is one of those. ORDER, in tiers:
+  (1) declared waits, (2) reach hits whose edge is `cites` or `cited_by`,
+  (3) a text seed's BM25 matches, (4) every other reach hit. Within a tier:
+  hops ascending (a wait takes its source's distance, 0 for the seed itself),
+  then its time newest first, then id by code unit. A thing already rendered
+  in an earlier tier is not rendered again. An atom's TIME is its own event's
+  (a hit's `ts`, a match's `ts`), and for a wait the event that resolved its
+  target when resolved, else the link's anchor, both read from the ulid. ATOM:
+  one line, `<mark> <handle> · <relation> · event <id> — <label>`; the handle
+  (`<slug> D<n>`, `<slug> M<n>`, `<slug> <task id>`, `<slug> note`, a path, a
+  session's first 8, a slug, a wait's qualified target) and the event id are
+  never clipped, the label is clipped to 96 and omitted when empty. A wait's
+  relation is `waited on by <slug> <task> — <state>` with ` (<what>)` when the
+  tier holds one; a match's is `matched <terms>`; a hit's is `sofar find`'s
+  edge phrase. HEADER: `sofar find --compose — <seed>  [<kind>, <hops>]`, the
+  find caveat for that seed kind in parentheses, the visit-ceiling line when
+  the expansion stopped there, and the CHANGED-SINCE line
+  `Changed since <ISO> (<source>): <n> of <m> atoms, marked *`, counted over
+  every gathered atom whether rendered or cut. `--since` takes
+  an event id (its ulid time) or an ISO timestamp, anything else is exit 1;
+  without it the default is the ts of the latest `session_ended` in the
+  branch-bound record's log (source `last write-back of <slug>`); with neither
+  the line is omitted and every mark is `-`. An atom whose time is strictly
+  after the since instant is marked `*`, else `-`. BUDGET: the whole stdout,
+  in characters (UTF-16 code units), default 2000, below 200 exit 1. Atoms are
+  kept WHOLE: the longest prefix of the ordered atoms that fits together with
+  its exact tail — nothing when every atom fits, else `…and <K> more (sofar
+  find <seed>)`, where K counts the atoms cut plus the hits `sofar find`'s
+  per-kind caps already omitted. The header is always rendered, even if it
+  alone exceeds the budget. A seed that resolves to nothing renders the find
+  miss text, exit 0. The packet is byte-identical on a repeat. It offers,
+  never asserts, exactly as `sofar find` does (record-index D2).
 - `sofar drive [slug] [--policy task|threshold] [--threshold-pct <pct>]
   [--context-window <tokens>] [--max-sessions <n>] [--max-stalls <n>]
   [--cost-cap <usd>] [--session-timeout <seconds>] [--cwd <dir>] [--model <m>]

@@ -1340,6 +1340,15 @@ export function findFrom(
   query: string,
   options: ResolveSeedOptions & { hops?: number } = {},
 ): ReachResult {
+  return findWith(sofarDir, query, options).result
+}
+
+/** findFrom, keeping the index it answered from — compose resolves wait targets against it (7.1). */
+export function findWith(
+  sofarDir: string,
+  query: string,
+  options: ResolveSeedOptions & { hops?: number } = {},
+): { index: ReachIndex; result: ReachResult } {
   // Terms only when the literal ladder finds nothing (8.3, D27): no path,
   // slug, session or handle seed reads them, and they are most of the bytes.
   let index = refreshReach(sofarDir, { lazy: true, terms: false })
@@ -1348,5 +1357,5 @@ export function findFrom(
     index = withTerms(sofarDir, index)
     seed = lexicalSeed(index, query)
   }
-  return reachFrom(index, seed, options.hops ?? REACH_DEFAULT_HOPS)
+  return { index, result: reachFrom(index, seed, options.hops ?? REACH_DEFAULT_HOPS) }
 }

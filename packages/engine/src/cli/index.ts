@@ -29,6 +29,7 @@ import {
 } from './drive'
 import { runRelated, runWhy } from './graph'
 import { runCheck } from './check'
+import { COMPOSE_BUDGET, runCompose } from './compose'
 import { runFind } from './find'
 import { REACH_DEFAULT_HOPS, REACH_MAX_HOPS } from '../core/index-reach'
 import { runRemember } from './remember'
@@ -298,15 +299,34 @@ program
   )
   .option('--hops <n>', `how far to traverse (default ${REACH_DEFAULT_HOPS}, max ${REACH_MAX_HOPS})`)
   .option('--initiative <slug>', 'initiative a bare "D<n>" seed belongs to (default: the branch-bound one)')
+  .option('--compose', 'answer packet: waits, citations, matches and adjacency as one budgeted list of id-cited lines, marking what changed since the last write-back')
+  .option('--budget <chars>', `with --compose: whole-output budget in characters (default ${COMPOSE_BUDGET})`)
+  .option('--since <when>', 'with --compose: event id or ISO timestamp to mark changes after (default: the last write-back of the branch-bound record)')
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action((seed: string, opts: { hops?: string; initiative?: string; root?: string }) => {
-    emit(
-      runFind(rootOf(opts), seed, {
+  .action(
+    (
+      seed: string,
+      opts: { hops?: string; initiative?: string; compose?: boolean; budget?: string; since?: string; root?: string },
+    ) => {
+      const base = {
         ...(opts.hops !== undefined ? { hops: Number(opts.hops) } : {}),
         ...(opts.initiative !== undefined ? { initiative: opts.initiative } : {}),
-      }),
-    )
-  })
+      }
+      if (opts.compose !== true && (opts.budget !== undefined || opts.since !== undefined)) {
+        emit(fail('sofar find: --budget and --since need --compose'))
+        return
+      }
+      emit(
+        opts.compose === true
+          ? runCompose(rootOf(opts), seed, {
+              ...base,
+              ...(opts.budget !== undefined ? { budget: Number(opts.budget) } : {}),
+              ...(opts.since !== undefined ? { since: opts.since } : {}),
+            })
+          : runFind(rootOf(opts), seed, base),
+      )
+    },
+  )
 
 program
   .command('remember [text]')
