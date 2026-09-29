@@ -129,11 +129,11 @@ fn decode_wanted(
     (events, last)
 }
 
-/// `quietSince`: whether the log grew past `cursor` by lines `wanted`
-/// rejects ONLY — the cursor advanced over them when so, else None (the
-/// offset no longer lands on its event, or a wanted line was appended).
+/// `tailSince`: the log read from the cursor on, by its CONTENT — None unless
+/// the line at `offset` still carries `id`, else the cursor advanced over what
+/// was appended and those lines, raw. Never the mtime (linked-context 4.2).
 #[must_use]
-pub fn quiet_since(log_path: &Path, id: &str, offset: u64, wanted: LineFilter) -> Option<Cursor> {
+pub fn tail_since(log_path: &Path, id: &str, offset: u64) -> Option<(Cursor, Vec<String>)> {
     let chunk = read_from(log_path, offset)?;
     let lines = lines_with_offsets(&chunk.text, offset);
     let (first, _) = decode(lines.first()?.0)?;
@@ -141,19 +141,19 @@ pub fn quiet_since(log_path: &Path, id: &str, offset: u64, wanted: LineFilter) -
         return None;
     }
     let fresh = &lines[1..];
-    if fresh.iter().any(|(line, _)| wanted(line)) {
-        return None;
-    }
     let (_, last) = decode_wanted(fresh, Some(|_| false), Some((id.to_owned(), offset)));
     let (id, offset) = last?;
-    Some(Cursor {
-        id,
-        offset,
-        size: chunk.stat.size,
-        mtime_ms: chunk.stat.mtime_ms,
-        max_id: None,
-        voided: None,
-    })
+    Some((
+        Cursor {
+            id,
+            offset,
+            size: chunk.stat.size,
+            mtime_ms: chunk.stat.mtime_ms,
+            max_id: None,
+            voided: None,
+        },
+        fresh.iter().map(|(line, _)| (*line).to_owned()).collect(),
+    ))
 }
 
 /// `readSince`: events appended since the cursor, plus the cursor to store

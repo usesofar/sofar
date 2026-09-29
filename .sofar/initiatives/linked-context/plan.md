@@ -4,7 +4,7 @@
 
 Goal: A session serves the network of threads around its task, not one log. Declared `waits_on` links (asserted) and derived citations from task, note and next-action text (offered) connect records at task grain. A write-time hot tier lets the SessionStart digest show, within budget, whether what a blocked or next task waits on has since moved. Deterministic, zero model calls, byte-parity TS/Rust, D18 budget held. No sub-initiatives: grouping is links only (D5). Find gets faster without touching context (Phase 8).
 
-Progress: 10 done, 1 dropped, 14 remaining
+Progress: 11 done, 1 dropped, 13 remaining
 
 ## Phase 1 — Contract (SPEC + goldens before code, rust-core D1) [pending] — 3/3 done
 
@@ -24,10 +24,10 @@ Progress: 10 done, 1 dropped, 14 remaining
 - [x] 3.2 buildGraph second pass mirrors 3.1; find/related/why show the new edge sources; reach-vs-graph parity test over this repo's record — verified pass @b7b230a (attempt 1)
 - [x] 3.3 Memory nodes, qualified-only <slug> M<n> — the disambiguation rule repo-memory-capture D3 asked for; repo.md lines stay unnumbered and out of the graph — verified pass @447f9f4 (attempt 1)
 
-## Phase 4 — Hot links tier (materialised at write time) [pending] — 1/3 done
+## Phase 4 — Hot links tier (materialised at write time) [pending] — 2/3 done
 
-- [x] 4.1 index-tier1 links/<slug>.json on the neighbours pattern: outgoing declared + derived links with a target status snapshot, cursor-incremental, stat-checked read, parity test against the from-logs answer (record-index D18 pattern). PREDICT: Rust warm session-start +≤0.5ms, TS within D18 +10%, cold +≤5%
-- [ ] 4.2 Staleness: reverse index of inbound links per target, revalidated by the target log's tail (warmth lastAppendAt, never mtime) so a target that moved re-snapshots at O(links), never a neighbour fold
+- [x] 4.1 index-tier1 links/<slug>.json on the neighbours pattern: outgoing declared + derived links with a target status snapshot, cursor-incremental, stat-checked read, parity test against the from-logs answer (record-index D18 pattern). PREDICT: Rust warm session-start +≤0.5ms, TS within D18 +10%, cold +≤5% — verified pass @47c89a6 (attempt 1)
+- [x] 4.2 Staleness: reverse index of inbound links per target, revalidated by the target log's tail (warmth lastAppendAt, never mtime) so a target that moved re-snapshots at O(links), never a neighbour fold
 - [ ] 4.3 graph-hotpath test extended: hot paths may import the links tier only; reach and buildGraph stay banned (record-graph D2, record-index 4.1)
 
 ## Phase 5 — Digest travel + write-time nudges [pending] — 0/4 done
@@ -55,4 +55,4 @@ Progress: 10 done, 1 dropped, 14 remaining
 - [ ] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
 - [ ] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
 
-Next action: Phase 4 task 4.2: reverse index
+Next action: Phase 4 task 4.3: extend graph-hotpath test

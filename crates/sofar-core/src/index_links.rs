@@ -6,15 +6,18 @@
 //!
 //! `links.json` + `meta-links.json` hold the per-slug reducer state on its own
 //! cursors; `links/<slug>.json` holds one record's outgoing links, resolved,
-//! trusted only while the initiative set and every log it read measure what
-//! they did. The trust and write rules are the TypeScript module's, point for
-//! point, and both implementations read each other's files.
+//! trusted only while the initiative set holds and no log it read gained a
+//! line that can move a link (by content, never mtime — 4.2). `links-in.json`
+//! is the reverse index (4.2): per target handle, the tasks linking to it and
+//! its anchor-free fact, so a moved target re-snapshots at O(links). The trust
+//! and write rules are the TypeScript module's, point for point, and both
+//! implementations read each other's files.
 
 use std::collections::HashMap;
 
 use crate::index_pass::{PassResult, SlugReducer, pass_over_record};
 use crate::index_store::{Cursor, IndexMeta, log_stat};
-use crate::index_tail::{IndexedEvent, quiet_since};
+use crate::index_tail::{IndexedEvent, tail_since};
 use crate::index_tier1::{read_half, superseded_ordinal, write_half};
 use crate::json::{Json, Object};
 use crate::layout::Layout;
@@ -24,7 +27,9 @@ use crate::text::{one_line, utf16_len, utf16_prefix};
 pub const LINKS_FILE: &str = "links.json";
 pub const LINKS_META: &str = "meta-links.json";
 const LINKS_DIR: &str = "links";
-const LINKS_VERSION: f64 = 1.0;
+const LINKS_INBOUND: &str = "links-in.json";
+/// 2: deps drop the mtime (4.2).
+const LINKS_VERSION: f64 = 2.0;
 
 /// `LINK_LABEL_SOURCE`: how much of a label the tier keeps.
 pub const LINK_LABEL_SOURCE: usize = 120;
@@ -775,18 +780,75 @@ impl SlugReducer for LinksReducer {
 // ---------------------------------------------------------------------------
 
 struct Snapshot {
-    state: &'static str,
+    state: String,
     at: Option<String>,
     what: Option<String>,
     label: Option<String>,
 }
 
-const fn snap(state: &'static str) -> Snapshot {
+/// `Fact` (linked-context 4.2): a target's state with the anchor left out, so
+/// a link re-snapshots from it in O(1) (`at_anchor`). `open` with `since` is a
+/// target that changed at that event — `moved` (to `status`) for a link
+/// anchored before it; `named` is a decision's or memory's own event id.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Fact {
+    pub state: String,
+    pub at: Option<String>,
+    pub what: Option<String>,
+    pub label: Option<String>,
+    pub since: Option<String>,
+    pub status: Option<String>,
+    pub named: Option<String>,
+}
+
+/// `FACT_KEYS`: a fact's optional fields, in serialisation order.
+const FACT_KEYS: [&str; 6] = ["at", "what", "label", "since", "status", "named"];
+
+impl Fact {
+    fn of(state: &str) -> Self {
+        Self {
+            state: state.to_owned(),
+            ..Self::default()
+        }
+    }
+
+    fn fields(&self) -> [&Option<String>; 6] {
+        [
+            &self.at,
+            &self.what,
+            &self.label,
+            &self.since,
+            &self.status,
+            &self.named,
+        ]
+    }
+}
+
+/// `atAnchor`: a fact seen from one anchor (SPEC §Links, Resolution states).
+fn at_anchor(fact: &Fact, anchor: &str) -> Snapshot {
+    if fact.state == "open" {
+        if let Some(since) = &fact.since
+            && since.as_str() > anchor
+        {
+            return Snapshot {
+                state: "moved".to_owned(),
+                at: None,
+                what: fact.status.clone(),
+                label: fact.label.clone(),
+            };
+        }
+        return Snapshot {
+            state: "open".to_owned(),
+            at: None,
+            what: None,
+            label: fact.label.clone(),
+        };
+    }
     Snapshot {
-        state,
-        at: None,
-        what: None,
-        label: None,
+        state: fact.state.clone(),
+        at: fact.at.clone(),
+        what: fact.what.clone(),
+        label: fact.label.clone(),
     }
 }
 
@@ -826,35 +888,39 @@ fn state_of<'a>(states: &'a [(String, SlugLinkState)], slug: &str) -> Option<&'a
     states.iter().find(|(s, _)| s == slug).map(|(_, st)| st)
 }
 
-/// `resolveTarget`: one target's state from its own record only, a
-/// supersession followed exactly one hop. `reads` collects the slugs read.
+fn add_read(reads: &mut Vec<String>, slug: &str) {
+    if !reads.iter().any(|r| r == slug) {
+        reads.push(slug.to_owned());
+    }
+}
+
+/// `targetFact`: one target's fact from its own record only, a supersession
+/// followed exactly one hop. `reads` collects the slugs read.
 #[allow(
     clippy::too_many_lines,
     reason = "one table of states, ported as written"
 )]
-fn resolve_target(
-    states: &[(String, SlugLinkState)],
-    handle: &str,
-    anchor: &str,
-    reads: &mut Vec<String>,
-) -> Snapshot {
+fn target_fact(states: &[(String, SlugLinkState)], handle: &str, reads: &mut Vec<String>) -> Fact {
     let (slug, target) = match handle.split_once(' ') {
         Some((s, t)) => (s, Some(t)),
         None => (handle, None),
     };
     let Some(record) = state_of(states, slug) else {
-        return snap("dangling");
+        return Fact::of("dangling");
     };
-    if !reads.iter().any(|r| r == slug) {
-        reads.push(slug.to_owned());
-    }
-    let with =
-        |state: &'static str, at: Option<String>, what: Option<String>, label: &str| Snapshot {
-            state,
-            at,
-            what,
-            label: Some(label.to_owned()),
-        };
+    add_read(reads, slug);
+    let with = |state: &str, at: Option<String>, what: Option<String>, label: &str| Fact {
+        state: state.to_owned(),
+        at,
+        what,
+        label: Some(label.to_owned()),
+        ..Fact::default()
+    };
+    let open_since = |label: &str, since: &str, status: &str| Fact {
+        since: (!since.is_empty()).then(|| since.to_owned()),
+        status: (!since.is_empty()).then(|| status.to_owned()),
+        ..with("open", None, None, label)
+    };
 
     let Some(target) = target else {
         let label = record.goal.as_str();
@@ -869,14 +935,9 @@ fn resolve_target(
         if record.status == "superseded" {
             let successor = record.successor.clone().unwrap_or_default();
             let Some(next) = state_of(states, &successor) else {
-                return Snapshot {
-                    label: Some(label.to_owned()),
-                    ..snap("dangling")
-                };
+                return with("dangling", None, None, label);
             };
-            if !reads.contains(&successor) {
-                reads.push(successor.clone());
-            }
+            add_read(reads, &successor);
             if closed_done(&next.status) {
                 return with(
                     "resolved",
@@ -892,15 +953,12 @@ fn resolve_target(
                 label,
             );
         }
-        if !record.status_at.is_empty() && record.status_at.as_str() > anchor {
-            return with("moved", None, Some(record.status.clone()), label);
-        }
-        return with("open", None, None, label);
+        return open_since(label, &record.status_at, &record.status);
     };
 
     if is_task_target(target) {
         let Some(task) = record.plan_task(target) else {
-            return snap("dangling");
+            return Fact::of("dangling");
         };
         let label = label_source(&task.title);
         if is_resolved_task_status(&task.status) {
@@ -928,17 +986,15 @@ fn resolve_target(
                 &label,
             );
         }
-        if !task.changed_at.is_empty() && task.changed_at.as_str() > anchor {
-            return with("moved", None, Some(task.status.clone()), &label);
-        }
-        return with("open", None, None, &label);
+        return open_since(&label, &task.changed_at, &task.status);
     }
 
     if let Some(at) = ordinal_of(target, 'D') {
         let Some(decision) = at.and_then(|i| record.decisions.get(i)) else {
-            return snap("dangling");
+            return Fact::of("dangling");
         };
         let label = decision.chose.as_str();
+        let named = Some(decision.id.clone());
         if let Some(by) = decision.superseded_by {
             #[allow(
                 clippy::cast_possible_truncation,
@@ -946,35 +1002,45 @@ fn resolve_target(
                 reason = "an ordinal the reducer wrote"
             )]
             let superseder = &record.decisions[by as usize - 1];
-            return with(
-                "resolved",
-                Some(superseder.id.clone()),
-                Some(format!(
-                    "superseded by D{}",
-                    crate::json::number_to_string(by)
-                )),
-                label,
-            );
+            return Fact {
+                named,
+                ..with(
+                    "resolved",
+                    Some(superseder.id.clone()),
+                    Some(format!(
+                        "superseded by D{}",
+                        crate::json::number_to_string(by)
+                    )),
+                    label,
+                )
+            };
         }
         if let Some(until) = &decision.until
             && let Some(task) = record.plan_task(until)
             && is_resolved_task_status(&task.status)
         {
-            return with(
-                "resolved",
-                Some(task.status_at.clone()),
-                Some(format!("until {slug} {until} {}", task.status)),
-                label,
-            );
+            return Fact {
+                named,
+                ..with(
+                    "resolved",
+                    Some(task.status_at.clone()),
+                    Some(format!("until {slug} {until} {}", task.status)),
+                    label,
+                )
+            };
         }
-        return with("open", None, None, label);
+        return Fact {
+            named,
+            ..with("open", None, None, label)
+        };
     }
 
     if let Some(at) = ordinal_of(target, 'M') {
         let Some(memory) = at.and_then(|i| record.memories.get(i)) else {
-            return snap("dangling");
+            return Fact::of("dangling");
         };
         let label = memory.text.as_str();
+        let named = Some(memory.id.clone());
         if let Some(by) = memory.superseded_by {
             #[allow(
                 clippy::cast_possible_truncation,
@@ -982,19 +1048,35 @@ fn resolve_target(
                 reason = "an ordinal the reducer wrote"
             )]
             let superseder = &record.memories[by as usize - 1];
-            return with(
-                "resolved",
-                Some(superseder.id.clone()),
-                Some(format!(
-                    "superseded by M{}",
-                    crate::json::number_to_string(by)
-                )),
-                label,
-            );
+            return Fact {
+                named,
+                ..with(
+                    "resolved",
+                    Some(superseder.id.clone()),
+                    Some(format!(
+                        "superseded by M{}",
+                        crate::json::number_to_string(by)
+                    )),
+                    label,
+                )
+            };
         }
-        return with("open", None, None, label);
+        return Fact {
+            named,
+            ..with("open", None, None, label)
+        };
     }
-    snap("dangling")
+    Fact::of("dangling")
+}
+
+/// `resolveTarget`: one target's state as seen from `anchor`.
+fn resolve_target(
+    states: &[(String, SlugLinkState)],
+    handle: &str,
+    anchor: &str,
+    reads: &mut Vec<String>,
+) -> Snapshot {
+    at_anchor(&target_fact(states, handle, reads), anchor)
 }
 
 fn link(from: &str, kind: &str, to: String, anchor: String, s: Snapshot) -> Link {
@@ -1003,7 +1085,7 @@ fn link(from: &str, kind: &str, to: String, anchor: String, s: Snapshot) -> Link
         kind: kind.to_owned(),
         to,
         anchor,
-        state: s.state.to_owned(),
+        state: s.state,
         at: s.at,
         what: s.what,
         label: s.label,
@@ -1055,6 +1137,12 @@ fn links_of(states: &[(String, SlugLinkState)], home: &str, reads: &mut Vec<Stri
                 } else {
                     None
                 };
+                // The target's log decided this link's existence, so it is read
+                // even when the cite falls: a correction voiding the named event
+                // revives it.
+                if named.is_some() {
+                    add_read(reads, &slug);
+                }
                 if named.is_some_and(|n| n >= event_id.as_str()) {
                     continue;
                 }
@@ -1080,15 +1168,18 @@ fn links_of(states: &[(String, SlugLinkState)], home: &str, reads: &mut Vec<Stri
 // Maintenance.
 // ---------------------------------------------------------------------------
 
-/// A log the resolution read: `[slug, size, mtimeMs, offset, id]` — its stat
-/// and the cursor line its state was read to — or `[slug]` for one with no
-/// usable event.
+/// A log the resolution read: `[slug, size, offset, id]` — the cursor line
+/// its state was read to and the size behind it — or `[slug]` for one with no
+/// usable event. No mtime (linked-context 4.2): a dep holds by the log's
+/// content (`tail_since`); the cursor's `mtime_ms` is always 0 here.
 type Dep = (String, Option<Cursor>);
 
 /// `LINK_KEYS`: every key a cached link may carry.
 const LINK_KEYS: [&str; 8] = [
     "from", "kind", "to", "anchor", "state", "at", "what", "label",
 ];
+
+const STATES: [&str; 4] = ["open", "moved", "resolved", "dangling"];
 
 struct LinksFile {
     slugs: Vec<String>,
@@ -1129,9 +1220,7 @@ impl Link {
         };
         let kind = s("kind")?;
         let state = s("state")?;
-        if !matches!(kind.as_str(), "waits_on" | "cites")
-            || !matches!(state.as_str(), "open" | "moved" | "resolved" | "dangling")
-        {
+        if !matches!(kind.as_str(), "waits_on" | "cites") || !STATES.contains(&state.as_str()) {
             return None;
         }
         Some(Self {
@@ -1147,11 +1236,134 @@ impl Link {
     }
 }
 
+/// `Inbound` (linked-context 4.2): one handle any record's tasks link to, the
+/// tasks that do (`from`: home, task, kind — its length is the target's
+/// in-degree) and its anchor-free fact; `reads` are the logs the fact read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Inbound {
+    pub to: String,
+    pub reads: Vec<String>,
+    pub from: Vec<(String, String, String)>,
+    pub fact: Fact,
+}
+
+impl Inbound {
+    fn to_json(&self) -> Json {
+        let mut o = Object::with_capacity(10);
+        o.insert("to", Json::Str(self.to.clone()));
+        o.insert("reads", strs(&self.reads));
+        o.insert(
+            "from",
+            Json::Arr(
+                self.from
+                    .iter()
+                    .map(|(h, t, k)| {
+                        Json::Arr(vec![
+                            Json::Str(h.clone()),
+                            Json::Str(t.clone()),
+                            Json::Str(k.clone()),
+                        ])
+                    })
+                    .collect(),
+            ),
+        );
+        o.insert("state", Json::Str(self.fact.state.clone()));
+        for (k, v) in FACT_KEYS.iter().zip(self.fact.fields()) {
+            if let Some(v) = v {
+                o.insert(*k, Json::Str(v.clone()));
+            }
+        }
+        Json::Obj(o)
+    }
+
+    /// `isInbound`: known keys only, each of its type.
+    fn from_json(v: &Json) -> Option<Self> {
+        let o = v.as_obj()?;
+        if o.iter().any(|(k, _)| {
+            !matches!(k, "to" | "reads" | "from" | "state") && !FACT_KEYS.contains(&k)
+        }) {
+            return None;
+        }
+        let opt = |k: &str| match o.get(k) {
+            None => Some(None),
+            Some(v) => v.as_str().map(|s| Some(s.to_owned())),
+        };
+        let state = o.get("state")?.as_str()?.to_owned();
+        if !STATES.contains(&state.as_str()) {
+            return None;
+        }
+        let fact = Fact {
+            state,
+            at: opt("at")?,
+            what: opt("what")?,
+            label: opt("label")?,
+            since: opt("since")?,
+            status: opt("status")?,
+            named: opt("named")?,
+        };
+        if fact.state == "open" && fact.since.is_some() != fact.status.is_some() {
+            return None;
+        }
+        let from = o
+            .get("from")?
+            .as_arr()?
+            .iter()
+            .map(|s| {
+                let a = s.as_arr()?;
+                if a.len() != 3 {
+                    return None;
+                }
+                let kind = a[2].as_str()?;
+                if !matches!(kind, "waits_on" | "cites") {
+                    return None;
+                }
+                Some((
+                    a[0].as_str()?.to_owned(),
+                    a[1].as_str()?.to_owned(),
+                    kind.to_owned(),
+                ))
+            })
+            .collect::<Option<_>>()?;
+        Some(Self {
+            to: o.get("to")?.as_str()?.to_owned(),
+            reads: read_strs(o.get("reads"))?,
+            from,
+            fact,
+        })
+    }
+}
+
+struct InboundFile {
+    slugs: Vec<String>,
+    deps: Vec<Dep>,
+    targets: Vec<Inbound>,
+}
+
 fn links_path(layout: &Layout, slug: &str) -> std::path::PathBuf {
     layout
         .index_dir()
         .join(LINKS_DIR)
         .join(format!("{slug}.json"))
+}
+
+fn inbound_path(layout: &Layout) -> std::path::PathBuf {
+    layout.index_dir().join(LINKS_INBOUND)
+}
+
+fn dep_json((slug, cursor): &Dep) -> Json {
+    let mut a = vec![Json::Str(slug.clone())];
+    if let Some(c) = cursor {
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "file sizes fit f64 exactly below 2^53"
+        )]
+        a.extend([
+            Json::Num(c.size as f64),
+            Json::Num(c.offset as f64),
+            Json::Str(c.id.clone()),
+        ]);
+    }
+    Json::Arr(a)
 }
 
 fn read_dep(v: &Json) -> Option<Dep> {
@@ -1168,13 +1380,13 @@ fn read_dep(v: &Json) -> Option<Dep> {
     };
     match a.len() {
         1 => Some((slug, None)),
-        5 => Some((
+        4 => Some((
             slug,
             Some(Cursor {
                 size: count(&a[1])?,
-                mtime_ms: a[2].as_f64().filter(|m| m.is_finite())?,
-                offset: count(&a[3])?,
-                id: a[4].as_nonempty_str()?.to_owned(),
+                mtime_ms: 0.0,
+                offset: count(&a[2])?,
+                id: a[3].as_nonempty_str()?.to_owned(),
                 max_id: None,
                 voided: None,
             }),
@@ -1183,24 +1395,24 @@ fn read_dep(v: &Json) -> Option<Dep> {
     }
 }
 
+/// A versioned derived file's top-level object, or None.
 #[allow(clippy::float_cmp, reason = "the version is an exact integer")]
-fn read_links_cache(layout: &Layout, slug: &str) -> Option<LinksFile> {
-    let Ok(Json::Obj(raw)) =
-        crate::json::parse(&std::fs::read_to_string(links_path(layout, slug)).ok()?)
-    else {
+fn read_versioned(path: &std::path::Path) -> Option<Object> {
+    let Ok(Json::Obj(raw)) = crate::json::parse(&std::fs::read_to_string(path).ok()?) else {
         return None;
     };
-    if raw.get("v").and_then(Json::as_f64) != Some(LINKS_VERSION) {
-        return None;
-    }
+    (raw.get("v").and_then(Json::as_f64) == Some(LINKS_VERSION)).then_some(raw)
+}
+
+fn read_deps(raw: &Object) -> Option<Vec<Dep>> {
+    raw.get("deps")?.as_arr()?.iter().map(read_dep).collect()
+}
+
+fn read_links_cache(layout: &Layout, slug: &str) -> Option<LinksFile> {
+    let raw = read_versioned(&links_path(layout, slug))?;
     Some(LinksFile {
         slugs: read_strs(raw.get("slugs"))?,
-        deps: raw
-            .get("deps")?
-            .as_arr()?
-            .iter()
-            .map(read_dep)
-            .collect::<Option<_>>()?,
+        deps: read_deps(&raw)?,
         links: raw
             .get("links")?
             .as_arr()?
@@ -1210,92 +1422,128 @@ fn read_links_cache(layout: &Layout, slug: &str) -> Option<LinksFile> {
     })
 }
 
+fn read_inbound(layout: &Layout) -> Option<InboundFile> {
+    let raw = read_versioned(&inbound_path(layout))?;
+    Some(InboundFile {
+        slugs: read_strs(raw.get("slugs"))?,
+        deps: read_deps(&raw)?,
+        targets: raw
+            .get("targets")?
+            .as_arr()?
+            .iter()
+            .map(Inbound::from_json)
+            .collect::<Option<_>>()?,
+    })
+}
+
+/// `writeDerived`: write a derived file, and only when its bytes change.
+fn write_derived(path: &std::path::Path, value: &Json) {
+    let mut text = crate::json::stringify(value);
+    text.push('\n');
+    if std::fs::read_to_string(path).is_ok_and(|t| t == text) {
+        return;
+    }
+    let _ = crate::atomic::write_file_atomic(path, text.as_bytes());
+}
+
+fn links_dir(layout: &Layout) {
+    let _ = layout
+        .ensure_index_dir()
+        .and_then(|_| std::fs::create_dir_all(layout.index_dir().join(LINKS_DIR)));
+}
+
 fn write_links_cache(layout: &Layout, slug: &str, file: &LinksFile) {
     let mut o = Object::with_capacity(4);
     o.insert("v", Json::Num(LINKS_VERSION));
     o.insert("slugs", strs(&file.slugs));
-    o.insert(
-        "deps",
-        Json::Arr(
-            file.deps
-                .iter()
-                .map(|(s, cursor)| {
-                    let mut a = vec![Json::Str(s.clone())];
-                    if let Some(c) = cursor {
-                        #[allow(
-                            clippy::cast_precision_loss,
-                            reason = "file sizes fit f64 exactly below 2^53"
-                        )]
-                        a.extend([
-                            Json::Num(c.size as f64),
-                            Json::Num(c.mtime_ms),
-                            Json::Num(c.offset as f64),
-                            Json::Str(c.id.clone()),
-                        ]);
-                    }
-                    Json::Arr(a)
-                })
-                .collect(),
-        ),
-    );
+    o.insert("deps", Json::Arr(file.deps.iter().map(dep_json).collect()));
     o.insert(
         "links",
         Json::Arr(file.links.iter().map(Link::to_json).collect()),
     );
-    let mut text = crate::json::stringify(&Json::Obj(o));
-    text.push('\n');
-    let dir = layout.index_dir().join(LINKS_DIR);
-    let _ = layout
-        .ensure_index_dir()
-        .and_then(|_| std::fs::create_dir_all(&dir))
-        .and_then(|()| {
-            crate::atomic::write_file_atomic(&links_path(layout, slug), text.as_bytes())
-        });
+    links_dir(layout);
+    write_derived(&links_path(layout, slug), &Json::Obj(o));
 }
 
-/// `depsNow`: the deps as they stand now, or None when a log the file read
-/// has moved. A log that grew holds when every line appended past its cursor
-/// fails `link_line`, and its dep advances (`quiet_since`).
-#[allow(
-    clippy::float_cmp,
-    reason = "exact equality of a stored stat IS the contract"
-)]
-fn deps_now(layout: &Layout, deps: &[Dep]) -> Option<Vec<Dep>> {
+fn write_inbound(layout: &Layout, file: &InboundFile) {
+    let mut o = Object::with_capacity(4);
+    o.insert("v", Json::Num(LINKS_VERSION));
+    o.insert("slugs", strs(&file.slugs));
+    o.insert("deps", Json::Arr(file.deps.iter().map(dep_json).collect()));
+    o.insert(
+        "targets",
+        Json::Arr(file.targets.iter().map(Inbound::to_json).collect()),
+    );
+    links_dir(layout);
+    write_derived(&inbound_path(layout), &Json::Obj(o));
+}
+
+/// `DepNow`: a dep as it stands now, and whether its log gained a line that
+/// can move a link (`linked`), or void one (`voiding`).
+struct DepNow {
+    dep: Dep,
+    linked: bool,
+    voiding: bool,
+}
+
+fn bare(slug: &str, c: &Cursor) -> Dep {
+    (
+        slug.to_owned(),
+        Some(Cursor {
+            mtime_ms: 0.0,
+            max_id: None,
+            voided: None,
+            ..c.clone()
+        }),
+    )
+}
+
+/// `depsNow`: the deps as they stand now, each advanced over what its log
+/// gained, or None when a log the file read was rewritten, truncated, or
+/// gained its first event.
+fn deps_now(layout: &Layout, deps: &[Dep]) -> Option<Vec<DepNow>> {
     let mut now = Vec::with_capacity(deps.len());
     for (slug, want) in deps {
         let log = layout.events_path(slug);
-        let stat = log_stat(&log);
         let Some(want) = want else {
-            if stat.is_some_and(|s| s.size > 0) {
+            if log_stat(&log).is_some_and(|s| s.size > 0) {
                 return None;
             }
-            now.push((slug.clone(), None));
+            now.push(DepNow {
+                dep: (slug.clone(), None),
+                linked: false,
+                voiding: false,
+            });
             continue;
         };
-        let stat = stat?;
-        if stat.size < want.size {
+        let (cursor, fresh) = tail_since(&log, &want.id, want.offset)?;
+        if cursor.size < want.size {
             return None;
         }
-        if stat.size == want.size {
-            if stat.mtime_ms != want.mtime_ms {
-                return None;
-            }
-            now.push((slug.clone(), Some(want.clone())));
-            continue;
-        }
-        let moved = quiet_since(&log, &want.id, want.offset, link_line)?;
-        now.push((slug.clone(), Some(moved)));
+        let linked: Vec<&String> = fresh.iter().filter(|l| link_line(l)).collect();
+        now.push(DepNow {
+            dep: bare(slug, &cursor),
+            linked: !linked.is_empty(),
+            voiding: linked.iter().any(|l| voiding_line(l)),
+        });
     }
     Some(now)
 }
 
 fn dep_of(slug: &str, meta: &IndexMeta) -> Dep {
-    let cursor = meta.get(slug).map(|c| Cursor {
-        max_id: None,
-        voided: None,
-        ..c.clone()
-    });
-    (slug.to_owned(), cursor)
+    match meta.get(slug) {
+        Some(c) => bare(slug, c),
+        None => (slug.to_owned(), None),
+    }
+}
+
+fn same_deps(a: &[Dep], b: &[Dep]) -> bool {
+    a.len() == b.len()
+        && a.iter().zip(b).all(|((s, x), (t, y))| {
+            s == t
+                && x.as_ref().map(|c| (c.size, c.offset, &c.id))
+                    == y.as_ref().map(|c| (c.size, c.offset, &c.id))
+        })
 }
 
 /// The names `link_line` accepts after `"type":` — `LINK_EVENTS` and
@@ -1312,14 +1560,8 @@ const LINK_LINE_TYPES: [&str; 9] = [
     "correction",
 ];
 
-/// `linkLine`: `/"type"[ \t\n\r]*:[ \t\n\r]*"(?:<LINK_LINE_TYPES>)"/` or any
-/// `\u` escape — a line holding a link event always passes, since JSON can
-/// spell the key and its value only literally or through `\u`.
-#[must_use]
-pub fn link_line(line: &str) -> bool {
-    if line.contains("\\u") {
-        return true;
-    }
+/// `/"type"[ \t\n\r]*:[ \t\n\r]*"(?:<types>)"/`.
+fn has_type(line: &str, types: &[&str]) -> bool {
     let b = line.as_bytes();
     let ws = |b: &[u8], mut i: usize| {
         while i < b.len() && matches!(b[i], b' ' | b'\t' | b'\n' | b'\r') {
@@ -1337,13 +1579,26 @@ pub fn link_line(line: &str) -> bool {
             continue;
         }
         let rest = &b[i + 1..];
-        if LINK_LINE_TYPES.iter().any(|t| {
+        if types.iter().any(|t| {
             rest.len() > t.len() && rest.starts_with(t.as_bytes()) && rest[t.len()] == b'"'
         }) {
             return true;
         }
     }
     false
+}
+
+/// `linkLine`: `/"type"[ \t\n\r]*:[ \t\n\r]*"(?:<LINK_LINE_TYPES>)"/` or any
+/// `\u` escape — a line holding a link event always passes, since JSON can
+/// spell the key and its value only literally or through `\u`.
+#[must_use]
+pub fn link_line(line: &str) -> bool {
+    line.contains("\\u") || has_type(line, &LINK_LINE_TYPES)
+}
+
+/// `voidingLine`: a line that may be a correction, by `link_line`'s rule.
+fn voiding_line(line: &str) -> bool {
+    line.contains("\\u") || has_type(line, &["correction"])
 }
 
 /// `refreshLinkStates`: bring links.json up to date.
@@ -1361,43 +1616,165 @@ fn refresh_link_states(layout: &Layout) -> (Vec<(String, SlugLinkState)>, IndexM
     (states, meta)
 }
 
+fn sorted(mut v: Vec<String>) -> Vec<String> {
+    v.sort_by(|a, b| crate::text::cmp_utf16(a, b));
+    v.dedup();
+    v
+}
+
+/// `buildInbound`: the reverse index over every record's links.
+fn build_inbound(states: &[(String, SlugLinkState)], meta: &IndexMeta) -> InboundFile {
+    let slugs = sorted(states.iter().map(|(s, _)| s.clone()).collect());
+    let mut sources: HashMap<String, Vec<(String, String, String)>> = HashMap::new();
+    for home in &slugs {
+        for l in links_of(states, home, &mut Vec::new()) {
+            sources
+                .entry(l.to)
+                .or_default()
+                .push((home.clone(), l.from, l.kind));
+        }
+    }
+    let mut all = Vec::new();
+    let targets = sorted(sources.keys().cloned().collect())
+        .into_iter()
+        .map(|to| {
+            let mut reads = Vec::new();
+            let fact = target_fact(states, &to, &mut reads);
+            for r in &reads {
+                add_read(&mut all, r);
+            }
+            let from = sources.remove(&to).unwrap_or_default();
+            Inbound {
+                to,
+                reads: sorted(reads),
+                from,
+                fact,
+            }
+        })
+        .collect();
+    InboundFile {
+        slugs,
+        deps: sorted(all).iter().map(|s| dep_of(s, meta)).collect(),
+        targets,
+    }
+}
+
+/// `resnapshot`: the O(links) answer for a home whose own log did not move
+/// but a target's did — each cached link re-snapshotted from the reverse
+/// index's fact at its own anchor, never a pass. The reverse index is trusted
+/// only while no log the home's facts read gained a line that can move a link
+/// past its cursor. None sends the full path.
+fn resnapshot(
+    layout: &Layout,
+    home: &str,
+    slugs: &[String],
+    cached: &LinksFile,
+    now: Vec<DepNow>,
+) -> Option<Vec<Link>> {
+    let inbound = read_inbound(layout)?;
+    if inbound.slugs != slugs {
+        return None;
+    }
+    let facts: HashMap<&str, &Inbound> =
+        inbound.targets.iter().map(|t| (t.to.as_str(), t)).collect();
+    let mut reads = vec![home.to_owned()];
+    let mut links = Vec::with_capacity(cached.links.len());
+    for l in &cached.links {
+        let fact = facts.get(l.to.as_str())?;
+        for r in &fact.reads {
+            add_read(&mut reads, r);
+        }
+        if l.kind == "cites"
+            && fact
+                .fact
+                .named
+                .as_deref()
+                .is_some_and(|n| n >= l.anchor.as_str())
+        {
+            continue;
+        }
+        links.push(link(
+            &l.from,
+            &l.kind,
+            l.to.clone(),
+            l.anchor.clone(),
+            at_anchor(&fact.fact, &l.anchor),
+        ));
+    }
+    let needed: Vec<Dep> = inbound
+        .deps
+        .iter()
+        .filter(|d| reads.contains(&d.0))
+        .cloned()
+        .collect();
+    let held = deps_now(layout, &needed)?;
+    if held.iter().any(|d| d.linked) {
+        return None;
+    }
+    // A dep as the home file saw it, else as the reverse index holds it.
+    let mut pool: HashMap<String, Dep> =
+        held.into_iter().map(|d| (d.dep.0.clone(), d.dep)).collect();
+    for d in now {
+        pool.insert(d.dep.0.clone(), d.dep);
+    }
+    let deps = sorted(reads)
+        .iter()
+        .map(|s| pool.get(s).cloned())
+        .collect::<Option<Vec<_>>>()?;
+    write_links_cache(
+        layout,
+        home,
+        &LinksFile {
+            slugs: slugs.to_vec(),
+            deps,
+            links: links.clone(),
+        },
+    );
+    Some(links)
+}
+
 /// `refreshLinks`: one record's outgoing links, resolved — the travel
-/// block's only input (D2). A quiet record answers from `links/<slug>.json`
-/// after one readdir and a stat per log it depends on; anything else takes
-/// the full path and rewrites the file.
+/// block's only input (D2). Quiet: answered from `links/<slug>.json`; only a
+/// target moved: re-snapshotted from the reverse index at O(links); else the
+/// full path, which rewrites both files.
 #[must_use]
 pub fn refresh_links(layout: &Layout, slug: &str) -> Vec<Link> {
     let slugs = crate::layout::initiative_slugs(layout);
     if let Some(cached) = read_links_cache(layout, slug)
         && cached.slugs == slugs
-        && let Some(deps) = deps_now(layout, &cached.deps)
+        && let Some(now) = deps_now(layout, &cached.deps)
     {
-        let moved = deps.iter().zip(&cached.deps).any(|((_, a), (_, b))| {
-            a.as_ref().map(|c| (c.size, c.mtime_ms.to_bits()))
-                != b.as_ref().map(|c| (c.size, c.mtime_ms.to_bits()))
-        });
-        if moved {
-            write_links_cache(
-                layout,
-                slug,
-                &LinksFile {
-                    slugs: cached.slugs,
-                    deps,
-                    links: cached.links.clone(),
-                },
-            );
+        if !now.iter().any(|d| d.linked) {
+            let deps: Vec<Dep> = now.into_iter().map(|d| d.dep).collect();
+            if !same_deps(&deps, &cached.deps) {
+                write_links_cache(
+                    layout,
+                    slug,
+                    &LinksFile {
+                        slugs: cached.slugs,
+                        deps,
+                        links: cached.links.clone(),
+                    },
+                );
+            }
+            return cached.links;
         }
-        return cached.links;
+        let home_moved = now.iter().any(|d| d.dep.0 == slug && d.linked);
+        if !home_moved
+            && !now.iter().any(|d| d.voiding)
+            && let Some(links) = resnapshot(layout, slug, &slugs, &cached, now)
+        {
+            return links;
+        }
     }
     let (states, meta) = refresh_link_states(layout);
+    write_inbound(layout, &build_inbound(&states, &meta));
     if state_of(&states, slug).is_none() {
         return Vec::new();
     }
     let mut reads = Vec::new();
     let links = links_of(&states, slug, &mut reads);
-    reads.sort_by(|a, b| crate::text::cmp_utf16(a, b));
-    reads.dedup();
-    let deps = reads.iter().map(|s| dep_of(s, &meta)).collect();
+    let deps = sorted(reads).iter().map(|s| dep_of(s, &meta)).collect();
     write_links_cache(
         layout,
         slug,
@@ -1549,5 +1926,48 @@ mod tests {
             (link.state.as_str(), link.what.as_deref()),
             ("moved", Some("blocked"))
         );
+    }
+
+    #[test]
+    fn a_moved_target_re_snapshots_from_the_reverse_index_without_a_pass() {
+        use std::io::Write as _;
+        let layout = travel();
+        let _ = refresh_links(&layout, "open-wait");
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(layout.events_path("alpha"))
+            .unwrap();
+        writeln!(f, r#"{{"v":1,"id":"01M9ZZZZZZ0000000000000001","ts":"2026-09-29T00:00:00.000Z","initiative":"alpha","session":"b","source":"claude-code","actor":"agent","type":"task_status_changed","payload":{{"id":"1.1","status":"blocked"}}}}"#).unwrap();
+        drop(f);
+        // The writer's own refresh rewrites the reverse index.
+        let _ = refresh_links(&layout, "alpha");
+        // links.json unreadable: a pass would rebuild and rewrite it.
+        let tier = layout.index_dir().join(LINKS_FILE);
+        let poison = vec![b'x'; std::fs::read(&tier).unwrap().len()];
+        std::fs::write(&tier, &poison).unwrap();
+        let moved = refresh_links(&layout, "open-wait");
+        assert_eq!(std::fs::read(&tier).unwrap(), poison, "the full path ran");
+        let link = moved.iter().find(|l| l.to == "alpha 1.1").unwrap();
+        assert_eq!(
+            (link.state.as_str(), link.what.as_deref()),
+            ("moved", Some("blocked"))
+        );
+        let file = read_links_cache(&layout, "open-wait").unwrap();
+        let alpha = file.deps.iter().find(|(s, _)| s == "alpha").unwrap();
+        assert_eq!(alpha.1.as_ref().unwrap().id, "01M9ZZZZZZ0000000000000001");
+
+        // A log whose mtime alone changed holds: no pass, no rewrite.
+        let file = links_path(&layout, "open-wait");
+        let stamp = std::fs::metadata(&file).unwrap().modified().unwrap();
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(60);
+        std::fs::File::options()
+            .append(true)
+            .open(layout.events_path("alpha"))
+            .unwrap()
+            .set_modified(later)
+            .unwrap();
+        assert_eq!(refresh_links(&layout, "open-wait"), moved);
+        assert_eq!(std::fs::read(&tier).unwrap(), poison, "the full path ran");
+        assert_eq!(std::fs::metadata(&file).unwrap().modified().unwrap(), stamp);
     }
 }

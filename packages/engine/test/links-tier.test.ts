@@ -7,7 +7,7 @@ import type { TaskStatusChangedPayload } from '@sofar/schema'
 import { afterAll, describe, expect, it } from 'vitest'
 import { bindHandle, canonicalSlugs, scanCitations, titleKey } from '../src/core/citations'
 import { appendToCheckpoint, decodeLines, replayDecoded, type InitiativeState } from '../src/core/fold'
-import { LINK_LABEL_SOURCE, linkLine, refreshLinks, refreshLinkStates, type Link } from '../src/core/index-links'
+import { atAnchor, LINK_LABEL_SOURCE, linkLine, refreshLinks, refreshLinkStates, type Inbound, type Link } from '../src/core/index-links'
 import { indexDir, readIndexMeta } from '../src/core/index-store'
 import { initiativeSlugs } from '../src/core/listing'
 import { retiredOrdinals } from '../src/core/retire'
@@ -393,7 +393,7 @@ describe('links tier (linked-context 4.1)', () => {
     const good = readFileSync(file, 'utf8')
     for (const bad of [
       'not json',
-      good.replace('"v":1', '"v":2'),
+      good.replace('"v":2', '"v":1'),
       good.replace('"state":"open"', '"state":"ajar"'),
       good.replace('"slugs":[', '"slugs":["zz-extra",'),
       good.replace('"deps":[', '"deps":[["alpha",-1,0],'),
@@ -426,6 +426,9 @@ describe('links tier (linked-context 4.1)', () => {
       env: { ...process.env, SOFAR_NO_UPDATE_CHECK: '1' },
     })
     expect(readFileSync(join(indexDir(rs), 'links.json'), 'utf8')).toBe(readFileSync(join(indexDir(ts), 'links.json'), 'utf8'))
+    expect(readFileSync(join(indexDir(rs), 'links-in.json'), 'utf8'), 'the reverse index (4.2)').toBe(
+      readFileSync(join(indexDir(ts), 'links-in.json'), 'utf8'),
+    )
     const written = JSON.parse(readFileSync(linksFile(rs, slug), 'utf8')) as { slugs: string[]; links: Link[] }
     expect(written.links.length).toBeGreaterThan(0)
     expect(written.links).toEqual(refreshLinks(ts, slug))
@@ -448,7 +451,7 @@ describe('links tier (linked-context 4.1)', () => {
     expect(statSync(tier).mtimeMs).toBe(stamp)
     expect(readIndexMeta(sofar, 'meta-links.json')!.cursors.alpha!.id, 'no pass ran').toBe(cursor)
     const deps = (JSON.parse(readFileSync(linksFile(sofar, 'open-wait'), 'utf8')) as { deps: unknown[][] }).deps
-    expect(deps.find((d) => d[0] === 'alpha')![4], 'the dep advanced over the tail').toBe('01M9ZZZZZZ0000000000000002')
+    expect(deps.find((d) => d[0] === 'alpha')![3], 'the dep advanced over the tail').toBe('01M9ZZZZZZ0000000000000002')
     // The pass itself skips it too: the cursor moves, links.json is not rewritten.
     refreshLinkStates(sofar)
     expect(statSync(tier).mtimeMs).toBe(stamp)
@@ -477,4 +480,162 @@ describe('links tier (linked-context 4.1)', () => {
       expect(linkLine(line), line).toBe(false)
     }
   })
+})
+
+/**
+ * linked-context 4.2: a target that moved re-snapshots from the reverse index
+ * (links-in.json) at O(links) — no pass, so links.json is never opened — and
+ * a log is judged moved by its content, never its mtime. Whatever path
+ * answers, the links equal the full path's and the from-logs reference.
+ */
+describe('links tier staleness (linked-context 4.2)', () => {
+  const inboundFile = (sofar: string) => join(indexDir(sofar), 'links-in.json')
+  const readInboundFile = (sofar: string) =>
+    JSON.parse(readFileSync(inboundFile(sofar), 'utf8')) as { deps: unknown[][]; targets: (Inbound & Record<string, unknown>)[] }
+
+  /**
+   * Run `fn` with links.json unreadable: the pass would rebuild and rewrite
+   * it, so finding it still poisoned afterwards proves no pass ran.
+   */
+  function withoutPass<T>(sofar: string, fn: () => T): T {
+    const tier = join(indexDir(sofar), 'links.json')
+    const real = readFileSync(tier)
+    const poison = Buffer.alloc(real.length, 'x')
+    writeFileSync(tier, poison)
+    const out = fn()
+    expect(readFileSync(tier).equals(poison), 'links.json rewritten: the full path ran').toBe(true)
+    writeFileSync(tier, real)
+    return out
+  }
+
+  /** Whether `fn` took the full path: links.json poisoned going in, rebuilt coming out. */
+  function tookFullPath(sofar: string, fn: () => void): boolean {
+    const tier = join(indexDir(sofar), 'links.json')
+    const real = readFileSync(tier)
+    writeFileSync(tier, Buffer.alloc(real.length, 'x'))
+    fn()
+    return !readFileSync(tier).equals(Buffer.alloc(real.length, 'x'))
+  }
+
+  it('a moved target re-snapshots from the reverse index once its writer refreshed', () => {
+    const sofar = travelRecord()
+    refreshLinks(sofar, 'open-wait')
+    append(sofar, 'alpha', 'task_status_changed', { id: '1.1', status: 'blocked', note: 'waiting' }, '01M9ZZZZZZ0000000000000001')
+    // The writer's own refresh (mcp/context.ts): alpha's log moved, the full path, the reverse index rewritten.
+    refreshLinks(sofar, 'alpha')
+    const moved = withoutPass(sofar, () => refreshLinks(sofar, 'open-wait'))
+    expect(moved.find((l) => l.to === 'alpha 1.1')).toMatchObject({ state: 'moved', what: 'blocked' })
+    expect(moved).toEqual(fromLogs(sofar).get('open-wait'))
+    const deps = (JSON.parse(readFileSync(linksFile(sofar, 'open-wait'), 'utf8')) as { deps: unknown[][] }).deps
+    expect(deps.find((d) => d[0] === 'alpha')![3], 'the dep advanced to the move').toBe('01M9ZZZZZZ0000000000000001')
+    // Then quiet again: answered from the file.
+    expect(withoutPass(sofar, () => refreshLinks(sofar, 'open-wait'))).toEqual(moved)
+    expect(full(sofar, 'open-wait')).toEqual(moved)
+  })
+
+  it('a target moved by a writer that did not refresh: the reverse index is behind, the full path answers', () => {
+    const sofar = travelRecord()
+    refreshLinks(sofar, 'open-wait')
+    append(sofar, 'alpha', 'task_status_changed', { id: '1.1', status: 'done' }, '01M9ZZZZZZ0000000000000001')
+    let got: Link[] = []
+    expect(tookFullPath(sofar, () => (got = refreshLinks(sofar, 'open-wait')))).toBe(true)
+    expect(got.find((l) => l.to === 'alpha 1.1')).toMatchObject({ state: 'resolved', what: 'done' })
+    expect(got).toEqual(fromLogs(sofar).get('open-wait'))
+  })
+
+  it('a log whose mtime alone changed (a checkout) holds: no pass, no rewrite', () => {
+    const sofar = travelRecord()
+    const want = refreshLinks(sofar, 'open-wait')
+    const file = linksFile(sofar, 'open-wait')
+    const stamp = statSync(file).mtimeMs
+    for (const slug of initiativeSlugs(sofar)) {
+      const log = join(sofar, 'initiatives', slug, 'events.jsonl')
+      if (existsSync(log)) utimesSync(log, new Date(), new Date(Date.now() + 60_000))
+    }
+    expect(withoutPass(sofar, () => refreshLinks(sofar, 'open-wait'))).toEqual(want)
+    expect(statSync(file).mtimeMs, 'links/<slug>.json rewritten').toBe(stamp)
+  })
+
+  it('a decision naming a cite from the future drops it, supersession adds the successor, a correction takes the full path', () => {
+    const sofar = join(tempRoot(), '.sofar')
+    created(sofar, 'other', 'the other record')
+    plan(sofar, 'other', [{ id: '1.1', title: 'other task' }])
+    created(sofar, 'next', 'where other went')
+    plan(sofar, 'next', [{ id: '1.1', title: 'next task' }])
+    created(sofar, 'later', 'cites after the fact')
+    plan(sofar, 'later', [{ id: '1.1', title: 'a later reader' }])
+    created(sofar, 'home', 'the home record')
+    plan(sofar, 'home', [{ id: '1.1', title: 'per other D2 and other 1.1', waits_on: ['other'] }])
+    expect(brief(refreshLinks(sofar, 'home'))).toEqual([
+      '1.1 waits_on other — open — the other record',
+      '1.1 cites other D2 — dangling',
+      '1.1 cites other 1.1 — open — other task',
+    ])
+
+    // D2 lands after the cite: it named the future, so it is no cite. Another
+    // record citing D2 after it landed keeps the handle in the reverse index,
+    // whose fact carries D2's own id — the rule re-applied without a pass.
+    const d1 = append(sofar, 'other', 'decision_logged', { chose: 'first', over: 'x', because: 'y' })
+    append(sofar, 'other', 'decision_logged', { chose: 'second', over: 'x', because: 'y' })
+    append(sofar, 'later', 'task_status_changed', { id: '1.1', status: 'active', note: 'per other D2' })
+    refreshLinks(sofar, 'other')
+    refreshLinks(sofar, 'later')
+    const dropped = withoutPass(sofar, () => refreshLinks(sofar, 'home'))
+    expect(brief(dropped)).toEqual(['1.1 waits_on other — open — the other record', '1.1 cites other 1.1 — open — other task'])
+    expect(dropped).toEqual(fromLogs(sofar).get('home'))
+    expect(refreshLinks(sofar, 'later').map((l) => l.to)).toEqual(['other D2'])
+
+    // Superseded into next: one hop, and next becomes a log the file depends on.
+    append(sofar, 'other', 'initiative_status_changed', { status: 'superseded', successor: 'next' })
+    refreshLinks(sofar, 'other')
+    const hop = withoutPass(sofar, () => refreshLinks(sofar, 'home'))
+    expect(brief(hop)[0]).toBe('1.1 waits_on other — moved (superseded → next) — the other record')
+    expect(hop).toEqual(fromLogs(sofar).get('home'))
+    const deps = (JSON.parse(readFileSync(linksFile(sofar, 'home'), 'utf8')) as { deps: unknown[][] }).deps
+    expect(deps.map((d) => d[0])).toEqual(['home', 'next', 'other'])
+
+    // A correction voids D1, so `other D2` names nothing again and the cite
+    // revives — only the full path can see a link come back.
+    append(sofar, 'other', 'correction', { ref: d1, reason: 'test' })
+    refreshLinks(sofar, 'other')
+    let revived: Link[] = []
+    expect(tookFullPath(sofar, () => (revived = refreshLinks(sofar, 'home')))).toBe(true)
+    expect(brief(revived)).toContain('1.1 cites other D2 — dangling')
+    expect(revived).toEqual(fromLogs(sofar).get('home'))
+  })
+
+  it('real logs: the reverse index is every link turned around, and each fact re-snapshots every link to it', () => {
+    const sofar = realRecord()
+    const reference = fromLogs(sofar)
+    refreshLinks(sofar, initiativeSlugs(sofar)[0]!)
+    const { targets } = readInboundFile(sofar)
+    const want = new Map<string, [string, string, string][]>()
+    for (const home of [...reference.keys()].sort()) {
+      for (const l of reference.get(home)!) want.set(l.to, [...(want.get(l.to) ?? []), [home, l.from, l.kind]])
+    }
+    expect(targets.map((t) => [t.to, t.from])).toEqual([...want.keys()].sort().map((k) => [k, want.get(k)]))
+    expect(targets.some((t) => t.from.length > 1), 'no target has in-degree above 1; the index proves little').toBe(true)
+    const byHandle = new Map(targets.map((t) => [t.to, t]))
+    for (const links of reference.values()) {
+      for (const l of links) expect({ from: l.from, kind: l.kind, to: l.to, anchor: l.anchor, ...atAnchor(byHandle.get(l.to)!, l.anchor) }).toEqual(l)
+    }
+  }, 120_000)
+
+  it('real logs: moving every cross-record target of the most-linked record re-snapshots without a pass', () => {
+    const sofar = realRecord()
+    const reference = fromLogs(sofar)
+    const [home] = [...reference.entries()]
+      .map(([s, links]) => [s, links.filter((l) => !l.to.startsWith(`${s} `) && l.to !== s).length] as const)
+      .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0]!
+    refreshLinks(sofar, home)
+    const targets = [...new Set(reference.get(home)!.map((l) => l.to.split(' ')[0]!))].filter((s) => s !== home && initiativeSlugs(sofar).includes(s))
+    expect(targets.length).toBeGreaterThan(0)
+    let n = 0
+    for (const slug of targets) {
+      n += 1
+      append(sofar, slug, 'decision_logged', { chose: `moved ${slug}`, over: 'x', because: 'y' }, `01M9ZZZZZZ${String(n).padStart(16, '0')}`)
+      refreshLinks(sofar, slug)
+      expect(withoutPass(sofar, () => refreshLinks(sofar, home)), slug).toEqual(fromLogs(sofar).get(home))
+    }
+  }, 120_000)
 })

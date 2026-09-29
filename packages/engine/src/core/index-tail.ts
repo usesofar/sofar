@@ -158,26 +158,30 @@ function decodeWanted(
 }
 
 /**
- * Has this log grown past `cursor` by lines `wanted` rejects ONLY? The cursor
- * advanced over them when so, else null: the offset no longer lands on its
- * event (a rewrite), or a wanted line was appended. What lets a cache keyed
- * by a log's stat survive the appends it does not read (linked-context 4.1)
- * at the cost of the appended bytes — the corroboration readSince makes.
+ * The log read from `cursor` on, by its CONTENT: null unless the line at the
+ * offset still carries the cursor's id (a rewrite, a truncation, a restore),
+ * else the lines appended past it, raw, and the cursor advanced over them.
+ * Never the mtime — git rewrites it (cross-initiative-conflicts D1) — so a
+ * checkout that touched a log without changing it costs one short read, not a
+ * rebuild. What lets a cache keyed by a log survive the appends it does not
+ * read (linked-context 4.1) and tell a target that moved from one that did not
+ * (4.2), at the cost of the appended bytes: the corroboration readSince makes.
  */
-export function quietSince(
+export function tailSince(
   logPath: string,
   cursor: { id: string; offset: number },
-  wanted: (line: string) => boolean,
-): InitiativeCursor | null {
+): { cursor: InitiativeCursor; fresh: string[] } | null {
   const chunk = readFrom(logPath, cursor.offset)
   if (chunk === null) return null
   const lines = linesWithOffsets(chunk.text, cursor.offset)
   const first = lines[0] === undefined ? null : decode(lines[0].line)
   if (first === null || first.event.id !== cursor.id) return null
   const fresh = lines.slice(1)
-  if (fresh.some(({ line }) => wanted(line))) return null
   const { last } = decodeWanted(fresh, () => false, { id: cursor.id, offset: cursor.offset })
-  return { id: last!.id, offset: last!.offset, size: chunk.size, mtimeMs: chunk.mtimeMs }
+  return {
+    cursor: { id: last!.id, offset: last!.offset, size: chunk.size, mtimeMs: chunk.mtimeMs },
+    fresh: fresh.map(({ line }) => line),
+  }
 }
 
 /**

@@ -15,7 +15,7 @@ import { writeFileAtomic } from './atomic'
 import { bindHandle, canonicalSlugs, scanCitations, titleKey } from './citations'
 import { passOverRecord } from './index-pass'
 import { ensureIndexDir, INDEX_SCHEMA_VERSION, indexDir, logStat, readIndexFile, writeIndexFile, type InitiativeCursor } from './index-store'
-import { quietSince, type IndexedEvent } from './index-tail'
+import { tailSince, type IndexedEvent } from './index-tail'
 import { supersededOrdinal } from './index-tier1'
 import { initiativeSlugs } from './listing'
 
@@ -36,11 +36,16 @@ import { initiativeSlugs } from './listing'
  *     rewrites it.
  *   links/<slug>.json — one record's outgoing links, resolved. DERIVED ONLY and
  *     trusted only while the initiative set is the one it was resolved against
- *     and every log it read (the home log, each target's, a followed
- *     successor's) measures the size and mtime its state was read at. Any
- *     mismatch, and any missing or corrupt file, takes the full path: pass,
- *     resolve, rewrite. test/links-tier.test.ts holds the cached answer equal
- *     to the full path and to the answer computed from the logs by the fold.
+ *     and no log it read (the home log, each target's, a followed successor's)
+ *     gained a line that can move a link past the cursor its state was read
+ *     at — checked by content, never mtime (4.2). A moved TARGET re-snapshots
+ *     from links-in.json; anything else, and any missing or corrupt file,
+ *     takes the full path: pass, resolve, rewrite.
+ *   links-in.json — the reverse index (4.2): per target handle, the tasks
+ *     linking to it (the in-degree travel damps by) and its anchor-free Fact,
+ *     rewritten on every full path. test/links-tier.test.ts holds every path's
+ *     answer equal to the full path and to the answer computed from the logs
+ *     by the fold.
  *
  * Task-sourced only. A decision, note or next-action cite has no task source
  * and never travels (SPEC §Travel block), so it would be bytes on the hot path
@@ -50,7 +55,9 @@ import { initiativeSlugs } from './listing'
 const LINKS_FILE = 'links.json'
 const LINKS_META = 'meta-links.json'
 const LINKS_DIR = 'links'
-export const LINKS_VERSION = 1
+const LINKS_INBOUND = 'links-in.json'
+/** 2: deps drop the mtime (4.2). */
+export const LINKS_VERSION = 2
 
 /**
  * How much of a label the tier keeps: the travel line clips a label to 80
@@ -385,6 +392,39 @@ function applyLinks(state: SlugLinkState, event: IndexedEvent): void {
 
 type Snapshot = Pick<Link, 'state' | 'at' | 'what' | 'label'>
 
+/**
+ * A target's state with the anchor left out (linked-context 4.2): everything
+ * resolution reads from the target's record, so a link re-snapshots from it
+ * in O(1) with its own anchor (atAnchor). `open` with `since` is a target that
+ * changed at that event — `moved` (to `status`) for a link anchored before it.
+ * `named` is a decision's or memory's own event id: a cite anchored at or
+ * before it named the future and is no cite (§Record graph).
+ */
+export interface Fact {
+  state: LinkState
+  at?: string
+  what?: string
+  label?: string
+  since?: string
+  status?: string
+  named?: string
+}
+
+/** A fact seen from one anchor: SPEC §Links, Resolution states. */
+export function atAnchor(fact: Fact, anchor: string): Snapshot {
+  const label = fact.label === undefined ? {} : { label: fact.label }
+  if (fact.state === 'open') {
+    if (fact.since !== undefined && fact.since > anchor) return { state: 'moved', what: fact.status!, ...label }
+    return { state: 'open', ...label }
+  }
+  return {
+    state: fact.state,
+    ...(fact.at === undefined ? {} : { at: fact.at }),
+    ...(fact.what === undefined ? {} : { what: fact.what }),
+    ...label,
+  }
+}
+
 const TASK_TARGET = /^(?:T\d+|\d+\.\d+)$/
 const DECISION_TARGET = /^D(\d+)$/
 const MEMORY_TARGET = /^M(\d+)$/
@@ -399,16 +439,11 @@ function planTask(state: SlugLinkState, id: string): TaskRow | undefined {
 }
 
 /**
- * One target's state, from its own record only — never transitive, and a
+ * One target's fact, from its own record only — never transitive, and a
  * supersession followed exactly one hop. Precedence: dangling > resolved >
  * moved > open.
  */
-export function resolveTarget(
-  states: Readonly<Record<string, SlugLinkState>>,
-  handle: string,
-  anchor: string,
-  reads: Reads = new Set(),
-): Snapshot {
+export function targetFact(states: Readonly<Record<string, SlugLinkState>>, handle: string, reads: Reads = new Set()): Fact {
   const space = handle.indexOf(' ')
   const slug = space < 0 ? handle : handle.slice(0, space)
   const target = space < 0 ? null : handle.slice(space + 1)
@@ -427,7 +462,7 @@ export function resolveTarget(
       if (closedDone(next.status)) return { state: 'resolved', at: next.statusAt, what: next.status, label }
       return { state: 'moved', what: `superseded → ${successor}`, label }
     }
-    if (record.statusAt !== '' && record.statusAt > anchor) return { state: 'moved', what: record.status, label }
+    if (record.statusAt !== '') return { state: 'open', label, since: record.statusAt, status: record.status }
     return { state: 'open', label }
   }
 
@@ -438,7 +473,7 @@ export function resolveTarget(
     if (isResolvedTaskStatus(task.status)) return { state: 'resolved', at: task.statusAt, what: task.status, label }
     if (closedDone(record.status)) return { state: 'resolved', at: record.statusAt, what: record.status, label }
     if (record.status === 'superseded') return { state: 'moved', what: `superseded → ${record.successor ?? ''}`, label }
-    if (task.changedAt !== '' && task.changedAt > anchor) return { state: 'moved', what: task.status, label }
+    if (task.changedAt !== '') return { state: 'open', label, since: task.changedAt, status: task.status }
     return { state: 'open', label }
   }
 
@@ -447,17 +482,18 @@ export function resolveTarget(
     const decision = record.decisions[Number(d[1]) - 1]
     if (decision === undefined) return { state: 'dangling' }
     const label = decision.chose
+    const named = decision.id
     if (decision.superseded_by !== undefined) {
       const by = record.decisions[decision.superseded_by - 1]!
-      return { state: 'resolved', at: by.id, what: `superseded by D${decision.superseded_by}`, label }
+      return { state: 'resolved', at: by.id, what: `superseded by D${decision.superseded_by}`, label, named }
     }
     if (decision.until !== undefined) {
       const until = planTask(record, decision.until)
       if (until !== undefined && isResolvedTaskStatus(until.status)) {
-        return { state: 'resolved', at: until.statusAt, what: `until ${slug} ${decision.until} ${until.status}`, label }
+        return { state: 'resolved', at: until.statusAt, what: `until ${slug} ${decision.until} ${until.status}`, label, named }
       }
     }
-    return { state: 'open', label }
+    return { state: 'open', label, named }
   }
 
   const m = MEMORY_TARGET.exec(target)
@@ -465,13 +501,24 @@ export function resolveTarget(
     const memory = record.memories[Number(m[1]) - 1]
     if (memory === undefined) return { state: 'dangling' }
     const label = memory.text
+    const named = memory.id
     if (memory.superseded_by !== undefined) {
       const by = record.memories[memory.superseded_by - 1]!
-      return { state: 'resolved', at: by.id, what: `superseded by M${memory.superseded_by}`, label }
+      return { state: 'resolved', at: by.id, what: `superseded by M${memory.superseded_by}`, label, named }
     }
-    return { state: 'open', label }
+    return { state: 'open', label, named }
   }
   return { state: 'dangling' }
+}
+
+/** One target's state as seen from `anchor`. */
+export function resolveTarget(
+  states: Readonly<Record<string, SlugLinkState>>,
+  handle: string,
+  anchor: string,
+  reads: Reads = new Set(),
+): Snapshot {
+  return atAnchor(targetFact(states, handle, reads), anchor)
 }
 
 /**
@@ -517,6 +564,9 @@ export function linksOf(
         const m = MEMORY_TARGET.exec(citation.handle)
         const named =
           d !== null ? target?.decisions[Number(d[1]) - 1] : m !== null ? target?.memories[Number(m[1]) - 1] : undefined
+        // The target's log decided this link's existence, so it is read even
+        // when the cite falls: a correction voiding the named event revives it.
+        if (named !== undefined) reads.add(citation.slug)
         if (named !== undefined && named.id >= eventId) continue
         const prior = cites.get(to)
         if (prior === undefined || eventId > prior) cites.set(to, eventId)
@@ -534,11 +584,13 @@ export function linksOf(
 // ---------------------------------------------------------------------------
 
 /**
- * A log the resolution read: [slug, size, mtimeMs, offset, id] — its stat and
- * the cursor line the state was read to — or [slug] for one with no usable
- * event.
+ * A log the resolution read: [slug, size, offset, id] — the cursor line its
+ * state was read to and the size behind it — or [slug] for one with no usable
+ * event. No mtime (linked-context 4.2): a dep holds by the log's CONTENT, the
+ * cursor line still in place (tailSince), so a checkout that rewrote the
+ * mtime of an unchanged log costs a short read, never the full path.
  */
-type Dep = [string, number, number, number, string] | [string]
+type Dep = [string, number, number, string] | [string]
 
 interface LinksFile {
   v: number
@@ -547,7 +599,29 @@ interface LinksFile {
   links: Link[]
 }
 
+/**
+ * The reverse index (linked-context 4.2): every handle any record's tasks link
+ * to, with the tasks that link to it (`from` — [home, task, kind], home in
+ * slug order then plan order; its length is the target's in-degree, SPEC
+ * §Travel block) and its anchor-free Fact. `reads` are the logs the fact read;
+ * `deps` holds each of them at the cursor the fact was taken at.
+ */
+export interface Inbound extends Fact {
+  to: string
+  reads: string[]
+  from: [string, string, LinkKind][]
+}
+
+interface InboundFile {
+  v: number
+  slugs: string[]
+  deps: Dep[]
+  targets: Inbound[]
+}
+
 const LINK_KEYS = new Set(['from', 'kind', 'to', 'anchor', 'state', 'at', 'what', 'label'])
+const FACT_KEYS = ['at', 'what', 'label', 'since', 'status', 'named'] as const
+const INBOUND_KEYS = new Set<string>(['to', 'reads', 'from', 'state', ...FACT_KEYS])
 const STATES = new Set<string>(['open', 'moved', 'resolved', 'dangling'])
 
 function isLink(v: unknown): v is Link {
@@ -560,74 +634,129 @@ function isLink(v: unknown): v is Link {
   return ['at', 'what', 'label'].every((k) => l[k] === undefined || typeof l[k] === 'string')
 }
 
+const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === 'string')
+
+function isInbound(v: unknown): v is Inbound {
+  if (typeof v !== 'object' || v === null) return false
+  const t = v as Record<string, unknown>
+  if (Object.keys(t).some((k) => !INBOUND_KEYS.has(k))) return false
+  if (typeof t.to !== 'string' || !isStrings(t.reads)) return false
+  if (typeof t.state !== 'string' || !STATES.has(t.state)) return false
+  if (t.state === 'open' && (t.since === undefined) !== (t.status === undefined)) return false
+  if (!Array.isArray(t.from)) return false
+  const source = (s: unknown): boolean =>
+    Array.isArray(s) && s.length === 3 && typeof s[0] === 'string' && typeof s[1] === 'string' && (s[2] === 'waits_on' || s[2] === 'cites')
+  return t.from.every(source) && FACT_KEYS.every((k) => t[k] === undefined || typeof t[k] === 'string')
+}
+
 function isDep(v: unknown): v is Dep {
   if (!Array.isArray(v) || typeof v[0] !== 'string') return false
   if (v.length === 1) return true
   const count = (n: unknown): boolean => Number.isInteger(n) && (n as number) >= 0
-  return v.length === 5 && count(v[1]) && typeof v[2] === 'number' && Number.isFinite(v[2]) && count(v[3]) && typeof v[4] === 'string' && v[4].length > 0
+  return v.length === 4 && count(v[1]) && count(v[2]) && typeof v[3] === 'string' && v[3].length > 0
 }
 
 function linksPath(sofarDir: string, slug: string): string {
   return join(indexDir(sofarDir), LINKS_DIR, `${slug}.json`)
 }
 
-function readLinksCache(sofarDir: string, slug: string): LinksFile | null {
+function inboundPath(sofarDir: string): string {
+  return join(indexDir(sofarDir), LINKS_INBOUND)
+}
+
+function readJson(path: string): Record<string, unknown> | null {
   try {
-    const raw = JSON.parse(readFileSync(linksPath(sofarDir, slug), 'utf8')) as Partial<LinksFile>
-    if (raw.v !== LINKS_VERSION) return null
-    if (!Array.isArray(raw.slugs) || !raw.slugs.every((s) => typeof s === 'string')) return null
-    if (!Array.isArray(raw.deps) || !raw.deps.every(isDep)) return null
-    if (!Array.isArray(raw.links) || !raw.links.every(isLink)) return null
-    return raw as LinksFile
+    const raw: unknown = JSON.parse(readFileSync(path, 'utf8'))
+    return typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null
   } catch {
     return null
   }
 }
 
-function writeLinksCache(sofarDir: string, slug: string, file: LinksFile): void {
+function readLinksCache(sofarDir: string, slug: string): LinksFile | null {
+  const raw = readJson(linksPath(sofarDir, slug))
+  if (raw === null || raw.v !== LINKS_VERSION || !isStrings(raw.slugs)) return null
+  if (!Array.isArray(raw.deps) || !raw.deps.every(isDep)) return null
+  if (!Array.isArray(raw.links) || !raw.links.every(isLink)) return null
+  return raw as unknown as LinksFile
+}
+
+function readInbound(sofarDir: string): InboundFile | null {
+  const raw = readJson(inboundPath(sofarDir))
+  if (raw === null || raw.v !== LINKS_VERSION || !isStrings(raw.slugs)) return null
+  if (!Array.isArray(raw.deps) || !raw.deps.every(isDep)) return null
+  if (!Array.isArray(raw.targets) || !raw.targets.every(isInbound)) return null
+  return raw as unknown as InboundFile
+}
+
+/** Write a derived file, and only when its bytes change. */
+function writeDerived(path: string, value: unknown): void {
+  const text = `${JSON.stringify(value)}\n`
   try {
-    ensureIndexDir(sofarDir)
-    mkdirSync(join(indexDir(sofarDir), LINKS_DIR), { recursive: true })
-    writeFileAtomic(linksPath(sofarDir, slug), `${JSON.stringify(file)}\n`)
+    if (readFileSync(path, 'utf8') === text) return
+  } catch {
+    // absent: write it
+  }
+  try {
+    writeFileAtomic(path, text)
   } catch {
     // derived and disposable: an unwritten cache is the full path next time
   }
 }
 
+function linksDir(sofarDir: string): void {
+  try {
+    ensureIndexDir(sofarDir)
+    mkdirSync(join(indexDir(sofarDir), LINKS_DIR), { recursive: true })
+  } catch {
+    // writeDerived fails quietly after it
+  }
+}
+
+function writeLinksCache(sofarDir: string, slug: string, file: LinksFile): void {
+  linksDir(sofarDir)
+  writeDerived(linksPath(sofarDir, slug), file)
+}
+
+/** A dep as it stands now, and whether its log gained a line that can move a link, or void one. */
+interface DepNow {
+  dep: Dep
+  linked: boolean
+  voiding: boolean
+}
+
 /**
- * The deps as they stand now, or null when a log the file read has moved.
- * A log measuring what it did holds; one that GREW holds too when every line
- * appended past its cursor fails LINK_LINE — a hook's file_touched or
- * command_run cannot move a link — and its dep advances (quietSince). Anything
- * else, a rewrite included, is a move.
+ * The deps as they stand now, each advanced over what its log gained, or null
+ * when a log the file read was rewritten, truncated, or gained its first
+ * event. Whether a grown log MOVED is the caller's question: `linked` says a
+ * line past the cursor passes LINK_LINE (a hook's file_touched or command_run
+ * cannot move a link), `voiding` that one may be a correction.
  */
-function depsNow(sofarDir: string, deps: readonly Dep[]): Dep[] | null {
-  const now: Dep[] = []
+function depsNow(sofarDir: string, deps: readonly Dep[]): DepNow[] | null {
+  const now: DepNow[] = []
   for (const dep of deps) {
     const log = join(sofarDir, 'initiatives', dep[0], 'events.jsonl')
-    const stat = logStat(log)
     if (dep.length === 1) {
+      const stat = logStat(log)
       if (stat !== null && stat.size > 0) return null
-      now.push(dep)
+      now.push({ dep, linked: false, voiding: false })
       continue
     }
-    const [slug, size, mtimeMs, offset, id] = dep
-    if (stat === null || stat.size < size) return null
-    if (stat.size === size) {
-      if (stat.mtimeMs !== mtimeMs) return null
-      now.push(dep)
-      continue
-    }
-    const moved = quietSince(log, { id, offset }, linkLine)
-    if (moved === null) return null
-    now.push(depOf(slug, moved))
+    const [slug, size, offset, id] = dep
+    const tail = tailSince(log, { id, offset })
+    if (tail === null || tail.cursor.size < size) return null
+    const linked = tail.fresh.filter(linkLine)
+    now.push({ dep: depOf(slug, tail.cursor), linked: linked.length > 0, voiding: linked.some(voidingLine) })
   }
   return now
 }
 
 function depOf(slug: string, cursor: InitiativeCursor | undefined): Dep {
-  return cursor === undefined ? [slug] : [slug, cursor.size, cursor.mtimeMs, cursor.offset, cursor.id]
+  return cursor === undefined ? [slug] : [slug, cursor.size, cursor.offset, cursor.id]
 }
+
+const sameDep = (a: Dep, b: Dep): boolean => a.length === b.length && a.every((v, i) => v === b[i])
+const sameSlugs = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((s, i) => s === b[i])
 
 /**
  * LINK_EVENTS and `correction` (which can void one), as a raw-line test: a
@@ -640,6 +769,13 @@ const LINK_LINE =
 
 export function linkLine(line: string): boolean {
   return line.includes('\\u') || LINK_LINE.test(line)
+}
+
+const CORRECTION_LINE = /"type"[ \t\n\r]*:[ \t\n\r]*"correction"/
+
+/** A line that may be a correction, by linkLine's airtight rule. */
+function voidingLine(line: string): boolean {
+  return line.includes('\\u') || CORRECTION_LINE.test(line)
 }
 
 /** Bring links.json up to date: every record's source and target state. */
@@ -661,27 +797,108 @@ export function refreshLinkStates(sofarDir: string): { states: Record<string, Sl
   return { states, cursors }
 }
 
+/** The reverse index over every record's links, each target's fact taken from `states`. */
+export function buildInbound(
+  states: Readonly<Record<string, SlugLinkState>>,
+  cursors: Readonly<Record<string, InitiativeCursor>>,
+): InboundFile {
+  const slugs = Object.keys(states).sort()
+  const sources = new Map<string, [string, string, LinkKind][]>()
+  for (const home of slugs) {
+    for (const l of linksOf(states, home)) {
+      const from = sources.get(l.to)
+      if (from === undefined) sources.set(l.to, [[home, l.from, l.kind]])
+      else from.push([home, l.from, l.kind])
+    }
+  }
+  const all = new Set<string>()
+  const targets: Inbound[] = [...sources.keys()].sort().map((to) => {
+    const reads: Reads = new Set()
+    const fact = targetFact(states, to, reads)
+    for (const r of reads) all.add(r)
+    const entry: Inbound = { to, reads: [...reads].sort(), from: sources.get(to)!, state: fact.state }
+    for (const k of FACT_KEYS) if (fact[k] !== undefined) entry[k] = fact[k]
+    return entry
+  })
+  return { v: LINKS_VERSION, slugs, deps: [...all].sort().map((s) => depOf(s, cursors[s])), targets }
+}
+
+/**
+ * The O(links) answer for a home whose own log did not move but a target's
+ * did (linked-context 4.2): each cached link re-snapshotted from the reverse
+ * index's fact at its own anchor, never a pass, never links.json. The reverse
+ * index is refreshed on the full path only — a writer's own refresh after an
+ * append that can move a link — so it is trusted here only while no log the
+ * home's facts read gained such a line past its cursor: a tail read per log
+ * the home depends on, never one per target in the repo. Null when it cannot
+ * answer (absent, behind, or missing a handle) — the full path then does. A
+ * cite the target now names from the future falls, as linksOf would drop it;
+ * a correction never reaches here (it can revive one).
+ */
+function resnapshot(sofarDir: string, home: string, slugs: string[], cached: LinksFile, now: readonly DepNow[]): Link[] | null {
+  const inbound = readInbound(sofarDir)
+  if (inbound === null || !sameSlugs(inbound.slugs, slugs)) return null
+  const facts = new Map(inbound.targets.map((t) => [t.to, t]))
+  const reads: Reads = new Set([home])
+  const links: Link[] = []
+  for (const l of cached.links) {
+    const fact = facts.get(l.to)
+    if (fact === undefined) return null
+    for (const r of fact.reads) reads.add(r)
+    if (l.kind === 'cites' && fact.named !== undefined && fact.named >= l.anchor) continue
+    links.push({ from: l.from, kind: l.kind, to: l.to, anchor: l.anchor, ...atAnchor(fact, l.anchor) })
+  }
+  const held = depsNow(sofarDir, inbound.deps.filter((d) => reads.has(d[0])))
+  if (held === null || held.some((d) => d.linked)) return null
+  // A dep as the home file saw it, else as the reverse index holds it — both current.
+  const pool = new Map<string, Dep>(held.map(({ dep }) => [dep[0], dep]))
+  for (const { dep } of now) pool.set(dep[0], dep)
+  const deps: Dep[] = []
+  for (const s of [...reads].sort()) {
+    const dep = pool.get(s)
+    if (dep === undefined) return null
+    deps.push(dep)
+  }
+  writeLinksCache(sofarDir, home, { v: LINKS_VERSION, slugs, deps, links })
+  return links
+}
+
 /**
  * One record's outgoing links, resolved — the travel block's only input
- * (D2). A quiet record answers from links/<slug>.json after one readdir and a
- * stat per log it depends on, plus a scan of whatever those logs gained that
- * no link can read; anything else takes the full path and rewrites the file.
+ * (D2). Three paths, cheapest first:
+ *   quiet   — no log it read gained a line that can move a link: answered
+ *             from links/<slug>.json after one readdir and a tail read per
+ *             log it depends on;
+ *   target  — only a TARGET's log moved: every link re-snapshotted from the
+ *             reverse index at O(links) (resnapshot, 4.2);
+ *   full    — the home moved, the initiative set changed, a file is missing
+ *             or corrupt, or the reverse index cannot answer: the pass,
+ *             linksOf, and both files rewritten.
  * Called at write time (mcp/context.ts, after every projected append) and at
  * session start.
  */
 export function refreshLinks(sofarDir: string, slug: string): Link[] {
   const slugs = initiativeSlugs(sofarDir)
   const cached = readLinksCache(sofarDir, slug)
-  if (cached !== null && cached.slugs.length === slugs.length && cached.slugs.every((s, i) => s === slugs[i])) {
-    const deps = depsNow(sofarDir, cached.deps)
-    if (deps !== null) {
-      if (deps.some((d, i) => d[1] !== cached.deps[i]![1] || d[2] !== cached.deps[i]![2])) {
-        writeLinksCache(sofarDir, slug, { ...cached, deps })
+  if (cached !== null && sameSlugs(cached.slugs, slugs)) {
+    const now = depsNow(sofarDir, cached.deps)
+    if (now !== null) {
+      if (!now.some((d) => d.linked)) {
+        if (now.some((d, i) => !sameDep(d.dep, cached.deps[i]!))) {
+          writeLinksCache(sofarDir, slug, { ...cached, deps: now.map((d) => d.dep) })
+        }
+        return cached.links
       }
-      return cached.links
+      const homeMoved = now.some((d) => d.dep[0] === slug && d.linked)
+      if (!homeMoved && !now.some((d) => d.voiding)) {
+        const links = resnapshot(sofarDir, slug, slugs, cached, now)
+        if (links !== null) return links
+      }
     }
   }
   const { states, cursors } = refreshLinkStates(sofarDir)
+  linksDir(sofarDir)
+  writeDerived(inboundPath(sofarDir), buildInbound(states, cursors))
   if (states[slug] === undefined) return []
   const reads: Reads = new Set()
   const links = linksOf(states, slug, reads)
