@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator: sign 6.1, rule H9's family key, allow memory-lead's refused steps.
+Next action: Operator: allow memory-lead's refused steps, rule H9, sign 6.1.
