@@ -1,0 +1,2 @@
+{"v":1,"id":"01M1E74X600000000000000001","ts":"2026-09-01T10:10:00.000Z","initiative":"theta","session":"cli","source":"cli","actor":"human","user":"fixture@example.invalid","type":"initiative_created","payload":{"goal":"replaced then finished","slug":"theta"}}
+{"v":1,"id":"01M1E75TFG0000000000000002","ts":"2026-09-01T10:10:30.000Z","initiative":"theta","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"initiative_status_changed","payload":{"status":"superseded","successor":"iota"}}

@@ -1,0 +1,2 @@
+{"v":1,"id":"01M1E718000000000000000001","ts":"2026-09-01T10:08:00.000Z","initiative":"epsilon","session":"cli","source":"cli","actor":"human","user":"fixture@example.invalid","type":"initiative_created","payload":{"goal":"a chain head","slug":"epsilon"}}
+{"v":1,"id":"01M1E94ZZ00000000000000002","ts":"2026-09-01T10:45:00.000Z","initiative":"epsilon","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"initiative_status_changed","payload":{"status":"superseded","successor":"zeta"}}

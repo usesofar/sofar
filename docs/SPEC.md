@@ -1377,8 +1377,13 @@ D2) — never reach.json, never buildGraph, never a neighbour's log.
   `<seeds>` is `,`-joined task ids; `waits on` becomes `wait on` for more
   than one. `<what>` for moved is the target's current status or `superseded
   → <successor>`; for resolved it is the status, `superseded by D<m>`/`M<m>`,
-  or `until <slug> <id> done`; dangling carries none. A cite line never says
-  "waits".
+  or `until <slug> <id> done` — an initiative resolved through its successor
+  says the successor's status, not `superseded`; dangling carries none. A
+  dangling line keeps ` — <label>` only when the handle's own target exists
+  (a superseded initiative whose successor is missing) and ends at
+  `dangling` when nothing binds (linked-context D9). A cite line never says
+  "waits". The goldens are `syn.travel-*` in the conformance suite
+  (linked-context 1.3).
 - CAP — at most TRAVEL_TARGET_CAP (6) entries and TRAVEL_BUDGET (600) chars
   including the header and overflow line, carved from the 6,000 cap
   (§Digest composition: YIELDING, precedence 3), never added to it.

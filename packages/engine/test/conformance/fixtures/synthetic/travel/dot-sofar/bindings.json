@@ -1,0 +1,11 @@
+{
+  "open-wait": "open-wait",
+  "resolved-wait": "resolved-wait",
+  "dangling": "dangling",
+  "supersession": "supersession",
+  "cap-overflow": "cap-overflow",
+  "cycle-b": "cycle-b",
+  "cycle-a": "cycle-a",
+  "no-links": "no-links",
+  "quiet-links": "quiet-links"
+}

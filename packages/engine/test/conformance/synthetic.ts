@@ -51,6 +51,8 @@ interface EvOptions {
   user?: string | null
   /** Milliseconds after the previous event; default 60 s. */
   after?: number
+  /** Absolute clock instead of `after` — orders events ACROSS logs (travel). */
+  at?: number
   /** Extra envelope keys (preserved-unknown-field coverage). */
   extra?: Record<string, unknown>
 }
@@ -70,7 +72,7 @@ export class LogBuilder {
 
   /** Mint the next envelope without appending it (for duplicates and reordering). */
   mint(type: string, payload: Record<string, unknown>, o: EvOptions = {}): EventEnvelope {
-    this.ms += o.after ?? 60_000
+    this.ms = o.at ?? this.ms + (o.after ?? 60_000)
     this.seq += 1
     const id = ulidAt(this.ms, this.seq)
     const user = o.user === null ? undefined : (o.user ?? FIXTURE_USER)
@@ -566,6 +568,126 @@ function many(): FixtureFiles {
   return files
 }
 
+/**
+ * The travel block's goldens (linked-context 1.3, SPEC §Travel block),
+ * written before the code (rust-core D1). NEIGHBOUR records hold the targets;
+ * each HOME record is one scenario, bound to a branch of its own name, and
+ * declares `waits_on` on plan tasks — an additive field today's readers
+ * ignore, so every home renders today's digest exactly. Times are absolute
+ * minutes on one clock so an anchor (the home's plan_updated) orders against
+ * the neighbour events that move or resolve its targets:
+ *   t 1–10   neighbours created; alpha 1.4 done BEFORE any anchor
+ *   t 20–35  homes created and planned — the anchors
+ *   t 40–48  alpha 1.2 blocked, 1.3 done, D1 superseded; beta done; gamma,
+ *            epsilon, zeta, omega superseded; iota done
+ */
+function travel(): FixtureFiles {
+  const files: FixtureFiles = { 'bindings.json': '' }
+  const at = (minute: number) => ({ at: EPOCH + minute * 60_000 })
+  const branches: Record<string, string> = {}
+  const record = (slug: string, goal: string, minute: number, tasks: Array<Record<string, unknown>> = []): LogBuilder => {
+    const b = new LogBuilder(slug)
+    b.ev('initiative_created', { slug, goal }, { actor: 'human', ...at(minute) })
+    if (tasks.length > 0) b.ev('plan_updated', plan(goal, [{ name: 'Work', status: 'active', tasks }]), at(minute + 1))
+    return b
+  }
+  const close = (b: LogBuilder, minute: number, status: string, successor?: string) =>
+    b.ev('initiative_status_changed', { status, ...(successor !== undefined ? { successor } : {}) }, at(minute))
+  const put = (b: LogBuilder) => {
+    files[`initiatives/${b.slug}/events.jsonl`] = b.text()
+  }
+  const home = (slug: string, minute: number, tasks: Array<Record<string, unknown>>) => {
+    branches[slug] = slug
+    put(record(slug, `travel scenario: ${slug}`, minute, tasks))
+  }
+
+  // ---- neighbours ----------------------------------------------------------
+  const alpha = record('alpha', 'the neighbour the homes wait on', 1, [
+    { id: '1.1', title: 'schema field for handles', status: 'active' },
+    { id: '1.2', title: 'write surfaces accept the field' },
+    { id: '1.3', title: 'fold carries the set' },
+    { id: '1.4', title: 'validators for the field' },
+  ])
+  alpha.ev('decision_logged', { chose: 'tier file per record', over: 'one shared tier file', because: 'a cursor per log' }, at(3))
+  alpha.ev('memory_promoted', { text: 'Tier files live under the index directory.' }, at(4))
+  alpha.ev('task_status_changed', { id: '1.4', status: 'done' }, at(5))
+  alpha.ev('task_status_changed', { id: '1.2', status: 'blocked', note: 'needs the schema' }, at(40))
+  alpha.ev('task_status_changed', { id: '1.3', status: 'done' }, at(41))
+  alpha.ev('decision_logged', { chose: 'tier file per record pair', over: 'tier file per record', because: 'pairs read together', supersedes: 'D1' }, at(42))
+  put(alpha)
+
+  const beta = record('beta', 'a neighbour that finishes', 2, [{ id: '1.1', title: 'left pending at close' }])
+  close(beta, 43, 'done')
+  put(beta)
+
+  const gamma = record('gamma', 'first design of the tier', 6, [{ id: '1.1', title: 'draft tier layout' }])
+  close(gamma, 44, 'superseded', 'delta')
+  put(gamma)
+  put(record('delta', 'second design of the tier', 7.5, [{ id: '1.1', title: 'redraw tier layout' }]))
+
+  const epsilon = record('epsilon', 'a chain head', 8)
+  close(epsilon, 45, 'superseded', 'zeta')
+  put(epsilon)
+  const zeta = record('zeta', 'the chain middle', 8.2)
+  close(zeta, 46, 'superseded', 'eta')
+  put(zeta)
+  put(record('eta', 'the chain end', 9))
+
+  const omega = record('omega', 'superseded into nothing', 9.5)
+  close(omega, 47, 'superseded', 'vanished')
+  put(omega)
+
+  const theta = record('theta', 'replaced then finished', 10)
+  close(theta, 10.5, 'superseded', 'iota')
+  put(theta)
+  const iota = record('iota', 'the replacement', 10.2)
+  close(iota, 48, 'done')
+  put(iota)
+
+  // ---- homes: one scenario each --------------------------------------------
+  // Open: focus 1.1 and blocked 1.2 both seed; alpha 1.1 is ONE entry naming
+  // both; alpha 1.2 moved (blocked at t 40); the home target and the
+  // non-seed 1.3's wait never travel.
+  home('open-wait', 20, [
+    { id: '1.1', title: 'wire the tier reader', status: 'active', waits_on: ['alpha 1.1', 'alpha'] },
+    { id: '1.2', title: 'render the block', status: 'blocked', waits_on: ['alpha 1.2', 'alpha 1.1', 'open-wait 1.3'] },
+    { id: '1.3', title: 'measure the read', waits_on: ['alpha 1.3'] },
+  ])
+  // Resolved since the block, newest first; alpha 1.4 resolved before the anchor.
+  home('resolved-wait', 22, [
+    { id: '1.1', title: 'adopt the tier layout', status: 'active', waits_on: ['alpha 1.3', 'alpha D1', 'alpha 1.4', 'beta'] },
+  ])
+  // Dangling after open is never the order: dangling sorts before open.
+  home('dangling', 24, [
+    { id: '1.1', title: 'bind the handles', status: 'active', waits_on: ['alpha 1.1', 'alpha 9.9', 'alpha D7', 'nosuch 1.1'] },
+  ])
+  // One supersession hop: open successor, chain (first successor named),
+  // missing successor, a task in a superseded record, finished successor.
+  home('supersession', 26, [
+    { id: '1.1', title: 'move to the new tier design', status: 'active', waits_on: ['gamma', 'epsilon', 'omega', 'gamma 1.1', 'theta'] },
+  ])
+  // Eight eligible entries; TRAVEL_TARGET_CAP shows six.
+  home('cap-overflow', 28, [
+    { id: '1.1', title: 'wire every neighbour', status: 'active', waits_on: ['alpha 1.1', 'alpha 1.2', 'alpha M1', 'delta', 'eta', 'nosuch 2.2'] },
+    { id: '1.2', title: 'second seed', status: 'blocked', waits_on: ['alpha 1.1', 'zeta', 'alpha'] },
+  ])
+  // A waits_on cycle: read one hop, never followed back.
+  home('cycle-b', 30, [{ id: '1.1', title: 'cycle side b', status: 'active', waits_on: ['cycle-a 1.1'] }])
+  home('cycle-a', 32, [{ id: '1.1', title: 'cycle side a', status: 'active', waits_on: ['cycle-b 1.1'] }])
+  // Zero bytes: no links at all, and links that are all quiet.
+  home('no-links', 34, [
+    { id: '1.1', title: 'plain work', status: 'active' },
+    { id: '1.2', title: 'more plain work' },
+  ])
+  home('quiet-links', 36, [
+    { id: '1.1', title: 'quiet work', status: 'active', waits_on: ['alpha 1.4', 'quiet-links 1.2'] },
+    { id: '1.2', title: 'home target', waits_on: ['alpha 1.1'] },
+  ])
+
+  files['bindings.json'] = bindings(branches)
+  return files
+}
+
 export const SYNTHETIC: Record<string, () => FixtureFiles> = {
   baseline,
   corrupt,
@@ -576,6 +698,7 @@ export const SYNTHETIC: Record<string, () => FixtureFiles> = {
   driven,
   lifecycle,
   many,
+  travel,
 }
 
 export function syntheticDir(name: string): string {

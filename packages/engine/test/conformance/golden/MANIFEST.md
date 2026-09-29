@@ -1,5 +1,16 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **linked-context 1.3** (D9), on linked-context 8a7af2d: eight
+`syn.travel-*` cases over the new `travel` synthetic fixture, one home
+record per scenario (open wait, resolved wait, dangling handle, supersession
+chain, cap overflow, cycle, no links, quiet links). No existing golden
+moved. Six are written AHEAD of the code (`ahead: 'linked-context 5.1'`):
+seeded from the TypeScript reference, then the Travel block hand-inserted
+from SPEC §Travel block. Until 5.1 lands the suite checks the reference
+equals each golden with the block cut out, and NOT the golden whole.
+`syn.travel-no-links` and `syn.travel-quiet-links` are plain recordings —
+their contract is zero bytes, today's digest exactly.
+
 Re-recorded from the TypeScript reference for **session-naming 1.1/1.2
 (D1)**, on top of main 26b37e1: every SessionStart and UserPromptSubmit
 whose payload names no `session_title` now hands Claude Code the session's
