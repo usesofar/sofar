@@ -1413,8 +1413,12 @@ D2) — never reach.json, never buildGraph, never a neighbour's log.
   "waits". The goldens are `syn.travel-*` in the conformance suite
   (linked-context 1.3).
 - CAP — at most TRAVEL_TARGET_CAP (6) entries and TRAVEL_BUDGET (600) chars
-  including the header and overflow line, carved from the 6,000 cap
-  (§Digest composition: YIELDING, precedence 3), never added to it.
+  including the header, the overflow line and the closing blank line, each
+  line counted with its newline. The block is the LONGEST prefix of entries
+  that fits with its exact tail — the blank line when it holds every entry,
+  else the overflow line naming the rest — every prefix tried, since the last
+  entry drops the overflow line (linked-context D24). It is carved from the
+  6,000 cap (§Digest composition: YIELDING, precedence 3), never added to it.
   Precedence 3 claims budget after Memory and Repo memory so DEDUPE reads
   what they actually rendered, and before the decision index and last
   session, which yield to it. Entries

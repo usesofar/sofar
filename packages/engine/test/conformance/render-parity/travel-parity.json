@@ -887,7 +887,7 @@
       "focus": [],
       "rules": [],
       "memories": [],
-      "budget": 119,
+      "budget": 108,
       "indegree": {},
       "links": [
         {
@@ -924,9 +924,9 @@
         }
       ],
       "lines": [
-        "Travel — linked targets in other records (1 of 2):",
+        "Travel — linked targets in other records (2 of 2):",
         "- 1.1 waits on b 1.1 — open",
-        "- …and 1 more (sofar find alpha)",
+        "- 1.1 waits on c 1.1 — open",
         ""
       ]
     },
@@ -939,7 +939,7 @@
       "focus": [],
       "rules": [],
       "memories": [],
-      "budget": 118,
+      "budget": 107,
       "indegree": {},
       "links": [
         {
@@ -1113,7 +1113,7 @@
       "focus": [],
       "rules": [],
       "memories": [],
-      "budget": 233,
+      "budget": 227,
       "indegree": {},
       "links": [
         {

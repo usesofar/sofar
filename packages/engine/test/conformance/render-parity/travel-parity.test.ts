@@ -127,15 +127,16 @@ const CASES: CaseInput[] = [
     id: 'budget-exact',
     home: 'alpha',
     seeds: ['1.1'],
-    // header 50+1, line 27+1, reserve 40: 119 fits one line, 118 falls back.
-    budget: 119,
+    // header 50+1, lines 27+1 each, blank 1: 108 fits both. One line would
+    // need its overflow line (32+2): 113, past 108 — so 107 falls back.
+    budget: 108,
     links: [link('1.1', 'waits_on', 'b 1.1', 'open'), link('1.1', 'waits_on', 'c 1.1', 'open')],
   },
   {
     id: 'budget-single',
     home: 'alpha',
     seeds: ['1.1'],
-    budget: 118,
+    budget: 107,
     links: [link('1.1', 'waits_on', 'b 1.1', 'open'), link('1.1', 'waits_on', 'c 1.1', 'open')],
   },
   {
@@ -162,8 +163,9 @@ const CASES: CaseInput[] = [
     home: 'alpha',
     seeds: ['1.1'],
     // Each line is 70 UTF-16 units (20 pairs) but 112 UTF-8 bytes: two fit in
-    // units, one would in bytes.
-    budget: 51 + 71 * 2 + 40,
+    // units, one would in bytes. The tail is `- …and 1 more (sofar find
+    // alpha)` (32) plus its newline and the blank line.
+    budget: 51 + 71 * 2 + 34,
     links: Array.from({ length: 3 }, (_, i) => link('1.1', 'waits_on', `b 1.${i + 1}`, 'open', { label: '😀'.repeat(20) })),
   },
 ]

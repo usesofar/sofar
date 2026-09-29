@@ -14,7 +14,6 @@ use crate::text::{cmp_utf16, is_js_whitespace, utf16_len};
 pub const TRAVEL_TARGET_CAP: usize = 6;
 pub const TRAVEL_BUDGET: usize = 600;
 const TRAVEL_LABEL_BUDGET: usize = 80;
-const OVERFLOW_RESERVE: usize = 40;
 
 /// `TravelInput`: the home record's links and each target's repo-wide in-degree.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -257,7 +256,10 @@ fn entry_line(e: &TravelEntry) -> String {
     format!("- {seeds} {verb} {} — {}{what}{label}", e.to, e.state)
 }
 
-/// `travelLines`: the block within `budget`.
+/// `travelLines`: the block within `budget` — the longest prefix of whole
+/// entries that fits with its exact tail (the blank line when it holds every
+/// entry, else the overflow line); every prefix is tried, since the last
+/// entry drops the overflow line (linked-context D24).
 #[must_use]
 pub fn travel_lines(entries: &[TravelEntry], home: &str, budget: usize) -> Vec<String> {
     let n = entries.len();
@@ -266,17 +268,27 @@ pub fn travel_lines(entries: &[TravelEntry], home: &str, budget: usize) -> Vec<S
     }
     let header =
         |shown: usize| format!("Travel — linked targets in other records ({shown} of {n}):");
-    let mut lines: Vec<String> = Vec::new();
-    let mut used = utf16_len(&header(n.min(TRAVEL_TARGET_CAP))) + 1;
-    for e in entries.iter().take(TRAVEL_TARGET_CAP) {
-        let line = entry_line(e);
-        let cost = utf16_len(&line) + 1;
-        if used + cost + OVERFLOW_RESERVE > budget {
-            break;
+    let overflow = |rest: usize| format!("- …and {rest} more (sofar find {home})");
+    let mut lines: Vec<String> = entries
+        .iter()
+        .take(TRAVEL_TARGET_CAP)
+        .map(entry_line)
+        .collect();
+    let mut shown = 0;
+    let mut used = utf16_len(&header(lines.len())) + 1;
+    for (i, line) in lines.iter().enumerate() {
+        used += utf16_len(line) + 1;
+        let rest = n - i - 1;
+        let tail = if rest == 0 {
+            1
+        } else {
+            utf16_len(&overflow(rest)) + 2
+        };
+        if used + tail <= budget {
+            shown = i + 1;
         }
-        lines.push(line);
-        used += cost;
     }
+    lines.truncate(shown);
     if lines.is_empty() {
         let single = format!("Travel: {n} linked target(s) in other records (sofar find {home})");
         return if utf16_len(&single) + 2 <= budget {
@@ -289,7 +301,7 @@ pub fn travel_lines(entries: &[TravelEntry], home: &str, budget: usize) -> Vec<S
     let mut out = vec![header(lines.len())];
     out.extend(lines);
     if rest > 0 {
-        out.push(format!("- …and {rest} more (sofar find {home})"));
+        out.push(overflow(rest));
     }
     out.push(String::new());
     out

@@ -15,7 +15,6 @@ import { clip, relevanceScore } from './shared'
 export const TRAVEL_TARGET_CAP = 6
 export const TRAVEL_BUDGET = 600
 const TRAVEL_LABEL_BUDGET = 80
-const OVERFLOW_RESERVE = 40
 
 /** What the caller reads from the links tier for one home record. */
 export interface TravelInput {
@@ -167,29 +166,36 @@ function entryLine(e: TravelEntry): string {
 }
 
 /**
- * The block within `budget`: whole entries while they fit with the overflow
- * reserve held, at most TRAVEL_TARGET_CAP, then `…and K more`; the single
+ * The block within `budget`: the longest prefix of whole entries, at most
+ * TRAVEL_TARGET_CAP, that fits with its tail, then `…and K more`; the single
  * count line when not even the first entry fits; nothing at all when there is
- * no entry (ZERO BYTES) or not even that line fits.
+ * no entry (ZERO BYTES) or not even that line fits. The budget counts what the
+ * composer charges — every line plus its newline, and the closing blank line
+ * (SPEC §Travel block, CAP) — so each prefix's tail is exact: the blank line
+ * alone when it holds every entry, else the overflow line naming the rest. A
+ * prefix that fits can follow one that did not (the last entry drops the
+ * overflow line), so every prefix is tried (linked-context D24).
  */
 export function travelLines(entries: readonly TravelEntry[], home: string, budget: number): string[] {
   const n = entries.length
   if (n === 0) return []
   const header = (shown: number): string => `Travel — linked targets in other records (${shown} of ${n}):`
-  const lines: string[] = []
-  let used = header(Math.min(n, TRAVEL_TARGET_CAP)).length + 1
-  for (const e of entries.slice(0, TRAVEL_TARGET_CAP)) {
-    const line = entryLine(e)
-    if (used + line.length + 1 + OVERFLOW_RESERVE > budget) break
-    lines.push(line)
+  const overflow = (rest: number): string => `- …and ${rest} more (sofar find ${home})`
+  const all = entries.slice(0, TRAVEL_TARGET_CAP).map(entryLine)
+  let shown = 0
+  let used = header(all.length).length + 1
+  all.forEach((line, i) => {
     used += line.length + 1
-  }
+    const rest = n - i - 1
+    if (used + (rest === 0 ? 1 : overflow(rest).length + 2) <= budget) shown = i + 1
+  })
+  const lines = all.slice(0, shown)
   if (lines.length === 0) {
     const single = `Travel: ${n} linked target(s) in other records (sofar find ${home})`
     return single.length + 2 <= budget ? [single, ''] : []
   }
   const rest = n - lines.length
-  return [header(lines.length), ...lines, ...(rest > 0 ? [`- …and ${rest} more (sofar find ${home})`] : []), '']
+  return [header(lines.length), ...lines, ...(rest > 0 ? [overflow(rest)] : []), '']
 }
 
 /**
