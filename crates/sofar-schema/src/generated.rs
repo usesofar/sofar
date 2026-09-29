@@ -409,6 +409,9 @@ pub struct PlanTaskInput {
     pub title: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub verify: ::std::option::Option<TaskVerify>,
+    #[doc = "Declared links (linked-context 2.1, SPEC §Links): canonical qualified handles."]
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub waits_on: ::std::vec::Vec<::std::string::String>,
 }
 #[doc = "`PlanUpdatedPayload`"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
@@ -768,7 +771,7 @@ pub struct SuggestionTrust {
     #[doc = "Event id of the decision carrying the verdict."]
     pub verdict: ::std::string::String,
 }
-#[doc = "`TaskAddedPayload`"]
+#[doc = "`waits_on` (linked-context 2.1, SPEC §Links) is the task's DECLARED link set, additive and optional like command_run's `ok`/`exit`: an old reader ignores it. Absent leaves the set unchanged, present replaces it, `[]` clears it. Stored entries are always canonical qualified handles (WAITS_ON_HANDLE_RE) — write surfaces qualify a bare `D<n>`, `T<n>` or `<n>.<n>` to the home slug before the append, so the log never holds one."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct TaskAddedPayload {
     pub id: ::std::string::String,
@@ -778,6 +781,8 @@ pub struct TaskAddedPayload {
     pub title: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub verify: ::std::option::Option<TaskVerify>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub waits_on: ::std::vec::Vec<::std::string::String>,
 }
 #[doc = "Where a task wants to be run (session-driver 3.2, D10). Hints, not orders: anything the RUN states — the model/effort `run_started.surface` recorded, or the driver's own flags — wins over them, because a run whose second half ran a different model than its record names is two runs wearing one id. What the run leaves open, the task fills.\n\n`agent` names an ADAPTER (`claude-code`, `codex`), and it is the one field the driver cannot honour halfway: a run that cannot reach the named agent, or whose policy that agent cannot run, refuses to start rather than falling back to the default one.\n\nNothing else records the route: the plan carries the hint and the launched session's own `session_started` carries the tool and model it actually ran, so a third copy on the handoff would be the one that goes stale (D3)."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default, PartialEq)]
@@ -860,6 +865,8 @@ pub struct TaskStatusChangedPayload {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub note: ::std::option::Option<::std::string::String>,
     pub status: TaskStatus,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub waits_on: ::std::vec::Vec<::std::string::String>,
 }
 #[doc = "The task's acceptance command (r1-fixes 3.1, D19): what `sofar drive` runs before it accepts the task as done. A shell command line, run in `cwd` relative to the launch directory (default the launch directory itself), killed after `timeout_ms`. The plan carries it like a route, and like a route it survives only as long as a full-replace plan restates it. An agent can write a plan, so the driver runs a plan-level command ONLY when it falls inside the run's recorded permission surface (D19) — the operator's `--verify` is the other, always-approved source."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]

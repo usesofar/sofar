@@ -4,17 +4,17 @@
 
 Goal: A session serves the network of threads around its task, not one log. Declared `waits_on` links (asserted) and derived citations from task, note and next-action text (offered) connect records at task grain. A write-time hot tier lets the SessionStart digest show, within budget, whether what a blocked or next task waits on has since moved. Deterministic, zero model calls, byte-parity TS/Rust, D18 budget held. No sub-initiatives: grouping is links only (D5). Find gets faster without touching context (Phase 8).
 
-Progress: 3 done, 1 dropped, 21 remaining
+Progress: 4 done, 1 dropped, 20 remaining
 
 ## Phase 1 — Contract (SPEC + goldens before code, rust-core D1) [pending] — 3/3 done
 
 - [x] 1.1 SPEC link vocabulary: declared waits_on (asserted) vs derived cites (offered) per record-index D2; qualified handle grammar <slug> D<n>|T<n>|<n>.<n>|M<n>; per-target resolution states open/moved/resolved/dangling (decision superseded or until-task resolved; task done/dropped; initiative closed, superseded follows successor one hop; memory superseded) — verified pass @f7199cd (attempt 1)
 - [x] 1.2 SPEC travel block: only the next task and blocked tasks seed it; one hop TO a record, never through (record-index D12); order open waits → resolved-since-block → offered cites ranked by focus terms (memory-lead D5) with 1/log(in-degree) hub damping; whole entries, cap 6 targets / 600 chars carved from the existing 6k cap, numeric omitted (record-graph D6); dedupe against foreign rules and repo memory already rendered; zero bytes when no links — verified pass @8a7af2d (attempt 1)
-- [x] 1.3 Golden fixtures in conformance/golden: open wait, resolved wait, dangling handle, supersession chain, cap overflow, cycle, no links → byte-identical digest to today
+- [x] 1.3 Golden fixtures in conformance/golden: open wait, resolved wait, dangling handle, supersession chain, cap overflow, cycle, no links → byte-identical digest to today — verified pass @d4b1539 (attempt 1)
 
-## Phase 2 — Declared links (schema + write surfaces) [pending] — 0/3 done
+## Phase 2 — Declared links (schema + write surfaces) [pending] — 1/3 done
 
-- [ ] 2.1 packages/schema: optional waits_on handle list on TaskStatusChangedPayload, PlanTaskInput and TaskAddedPayload; validators, EVENT_TYPE_REFERENCE, schema:emit + Rust regen; additive optional field per the user/ok/exit precedent (old readers ignore it); note the fingerprint bump invalidates snapshot/checkpoint/digest caches once
+- [x] 2.1 packages/schema: optional waits_on handle list on TaskStatusChangedPayload, PlanTaskInput and TaskAddedPayload; validators, EVENT_TYPE_REFERENCE, schema:emit + Rust regen; additive optional field per the user/ok/exit precedent (old readers ignore it); note the fingerprint bump invalidates snapshot/checkpoint/digest caches once
 - [ ] 2.2 Fold carries declared handles on the task (single log only; resolution is NOT the fold's job — it lives in the links tier, Phase 4)
 - [ ] 2.3 Write surfaces: sofar_update_task, sofar_update_plan, sofar_end_session task changes and `sofar new --waits-on` accept waits_on; unknown slug rejected, unbound id warned (dangling), waits_on cycle warned (beads-style readiness predicate)
 
@@ -55,4 +55,4 @@ Progress: 3 done, 1 dropped, 21 remaining
 - [ ] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
 - [ ] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
 
-Next action: 2.1: waits_on schema field
+Next action: 2.2: fold carries declared waits_on on the task
