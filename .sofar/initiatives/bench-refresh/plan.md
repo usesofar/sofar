@@ -79,4 +79,4 @@ Progress: 19 done, 1 dropped, 6 remaining
 - [ ] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap
 
 Active phase: Phase 5 — Round 2
-Next action: After the L36 merge lands: run the staged smoke (install_l36_engine.sh, make_plist.sh, bootstrap via sofar-e8, readout.py); then finalize ROUND-2-REPORT.md with the smoke result and put the D19 ruling to the operator.
+Next action: Commit the report; put the D19 ruling (C1, C2, C3, C5 negative on chain B; round 3 on the release carrying the L36 fix with a fresh held-out chain) to the operator; then 6.1 sign-off and 6.2/6.3 on their word.

@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: On C6 exit: signal quiet host; run plan 01M3MDZS.
+Next action: Freeze round 3 on rc.4 (memory-lead 5.3); then bench-refresh 6.1 sign-off.
