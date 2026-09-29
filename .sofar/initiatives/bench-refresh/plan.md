@@ -79,4 +79,4 @@ Progress: 22 done, 1 dropped, 3 remaining
 - [ ] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap
 
 Active phase: Phase 5 — Round 2
-Next action: Operator signs off 6.1 on ROUND-2-REPORT.md (1c83f21) and rules on publishing the harness and workload; then 6.2 launch assets and 6.3 claim replacement on their word.
+Next action: Wait for memory-lead 3.2 to record the runner hash (H9 72631d6 + H5 090a153); when round 3 is staged, add `compact=15` to the Chain L segments file for S21–S24 and stage lever-4 jobs.json. Operator-only items stay open: 6.1 sign-off on ROUND-2-REPORT.md (1c83f21), publishing decision, competitor-screen venue.
