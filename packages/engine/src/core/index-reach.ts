@@ -17,7 +17,7 @@ import {
   sessionNodeId,
   taskNodeId,
 } from './adjacency'
-import { bindHandle, canonicalSlugs, scanCitations } from './citations'
+import { bindHandle, canonicalSlugs, scanCitations, titleKey } from './citations'
 import { passOverRecord } from './index-pass'
 import { INDEX_SCHEMA_VERSION, readIndexFile, writeIndexFile } from './index-store'
 import type { IndexedEvent } from './index-tail'
@@ -283,13 +283,11 @@ function taskRow(state: SlugReachState, id: string): TaskRow {
 }
 
 /**
- * The text a title anchor compares: the stored, clipped title. Exported so
- * buildGraph moves a title cite's anchor on exactly the events this index does
- * (linked-context 3.2) — the two may never cite different events for one cite.
+ * The text a title anchor compares lives in citations.ts, below this index, so
+ * the links tier (linked-context 4.1) moves a title anchor on exactly the
+ * events this index and buildGraph do (3.2) without importing reach.
  */
-export function titleKey(title: string): string {
-  return clipProse(title, REACH_PROSE)
-}
+export { titleKey }
 
 /**
  * Record a task's title. The anchor moves only when the TEXT changes: a plan

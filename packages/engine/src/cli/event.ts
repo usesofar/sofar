@@ -51,6 +51,7 @@ const SHIPPING_WINDOW = 30
 /** Subject clip on the commits-by-task line (D24). */
 const COMMIT_SUBJECT_BUDGET = 72
 import { refreshTier0, refreshTier0Known } from '../core/index-tier0'
+import { refreshLinks, type Link } from '../core/index-links'
 import {
   foreignDecisions,
   lastTouch,
@@ -758,6 +759,19 @@ function adjacentRecords(sofarDir: string, slug: string, declared: GuardIndex | 
   }
 }
 
+/**
+ * The home record's outgoing links with their targets' states (linked-context
+ * 4.1) — the links tier ONLY, never reach or buildGraph (D2). Its own
+ * try/catch like every index reader here: [] on any failure.
+ */
+function linkedTargets(sofarDir: string, slug: string): Link[] {
+  try {
+    return refreshLinks(sofarDir, slug)
+  } catch {
+    return []
+  }
+}
+
 /** The scope tier, refreshed once per SessionStart for neighbours and rules; null when unreadable. */
 function declaredIndex(sofarDir: string): GuardIndex | null {
   try {
@@ -817,6 +831,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // Every other record's standing rules (memory-lead 2.2, D8): the other
     // fact no single log holds, from the same refresh.
     const rules: RepoRule[] = scope === null ? [] : repoRules(scope, slug, retireEnabled())
+    // The links tier, the travel block's only input (linked-context D2), kept
+    // materialised here as at write time; the block renders it from 5.1.
+    linkedTargets(ctx.sofarDir, slug)
     // The per-session notices — recent work elsewhere, the closed banner, the
     // cold-resume advisory, shipping — once led the output as a preface. Since
     // r1-fixes 2.3 (D12) they ride INTO renderStatus as `notices` and land in

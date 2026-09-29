@@ -91,9 +91,79 @@ fn lines_with_offsets(text: &str, base: u64) -> Vec<(&str, u64)> {
     out
 }
 
-/// `readSince`: events appended since the cursor, plus the cursor to store next.
+/// A raw-line prefilter (`wanted`): a line failing it is never decoded.
+pub type LineFilter = fn(&str) -> bool;
+
+/// `decodeWanted`: the events of `lines` the filter asks for, and the cursor
+/// line — the last envelope-valid line, decoded backwards past any skipped.
+fn decode_wanted(
+    lines: &[(&str, u64)],
+    wanted: Option<LineFilter>,
+    start: Option<(String, u64)>,
+) -> (Vec<IndexedEvent>, Option<(String, u64)>) {
+    let mut events = Vec::new();
+    let mut last = start;
+    let mut last_index: Option<usize> = None;
+    for (i, (line, offset)) in lines.iter().enumerate() {
+        if wanted.is_some_and(|w| !w(line)) {
+            continue;
+        }
+        let Some((event, usable)) = decode(line) else {
+            continue;
+        };
+        last = Some((event.id.clone(), *offset));
+        last_index = Some(i);
+        if usable {
+            events.push(event);
+        }
+    }
+    if wanted.is_some() {
+        let from = last_index.map_or(0, |i| i + 1);
+        for (line, offset) in lines[from..].iter().rev() {
+            if let Some((event, _)) = decode(line) {
+                last = Some((event.id, *offset));
+                break;
+            }
+        }
+    }
+    (events, last)
+}
+
+/// `quietSince`: whether the log grew past `cursor` by lines `wanted`
+/// rejects ONLY — the cursor advanced over them when so, else None (the
+/// offset no longer lands on its event, or a wanted line was appended).
 #[must_use]
-pub fn read_since(log_path: &Path, cursor: Option<&Cursor>) -> TailRead {
+pub fn quiet_since(log_path: &Path, id: &str, offset: u64, wanted: LineFilter) -> Option<Cursor> {
+    let chunk = read_from(log_path, offset)?;
+    let lines = lines_with_offsets(&chunk.text, offset);
+    let (first, _) = decode(lines.first()?.0)?;
+    if first.id != id {
+        return None;
+    }
+    let fresh = &lines[1..];
+    if fresh.iter().any(|(line, _)| wanted(line)) {
+        return None;
+    }
+    let (_, last) = decode_wanted(fresh, Some(|_| false), Some((id.to_owned(), offset)));
+    let (id, offset) = last?;
+    Some(Cursor {
+        id,
+        offset,
+        size: chunk.stat.size,
+        mtime_ms: chunk.stat.mtime_ms,
+        max_id: None,
+        voided: None,
+    })
+}
+
+/// `readSince`: events appended since the cursor, plus the cursor to store
+/// next. `wanted`, when given, skips the lines it rejects without decoding.
+#[must_use]
+pub fn read_since(
+    log_path: &Path,
+    cursor: Option<&Cursor>,
+    wanted: Option<LineFilter>,
+) -> TailRead {
     let stat = cursor.and_then(|_| log_stat(log_path));
     if let (Some(cursor), Some(stat)) = (cursor, stat) {
         if log_untouched(stat, cursor) {
@@ -111,17 +181,12 @@ pub fn read_since(log_path: &Path, cursor: Option<&Cursor>) -> TailRead {
             if let Some((first, _)) = first
                 && first.id == cursor.id
             {
-                let mut events = Vec::new();
-                let mut last = (cursor.id.clone(), cursor.offset);
-                for (line, offset) in &lines[1..] {
-                    let Some((event, usable)) = decode(line) else {
-                        continue;
-                    };
-                    last = (event.id.clone(), *offset);
-                    if usable {
-                        events.push(event);
-                    }
-                }
+                let (events, last) = decode_wanted(
+                    &lines[1..],
+                    wanted,
+                    Some((cursor.id.clone(), cursor.offset)),
+                );
+                let last = last.expect("seeded with the cursor line");
                 return TailRead {
                     events,
                     cursor: Some(Cursor {
@@ -144,17 +209,7 @@ pub fn read_since(log_path: &Path, cursor: Option<&Cursor>) -> TailRead {
             full: true,
         };
     };
-    let mut events = Vec::new();
-    let mut last: Option<(String, u64)> = None;
-    for (line, offset) in lines_with_offsets(&whole.text, 0) {
-        let Some((event, usable)) = decode(line) else {
-            continue;
-        };
-        last = Some((event.id.clone(), offset));
-        if usable {
-            events.push(event);
-        }
-    }
+    let (events, last) = decode_wanted(&lines_with_offsets(&whole.text, 0), wanted, None);
     TailRead {
         events,
         cursor: last.map(|(id, offset)| Cursor {

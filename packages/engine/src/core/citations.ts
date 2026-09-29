@@ -17,6 +17,20 @@
  * construction).
  */
 
+/** How much of a title its anchor compares — REACH_PROSE (core/index-reach.ts). */
+export const TITLE_KEY_PROSE = 300
+
+/**
+ * The text a title anchor compares: whitespace-collapsed and clipped, as the
+ * reach index stores the title. A task title cite anchors at the event that
+ * last CHANGED this text (linked-context D13), so reach, buildGraph and the
+ * links tier all read it from here — a restating plan replace moves none.
+ */
+export function titleKey(title: string): string {
+  const oneLine = title.replace(/\s+/g, ' ').trim()
+  return oneLine.length <= TITLE_KEY_PROSE ? oneLine : `${oneLine.slice(0, TITLE_KEY_PROSE - 1)}…`
+}
+
 /** One handle-shaped token found in prose, before any initiative is known. */
 export interface ScannedCitation {
   /** The word directly before the handle — a qualifier ATTEMPT, often ''. */

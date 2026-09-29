@@ -3,7 +3,7 @@
 //! the five "resuming is unsound" cases here fall back to a full read.
 
 use crate::index_store::{Cursor, IndexMeta, read_index_meta, write_index_meta};
-use crate::index_tail::{IndexedEvent, read_since};
+use crate::index_tail::{IndexedEvent, LineFilter, read_since};
 use crate::json::Json;
 use crate::layout::{Layout, initiative_slugs};
 use crate::text::cmp_utf16;
@@ -19,6 +19,12 @@ pub trait SlugReducer {
     fn relevant(&self, _event: &IndexedEvent) -> bool {
         true
     }
+    /// A raw-line test every line holding an event this tier applies passes
+    /// (`lines`, linked-context 4.1); a line failing it is never decoded.
+    /// The default: every line is decoded.
+    fn lines(&self) -> Option<LineFilter> {
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -31,6 +37,11 @@ pub struct PassResult<S> {
     /// moved (`changed`). Only a reducer overriding `relevant` can make the
     /// two differ.
     pub state_changed: bool,
+    /// The cursor each log's state now stands at (`cursors`): its size and
+    /// mtime are the fstat of the read that produced the state, so a cache
+    /// keyed by them names exactly the bytes it was derived from (the links
+    /// tier, linked-context 4.1).
+    pub meta: IndexMeta,
 }
 
 fn voided_ref(event: &IndexedEvent) -> Option<&str> {
@@ -87,7 +98,7 @@ pub fn pass_over_record<R: SlugReducer>(
         } else {
             meta.get(&slug).cloned()
         };
-        let mut read = read_since(&log, cursor.as_ref());
+        let mut read = read_since(&log, cursor.as_ref(), reducer.lines());
         let mut voided: Vec<String> = cursor
             .as_ref()
             .and_then(|c| c.voided.clone())
@@ -102,7 +113,7 @@ pub fn pass_over_record<R: SlugReducer>(
                 .as_ref()
                 .and_then(|c| c.max_id.as_deref().or(Some(c.id.as_str())));
             if reaches_back || !in_order(&read.events, after) {
-                read = read_since(&log, None);
+                read = read_since(&log, None, reducer.lines());
             }
         }
 
@@ -142,6 +153,13 @@ pub fn pass_over_record<R: SlugReducer>(
         }
 
         if !events.is_empty() || prior_state.is_none() || (read.full && read.cursor.is_some()) {
+            changed = true;
+        }
+        // Lines this tier skips (or cannot use) still move the cursor, and a
+        // cursor left behind would re-read the same tail on every pass.
+        if let (Some(next), Some(prior)) = (&read.cursor, &cursor)
+            && (next.id != prior.id || next.size != prior.size)
+        {
             changed = true;
         }
 
@@ -194,6 +212,7 @@ pub fn pass_over_record<R: SlugReducer>(
         states,
         changed,
         state_changed,
+        meta,
     }
 }
 

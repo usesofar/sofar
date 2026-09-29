@@ -454,6 +454,9 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let scope = refresh_guards(&layout);
     let neighbours = refresh_neighbours(&layout, &slug, &scope);
     let repo_rules = repo_rules(&scope, &slug, retire_enabled());
+    // The links tier, the travel block's only input (linked-context D2), kept
+    // materialised here as at write time; the block renders it from 5.1.
+    let _links = crate::index_links::refresh_links(&layout, &slug);
     // None at all while HEAD has not moved (rust-core 4.4, L1).
     let commits = cached_attribution(&layout, SHIPPING_WINDOW);
     let activity = activity_enabled();

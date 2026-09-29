@@ -49,6 +49,7 @@ pub mod hook;
 pub mod host;
 pub mod identity;
 pub mod index_lexicon;
+pub mod index_links;
 pub mod index_pass;
 pub mod index_relevance;
 pub mod index_store;

@@ -121,8 +121,74 @@ function linesWithOffsets(text: string, base: number): { line: string; offset: n
   return out
 }
 
-/** Events appended since the cursor, plus the cursor to store next time. */
-export function readSince(logPath: string, cursor: InitiativeCursor | null): TailRead {
+/**
+ * The events of `lines` a tier asks for, and the cursor line: the last
+ * envelope-valid line, whether or not it was asked for.
+ *
+ * `wanted` is a RAW-LINE prefilter (a tier's `lines`, index-pass.ts): a line
+ * failing it is never decoded — JSON.parse is most of a cold pass (linked-context
+ * 4.1) — and so is never an event of this read. Only the cursor needs a
+ * skipped line, so the tail is decoded backwards to the last valid one.
+ */
+function decodeWanted(
+  lines: readonly { line: string; offset: number }[],
+  wanted: ((line: string) => boolean) | undefined,
+  start: { id: string; offset: number } | null,
+): { events: IndexedEvent[]; last: { id: string; offset: number } | null } {
+  const events: IndexedEvent[] = []
+  let last = start
+  let lastIndex = -1
+  lines.forEach(({ line, offset }, i) => {
+    if (wanted !== undefined && !wanted(line)) return
+    const decoded = decode(line)
+    if (decoded === null) return
+    last = { id: decoded.event.id, offset }
+    lastIndex = i
+    if (decoded.usable) events.push(decoded.event)
+  })
+  if (wanted !== undefined) {
+    for (let i = lines.length - 1; i > lastIndex; i--) {
+      const decoded = decode(lines[i]!.line)
+      if (decoded === null) continue
+      last = { id: decoded.event.id, offset: lines[i]!.offset }
+      break
+    }
+  }
+  return { events, last }
+}
+
+/**
+ * Has this log grown past `cursor` by lines `wanted` rejects ONLY? The cursor
+ * advanced over them when so, else null: the offset no longer lands on its
+ * event (a rewrite), or a wanted line was appended. What lets a cache keyed
+ * by a log's stat survive the appends it does not read (linked-context 4.1)
+ * at the cost of the appended bytes — the corroboration readSince makes.
+ */
+export function quietSince(
+  logPath: string,
+  cursor: { id: string; offset: number },
+  wanted: (line: string) => boolean,
+): InitiativeCursor | null {
+  const chunk = readFrom(logPath, cursor.offset)
+  if (chunk === null) return null
+  const lines = linesWithOffsets(chunk.text, cursor.offset)
+  const first = lines[0] === undefined ? null : decode(lines[0].line)
+  if (first === null || first.event.id !== cursor.id) return null
+  const fresh = lines.slice(1)
+  if (fresh.some(({ line }) => wanted(line))) return null
+  const { last } = decodeWanted(fresh, () => false, { id: cursor.id, offset: cursor.offset })
+  return { id: last!.id, offset: last!.offset, size: chunk.size, mtimeMs: chunk.mtimeMs }
+}
+
+/**
+ * Events appended since the cursor, plus the cursor to store next time.
+ * `wanted`, when given, skips the lines it rejects without decoding them.
+ */
+export function readSince(
+  logPath: string,
+  cursor: InitiativeCursor | null,
+  wanted?: (line: string) => boolean,
+): TailRead {
   const stat = cursor === null ? null : logStat(logPath)
 
   // Nothing was appended and nothing was rewritten — the cheapest answer
@@ -141,16 +207,8 @@ export function readSince(logPath: string, cursor: InitiativeCursor | null): Tai
       const first = lines[0] === undefined ? null : decode(lines[0].line)
       // Corroboration: the offset must land exactly on the event it claims.
       if (first !== null && first.event.id === cursor.id) {
-        const fresh = lines.slice(1)
-        const events: IndexedEvent[] = []
-        let last = { id: cursor.id, offset: cursor.offset }
-        for (const { line, offset } of fresh) {
-          const decoded = decode(line)
-          if (decoded === null) continue
-          last = { id: decoded.event.id, offset }
-          if (decoded.usable) events.push(decoded.event)
-        }
-        return { events, cursor: { ...last, size: chunk.size, mtimeMs: chunk.mtimeMs }, full: false }
+        const { events, last } = decodeWanted(lines.slice(1), wanted, { id: cursor.id, offset: cursor.offset })
+        return { events, cursor: { ...last!, size: chunk.size, mtimeMs: chunk.mtimeMs }, full: false }
       }
     }
   }
@@ -158,14 +216,7 @@ export function readSince(logPath: string, cursor: InitiativeCursor | null): Tai
   // Cold start, or the offset did not describe this file. Read everything.
   const whole = readFrom(logPath, 0)
   if (whole === null) return { events: [], cursor: null, full: true }
-  const events: IndexedEvent[] = []
-  let last: { id: string; offset: number } | null = null
-  for (const { line, offset } of linesWithOffsets(whole.text, 0)) {
-    const decoded = decode(line)
-    if (decoded === null) continue
-    last = { id: decoded.event.id, offset }
-    if (decoded.usable) events.push(decoded.event)
-  }
+  const { events, last } = decodeWanted(linesWithOffsets(whole.text, 0), wanted, null)
   return {
     events,
     cursor: last === null ? null : { ...last, size: whole.size, mtimeMs: whole.mtimeMs },

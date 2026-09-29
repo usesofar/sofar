@@ -68,6 +68,13 @@ export interface SlugReducer<S> {
    * rewritten because a hook appended a command_run. Absent: every event can.
    */
   relevant?: (event: IndexedEvent) => boolean
+  /**
+   * A RAW-LINE test every line holding an event this tier applies passes
+   * (linked-context 4.1). A line failing it is never decoded, so a tier that
+   * reads a few event types skips the JSON.parse that is most of a cold pass.
+   * Absent: every line is decoded.
+   */
+  lines?: (line: string) => boolean
 }
 
 export interface PassResult<S> {
@@ -81,6 +88,13 @@ export interface PassResult<S> {
    * with `relevant` can make the two differ.
    */
   stateChanged: boolean
+  /**
+   * The cursor each log's state now stands at, by slug — absent for a log
+   * that held no usable event. Its size and mtime are the fstat of the read
+   * that produced the state, so a cache keyed by them names exactly the bytes
+   * the state was derived from (the links tier, linked-context 4.1).
+   */
+  cursors: Record<string, InitiativeCursor>
 }
 
 /** The `ref` of a correction, or null when the payload does not carry one. */
@@ -133,7 +147,7 @@ export function passOverRecord<S>(
     // own cursor, per slug: no prior state means a full read.
     const priorState = prior === null ? undefined : prior[slug]
     const cursor = priorState === undefined ? null : (meta.cursors[slug] ?? null)
-    let read = readSince(log, cursor)
+    let read = readSince(log, cursor, reducer.lines)
     let voided = new Set(cursor?.voided ?? [])
 
     // Case 2 and case 3, both of which mean "what I have is not a prefix of
@@ -146,7 +160,7 @@ export function passOverRecord<S>(
         return ref !== null && !batch.has(ref)
       })
       if (reachesBack || !inOrder(read.events, cursor?.maxId ?? cursor?.id)) {
-        read = readSince(log, null)
+        read = readSince(log, null, reducer.lines)
       }
     }
 
@@ -196,6 +210,9 @@ export function passOverRecord<S>(
     // one logless initiative would rewrite every index file on every pass.
     if (events.length > 0 || priorState === undefined) changed = true
     else if (read.full && read.cursor !== null) changed = true
+    // Lines this tier skips (or cannot use) still move the cursor, and a
+    // cursor left behind would re-read the same tail on every pass.
+    else if (read.cursor !== null && cursor !== null && (read.cursor.id !== cursor.id || read.cursor.size !== cursor.size)) changed = true
     if (rebuilt || !quiet) stateChanged = true
 
     if (read.cursor === null) {
@@ -225,7 +242,7 @@ export function passOverRecord<S>(
   }
 
   if (changed) writeIndexMeta(sofarDir, meta, metaFile)
-  return { states, changed, stateChanged }
+  return { states, changed, stateChanged, cursors: meta.cursors }
 }
 
 export { DEFAULT_META_FILE }
