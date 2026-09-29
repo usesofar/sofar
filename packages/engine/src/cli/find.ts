@@ -76,6 +76,7 @@ function shortPath(rootDir: string, path: string): string {
 const TITLES: Record<ReachHit['kind'], string> = {
   initiative: 'Initiatives',
   decision: 'Decisions',
+  task: 'Tasks',
   note: 'Notes',
   file: 'Files',
   session: 'Sessions',
@@ -167,7 +168,13 @@ function shortNode(rootDir: string, result: ReachResult, nodeId: string): string
   if (nodeId.startsWith('initiative:')) return nodeId.slice('initiative:'.length)
   if (nodeId.startsWith('decision:')) return `decision ${nodeId.slice('decision:'.length)}`
   if (nodeId.startsWith('note:')) return `note ${nodeId.slice('note:'.length)}`
+  if (nodeId.startsWith('task:')) return taskHandle(nodeId)
   return nodeId
+}
+
+/** `task:<slug>#<id>` as the handle the record cites it by, `<slug> <id>`. */
+function taskHandle(nodeId: string): string {
+  return nodeId.slice('task:'.length).replace('#', ' ')
 }
 
 interface Entry {
@@ -188,6 +195,8 @@ function headOf(rootDir: string, hit: ReachHit): string {
       return `${hit.initiative} D${hit.ordinal ?? '?'}  ${distance}  ${day(hit.ts)}`
     case 'note':
       return `${hit.initiative}  ${distance}  ${day(hit.ts)}`
+    case 'task':
+      return `${taskHandle(hit.id)}  ${distance}  ${day(hit.ts)}`
     case 'file':
       return `${shortPath(rootDir, hit.label)}  ${distance}  ${day(hit.ts)}${
         hit.touches !== undefined ? `  ${plural(hit.touches, 'touch', 'touches')}` : ''
@@ -204,7 +213,7 @@ function blocksOf(rootDir: string, result: ReachResult): Block[] {
     title: `${TITLES[group.kind]} (${group.hits.length + group.omitted})`,
     entries: group.hits.map((hit) => {
       const detail: string[] = []
-      if (hit.kind === 'decision' || hit.kind === 'note') detail.push(clip(hit.label, PROSE))
+      if (hit.kind === 'decision' || hit.kind === 'note' || hit.kind === 'task') detail.push(clip(hit.label, PROSE))
       // An initiative was not traversed to — it is reported because a member
       // was, so it cites holding that member rather than an edge of its own.
       const relation =

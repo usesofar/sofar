@@ -4,7 +4,9 @@ import type {
   InitiativeStatusChangedPayload,
   NoteAddedPayload,
   PlanUpdatedPayload,
+  SessionEndedPayload,
   TaskAddedPayload,
+  TaskStatusChangedPayload,
 } from '@sofar/schema'
 import {
   fileNodeId,
@@ -12,6 +14,7 @@ import {
   initiativeNodeId,
   matchRecordedPaths,
   sessionNodeId,
+  taskNodeId,
 } from './adjacency'
 import { bindHandle, canonicalSlugs, scanCitations } from './citations'
 import { passOverRecord } from './index-pass'
@@ -38,11 +41,19 @@ import { byCodeUnit } from './order'
  * citation handles, the event id behind every edge. Nothing on a shim path
  * opens it, and nothing on a shim path imports this module.
  *
+ * CITATION SOURCES (linked-context 3.1, SPEC §Links). The closed grammar is
+ * scanned, unchanged, over every text the record already holds that can name
+ * another record: decision prose, note text, task titles, task status notes
+ * and `session_ended.next_action`. Each cite edge carries the SOURCING event —
+ * the event whose own text holds the handle — so every derived link names the
+ * one event a reader opens to check it.
+ *
+ * Tasks are nodes (`task:<slug>#<id>`, buildGraph's id) for the FINAL plan
+ * only, because a task is both a citation target and, through its title and
+ * status notes, a citation source. They carry citation edges and nothing
+ * else: occurrence adjacency for a task is `sofar related`'s question.
+ *
  * WHAT IT DOES NOT CARRY, and why:
- *  - Tasks are not nodes. `sofar related <task-id>` already answers task
- *    adjacency from the graph, and the seed vocabulary here is file / session /
- *    decision / initiative. Task ids are kept only as CITATION TARGETS, so a
- *    decision citing `<slug> 3.2` is known to have cited something real.
  *  - Prose is CLIPPED at REACH_PROSE. This index exists to say what is worth
  *    reading, not to become the thing that is read — and a full copy of the
  *    record is a copy that invites being read as truth (D1). Every result names
@@ -118,9 +129,34 @@ interface NoteRow {
   session: string
   /** Note text, clipped to REACH_PROSE. */
   text: string
+  /** Scanned citation handles of the whole note, as [word, handle]. */
+  cites: [string, string][]
   /** Terms of the whole note, which the clip may not hold all of. */
   terms: Record<string, number>
   len: number
+}
+
+/**
+ * One event whose text cites something. Only events that scanned at least one
+ * handle are kept — a row with no cites produces no edge, and every status
+ * change and write-back would otherwise ride in this file for nothing.
+ */
+interface CiteRow {
+  id: string
+  ts: string
+  cites: [string, string][]
+}
+
+interface TaskRow {
+  /** Title, clipped to REACH_PROSE — the task node's label. */
+  title: string
+  /** The event that set this title, and its ts: the anchor of a title cite. */
+  event: string
+  ts: string
+  /** Handles scanned from the whole title. */
+  cites: [string, string][]
+  /** Status notes that cite, in replay order. */
+  notes: CiteRow[]
 }
 
 interface SlugReachState {
@@ -129,8 +165,16 @@ interface SlugReachState {
   notes: NoteRow[]
   /** path → session → [event id of the most recent touch, its ts, touch count]. */
   files: Record<string, Record<string, [string, string, number]>>
-  /** Task ids the FINAL plan holds — citation targets only, never nodes. */
+  /** Task ids the FINAL plan holds, in plan order — the task nodes. */
   tasks: string[]
+  /**
+   * Every task id ever titled or noted, final plan or not: a plan replace
+   * that drops a task and a later one that restores it must not lose the
+   * status notes in between. Only ids in `tasks` become nodes.
+   */
+  taskRows: Record<string, TaskRow>
+  /** session_ended write-backs whose next_action cites, with the writing session. */
+  nextActions: (CiteRow & { session: string })[]
   /**
    * [successor slug, event id, ts] of the superseded status IN FORCE, else
    * null (initiative-supersession D1). The event is the citation for the
@@ -155,8 +199,14 @@ const emptyReach = (): SlugReachState => ({
   notes: [],
   files: {},
   tasks: [],
+  taskRows: {},
+  nextActions: [],
   successor: null,
 })
+
+const cloneCites = (cites: [string, string][]): [string, string][] =>
+  cites.map((c) => [...c] as [string, string])
+const cloneCiteRow = (row: CiteRow): CiteRow => ({ ...row, cites: cloneCites(row.cites) })
 
 function cloneReach(state: SlugReachState): SlugReachState {
   const files: Record<string, Record<string, [string, string, number]>> = {}
@@ -165,15 +215,21 @@ function cloneReach(state: SlugReachState): SlugReachState {
     for (const [session, entry] of Object.entries(sessions)) copy[session] = [...entry]
     files[path] = copy
   }
+  const taskRows: Record<string, TaskRow> = {}
+  for (const [id, row] of Object.entries(state.taskRows)) {
+    taskRows[id] = { ...row, cites: cloneCites(row.cites), notes: row.notes.map(cloneCiteRow) }
+  }
   return {
     decisions: state.decisions.map((d) => ({
       ...d,
-      cites: d.cites.map((c) => [...c] as [string, string]),
+      cites: cloneCites(d.cites),
       terms: { ...d.terms },
     })),
-    notes: state.notes.map((n) => ({ ...n, terms: { ...n.terms } })),
+    notes: state.notes.map((n) => ({ ...n, cites: cloneCites(n.cites), terms: { ...n.terms } })),
     files,
     tasks: [...state.tasks],
+    taskRows,
+    nextActions: state.nextActions.map((row) => ({ ...row, cites: cloneCites(row.cites) })),
     // Absent on a file written before the field existed — the version stamp
     // cold-starts those, but a reader that copies must not mint `undefined`.
     successor: state.successor === null || state.successor === undefined ? null : [...state.successor],
@@ -191,6 +247,34 @@ function total(counts: Record<string, number>): number {
 function clipProse(text: string, max: number): string {
   const oneLine = text.replace(/\s+/g, ' ').trim()
   return oneLine.length <= max ? oneLine : `${oneLine.slice(0, Math.max(0, max - 1))}…`
+}
+
+/** The closed grammar over one text, stored unbound as [word, handle] (citations.ts). */
+function scan(text: string): [string, string][] {
+  return scanCitations(text).map((s) => [s.word, s.handle] as [string, string])
+}
+
+function taskRow(state: SlugReachState, id: string): TaskRow {
+  const existing = state.taskRows[id]
+  if (existing !== undefined) return existing
+  const row: TaskRow = { title: '', event: '', ts: '', cites: [], notes: [] }
+  state.taskRows[id] = row
+  return row
+}
+
+/**
+ * Record a task's title. The anchor moves only when the TEXT changes: a plan
+ * replace restating a title did not write it, and citing that replace would
+ * name an event that says nothing new about the task.
+ */
+function setTitle(state: SlugReachState, id: string, title: string, event: IndexedEvent): void {
+  const row = taskRow(state, id)
+  const clipped = clipProse(title, REACH_PROSE)
+  if (row.event !== '' && row.title === clipped) return
+  row.title = clipped
+  row.event = event.id
+  row.ts = event.ts
+  row.cites = scan(title)
 }
 
 /**
@@ -218,7 +302,7 @@ function applyReach(state: SlugReachState, event: IndexedEvent): void {
         chose: clipProse(p.chose, REACH_PROSE),
         // Scanned over the WHOLE decision, exactly as buildGraph reads it —
         // `because` is where most cross-record citations actually live.
-        cites: scanCitations(prose).map((s) => [s.word, s.handle] as [string, string]),
+        cites: scan(prose),
         // Same whole text, for the same reason: what a question is asked in.
         terms: counts,
         len: total(counts),
@@ -233,9 +317,26 @@ function applyReach(state: SlugReachState, event: IndexedEvent): void {
         ts: event.ts,
         session: event.session,
         text: clipProse(p.text, REACH_PROSE),
+        cites: scan(p.text),
         terms: counts,
         len: total(counts),
       })
+      return
+    }
+    case 'task_status_changed': {
+      const p = event.payload as unknown as TaskStatusChangedPayload
+      if (typeof p.note !== 'string') return
+      const cites = scan(p.note)
+      if (cites.length === 0) return
+      taskRow(state, p.id).notes.push({ id: event.id, ts: event.ts, cites })
+      return
+    }
+    case 'session_ended': {
+      const p = event.payload as unknown as SessionEndedPayload
+      if (typeof p.next_action !== 'string') return
+      const cites = scan(p.next_action)
+      if (cites.length === 0) return
+      state.nextActions.push({ session: event.session, id: event.id, ts: event.ts, cites })
       return
     }
     case 'file_touched': {
@@ -260,11 +361,23 @@ function applyReach(state: SlugReachState, event: IndexedEvent): void {
       // A full replace (SPEC §MCP tools), so the task-id set is replaced too.
       const p = event.payload as unknown as PlanUpdatedPayload
       state.tasks = p.plan.phases.flatMap((phase) => phase.tasks.map((task) => task.id))
+      // A duplicated id resolves to its FIRST task, as the fold's findTask does.
+      const titled = new Set<string>()
+      for (const phase of p.plan.phases) {
+        for (const task of phase.tasks) {
+          if (titled.has(task.id)) continue
+          titled.add(task.id)
+          setTitle(state, task.id, task.title, event)
+        }
+      }
       return
     }
     case 'task_added': {
+      // The fold skips a task_added whose id exists, title and all.
       const p = event.payload as unknown as TaskAddedPayload
-      if (!state.tasks.includes(p.id)) state.tasks.push(p.id)
+      if (state.tasks.includes(p.id)) return
+      state.tasks.push(p.id)
+      setTitle(state, p.id, p.title, event)
       return
     }
     case 'initiative_status_changed': {
@@ -286,7 +399,7 @@ function applyReach(state: SlugReachState, event: IndexedEvent): void {
 // The keyed view.
 // ---------------------------------------------------------------------------
 
-export type ReachNodeKind = 'initiative' | 'session' | 'file' | 'decision' | 'note'
+export type ReachNodeKind = 'initiative' | 'session' | 'file' | 'decision' | 'note' | 'task'
 
 export interface ReachNode {
   kind: ReachNodeKind
@@ -321,8 +434,10 @@ export interface ReachEdge {
   initiative: string
   /**
    * The event that produced this edge, ALWAYS present. For `cites` it is the
-   * CITING decision: a citation is prose inside that event, so that event is
-   * what a reader opens to check the claim.
+   * SOURCING event — the decision, note, title-setting plan or task event,
+   * status change or write-back whose own text holds the handle: a citation
+   * is prose inside that event, so that event is what a reader opens to check
+   * the claim.
    */
   event_id: string
   ts: string
@@ -457,6 +572,22 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
     }
 
     contents.set(slug, [...held, ...seen.values()])
+
+    // Task nodes for the final plan (SPEC §Record graph's structural rule).
+    // Not in `contents`: an initiative seed would otherwise list every task it
+    // holds, and a task earns its place in an answer by a citation.
+    for (const taskId of state.tasks) {
+      const id = taskNodeId(slug, taskId)
+      if (nodes.has(id)) continue
+      const row = state.taskRows[taskId]
+      nodes.set(id, {
+        kind: 'task',
+        id,
+        initiative: slug,
+        label: row?.title ?? '',
+        ts: row?.ts ?? '',
+      })
+    }
   }
 
   // Supersession, both ways, on `contents` alone (initiative-supersession
@@ -479,19 +610,66 @@ export function reachView(states: Record<string, SlugReachState>): ReachIndex {
   return { nodes, edges, contents, decisions, paths: [...paths].sort(), sessions, lexicon }
 }
 
+/** One text that cites: the node it is FROM, and the event whose text it is. */
+interface CiteSource {
+  from: string
+  event_id: string
+  ts: string
+  cites: [string, string][]
+}
+
 /**
- * Resolve every decision's scanned handles into `cites` / `cited_by` edges.
+ * Every citing text an initiative holds, in a fixed order — decisions, notes,
+ * then each final-plan task's title and status notes in plan order, then
+ * write-backs — so edge order stays a pure function of the record.
+ *
+ * A write-back's source node is the SESSION that wrote it (SPEC §Links: the
+ * sourcing event, which is the session's own close): `cli` is not a session
+ * identity (BD44), so a cli write-back anchors no edge, like every other
+ * session-side edge here.
+ */
+function citeSources(slug: string, state: SlugReachState): CiteSource[] {
+  const sources: CiteSource[] = []
+  for (const row of state.decisions) {
+    sources.push({ from: `decision:${row.id}`, event_id: row.id, ts: row.ts, cites: row.cites })
+  }
+  for (const row of state.notes) {
+    sources.push({ from: `note:${row.id}`, event_id: row.id, ts: row.ts, cites: row.cites })
+  }
+  const seen = new Set<string>()
+  for (const taskId of state.tasks) {
+    if (seen.has(taskId)) continue
+    seen.add(taskId)
+    const row = state.taskRows[taskId]
+    if (row === undefined) continue
+    const from = taskNodeId(slug, taskId)
+    if (row.cites.length > 0) sources.push({ from, event_id: row.event, ts: row.ts, cites: row.cites })
+    for (const note of row.notes) sources.push({ from, event_id: note.id, ts: note.ts, cites: note.cites })
+  }
+  for (const row of state.nextActions) {
+    if (row.session === 'cli' || row.session.length === 0) continue
+    sources.push({ from: sessionNodeId(row.session), event_id: row.id, ts: row.ts, cites: row.cites })
+  }
+  return sources
+}
+
+/**
+ * Resolve every scanned handle, from every citing text, into `cites` /
+ * `cited_by` edges (linked-context 3.1).
  *
  * A SECOND pass, because a citation may name any initiative — and bound HERE
  * rather than when the event was indexed, because which slugs exist is a
- * repo-wide fact that changes (citations.ts). Resolution is buildGraph's,
- * literally: `D<n>` is the nth decision of that initiative in replay order, and
- * the target must sort BEFORE the citing decision, since nothing cites the
- * future and a decision does not cite itself.
- *
- * A task handle resolves to no edge because tasks are not nodes here. It is
- * still bound, so `sofar doctor`'s dangling report stays the one place that
+ * repo-wide fact that changes (citations.ts). The grammar and resolution are
+ * buildGraph's, unchanged, whatever the source: `D<n>` is the nth decision of
+ * that initiative in replay order and must sort BEFORE the sourcing event,
+ * since nothing cites the future and a decision does not cite itself; `T<n>`
+ * and `<slug> <n>.<n>` are the task with that exact id in the final plan, and
+ * a task naming itself is a self-label, not a citation. An unresolved handle
+ * mints no edge — `sofar doctor`'s dangling report stays the one place that
  * question is answered, and this one never contradicts it.
+ *
+ * One edge per (sourcing event, target): a text naming a target twice is one
+ * citation, and a second event restating it is a second, separately citable one.
  */
 function linkCitations(
   states: Record<string, SlugReachState>,
@@ -503,21 +681,26 @@ function linkCitations(
   const canonical = canonicalSlugs(slugs)
 
   for (const slug of slugs) {
-    for (const row of states[slug]!.decisions) {
-      const fromId = `decision:${row.id}`
+    for (const source of citeSources(slug, states[slug]!)) {
       const linked = new Set<string>()
-      for (const [word, handle] of row.cites) {
+      for (const [word, handle] of source.cites) {
         const citation = bindHandle({ word, gap: ' ', handle }, slug, canonical)
-        if (citation === null || !/^D\d+$/.test(citation.handle)) continue
-        const targetId = decisions.get(citation.slug)?.[Number(citation.handle.slice(1)) - 1]
-        if (targetId === undefined || linked.has(targetId) || !nodes.has(targetId)) continue
-        // Node ids carry the `decision:` prefix; the ORDER test is on the
-        // event ids beneath them, which are ulids and therefore comparable.
-        if (targetId.slice('decision:'.length) >= row.id) continue
+        if (citation === null) continue
+        let targetId: string | undefined
+        if (/^D\d+$/.test(citation.handle)) {
+          targetId = decisions.get(citation.slug)?.[Number(citation.handle.slice(1)) - 1]
+          // Node ids carry the `decision:` prefix; the ORDER test is on the
+          // event ids beneath them, which are ulids and therefore comparable.
+          if (targetId !== undefined && targetId.slice('decision:'.length) >= source.event_id) continue
+        } else {
+          targetId = taskNodeId(citation.slug, citation.handle)
+        }
+        if (targetId === undefined || targetId === source.from) continue
+        if (linked.has(targetId) || !nodes.has(targetId)) continue
         linked.add(targetId)
-        const stamp = { initiative: slug, event_id: row.id, ts: row.ts }
-        link(fromId, { kind: 'cites', to: targetId, ...stamp })
-        link(targetId, { kind: 'cited_by', to: fromId, ...stamp })
+        const stamp = { initiative: slug, event_id: source.event_id, ts: source.ts }
+        link(source.from, { kind: 'cites', to: targetId, ...stamp })
+        link(targetId, { kind: 'cited_by', to: source.from, ...stamp })
       }
     }
   }
@@ -612,7 +795,7 @@ export interface ResolveSeedOptions {
  * Resolve a query string to seed nodes. Literal, ordered, no search.
  *
  * The order IS the disambiguation rule, most explicit first:
- *   1. a node id — `file:…`, `session:…`, `decision:…`, `note:…`, `initiative:…`
+ *   1. a node id — `file:…`, `session:…`, `decision:…`, `note:…`, `task:…`, `initiative:…`
  *   2. a known initiative slug
  *   3. a decision handle — `<slug> D<n>` / `<slug>#D<n>`, or `D<n>` with an initiative
  *   4. a known session id
@@ -634,7 +817,7 @@ export function resolveSeed(
 
   const node = index.nodes.get(trimmed)
   if (node !== undefined) return { query, kind: node.kind, ids: [node.id] }
-  if (/^(session|decision|note|initiative):/.test(trimmed)) return miss // an id, and it is not here
+  if (/^(session|decision|note|task|initiative):/.test(trimmed)) return miss // an id, and it is not here
   if (trimmed.startsWith('file:')) return seedPath(index, query, trimmed.slice('file:'.length))
 
   const initiativeId = initiativeNodeId(trimmed)
@@ -775,7 +958,7 @@ export interface ReachResult {
 }
 
 /** Group order: what a reader should look at first, not alphabetical. */
-const GROUP_ORDER: ReachNodeKind[] = ['initiative', 'decision', 'note', 'file', 'session']
+const GROUP_ORDER: ReachNodeKind[] = ['initiative', 'decision', 'task', 'note', 'file', 'session']
 
 /**
  * Breadth-first from the seed, out to `hops` edges.

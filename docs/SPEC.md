@@ -803,10 +803,12 @@ decision-scope tier. Per initiative it holds:
 
 `guards` is the view of entries that carry both a rule and a guard. Superseded
 entries stay in it, marked, to stay faithful to the fold; the filter runs at
-render time. INDEX_SCHEMA_VERSION is 9 (6 at 2.1; 7 when 2.2 added every rule
+render time. INDEX_SCHEMA_VERSION is 10 (6 at 2.1; 7 when 2.2 added every rule
 and the labels tier; 8 when 2.3 added each ruled entry's `check` and the
 check command's file tokens to its mentions; 9 when 2.8 added every
-decision's id, and each label entry's id, for supersession by stamped id).
+decision's id, and each label entry's id, for supersession by stamped id; 10
+when linked-context 3.1 added task nodes and the task, note and next-action
+citation sources to the reach index).
 
 **Labels tier (memory-lead 2.2, D8).** labels.json on its own cursor
 (meta-labels.json), read only by sofar_log_decision, sofar_end_session and
@@ -3137,7 +3139,12 @@ offered:
 - DERIVED — graph adjacency (`touched`, `decided`, `noted`, `cites`). Offered
   as worth reading, never asserted: the record knows the work happened in the
   same places, never that a decision was ABOUT the file. Every result cites
-  the event id that produced its edge, so the claim is checkable.
+  the event id that produced its edge, so the claim is checkable. `cites` is
+  scanned from every citation source §Links names (linked-context 3.1):
+  decision prose and note text from their own nodes, a task's title and
+  status notes from its `task:<slug>#<id>` node (final plan only), and a
+  `session_ended.next_action` from the writing session's node; each edge's
+  event id is the event whose own text holds the handle.
 - TEXT — words from the question appearing in decision or note prose (BM25,
   no model, §Architectural invariants). Weaker still: OFFERED as prose
   containing the asker's words, never as an answer and never as a traversal

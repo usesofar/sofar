@@ -331,6 +331,114 @@ describe('3.4 citations — the same edges buildGraph derives', () => {
   })
 })
 
+describe('linked-context 3.1 — every citation source, each edge citing its sourcing event', () => {
+  const plan = (sofar: string, slug: string, session: string, tasks: { id: string; title: string }[]) =>
+    emit(sofar, slug, event(slug, session, 'plan_updated', { plan: { phases: [{ name: 'P', tasks }] } }))
+
+  /** Every `cites` edge as `from -> to @ event_id`, sorted. */
+  function cites(sofar: string): string[] {
+    const out: string[] = []
+    for (const [from, edges] of refreshReach(sofar).edges) {
+      for (const e of edges) if (e.kind === 'cites') out.push(`${from} -> ${e.to} @ ${e.event_id}`)
+    }
+    return out.sort()
+  }
+
+  it('mints task nodes for the final plan only, labelled by title', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'first' }, { id: '1.2', title: 'dropped later' }])
+    plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'first, renamed' }])
+    emit(sofar, 'alpha', event('alpha', 'A', 'task_added', { phase: 'P', id: 'T3', title: 'added' }))
+    const index = refreshReach(sofar)
+    expect(index.nodes.get('task:alpha#1.1')).toMatchObject({ kind: 'task', initiative: 'alpha', label: 'first, renamed' })
+    expect(index.nodes.get('task:alpha#T3')).toMatchObject({ kind: 'task', label: 'added' })
+    expect(index.nodes.has('task:alpha#1.2')).toBe(false)
+    expect(resolveSeed(index, 'task:alpha#1.1')).toMatchObject({ kind: 'task', ids: ['task:alpha#1.1'] })
+    expect(resolveSeed(index, 'task:alpha#9.9').kind).toBeNull()
+  })
+
+  it('scans titles, status notes, next actions and notes with the unchanged grammar', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const d1 = decide(sofar, 'alpha', 'A')
+    plan(sofar, 'alpha', 'A', [{ id: '2.1', title: 'target task' }])
+    start(sofar, 'beta', 'B')
+    const titled = plan(sofar, 'beta', 'B', [
+      { id: '1.1', title: 'follow alpha D1 through' },
+      { id: '1.2', title: 'plain' },
+    ])
+    const status = emit(
+      sofar,
+      'beta',
+      event('beta', 'B', 'task_status_changed', { id: '1.2', status: 'blocked', note: 'needs alpha 2.1 first' }),
+    )
+    const noted = note(sofar, 'beta', 'B', 'see Alpha D1 and alpha 2.1; 0.1 is a version, BD4 is archived')
+    const ended = emit(
+      sofar,
+      'beta',
+      event('beta', 'B', 'session_ended', { summary: 's', next_action: 'pick up alpha 2.1' }),
+    )
+    // A cli write-back is no session identity, so it anchors nothing (BD44).
+    emit(sofar, 'beta', event('beta', 'cli', 'session_ended', { summary: 's', next_action: 'alpha 2.1' }))
+
+    expect(cites(sofar)).toEqual(
+      [
+        `note:${noted.id} -> decision:${d1.id} @ ${noted.id}`,
+        `note:${noted.id} -> task:alpha#2.1 @ ${noted.id}`,
+        `session:B -> task:alpha#2.1 @ ${ended.id}`,
+        `task:beta#1.1 -> decision:${d1.id} @ ${titled.id}`,
+        `task:beta#1.2 -> task:alpha#2.1 @ ${status.id}`,
+      ].sort(),
+    )
+    // cited_by mirrors each one onto the target, citing the same event.
+    const back = refreshReach(sofar).edges.get('task:alpha#2.1')!.filter((e) => e.kind === 'cited_by')
+    expect(back.map((e) => e.event_id).sort()).toEqual([noted.id, status.id, ended.id].sort())
+
+    // And every cite edge names a real event whose own text holds the handle.
+    const byId = eventsById(sofar)
+    for (const [, edges] of refreshReach(sofar).edges) {
+      for (const e of edges.filter((x) => x.kind === 'cites')) {
+        const source = byId.get(e.event_id)!
+        expect(JSON.stringify(source.payload).toLowerCase()).toMatch(/alpha (d1|2\.1)/)
+      }
+    }
+  })
+
+  it('keeps the grammar rules: no future decision, no self-label, no dangling edge', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const early = note(sofar, 'alpha', 'A', 'D1 is coming')
+    decide(sofar, 'alpha', 'A')
+    plan(sofar, 'alpha', 'A', [{ id: 'T1', title: 'T1 names itself and T9 names nothing' }])
+    expect(cites(sofar)).toEqual([])
+    expect(early.id).toBeDefined()
+  })
+
+  it('anchors a title cite at the event that WROTE the title, not a restating replace', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const d1 = decide(sofar, 'alpha', 'A')
+    const first = plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'per D1' }])
+    plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'per D1' }, { id: '1.2', title: 'new' }])
+    expect(cites(sofar)).toEqual([`task:alpha#1.1 -> decision:${d1.id} @ ${first.id}`])
+  })
+
+  it('stays equal to a cold rebuild across appends', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    decide(sofar, 'alpha', 'A')
+    plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'per D1' }])
+    const warm1 = cites(sofar)
+    emit(sofar, 'alpha', event('alpha', 'A', 'task_status_changed', { id: '1.1', status: 'active', note: 'still D1' }))
+    emit(sofar, 'alpha', event('alpha', 'A', 'session_ended', { summary: 's', next_action: 'alpha 1.1 then D1' }))
+    const warm2 = cites(sofar)
+    expect(warm2.length).toBe(warm1.length + 3)
+    rmSync(join(sofar, '.index'), { recursive: true, force: true })
+    expect(cites(sofar)).toEqual(warm2)
+  })
+})
+
 describe('3.4 seeds — literal, ordered, never a search', () => {
   it('resolves a path across every checkout that recorded it', () => {
     const { root, sofar } = repo()
