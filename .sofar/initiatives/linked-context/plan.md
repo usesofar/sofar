@@ -56,5 +56,5 @@ Progress: 23 done, 1 dropped, 2 remaining
 - [x] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
 - [x] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
 
-Next action: Run 7.1 (find compose mode); 6.3 still waits on the operator
+Next action: 7.1: write SPEC contract for find --compose from the sketch note, then build
 Blocked on: task 6.3: Operator question: measuring turns/tokens means live Claude Code sessions (the l36-mini-check launch shape: bench profile, a root outside the worktree), and those spend your quota. Driven sessions cannot build them (M4). Choose one: (a) approve a live run, with arms travel on/off, the reps, and the model; or (b) accept a deterministic proxy. The proxy renders the blocked record's digest in-process with travel on/off, confirms the resolved-wait line appears only with travel, and prices the pull turn saved as the bytes of `sofar status <target>`.
