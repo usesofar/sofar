@@ -42,7 +42,7 @@ Progress: 19 done, 1 dropped, 6 remaining
 
 - [x] 6.1 read-paths D18 gate: session-start/user-prompt/stop/statusline p50 ≤+10% on repo and i1000-10mb, ABAB n≥25, arm SOFAR_TRAVEL=off|index — verified pass @c5fe052 (attempt 1)
 - [x] 6.2 Digest-bytes histogram over every real record before/after. PREDICT: 0 bytes added where no open link; ≤600 chars max; readiness-gated vs all-links ablation
-- [ ] 6.3 Cross-record resume scenario: blocked task whose target resolved — with travel the session notices the unblock unprompted; turns/tokens vs predictions in typed-judge note 01M2ZV3KEV2XA467NW7TN6WYWZ
+- [ ] 6.3 Cross-record resume scenario: blocked task whose target resolved — with travel the session notices the unblock unprompted; turns/tokens vs predictions in typed-judge note 01M2ZV3KEV2XA467NW7TN6WYWZ (blocked)
 - [ ] 6.4 Ranking ablations: hub-damped vs raw citation count, focus-ranked vs newest-first, dedupe on/off — precision@3 against a hand-labelled link set from this repo
 
 ## Phase 7 — Answer packets (later) [pending] — 0/2 (1 dropped) done
@@ -56,4 +56,5 @@ Progress: 19 done, 1 dropped, 6 remaining
 - [ ] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
 - [ ] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
 
-Next action: Task 6.3: cross-record resume scenario (blocked task whose target resolved)
+Next action: Operator: answer the 6.3 question (a live run with arms/reps/model, or the proxy), then run 6.3
+Blocked on: task 6.3: Operator question: measuring turns/tokens means live Claude Code sessions (the l36-mini-check launch shape: bench profile, a root outside the worktree), and those spend your quota. Driven sessions cannot build them (M4). Choose one: (a) approve a live run, with arms travel on/off, the reps, and the model; or (b) accept a deterministic proxy. The proxy renders the blocked record's digest in-process with travel on/off, confirms the resolved-wait line appears only with travel, and prices the pull turn saved as the bytes of `sofar status <target>`.
