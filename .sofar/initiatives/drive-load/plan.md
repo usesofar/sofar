@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Kill orphaned tsc pid 4843 on operator OK, then plan drive-load from note 01M3PCDC.
+Next action: On operator go-ahead, plan drive-load from note 01M3PCDC27TWJFPN66Z3WW1W43.
