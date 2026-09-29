@@ -1,5 +1,13 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.34.0-rc.4** (from main 122050c8) from the
+TypeScript reference. The version bump is the whole diff: two goldens
+changed, each by one string. `argv.fast-path` (`--version` is now
+`0.34.0-rc.4`) and `open.O2-update-segment` (`you have 0.34.0-rc.4`), both
+previously `0.33.0-rc.2+trunk`. Every other golden is byte-identical, and
+the entries below keep the versions they were recorded against, which is
+what makes them history.
+
 Re-recorded from the TypeScript reference for **session-naming 1.1/1.2
 (D1)**, on top of main 26b37e1: every SessionStart and UserPromptSubmit
 whose payload names no `session_title` now hands Claude Code the session's
