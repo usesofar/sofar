@@ -154,6 +154,39 @@ describe('sofar drive --detach (in-session-drive D1)', () => {
       expect(env.has(name), name).toBe(false)
     }
     expect(env.get('CLAUDE_CONFIG_DIR')).toBe('/operator/claude-config')
+    // The launcher crosses to the driver only (drive-reach 1.2): a driven session never inherits it.
+    expect(env.has('SOFAR_DRIVE_LAUNCHED_BY')).toBe(false)
+  })
+
+  it('the run records who launched it in its progress file, across the clean break (drive-reach 1.2)', async () => {
+    const r = repo('launched-by', ['1.1'])
+    const state = mkdtempSync(join(scratch, 'state-'))
+    const res = cli(r, ['drive', 'demo', '--detach', '--bin', stub], { ...CALLER, XDG_STATE_HOME: state })
+    expect(res.status, res.stderr).toBe(0)
+    await until(() => latestRun(fold(r))?.stopped !== undefined)
+    const run = latestRun(fold(r))!
+    const file = JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${run.id}.json`), 'utf8'))
+    expect(file).toMatchObject({ run: run.id, slug: 'demo', launched_by: CALLER.CLAUDE_CODE_SESSION_ID, state: 'stopped' })
+
+    // Codex names its thread instead; a plain terminal names nobody. Both run
+    // with no inherited launcher — this suite may itself run inside an agent.
+    const bare = (r2: Repo, extra: Record<string, string>): SpawnSyncReturns<string> => {
+      const env: NodeJS.ProcessEnv = { ...process.env, XDG_STATE_HOME: state, TMPDIR: r2.logs, STUB_OUT: r2.out, ...extra }
+      for (const name of ['CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID', 'SOFAR_DRIVE_LAUNCHED_BY']) if (!(name in extra)) delete env[name]
+      return spawnSync(process.execPath, [bundle, 'drive', 'demo', '--detach', '--bin', stub], { cwd: r2.root, encoding: 'utf8', timeout: 60_000, env })
+    }
+    const codex = repo('launched-by-codex', ['1.1'])
+    expect(bare(codex, { CODEX_THREAD_ID: 'thread-7' }).status).toBe(0)
+    await until(() => latestRun(fold(codex))?.stopped !== undefined)
+    const codexRun = latestRun(fold(codex))!.id
+    expect(JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${codexRun}.json`), 'utf8')).launched_by).toBe('thread-7')
+
+    const plain = repo('launched-by-none', ['1.1'])
+    const plainRes = bare(plain, {})
+    expect(plainRes.status, plainRes.stderr).toBe(0)
+    await until(() => latestRun(fold(plain))?.stopped !== undefined)
+    const plainRun = latestRun(fold(plain))!.id
+    expect(JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${plainRun}.json`), 'utf8'))).not.toHaveProperty('launched_by')
   })
 
   it("a preflight refusal is the command's own output, exit 1, and nothing is recorded", () => {

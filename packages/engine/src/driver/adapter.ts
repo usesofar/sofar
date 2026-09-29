@@ -155,6 +155,9 @@ export const CALLER_SESSION_ENV: readonly string[] = [
   'CODEX_SANDBOX',
   'CODEX_SANDBOX_NETWORK_DISABLED',
   'CODEX_THREAD_ID',
+  // The driver's own note of who launched it (drive-reach 1.2): the caller's,
+  // never a driven session's.
+  'SOFAR_DRIVE_LAUNCHED_BY',
 ]
 
 /**

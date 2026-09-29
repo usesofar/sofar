@@ -1882,7 +1882,7 @@ adapters therefore delete one named list before spawning: `CLAUDECODE`,
 `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ATTENDED`,
 `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`,
 `CLAUDE_EFFORT`, `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`,
-`CODEX_THREAD_ID`. Never a prefix strip: `CLAUDE_CONFIG_DIR`, the Bedrock and
+`CODEX_THREAD_ID`, `SOFAR_DRIVE_LAUNCHED_BY`. Never a prefix strip: `CLAUDE_CONFIG_DIR`, the Bedrock and
 Vertex switches, `ANTHROPIC_*` and `CODEX_HOME` route the operator's own auth
 (D1) and pass through untouched. Variables the driver itself sets
 (`SOFAR_DRIVE_NUDGE`) are applied after the deletion.
@@ -1922,6 +1922,36 @@ unknown`, NEVER `driver gone`: every reader that renders liveness renders
 that. Where the lock cannot be taken — Linux without `flock(1)`, Windows
 until sofar-core ships, a state base inside the repo — the opening lines say
 liveness is unavailable for this run (D9), and the run proceeds as before.
+
+**The run's progress file (drive-reach 1.1).** Beside its lock the driver
+keeps `<state base>/runs/<run id>.json`: `{version, run, slug, worktree,
+launched_by?, task, done, total, handoffs, last_handoff?, state,
+stop_reason?, updated}` — `worktree` the real path of the clone it drives,
+`launched_by` the session that started it (drive-reach 1.2: the
+caller's `CLAUDE_CODE_SESSION_ID`, else `CODEX_THREAD_ID`; `--detach`
+carries it to the child as `SOFAR_DRIVE_LAUNCHED_BY`, since the child's
+environment is otherwise clean of its caller; absent from a plain terminal
+and from Cursor, which exports no session id — the per-worktree session
+pointer is last-writer-wins and is not guessed from), `task` the
+driver's own next task (null when none is queued or once stopped), `done` /
+`total` the initiative's taskProgress, `last_handoff` {reason, task?,
+session_id}, `state` `running` or `stopped`. It is DERIVED state (r1-fixes
+D20): a copy of what the record already says, for a reader that cannot fold
+that record — a session bound to another initiative, or on another
+worktree, whose record copy never sees the run. Never part of the record,
+never committed, exported or synced; per user like the lock, refused where
+the lock is, and never unlinked by the driver. Written atomically
+(temp-and-rename) when the driver takes the run, at the head of every turn
+once it has chosen the task, after every handoff, and after `run_stopped`
+— so `done` moves at handoffs, not mid-session: the driver folds only at
+those points, and a fold per poll tick is the cost the stop scan exists to
+avoid. A driver that is fenced writes nothing more (the new owner writes the
+same file). `state: running` says only what the driver last wrote; whether
+it is alive is the lock's answer, and a reader probes it — a file that says
+running beside a FREE lock is a driver gone. A write that fails is a warning
+on the progress stream once, never a stop: the record is the run's state,
+the file only a window on it. Readers take a file whose `version` they do
+not know, or that does not parse, as absent.
 
 **Fencing a takeover (drive-visibility 2.2).** The lock is machine-local; a
 record syncs. A `--resume` therefore appends `run_adopted {run, epoch}` with

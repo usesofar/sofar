@@ -95,6 +95,27 @@ export function insideAgentShell(env: NodeJS.ProcessEnv): boolean {
   return AGENT_SHELL_ENV.some((name) => (env[name] ?? '').length > 0)
 }
 
+/**
+ * Carries the calling session's id into a detached driver (drive-reach 1.2),
+ * whose environment is otherwise clean of its caller (in-session-drive D3).
+ */
+export const LAUNCHED_BY_ENV = 'SOFAR_DRIVE_LAUNCHED_BY'
+
+/**
+ * The session a run is being started from, as its agent's shell names it:
+ * Claude Code's CLAUDE_CODE_SESSION_ID, Codex's CODEX_THREAD_ID (a thread id
+ * equals the hooks' session_id, agents-parity 3.3). Cursor exports none, and
+ * the per-worktree session pointer is last-writer-wins, so it is not guessed
+ * at: a run that names no launcher shows only where it is bound, as before.
+ */
+export function launchingSession(env: NodeJS.ProcessEnv): string | undefined {
+  for (const name of [LAUNCHED_BY_ENV, 'CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID']) {
+    const id = (env[name] ?? '').trim()
+    if (id.length > 0) return id
+  }
+  return undefined
+}
+
 /** How the one keep-awake question is asked (drive-visibility D5). */
 export interface KeepAwakePrompt {
   /** The only place a question may block: a terminal on both ends, not CI, not an agent's shell, not a detached driver. */
@@ -249,6 +270,7 @@ export async function runDrive(
     })
     const { adapter, agents } = buildAgents(options)
     const env = options.env ?? process.env
+    const launchedBy = launchingSession(env)
     driveOptions = {
       adapter,
       agents,
@@ -271,6 +293,7 @@ export async function runDrive(
       ...(verifyTimeoutSec !== undefined ? { verifyTimeoutMs: verifyTimeoutSec * 1_000 } : {}),
       ...(maxVerifyAttempts !== undefined ? { maxVerifyAttempts } : {}),
       ...(options.onStarted !== undefined ? { onStarted: options.onStarted } : {}),
+      ...(launchedBy !== undefined ? { launchedBy } : {}),
       surface,
       onProgress,
     }
@@ -743,6 +766,7 @@ export async function runDriveDetached(
     }
   }
   const childArgv = options.argv.filter((arg) => arg !== '--detach')
+  const launcher = launchingSession(env)
   const [command, ...entryArgs] = options.entry ?? [process.execPath, ...process.execArgv, process.argv[1]!]
   const fd = openSync(logPath, 'a')
   let child
@@ -751,7 +775,9 @@ export async function runDriveDetached(
       cwd: process.cwd(),
       // The driver itself runs clean of its caller too (D3): it is no longer
       // inside that agent, and must not warn that it is.
-      env: launchEnv({ [DETACH_ENV]: '1' }, env),
+      // Who asked is carried across that clean break (drive-reach 1.2), so the
+      // caller's statusline can find the run whatever the caller is bound to.
+      env: launchEnv({ [DETACH_ENV]: '1', ...(launcher !== undefined ? { [LAUNCHED_BY_ENV]: launcher } : {}) }, env),
       stdio: ['ignore', fd, fd, 'ipc'],
       detached: process.platform !== 'win32',
     })
