@@ -46,5 +46,5 @@ Progress: 20/24 tasks done (83%)
 - [ ] 5.4 Run round 3, report per claim with per-rep values; publish only what clears the pre-registered margin (active)
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: Operator: run L19 in the first quiet slot; bootstrap the rep-1 trio (round-3-sofar-r1, native-synced-r1, competitor-r1) at 2026-10-04 16:30 IST.
+Next action: Operator bootstraps the rep-1 trio (round-3-sofar-r1, native-synced-r1, competitor-r1) at 2026-10-04 16:30 IST.
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
