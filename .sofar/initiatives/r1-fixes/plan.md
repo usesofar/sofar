@@ -83,4 +83,4 @@ Progress: 38 done, 7 dropped, 0 remaining
 - [-] 7.7 Proof: a live Codex end-to-end on a scratch repo (init with the picker → oriented session → MCP writes → write-back gate → drive run) with the operator's consent for the usage it spends, plus SPEC updates (§Host tiers moves Codex out of Tier 3, §Hooks, §CLI, §Driver) and acceptance criteria. (dropped)
 
 Active phase: Phase 4 — Release
-Next action: Operator: push main (git push origin main); then drive-cost 1.1 baseline from the linked-context runs
+Next action: drive-cost 1.1: baseline per-task tokens from the 2026-09-29 linked-context session transcripts
