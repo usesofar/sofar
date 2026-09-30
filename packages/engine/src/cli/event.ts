@@ -881,7 +881,7 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // reads the key, and only an absent, derived or sofar-owned title is
     // replaced; otherwise the block goes out plain, byte-identical.
     const title =
-      host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null), ctx.sofarDir) : null
+      host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
     return withSessionTitle('session-start', { ...OK, stdout: status }, title)
   } catch {
     return { ...OK }
@@ -2517,7 +2517,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // — decided before the registration check, because a session's first
     // prompt usually lands before its first event registers it.
     const title =
-      host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null), ctx.sofarDir) : null
+      host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
     const me = state.sessions.find((s) => s.id === sessionId)
     if (me === undefined) return withSessionTitle('user-prompt', { ...OK }, title) // not ours to nudge
 

@@ -1,0 +1,271 @@
+# conformance golden: syn.driven
+
+## step 1: prompt: the drive line, no lock on this machine
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN liveness unknown · 1 handoff · now on 1.2 · 1/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2"}}
+--- stderr
+(empty)
+
+## step 2: prompt again: nothing moved, no line
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2"}}
+--- stderr
+(empty)
+
+## step 3: statusline: drive task, liveness unknown
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mmain[39m [2m·[22m [33m◔[39m [35mdrv[39m 1/4 [2m·[22m [2mdrive[22m [36m1.2[39m [2mliveness unknown[22m [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 4: status: resumed, liveness unknown, one stop request in force
+argv: ["status"]
+exit: 0
+--- stdout
+# drv
+
+Goal: watch a driven run from a session
+Progress: 1/4 tasks done (25%) across 2 phase(s)
+
+Phases:
+- Build [active] 1/3
+  - [x] 1.1 first
+  - [~] 1.2 second
+  - [ ] 1.3 third
+- Ship [pending] 0/1
+  - [ ] 2.1 ship it
+
+Next action: (none recorded)
+
+Driven (1 run):
+- run 01K0DRV0000000000000000RUN via claude-code, task policy, resumed (epoch 2) — 1 handoff (1 task_done); liveness unknown — no stop recorded and no run lock for it on this machine; stop requested, not yet stopped
+  - 2026-09-01T10:05:00.000Z session sess-run-1 — task_done, task 1.1
+  - 2026-09-01T10:07:00.000Z resumed — epoch 2
+--- stderr
+(empty)
+
+## step 5: status with the run lock free: driver gone
+argv: ["status"]
+exit: 0
+--- stdout
+# drv
+
+Goal: watch a driven run from a session
+Progress: 1/4 tasks done (25%) across 2 phase(s)
+
+Phases:
+- Build [active] 1/3
+  - [x] 1.1 first
+  - [~] 1.2 second
+  - [ ] 1.3 third
+- Ship [pending] 0/1
+  - [ ] 2.1 ship it
+
+Next action: (none recorded)
+
+Driven (1 run):
+- run 01K0DRV0000000000000000RUN via claude-code, task policy, resumed (epoch 2) — 1 handoff (1 task_done); driver gone — no stop recorded and the run lock on this machine is free; stop requested, never acknowledged; --resume picks it up
+  - 2026-09-01T10:05:00.000Z session sess-run-1 — task_done, task 1.1
+  - 2026-09-01T10:07:00.000Z resumed — epoch 2
+--- stderr
+(empty)
+
+## step 6: prompt: only the liveness moved, no line
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2"}}
+--- stderr
+(empty)
+
+## step 7: statusline: drive gone
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mmain[39m [2m·[22m [33m◔[39m [35mdrv[39m 1/4 [2m·[22m [2mdrive[22m [31mgone[39m [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 8: statusline --no-color: drive gone
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:main · drv 1/4 · drive gone · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 9: a handoff lands
+argv: ["event","append","--type","handoff","--session","sess-run-2","--payload","{\"run\":\"01K0DRV0000000000000000RUN\",\"session_id\":\"sess-run-2\",\"reason\":\"task_done\",\"task\":\"1.2\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>"}
+--- stderr
+(empty)
+
+## step 10: task 1.2 done
+argv: ["event","append","--type","task_status_changed","--payload","{\"id\":\"1.2\",\"status\":\"done\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","session":"sess-d"}
+--- stderr
+(empty)
+
+## step 11: prompt: the run moved
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN driver gone · 2 handoffs · now on 1.3 · 2/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3"}}
+--- stderr
+(empty)
+
+## step 12: the run stops
+argv: ["event","append","--type","run_stopped","--payload","{\"run\":\"01K0DRV0000000000000000RUN\",\"reason\":\"closed\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","session":"sess-d"}
+--- stderr
+(empty)
+
+## step 13: a driven session gets no line, news or not
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+env: {"SOFAR_DRIVE_NUDGE":"/nonexistent/sofar-nudge.json"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3"}}
+--- stderr
+(empty)
+
+## step 14: prompt: stopped
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN stopped: closed · 2 handoffs · 2/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3"}}
+--- stderr
+(empty)
+
+## step 15: statusline: the stop since the session began
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mmain[39m [2m·[22m [33m◔[39m [35mdrv[39m 2/4 [2m·[22m [2mdrive[22m [32mclosed[39m [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 16: statusline for a session that began after the stop: no segment
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"sess-late","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:main · drv 2/4 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## record delta
+=== .sofar/initiatives/drv/decisions.md (added, 123 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Decisions: drv
+
+(no decisions logged yet)
+=== .sofar/initiatives/drv/events.jsonl (appended 1101 bytes after 2619 unchanged)
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"drv","session":"sess-run-2","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"cli"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"drv","session":"sess-run-2","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"handoff","payload":{"reason":"task_done","run":"01K0DRV0000000000000000RUN","session_id":"sess-run-2","task":"1.2"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"drv","session":"sess-d","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"task_status_changed","payload":{"id":"1.2","status":"done"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"drv","session":"sess-d","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"run_stopped","payload":{"reason":"closed","run":"01K0DRV0000000000000000RUN"}}
+{"v":1,"id":"01K5ZZZZ000000000000000001","ts":"2030-01-01T00:00:00.000Z","initiative":"drv","session":"sess-late","source":"hook","actor":"agent","type":"session_started","payload":{"tool":"claude-code"}}
+=== .sofar/initiatives/drv/plan.md (added, 318 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Plan: drv
+
+Goal: watch a driven run from a session
+
+Progress: 2/4 tasks done (50%)
+
+## Build [active] — 2/3 done
+
+- [x] 1.1 first
+- [x] 1.2 second
+- [ ] 1.3 third
+
+## Ship [pending] — 0/1 done
+
+- [ ] 2.1 ship it
+
+Active phase: Build
+=== .sofar/initiatives/drv/sessions/sess-d.md (added, 442 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session sess-d
+
+- Initiative: drv
+- Tool: claude-code
+- Started: 2026-09-01T10:09:00.000Z
+- Ended: (in progress)
+
+## Summary
+
+(none recorded — no write-back yet; derived resume point below)
+
+## Next action
+
+(none recorded)
+
+## Activity (derived from mechanical events)
+
+- Derived: task changes: 1.2 → done
+- Commands run: 0
+- Task changes:
+  - 1.2 → done
+=== .sofar/initiatives/drv/sessions/sess-run-1.md (added, 358 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session sess-run-1
+
+- Initiative: drv
+- Tool: claude-code
+- Started: 2026-09-01T10:04:00.000Z
+- Ended: (in progress)
+- Driven: run 01K0DRV0000000000000000RUN — handed off: task_done
+
+## Summary
+
+(none recorded — session did not write back)
+
+## Next action
+
+(none recorded)
+=== .sofar/initiatives/drv/sessions/sess-run-2.md (added, 330 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session sess-run-2
+
+- Initiative: drv
+- Tool: cli
+- Started: <TS>
+- Ended: (in progress)
+- Driven: run 01K0DRV0000000000000000RUN — handed off: task_done
+
+## Summary
+
+(none recorded — session did not write back)
+
+## Next action
+
+(none recorded)

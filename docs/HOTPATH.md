@@ -199,7 +199,9 @@ stdout, exit 0 always:
   D1, `host.ts withSessionTitle`). The title is `<slug> <focus task id>` —
   `focusTask`: the active phase's active, else pending, else blocked task,
   else the same pick over the first phase neither done nor dropped — or the
-  slug alone with no such task. It is handed over only when the host is
+  slug alone with no such task — then ` #<tag>`, the session id's first four
+  ASCII alphanumerics lowercased, omitted when the id has none
+  (session-naming D2). It is handed over only when the host is
   Claude Code (no `cursor_version`, not `--host codex`) AND `titleToApply`
   says so: the payload's `session_title` (JS-trimmed; absent reads as empty)
   differs from the title, and is empty, OR is the host's derived name for

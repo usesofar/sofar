@@ -1,0 +1,233 @@
+# conformance golden: repo.append
+
+## step 1: note on the bound record
+argv: ["event","append","--type","note_added","--payload","{\"text\":\"conformance note\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","session":"cli"}
+--- stderr
+(empty)
+
+## step 2: explicit slug
+argv: ["event","append","felt-cost","--type","note_added","--payload","{\"text\":\"note on another record\"}","--session","conf-cli","--actor","human"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>"}
+--- stderr
+(empty)
+
+## step 3: unknown event type
+argv: ["event","append","--type","bogus_event","--payload","{}"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"unknown_event","message":"refusing to append invalid bogus_event payload","errors":["unknown event type: bogus_event"]}
+
+## step 4: payload is not JSON
+argv: ["event","append","--type","note_added","--payload","{"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"invalid_input","message":"--payload is not valid JSON: Expected property name or '}' in JSON at position 1"}
+
+## step 5: payload is not an object
+argv: ["event","append","--type","note_added","--payload","[1]"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"invalid_input","message":"--payload must be a JSON object"}
+
+## step 6: payload fails the schema
+argv: ["event","append","--type","decision_logged","--payload","{\"chose\":\"x\"}"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"invalid_input","message":"refusing to append invalid decision_logged payload","errors":["over: must be a non-empty string","because: must be a non-empty string"]}
+
+## step 7: bad source
+argv: ["event","append","--type","note_added","--payload","{\"text\":\"x\"}","--source","nope"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","session":"cli"}
+--- stderr
+(empty)
+
+## step 8: bad actor
+argv: ["event","append","--type","note_added","--payload","{\"text\":\"x\"}","--actor","nope"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"invalid_input","message":"--actor must be one of: agent|human"}
+
+## step 9: empty session
+argv: ["event","append","--type","note_added","--payload","{\"text\":\"x\"}","--session",""]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"invalid_input","message":"--session must be a non-empty session id"}
+
+## step 10: unknown slug
+argv: ["event","append","no-such-record","--type","note_added","--payload","{\"text\":\"x\"}"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"unknown_initiative","message":"initiative \"no-such-record\" not found under .sofar/initiatives/; available initiatives: architecture-map, auto-update, bench-refresh, binding-follows-session, cli-ui, commit-attribution, cross-initiative-conflicts, digest-signal, drift-certification, drift-hardening, …+45 more (details: sofar list)"}
+
+## step 11: task_status_changed for an unknown task appends (fold warns)
+argv: ["event","append","--type","task_status_changed","--payload","{\"id\":\"9.9\",\"status\":\"done\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","session":"cli"}
+--- stderr
+(empty)
+
+## step 12: numbers and escapes re-serialize canonically
+argv: ["event","append","--type","note_added","--payload","{\"text\":\"esc \\u0001 \\ud83d\\ude00 \\ud800 \\\"q\\\" \\\\ / \\u2028\",\"z\":1e21,\"a\":1e-7,\"m\":-0,\"f\":1.0,\"big\":12345678901234567890,\"s\":0.30000000000000004,\"tiny\":5e-324,\"nest\":{\"b\":[null,1,{\"y\":2,\"x\":1}],\"a\":true},\"dup\":1,\"dup\":2}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","session":"cli"}
+--- stderr
+(empty)
+
+## step 13: status after the appends
+argv: ["status"]
+exit: 0
+--- stdout
+# rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Standing constraints — obey verbatim (2):
+- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+Progress: 1/15 tasks done (6%) across 4 phase(s)
+
+Phases:
+- Phase 1 — Contract [active] 1/3
+  - [x] 1.1 Inventory the hot-path surface from docs/SPEC.md and engine code: every hook's stdin/stdout/exit behaviour, CLI commands in scope (event append, status, statusline), env vars, files written, event envelope and projection outputs. List every SPEC gap found.
+  - [~] 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
+  - [ ] 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 10, 100 and 1,000 initiatives and 1–10 MB records, TypeScript numbers recorded as the target to beat
+- Phase 2 — Rust core [pending] 0/6
+  - [ ] 2.1 Cargo workspace crates/sofar-core; schema codegen from packages/schema/src (no hand-written payload types); dependency list per D1
+  - [ ] 2.2 Event envelope and atomic O_APPEND append; unknown and corrupt lines skipped with a warning, never fatal, never rewritten
+  - [ ] 2.3 Fold to initiative state with conformance parity
+  - [ ] 2.4 Digest/status render byte-identical to the projection templates (golden tests), including the 10k char cap behaviour
+  - [ ] 2.5 Hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end) with conformance parity, including r1-fixes wave 1–2 behaviour
+  - [ ] 2.6 Statusline command parity
+- Phase 3 — Integration and distribution [pending] 0/3
+  - [ ] 3.1 TS entry points and hook shims dispatch to sofar-core when present, with TypeScript fallback and an explicit override for debugging
+  - [ ] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
+  - [ ] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
+- Phase 4 — Prove and switch [pending] 0/3
+  - [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
+  - [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
+  - [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
+
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+
+⚠ Staleness:
+- next action may be stale: 4 events since the last write-back (2026-09-15T16:11:51.483Z) — 1 task change, 3 notes
+
+Notes since write-back (3):
+- <TS> conformance note
+- <TS> x
+- <TS> esc  😀 � "q" \ /
+
+Last session (claude-code, ended 2026-09-15T16:11:51.483Z):
+  1.1 done: docs/HOTPATH.md inventories the hot-path surface (5 hooks, append, statusline, status), per-command I/O contract, text-semantics pins, SPEC gaps G1–G15, open decisions O1–O6. D2 logged (Rust reproduces JS text semantics). 1.2 set active.
+
+Files touched (2):
+- /private/tmp/claude-501/-Users-jins-IO-sofar/aac148fe-0a14-46d5-b42c-64fb65cd8ad2/scratchpad/commit-msg.txt
+- /Users/jins/IO/sofar-rust-core/docs/HOTPATH.md
+--- stderr
+warning: line 54: task "9.9" not found — task_status_changed skipped
+
+## step 14: status of the other record
+argv: ["status","felt-cost"]
+exit: 0
+--- stdout
+# felt-cost
+
+Goal: Make harness cost felt at the moment it is incurred — cold-resume advisory, statusline rent-meter with cache-read health bands, batch-complete end-session nudge (behind SPEC) — and pin the injection's byte-stability against regression. Governed by the zero-model-API-calls invariant: no play may add a model call, API key, or inference cost to sofar.
+Progress: 12/12 tasks done (100%) across 5 phase(s)
+
+Phases:
+- Phase 1 — Invariants & pinning [done] 2/2
+  - [x] 1.1 Name the zero-model-API-calls invariant in docs/SPEC.md and CLAUDE.md guard-rails
+  - [x] 1.2 Byte-stability regression test: identical fold state → byte-identical renderStatus across wall-clock change
+- Phase 2 — Cold-resume advisory [done] 2/2
+  - [x] 2.1 SessionStart source=resume detection: last-event age + transcript size estimate (read-side, best-effort)
+  - [x] 2.2 Advisory line in injected block + tests (never blocks, never errors)
+- Phase 3 — Rent-meter [done] 3/3
+  - [x] 3.1 SPEC-lite: statusline integration design (stdin cost/cache fields + sofar record state)
+  - [x] 3.2 Implement statusline surface with cache-read % health bands (50–80% healthy, <30% warn)
+  - [x] 3.3 Tests + README/docs for statusline setup
+- Phase 4 — Batch-complete nudge [done] 2/2
+  - [x] 4.1 SPEC decision: UserPromptSubmit shim + additionalContext contract
+  - [x] 4.2 Implement nudge behind the SPEC + tests
+- Phase 5 — Polish round (user feedback on 0.8.0) [done] 3/3
+  - [x] 5.1 Statusline harness-identity segments: restore model · dir:branch (custom statusLine replaces Claude Code's default)
+  - [x] 5.2 Styled statusline: forced caps (D7), glyphs not emoji (D8), task-progress pie (D9), text cache label (D10); --no-color plain fallback
+  - [x] 5.3 Release 0.8.1 + rollout (publish, upgrade)
+
+Next action: None — initiative complete. Other repos: one-time `sofar init` re-run each for the UserPromptSubmit shim (doctor flags them); statusLine can live once in ~/.claude/settings.json. Next engine work starts a new initiative (sofar new).
+
+⚠ Staleness:
+- next action may be stale: 9 events since the last write-back (2026-07-12T13:17:26.558Z) — 1 task change, 1 phase change, 1 note, 6 decisions
+
+Notes since write-back (1):
+- <TS> note on another record
+
+Last session (claude-code, ended 2026-07-12T13:17:26.558Z):
+  felt-cost CLOSED: 0.8.1 confirmed on registry + global, doctor clean, 12/12 tasks across 5 phases, D1-D10. Binding removed (main unbound, close precedent).
+
+Files touched (13):
+- /Users/jins/IO/sofar/CLAUDE.md
+- /Users/jins/IO/sofar/docs/SPEC.md
+- /Users/jins/IO/sofar/packages/engine/test/byte-stability.test.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/event.ts
+- /Users/jins/IO/sofar/packages/engine/test/hooks.test.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/statusline.ts
+- /Users/jins/IO/sofar/packages/engine/src/cli/index.ts
+- /Users/jins/IO/sofar/packages/engine/test/statusline.test.ts
+- /Users/jins/IO/sofar/README.md
+- /Users/jins/IO/sofar/packages/engine/src/hooks/user-prompt-submit.sh
+- /Users/jins/IO/sofar/packages/engine/src/cli/init.ts
+- /Users/jins/IO/sofar/packages/engine/test/init.test.ts
+- /Users/jins/IO/sofar/packages/engine/test/uninit.test.ts
+--- stderr
+(empty)
+
+## record delta
+=== .sofar/initiatives/felt-cost/events.jsonl (appended 410 bytes after 98263 unchanged)
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"felt-cost","session":"conf-cli","source":"cli","actor":"human","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"cli"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"felt-cost","session":"conf-cli","source":"cli","actor":"human","user":"conformance@example.invalid","type":"note_added","payload":{"text":"note on another record"}}
+=== .sofar/initiatives/felt-cost/sessions/conf-cli.md (added, 267 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session conf-cli
+
+- Initiative: felt-cost
+- Tool: cli
+- Started: <TS>
+- Ended: (in progress)
+
+## Summary
+
+(none recorded — session did not write back)
+
+## Next action
+
+(none recorded)
+=== .sofar/initiatives/rust-core/events.jsonl (appended 969 bytes after 28249 unchanged)
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"cli","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"note_added","payload":{"text":"conformance note"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"cli","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"note_added","payload":{"text":"x"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"cli","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"task_status_changed","payload":{"id":"9.9","status":"done"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"cli","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"note_added","payload":{"a":1e-7,"big":12345678901234567000,"dup":2,"f":1,"m":0,"nest":{"a":true,"b":[null,1,{"x":1,"y":2}]},"s":0.30000000000000004,"text":"esc \u0001 😀 \ud800 \"q\" \\ /  ","tiny":5e-324,"z":1e+21}}

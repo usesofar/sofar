@@ -1,0 +1,81 @@
+# conformance golden: open.O5-commit-trailer
+
+## step 1: registered session stamps the trailer
+argv: ["commit-trailer","<ROOT>/msg-1"]
+env: {"CLAUDE_CODE_SESSION_ID":"sess-open"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+--- artifact
+fix: a thing
+
+body line
+
+Sofar-Initiative: baseline
+
+# Please enter the commit message
+# Lines starting with # will be ignored
+
+## step 2: scissors block
+argv: ["commit-trailer","<ROOT>/msg-2"]
+env: {"CLAUDE_CODE_SESSION_ID":"sess-open"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+--- artifact
+feat: x
+
+Sofar-Initiative: baseline
+# ------------------------ >8 ------------------------
+# Do not modify or remove the line above.
+diff --git a/x b/x
+
+## step 3: already stamped
+argv: ["commit-trailer","<ROOT>/msg-3"]
+env: {"CLAUDE_CODE_SESSION_ID":"sess-open"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+--- artifact
+feat: y
+
+Sofar-Initiative: baseline
+
+## step 4: no session env: untouched
+argv: ["commit-trailer","<ROOT>/msg-4"]
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+--- artifact
+chore: z
+
+## step 5: unregistered session: untouched
+argv: ["commit-trailer","<ROOT>/msg-5"]
+env: {"CLAUDE_CODE_SESSION_ID":"nobody"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+--- artifact
+chore: w
+
+## step 6: missing message file
+argv: ["commit-trailer","<ROOT>/msg-none"]
+env: {"CLAUDE_CODE_SESSION_ID":"sess-open"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## record delta
+(no change)

@@ -230,7 +230,7 @@ describe('no ceremony in the lane (D14 C)', () => {
     handlePostTool(f.root, edit('src/b.ts', 'claude-quick-2'))
     const start = handleSessionStart(f.root, hook({ session_id: 'claude-quick-3' }))
     // the lane names the session too, by its slug alone (session-naming D1)
-    expect(hookTitle(start)).toBe(QUICK_LANE)
+    expect(hookTitle(start)).toBe(`${QUICK_LANE} #clau`)
     const out = hookContext(start)
     expect(out).toMatch(/^# Sofar: quick-work lane \(quick\)/)
     expect(out).toContain('no sofar new, no plan, no write-back')

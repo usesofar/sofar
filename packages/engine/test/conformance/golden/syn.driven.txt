@@ -5,7 +5,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN liveness unknown · 1 handoff · now on 1.2 · 1/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN liveness unknown · 1 handoff · now on 1.2 · 1/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2 #sess"}}
 --- stderr
 (empty)
 
@@ -14,7 +14,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2 #sess"}}
 --- stderr
 (empty)
 
@@ -84,7 +84,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.2 #sess"}}
 --- stderr
 (empty)
 
@@ -127,7 +127,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN driver gone · 2 handoffs · now on 1.3 · 2/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN driver gone · 2 handoffs · now on 1.3 · 2/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3 #sess"}}
 --- stderr
 (empty)
 
@@ -145,7 +145,7 @@ stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":
 env: {"SOFAR_DRIVE_NUDGE":"/nonexistent/sofar-nudge.json"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3 #sess"}}
 --- stderr
 (empty)
 
@@ -154,7 +154,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-d","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN stopped: closed · 2 handoffs · 2/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01K0DRV0000000000000000RUN stopped: closed · 2 handoffs · 2/4\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"drv 1.3 #sess"}}
 --- stderr
 (empty)
 

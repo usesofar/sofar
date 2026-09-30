@@ -1,5 +1,13 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded from the TypeScript reference for **session-naming D2**, on
+main d3fcbfa: every session title sofar proposes now ends in ` #<tag>` — the
+first four ASCII alphanumerics of the session id, lowercased — so sessions
+on one record and task stop sharing a name. 31 goldens moved, each only in a
+`sessionTitle` value; no context, record or exit byte changed. The previous
+set is kept as `golden-d3fcbfa-pre-session-tag/`. Verified against
+`target/release/sofar-core` through the stub (`SOFAR_CORE=`): 250/250.
+
 ADDED for **linked-context 1.3** (D9), on linked-context 8a7af2d: eight
 `syn.travel-*` cases over the new `travel` synthetic fixture, one home
 record per scenario (open wait, resolved wait, dangling handle, supersession

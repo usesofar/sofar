@@ -1,0 +1,156 @@
+# conformance golden: argv.fast-path
+
+## step 1: bare event
+argv: ["event"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+Usage: sofar event [options] [command]
+
+append-side surface: hook subcommands read hook JSON from stdin (SPEC §Hooks);
+`append` is the convention dialect for MCP-less tools
+
+Options:
+  -h, --help                   display help for command
+
+Commands:
+  append [options] [slug]      append one validated event and regenerate
+                               projections — the convention-dialect surface for
+                               tools without MCP (prints {ok, event_id} JSON)
+  types [options] [type]       payload reference for `event append`: every event
+                               type, its fields, a validating example, and who
+                               writes it
+  session-start [options]      SessionStart hook: register the session in the
+                               log, print the status projection (≤10,000 chars)
+                               as injected context
+  post-tool [options]          PostToolUse hook: append mechanical file_touched
+                               (Edit|Write|MultiEdit|apply_patch) / command_run
+                               (Bash) events, and surface every repo-wide
+                               decision that guards or names what the call
+                               edited, read or ran
+  post-tool-failure [options]  PostToolUseFailure hook: append the same
+                               mechanical event with ok:false (and exit when the
+                               host gives one); the error text goes to the
+                               private diagnostics store, never the record
+  drive-await [options]        PostToolUse hook (Claude Code, asyncRewake):
+                               after a Bash call that started a detached run,
+                               wait on it and wake this session with one line
+                               when it stops or its driver is gone
+  user-prompt [options]        UserPromptSubmit hook: nudge an in-flow
+                               write-back (one additionalContext line) when
+                               drift since the last session_ended ≥5 events
+  stop [options]               Stop hook: exit 2 (blocking) when the registered
+                               session has not written back via session_ended;
+                               loop-guarded by stop_hook_active
+  session-end [options]        SessionEnd hook: append a mechanical
+                               session_closed marker (fallback only)
+  help [command]               display help for command
+
+## step 2: unknown hook name
+argv: ["event","wat"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 1
+--- stdout
+(empty)
+--- stderr
+error: unknown command 'wat'
+
+## step 3: unknown flag on a hook
+argv: ["event","session-start","--bogus"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 1
+--- stdout
+(empty)
+--- stderr
+error: unknown option '--bogus'
+
+## step 4: empty --root=
+argv: ["event","session-start","--root="]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: baseline\n\nGoal: a small healthy record for the hook lifecycle\n\nCurrent task: 1.2 second task\n  in Build [active] 1/3\n  files: src/module/file-4.ts, src/module/file-3.ts, src/module/file-2.ts, src/module/file-1.ts, src/module/file-0.ts\n  - 1.3 third task\n\nNext action: implement 1.2 against the fixture\n⚠ next action may be stale: 5 events since write-back (5 files)\n\nLast session (claude-code, ended 2026-09-01T10:09:00.000Z):\n  finished 1.1 and set 1.2 active\n\nLast session (claude-code) open, no write-back yet — derived: 5 files (src/module/file-0.ts, src/module/file-1.ts, src/module/file-2.ts, src/module/file-3.ts, src/module/file-4.ts), 1 command\n  (details in sessions/sess-open.md)\n\nPhases:\n- Build [active] 1/3\n- Ship [pending] 0/1\nProgress: 1/4 tasks done (25%) across 2 phase(s)\n\nMemory (1; full text in memory.md):\n- [M1] Test command: npm test (vitest).\n\nRepo memory (.sofar/repo.md):\n# Repo memory\n\n- Test command: npm test\n- Build: npm run build\n\nRecent decisions (2; full text in decisions.md):\n- [D1] 2026-09-01 vitest — over jest\n- [D2] 2026-09-01 (rule below) append-only log — over a mutable state file\n\nNext ids: D3 (decision), M2 (memory)\n\nSession: conf-session — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ ce11ce1 — no origin ref — never pushed\n\nStanding constraints — obey verbatim (1):\n- [D2] Never rewrite events.jsonl; unknown lines are skipped with a warning.\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"baseline 1.2"}}
+--- stderr
+(empty)
+
+## step 5: --root without a value
+argv: ["event","session-start","--root"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 1
+--- stdout
+(empty)
+--- stderr
+error: option '--root <dir>' argument missing
+
+## step 6: --root pointing at a flag
+argv: ["event","session-start","--root","--no-color"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 1
+--- stdout
+(empty)
+--- stderr
+error: option '--root <dir>' argument missing
+
+## step 7: positional after a hook
+argv: ["event","session-start","extra"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 1
+--- stdout
+(empty)
+--- stderr
+error: too many arguments for 'session-start'. Expected 0 arguments but got 1: extra.
+
+## step 8: statusline with an unknown flag
+argv: ["statusline","--weird"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 1
+--- stdout
+(empty)
+--- stderr
+error: unknown option '--weird'
+
+## step 9: statusline --color
+argv: ["statusline","--color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mmain[39m [2m·[22m [33m◔[39m [35mbaseline[39m 1/4 [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 10: statusline --no-color --color
+argv: ["statusline","--no-color","--color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:main · baseline 1/4 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 11: append without --type
+argv: ["event","append","--payload","{}"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+error: required option '--type <event_type>' not specified
+
+## step 12: append without --payload
+argv: ["event","append","--type","note_added"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"invalid_input","message":"--payload is not valid JSON: Unexpected end of JSON input"}
+
+## step 13: --version
+argv: ["--version"]
+exit: 0
+--- stdout
+0.33.0-rc.2+trunk
+--- stderr
+(empty)
+
+## record delta
+(no change)

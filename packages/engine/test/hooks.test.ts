@@ -20,6 +20,7 @@ import {
   STOP_BLOCK_MESSAGE,
 } from '../src/cli/event'
 import { NUDGE_ENV } from '../src/driver/nudge'
+import { sessionTitle } from '../src/cli/host'
 import { STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
 import { callTool, connectServer, makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
 
@@ -432,7 +433,7 @@ describe('session title (session-naming D1) — the slug and focus task, handed 
       }),
     )
 
-  it('SessionStart with no session_title: the digest rides as additionalContext and the title is "<slug> <focus task>"', () => {
+  it('SessionStart with no session_title: the digest rides as additionalContext and the title is "<slug> <focus task> #<id tag>"', () => {
     const fixture = fx()
     plan(fixture, ['1.1', '1.2'])
     const result = handleSessionStart(fixture.root, hookStdin({ source: 'startup' }))
@@ -440,19 +441,19 @@ describe('session title (session-naming D1) — the slug and focus task, handed 
     const decoded = JSON.parse(result.stdout) as { hookSpecificOutput: Record<string, unknown> }
     expect(Object.keys(decoded.hookSpecificOutput)).toEqual(['hookEventName', 'additionalContext', 'sessionTitle'])
     expect(decoded.hookSpecificOutput.hookEventName).toBe('SessionStart')
-    expect(decoded.hookSpecificOutput.sessionTitle).toBe('demo 1.1')
+    expect(decoded.hookSpecificOutput.sessionTitle).toBe('demo 1.1 #clau')
     // the context is exactly the plain block a titled session gets
-    const plain = handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'demo 1.1' }))
+    const plain = handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'demo 1.1 #clau' }))
     expect(plain.stdout.startsWith('# Sofar status:')).toBe(true)
     expect(decoded.hookSpecificOutput.additionalContext).toBe(plain.stdout)
     expect(result.stdout.endsWith('\n')).toBe(true)
   })
 
-  it('a record with no open task is titled by its slug alone', () => {
+  it('a record with no open task is titled by its slug and tag alone', () => {
     const fixture = fx()
-    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup' })))).toBe('demo')
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup' })))).toBe('demo #clau')
     plan(fixture, [])
-    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup' })))).toBe('demo')
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup' })))).toBe('demo #clau')
   })
 
   it('the title follows the focus task: active over pending, and the next task once one is done', () => {
@@ -471,19 +472,19 @@ describe('session title (session-naming D1) — the slug and focus task, handed 
         }),
       )
     status('1.2', 'active')
-    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup' })))).toBe('demo 1.2')
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup' })))).toBe('demo 1.2 #clau')
     status('1.2', 'done')
-    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup' })))).toBe('demo 1.1')
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup' })))).toBe('demo 1.1 #clau')
   })
 
   it('an unchanged title is not re-sent: the block goes out plain, byte-identical to before session-naming', () => {
     const fixture = fx()
     plan(fixture, ['1.1'])
-    const result = handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'demo 1.1' }))
+    const result = handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'demo 1.1 #clau' }))
     expect(result.stdout.startsWith('# Sofar status: demo')).toBe(true)
     expect(title(result)).toBeNull()
     // whitespace around the host's copy never counts as a change
-    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: '  demo 1.1 ' })))).toBeNull()
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: '  demo 1.1 #clau ' })))).toBeNull()
   })
 
   it("a title the operator typed (/rename, --name) is never replaced — not even one that looks like a slug", () => {
@@ -500,9 +501,9 @@ describe('session title (session-naming D1) — the slug and focus task, handed 
     const fixture = fx()
     plan(fixture, ['1.1'])
     const at = (cwd: string, session_title: string) => title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', cwd, session_title })))
-    expect(at('/Users/x/IO/sofar', 'sofar-d3')).toBe('demo 1.1')
-    expect(at('/Users/x/IO/sofar/', 'sofar-d3')).toBe('demo 1.1') // trailing slash
-    expect(at('/Users/x/IO/sofar-app', 'sofar-app-43')).toBe('demo 1.1')
+    expect(at('/Users/x/IO/sofar', 'sofar-d3')).toBe('demo 1.1 #clau')
+    expect(at('/Users/x/IO/sofar/', 'sofar-d3')).toBe('demo 1.1 #clau') // trailing slash
+    expect(at('/Users/x/IO/sofar-app', 'sofar-app-43')).toBe('demo 1.1 #clau')
     expect(at('/Users/x/IO/other', 'sofar-d3')).toBeNull() // another folder's name is somebody's choice
     expect(at('/Users/x/IO/sofar', 'sofar-d3x')).toBeNull()
     expect(at('/Users/x/IO/sofar', 'sofar-D3')).toBeNull()
@@ -513,27 +514,39 @@ describe('session title (session-naming D1) — the slug and focus task, handed 
     const fixture = fx()
     plan(fixture, ['1.1'])
     mkdirSync(join(fixture.root, '.sofar', 'initiatives', 'earlier-record'), { recursive: true })
-    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'demo 0.9' })))).toBe('demo 1.1')
-    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'earlier-record 2.2' })))).toBe('demo 1.1')
-    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'earlier-record' })))).toBe('demo 1.1')
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'demo 0.9' })))).toBe('demo 1.1 #clau')
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'earlier-record 2.2' })))).toBe('demo 1.1 #clau')
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'earlier-record' })))).toBe('demo 1.1 #clau')
     expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'never-a-record 2.2' })))).toBeNull()
+    // an untagged title from before session-naming D2 is ours too, and gains its tag
+    expect(title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_title: 'demo 1.1' })))).toBe('demo 1.1 #clau')
   })
 
   it('UserPromptSubmit carries the title too — before registration, and beside the nudge once there is one', () => {
     const fixture = fx()
     plan(fixture, ['1.1'])
     const early = handleUserPrompt(fixture.root, hookStdin({ prompt: 'hi' }))
-    expect(JSON.parse(early.stdout)).toEqual({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', sessionTitle: 'demo 1.1' } })
+    expect(JSON.parse(early.stdout)).toEqual({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', sessionTitle: 'demo 1.1 #clau' } })
     registerSession(fixture)
     for (let i = 0; i < NUDGE_DRIFT_MIN; i++) {
       handlePostTool(fixture.root, hookStdin({ tool_name: 'Edit', tool_input: { file_path: join(fixture.root, `f${i}.ts`) } }))
     }
     const nudged = handleUserPrompt(fixture.root, hookStdin({ prompt: 'hi' }))
-    expect(title(nudged)).toBe('demo 1.1')
+    expect(title(nudged)).toBe('demo 1.1 #clau')
     expect(context(nudged)).toContain('unwritten events in THIS session')
-    const settled = handleUserPrompt(fixture.root, hookStdin({ prompt: 'hi', session_title: 'demo 1.1' }))
+    const settled = handleUserPrompt(fixture.root, hookStdin({ prompt: 'hi', session_title: 'demo 1.1 #clau' }))
     expect(settled.stdout.startsWith('{')).toBe(false)
     expect(settled.stdout).toContain('unwritten events in THIS session')
+  })
+
+  it('sessions on one record and one task never share a name (session-naming D2): each ends in its own id tag', () => {
+    const fixture = fx()
+    plan(fixture, ['1.1'])
+    const named = (session_id: string) => title(handleSessionStart(fixture.root, hookStdin({ source: 'startup', session_id })))
+    expect(named('3c39c8e4-28ca-422f-ae54-cb60d7b81b17')).toBe('demo 1.1 #3c39')
+    expect(named('25CC074E-ca88-4458-9586-76dca1ca3c3e')).toBe('demo 1.1 #25cc')
+    expect(sessionTitle('demo', '1.1', null)).toBe('demo 1.1')
+    expect(sessionTitle('demo', null, '--')).toBe('demo')
   })
 
   it('an unbound repo hands no title; a Cursor payload never gets one', () => {

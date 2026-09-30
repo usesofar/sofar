@@ -196,9 +196,18 @@ const CLAUDE_TITLE_EVENTS: Readonly<Partial<Record<HookName, string>>> = {
  * record has no open task. `agents-parity 3.4` reads in the sidebar, in
  * `ListAgents` and in every peer line what the derived `sofar-d3` never
  * could: which record and which task this session serves.
+ *
+ * Every session on one record shares that focus task, so ten sessions would
+ * wear ten identical names — and `claude --resume "<name>"` could not tell
+ * them apart. A `#` tag of the session id's first four characters ends each
+ * one (session-naming D2): unique, stable across prompts and task moves, and
+ * the prefix of its `sessions/<id>.md`. Taken from the id, never counted from
+ * the record, since a session titles itself before it registers.
  */
-export function sessionTitle(slug: string, taskId: string | null): string {
-  return taskId === null ? slug : `${slug} ${taskId}`
+export function sessionTitle(slug: string, taskId: string | null, sessionId: string | null = null): string {
+  const base = taskId === null ? slug : `${slug} ${taskId}`
+  const tag = sessionId === null ? '' : sessionId.replace(/[^0-9A-Za-z]/g, '').slice(0, 4).toLowerCase()
+  return tag.length === 0 ? base : `${base} #${tag}`
 }
 
 /**

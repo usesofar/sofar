@@ -4973,8 +4973,10 @@ fires, and a Codex session is Tier 3 (§Host tiers).
   about the work. Both the SessionStart and the UserPromptSubmit shim hand
   the host `<slug> <focus task id>` (`agents-parity 3.4`; the slug alone
   while the record has no open task — the same task the block's
-  "Current task" / "Next task" line names) as
-  `hookSpecificOutput.sessionTitle`, which the host applies as the
+  "Current task" / "Next task" line names), ended by ` #<tag>` — the first
+  four ASCII alphanumerics of the session id, lowercased, so every session
+  on one record and task carries a distinct, resumable name (session-naming
+  D2) — as `hookSpecificOutput.sessionTitle`, which the host applies as the
   session's title (both hooks receive the current `session_title` on
   stdin). PROVEN live on claude 2.1.283 (session-naming 1.4, two interactive
   pty sessions and one print-mode session on a scratch repo wired to the

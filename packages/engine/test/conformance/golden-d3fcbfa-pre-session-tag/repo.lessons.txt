@@ -1,0 +1,143 @@
+# conformance golden: repo.lessons
+
+## step 1: the subject: decided before
+argv: ["event","user-prompt"]
+stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"adopt Rust for the hot path incrementally, run owner said yes"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [D1] chose Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 (\"yes do it\"). SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions: - \"TypeScript s (matched: rust, incrementally, yes, hot, adopt, owner, path, run; full text in deci…\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+--- artifact
+lexicon-h.json e0f4c453be53fbe7 148334
+lexicon-p00.json 3a9efc2d76e08902 15483
+lexicon-p01.json 8f02923deca58f6c 11258
+lexicon-p02.json 8c6d6d9eab688b01 13089
+lexicon-p03.json da1583915920f5f6 17878
+lexicon-p04.json 29eca858436eb323 16548
+lexicon-p05.json 64034aff1b472385 14948
+lexicon-p06.json d8e8da3b699288a1 12473
+lexicon-p07.json a82a3f12b0158e39 13720
+lexicon-p08.json a2f8dd81af604b2e 14240
+lexicon-p09.json 85d3930179b77a9b 15871
+lexicon-p10.json 5d0abf83576a6f3b 15291
+lexicon-p11.json c5253f809bba1db3 12811
+lexicon-p12.json 0f67a3f94ef14e16 15362
+lexicon-p13.json a4b6545ae91e14dd 12109
+lexicon-p14.json 6177040016ab866a 11513
+lexicon-p15.json 061a4ec315c947dc 17472
+lexicon-p16.json 83ec2f7c1c4e7ae2 12663
+lexicon-p17.json 6766690bc17b0d9d 14262
+lexicon-p18.json a391058b40a1183b 16291
+lexicon-p19.json 8293414d369952e2 13703
+lexicon-p20.json 05b3680c8b1656f6 17387
+lexicon-p21.json 6ae2ad6288065968 12646
+lexicon-p22.json 5af2ab5e7cfdd141 14190
+lexicon-p23.json a12207be8118c1c2 15817
+lexicon-p24.json 8d3cc8bec6d104f9 18206
+lexicon-p25.json 4f5e87f783728e57 11656
+lexicon-p26.json dbda5ad9a22ce3c1 12368
+lexicon-p27.json c86188fd148e4048 12443
+lexicon-p28.json cb64d98cdcc3efb3 16658
+lexicon-p29.json 570afdc4eeb4701c 15951
+lexicon-p30.json 8532ec1e30258446 15308
+lexicon-p31.json ee63f04967cf2b93 14548
+lexicon.json cc31a0e10be8cf37 49171
+gens: one
+told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["01M2JWH2A0SZXMRPGH4P3HEV05 prompt"]}
+
+## step 2: the same prompt: told once, nothing
+argv: ["event","user-prompt"]
+stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"adopt Rust for the hot path incrementally, run owner said yes"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [bench-refresh D21] chose Adopt the external Codex audit of r1-fixes (session codex-r1-audit-20260915-01, record r1-fixes) at program level. Ruled by the run owner 2026-09-15 by sharing it with \"yes do it\". (1) RELEASE ORDER:  (matched: yes, rust, adopt, owner, run; full text in bench-refresh/d…\nsofar: noted before — [bench-refresh note 2026-09-15] RUN-OWNER QUESTION (2026-09-15): move sofar to Rust for lead performance? Evidence against a rewrite now: - Engine plus schema is 27,593 lines of TS, with 34,197 lines of tests (109 engine test files) (matched: rust, hot, owner, path, run)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+
+## step 3: a rejected approach: ruled out before
+argv: ["event","user-prompt"]
+stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: lengths, rust, ryu, formatting, number, char; full text in decisions.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+
+## step 4: again: the runner-up, another record’s note
+argv: ["event","user-prompt"]
+stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+
+## step 5: the fold path (SOFAR_LESSONS=fold): no told set
+argv: ["event","user-prompt"]
+stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
+env: {"SOFAR_LESSONS":"fold"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: formatting, lengths, number, char, ryu, rust; full text in decisions.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+
+## step 6: SOFAR_LESSONS=off: no line
+argv: ["event","user-prompt"]
+stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
+env: {"SOFAR_LESSONS":"off"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+
+## step 7: a note: noted before
+argv: ["event","user-prompt"]
+stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"port it with localeCompare and Intl collation for sorting slugs"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [note 2026-09-15] 1.1 inventory landed as docs/HOTPATH.md (hand-written, §-citable). Surface: six fast-path argv shapes (5 hooks + statusline) plus event append and plain/styled status; per-command stdin fields, reads, (matched: collation, localecompare, port)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+--- artifact
+lexicon-h.json e0f4c453be53fbe7 148334
+lexicon-p00.json 3a9efc2d76e08902 15483
+lexicon-p01.json 8f02923deca58f6c 11258
+lexicon-p02.json 8c6d6d9eab688b01 13089
+lexicon-p03.json da1583915920f5f6 17878
+lexicon-p04.json 29eca858436eb323 16548
+lexicon-p05.json 64034aff1b472385 14948
+lexicon-p06.json d8e8da3b699288a1 12473
+lexicon-p07.json a82a3f12b0158e39 13720
+lexicon-p08.json a2f8dd81af604b2e 14240
+lexicon-p09.json 85d3930179b77a9b 15871
+lexicon-p10.json 5d0abf83576a6f3b 15291
+lexicon-p11.json c5253f809bba1db3 12811
+lexicon-p12.json 0f67a3f94ef14e16 15362
+lexicon-p13.json a4b6545ae91e14dd 12109
+lexicon-p14.json 6177040016ab866a 11513
+lexicon-p15.json 061a4ec315c947dc 17472
+lexicon-p16.json 83ec2f7c1c4e7ae2 12663
+lexicon-p17.json 6766690bc17b0d9d 14262
+lexicon-p18.json a391058b40a1183b 16291
+lexicon-p19.json 8293414d369952e2 13703
+lexicon-p20.json 05b3680c8b1656f6 17387
+lexicon-p21.json 6ae2ad6288065968 12646
+lexicon-p22.json 5af2ab5e7cfdd141 14190
+lexicon-p23.json a12207be8118c1c2 15817
+lexicon-p24.json 8d3cc8bec6d104f9 18206
+lexicon-p25.json 4f5e87f783728e57 11656
+lexicon-p26.json dbda5ad9a22ce3c1 12368
+lexicon-p27.json c86188fd148e4048 12443
+lexicon-p28.json cb64d98cdcc3efb3 16658
+lexicon-p29.json 570afdc4eeb4701c 15951
+lexicon-p30.json 8532ec1e30258446 15308
+lexicon-p31.json ee63f04967cf2b93 14548
+lexicon.json cc31a0e10be8cf37 49171
+gens: one
+told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["01M2JWH2A0SZXMRPGH4P3HEV05 prompt","01M2JWHSEFKVFNTSK7FWY1WSYQ prompt","01M2JVK1ZHGYQ5N3RV2BX2CT7J prompt","01M2JXCZVHG875341GTKC59B04 prompt","01M2JXD7EBY8QWWECF92Z4RJ6X prompt"]}
+
+## record delta
+(no change)

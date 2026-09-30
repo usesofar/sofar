@@ -497,7 +497,7 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let title = if hook_host(&hook).tool == CLAUDE_CODE {
         title_to_apply(
             &hook,
-            &session_title(&slug, focus_task(&state).map(|(t, _)| t.id.as_str())),
+            &session_title(&slug, focus_task(&state).map(|(t, _)| t.id.as_str()), session_id),
             &layout,
         )
     } else {

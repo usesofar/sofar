@@ -1,0 +1,168 @@
+# conformance golden: syn.lessons-cut
+
+## step 1: exactly on the floor and the over-share: ruled out, from another record
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"zanzibar quokka"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [cutoff D1] quokka meadow (matched: quokka, zanzibar; full text in cutoff/decisions.md)\nsofar: main @ ce11ce1, never pushed.\nsofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"baseline 1.2"}}
+--- stderr
+(empty)
+--- artifact
+lexicon-h.json 43331fb7c28f9d70 350
+lexicon-p00.json 2ed601cdcb6f695e 101
+lexicon-p01.json ce6158a63e72b5dc 74
+lexicon-p02.json 1f458c072a35e70a 85
+lexicon-p03.json 2efcc9c2dbe9b08d 73
+lexicon-p04.json bef17b433ac44ec6 114
+lexicon-p05.json 94c84955af63920f 46
+lexicon-p06.json 94c84955af63920f 46
+lexicon-p07.json 94c84955af63920f 46
+lexicon-p08.json cf3a83220e2e8ae4 86
+lexicon-p09.json 1ea3bcf8b1603b50 76
+lexicon-p10.json 94c84955af63920f 46
+lexicon-p11.json 1e5db20513a521db 85
+lexicon-p12.json 643f7cd997cb7dcf 75
+lexicon-p13.json 94c84955af63920f 46
+lexicon-p14.json eaa322f3309bd6be 72
+lexicon-p15.json 65f1bd6395c92d07 101
+lexicon-p16.json 277b11a1651dbd1f 73
+lexicon-p17.json a87c526fe06da18f 99
+lexicon-p18.json b35ac6dc535a9109 86
+lexicon-p19.json 94c84955af63920f 46
+lexicon-p20.json bd15a226e4575453 72
+lexicon-p21.json 9a6f9d0ef61bcb76 84
+lexicon-p22.json 449624ab873364c3 90
+lexicon-p23.json 6a7aee836a0d0053 75
+lexicon-p24.json 94c84955af63920f 46
+lexicon-p25.json b7a338e4d6d9869d 72
+lexicon-p26.json 94c84955af63920f 46
+lexicon-p27.json 94c84955af63920f 46
+lexicon-p28.json 915162e746b28524 103
+lexicon-p29.json 47a67fff68e2b8c5 125
+lexicon-p30.json f0233f684a66c07f 79
+lexicon-p31.json e374f7f74fef2cd3 103
+lexicon.json 0dbb095c25c479d4 836
+gens: one
+told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt"]}
+
+## step 2: the subject outweighs the over: decided before
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-done","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"zanzibar harbor quokka"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [cutoff D1] chose zanzibar harbor (matched: harbor, quokka, zanzibar; full text in cutoff/decisions.md)\nsofar: main @ ce11ce1, never pushed.","sessionTitle":"baseline 1.2"}}
+--- stderr
+(empty)
+
+## step 3: one rare term is not a lesson
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-done","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"quokka"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"baseline 1.2"}}
+--- stderr
+(empty)
+
+## step 4: a stale shard: the fold answers and the table is dropped
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"zanzibar quokka"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.\nsofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"baseline 1.2"}}
+--- stderr
+(empty)
+--- artifact
+lexicon-h.json 43331fb7c28f9d70 350
+lexicon-p00.json 2ed601cdcb6f695e 101
+lexicon-p01.json ce6158a63e72b5dc 74
+lexicon-p02.json 1f458c072a35e70a 85
+lexicon-p03.json 2efcc9c2dbe9b08d 73
+lexicon-p04.json bef17b433ac44ec6 114
+lexicon-p05.json 94c84955af63920f 46
+lexicon-p06.json 94c84955af63920f 46
+lexicon-p07.json 94c84955af63920f 46
+lexicon-p08.json cf3a83220e2e8ae4 86
+lexicon-p09.json 1ea3bcf8b1603b50 76
+lexicon-p10.json 94c84955af63920f 46
+lexicon-p11.json 1e5db20513a521db 85
+lexicon-p12.json 643f7cd997cb7dcf 75
+lexicon-p13.json 94c84955af63920f 46
+lexicon-p14.json eaa322f3309bd6be 72
+lexicon-p15.json 65f1bd6395c92d07 101
+lexicon-p16.json 277b11a1651dbd1f 73
+lexicon-p17.json a87c526fe06da18f 99
+lexicon-p18.json b35ac6dc535a9109 86
+lexicon-p19.json 94c84955af63920f 46
+lexicon-p20.json bd15a226e4575453 72
+lexicon-p21.json 9a6f9d0ef61bcb76 84
+lexicon-p22.json 449624ab873364c3 90
+lexicon-p23.json 6a7aee836a0d0053 75
+lexicon-p24.json 94c84955af63920f 46
+lexicon-p25.json b7a338e4d6d9869d 72
+lexicon-p26.json 94c84955af63920f 46
+lexicon-p27.json 94c84955af63920f 46
+lexicon-p28.json 915162e746b28524 103
+lexicon-p29.json 47a67fff68e2b8c5 125
+lexicon-p30.json f0233f684a66c07f 79
+lexicon-p31.json e374f7f74fef2cd3 103
+lexicon.json absent
+gens: one
+told/sess-done.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt"]}
+told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt"]}
+
+## step 5: the next prompt rebuilds every part
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"copper kettle violet"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [cutoff note 2026-09-02] copper kettle violet orchard pebble (matched: copper, kettle, violet)\nsofar: main @ ce11ce1, never pushed.\nsofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"baseline 1.2"}}
+--- stderr
+(empty)
+--- artifact
+lexicon-h.json 43331fb7c28f9d70 350
+lexicon-p00.json 2ed601cdcb6f695e 101
+lexicon-p01.json ce6158a63e72b5dc 74
+lexicon-p02.json 1f458c072a35e70a 85
+lexicon-p03.json 2efcc9c2dbe9b08d 73
+lexicon-p04.json bef17b433ac44ec6 114
+lexicon-p05.json 94c84955af63920f 46
+lexicon-p06.json 94c84955af63920f 46
+lexicon-p07.json 94c84955af63920f 46
+lexicon-p08.json cf3a83220e2e8ae4 86
+lexicon-p09.json 1ea3bcf8b1603b50 76
+lexicon-p10.json 94c84955af63920f 46
+lexicon-p11.json 1e5db20513a521db 85
+lexicon-p12.json 643f7cd997cb7dcf 75
+lexicon-p13.json 94c84955af63920f 46
+lexicon-p14.json eaa322f3309bd6be 72
+lexicon-p15.json 65f1bd6395c92d07 101
+lexicon-p16.json 277b11a1651dbd1f 73
+lexicon-p17.json a87c526fe06da18f 99
+lexicon-p18.json b35ac6dc535a9109 86
+lexicon-p19.json 94c84955af63920f 46
+lexicon-p20.json bd15a226e4575453 72
+lexicon-p21.json 9a6f9d0ef61bcb76 84
+lexicon-p22.json 449624ab873364c3 90
+lexicon-p23.json 6a7aee836a0d0053 75
+lexicon-p24.json 94c84955af63920f 46
+lexicon-p25.json b7a338e4d6d9869d 72
+lexicon-p26.json 94c84955af63920f 46
+lexicon-p27.json 94c84955af63920f 46
+lexicon-p28.json 915162e746b28524 103
+lexicon-p29.json 47a67fff68e2b8c5 125
+lexicon-p30.json f0233f684a66c07f 79
+lexicon-p31.json e374f7f74fef2cd3 103
+lexicon.json 0dbb095c25c479d4 836
+gens: one
+told/sess-done.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt"]}
+told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","01M1E7ZZ000000000000000002 prompt"]}
+
+## record delta
+=== .sofar/initiatives/cutoff/events.jsonl (added, 1567 bytes)
+{"v":1,"id":"01M1E7ZZ000000000000000001","ts":"2026-09-02T10:01:00.000Z","initiative":"cutoff","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"initiative_created","payload":{"goal":"docs placed on the lessons cuts","slug":"cutoff"}}
+{"v":1,"id":"01M1E7ZZ000000000000000002","ts":"2026-09-02T10:02:00.000Z","initiative":"cutoff","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"note_added","payload":{"text":"copper kettle violet orchard pebble"}}
+{"v":1,"id":"01M1E7ZZ000000000000000003","ts":"2026-09-02T10:03:00.000Z","initiative":"cutoff","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"note_added","payload":{"text":"saffron glacier walnut beacon tundra"}}
+{"v":1,"id":"01M1E7ZZ000000000000000004","ts":"2026-09-02T10:04:00.000Z","initiative":"cutoff","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"note_added","payload":{"text":"marble falcon cobalt thicket harpoon"}}
+{"v":1,"id":"01M1E7ZZ000000000000000005","ts":"2026-09-02T10:05:00.000Z","initiative":"cutoff","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"note_added","payload":{"text":"juniper anvil velvet canyon ember"}}
+{"v":1,"id":"01M1E7ZZ000000000000000006","ts":"2026-09-02T10:06:00.000Z","initiative":"cutoff","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"decision_logged","payload":{"chose":"zanzibar harbor","over":"quokka meadow","because":"lantern"}}

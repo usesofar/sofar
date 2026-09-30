@@ -189,7 +189,7 @@ describe('a Cursor session end to end, through the hook table', () => {
     expect(out.stdout.startsWith('{"hookSpecificOutput"')).toBe(true)
     expect(out.stdout).not.toContain('additional_context')
     expect(out.stdout).toContain('Session: claude-1')
-    const titled = run('session-start', fixture.root, { session_id: 'claude-1', hook_event_name: 'SessionStart', source: 'startup', session_title: 'demo' })
+    const titled = run('session-start', fixture.root, { session_id: 'claude-1', hook_event_name: 'SessionStart', source: 'startup', session_title: 'demo #clau' })
     expect(titled.stdout.startsWith('{')).toBe(false)
     expect(titled.stdout).toContain('Session: claude-1')
 
