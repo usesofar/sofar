@@ -79,4 +79,4 @@ Progress: 24 done, 1 dropped, 1 remaining
 - [x] 6.3 Replace stale public claims: one-pager R04 figures, install name @alignlabs/sofar, "adds nothing to your bill" next to --cost-cap
 
 Active phase: Phase 5 — Round 2
-Next action: 6.3: get the operator's decision on the local one-pager rewrite (re-send to partners themselves) and the paths of any other public copies of the R04 figures / @alignlabs/sofar install name (sofar.sh site, npm README, PDF) — draft the same edits there; then 6.2 waits for round 3. No runner commits before the freeze; Codex work waits for Oct 4 20:27 IST; the operator bootstraps the round-3 plists after the freeze.
+Next action: Keep watching round-3 rep 1: on any FAILED, auth/limit PAUSED, HARNESS/INVALID, egress denial or same-agent overlap, report to agents-parity (operator items go through them) and memory-lead 3.2; after every cell's S11, run score-batch on round-3-{sofar,native-synced,competitor}-r1 and the H9 overlap check from launchedAt/launchEndedAt, then report counts. No runner commits during the run (hash 8ac9438). 6.2 waits for round 3's results.
