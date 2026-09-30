@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: L19 in the first quiet slot; bootstrap the rep-1 trio 2026-10-04 16:30 IST.
+Next action: 2026-10-04 16:30 IST: operator bootstraps the rep-1 trio plists.
