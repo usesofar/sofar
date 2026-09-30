@@ -4,7 +4,10 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
-import { readRunProgress, runProgressPath, writeRunProgress, type RunProgress } from '../src/core/run-progress'
+import { launchedPath, launchedRun, noteLaunched, readRunProgress, runProgressPath, writeRunProgress, type RunProgress } from '../src/core/run-progress'
+import { launchedSegmentOf } from '../src/cli/statusline'
+import { launchedDriveLine } from '../src/cli/event'
+import type { SessionState } from '../src/core/fold'
 import type { StateEnv } from '../src/core/state-dir'
 import { drive } from '../src/driver/drive'
 import { FakeAdapter } from './helpers/fake-adapter'
@@ -152,5 +155,74 @@ describe('run progress file (drive-reach 1.1)', () => {
     expect(outcome.stop.reason).toBe('closed')
     expect(lines.filter((l) => l.includes("progress file could not be written"))).toHaveLength(1)
     expect(readFileSync(r.log, 'utf8')).toContain('"run_stopped"')
+  })
+})
+
+describe('runs a session launched (drive-reach 1.3)', () => {
+  const at = (root: string, run: string, over: Partial<RunProgress> = {}): void =>
+    writeRunProgress(root, { ...sample(run), worktree: realpathSync(root), ...over }, process.env)
+
+  it('the driver notes the run under its launcher; the index keeps the newest 8, oldest first', async () => {
+    const r = repo(['1.1'])
+    const env = stateEnv()
+    const outcome = await drive(r.root, 'demo', {
+      adapter: new FakeAdapter([{ logPath: r.log, initiative: 'demo', session_id: 'S1', write_back: true, complete: true }]),
+      lock: { env },
+      launchedBy: 'LAUNCHER',
+    })
+    const path = launchedPath(r.root, 'LAUNCHER', env)!
+    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({ version: 1, runs: [outcome.run] })
+    for (let i = 0; i < 9; i++) noteLaunched(r.root, 'LAUNCHER', `R${i}`, env)
+    expect(JSON.parse(readFileSync(path, 'utf8')).runs).toEqual(['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'])
+    expect(launchedPath(r.root, '../x', env)).toBeNull()
+  })
+
+  it('skips a run on the session’s own record and clone, newest first; takes the newest with no own record', () => {
+    const root = mkdtempSync(join(scratch, 'own-'))
+    const session = `S-${Date.now()}`
+    const foreign = `F${Date.now()}`
+    const own = `O${Date.now()}`
+    at(root, foreign, { slug: 'other' })
+    at(root, own, { slug: 'demo' })
+    noteLaunched(root, session, foreign)
+    noteLaunched(root, session, own)
+    expect(launchedRun(root, session, { slug: 'demo', worktree: realpathSync(root) })?.run).toBe(foreign)
+    expect(launchedRun(root, session, null)?.run).toBe(own)
+    // Same slug in ANOTHER worktree is not the session's own.
+    expect(launchedRun(root, session, { slug: 'demo', worktree: '/elsewhere' })?.run).toBe(own)
+    expect(launchedRun(root, 'never-launched', null)).toBeNull()
+  })
+
+  it('statusline segment: task and done/total while held, gone once free, the stop reason once stopped', () => {
+    const root = mkdtempSync(join(scratch, 'seg-'))
+    const session = `S-${Date.now()}-seg`
+    const run = `R${Date.now()}seg`
+    at(root, run, { slug: 'other', task: '3.2', done: 4, total: 9 })
+    noteLaunched(root, session, run)
+    expect(launchedSegmentOf(root, session, null, () => 'held')).toEqual({ kind: 'live', slug: 'other', task: '3.2', done: 4, total: 9, liveness: 'held' })
+    expect(launchedSegmentOf(root, session, null, () => 'free')).toEqual({ kind: 'gone', slug: 'other' })
+    at(root, run, { slug: 'other', task: null, state: 'stopped', stop_reason: 'closed' })
+    let probed = false
+    expect(launchedSegmentOf(root, session, null, () => ((probed = true), 'held'))).toEqual({ kind: 'stopped', slug: 'other', reason: 'closed' })
+    expect(probed).toBe(false)
+    expect(launchedSegmentOf(root, null, null)).toBeNull()
+  })
+
+  it('prompt line: speaks when the run moved, silent otherwise, and never inside a driven session', () => {
+    const root = mkdtempSync(join(scratch, 'line-'))
+    const session = `S-${Date.now()}-line`
+    const run = `R${Date.now()}line`
+    at(root, run, { slug: 'other', task: '3.2', done: 4, total: 9, handoffs: 4 })
+    noteLaunched(root, session, run)
+    const me = { id: session } as SessionState
+    expect(launchedDriveLine(root, 'demo', me)).toBe(`sofar drive: run ${run} on other liveness unknown · 4 handoffs · now on 3.2 · 4/9`)
+    expect(launchedDriveLine(root, 'demo', me)).toBeNull()
+    at(root, run, { slug: 'other', task: null, done: 5, total: 9, handoffs: 5, state: 'stopped', stop_reason: 'needs_user' })
+    expect(launchedDriveLine(root, 'demo', me, { ...process.env, SOFAR_DRIVE_NUDGE: '/x' })).toBeNull()
+    expect(launchedDriveLine(root, 'demo', me)).toBe(`sofar drive: run ${run} on other stopped: needs_user · 5 handoffs · 5/9`)
+    // A session whose own record IS that run's (same slug, same clone) already has the own-record line.
+    noteLaunched(root, `${session}-2`, run)
+    expect(launchedDriveLine(root, 'demo', { id: `${session}-2` } as SessionState)).not.toBeNull()
+    expect(launchedDriveLine(root, 'other', { id: `${session}-2` } as SessionState)).toBeNull()
   })
 })

@@ -89,3 +89,69 @@ function isRunProgress(v: unknown): v is RunProgress {
   }
   return true
 }
+
+// ---------------------------------------------------------------------------
+// Runs a session launched (drive-reach 1.3; SPEC §Driver, "Runs a session
+// launched"): `<state base>/launched/<session id>.json`, so a session's own
+// surfaces find its runs with one open — no directory scan, no fold.
+// ---------------------------------------------------------------------------
+
+/** Bump on ANY change to the on-disk shape — a reader takes a mismatch as no runs. */
+export const LAUNCHED_VERSION = 1
+/** Run ids kept per session, newest last. */
+export const LAUNCHED_MAX_RUNS = 8
+
+const SAFE_SESSION_ID = /^[A-Za-z0-9_-]+$/
+
+/** `<state base>/launched/<session id>.json`, or null for an id that could name a path or a base inside the repo. */
+export function launchedPath(rootDir: string, sessionId: string, env: StateEnv = process.env): string | null {
+  if (!SAFE_SESSION_ID.test(sessionId)) return null
+  const lock = runLockPath(rootDir, 'x', env)
+  if (!('path' in lock)) return null
+  return join(dirname(dirname(lock.path)), 'launched', `${sessionId}.json`)
+}
+
+function readLaunched(path: string): string[] {
+  let disk: unknown
+  try {
+    disk = JSON.parse(readFileSync(path, 'utf8'))
+  } catch {
+    return []
+  }
+  const d = disk as { version?: unknown; runs?: unknown } | null
+  if (d?.version !== LAUNCHED_VERSION || !Array.isArray(d.runs)) return []
+  return d.runs.filter((r): r is string => typeof r === 'string')
+}
+
+/** Record that `sessionId` launched `runId`. Throws on failure; the driver warns and goes on. */
+export function noteLaunched(rootDir: string, sessionId: string, runId: string, env: StateEnv = process.env): void {
+  const path = launchedPath(rootDir, sessionId, env)
+  if (path === null) throw new Error(`no launch index for session "${sessionId}" here`)
+  const runs = [...readLaunched(path).filter((r) => r !== runId), runId].slice(-LAUNCHED_MAX_RUNS)
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileAtomic(path, `${JSON.stringify({ version: LAUNCHED_VERSION, runs })}\n`)
+}
+
+/**
+ * The run this session launched that its own surface does not already show:
+ * newest first, the first whose progress file names another initiative or
+ * another worktree than `own` (the session's resolved record and clone); with
+ * no `own`, the newest. Null when the session launched nothing readable.
+ */
+export function launchedRun(
+  rootDir: string,
+  sessionId: string,
+  own: { slug: string; worktree: string } | null,
+  env: StateEnv = process.env,
+): RunProgress | null {
+  const path = launchedPath(rootDir, sessionId, env)
+  if (path === null) return null
+  const runs = readLaunched(path)
+  for (let i = runs.length - 1; i >= 0; i -= 1) {
+    const p = readRunProgress(rootDir, runs[i]!, env)
+    if (p === null) continue
+    if (own !== null && p.slug === own.slug && p.worktree === own.worktree) continue
+    return p
+  }
+  return null
+}

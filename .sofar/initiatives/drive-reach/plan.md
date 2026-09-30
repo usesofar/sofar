@@ -4,17 +4,16 @@
 
 Goal: A session that launches sofar drive sees that run's live progress in its statusline and prompt line whatever the run's initiative or worktree: the driver keeps a per-run progress file beside the machine-wide run lock and records the launching session; the statusline reads that one file within its budget, never another worktree's log.
 
-Progress: 2/4 tasks done (50%)
+Progress: 3/4 tasks done (75%)
 
-## Phase 1 — Build [active] — 2/3 done
+## Phase 1 — Build [done] — 3/3 done
 
 - [x] 1.1 Per-run progress file runs/<run>.json beside the run lock in the per-user state dir: {run, slug, worktree, launched_by, task, done, total, last_handoff, state}; written atomically by the driver at start, each handoff/task change and stop; derived state, never part of the record (r1-fixes D20 spirit); SPEC Driver section first
 - [x] 1.2 launched_by: `sofar drive --detach` captures the calling session id (hook-provided env / session registry) and passes it to the driver; absent when launched from a plain terminal
-- [ ] 1.3 Statusline drive segment and UserPromptSubmit drive line show live runs this session launched, any initiative or worktree, from the progress file only (one stat + small read); own-record runs keep today's path; rust-core statusline parity (active)
+- [x] 1.3 Statusline drive segment and UserPromptSubmit drive line show live runs this session launched, any initiative or worktree, from the progress file only (one stat + small read); own-record runs keep today's path; rust-core statusline parity
 
 ## Phase 2 — Proof [pending] — 0/1 done
 
 - [ ] 2.1 Live proof: detach a run on another worktree from a session bound elsewhere; statusline and prompt line track task/done/total and the stop; statusline p50 within its budget (D18)
 
-Active phase: Phase 1 — Build
-Next action: 1.3: statusline drive segment + UserPromptSubmit drive line read runs/<run>.json for live runs whose launched_by is this session (any initiative/worktree), keeping the fold path for own-record runs; add rust-core statusline parity
+Next action: 2.1 live proof: from a session bound elsewhere, `sofar drive <other-slug> --detach` on another worktree; watch statusline + prompt line track task/done/total and the stop; then run bench/read-paths.mjs (D18) baseline vs candidate dist for statusline and user-prompt p50

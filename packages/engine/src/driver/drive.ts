@@ -15,7 +15,7 @@ import { TASK_FILES_CAP } from '../core/adjacency'
 import { applicableChecks, changedPaths, checkFailureLine, checksInForce, isApproved, type InForceCheck } from '../core/checks'
 import { refreshGuards } from '../core/index-tier1'
 import { claimRunLock, probeRunLock, type RunLockOptions } from '../core/run-lock'
-import { writeRunProgress } from '../core/run-progress'
+import { noteLaunched, writeRunProgress } from '../core/run-progress'
 import { cloneRealPath } from '../core/state-dir'
 import { taskProgress } from '../projections/templates/shared'
 import { createKeepAwake, type KeepAwakeOptions } from './keep-awake'
@@ -807,6 +807,14 @@ async function driveHolding(
   {
     const taken = ctx.foldState(initiative)
     publish(taken, nextTask(taken)?.id ?? null)
+  }
+  // Where the launching session's surfaces look first (drive-reach 1.3).
+  if (options.launchedBy !== undefined) {
+    try {
+      noteLaunched(rootDir, options.launchedBy, runId, options.lock?.env)
+    } catch (err) {
+      progress(`warning: session ${options.launchedBy} will not see this run on its statusline (${err instanceof Error ? err.message : String(err)}); the record still has it`)
+    }
   }
 
   // ---------------------------------------------------------------------

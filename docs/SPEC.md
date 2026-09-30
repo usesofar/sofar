@@ -1953,6 +1953,35 @@ on the progress stream once, never a stop: the record is the run's state,
 the file only a window on it. Readers take a file whose `version` they do
 not know, or that does not parse, as absent.
 
+**Runs a session launched (drive-reach 1.3).** A driver with a launcher
+also keeps `<state base>/launched/<session id>.json` — `{version, runs}`,
+the run ids that session started, oldest first, the last 8 kept — written
+when it takes the run (read-merge-replace, atomically). A session id that
+could name a path gets no file. The reader looks at that one file for ITS
+session id, newest run first, and takes the first run whose progress file
+names another initiative or another worktree than the one the session's own
+surface already folds (a run on the session's own record and clone keeps
+today's path, unchanged); a session with no resolved record takes the
+newest. Cost: one open that fails with ENOENT for every session that never
+launched a run, else one small read, one progress-file read and one lock
+probe — no fold, no directory scan. Liveness is the probe's, exactly as on
+the own-record path: `running` with the lock HELD, gone with it FREE,
+`liveness unknown` with it ABSENT; a progress file that says `stopped`
+needs no probe. Every such run was started during the session, so its stop
+is always news and shows until the session ends or launches another.
+- The statusline appends, after the record segment (or where the record
+  segment would be, when nothing resolves), `drive <slug> <task>
+  <done>/<total>` (`running` when no task is queued; ` liveness unknown`
+  appended when ABSENT), `drive <slug> gone`, or `drive <slug> <stop
+  reason>` — toned as the own-record segment, the slug dim.
+- The UserPromptSubmit drive line, in the path that resolves a record,
+  adds `sofar drive: run <id> on <slug> <running|driver gone|liveness
+  unknown|stopped: reason> · <n> handoffs · now on <task> · <done>/<total>`,
+  gated as the own-record line is, on drive-seen marks keyed `<session
+  id>/launched` so the two lines never silence each other.
+Both implementations read the same files; the Rust core's statusline and
+prompt handler render the same bytes.
+
 **Fencing a takeover (drive-visibility 2.2).** The lock is machine-local; a
 record syncs. A `--resume` therefore appends `run_adopted {run, epoch}` with
 one more than the run's highest epoch before its first launch, and the

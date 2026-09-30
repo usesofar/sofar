@@ -6,6 +6,8 @@ import { nextTask } from '../core/drive-queue'
 import { latestRun, type InitiativeState } from '../core/fold'
 import { QUICK_LANE } from '../core/lane'
 import { probeRunLock, type RunLiveness } from '../core/run-lock'
+import { launchedRun } from '../core/run-progress'
+import { cloneRealPath } from '../core/state-dir'
 import { startedOf, statuslineFacts, type StatuslineFacts } from '../core/statusline-facts'
 import { createToolContext, initiativeSlugs, resolveSessionFirst } from '../mcp/context'
 import {
@@ -182,7 +184,7 @@ function dirSegment(hook: Obj): { name: string; branch: string | null } | null {
  * repos: they render exactly as they always have, with no segment.
  */
 type RecordSegment =
-  | { kind: 'record'; slug: string; progress: TaskProgress; status: InitiativeStatus; drive: DriveSegment | null }
+  | { kind: 'record'; slug: string; root: string; progress: TaskProgress; status: InitiativeStatus; drive: DriveSegment | null }
   | { kind: 'lane' }
   | { kind: 'unbound' }
   | null
@@ -247,18 +249,54 @@ export function driveSegmentFrom(
  * answer (warn), error and stall went wrong (error), closed finished the
  * queue (success), and a limit or an interrupt is what was asked for (dim).
  */
+function stopTone(r: RunStopReason, style: Style): (s: string) => string {
+  return r === 'needs_user' ? style.warn : r === 'error' || r === 'stall' ? style.error : r === 'closed' ? style.success : style.dim
+}
+
 function driveText(drive: DriveSegment, style: Style): string {
   const label = style.dim('drive')
   if (drive.kind === 'gone') return `${label} ${style.error('gone')}`
   if (drive.kind === 'stopped') {
-    const r = drive.reason
-    const tone = r === 'needs_user' ? style.warn : r === 'error' || r === 'stall' ? style.error : r === 'closed' ? style.success : style.dim
-    return `${label} ${tone(r)}`
+    return `${label} ${stopTone(drive.reason, style)(drive.reason)}`
   }
   if (drive.liveness === 'absent') {
     return `${label} ${drive.task === null ? '' : `${style.info(drive.task)} `}${style.dim('liveness unknown')}`
   }
   return `${label} ${style.info(drive.task ?? 'running')}`
+}
+
+/**
+ * A run this session launched that its own record segment does not show
+ * (drive-reach 1.3): another initiative, or another worktree. Read from the
+ * run's progress file — one open for the session's launch index, one for the
+ * file, one lock probe while it runs; never a fold.
+ */
+export type LaunchedSegment =
+  | { kind: 'live'; slug: string; task: string | null; done: number; total: number; liveness: 'held' | 'absent' }
+  | { kind: 'gone'; slug: string }
+  | { kind: 'stopped'; slug: string; reason: RunStopReason }
+
+export function launchedSegmentOf(
+  rootDir: string,
+  sessionId: string | null,
+  own: { slug: string; root: string } | null,
+  probe: (run: string) => RunLiveness = (run) => probeRunLock(rootDir, run),
+): LaunchedSegment | null {
+  if (sessionId === null) return null
+  const p = launchedRun(rootDir, sessionId, own === null ? null : { slug: own.slug, worktree: cloneRealPath(own.root) })
+  if (p === null) return null
+  if (p.state === 'stopped') return p.stop_reason === undefined ? null : { kind: 'stopped', slug: p.slug, reason: p.stop_reason }
+  const liveness = probe(p.run)
+  if (liveness === 'free') return { kind: 'gone', slug: p.slug }
+  return { kind: 'live', slug: p.slug, task: p.task, done: p.done, total: p.total, liveness }
+}
+
+function launchedText(drive: LaunchedSegment, style: Style): string {
+  const head = `${style.dim('drive')} ${style.dim(drive.slug)}`
+  if (drive.kind === 'gone') return `${head} ${style.error('gone')}`
+  if (drive.kind === 'stopped') return `${head} ${stopTone(drive.reason, style)(drive.reason)}`
+  const tail = drive.liveness === 'absent' ? ` ${style.dim('liveness unknown')}` : ''
+  return `${head} ${style.info(drive.task ?? 'running')} ${drive.done}/${drive.total}${tail}`
 }
 
 /**
@@ -292,6 +330,7 @@ function recordSegment(rootDir: string, hook: Obj): RecordSegment {
         return {
           kind: 'record',
           slug,
+          root,
           progress: facts.progress,
           status: facts.status,
           drive: driveSegmentFrom(
@@ -435,6 +474,12 @@ export function runStatusline(
     segments.push(closed ? `${body} ${style.dim(record.status)}` : body)
     if (record.drive !== null) segments.push(driveText(record.drive, style))
   }
+  const launched = launchedSegmentOf(
+    rootDir,
+    strField(hook.session_id),
+    record !== null && record.kind === 'record' ? { slug: record.slug, root: record.root } : null,
+  )
+  if (launched !== null) segments.push(launchedText(launched, style))
 
   const ctxPct = isObj(hook.context_window) ? numField(hook.context_window.used_percentage) : null
   if (ctxPct !== null) {
