@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { CASES } from './cases'
+import { CASES, TRAVEL_BLOCK } from './cases'
 import {
   KEEP,
   RECORD,
@@ -59,7 +59,16 @@ describe(`conformance goldens (${implementation().name})`, () => {
       const delta = recordDelta(m)
       const text = renderGolden(c.name, m, outcomes, delta)
       const path = goldenPath(c.name)
-      if (RECORD) {
+      if (c.ahead !== undefined) {
+        // Written ahead of the code: never re-recorded, since the reference
+        // cannot produce the block yet. Outside the block it IS the reference,
+        // so a missing one is seeded with today's bytes to write the block into.
+        if (RECORD && !existsSync(path)) writeFileSync(path, text)
+        expect(existsSync(path), `no golden for ${c.name} — seed it with SOFAR_CONFORMANCE_RECORD=1, then write the block`).toBe(true)
+        const golden = readFileSync(path, 'utf8')
+        expect(text).toBe(golden.replace(TRAVEL_BLOCK, ''))
+        expect(text, `${c.name} now matches its golden whole — ${c.ahead} landed; drop \`ahead\``).not.toBe(golden)
+      } else if (RECORD) {
         mkdirSync(join(path, '..'), { recursive: true })
         writeFileSync(path, text)
       } else {

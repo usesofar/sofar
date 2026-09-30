@@ -90,6 +90,16 @@ commit, and each re-record keeps the set before it as
 same cases recorded from those engines, kept so each re-pin's intentional
 changes stay auditable. Nothing reads them.
 
+## Goldens written ahead of the code
+
+A case with `ahead: '<task>'` (cases.ts) holds bytes no implementation
+produces yet — the travel block goldens (`syn.travel-*`, linked-context 1.3)
+are the first. Record mode only seeds a MISSING one with today's output; the
+new bytes are then written by hand from SPEC. Until the task lands, the
+reference must equal the golden with `TRAVEL_BLOCK` cut out, and must not
+equal it whole. When it does, the case fails with "drop `ahead`" — remove
+the field and the case becomes an ordinary golden.
+
 ## Re-recording
 
 Only from the TypeScript reference, never from a candidate. Re-record when a

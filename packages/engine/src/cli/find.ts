@@ -67,7 +67,7 @@ function plural(n: number, one: string, many = `${one}s`): string {
 }
 
 /** Repo-relative for BODY lines; identity (the Seed block) is never shortened. */
-function shortPath(rootDir: string, path: string): string {
+export function shortPath(rootDir: string, path: string): string {
   if (!isAbsolute(path)) return path
   const rel = relative(rootDir, path)
   return rel === '' || rel.startsWith('..') || isAbsolute(rel) ? path : rel
@@ -76,6 +76,8 @@ function shortPath(rootDir: string, path: string): string {
 const TITLES: Record<ReachHit['kind'], string> = {
   initiative: 'Initiatives',
   decision: 'Decisions',
+  task: 'Tasks',
+  memory: 'Memories',
   note: 'Notes',
   file: 'Files',
   session: 'Sessions',
@@ -91,7 +93,7 @@ const TITLES: Record<ReachHit['kind'], string> = {
  * ways depending on which end was reached — say the right one, or a session
  * ends up reported as having been touched by a file.
  */
-function viaPhrase(hit: ReachHit, from: string): string {
+export function viaPhrase(hit: ReachHit, from: string): string {
   // Supersession is the one edge between two RECORDS, and it reads from the
   // record the reader started at: this hit is where the seed went, or what
   // the seed took over.
@@ -109,10 +111,12 @@ function viaPhrase(hit: ReachHit, from: string): string {
       return hit.kind === 'note' ? `noted by ${from}` : `noted ${from}`
     // Citation edges are directed: arriving over `cites` means the node we came
     // from cites THIS one, and vice versa.
+    // A session cites only through its write-back's next_action (linked-context
+    // 3.1), so name that source rather than let the session read as the author.
     case 'cites':
-      return `cited by ${from}`
+      return hit.via.from.startsWith('session:') ? `cited by the next action of ${from}` : `cited by ${from}`
     case 'cited_by':
-      return `cites ${from}`
+      return hit.kind === 'session' ? `next action cites ${from}` : `cites ${from}`
   }
 }
 
@@ -140,7 +144,7 @@ const TEXT_CAVEAT =
  * from the result (every decision in it carries its ordinal) or from the seed,
  * which the caller typed and is not otherwise in the hit list.
  */
-function shortNode(rootDir: string, result: ReachResult, nodeId: string): string {
+export function shortNode(rootDir: string, result: ReachResult, nodeId: string): string {
   // A LITERAL seed is named by what the caller typed, which is how they think of
   // it. A text seed is not: the query is a sentence, and a row reading "logged
   // by why is the cursor rebuilt" names nothing. Its matches carry handles, so
@@ -158,6 +162,9 @@ function shortNode(rootDir: string, result: ReachResult, nodeId: string): string
       if (hit.id === nodeId && hit.kind === 'decision' && hit.ordinal !== undefined) {
         return `${hit.initiative} D${hit.ordinal}`
       }
+      if (hit.id === nodeId && hit.kind === 'memory' && hit.ordinal !== undefined) {
+        return `${hit.initiative} M${hit.ordinal}`
+      }
     }
   }
   if (nodeId.startsWith('session:')) {
@@ -167,7 +174,14 @@ function shortNode(rootDir: string, result: ReachResult, nodeId: string): string
   if (nodeId.startsWith('initiative:')) return nodeId.slice('initiative:'.length)
   if (nodeId.startsWith('decision:')) return `decision ${nodeId.slice('decision:'.length)}`
   if (nodeId.startsWith('note:')) return `note ${nodeId.slice('note:'.length)}`
+  if (nodeId.startsWith('memory:')) return `memory ${nodeId.slice('memory:'.length)}`
+  if (nodeId.startsWith('task:')) return taskHandle(nodeId)
   return nodeId
+}
+
+/** `task:<slug>#<id>` as the handle the record cites it by, `<slug> <id>`. */
+export function taskHandle(nodeId: string): string {
+  return nodeId.slice('task:'.length).replace('#', ' ')
 }
 
 interface Entry {
@@ -188,6 +202,10 @@ function headOf(rootDir: string, hit: ReachHit): string {
       return `${hit.initiative} D${hit.ordinal ?? '?'}  ${distance}  ${day(hit.ts)}`
     case 'note':
       return `${hit.initiative}  ${distance}  ${day(hit.ts)}`
+    case 'memory':
+      return `${hit.initiative} M${hit.ordinal ?? '?'}  ${distance}  ${day(hit.ts)}`
+    case 'task':
+      return `${taskHandle(hit.id)}  ${distance}  ${day(hit.ts)}`
     case 'file':
       return `${shortPath(rootDir, hit.label)}  ${distance}  ${day(hit.ts)}${
         hit.touches !== undefined ? `  ${plural(hit.touches, 'touch', 'touches')}` : ''
@@ -204,7 +222,9 @@ function blocksOf(rootDir: string, result: ReachResult): Block[] {
     title: `${TITLES[group.kind]} (${group.hits.length + group.omitted})`,
     entries: group.hits.map((hit) => {
       const detail: string[] = []
-      if (hit.kind === 'decision' || hit.kind === 'note') detail.push(clip(hit.label, PROSE))
+      if (hit.kind === 'decision' || hit.kind === 'note' || hit.kind === 'task' || hit.kind === 'memory') {
+        detail.push(clip(hit.label, PROSE))
+      }
       // An initiative was not traversed to — it is reported because a member
       // was, so it cites holding that member rather than an edge of its own.
       const relation =
@@ -253,7 +273,7 @@ function seedLine(result: ReachResult): string {
     : `sofar find — ${seed.query}  [${seed.kind}, ${scope}]`
 }
 
-const MISS = [
+export const MISS = [
   'nothing in the record denotes that seed, and no decision or note uses those words',
   '',
   'a seed is a path (matched across checkouts), a session id, an initiative slug,',
@@ -310,7 +330,7 @@ function renderPlain(rootDir: string, result: ReachResult): string {
   return `${lines.join('\n').replace(/\n+$/, '')}\n`
 }
 
-const caveatFor = (result: ReachResult): string =>
+export const caveatFor = (result: ReachResult): string =>
   result.seed.kind === 'text' ? TEXT_CAVEAT : CAVEAT
 
 const matchedBlocks = (result: ReachResult): Block[] =>
@@ -318,7 +338,7 @@ const matchedBlocks = (result: ReachResult): Block[] =>
     ? []
     : [matchedBlock(result.seed.matches, result.seed.omitted ?? 0)]
 
-const TRUNCATED =
+export const TRUNCATED =
   'expansion stopped at the visit ceiling — this seed reaches too much of the record for the answer to be complete'
 
 function renderStyled(rootDir: string, result: ReachResult, caps: Caps): string {

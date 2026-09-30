@@ -1,0 +1,58 @@
+{
+  "fixture": "i1000-10mb",
+  "seed": "src/shared/config.ts",
+  "n": 25,
+  "cli": "/Users/jins/IO/sofar-linked-context/packages/engine/dist/cli.js",
+  "reach_json_bytes": 2877879,
+  "load_avg": {
+    "start": 14.69,
+    "end": 14.15,
+    "cpus": 14
+  },
+  "recorded_at": "2026-09-29T19:05:02.235Z",
+  "verdict": "ok",
+  "results": [
+    {
+      "case": "cold",
+      "hops": 2,
+      "p50_ms": 295,
+      "p90_ms": 321.5,
+      "stdout_bytes": 10691
+    },
+    {
+      "case": "stale",
+      "hops": 2,
+      "p50_ms": 146.6,
+      "p90_ms": 158.7,
+      "stdout_bytes": 10691
+    },
+    {
+      "case": "warm-h1",
+      "hops": 1,
+      "p50_ms": 136.7,
+      "p90_ms": 151.1,
+      "stdout_bytes": 4771
+    },
+    {
+      "case": "warm-h2",
+      "hops": 2,
+      "p50_ms": 146.2,
+      "p90_ms": 158.7,
+      "stdout_bytes": 10691
+    },
+    {
+      "case": "warm-h3",
+      "hops": 3,
+      "p50_ms": 140.9,
+      "p90_ms": 159.1,
+      "stdout_bytes": 10691
+    },
+    {
+      "case": "floor",
+      "hops": null,
+      "p50_ms": 69.7,
+      "p90_ms": 75.8,
+      "stdout_bytes": 18
+    }
+  ]
+}

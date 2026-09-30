@@ -11,7 +11,7 @@ use crate::json::{self, Json, Object};
 use crate::layout::Layout;
 
 /// Bump on ANY change to the on-disk shape. Old versions cold-start.
-pub const INDEX_SCHEMA_VERSION: f64 = 9.0;
+pub const INDEX_SCHEMA_VERSION: f64 = 11.0;
 
 /// Cursor file for the default tier.
 pub const DEFAULT_META_FILE: &str = "meta.json";
@@ -246,7 +246,7 @@ mod tests {
         let text = fs::read_to_string(layout.index_dir().join("meta-test.json")).unwrap();
         assert_eq!(
             text,
-            "{\"version\":9,\"cursors\":{\"a\":{\"id\":\"01ARZ3NDEKTSV4RRFFQ69G5FAV\",\"offset\":10,\"size\":20,\"mtimeMs\":1700000000123.456,\"voided\":[\"x\"]}}}\n"
+            "{\"version\":11,\"cursors\":{\"a\":{\"id\":\"01ARZ3NDEKTSV4RRFFQ69G5FAV\",\"offset\":10,\"size\":20,\"mtimeMs\":1700000000123.456,\"voided\":[\"x\"]}}}\n"
         );
         assert_eq!(read_index_meta(&layout, "meta-test.json"), Some(meta));
         fs::write(

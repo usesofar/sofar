@@ -226,6 +226,30 @@ describe('sofar related <task-id> (3.2)', () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('Neighbours (0)')
     expect(result.stdout).toContain('no other task touched a file this task touched')
+    expect(result.stdout).not.toContain('Cites') // no derived links, no block
+  })
+
+  it('shows a task’s derived links by source, each citing its sourcing event (linked-context 3.2)', () => {
+    const root = makeRoot()
+    writeLog(root, 'beta', [...planned('beta', [{ id: '2.1', title: 'beta task' }])])
+    const status = ev('alpha', 'task_status_changed', { id: '1.1', status: 'active', note: 'mirrors beta 2.1' }, 's-a')
+    const ended = ev('alpha', 'session_ended', { summary: 's', next_action: 'finish alpha 1.1' }, 's-a')
+    writeLog(root, 'alpha', [
+      ...planned('alpha', [{ id: '1.1', title: 'alpha task one' }]),
+      ev('alpha', 'session_started', { tool: 'claude-code' }, 's-a'),
+      status,
+      ended,
+    ])
+    const plain = runRelated(root, 'alpha#1.1', {}, PLAIN).stdout
+    expect(plain).toContain('Cites (1):')
+    expect(plain).toContain(`beta 2.1  2026-01-01  · event ${status.id}`)
+    expect(plain).toContain('Cited by (1):')
+    expect(plain).toContain(`next action of session s-a  2026-01-01  · event ${ended.id}`)
+    expect(plain).toContain('never as what this task waits on')
+    // The styled path states the same set — it only paints it.
+    const styled = stripAnsi(runRelated(root, 'alpha#1.1', {}, STYLED).stdout)
+    expect(styled).toContain(`beta 2.1  2026-01-01  · event ${status.id}`)
+    expect(styled).toContain(`next action of session s-a  2026-01-01  · event ${ended.id}`)
   })
 
   it('fails with the task id and initiative it looked for when the plan never held it', () => {

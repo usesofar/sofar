@@ -287,8 +287,9 @@ describe('the AGENTS.md block a Codex session reads (agents-parity 2.3, D8)', ()
 
   it('is the 3.3 block with only PLAN changed (r1-fixes 4.6), and that block is in the ledger', () => {
     const v10 = SHIPPED_AGENTS_PROTOCOL_BLOCKS[9]! // V10 by version: the 3.3 block
+    const v11 = SHIPPED_AGENTS_PROTOCOL_BLOCKS[10]! // V11: the 4.6 block (linked-context 5.4 then added LINKS)
     const plan = (b: string): string => /- PLAN:[\s\S]*?(?=\n- DURING)/.exec(b)![0]
-    expect(AGENTS_PROTOCOL_BLOCK.replace(plan(AGENTS_PROTOCOL_BLOCK), plan(v10))).toBe(v10)
+    expect(v11.replace(plan(v11), plan(v10))).toBe(v10)
     expect(v10).not.toContain('brief')
   })
 

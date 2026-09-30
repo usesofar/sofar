@@ -6,6 +6,7 @@ import type { JudgeOptions } from '../core/judge'
 import { ToolError, type ToolContext } from './context'
 import { judgeOptionsFor } from './log-decision'
 import { resolvePhaseOrThrow } from './update-phase'
+import { declareWaitsOn, homeViewOf } from './waits-on'
 
 /**
  * sofar_update_task — maps args {task_id, status, note?} onto the
@@ -39,7 +40,7 @@ export async function updateTaskJudged(ctx: ToolContext, args: UpdateTaskArgs, j
   const task = ctx.foldState(slug).phases.flatMap((p) => p.tasks).find((t) => t.id === args.task_id)
   if (task === undefined) return result
   const lines = await evidenceWarnings([{ id: task.id, title: task.title, note: args.note }], judgeOpts ?? judgeOptionsFor(ctx))
-  return lines.length === 0 ? result : { ...result, warnings: lines }
+  return lines.length === 0 ? result : { ...result, warnings: [...(result.warnings ?? []), ...lines] }
 }
 
 /**
@@ -49,7 +50,9 @@ export async function updateTaskJudged(ctx: ToolContext, args: UpdateTaskArgs, j
 function updateTaskFiled(ctx: ToolContext, args: UpdateTaskArgs): { result: UpdateTaskResult; slug: string } {
   const slug = ctx.resolveWriteInitiative(args.initiative)
   const state = ctx.foldState(slug)
-  const planned = planTaskChange(state, slug, args, heldTasks(state))
+  const held = heldTasks(state)
+  const declared = args.waits_on === undefined ? undefined : declareTaskWaits(ctx, slug, state, [args], held)
+  const planned = planTaskChange(state, slug, args, held, declared?.handles[0])
   if (!planned.ok) {
     throw new ToolError('invalid_input', `task "${args.task_id}": ${planned.errors.join('; ')} — nothing was filed`, planned.errors)
   }
@@ -58,7 +61,30 @@ function updateTaskFiled(ctx: ToolContext, args: UpdateTaskArgs): { result: Upda
   planned.appends.forEach(({ type, payload }, i) => {
     eventId = ctx.appendAndProject(slug, type, payload, i < last ? { project: false } : undefined).id
   })
-  return { result: { ok: true, event_id: eventId }, slug }
+  const warnings = declared?.warnings ?? []
+  return { result: warnings.length > 0 ? { ok: true, event_id: eventId, warnings } : { ok: true, event_id: eventId }, slug }
+}
+
+/**
+ * declareWaitsOn for task changes (linked-context 2.3) — sofar_update_task's
+ * one and a write-back's batch. The home view is the plan AFTER the changes:
+ * every held task plus each one a change adds with a title, so a task may
+ * wait on one the same write adds without reading as dangling. Only the
+ * changes that carry `waits_on` are resolved; `handles` follows their order.
+ */
+export function declareTaskWaits(
+  ctx: ToolContext,
+  slug: string,
+  state: InitiativeState,
+  changes: readonly EndSessionTaskChange[],
+  held: ReadonlyMap<string, string>,
+): { handles: string[][]; warnings: string[] } {
+  const view = homeViewOf(state)
+  for (const c of changes) if (!held.has(c.task_id) && c.title !== undefined && c.title.trim().length > 0) view.tasks.add(c.task_id)
+  const entries = changes
+    .filter((c) => c.waits_on !== undefined)
+    .map((c) => ({ taskId: c.task_id, raw: c.waits_on!, closes: c.status === 'done' || c.status === 'dropped' }))
+  return declareWaitsOn(ctx, slug, view, entries)
 }
 
 /** One event a task change files, validated but not yet appended. */
@@ -98,10 +124,14 @@ export function planTaskChange(
   slug: string,
   change: EndSessionTaskChange,
   held: ReadonlyMap<string, string>,
+  waitsOn?: readonly string[],
 ): { ok: true; appends: PlannedAppend[] } | { ok: false; errors: string[] } {
   const appends: PlannedAppend[] = []
   const title = change.title !== undefined && change.title.trim().length > 0 ? change.title : undefined
   const note = change.note !== undefined ? { note: change.note } : {}
+  // Already qualified and bound by declareWaitsOn (linked-context 2.3); it
+  // rides the ONE event that sets the task, so an add carries it on task_added.
+  const waits = waitsOn !== undefined ? { waits_on: [...waitsOn] } : {}
   const statusChange = { type: 'task_status_changed', payload: { id: change.task_id, status: change.status, ...note } }
 
   const heldTitle = held.get(change.task_id)
@@ -112,7 +142,7 @@ export function planTaskChange(
         errors: [`already in the plan as "${heldTitle}" — omit \`title\` to change its status, or pick an unused id to add a new task`],
       }
     }
-    appends.push(statusChange)
+    appends.push({ ...statusChange, payload: { ...statusChange.payload, ...waits } })
   } else {
     if (title === undefined) return { ok: false, errors: ['not in the plan — give it a `title` (and `phase`) to add it'] }
     const phase =
@@ -120,7 +150,7 @@ export function planTaskChange(
         ? resolvePhaseOrThrow(state.phases, change.phase, slug)
         : state.phases.find((p) => p.name === state.current.active_phase)
     if (phase === undefined) return { ok: false, errors: ['no active phase — name the `phase` to add it to'] }
-    appends.push({ type: 'task_added', payload: { phase: phase.name, id: change.task_id, title, status: change.status } })
+    appends.push({ type: 'task_added', payload: { phase: phase.name, id: change.task_id, title, status: change.status, ...waits } })
     if (change.note !== undefined) appends.push(statusChange)
   }
 

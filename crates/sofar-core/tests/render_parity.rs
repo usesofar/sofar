@@ -132,6 +132,7 @@ fn options_from(value: &Json) -> StatusOptions {
         lane: o.get("lane").is_some_and(Json::is_true),
         activity: o.get("activity").map(Json::is_true),
         retire: true,
+        travel: sofar_core::travel::TravelInput::default(),
     }
 }
 
@@ -234,6 +235,116 @@ fn check(id: &str, name: &str, expected: &str, actual: &str) {
         "{id} / {name}: {}",
         first_difference(expected, actual)
     );
+}
+
+fn strings(o: &json::Object, key: &str) -> Vec<String> {
+    o.get(key)
+        .and_then(Json::as_arr)
+        .expect(key)
+        .iter()
+        .map(|v| v.as_str().expect(key).to_owned())
+        .collect()
+}
+
+fn link_from(value: &Json) -> sofar_core::index_links::Link {
+    let o = value.as_obj().expect("link");
+    let req = |k: &str| opt_str(o, k).unwrap_or_else(|| panic!("link.{k}"));
+    sofar_core::index_links::Link {
+        from: req("from"),
+        kind: req("kind"),
+        to: req("to"),
+        anchor: req("anchor"),
+        state: req("state"),
+        at: opt_str(o, "at"),
+        what: opt_str(o, "what"),
+        label: opt_str(o, "label"),
+    }
+}
+
+fn entry_from(value: &Json) -> sofar_core::travel::TravelEntry {
+    let o = value.as_obj().expect("entry");
+    let req = |k: &str| opt_str(o, k).unwrap_or_else(|| panic!("entry.{k}"));
+    sofar_core::travel::TravelEntry {
+        seeds: strings(o, "seeds"),
+        kind: req("kind"),
+        to: req("to"),
+        state: req("state"),
+        at: opt_str(o, "at"),
+        what: opt_str(o, "what"),
+        label: opt_str(o, "label"),
+    }
+}
+
+/// travel-parity.json (linked-context 5.5): the travel block's edges the
+/// syn.travel-* goldens cannot reach — cites and hub damping, seed merge,
+/// dedupe, budget fallbacks, UTF-16 clipping — as inputs plus what travel.ts
+/// rendered from them; travel.rs must give the same entries and lines.
+#[test]
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "small counts"
+)]
+fn the_travel_block_matches_the_typescript_fixture() {
+    use sofar_core::travel::{TravelInput, TravelShown, travel_entries, travel_lines};
+    let path = conformance_dir().join("render-parity/travel-parity.json");
+    let text = std::fs::read_to_string(&path).expect("travel-parity.json");
+    let fixture = json::parse(&text).expect("fixture json");
+    let cases = fixture
+        .as_obj()
+        .and_then(|o| o.get("cases"))
+        .and_then(Json::as_arr)
+        .expect("cases");
+    assert!(cases.len() >= 12, "travel cases ({} found)", cases.len());
+    for case in cases {
+        let c = case.as_obj().expect("case");
+        let id = opt_str(c, "id").expect("id");
+        let home = opt_str(c, "home").expect("home");
+        let input = TravelInput {
+            links: c
+                .get("links")
+                .and_then(Json::as_arr)
+                .expect("links")
+                .iter()
+                .map(link_from)
+                .collect(),
+            indegree: c
+                .get("indegree")
+                .and_then(Json::as_obj)
+                .expect("indegree")
+                .iter()
+                .map(|(k, v)| (k.to_owned(), v.as_f64().expect("degree") as usize))
+                .collect(),
+        };
+        let shown = TravelShown {
+            rules: strings(c, "rules").into_iter().collect(),
+            memories: strings(c, "memories").into_iter().collect(),
+        };
+        let budget = c.get("budget").and_then(Json::as_f64).expect("budget") as usize;
+        let entries = travel_entries(
+            &home,
+            &strings(c, "seeds"),
+            &input,
+            &strings(c, "focus"),
+            &shown,
+        );
+        let expected: Vec<_> = c
+            .get("entries")
+            .and_then(Json::as_arr)
+            .expect("entries")
+            .iter()
+            .map(entry_from)
+            .collect();
+        assert_eq!(entries, expected, "{id}: entries");
+        let lines = travel_lines(&entries, &home, budget);
+        check(
+            &id,
+            "lines",
+            &strings(c, "lines").join("\n"),
+            &lines.join("\n"),
+        );
+        assert_eq!(lines.len(), strings(c, "lines").len(), "{id}: line count");
+    }
 }
 
 #[test]

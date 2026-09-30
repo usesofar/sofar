@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -7,10 +7,12 @@ import { buildGraph, whyFile } from '../src/core/graph'
 import {
   findFrom,
   reachFrom,
+  refreshBuiltReach,
   refreshReach,
   resolveQuery,
   resolveSeed,
   LEXICAL_SEED_CAP,
+  REACH_LAZY_TAIL,
   REACH_MAX_HOPS,
   type ReachHit,
   type ReachResult,
@@ -331,6 +333,193 @@ describe('3.4 citations — the same edges buildGraph derives', () => {
   })
 })
 
+describe('linked-context 3.1 — every citation source, each edge citing its sourcing event', () => {
+  const plan = (sofar: string, slug: string, session: string, tasks: { id: string; title: string }[]) =>
+    emit(sofar, slug, event(slug, session, 'plan_updated', { plan: { phases: [{ name: 'P', tasks }] } }))
+
+  /** Every `cites` edge as `from -> to @ event_id`, sorted. */
+  function cites(sofar: string): string[] {
+    const out: string[] = []
+    for (const [from, edges] of refreshReach(sofar).edges) {
+      for (const e of edges) if (e.kind === 'cites') out.push(`${from} -> ${e.to} @ ${e.event_id}`)
+    }
+    return out.sort()
+  }
+
+  it('mints task nodes for the final plan only, labelled by title', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'first' }, { id: '1.2', title: 'dropped later' }])
+    plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'first, renamed' }])
+    emit(sofar, 'alpha', event('alpha', 'A', 'task_added', { phase: 'P', id: 'T3', title: 'added' }))
+    const index = refreshReach(sofar)
+    expect(index.nodes.get('task:alpha#1.1')).toMatchObject({ kind: 'task', initiative: 'alpha', label: 'first, renamed' })
+    expect(index.nodes.get('task:alpha#T3')).toMatchObject({ kind: 'task', label: 'added' })
+    expect(index.nodes.has('task:alpha#1.2')).toBe(false)
+    expect(resolveSeed(index, 'task:alpha#1.1')).toMatchObject({ kind: 'task', ids: ['task:alpha#1.1'] })
+    expect(resolveSeed(index, 'task:alpha#9.9').kind).toBeNull()
+  })
+
+  it('scans titles, status notes, next actions and notes with the unchanged grammar', () => {
+    const { root, sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const d1 = decide(sofar, 'alpha', 'A')
+    plan(sofar, 'alpha', 'A', [{ id: '2.1', title: 'target task' }])
+    start(sofar, 'beta', 'B')
+    const titled = plan(sofar, 'beta', 'B', [
+      { id: '1.1', title: 'follow alpha D1 through' },
+      { id: '1.2', title: 'plain' },
+    ])
+    const status = emit(
+      sofar,
+      'beta',
+      event('beta', 'B', 'task_status_changed', { id: '1.2', status: 'blocked', note: 'needs alpha 2.1 first' }),
+    )
+    const noted = note(sofar, 'beta', 'B', 'see Alpha D1 and alpha 2.1; 0.1 is a version, BD4 is archived')
+    const ended = emit(
+      sofar,
+      'beta',
+      event('beta', 'B', 'session_ended', { summary: 's', next_action: 'pick up alpha 2.1' }),
+    )
+    // A cli write-back is no session identity, so it anchors nothing (BD44).
+    emit(sofar, 'beta', event('beta', 'cli', 'session_ended', { summary: 's', next_action: 'alpha 2.1' }))
+
+    expect(cites(sofar)).toEqual(
+      [
+        `note:${noted.id} -> decision:${d1.id} @ ${noted.id}`,
+        `note:${noted.id} -> task:alpha#2.1 @ ${noted.id}`,
+        `session:B -> task:alpha#2.1 @ ${ended.id}`,
+        `task:beta#1.1 -> decision:${d1.id} @ ${titled.id}`,
+        `task:beta#1.2 -> task:alpha#2.1 @ ${status.id}`,
+      ].sort(),
+    )
+    // cited_by mirrors each one onto the target, citing the same event.
+    const back = refreshReach(sofar).edges.get('task:alpha#2.1')!.filter((e) => e.kind === 'cited_by')
+    expect(back.map((e) => e.event_id).sort()).toEqual([noted.id, status.id, ended.id].sort())
+
+    // And every cite edge names a real event whose own text holds the handle.
+    const byId = eventsById(sofar)
+    for (const [, edges] of refreshReach(sofar).edges) {
+      for (const e of edges.filter((x) => x.kind === 'cites')) {
+        const source = byId.get(e.event_id)!
+        expect(JSON.stringify(source.payload).toLowerCase()).toMatch(/alpha (d1|2\.1)/)
+      }
+    }
+
+    // find names the write-back as the source, not the session as an author (3.2).
+    const out = runFind(root, 'task:alpha#2.1', { hops: 1 }, { color: false, unicode: false, animate: false })
+    expect(out.stdout).toContain(`next action cites task:alpha#2.1 · event ${ended.id}`)
+    expect(out.stdout).toContain(`cites task:alpha#2.1 · event ${status.id}`)
+    const reverse = runFind(root, 'session:B', { hops: 1 }, { color: false, unicode: false, animate: false })
+    expect(reverse.stdout).toContain(`cited by the next action of session:B · event ${ended.id}`)
+  })
+
+  it('keeps the grammar rules: no future decision, no self-label, no dangling edge', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const early = note(sofar, 'alpha', 'A', 'D1 is coming')
+    decide(sofar, 'alpha', 'A')
+    plan(sofar, 'alpha', 'A', [{ id: 'T1', title: 'T1 names itself and T9 names nothing' }])
+    expect(cites(sofar)).toEqual([])
+    expect(early.id).toBeDefined()
+  })
+
+  it('anchors a title cite at the event that WROTE the title, not a restating replace', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const d1 = decide(sofar, 'alpha', 'A')
+    const first = plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'per D1' }])
+    plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'per D1' }, { id: '1.2', title: 'new' }])
+    expect(cites(sofar)).toEqual([`task:alpha#1.1 -> decision:${d1.id} @ ${first.id}`])
+  })
+
+  it('stays equal to a cold rebuild across appends', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    decide(sofar, 'alpha', 'A')
+    plan(sofar, 'alpha', 'A', [{ id: '1.1', title: 'per D1' }])
+    const warm1 = cites(sofar)
+    emit(sofar, 'alpha', event('alpha', 'A', 'task_status_changed', { id: '1.1', status: 'active', note: 'still D1' }))
+    emit(sofar, 'alpha', event('alpha', 'A', 'session_ended', { summary: 's', next_action: 'alpha 1.1 then D1' }))
+    const warm2 = cites(sofar)
+    expect(warm2.length).toBe(warm1.length + 3)
+    rmSync(join(sofar, '.index'), { recursive: true, force: true })
+    expect(cites(sofar)).toEqual(warm2)
+  })
+})
+
+describe('linked-context 3.3 — memory nodes, qualified-only <slug> M<n>', () => {
+  const remember = (sofar: string, slug: string, session: string, text: string): EventEnvelope =>
+    emit(sofar, slug, event(slug, session, 'memory_promoted', { text }))
+
+  function cites(sofar: string): string[] {
+    const out: string[] = []
+    for (const [from, edges] of refreshReach(sofar).edges) {
+      for (const e of edges) if (e.kind === 'cites') out.push(`${from} -> ${e.to} @ ${e.event_id}`)
+    }
+    return out.sort()
+  }
+
+  it('mints one node per memory_promoted, numbered per initiative, and binds only the qualified handle', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const m1 = remember(sofar, 'alpha', 'A', 'cargo build --release after a schema change')
+    const m2 = remember(sofar, 'alpha', 'A', 'drive tests inherit SOFAR_DRIVE_NUDGE')
+    start(sofar, 'beta', 'B')
+    // Bare M1 / M2 are milestones in prose — never handles, never home-bound.
+    remember(sofar, 'beta', 'B', 'beta has its own M1')
+    const cited = note(sofar, 'beta', 'B', 'per Alpha M2, and M1 is a milestone; alpha M9 names nothing')
+
+    const index = refreshReach(sofar)
+    expect(index.nodes.get(`memory:${m1.id}`)).toMatchObject({ kind: 'memory', initiative: 'alpha', ordinal: 1 })
+    expect(index.nodes.get(`memory:${m2.id}`)).toMatchObject({ kind: 'memory', ordinal: 2 })
+    expect(index.memories.get('beta')).toHaveLength(1)
+    expect(cites(sofar)).toEqual([`note:${cited.id} -> memory:${m2.id} @ ${cited.id}`])
+    expect(index.edges.get(`memory:${m2.id}`)).toEqual([
+      expect.objectContaining({ kind: 'cited_by', to: `note:${cited.id}`, event_id: cited.id }),
+    ])
+  })
+
+  it('a memory cannot be cited before it was promoted', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    note(sofar, 'alpha', 'A', 'alpha M1 is coming')
+    remember(sofar, 'alpha', 'A', 'the fact')
+    expect(cites(sofar)).toEqual([])
+  })
+
+  it('resolves a qualified memory handle as a seed, and never a bare one', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    const m1 = remember(sofar, 'alpha', 'A', 'the fact')
+    const index = refreshReach(sofar)
+    expect(resolveSeed(index, 'alpha M1')).toMatchObject({ kind: 'memory', ids: [`memory:${m1.id}`] })
+    expect(resolveSeed(index, 'Alpha#M1')).toMatchObject({ kind: 'memory', ids: [`memory:${m1.id}`] })
+    expect(resolveSeed(index, 'M1', { initiative: 'alpha' }).kind).toBeNull()
+    expect(resolveSeed(index, 'alpha M2').kind).toBeNull()
+  })
+
+  it('matches buildGraph, and a warm index equals a cold one', () => {
+    const { root, sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    remember(sofar, 'alpha', 'A', 'the fact')
+    const warm1 = cites(sofar)
+    emit(
+      sofar,
+      'alpha',
+      event('alpha', 'A', 'decision_logged', { chose: 'keep alpha M1', over: 'o', because: 'b' }),
+    )
+    const warm2 = cites(sofar)
+    expect(warm2.length).toBe(warm1.length + 1)
+    const graph = buildGraph(root)
+      .edges.filter((e) => e.kind === 'cites')
+      .map((e) => `${e.from} -> ${e.to} @ ${e.event_id}`)
+    expect(graph.sort()).toEqual(warm2)
+    rmSync(join(sofar, '.index'), { recursive: true, force: true })
+    expect(cites(sofar)).toEqual(warm2)
+  })
+})
+
 describe('3.4 seeds — literal, ordered, never a search', () => {
   it('resolves a path across every checkout that recorded it', () => {
     const { root, sofar } = repo()
@@ -404,7 +593,8 @@ describe('3.4 the reach half stays equal to a cold build', () => {
     touch(sofar, 'alpha', 'A', 'src/a.ts')
     refreshReach(sofar)
     const dir = join(sofar, '.index')
-    expect(readFileSafe(dir).sort()).toEqual(['.gitignore', 'meta-reach.json', 'reach.json'])
+    // reach-terms.json is the reach half's own too (8.3, D27).
+    expect(readFileSafe(dir).sort()).toEqual(['.gitignore', 'meta-reach.json', 'reach-terms.json', 'reach.json'])
   })
 
   it('ignores cli-sourced touches, exactly as the touched edge does', () => {
@@ -462,6 +652,128 @@ describe('3.4 `sofar find` — offered, never asserted', () => {
     start(sofar, 'alpha', 'A')
     touch(sofar, 'alpha', 'A', 'src/a.ts')
     expect(findFrom(sofar, 'src/a.ts', { hops: 1 }).reached).toBe(1)
+  })
+})
+
+/**
+ * linked-context 8.2 (D26) — find keeps off the persist path. A short tail is
+ * caught up in memory and neither half of the pair is written; a rebuild or a
+ * long tail persists; the write-back persists, but only once reach exists.
+ */
+describe('lazy reach refresh (linked-context 8.2)', () => {
+  const files = (sofar: string): [string, string] => [
+    readFileSync(join(sofar, '.index', 'reach.json'), 'utf8'),
+    readFileSync(join(sofar, '.index', 'meta-reach.json'), 'utf8'),
+  ]
+
+  it('answers a short tail from memory and writes neither reach.json nor its cursor', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    findFrom(sofar, 'src/a.ts') // the cold build persists
+    const before = files(sofar)
+    touch(sofar, 'alpha', 'A', 'src/b.ts')
+    const found = findFrom(sofar, 'src/b.ts', { hops: 1 })
+    expect(found.seed.kind).toBe('file')
+    expect(files(sofar)).toEqual(before)
+    refreshReach(sofar) // an eager refresh persists the same tail
+    expect(files(sofar)[0]).not.toBe(before[0])
+  })
+
+  it('persists a tail longer than REACH_LAZY_TAIL', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    findFrom(sofar, 'alpha')
+    const before = files(sofar)
+    for (let i = 0; i <= REACH_LAZY_TAIL; i++) touch(sofar, 'alpha', 'A', `src/f${i}.ts`)
+    findFrom(sofar, 'src/f0.ts')
+    const after = files(sofar)
+    expect(after[0]).not.toBe(before[0])
+    expect(after[1]).not.toBe(before[1])
+  })
+
+  it('never leaves the pair apart: lazy finds, then an eager refresh, equal a cold rebuild', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    findFrom(sofar, 'src/a.ts')
+    for (let i = 0; i < 5; i++) {
+      touch(sofar, 'alpha', 'A', `src/g${i}.ts`)
+      note(sofar, 'alpha', 'A', `lazy note ${i} cites beta D1`)
+      findFrom(sofar, `src/g${i}.ts`)
+    }
+    refreshReach(sofar)
+    const warm = files(sofar)[0]
+    rmSync(join(sofar, '.index', 'reach.json'))
+    rmSync(join(sofar, '.index', 'meta-reach.json'))
+    refreshReach(sofar)
+    expect(files(sofar)[0]).toBe(warm)
+  })
+
+  it('8.3 (D27): terms live in reach-terms.json, and every answer equals the monolithic one', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    decide(sofar, 'alpha', 'A', { chose: 'shard the reach index by field', because: 'term sets dominate the bytes' })
+    note(sofar, 'alpha', 'A', 'the lexicon ranks decision prose; see alpha D1')
+    start(sofar, 'beta', 'B')
+    touch(sofar, 'beta', 'B', 'src/a.ts')
+    const monolithic = refreshReach(sofar) // eager: every row holds its terms
+    const expected = (q: string) => reachFrom(monolithic, resolveQuery(monolithic, q), 2)
+    const [core] = files(sofar)
+    expect(core).not.toContain('"terms"')
+    expect(readFileSync(join(sofar, '.index', 'reach-terms.json'), 'utf8')).toContain('lexicon')
+    for (const q of ['src/a.ts', 'alpha D1', 'alpha', 'B', 'term sets dominate', 'lexicon ranks prose']) {
+      expect(findFrom(sofar, q), q).toEqual(expected(q))
+    }
+  })
+
+  it('8.3: a literal find never needs the terms file; a text find without it rebuilds, never guesses', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    decide(sofar, 'alpha', 'A', { chose: 'keep the reach index lean' })
+    const eager = refreshReach(sofar)
+    const lexical = reachFrom(eager, resolveQuery(eager, 'lean reach index'), 2)
+    const before = files(sofar)
+    rmSync(join(sofar, '.index', 'reach-terms.json'))
+    expect(findFrom(sofar, 'src/a.ts', { hops: 1 }).reached).toBeGreaterThan(0)
+    expect(files(sofar)).toEqual(before) // nothing rebuilt, nothing written
+    expect(findFrom(sofar, 'lean reach index')).toEqual(lexical)
+    expect(existsSync(join(sofar, '.index', 'reach-terms.json'))).toBe(true) // the rebuild restored the pair
+  })
+
+  it('8.3: a terms file missing a row is a cold rebuild, equal to one from scratch', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    decide(sofar, 'alpha', 'A', { chose: 'first' })
+    decide(sofar, 'alpha', 'A', { chose: 'second' })
+    refreshReach(sofar)
+    const path = join(sofar, '.index', 'reach-terms.json')
+    const disk = JSON.parse(readFileSync(path, 'utf8'))
+    delete disk.terms[Object.keys(disk.terms)[0]!]
+    writeFileSync(path, JSON.stringify(disk))
+    note(sofar, 'alpha', 'A', 'a tail to persist')
+    refreshReach(sofar)
+    const repaired = files(sofar)[0]
+    rmSync(join(sofar, '.index', 'reach.json'))
+    rmSync(join(sofar, '.index', 'meta-reach.json'))
+    rmSync(path)
+    refreshReach(sofar)
+    expect(files(sofar)[0]).toBe(repaired)
+  })
+
+  it('refreshBuiltReach persists a built reach and never builds an absent one', () => {
+    const { sofar } = repo()
+    start(sofar, 'alpha', 'A')
+    touch(sofar, 'alpha', 'A', 'src/a.ts')
+    refreshBuiltReach(sofar)
+    expect(existsSync(join(sofar, '.index', 'reach.json'))).toBe(false)
+    findFrom(sofar, 'src/a.ts')
+    touch(sofar, 'alpha', 'A', 'src/b.ts')
+    const before = files(sofar)
+    refreshBuiltReach(sofar)
+    expect(files(sofar)[0]).not.toBe(before[0])
   })
 })
 

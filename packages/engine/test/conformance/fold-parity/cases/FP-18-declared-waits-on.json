@@ -1,0 +1,10 @@
+{
+  "tail_at": 3,
+  "seeds": [
+    53,
+    54,
+    55
+  ],
+  "order_independence": true,
+  "note": "linked-context 2.2 (D10): a task carries its declared waits_on verbatim and unresolved — present replaces, [] clears, absent keeps, and a full-replace plan task that omits it keeps the set by id. A handle outside the canonical grammar (bare, uppercase, not a list) is an invalid line. The tail starts at the first status change carrying a set"
+}

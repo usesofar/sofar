@@ -32,6 +32,7 @@ import {
   standingConstraintLines,
   taskProgress, testOutcomeLine, nativeOriginMark } from './shared'
 import { lexicalCounts } from '../../core/lexicon'
+import { repoMemoryHandles, ruleHandles, TRAVEL_BUDGET, travelEntries, travelLines, travelSeeds, type TravelInput } from './travel'
 
 /**
  * Status projection — the SessionStart context block (task 3.6, BD3):
@@ -453,6 +454,12 @@ export interface StatusOptions {
    */
   repoRules?: readonly RepoRule[]
   /**
+   * The home record's links with their targets' states and in-degrees
+   * (linked-context 5.1) — the links tier only (D2), read by the caller.
+   * Omitted, or with no eligible link, the block renders zero bytes.
+   */
+  travel?: TravelInput
+  /**
    * Per-session notices the SessionStart hook used to compose as a preface
    * (r1-fixes 2.3, D12): recent work elsewhere, the closed banner, the
    * cold-resume advisory, the shipping notice — each already budgeted by
@@ -531,7 +538,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   // rendered, rules the cap hid — against a cache-prefix saving worth cents.
   //
   // Sections are BLOCKS. Fixed blocks render within their own budgets; the
-  // YIELDING blocks (memory, repo memory, the decision index with its
+  // YIELDING blocks (memory, repo memory, travel, the decision index with its
   // rejected ledger, last session — in that precedence) take what the 6,000-char cap
   // leaves. The constraints, read-back and footer are PROTECTED: when fixed
   // sections alone overrun the cap, the cut lands before them, never in them.
@@ -642,13 +649,33 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   }
   if (stateLines.length > 0) fixed([...stateLines, ''])
 
+  // (3b) Travel (linked-context 5.1, SPEC §Travel block) — yielding
+  // (precedence 3): after memory and repo memory, so DEDUPE reads what they
+  // rendered, and before the decision index and last session. Zero bytes when
+  // nothing is eligible. Built at render time: the rules and repo memory it
+  // dedupes against are bound further down.
+  const travel = options?.travel
+  const seeds = travel === undefined ? [] : travelSeeds(state, focus?.task)
+  let renderedRepoMemory = ''
+  let renderedRuleLines: string[] = []
+  if (travel !== undefined && seeds.length > 0) {
+    blocks.push({
+      rank: 3,
+      preferred: TRAVEL_BUDGET,
+      render: (budget) => {
+        const shown = { rules: ruleHandles(renderedRuleLines), memories: repoMemoryHandles(renderedRepoMemory) }
+        return travelLines(travelEntries(state.slug, seeds, travel, focusTerms, shown), state.slug, budget)
+      },
+    })
+  }
+
   // (4) The last written-back session. The pointer
   // to the full text rides INSIDE the budget (staleness-detection 2.4).
-  // Yielding (precedence 4).
+  // Yielding (precedence 5).
   const last = lastWithSummary(state.sessions)
   if (last !== undefined) {
     blocks.push({
-      rank: 4,
+      rank: 5,
       preferred: SESSION_SUMMARY_BUDGET,
       render: (budget) => {
         const header = `Last session (${last.tool}, ended ${last.ended ?? '?'}):`
@@ -762,7 +789,8 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
         const kept = dropMemoryCopies(repoMemory, state.slug, renderedMemories).trim()
         if (kept.length === 0 || budget < MIN_REPO_MEMORY_ROOM) return []
         const header = 'Repo memory (.sofar/repo.md):'
-        return [header, clipBlockDetect(kept, budget - header.length - 2, REPO_MEMORY_TRUNCATION_MARKER).text, '']
+        renderedRepoMemory = clipBlockDetect(kept, budget - header.length - 2, REPO_MEMORY_TRUNCATION_MARKER).text
+        return [header, renderedRepoMemory, '']
       },
     })
   }
@@ -791,11 +819,11 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
     const rejected = inForce.slice(0, olderCount).filter(({ d }) => hasRealAlternative(d.over))
     const ledgerHeader = `Earlier rejected approaches — do NOT re-propose (${rejected.length} older):`
     const pointer = (n: number): string => `- …and ${n} more (see decisions.md)`
-    // One yielding block (precedence 3): under pressure the window keeps its
+    // One yielding block (precedence 4): under pressure the window keeps its
     // newest lines, but never at the cost of the ledger's header and count —
     // what says there is a ledger to consult before re-proposing (C3).
     blocks.push({
-      rank: 3,
+      rank: 4,
       preferred: DECISION_WINDOW_BUDGET + REJECTED_LEDGER_BUDGET,
       render: (budget) => {
         const reserve = rejected.length > 0 ? ledgerHeader.length + pointer(rejected.length).length + 2 : 0
@@ -876,6 +904,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
     focusTerms,
     state.decisions.filter((_, i) => !retired.has(i + 1)),
   )
+  renderedRuleLines = elsewhere
   if (rules.length > 0 || elsewhere.length > 0) protect([...rules, ...elsewhere, ''])
 
   // (11) Read-back (drift-hardening 3.1) — the last content line.

@@ -8,6 +8,7 @@ import { isAbsolute, join } from 'node:path'
 import type { JudgeOptions } from '../core/judge'
 import { writebackJudgeWarnings } from '../core/writeback-judge'
 import { evidenceWarnings, filingWarnings, type DoneTask, type FiledEntry } from '../core/filing-judge'
+import { refreshBuiltReach } from '../core/index-reach'
 import { readSince } from '../core/index-tail'
 import { foreignDecisions } from '../core/index-tier1'
 import { relevanceJudgements, type NoteCandidate } from '../core/relevance-judge'
@@ -17,7 +18,8 @@ import { ruleFidelityWarning } from '../core/rule-fidelity'
 import { homeInitiative, ToolError, type ToolContext } from './context'
 import { judgeOptionsFor } from './log-decision'
 import { resolvePhaseOrThrow } from './update-phase'
-import { heldTasks, planTaskChange } from './update-task'
+import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
+import { citeNudges, homeViewOf } from './waits-on'
 
 /**
  * A colliding write-back, plus how to reach the session that wrote it
@@ -67,7 +69,8 @@ export interface EndSessionResult extends ToolOkResult {
   /** Handles the batched `memories` took, in order (`<slug> M<n>`). */
   memories?: string[]
   /**
-   * Rule-fidelity warnings for the batched decisions (memory-lead D2), then the
+   * Declared waits_on warnings and cite nudges (linked-context 2.3, 5.3), then
+   * rule-fidelity warnings for the batched decisions (memory-lead D2), then the
    * write-time judges' lines (typed-judge 3.1, 3.3, 3.2); never a refusal.
    */
   warnings?: string[]
@@ -116,8 +119,14 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
   // sofar_update_task's planner (phase-lifecycle D7); a task this batch adds
   // is held for the entries after it.
   const held = heldTasks(state)
-  ;(args.tasks ?? []).forEach((t, i) => {
-    const planned = planTaskChange(state, slug, t, held)
+  const tasks = args.tasks ?? []
+  // Declared links (linked-context 2.3) bind against the plan the whole
+  // batch leaves behind; an unknown slug refuses the batch like any entry.
+  const declared = declareTaskWaits(ctx, slug, state, tasks, held)
+  let nextDeclared = 0
+  tasks.forEach((t, i) => {
+    const waits = t.waits_on !== undefined ? declared.handles[nextDeclared++] : undefined
+    const planned = planTaskChange(state, slug, t, held, waits)
     if (!planned.ok) return refuse(`tasks[${i}] (${t.task_id})`, planned.errors)
     appends.push(...planned.appends)
     if (!held.has(t.task_id)) held.set(t.task_id, t.title!)
@@ -131,8 +140,15 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
     check(where, 'phase_status_changed', { phase: phase.name, status: ph.status, ...(note !== undefined ? { note } : {}) })
   })
 
+  // Cites where a declared wait may have been meant (linked-context 5.3),
+  // read against the sets this batch leaves behind.
+  const waits = homeViewOf(state).waits
+  tasks.filter((t) => t.waits_on !== undefined).forEach((t, k) => waits.set(t.task_id, declared.handles[k]!))
+  const blocked = tasks.filter((t) => t.status === 'blocked' && t.note !== undefined).map((t) => ({ taskId: t.task_id, note: t.note! }))
+  const nudges = citeNudges(ctx.sofarDir, slug, waits, blocked, args.next_action)
+
   const decisions: string[] = []
-  const warnings: string[] = []
+  const warnings: string[] = [...declared.warnings, ...nudges]
   const drafts: DecisionDraft[] = []
   const seen: DecisionState[] = [...state.decisions]
   const foreign = (args.decisions ?? []).length > 0 ? foreignDecisions(ctx.sofarDir, slug) : undefined
@@ -427,6 +443,9 @@ function endSessionFiled(
     summary: args.summary,
     next_action: args.next_action,
   })
+  // Reach catches up here, persisted, once per session (linked-context 8.2,
+  // D26): a find reads the rest lazily, and no hook ever refreshes it.
+  refreshBuiltReach(ctx.sofarDir)
   const applied = {
     ...(args.tasks !== undefined ? { tasks_applied: args.tasks.length } : {}),
     ...(batch.decisions.length > 0 ? { decisions: batch.decisions } : {}),

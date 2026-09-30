@@ -106,6 +106,7 @@ synced, and any absence, staleness, or corruption falls back to reading the logs
 | `core/index-pass.ts` | The one incremental pass every tier shares. Holds the four cases where resuming would be unsound, each falling back to a full read. |
 | `core/index-tier0.ts` | **Hot tier.** Open sessions and the files they hold. Byte-sized, so the shim can read it. Faithful to the fold's caps rather than better than them. |
 | `core/index-tier1.ts` | **Keyed tier.** The decision-scope half (memory-lead 2.1, D6): every decision that guards or names a file or carries a rule (2.2, D8 — the digest's repo-wide rules), with supersession mirrored from the fold. The labels tier (D8): every standing label-sized decision, for the writers' cross-record reversal check. Also derived relevance: who else touched a path, and from which initiative. |
+| `core/index-links.ts` | **Links tier** (linked-context 4.1, D2): every link a record's tasks hold (declared `waits_on`, cites in titles and status notes) with its target's resolution state (SPEC §Links), mirrored from the fold. Per-slug `links/<slug>.json`, trusted while the initiative set holds and no log it read gained a line that can move a link (by content, never mtime); refreshed at write time and at session start. `links-in.json` is the reverse index (4.2): per target, the tasks linking to it (in-degree) and its anchor-free fact, so a moved target re-snapshots at O(links) without a pass. The travel block's only input, never reach or buildGraph. Shared byte for byte with sofar-core. |
 | `core/file-mentions.ts` | File mentions (memory-lead 2.1, D6): the file tokens a decision's chose, over and rule name, and whether a token names a path (its tail at a `/` boundary). Directory tokens are not mentions. Pure, no model. |
 | `core/told.ts` | The per-session told set of read-time surfacing (memory-lead 2.1, D6): which (decision, subject) pairs a notice already named. Lives in the derived index; losing it re-tells, never silences. |
 | `core/statusline-facts.ts` | The statusline's fold facts per record (rust-core 4.4, D34): progress, status, latest run, next task, session starts, cached in the derived index under the log's size and mtime plus engine and schema version, so a render at team scale skips the fold. A miss or a corrupt file folds and rewrites; shared byte for byte with sofar-core. |
@@ -134,6 +135,7 @@ Regenerated on every append. Never hand-edited.
 | `projections/templates/session.ts` | `sessions/<id>.md` — one file per session. |
 | `projections/templates/memory.ts` | `memory.md` — promoted operational facts. |
 | `projections/templates/status.ts` | The status digest — what SessionStart injects. |
+| `projections/templates/travel.ts` | The digest's travel block (linked-context 5.1, SPEC §Travel block): seeds, one entry per cross-record target, the three ordered groups, dedupe against the rendered rules and repo memory, budgeted lines. Pure — its input is the links tier, read by the caller. |
 | `projections/templates/digest-state.ts` | The part of a folded state the digest can reach (rust-core 4.4): files_touched dropped; summary, activity and next_action kept only where a reader renders them (elsewhere a placeholder that keeps each presence test true). `renderStatus(digestState(s), o) === renderStatus(s, o)` is pinned by test/digest-state.test.ts. |
 | `projections/templates/review.ts` | The review evidence packet — diff range, tasks claimed done, standing constraints, rejected approaches. Text only; the judging is the reviewing session's, never sofar's. |
 | `projections/templates/next.ts` | The single next action. |
@@ -202,6 +204,7 @@ a commit.
 | `cli/check.ts` | `sofar check` — run the checks that bear on your changes, `--approve` one (terminal only), `--block-commits on\|off`; `--staged` is the pre-commit hook. |
 | `cli/graph.ts` | `sofar graph` — cross-record queries. |
 | `cli/find.ts` | `sofar find` — traverse from a seed within a hop budget. Offers adjacency, never asserts relevance; every row cites its event. |
+| `cli/compose.ts` | `sofar find --compose` — the answer packet: declared waits (links tier), citations, text matches and adjacency as one budgeted, id-cited list with a changed-since mark. |
 | `cli/remember.ts` | `sofar remember` — promote an operational fact. |
 | `cli/native-import.ts` | `sofar remember --from-native` — show each importable Claude memory entry on the operator's terminal and append the approved ones as memory marked with their origin; refuses without a terminal (D13). |
 | `cli/statusline.ts` | `sofar statusline` — the one-line host status. Resolves session-first. |
@@ -229,6 +232,7 @@ a commit.
 | `mcp/end-session.ts` | `sofar_end_session` — the write-back. Reports parallel write-backs and reachable peers. |
 | `mcp/log-decision.ts` | `sofar_log_decision` — including standing constraints and guards. |
 | `mcp/update-task.ts`, `mcp/update-plan.ts` | Task status, whole-plan replace. |
+| `mcp/waits-on.ts` | Declared `waits_on` at write time, shared by every surface that takes it: qualify to canonical handles, refuse an unknown slug, warn dangling handles and cycles of open tasks. |
 | `mcp/update-phase.ts` | Phase status, addressed by exact phase name. Unknown name = typed error, not the fold's create-on-miss; already-at-status = no event. |
 | `mcp/add-note.ts` | `sofar_add_note`. |
 | `mcp/remember.ts` | `sofar_remember`. |

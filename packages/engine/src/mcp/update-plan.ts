@@ -1,5 +1,8 @@
+import type { PlanStructure } from '@sofar/schema'
 import type { ToolOkResult, UpdatePlanArgs } from '@sofar/schema/tool-inputs'
+import type { InitiativeState } from '../core/fold'
 import type { ToolContext } from './context'
+import { declareWaitsOn, homeViewOf } from './waits-on'
 
 /**
  * sofar_update_plan — appends plan_updated with the full plan structure
@@ -19,10 +22,11 @@ import type { ToolContext } from './context'
  */
 export function updatePlan(ctx: ToolContext, args: UpdatePlanArgs): ToolOkResult {
   const slug = ctx.resolveWriteInitiative(args.initiative)
-  const before = ctx.foldState(slug).phases.filter((p) => p.note !== undefined)
-  const event = ctx.appendAndProject(slug, 'plan_updated', { plan: args.plan })
+  const state = ctx.foldState(slug)
+  const before = state.phases.filter((p) => p.note !== undefined)
+  const { plan, warnings } = declarePlanWaits(ctx, slug, state, args.plan)
+  const event = ctx.appendAndProject(slug, 'plan_updated', { plan })
 
-  const warnings: string[] = []
   for (const old of before) {
     const next = args.plan.phases.find((p) => p.name === old.name)
     if (next === undefined) {
@@ -37,6 +41,46 @@ export function updatePlan(ctx: ToolContext, args: UpdatePlanArgs): ToolOkResult
     ctx.appendAndProject(slug, 'phase_status_changed', { phase: old.name, status, note: old.note })
   }
   return warnings.length > 0 ? { ok: true, event_id: event.id, warnings } : { ok: true, event_id: event.id }
+}
+
+/**
+ * Declared links on a full replace (linked-context 2.3): the home view is the
+ * NEW plan's tasks, each keeping its prior set when it omits `waits_on` (D10),
+ * and the tasks that state one are qualified, bound and cycle-checked there.
+ * Returns the plan as it is stored — every handle canonical.
+ */
+function declarePlanWaits(
+  ctx: ToolContext,
+  slug: string,
+  state: InitiativeState,
+  plan: PlanStructure,
+): { plan: PlanStructure; warnings: string[] } {
+  const tasks = plan.phases.flatMap((p) => p.tasks)
+  if (!tasks.some((t) => t.waits_on !== undefined)) return { plan, warnings: [] }
+  const prior = homeViewOf(state).waits
+  const view = { tasks: new Set(tasks.map((t) => t.id)), waits: new Map<string, readonly string[]>() }
+  for (const t of tasks) {
+    const kept = prior.get(t.id)
+    if (t.waits_on === undefined && kept !== undefined && !view.waits.has(t.id)) view.waits.set(t.id, kept)
+  }
+  const stated = tasks.filter((t) => t.waits_on !== undefined)
+  const { handles, warnings } = declareWaitsOn(
+    ctx,
+    slug,
+    view,
+    stated.map((t) => ({ taskId: t.id, raw: t.waits_on, closes: t.status === 'done' || t.status === 'dropped' })),
+  )
+  const qualified = new Map(stated.map((t, i) => [t, handles[i]!] as const))
+  return {
+    plan: {
+      ...plan,
+      phases: plan.phases.map((p) => ({
+        ...p,
+        tasks: p.tasks.map((t) => (qualified.has(t) ? { ...t, waits_on: qualified.get(t)! } : t)),
+      })),
+    },
+    warnings,
+  }
 }
 
 const clip = (s: string): string => (s.length > 80 ? `${s.slice(0, 79)}…` : s)

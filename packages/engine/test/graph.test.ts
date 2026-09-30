@@ -405,9 +405,65 @@ describe('citation resolution — the cites edge', () => {
 
     const graph = buildGraph(root)
     expect(edgesOfKind(graph, 'cites')).toEqual([
-      { kind: 'cites', from: `decision:${citing.id}`, to: taskNodeId('beta', '1.1'), initiative: 'alpha' },
+      {
+        kind: 'cites',
+        from: `decision:${citing.id}`,
+        to: taskNodeId('beta', '1.1'),
+        initiative: 'alpha',
+        event_id: citing.id,
+        ts: citing.ts,
+      },
     ])
     expect((graph.nodes.get(`decision:${citing.id}`) as DecisionNode).dangling).toEqual(['beta 9.9'])
+  })
+
+  it('scans every 3.1 source — note, task title, status note, next_action — each from its own node and event (3.2)', () => {
+    const root = makeRoot()
+    writeLog(root, 'beta', [...planned('beta')])
+    const target = ev('alpha', 'decision_logged', { chose: 'the target', over: 'o', because: 'b' })
+    const plan = ev('alpha', 'plan_updated', {
+      plan: {
+        phases: [{ name: 'Phase 1', status: 'active', tasks: [{ id: '1.1', title: 'mirror beta 1.1' }] }],
+      },
+    })
+    const note = ev('alpha', 'note_added', { text: 'see D1 and D1 again, and beta 1.2' })
+    const status = ev('alpha', 'task_status_changed', { id: '1.1', status: 'active', note: 'held by D1' })
+    const ended = ev('alpha', 'session_ended', { summary: 's', next_action: 'finish beta 1.2' })
+    writeLog(root, 'alpha', [
+      ev('alpha', 'initiative_created', { slug: 'alpha', goal: 'g' }),
+      ev('alpha', 'session_started', { tool: 'claude-code' }),
+      target,
+      plan,
+      note,
+      status,
+      ended,
+    ])
+
+    const cites = edgesOfKind(buildGraph(root), 'cites').map((e) => `${e.from} -> ${e.to} @ ${e.event_id}`)
+    const task = taskNodeId('alpha', '1.1')
+    expect(cites.sort()).toEqual(
+      [
+        // One edge per (sourcing event, target): the note names D1 twice.
+        `note:${note.id} -> decision:${target.id} @ ${note.id}`,
+        `note:${note.id} -> ${taskNodeId('beta', '1.2')} @ ${note.id}`,
+        `${task} -> ${taskNodeId('beta', '1.1')} @ ${plan.id}`,
+        `${task} -> decision:${target.id} @ ${status.id}`,
+        `${sessionNodeId('sess-1')} -> ${taskNodeId('beta', '1.2')} @ ${ended.id}`,
+      ].sort(),
+    )
+  })
+
+  it('a non-decision source cannot cite a decision logged after it', () => {
+    const root = makeRoot()
+    const note = ev('alpha', 'note_added', { text: 'D1 is coming' })
+    const later = ev('alpha', 'decision_logged', { chose: 'later', over: 'o', because: 'b' })
+    writeLog(root, 'alpha', [
+      ev('alpha', 'initiative_created', { slug: 'alpha', goal: 'g' }),
+      ev('alpha', 'session_started', { tool: 'claude-code' }),
+      note,
+      later,
+    ])
+    expect(edgesOfKind(buildGraph(root), 'cites')).toEqual([])
   })
 
   it('a miscased qualifier crosses to its initiative instead of minting a home-bound edge', () => {
@@ -438,6 +494,27 @@ describe('citation resolution — the cites edge', () => {
     expect(cites).toHaveLength(1)
     expect(cites[0]?.from).toBe(`decision:${citing.id}`)
     expect(cites[0]?.to).toBe(`decision:${cited.id}`) // felt-cost D1, not the home decoy
+  })
+
+  it('a qualified <slug> M<n> cites a memory node; a bare M<n> is no handle and never dangles (linked-context 3.3)', () => {
+    const root = makeRoot()
+    const m1 = ev('alpha', 'memory_promoted', { text: 'the first fact' })
+    const m2 = ev('alpha', 'memory_promoted', { text: 'the second fact' })
+    writeLog(root, 'alpha', [ev('alpha', 'initiative_created', { slug: 'alpha', goal: 'g' }), m1, m2])
+    const citing = ev('beta', 'decision_logged', {
+      chose: 'follow Alpha M2',
+      over: 'milestone M1 and M7',
+      because: 'alpha M9 is past the last memory',
+    })
+    writeLog(root, 'beta', [...planned('beta'), citing])
+
+    const graph = buildGraph(root)
+    expect(graph.nodes.get(`memory:${m1.id}`)).toMatchObject({ kind: 'memory', initiative: 'alpha', ordinal: 1 })
+    expect(graph.nodes.get(`memory:${m2.id}`)).toMatchObject({ kind: 'memory', ordinal: 2, text: 'the second fact' })
+    expect(edgesOfKind(graph, 'cites').map((e) => `${e.from} -> ${e.to}`)).toEqual([
+      `decision:${citing.id} -> memory:${m2.id}`,
+    ])
+    expect((graph.nodes.get(`decision:${citing.id}`) as DecisionNode).dangling).toEqual(['alpha M9'])
   })
 })
 

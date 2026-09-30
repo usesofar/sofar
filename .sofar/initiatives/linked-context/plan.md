@@ -4,55 +4,56 @@
 
 Goal: A session serves the network of threads around its task, not one log. Declared `waits_on` links (asserted) and derived citations from task, note and next-action text (offered) connect records at task grain. A write-time hot tier lets the SessionStart digest show, within budget, whether what a blocked or next task waits on has since moved. Deterministic, zero model calls, byte-parity TS/Rust, D18 budget held. No sub-initiatives: grouping is links only (D5). Find gets faster without touching context (Phase 8).
 
-Progress: 0 done, 1 dropped, 24 remaining
+Progress: 25 done, 1 dropped, 0 remaining
 
-## Phase 1 — Contract (SPEC + goldens before code, rust-core D1) [pending] — 0/3 done
+## Phase 1 — Contract (SPEC + goldens before code, rust-core D1) [done] — 3/3 done
 
-- [ ] 1.1 SPEC link vocabulary: declared waits_on (asserted) vs derived cites (offered) per record-index D2; qualified handle grammar <slug> D<n>|T<n>|<n>.<n>|M<n>; per-target resolution states open/moved/resolved/dangling (decision superseded or until-task resolved; task done/dropped; initiative closed, superseded follows successor one hop; memory superseded)
-- [ ] 1.2 SPEC travel block: only the next task and blocked tasks seed it; one hop TO a record, never through (record-index D12); order open waits → resolved-since-block → offered cites ranked by focus terms (memory-lead D5) with 1/log(in-degree) hub damping; whole entries, cap 6 targets / 600 chars carved from the existing 6k cap, numeric omitted (record-graph D6); dedupe against foreign rules and repo memory already rendered; zero bytes when no links
-- [ ] 1.3 Golden fixtures in conformance/golden: open wait, resolved wait, dangling handle, supersession chain, cap overflow, cycle, no links → byte-identical digest to today
+- [x] 1.1 SPEC link vocabulary: declared waits_on (asserted) vs derived cites (offered) per record-index D2; qualified handle grammar <slug> D<n>|T<n>|<n>.<n>|M<n>; per-target resolution states open/moved/resolved/dangling (decision superseded or until-task resolved; task done/dropped; initiative closed, superseded follows successor one hop; memory superseded) — verified pass @f7199cd (attempt 1)
+- [x] 1.2 SPEC travel block: only the next task and blocked tasks seed it; one hop TO a record, never through (record-index D12); order open waits → resolved-since-block → offered cites ranked by focus terms (memory-lead D5) with 1/log(in-degree) hub damping; whole entries, cap 6 targets / 600 chars carved from the existing 6k cap, numeric omitted (record-graph D6); dedupe against foreign rules and repo memory already rendered; zero bytes when no links — verified pass @8a7af2d (attempt 1)
+- [x] 1.3 Golden fixtures in conformance/golden: open wait, resolved wait, dangling handle, supersession chain, cap overflow, cycle, no links → byte-identical digest to today — verified pass @d4b1539 (attempt 1)
 
-## Phase 2 — Declared links (schema + write surfaces) [pending] — 0/3 done
+## Phase 2 — Declared links (schema + write surfaces) [done] — 3/3 done
 
-- [ ] 2.1 packages/schema: optional waits_on handle list on TaskStatusChangedPayload, PlanTaskInput and TaskAddedPayload; validators, EVENT_TYPE_REFERENCE, schema:emit + Rust regen; additive optional field per the user/ok/exit precedent (old readers ignore it); note the fingerprint bump invalidates snapshot/checkpoint/digest caches once
-- [ ] 2.2 Fold carries declared handles on the task (single log only; resolution is NOT the fold's job — it lives in the links tier, Phase 4)
-- [ ] 2.3 Write surfaces: sofar_update_task, sofar_update_plan, sofar_end_session task changes and `sofar new --waits-on` accept waits_on; unknown slug rejected, unbound id warned (dangling), waits_on cycle warned (beads-style readiness predicate)
+- [x] 2.1 packages/schema: optional waits_on handle list on TaskStatusChangedPayload, PlanTaskInput and TaskAddedPayload; validators, EVENT_TYPE_REFERENCE, schema:emit + Rust regen; additive optional field per the user/ok/exit precedent (old readers ignore it); note the fingerprint bump invalidates snapshot/checkpoint/digest caches once — verified pass @5871012 (attempt 1)
+- [x] 2.2 Fold carries declared handles on the task (single log only; resolution is NOT the fold's job — it lives in the links tier, Phase 4) — verified pass @2c26dde (attempt 1)
+- [x] 2.3 Write surfaces: sofar_update_task, sofar_update_plan, sofar_end_session task changes and `sofar new --waits-on` accept waits_on; unknown slug rejected, unbound id warned (dangling), waits_on cycle warned (beads-style readiness predicate) — verified pass @9e44c87 (attempt 1)
 
-## Phase 3 — Derived links (citation sources) [pending] — 0/3 done
+## Phase 3 — Derived links (citation sources) [done] — 3/3 done
 
-- [ ] 3.1 Reach index scans task text, status notes, session_ended next_action and note prose with the unchanged closed grammar; task nodes minted; linkCitations generalised beyond decisions; edges carry the sourcing event_id; INDEX_SCHEMA_VERSION 9→10 (one cold rebuild)
-- [ ] 3.2 buildGraph second pass mirrors 3.1; find/related/why show the new edge sources; reach-vs-graph parity test over this repo's record
-- [ ] 3.3 Memory nodes, qualified-only <slug> M<n> — the disambiguation rule repo-memory-capture D3 asked for; repo.md lines stay unnumbered and out of the graph
+- [x] 3.1 Reach index scans task text, status notes, session_ended next_action and note prose with the unchanged closed grammar; task nodes minted; linkCitations generalised beyond decisions; edges carry the sourcing event_id; INDEX_SCHEMA_VERSION 9→10 (one cold rebuild) — verified pass @7655fde (attempt 1)
+- [x] 3.2 buildGraph second pass mirrors 3.1; find/related/why show the new edge sources; reach-vs-graph parity test over this repo's record — verified pass @b7b230a (attempt 1)
+- [x] 3.3 Memory nodes, qualified-only <slug> M<n> — the disambiguation rule repo-memory-capture D3 asked for; repo.md lines stay unnumbered and out of the graph — verified pass @447f9f4 (attempt 1)
 
-## Phase 4 — Hot links tier (materialised at write time) [pending] — 0/3 done
+## Phase 4 — Hot links tier (materialised at write time) [done] — 3/3 done
 
-- [ ] 4.1 index-tier1 links/<slug>.json on the neighbours pattern: outgoing declared + derived links with a target status snapshot, cursor-incremental, stat-checked read, parity test against the from-logs answer (record-index D18 pattern). PREDICT: Rust warm session-start +≤0.5ms, TS within D18 +10%, cold +≤5%
-- [ ] 4.2 Staleness: reverse index of inbound links per target, revalidated by the target log's tail (warmth lastAppendAt, never mtime) so a target that moved re-snapshots at O(links), never a neighbour fold
-- [ ] 4.3 graph-hotpath test extended: hot paths may import the links tier only; reach and buildGraph stay banned (record-graph D2, record-index 4.1)
+- [x] 4.1 index-tier1 links/<slug>.json on the neighbours pattern: outgoing declared + derived links with a target status snapshot, cursor-incremental, stat-checked read, parity test against the from-logs answer (record-index D18 pattern). PREDICT: Rust warm session-start +≤0.5ms, TS within D18 +10%, cold +≤5% — verified pass @47c89a6 (attempt 1)
+- [x] 4.2 Staleness: reverse index of inbound links per target, revalidated by the target log's tail (warmth lastAppendAt, never mtime) so a target that moved re-snapshots at O(links), never a neighbour fold — verified pass @1c4df7d (attempt 2)
+- [x] 4.3 graph-hotpath test extended: hot paths may import the links tier only; reach and buildGraph stay banned (record-graph D2, record-index 4.1) — verified pass @1c4df7d (attempt 1)
 
-## Phase 5 — Digest travel + write-time nudges [pending] — 0/4 done
+## Phase 5 — Digest travel + write-time nudges [done] — 5/5 done
 
-- [ ] 5.1 TS render of the travel block in templates/status.ts from the links tier; Phase 1 goldens pass
-- [ ] 5.2 Rust links-tier reader + status.rs render, byte parity on the same goldens (check-before-parse typed reader, rust-core D42 L2). PREDICT: travel read ≤1ms at team100
-- [ ] 5.3 Offered nudges, never blocks: end_session warns when a next_action or blocked note cites another record without waits_on; `sofar new` lists ≤3 existing initiatives by BM25 over goals
-- [ ] 5.4 Protocol block for Claude Code, Cursor and Codex (D35): cite other records as <slug> <id>; declare waits_on when blocked
+- [x] 5.1 TS render of the travel block in templates/status.ts from the links tier; Phase 1 goldens pass — verified pass @1c4df7d (attempt 1)
+- [x] 5.2 Rust links-tier reader + status.rs render, byte parity on the same goldens (check-before-parse typed reader, rust-core D42 L2). PREDICT: travel read ≤1ms at team100 — verified pass @1c4df7d (attempt 1)
+- [x] 5.3 Offered nudges, never blocks: end_session warns when a next_action or blocked note cites another record without waits_on; `sofar new` lists ≤3 existing initiatives by BM25 over goals — verified pass @1c4df7d (attempt 2)
+- [x] 5.4 Protocol block for Claude Code, Cursor and Codex (D35): cite other records as <slug> <id>; declare waits_on when blocked — verified pass @1c4df7d (attempt 2)
+- [x] 5.5 TS/Rust travel parity fixture (render-parity/travel-parity.json) for what the syn.travel goldens cannot reach: cites and hub damping, seed merge, dedupe, budget fallbacks, UTF-16 label clipping; replayed by tests/render_parity.rs — verified pass @1c4df7d (attempt 2)
 
-## Phase 6 — Proof (predict first, ablate, bench-refresh D10/D5) [pending] — 0/4 done
+## Phase 6 — Proof (predict first, ablate, bench-refresh D10/D5) [done] — 4/4 done
 
-- [ ] 6.1 read-paths D18 gate: session-start/user-prompt/stop/statusline p50 ≤+10% on repo and i1000-10mb, ABAB n≥25, arm SOFAR_TRAVEL=off|index
-- [ ] 6.2 Digest-bytes histogram over every real record before/after. PREDICT: 0 bytes added where no open link; ≤600 chars max; readiness-gated vs all-links ablation
-- [ ] 6.3 Cross-record resume scenario: blocked task whose target resolved — with travel the session notices the unblock unprompted; turns/tokens vs predictions in typed-judge note 01M2ZV3KEV2XA467NW7TN6WYWZ
-- [ ] 6.4 Ranking ablations: hub-damped vs raw citation count, focus-ranked vs newest-first, dedupe on/off — precision@3 against a hand-labelled link set from this repo
+- [x] 6.1 read-paths D18 gate: session-start/user-prompt/stop/statusline p50 ≤+10% on repo and i1000-10mb, ABAB n≥25, arm SOFAR_TRAVEL=off|index — verified pass @1c4df7d (attempt 2)
+- [x] 6.2 Digest-bytes histogram over every real record before/after. PREDICT: 0 bytes added where no open link; ≤600 chars max; readiness-gated vs all-links ablation — verified pass @1c4df7d (attempt 2)
+- [x] 6.3 Cross-record resume scenario: blocked task whose target resolved — with travel the session notices the unblock unprompted; turns/tokens vs predictions in typed-judge note 01M2ZV3KEV2XA467NW7TN6WYWZ — verified pass @7efa428 (attempt 1)
+- [x] 6.4 Ranking ablations: hub-damped vs raw citation count, focus-ranked vs newest-first, dedupe on/off — precision@3 against a hand-labelled link set from this repo — verified pass @1c4df7d (attempt 2)
 
-## Phase 7 — Answer packets (later) [pending] — 0/2 (1 dropped) done
+## Phase 7 — Answer packets (later) [done] — 1/2 (1 dropped) done
 
-- [ ] 7.1 find compose mode: BM25 + traversal gather, deterministic order (waits_on, cites, adjacency), clipped at budget with ids kept, changed-since line
+- [x] 7.1 find compose mode: BM25 + traversal gather, deterministic order (waits_on, cites, adjacency), clipped at budget with ids kept, changed-since line — verified pass @1c4df7d (attempt 2)
 - [-] 7.2 Judge-ranked variant delegated to typed-judge C1/D2 — not built here (dropped)
 
-## Phase 8 — Find speed [pending] — 0/3 done
+## Phase 8 — Find speed [done] — 3/3 done
 
-- [ ] 8.1 Measure sofar find cold (stale reach), warm and per-hop on repo and i1000-10mb, ABAB n≥25; set the predictions for 8.2/8.3 from it before building (bench-refresh D10)
-- [ ] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
-- [ ] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
+- [x] 8.1 Measure sofar find cold (stale reach), warm and per-hop on repo and i1000-10mb, ABAB n≥25; set the predictions for 8.2/8.3 from it before building (bench-refresh D10) — verified pass @1c4df7d (attempt 2)
+- [x] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh) — verified pass @1c4df7d (attempt 2)
+- [x] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads — verified pass @1c4df7d (attempt 2)
 
-Next action: Resume: cd ~/IO/sofar-linked-context and rerun sofar drive linked-context --detach (unit-only verify); 2.2 WIP is uncommitted there
+Next action: Operator: run the 6.3 live arm in bench-refresh round 3, then `sofar close linked-context`

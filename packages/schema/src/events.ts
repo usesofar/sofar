@@ -96,6 +96,8 @@ export interface PlanTaskInput {
   status?: TaskStatus
   route?: TaskRoute
   verify?: TaskVerify
+  /** Declared links (linked-context 2.1, SPEC §Links): canonical qualified handles. */
+  waits_on?: string[]
 }
 
 /**
@@ -172,8 +174,16 @@ export interface PlanUpdatedPayload { plan: PlanStructure }
  * forgotten, and nothing else in the record explains it.
  */
 export interface PhaseStatusChangedPayload { phase: string; status: PhaseStatus; note?: string }
-export interface TaskAddedPayload { phase: string; id: string; title: string; status?: TaskStatus; verify?: TaskVerify }
-export interface TaskStatusChangedPayload { id: string; status: TaskStatus; note?: string }
+/**
+ * `waits_on` (linked-context 2.1, SPEC §Links) is the task's DECLARED link
+ * set, additive and optional like command_run's `ok`/`exit`: an old reader
+ * ignores it. Absent leaves the set unchanged, present replaces it, `[]`
+ * clears it. Stored entries are always canonical qualified handles
+ * (WAITS_ON_HANDLE_RE) — write surfaces qualify a bare `D<n>`, `T<n>` or
+ * `<n>.<n>` to the home slug before the append, so the log never holds one.
+ */
+export interface TaskAddedPayload { phase: string; id: string; title: string; status?: TaskStatus; verify?: TaskVerify; waits_on?: string[] }
+export interface TaskStatusChangedPayload { id: string; status: TaskStatus; note?: string; waits_on?: string[] }
 /**
  * `rule` (drift-hardening D1): optional standing-constraint clause — one short
  * imperative every future session must obey. Its presence is what makes a
@@ -335,6 +345,12 @@ export const DECISION_HANDLE_RE = /^D([1-9][0-9]*)$/
 export const RULE_QUOTE_MAX = 300
 /** A decision handle qualified by its record: `<slug> D<n>` (memory-lead 2.2, D8). */
 export const QUALIFIED_DECISION_HANDLE_RE = /^([a-z0-9-]+) D([1-9][0-9]*)$/
+/**
+ * A stored `waits_on` handle (SPEC §Links, handle grammar): `<slug>` for a
+ * whole initiative, or `<slug> ` + `D<n>` | `T<n>` | `<n>.<n>` | `M<n>`.
+ * Lowercase slug, one space — the canonical form, never bare.
+ */
+export const WAITS_ON_HANDLE_RE = /^[a-z0-9-]+(?: (?:D[0-9]+|T[0-9]+|[0-9]+\.[0-9]+|M[0-9]+))?$/
 /** Longest check command a decision may carry (memory-lead D9). */
 export const CHECK_CMD_MAX = 500
 /** Longest fix hint a check may carry (memory-lead D9). */
@@ -825,8 +841,17 @@ function validatePlan(plan: unknown, errors: string[]): void {
       }
       validateRoute(task.route, `plan.phases[${pi}].tasks[${ti}].route`, errors)
       validateVerify(task.verify, `plan.phases[${pi}].tasks[${ti}].verify`, errors)
+      validateWaitsOn(task.waits_on, `plan.phases[${pi}].tasks[${ti}].waits_on`, errors)
     })
   })
+}
+
+/** `waits_on` (linked-context 2.1): absent, or an array of canonical qualified handles (`[]` clears). */
+function validateWaitsOn(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  if (!(Array.isArray(value) && value.every((h) => typeof h === 'string' && WAITS_ON_HANDLE_RE.test(h)))) {
+    errors.push(`${path}: must be an array of qualified handles (\`<slug>\` or \`<slug> D<n>|T<n>|<n>.<n>|M<n>\`) when present`)
+  }
 }
 
 /** `verify` (r1-fixes 3.1, D19): a command line, an optional relative cwd, an optional positive timeout. */
@@ -936,11 +961,13 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
     if (!str(p.title)) e.push('title: must be a non-empty string')
     if (!optTaskStatus(p.status)) e.push(`status: must be one of ${TASK_STATUSES.join('|')}`)
     validateVerify(p.verify, 'verify', e)
+    validateWaitsOn(p.waits_on, 'waits_on', e)
   },
   task_status_changed(p, e) {
     if (!str(p.id)) e.push('id: must be a non-empty string')
     if (!taskStatus(p.status)) e.push(`status: must be one of ${TASK_STATUSES.join('|')}`)
     if (!optStr(p.note)) e.push('note: must be a string')
+    validateWaitsOn(p.waits_on, 'waits_on', e)
   },
   decision_logged(p, e) {
     if (!str(p.chose)) e.push('chose: must be a non-empty string')
@@ -1295,7 +1322,7 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   plan_updated: {
     writer: 'agent',
     summary: 'the WHOLE plan — a full replace: resend every phase and task each time, or the omitted ones vanish; brief is the operator\'s roadmap or spec verbatim, kept when omitted',
-    fields: `plan: {goal?, brief?, phases: [{name, status?: ${PHASE_STATUSES.join('|')}, tasks: [{id, title, status?: ${TASK_STATUSES.join('|')}, route?: {agent?, model?, effort?}, verify?: {cmd, cwd?, timeout_ms?}}]}]}`,
+    fields: `plan: {goal?, brief?, phases: [{name, status?: ${PHASE_STATUSES.join('|')}, tasks: [{id, title, status?: ${TASK_STATUSES.join('|')}, route?: {agent?, model?, effort?}, verify?: {cmd, cwd?, timeout_ms?}, waits_on?: [qualified handle]}]}]}`,
     example: {
       plan: {
         goal: 'Ship the booking flow',
@@ -1321,13 +1348,13 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   task_added: {
     writer: 'agent',
     summary: 'one task appended to an existing phase, without resending the plan',
-    fields: `phase, id, title, status?: ${TASK_STATUSES.join('|')}, verify?: {cmd, cwd?, timeout_ms?} (the acceptance command sofar drive runs before accepting the task)`,
+    fields: `phase, id, title, status?: ${TASK_STATUSES.join('|')}, verify?: {cmd, cwd?, timeout_ms?} (the acceptance command sofar drive runs before accepting the task), waits_on? (qualified handles this task waits on; replaces the set, [] clears)`,
     example: { phase: 'Phase 1 — Data model', id: '1.3', title: 'Seed data', status: 'pending' },
   },
   task_status_changed: {
     writer: 'agent',
     summary: 'one task changed status',
-    fields: `id, status: ${TASK_STATUSES.join('|')}, note? (say why when blocked or dropped)`,
+    fields: `id, status: ${TASK_STATUSES.join('|')}, note? (say why when blocked or dropped), waits_on? (qualified handles \`<slug>\` or \`<slug> D<n>|T<n>|<n>.<n>|M<n>\`; absent keeps the set, present replaces it, [] clears)`,
     example: { id: '1.1', status: 'done' },
   },
   decision_logged: {

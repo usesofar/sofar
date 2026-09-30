@@ -1,0 +1,1182 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "empty",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 600,
+      "indegree": {},
+      "links": [],
+      "entries": [],
+      "lines": []
+    },
+    {
+      "id": "seed-merge",
+      "home": "alpha",
+      "seeds": [
+        "2.1",
+        "3.4"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 600,
+      "indegree": {},
+      "links": [
+        {
+          "from": "3.4",
+          "kind": "waits_on",
+          "to": "beta 1.2",
+          "anchor": "01M0000000000000000000B005",
+          "state": "open",
+          "label": "Beta parser"
+        },
+        {
+          "from": "2.1",
+          "kind": "cites",
+          "to": "beta 1.2",
+          "anchor": "01M0000000000000000000B002",
+          "state": "moved",
+          "what": "done"
+        },
+        {
+          "from": "2.1",
+          "kind": "waits_on",
+          "to": "gamma 4.1",
+          "anchor": "01M0000000000000000000B007",
+          "state": "moved",
+          "what": "active"
+        },
+        {
+          "from": "3.4",
+          "kind": "waits_on",
+          "to": "gamma 4.1",
+          "anchor": "01M0000000000000000000B003",
+          "state": "dangling"
+        },
+        {
+          "from": "9.9",
+          "kind": "waits_on",
+          "to": "delta",
+          "anchor": "01M0000000000000000000A005",
+          "state": "moved",
+          "what": "active"
+        },
+        {
+          "from": "2.1",
+          "kind": "waits_on",
+          "to": "alpha 1.1",
+          "anchor": "01M0000000000000000000A006",
+          "state": "moved",
+          "what": "done"
+        },
+        {
+          "from": "3.4",
+          "kind": "waits_on",
+          "to": "eps T3",
+          "anchor": "01M0000000000000000000A007",
+          "state": "moved",
+          "what": "superseded → eps T4",
+          "label": "Eps chore"
+        },
+        {
+          "from": "2.1",
+          "kind": "cites",
+          "to": "zeta",
+          "anchor": "01M0000000000000000000A008",
+          "state": "open",
+          "label": "Zeta goal"
+        },
+        {
+          "from": "3.4",
+          "kind": "cites",
+          "to": "zeta",
+          "anchor": "01M0000000000000000000A009",
+          "state": "moved",
+          "label": "Zeta goal",
+          "what": "active"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "3.4"
+          ],
+          "kind": "waits_on",
+          "to": "eps T3",
+          "state": "moved",
+          "what": "superseded → eps T4",
+          "label": "Eps chore"
+        },
+        {
+          "seeds": [
+            "2.1",
+            "3.4"
+          ],
+          "kind": "waits_on",
+          "to": "gamma 4.1",
+          "state": "dangling"
+        },
+        {
+          "seeds": [
+            "3.4"
+          ],
+          "kind": "waits_on",
+          "to": "beta 1.2",
+          "state": "open",
+          "label": "Beta parser"
+        },
+        {
+          "seeds": [
+            "2.1",
+            "3.4"
+          ],
+          "kind": "cites",
+          "to": "zeta",
+          "state": "open",
+          "label": "Zeta goal"
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (4 of 4):",
+        "- 3.4 waits on eps T3 — moved (superseded → eps T4) — Eps chore",
+        "- 2.1,3.4 wait on gamma 4.1 — dangling",
+        "- 3.4 waits on beta 1.2 — open — Beta parser",
+        "- 2.1,3.4 cites zeta — worth reading — Zeta goal",
+        ""
+      ]
+    },
+    {
+      "id": "resolved-order",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 600,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta 2.1",
+          "anchor": "01M0000000000000000000C001",
+          "state": "resolved",
+          "at": "01M0000000000000000000C005",
+          "what": "done"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta 2.2",
+          "anchor": "01M0000000000000000000C002",
+          "state": "resolved",
+          "at": "01M0000000000000000000C009",
+          "what": "superseded by D4"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta 2.3",
+          "anchor": "01M0000000000000000000C006",
+          "state": "resolved",
+          "at": "01M0000000000000000000C004",
+          "what": "done"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta 2.4",
+          "anchor": "01M0000000000000000000C007",
+          "state": "resolved",
+          "what": "done"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "beta 2.5",
+          "anchor": "01M0000000000000000000A014",
+          "state": "resolved",
+          "at": "01M0000000000000000000C099",
+          "what": "done"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "beta 2.6",
+          "anchor": "01M0000000000000000000A015",
+          "state": "dangling"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "gamma",
+          "anchor": "01M0000000000000000000A016",
+          "state": "open",
+          "label": "Gamma goal"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "gamma",
+          "state": "open",
+          "label": "Gamma goal"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "beta 2.2",
+          "state": "resolved",
+          "at": "01M0000000000000000000C009",
+          "what": "superseded by D4"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "beta 2.1",
+          "state": "resolved",
+          "at": "01M0000000000000000000C005",
+          "what": "done"
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (3 of 3):",
+        "- 1.1 waits on gamma — open — Gamma goal",
+        "- 1.1 waited on beta 2.2 — resolved (superseded by D4)",
+        "- 1.1 waited on beta 2.1 — resolved (done)",
+        ""
+      ]
+    },
+    {
+      "id": "hub-damping",
+      "home": "alpha",
+      "seeds": [
+        "1.1",
+        "1.2"
+      ],
+      "focus": [
+        "budget",
+        "cache",
+        "latency",
+        "parser"
+      ],
+      "rules": [],
+      "memories": [],
+      "budget": 600,
+      "indegree": {
+        "hub 1.1": 8,
+        "mid 1.1": 3,
+        "tie 1.1": 2
+      },
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "hub 1.1",
+          "anchor": "01M0000000000000000000A017",
+          "state": "open",
+          "label": "parser cache latency"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "none 1.1",
+          "anchor": "01M0000000000000000000A018",
+          "state": "open",
+          "label": "unrelated words only"
+        },
+        {
+          "from": "1.2",
+          "kind": "cites",
+          "to": "leaf 1.1",
+          "anchor": "01M0000000000000000000A019",
+          "state": "moved",
+          "label": "parser cache",
+          "what": "active"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "mid 1.1",
+          "anchor": "01M0000000000000000000A020",
+          "state": "open",
+          "label": "latency budget"
+        },
+        {
+          "from": "1.2",
+          "kind": "cites",
+          "to": "tie 1.1",
+          "anchor": "01M0000000000000000000A021",
+          "state": "open",
+          "label": "parser budget"
+        },
+        {
+          "from": "1.2",
+          "kind": "cites",
+          "to": "one 1.1",
+          "anchor": "01M0000000000000000000A022",
+          "state": "open",
+          "label": "cache"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "bare 1.1",
+          "anchor": "01M0000000000000000000A023",
+          "state": "open"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.2"
+          ],
+          "kind": "cites",
+          "to": "leaf 1.1",
+          "state": "moved",
+          "what": "active",
+          "label": "parser cache"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "cites",
+          "to": "mid 1.1",
+          "state": "open",
+          "label": "latency budget"
+        },
+        {
+          "seeds": [
+            "1.2"
+          ],
+          "kind": "cites",
+          "to": "tie 1.1",
+          "state": "open",
+          "label": "parser budget"
+        },
+        {
+          "seeds": [
+            "1.2"
+          ],
+          "kind": "cites",
+          "to": "one 1.1",
+          "state": "open",
+          "label": "cache"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "cites",
+          "to": "hub 1.1",
+          "state": "open",
+          "label": "parser cache latency"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "cites",
+          "to": "none 1.1",
+          "state": "open",
+          "label": "unrelated words only"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "cites",
+          "to": "bare 1.1",
+          "state": "open"
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (6 of 7):",
+        "- 1.2 cites leaf 1.1 — worth reading — parser cache",
+        "- 1.1 cites mid 1.1 — worth reading — latency budget",
+        "- 1.2 cites tie 1.1 — worth reading — parser budget",
+        "- 1.2 cites one 1.1 — worth reading — cache",
+        "- 1.1 cites hub 1.1 — worth reading — parser cache latency",
+        "- 1.1 cites none 1.1 — worth reading — unrelated words only",
+        "- …and 1 more (sofar find alpha)",
+        ""
+      ]
+    },
+    {
+      "id": "dedupe",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [
+        "beta D3",
+        "beta D5"
+      ],
+      "memories": [
+        "gamma M2",
+        "gamma M7"
+      ],
+      "budget": 600,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta D3",
+          "anchor": "01M0000000000000000000A024",
+          "state": "moved",
+          "what": "superseded → beta D9",
+          "label": "Beta chose"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "gamma M2",
+          "anchor": "01M0000000000000000000A025",
+          "state": "open",
+          "label": "Gamma fact"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "beta D5",
+          "anchor": "01M0000000000000000000A026",
+          "state": "open",
+          "label": "shown as a rule"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "gamma M7",
+          "anchor": "01M0000000000000000000A027",
+          "state": "open",
+          "label": "shown as memory"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "beta D50",
+          "anchor": "01M0000000000000000000A028",
+          "state": "open",
+          "label": "not shown"
+        },
+        {
+          "from": "1.1",
+          "kind": "cites",
+          "to": "gamma M70",
+          "anchor": "01M0000000000000000000A029",
+          "state": "open",
+          "label": "not shown either"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "beta D3",
+          "state": "moved",
+          "what": "superseded → beta D9",
+          "label": "(rule above)"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "gamma M2",
+          "state": "open",
+          "label": "(repo memory above)"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "cites",
+          "to": "beta D50",
+          "state": "open",
+          "label": "not shown"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "cites",
+          "to": "gamma M70",
+          "state": "open",
+          "label": "not shown either"
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (4 of 4):",
+        "- 1.1 waits on beta D3 — moved (superseded → beta D9) — (rule above)",
+        "- 1.1 waits on gamma M2 — open — (repo memory above)",
+        "- 1.1 cites beta D50 — worth reading — not shown",
+        "- 1.1 cites gamma M70 — worth reading — not shown either",
+        ""
+      ]
+    },
+    {
+      "id": "budget-cap",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 600,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "t0 1.1",
+          "anchor": "01M0000000000000000000A030",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "t1 1.1",
+          "anchor": "01M0000000000000000000A031",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "t2 1.1",
+          "anchor": "01M0000000000000000000A032",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "t3 1.1",
+          "anchor": "01M0000000000000000000A033",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "t4 1.1",
+          "anchor": "01M0000000000000000000A034",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "t5 1.1",
+          "anchor": "01M0000000000000000000A035",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "t6 1.1",
+          "anchor": "01M0000000000000000000A036",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "t7 1.1",
+          "anchor": "01M0000000000000000000A037",
+          "state": "open"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "t0 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "t1 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "t2 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "t3 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "t4 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "t5 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "t6 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "t7 1.1",
+          "state": "open"
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (6 of 8):",
+        "- 1.1 waits on t0 1.1 — open",
+        "- 1.1 waits on t1 1.1 — open",
+        "- 1.1 waits on t2 1.1 — open",
+        "- 1.1 waits on t3 1.1 — open",
+        "- 1.1 waits on t4 1.1 — open",
+        "- 1.1 waits on t5 1.1 — open",
+        "- …and 2 more (sofar find alpha)",
+        ""
+      ]
+    },
+    {
+      "id": "budget-overflow",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 600,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-0 2.1",
+          "anchor": "01M0000000000000000000A038",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-1 2.2",
+          "anchor": "01M0000000000000000000A039",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-2 2.3",
+          "anchor": "01M0000000000000000000A040",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-3 2.4",
+          "anchor": "01M0000000000000000000A041",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-4 2.5",
+          "anchor": "01M0000000000000000000A042",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-5 2.6",
+          "anchor": "01M0000000000000000000A043",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-6 2.7",
+          "anchor": "01M0000000000000000000A044",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-7 2.8",
+          "anchor": "01M0000000000000000000A045",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "target-8 2.9",
+          "anchor": "01M0000000000000000000A046",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-0 2.1",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-1 2.2",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-2 2.3",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-3 2.4",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-4 2.5",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-5 2.6",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-6 2.7",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-7 2.8",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "target-8 2.9",
+          "state": "moved",
+          "what": "active",
+          "label": "a label long enough that six of them cannot share the six hundred unit budget"
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (4 of 9):",
+        "- 1.1 waits on target-0 2.1 — moved (active) — a label long enough that six of them cannot share the six hundred unit budget",
+        "- 1.1 waits on target-1 2.2 — moved (active) — a label long enough that six of them cannot share the six hundred unit budget",
+        "- 1.1 waits on target-2 2.3 — moved (active) — a label long enough that six of them cannot share the six hundred unit budget",
+        "- 1.1 waits on target-3 2.4 — moved (active) — a label long enough that six of them cannot share the six hundred unit budget",
+        "- …and 5 more (sofar find alpha)",
+        ""
+      ]
+    },
+    {
+      "id": "budget-exact",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 108,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "b 1.1",
+          "anchor": "01M0000000000000000000A047",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "c 1.1",
+          "anchor": "01M0000000000000000000A048",
+          "state": "open"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "b 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "c 1.1",
+          "state": "open"
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (2 of 2):",
+        "- 1.1 waits on b 1.1 — open",
+        "- 1.1 waits on c 1.1 — open",
+        ""
+      ]
+    },
+    {
+      "id": "budget-single",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 107,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "b 1.1",
+          "anchor": "01M0000000000000000000A049",
+          "state": "open"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "c 1.1",
+          "anchor": "01M0000000000000000000A050",
+          "state": "open"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "b 1.1",
+          "state": "open"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "c 1.1",
+          "state": "open"
+        }
+      ],
+      "lines": [
+        "Travel: 2 linked target(s) in other records (sofar find alpha)",
+        ""
+      ]
+    },
+    {
+      "id": "budget-nothing",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 40,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "b 1.1",
+          "anchor": "01M0000000000000000000A051",
+          "state": "open"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "b 1.1",
+          "state": "open"
+        }
+      ],
+      "lines": []
+    },
+    {
+      "id": "utf16-clip",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 600,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta 1.1",
+          "anchor": "01M0000000000000000000A052",
+          "state": "open",
+          "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀😀"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta 1.2",
+          "anchor": "01M0000000000000000000A053",
+          "state": "open",
+          "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta 1.3",
+          "anchor": "01M0000000000000000000A054",
+          "state": "open",
+          "label": "語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語😀"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "beta 1.4",
+          "anchor": "01M0000000000000000000A055",
+          "state": "open",
+          "label": "  runs\n\tof  white   space  "
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "beta 1.1",
+          "state": "open",
+          "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀😀"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "beta 1.2",
+          "state": "open",
+          "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "beta 1.3",
+          "state": "open",
+          "label": "語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語😀"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "beta 1.4",
+          "state": "open",
+          "label": "  runs\n\tof  white   space  "
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (4 of 4):",
+        "- 1.1 waits on beta 1.1 — open — xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d…",
+        "- 1.1 waits on beta 1.2 — open — 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\ud83d…",
+        "- 1.1 waits on beta 1.3 — open — 語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語語…",
+        "- 1.1 waits on beta 1.4 — open — runs of white space",
+        ""
+      ]
+    },
+    {
+      "id": "utf16-budget",
+      "home": "alpha",
+      "seeds": [
+        "1.1"
+      ],
+      "focus": [],
+      "rules": [],
+      "memories": [],
+      "budget": 227,
+      "indegree": {},
+      "links": [
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "b 1.1",
+          "anchor": "01M0000000000000000000A056",
+          "state": "open",
+          "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "b 1.2",
+          "anchor": "01M0000000000000000000A057",
+          "state": "open",
+          "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        },
+        {
+          "from": "1.1",
+          "kind": "waits_on",
+          "to": "b 1.3",
+          "anchor": "01M0000000000000000000A058",
+          "state": "open",
+          "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        }
+      ],
+      "entries": [
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "b 1.1",
+          "state": "open",
+          "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "b 1.2",
+          "state": "open",
+          "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        },
+        {
+          "seeds": [
+            "1.1"
+          ],
+          "kind": "waits_on",
+          "to": "b 1.3",
+          "state": "open",
+          "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        }
+      ],
+      "lines": [
+        "Travel — linked targets in other records (2 of 3):",
+        "- 1.1 waits on b 1.1 — open — 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "- 1.1 waits on b 1.2 — open — 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "- …and 1 more (sofar find alpha)",
+        ""
+      ]
+    }
+  ]
+}

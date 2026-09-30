@@ -17,6 +17,20 @@
  * construction).
  */
 
+/** How much of a title its anchor compares — REACH_PROSE (core/index-reach.ts). */
+export const TITLE_KEY_PROSE = 300
+
+/**
+ * The text a title anchor compares: whitespace-collapsed and clipped, as the
+ * reach index stores the title. A task title cite anchors at the event that
+ * last CHANGED this text (linked-context D13), so reach, buildGraph and the
+ * links tier all read it from here — a restating plan replace moves none.
+ */
+export function titleKey(title: string): string {
+  const oneLine = title.replace(/\s+/g, ' ').trim()
+  return oneLine.length <= TITLE_KEY_PROSE ? oneLine : `${oneLine.slice(0, TITLE_KEY_PROSE - 1)}…`
+}
+
 /** One handle-shaped token found in prose, before any initiative is known. */
 export interface ScannedCitation {
   /** The word directly before the handle — a qualifier ATTEMPT, often ''. */
@@ -33,7 +47,7 @@ export interface Citation {
   raw: string
   /** Initiative the handle is scoped to: the qualifier, or the citing record's own slug. */
   slug: string
-  /** `D<n>`, `T<n>`, or `<n>.<n>`. */
+  /** `D<n>`, `T<n>`, `<n>.<n>`, or — qualified only — `M<n>`. */
   handle: string
   /** True when the slug came from an explicit qualifier rather than the default. */
   qualified: boolean
@@ -47,9 +61,9 @@ export interface Citation {
  * itself so a handle-shaped word (`D3 D4`) cannot be consumed as a failed
  * qualifier and lost as a citation.
  *
- * `M<n>` (a promoted memory) is OFF by default and enabled only for the repo.md
- * scan (repo-memory-capture D2): promoted memories are not graph nodes, so in
- * decision prose every legitimate mention would become a dangling entry.
+ * `M<n>` (a promoted memory) is OFF by default. The repo.md scan, the reach
+ * index and buildGraph turn it on (linked-context 3.3); binding then drops every
+ * UNQUALIFIED one (bindHandle), so a bare `M1` naming a milestone never binds.
  */
 export function scanCitations(text: string, options: { memories?: boolean } = {}): ScannedCitation[] {
   const pattern =
@@ -81,6 +95,10 @@ export function canonicalSlugs(knownSlugs: readonly string[]): Map<string, strin
  * different name — and an exact-match rule would not leave it unbound: the
  * handle would silently degrade to an UNQUALIFIED `D3` and bind to the citing
  * record's own initiative, a manufactured edge.
+ *
+ * `M<n>` is QUALIFIED-ONLY (linked-context D3): memory ordinals are
+ * per-initiative and prose uses bare `M<n>` for milestones, so an unqualified
+ * one is not a handle — it never binds home and never dangles.
  */
 export function bindHandle(
   scan: ScannedCitation,
@@ -90,6 +108,8 @@ export function bindHandle(
   const slug = scan.word === '' ? undefined : canonical.get(scan.word.toLowerCase())
   // A dotted task id without its slug is not a handle.
   if (slug === undefined && scan.handle.includes('.')) return null
+  // Nor is a memory ordinal (linked-context D3).
+  if (slug === undefined && scan.handle.startsWith('M')) return null
   return {
     raw: slug === undefined ? scan.handle : `${scan.word}${scan.gap}${scan.handle}`,
     slug: slug ?? homeSlug,

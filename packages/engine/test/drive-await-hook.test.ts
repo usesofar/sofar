@@ -76,7 +76,7 @@ describe('the rewake hook (drive-visibility 3.7)', () => {
       'echo "sofar drive demo --detach"'.replace('--detach', '--dry-run'),
     ]
     for (const command of quiet) {
-      const out = await handleDriveAwaitWith(r.root, bash(command), { pollMs: 5, lock: { env: r.env } })
+      const out = await handleDriveAwaitWith(r.root, bash(command), { pollMs: 5, lock: { env: r.env }, env: {} })
       expect(out, command).toEqual({ exitCode: 0, stdout: '', stderr: '' })
     }
   })
@@ -87,7 +87,7 @@ describe('the rewake hook (drive-visibility 3.7)', () => {
     const claim = await claimRunLock(r.root, run, { env: r.env })
     const woken = handleDriveAwaitWith(r.root, bash('sofar drive demo --detach --model haiku'), {
       pollMs: 5,
-      lock: { env: r.env },
+      lock: { env: r.env }, env: {},
     })
     append(r, 'task_status_changed', { id: '1.1', status: 'blocked', note: 'ship A or B?' })
     append(r, 'handoff', { run, session_id: 'S1', reason: 'needs_user', task: '1.1' })
@@ -104,7 +104,7 @@ describe('the rewake hook (drive-visibility 3.7)', () => {
     const r = repo()
     const run = openRun(r)
     const claim = await claimRunLock(r.root, run, { env: r.env })
-    const woken = handleDriveAwaitWith(r.root, bash('sofar drive demo --detach'), { pollMs: 5, lock: { env: r.env } })
+    const woken = handleDriveAwaitWith(r.root, bash('sofar drive demo --detach'), { pollMs: 5, lock: { env: r.env }, env: {} })
     await new Promise((resolve) => setTimeout(resolve, 30))
     if (claim.kind === 'claimed') claim.lock.release()
     const out = await woken
@@ -120,7 +120,7 @@ describe('the rewake hook (drive-visibility 3.7)', () => {
     try {
       const out = await handleDriveAwaitWith(r.root, bash('sofar drive demo --detach'), {
         pollMs: 5,
-        lock: { env: r.env },
+        lock: { env: r.env }, env: {},
         deadlineMs: 40,
       })
       expect(out.exitCode).toBe(2) // a silent give-up would wake nobody (3.5 probes B and E)
@@ -151,7 +151,7 @@ describe('the rewake hook (drive-visibility 3.7)', () => {
 
   it('is silent when there is nothing to await, and when the record cannot be read', async () => {
     const r = repo()
-    const nothing = await handleDriveAwaitWith(r.root, bash('sofar drive demo --detach'), { pollMs: 5, lock: { env: r.env } })
+    const nothing = await handleDriveAwaitWith(r.root, bash('sofar drive demo --detach'), { pollMs: 5, lock: { env: r.env }, env: {} })
     expect(nothing).toEqual({ exitCode: 0, stdout: '', stderr: '' })
     const bare = temp('sofar-await-hook-bare-')
     expect(await handleDriveAwaitWith(bare, bash('sofar drive demo --detach'), { pollMs: 5 })).toEqual({
@@ -168,7 +168,7 @@ describe('the rewake hook (drive-visibility 3.7)', () => {
     writeFileSync(join(r.root, '.sofar', 'initiatives', 'other', 'events.jsonl'), '')
     const run = openRun(r)
     const claim = await claimRunLock(r.root, run, { env: r.env })
-    const woken = handleDriveAwaitWith(r.root, bash('sofar drive demo --detach'), { pollMs: 5, lock: { env: r.env } })
+    const woken = handleDriveAwaitWith(r.root, bash('sofar drive demo --detach'), { pollMs: 5, lock: { env: r.env }, env: {} })
     append(r, 'run_stopped', { run, reason: 'max_sessions' })
     if (claim.kind === 'claimed') claim.lock.release()
     expect((await woken).stderr).toContain('stopped: max_sessions')

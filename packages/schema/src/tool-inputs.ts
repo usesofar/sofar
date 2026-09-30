@@ -149,6 +149,8 @@ export interface EndSessionTaskChange {
   title?: string
   /** Phase an added task joins — name or number; default the active phase. */
   phase?: string
+  /** Declared links (linked-context 2.3): WAITS_ON_INPUT_GRAMMAR entries; present replaces, [] clears. */
+  waits_on?: string[]
 }
 export interface EndSessionPhaseChange {
   phase: string
@@ -171,6 +173,8 @@ export interface UpdateTaskArgs {
   title?: string
   /** Phase an added task joins — name or number; default the active phase. */
   phase?: string
+  /** Declared links (linked-context 2.3): WAITS_ON_INPUT_GRAMMAR entries; present replaces, [] clears. */
+  waits_on?: string[]
 }
 /**
  * Phases are addressed by their NAME — plan_updated carries no phase ids, so
@@ -218,6 +222,97 @@ export interface RememberArgs {
 }
 
 
+
+// ---------------------------------------------------------------------------
+// Declared waits_on as a writer types it (linked-context 2.3, SPEC §Links).
+// ---------------------------------------------------------------------------
+
+/**
+ * What a write surface accepts for one `waits_on` entry — looser than the
+ * stored WAITS_ON_HANDLE_RE, which it is qualified INTO before the append:
+ * a bare `D<n>`, `T<n>` or `<n>.<n>` names the home record; a slug binds
+ * case-insensitively and is stored lowercase. A bare `M<n>` is refused, not
+ * qualified: memory handles are qualified-only (linked-context D3).
+ */
+export const WAITS_ON_INPUT_GRAMMAR = '`<slug>`, `<slug> D<n>|T<n>|<n>.<n>|M<n>`, or a bare `D<n>|T<n>|<n>.<n>` in this record'
+
+const WAITS_ON_BARE_TARGET_RE = /^(?:D[0-9]+|T[0-9]+|[0-9]+\.[0-9]+)$/
+const WAITS_ON_QUALIFIED_INPUT_RE = /^([A-Za-z0-9-]+)(?: (D[0-9]+|T[0-9]+|[0-9]+\.[0-9]+|M[0-9]+))?$/
+
+/**
+ * Qualify one writer's list to canonical stored handles against `home`,
+ * deduped in first-seen order. Pure: whether each handle BINDS is the
+ * engine's question (mcp/waits-on.ts), asked after this one.
+ */
+export function qualifyWaitsOn(
+  entries: readonly unknown[],
+  home: string,
+): { ok: true; handles: string[] } | { ok: false; errors: string[] } {
+  const handles: string[] = []
+  const errors: string[] = []
+  for (const entry of entries) {
+    const raw = typeof entry === 'string' ? entry.trim().replace(/\s+/g, ' ') : ''
+    let handle: string | null = null
+    if (WAITS_ON_BARE_TARGET_RE.test(raw)) handle = `${home} ${raw}`
+    else if (/^M[0-9]+$/.test(raw)) {
+      errors.push(`waits_on "${raw}": memory handles are qualified-only — write \`<slug> ${raw}\``)
+      continue
+    } else {
+      const m = WAITS_ON_QUALIFIED_INPUT_RE.exec(raw)
+      if (m !== null) handle = m[2] === undefined ? m[1]!.toLowerCase() : `${m[1]!.toLowerCase()} ${m[2]}`
+    }
+    if (handle === null) {
+      errors.push(`waits_on ${JSON.stringify(entry)}: expected ${WAITS_ON_INPUT_GRAMMAR}`)
+      continue
+    }
+    if (!handles.includes(handle)) handles.push(handle)
+  }
+  return errors.length === 0 ? { ok: true, handles } : { ok: false, errors }
+}
+
+/** Shape check for a tool's `waits_on` argument: absent, or an array of strings each qualifyWaitsOn accepts. */
+function validateWaitsOnInput(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  if (!Array.isArray(value)) {
+    errors.push(`${path}: must be an array of handles (${WAITS_ON_INPUT_GRAMMAR})`)
+    return
+  }
+  const q = qualifyWaitsOn(value, 'home')
+  if (!q.ok) errors.push(...q.errors.map((e) => `${path}: ${e}`))
+}
+
+/**
+ * `plan` with every task's `waits_on` qualified to `home` — the form the
+ * payload stores. Entries qualifyWaitsOn refuses go to `errors` with their
+ * plan path, and that list is left off the copy so the payload validator does
+ * not name them twice. Anything not plan-shaped is returned as is, for the
+ * payload validator to name.
+ */
+export function qualifiedPlanCopy(plan: unknown, home: string, errors: string[]): unknown {
+  if (!isObj(plan) || !Array.isArray(plan.phases)) return plan
+  return {
+    ...plan,
+    phases: plan.phases.map((phase: unknown, pi) => {
+      if (!isObj(phase) || !Array.isArray(phase.tasks)) return phase
+      return {
+        ...phase,
+        tasks: phase.tasks.map((task: unknown, ti) => {
+          if (!isObj(task) || task.waits_on === undefined) return task
+          const path = `plan.phases[${pi}].tasks[${ti}].waits_on`
+          const { waits_on: raw, ...rest } = task
+          if (!Array.isArray(raw)) {
+            errors.push(`${path}: must be an array of handles (${WAITS_ON_INPUT_GRAMMAR})`)
+            return rest
+          }
+          const q = qualifyWaitsOn(raw, home)
+          if (q.ok) return { ...rest, waits_on: q.handles }
+          errors.push(...q.errors.map((err) => `${path}: ${err}`))
+          return rest
+        }),
+      }
+    }),
+  }
+}
 
 /** Hop budget contract, mirrored by the engine's traversal (core/index-reach.ts). */
 export const FIND_DEFAULT_HOPS = 2
@@ -319,7 +414,8 @@ export interface ToolDef {
 const initiativeProp = {
   type: 'string',
   pattern: SLUG_RE.source,
-  description: "Initiative slug; omit for the current branch's.",
+  // Shortened for linked-context 2.3's waits_on (D13 budget): repeated 8×.
+  description: "Default: the branch's.",
 }
 
 /** Routing hints (session-driver 3.2) — what the run leaves open, the task fills. */
@@ -337,6 +433,11 @@ const taskRouteSchema = {
   additionalProperties: false,
 }
 
+// linked-context 2.3: the declared set. Described once, on sofar_update_task
+// (always loaded beside the others); entry shape is the validator's, like
+// supersedes' — the tool surface is budgeted (r1-fixes 2.4, D13).
+const waitsOnProp = { type: 'array' }
+
 const planTaskSchema = {
   type: 'object',
   properties: {
@@ -347,6 +448,7 @@ const planTaskSchema = {
       ...taskRouteSchema,
       description: 'Routing for `sofar drive`.',
     },
+    waits_on: waitsOnProp,
   },
   required: ['id', 'title'],
   additionalProperties: false,
@@ -427,6 +529,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
             note: { type: 'string' },
             title: { type: 'string' },
             phase: { type: 'string' },
+            waits_on: waitsOnProp,
           },
           required: ['task_id', 'status'],
           additionalProperties: false,
@@ -466,6 +569,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
       },
       title: { type: 'string', description: 'Adds the task if the plan lacks it.' },
       phase: { type: 'string', description: 'Its phase; default active.' },
+      waits_on: { ...waitsOnProp, description: '`<slug>` or `<slug> D<n>|T<n>|<n>.<n>|M<n>`; bare = this record. Replaces; [] clears.' },
     },
     required: ['task_id', 'status'],
     additionalProperties: false,
@@ -673,6 +777,7 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
     if (!optStr(a.note)) e.push('note: must be a string')
     if (!optStr(a.title)) e.push('title: must be a string')
     if (!optStr(a.phase)) e.push('phase: must be a string')
+    validateWaitsOnInput(a.waits_on, 'waits_on', e)
     // A drop is the one status that closes a task without delivering it
     // (task-drop-state D3). Unexplained, it is indistinguishable from work
     // that was quietly forgotten — and unlike a wrong `pending`, nothing
@@ -706,7 +811,10 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
     // The plan must satisfy the existing PlanStructure validator — reuse the
     // plan_updated payload validator so tool input and event payload can
     // never drift apart.
-    const check = validatePayload('plan_updated', { plan: a.plan })
+    // waits_on is the one field a writer may type looser than the payload
+    // stores (linked-context 2.3): check it against the input grammar, then
+    // validate a copy qualified to a placeholder home.
+    const check = validatePayload('plan_updated', { plan: qualifiedPlanCopy(a.plan, 'home', e) })
     if (!check.ok) e.push(...check.errors)
   },
   sofar_add_note(a, e) {

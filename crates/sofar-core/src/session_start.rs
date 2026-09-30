@@ -454,6 +454,9 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let scope = refresh_guards(&layout);
     let neighbours = refresh_neighbours(&layout, &slug, &scope);
     let repo_rules = repo_rules(&scope, &slug, retire_enabled());
+    // The links tier, the travel block's only input (linked-context D2), kept
+    // materialised here as at write time.
+    let travel = crate::index_links::read_travel(&layout, &slug);
     // None at all while HEAD has not moved (rust-core 4.4, L1).
     let commits = cached_attribution(&layout, SHIPPING_WINDOW);
     let activity = activity_enabled();
@@ -484,6 +487,7 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             lane: slug == QUICK_LANE,
             activity: if activity { None } else { Some(false) },
             retire: retire_enabled(),
+            travel,
         },
     );
     // The session's name (session-naming D1): the slug and the focus task the

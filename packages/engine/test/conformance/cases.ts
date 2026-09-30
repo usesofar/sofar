@@ -18,6 +18,13 @@ export interface ConformanceCase {
   fixture: FixtureSpec
   steps: Step[]
   tags?: string[]
+  /**
+   * The golden was written AHEAD of the code (rust-core D1): the task that
+   * lands the behaviour. Until it does, the reference must match the golden
+   * with that behaviour's bytes cut out (`TRAVEL_BLOCK`), and must NOT match
+   * it whole — the day it does, drop this field.
+   */
+  ahead?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -879,4 +886,22 @@ export const CASES: ConformanceCase[] = [
       }),
     ],
   },
+  // ---- the travel block (linked-context 1.3, SPEC §Travel block) ----------
+  // One case per home record in the `travel` fixture, bound by branch. The
+  // block was hand-written from SPEC ahead of the code (1.3); 5.1 renders it.
+  ...(['open-wait', 'resolved-wait', 'dangling', 'supersession', 'cap-overflow', 'cycle-a', 'no-links', 'quiet-links'] as const).map(
+    (home): ConformanceCase => ({
+      name: `syn.travel-${home}`,
+      fixture: synthetic('travel', { branch: home, head: CELL_SHA }),
+      steps: [s('startup on the home record', ['event', 'session-start'], start())],
+    }),
+  ),
 ]
+
+/**
+ * The travel block inside a golden: its header or single-line form through
+ * the blank line that ends it, as it sits JSON-escaped in the hook's
+ * `additionalContext`. Cutting it must leave today's digest byte for byte
+ * (SPEC §Travel block: ZERO BYTES).
+ */
+export const TRAVEL_BLOCK = /Travel(?: — linked targets in other records \(\d+ of \d+\):|: \d+ linked target)(?:(?!\\n\\n).)*\\n\\n/g

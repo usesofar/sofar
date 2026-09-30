@@ -1,0 +1,2 @@
+{"v":1,"id":"01M1E73ZWG0000000000000001","ts":"2026-09-01T10:09:30.000Z","initiative":"omega","session":"cli","source":"cli","actor":"human","user":"fixture@example.invalid","type":"initiative_created","payload":{"goal":"superseded into nothing","slug":"omega"}}
+{"v":1,"id":"01M1E98N500000000000000002","ts":"2026-09-01T10:47:00.000Z","initiative":"omega","session":"cli","source":"cli","actor":"agent","user":"fixture@example.invalid","type":"initiative_status_changed","payload":{"status":"superseded","successor":"vanished"}}

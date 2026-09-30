@@ -37,7 +37,8 @@
     "postpack": "node -e \"require('node:fs').rmSync('README.md', { force: true })\"",
     "postinstall": "node install.mjs",
     "typecheck": "tsc --noEmit -p .",
-    "bench:read-paths": "node bench/read-paths.mjs"
+    "bench:read-paths": "node bench/read-paths.mjs",
+    "bench:find": "node bench/find.mjs"
   },
   "devDependencies": {
     "@sofar/schema": "*",

@@ -211,13 +211,15 @@ describe('spawn', () => {
     await untilWritten(join(c.out, 'argv'))
     // The stub's `sleep` is a grandchild holding the stdout pipe — the way a
     // real claude's MCP servers would. A group kill reaps it, so the exit
-    // settles at once; only a failed group kill would wait out the drain grace.
+    // settles at once; only a failed group kill would wait out the drain grace
+    // (2 s) — the bound sits just under it, since a loaded box (verify runs
+    // beside other sessions) took >1.5 s to deliver a prompt exit.
     const before = Date.now()
     session.kill()
     const exit = await session.wait()
     expect(exit.code).toBeNull()
     expect(exit.signal).toBe('SIGTERM')
-    expect(Date.now() - before).toBeLessThan(1_500)
+    expect(Date.now() - before).toBeLessThan(1_900)
   })
 })
 

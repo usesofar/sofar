@@ -803,10 +803,13 @@ decision-scope tier. Per initiative it holds:
 
 `guards` is the view of entries that carry both a rule and a guard. Superseded
 entries stay in it, marked, to stay faithful to the fold; the filter runs at
-render time. INDEX_SCHEMA_VERSION is 9 (6 at 2.1; 7 when 2.2 added every rule
+render time. INDEX_SCHEMA_VERSION is 10 (6 at 2.1; 7 when 2.2 added every rule
 and the labels tier; 8 when 2.3 added each ruled entry's `check` and the
 check command's file tokens to its mentions; 9 when 2.8 added every
-decision's id, and each label entry's id, for supersession by stamped id).
+decision's id, and each label entry's id, for supersession by stamped id; 10
+when linked-context 3.1 added task nodes and the task, note and next-action
+citation sources to the reach index; 11 when linked-context 3.3 added memory
+nodes and scanned `M<n>` in every source).
 
 **Labels tier (memory-lead 2.2, D8).** labels.json on its own cursor
 (meta-labels.json), read only by sofar_log_decision, sofar_end_session and
@@ -899,8 +902,9 @@ one blank line):
    pending) and `  - …and N more (plan.md)`.
 3. `Next action: <≤500>`, the parallel write-backs, the staleness line, the
    notes since write-back, `Blocked on:` and the concurrent-edit lines — as
-   before.
-4. `Last session (…):` with its summary (YIELDING, precedence 4, preferred
+   before. Then, as its own block, TRAVEL (YIELDING, precedence 3,
+   preferred 600; zero bytes when it has no entry; §Travel block).
+4. `Last session (…):` with its summary (YIELDING, precedence 5, preferred
    450; omitted when fewer than 120 chars remain for it); `Driven:`; the
    lane's recent quick work; the derived-resume and unwritten-session lines.
 5. `Phases:` (open phases itemized ≤12, done and dropped collapsed) and
@@ -919,7 +923,7 @@ one blank line):
    passing it; a TOP-LEVEL bullet (`- ` or `* ` at column 0, with its
    indented continuation lines) naming `<slug> M<n>` for a memory section 6
    rendered is dropped as that memory's copy.
-8. DECISION INDEX (YIELDING, precedence 3, preferred 1,450 — window ≤1,000
+8. DECISION INDEX (YIELDING, precedence 4, preferred 1,450 — window ≤1,000
    plus ledger ≤450; §MCP tools gives the line shapes): the ledger's header
    and count pointer are reserved first when a ledger exists, the window
    keeps its NEWEST lines that fit, and ledger entries fill what remains
@@ -1004,11 +1008,12 @@ file:<repo-relative path>    path
 command:<event ulid>         initiative, session, ts, cmd
 decision:<event ulid>        initiative, session, ts, ordinal, chose/over/because, dangling[]
 note:<event ulid>            initiative, session, ts, text
+memory:<event ulid>          initiative, session, ts, ordinal, text   (memory_promoted; linked-context 3.3)
 ```
 Three families, and the difference is the point. STRUCTURAL nodes
 (initiative, phase, task) come from each initiative's FINAL folded state, so
 a plan_updated that drops a task drops its node — they describe the plan as
-it now stands. OCCURRENCE nodes (command, decision, note) are one per
+it now stands. OCCURRENCE nodes (command, decision, note, memory) are one per
 sourcing event, keyed by its ulid: an occurrence has no identity apart from
 the event that recorded it. JOIN nodes (session, file) are deliberately NOT
 slug-scoped — the session id and the repo-relative path are the same
@@ -1029,8 +1034,9 @@ occurrence (exactly ONE edge per sourcing event; carries event_id + ts)
   noted       session    -> note       note_added
   worked      task       -> file       file_touched x every task ACTIVE then
   tested      task       -> command    test-shaped command_run with a KNOWN ok x every task ACTIVE then (r1-fixes 2.5, D24)
-derived from decision prose (closed lexical grammar; no event_id)
-  cites       decision   -> decision | task
+derived from record text (closed lexical grammar; event_id + ts = the SOURCING event)
+  cites       decision | note | task | session  -> decision | task | memory
+              one edge per (sourcing event, target); sources per §Links (linked-context 3.2)
 structural (predecessor's folded `successor`; no event_id; initiative-supersession D1)
   superseded_by  initiative -> initiative   only when the successor is a record here
 ```
@@ -1074,13 +1080,13 @@ concatenated decision text (chose + over + because):
   record is cited pervasively (BD22/BD16 7x each on the live record);
   recording those tokens would flood `dangling[]`, which is reserved for
   grammar-matched handles precisely so it stays a finding, not noise.
-- `M<n>` (a promoted memory, repo-memory-capture D2) is OPT-IN and matched
-  only by the `.sofar/repo.md` scan, which reads qualified handles and never
-  resolves. It is absent from the decision-prose grammar because promoted
-  memories have no nodes to resolve against, so matching it there would send
-  every legitimate mention to `dangling[]` — the same flooding the BD<n>
-  exclusion exists to prevent. Minting memory nodes would lift the
-  restriction; until then M<n> resolves nowhere.
+- `M<n>` (a promoted memory, repo-memory-capture D2) is QUALIFIED-ONLY
+  (linked-context D3, 3.3): `<slug> M<n>` is a handle in every citation
+  source; a bare `M<n>` is not — memory ordinals are per-initiative and prose
+  uses bare `M<n>` for milestones — so it never binds home and never lands in
+  `dangling[]`. Memory nodes lifted the restriction repo-memory-capture D3
+  deferred on; the `.sofar/repo.md` scan reads the same qualified handles
+  and still never resolves. repo.md lines carry no ids and are never nodes.
 
 Resolution is literal and refuses to guess:
 - `D<n>` → the nth decision_logged in that initiative's log in ulid order,
@@ -1090,8 +1096,12 @@ Resolution is literal and refuses to guess:
   §Architectural invariants cites by that handle.
 - `T<n>` / `<n>.<n>` → the task with that EXACT id in that initiative's
   final plan.
+- `<slug> M<n>` → the nth memory_promoted in that initiative's log in ulid
+  order, 1-based (`memory.ordinal`) — the handle `sofar remember` prints.
 - A decision target resolves only when its event id sorts BEFORE the citing
-  decision's: a decision cannot cite the future.
+  decision's: a decision cannot cite the future. A memory target obeys the
+  same rule (linked-context D15): its ordinal is positional too, so a handle
+  written before the memory existed named nothing.
 - A decision naming its OWN ordinal is a self-label, not a citation, and is
   dropped (no self-edges).
 - Anything else is DANGLING: carried on the citing decision node as
@@ -1118,6 +1128,15 @@ CLAUDE.md and §Architectural invariants already treat as repo-wide law.
 - `relatedTasks(graph, taskNodeId)` → co-touched-file neighbours ranked by
   shared-path count, cross-initiative included. Joins on file-node identity
   as recorded.
+- `taskCitations(graph, taskNodeId)` → the `cites` edges out of and into a
+  task, each naming its other end and sourcing event, newest first
+  (linked-context 3.2). `sofar related` renders them as `Cites` / `Cited by`
+  blocks, only when non-empty, and offers them — never as what the task
+  waits on (§Links). `sofar why` is unchanged: no cite ends at a file.
+  The graph's cite set equals the reach index's — source node, target and
+  sourcing event — pinned over this repo's record by
+  test/reach-graph-parity.test.ts. Dangling handles stay on decision nodes
+  alone.
 - `repoGeneral(graph)` → decisions cited from initiatives other than their
   own, ranked by DISTINCT citing initiatives, then citation volume, then
   oldest. Uncapped at derivation (the overlappingWritebacks precedent) — it
@@ -1200,6 +1219,224 @@ registration (the misroute signature) where the graph makes a session id one
 identity across every log — the very property the cross-initiative join rests
 on — and `overlappingWritebacks` needs write-back prose for a `next_action`
 that is per-initiative by construction (BD9).
+
+## Links (linked-context — declared waits_on, derived cites)
+Records relate to each other ONLY through links at task grain. There is no
+parent/child initiative and no sub-initiative (linked-context D5): a
+dependency is task→target across records and a record often depends on
+several others, which a tree cannot say. An umbrella is an ordinary
+initiative whose tasks link to its members. Phases split work inside a
+record; supersession (§Initiative statuses) covers replacement.
+
+**Two kinds, split by WHO declared the relevance (record-index D2).**
+- `waits_on` — DECLARED. A list of handles carried on a TASK, written by the
+  agent or operator on purpose ("this task cannot finish until that moves").
+  It may be ASSERTED: a surface states it as fact.
+- `cites` — DERIVED. Scanned by the closed lexical grammar (§Record graph)
+  from text already in the record: decision prose (today), and task titles,
+  task status notes, `session_ended.next_action` and `note_added` text
+  (linked-context Phase 3). It may only be OFFERED as worth reading — never
+  rendered as a dependency, never as "waits on".
+No third kind exists. Occurrence adjacency (co-touched files, shared
+sessions — §Record graph) is not a link: it answers `sofar related`, not
+"what does this task wait on". When one source holds both a declared and a
+derived link to the same target, the declared one wins and the cite is not
+also offered.
+
+A link's SOURCE is the task for `waits_on` and for task-text cites, and the
+sourcing event for decision, note and next-action cites. Its ANCHOR is the
+event that established it: for `waits_on`, the latest event that set the
+handle on the task; for a cite, the sourcing event. Every "since" below is
+measured from the anchor in ulid order.
+
+**Declared field.** `waits_on?: string[]` is an additive optional payload
+field on `task_status_changed`, `task_added` and plan task input (schema in
+linked-context 2.1; old readers ignore it). Absent leaves the task's set
+unchanged; present REPLACES it; `[]` clears it. The stored form is always the
+CANONICAL QUALIFIED handle — write surfaces qualify an unqualified `D<n>`,
+`T<n>` or `<n>.<n>` to the home slug before the append, the memory_promoted
+`supersedes` precedent — so a stored handle means the same thing whichever
+log it is read from. A handle naming no existing slug is refused at write; a
+handle naming nothing inside an existing record is accepted with a dangling
+warning; a `waits_on` cycle is warned, never refused (linked-context 2.3).
+The fold carries the set on the task and does not resolve it.
+Both protocol blocks (linked-context 5.4) carry a LINKS bullet: name another
+record's task, decision or memory as `<slug> <id>` (a bare id means the home
+record's), and when a task cannot finish until another record moves, mark it
+`blocked` and declare `waits_on`. The AGENTS.md example appends a canonical
+handle, because `sofar event append` files the payload as written and the
+payload validator takes only canonical handles.
+
+**Handle grammar.** One grammar for both kinds; canonical form is the
+lowercase slug, one space, the target:
+```
+handle  := slug " " target          qualified — both kinds
+         | slug                     whole initiative — waits_on ONLY
+target  := "D" n | "T" n | n "." n | "M" n
+slug    := [a-z0-9-]+  naming a directory under .sofar/initiatives/
+n       := [0-9]+
+```
+- `D<n>` a decision by ordinal, `T<n>` and `<n>.<n>` a task by EXACT id in
+  the final plan, `M<n>` a promoted memory by ordinal — each resolved in the
+  named record exactly as §Record graph resolves it.
+- Slug binding is case-insensitive in scanned prose (§Record graph); a
+  declared handle is stored lowercase.
+- `M<n>` is QUALIFIED-ONLY, in both kinds (linked-context D3). Memory
+  ordinals are per-initiative and existing prose uses bare `M<n>` for
+  milestones, so a bare `M<n>` is never a handle and never dangles.
+  `.sofar/repo.md` lines carry no ids and are never targets.
+- Bare `<n>.<n>` is not a handle in scanned prose (§Record graph); in a
+  declared list an unqualified entry is qualified to home before storage, so
+  the stored form is never bare.
+- A bare slug is a handle ONLY inside a declared `waits_on`. In prose a bare
+  slug is not a citation (§Initiative statuses) — scanning it would make
+  every mention of a record's name an edge.
+- `BD<n>` and `D-<label>` stay outside the grammar entirely.
+- The derived-cite rules of §Record graph hold unchanged: a decision cannot
+  cite the future, a self-label is dropped. They decide whether a cite
+  EXISTS; the states below apply only to links that exist.
+
+**Resolution states.** Every link target has exactly one state, derived at
+read time from the target record's folded state — never stored in any log
+(the links tier of linked-context Phase 4 caches it, derived and rebuildable,
+record-index D1). Precedence when more than one could apply:
+`dangling` > `resolved` > `moved` > `open`.
+
+| target | resolved when | moved when (unresolved) |
+|---|---|---|
+| task `<n>.<n>` / `T<n>` | status `done` or `dropped` (§Task statuses); or its record is closed `done`/`dropped` | a `task_status_changed` on it sorts after the anchor; or its record is closed `superseded` |
+| decision `D<n>` | retired: superseded, or its `until` task resolved | never — a decision does not change in force |
+| memory `M<n>` | superseded (`superseded_by` set; `sofar_remember` in §MCP tools) | never |
+| initiative `<slug>` | status `done` or `dropped` | its status changed after the anchor without closing; or it is `superseded` (see below) |
+
+- `open` — the target exists and is unresolved, and nothing above moved it.
+- `moved` — the target exists, is unresolved, and changed after the anchor.
+  The answer to "is it still worth waiting on" has changed; the wait has not
+  ended.
+- `resolved` — the target no longer holds anything back. Carries the event
+  id that resolved it (`at`) and what did — the status, the superseding
+  `D<m>` or `M<m>`, the `until` task — so a reader can compare `at` against
+  its own anchor (linked-context D4: waits resolved since the block).
+- `dangling` — the handle binds to nothing: the slug names no record, the id
+  names nothing in it (a task the final plan lacks, an ordinal past the last
+  decision or memory), or a superseded initiative's successor is missing.
+  Dangling is a finding, never discarded (§Record graph). It is re-derived on
+  every read, so a handle that dangles today resolves once its target is
+  written.
+
+Waiting on a decision means waiting for it to be RETIRED — a constraint held
+until a task resolves or a successor replaces it. A task that needs a
+decision to be MADE waits on the task that makes it, never on a `D<n>` that
+does not exist yet.
+
+**Supersession follows ONE hop.** An initiative target closed `superseded`
+is read through its `successor`: successor `done`/`dropped` → `resolved`
+(`at` is the successor's closing event); successor open → `moved`, naming
+the successor; successor itself `superseded` → `moved`, naming the FIRST
+successor, not followed further; successor missing → `dangling`. One hop
+bounds the read to two logs per target and cannot loop on a supersession
+cycle. An unresolved TASK in a superseded record is `moved` (the work
+continues in the successor) and never follows the hop: task ids are
+per-record, so no task in the successor is "the same task".
+
+**Resolution is per target, never transitive.** A link's state reads its own
+target only; the targets' own `waits_on` are not followed. That is what makes
+a `waits_on` cycle harmless to read (it is warned at write for the agent's
+sake, not the reader's) and keeps each state O(1) target reads. How far
+travel reaches from a task is the travel block's contract (§Travel block),
+not this one.
+
+**Travel block (linked-context 1.2, D4, D8).** The digest's view of the
+network around the work: what the next and blocked tasks link to in OTHER
+records, and whether it has moved. It reads the links tier only (linked-context
+D2) — never reach.json, never buildGraph, never a neighbour's log.
+- SEEDS — the focus task (§Digest composition, item 2) and every `blocked`
+  task in a phase not `done`/`dropped`, focus first, then plan order. No other
+  task seeds it: an active or pending task that is not the focus is not being
+  worked, and a done one waits on nothing. In the quick-work lane there is no
+  focus and blocked tasks alone seed.
+- LINKS — only those whose SOURCE is a seed: its `waits_on` and the cites in
+  its title and status notes (§Links). A decision, note or next-action cite
+  has no task source and never travels. A target in the HOME record is
+  skipped — the focus, phases and decision index already render it — so
+  travel is cross-record only.
+- ONE HOP TO a record, never THROUGH it (record-index D12). A target renders
+  its own state and label; its `waits_on`, cites and tasks are not followed;
+  an initiative target is a destination, rendered with its status and never
+  expanded to what it holds. The one supersession hop (§Links) is the only
+  read past the target, and it names the successor without entering it.
+- ELIGIBLE — a `waits_on` target in state `open`, `moved` or `dangling`; a
+  `waits_on` target `resolved` with `at` sorting AFTER its anchor (resolved
+  since the block — one resolved before its anchor was never waited on); a
+  cite target `open` or `moved`. A resolved or dangling cite is not offered
+  (doctor reports dangling). One target reached by several seeds is ONE
+  entry naming every seed, in seed order; declared beats derived: when any
+  seed declares it the entry is a wait naming the declaring seeds, else a
+  cite naming the citing ones. Its state, `at` and `what` are those of the
+  EARLIEST-anchored of those links (linked-context D21), so "moved" and
+  "resolved since" read from when the first of them began.
+- ORDER — three groups, never interleaved: (1) OPEN WAITS, asserted: `moved`,
+  then `dangling`, then `open`; (2) RESOLVED SINCE THE BLOCK, asserted, newest
+  `at` first; (3) OFFERED CITES, ranked by `shared / L(d)` descending, where
+  `shared` is the target label's RELEVANCE score against the focus
+  (§Digest composition, memory-lead D5), `d` the target's repo-wide in-degree
+  (distinct sources of `waits_on` and cites to it, as the links tier carries
+  it, ≥1) and `L(d)` its bit length (1 → 1, 2–3 → 2, 4–7 → 3, …) — the
+  1/log₂ hub damping of record-index D9, in integers, compared by
+  cross-multiplication so TypeScript and Rust agree to the byte. Ties in every
+  group: first seed in seed order, then the seed's own list order (`waits_on`
+  as stored; cites in first-occurrence order), then the handle bytewise.
+- DEDUPE — against what the digest already shows. A decision target whose
+  rule the Repo-wide rules block rendered (§Digest composition, item 10): an
+  offered cite is dropped; a wait keeps its line with the label replaced by
+  `(rule above)`. A memory target `<slug> M<n>` named by a top-level bullet
+  the Repo memory block rendered: the same, `(repo memory above)`. Dropped
+  entries do not count in `<N>`.
+- LINES — whole entries only; a label is clipped to 80 chars inside its
+  entry, never across the budget. The label is the target's task title,
+  decision chose (the HEADS cut of item 8), memory text or initiative goal.
+  ```
+  Travel — linked targets in other records (<shown> of <N>):
+  - <seeds> waits on <handle> — <state>[ (<what>)] — <label>
+  - <seeds> waited on <handle> — resolved (<what>) — <label>
+  - <seeds> cites <handle> — worth reading — <label>
+  - …and <K> more (sofar find <home slug>)
+  ```
+  `<seeds>` is `,`-joined task ids; `waits on` becomes `wait on` for more
+  than one. `<what>` for moved is the target's current status or `superseded
+  → <successor>`; for resolved it is the status, `superseded by D<m>`/`M<m>`,
+  or `until <slug> <id> done` — an initiative resolved through its successor
+  says the successor's status, not `superseded`; dangling carries none. A
+  dangling line keeps ` — <label>` only when the handle's own target exists
+  (a superseded initiative whose successor is missing) and ends at
+  `dangling` when nothing binds (linked-context D9). A cite line never says
+  "waits". The goldens are `syn.travel-*` in the conformance suite
+  (linked-context 1.3).
+- CAP — at most TRAVEL_TARGET_CAP (6) entries and TRAVEL_BUDGET (600) chars
+  including the header, the overflow line and the closing blank line, each
+  line counted with its newline. The block is the LONGEST prefix of entries
+  that fits with its exact tail — the blank line when it holds every entry,
+  else the overflow line naming the rest — every prefix tried, since the last
+  entry drops the overflow line (linked-context D24). It is carved from the
+  6,000 cap (§Digest composition: YIELDING, precedence 3), never added to it.
+  Precedence 3 claims budget after Memory and Repo memory so DEDUPE reads
+  what they actually rendered, and before the decision index and last
+  session, which yield to it. Entries
+  fill in order while they fit whole with a 40-char reserve for the overflow
+  line; the rest are omitted. The builder returns the typed entries and a
+  NUMERIC `omitted` (record-graph D6); only the renderer writes `…and K more`.
+  When not even the header and the first entry fit, the block is the single
+  line `Travel: <N> linked target(s) in other records (sofar find <home
+  slug>)`, or nothing if that does not fit either.
+- ZERO BYTES — no eligible entry after dedupe means no header, no line, no
+  blank separator: a record with no cross-record links, or whose links are
+  all quiet (cites resolved, waits resolved before their anchors), renders
+  byte-identically to a digest built before links existed.
+
+**Deterministic and model-free.** Every state is a pure function of the
+logs present: same logs, same states, byte-identical in TypeScript and Rust
+(rust-core D1). No inference decides a state — "moved" is an event after the
+anchor, never a reading of prose (§Architectural invariants).
 
 ## Commit attribution (commit-attribution — read from git, never recorded)
 The record cannot see git and git cannot see the record. That gap is why a
@@ -2844,7 +3081,10 @@ rests on.
   meta-graph.json     # Tier 1 derived cursors
   graph.json          # TIER 1 DERIVED — path → session → (ts, touches)
   meta-reach.json     # Tier 1 reach cursors
-  reach.json          # TIER 1 REACH — clipped prose, citation handles, terms
+  reach.json          # TIER 1 REACH — clipped prose, citation handles
+  reach-terms.json    # reach's term sets by decision/note event id, read
+                      #   only by a text query or a persisting refresh
+                      #   (linked-context 8.3, D27); a missing id rebuilds
   shipwatch.json      # NOT A TIER — per-session origin/<branch> marks
                       #   (commit-attribution 3.4); own version, no cursor
   session.json        # NOT A TIER — the live-session pointer (r1-fixes
@@ -2929,7 +3169,7 @@ parse and rewrite:
 | `guards.json` | does any decision ANYWHERE guard or name this subject; which rules does every other record hold | PostToolUse, SessionStart, get_state | every read and edit; once per session | decisions that guard, name a file or carry a rule |
 | `labels.json` | which standing decision ANYWHERE would a new one reverse | the three decision writers | on a decision append | standing decisions with both clauses ≤600 chars |
 | `graph.json` | who else has touched this path | PostToolUse dedupe, priming line | after a guard MATCHES; once per session | the repo's whole touch history |
-| `reach.json` | what else bears on this | `sofar find` | on a query | prose + terms of every decision and note |
+| `reach.json` | what else bears on this | `sofar find` | persisted at write-back (`sofar_end_session`, only once the file exists) and by a query that rebuilds or reads a tail of more than 500 events; a shorter tail is caught up in memory and neither the file nor its cursor is written (linked-context 8.2, D26) | prose of every decision and note; their terms in `reach-terms.json`, which only a text query reads (8.3, D27) |
 | `lexicon.json` + `lexicon-p00..31.json` + `lexicon-h.json` | which decision, note or stall anywhere a prompt's words reach (memory-lead 3.1, D15) | UserPromptSubmit shim | every prompt; rewritten only when a decision, note or stall handoff arrived | doc table: one line per doc; postings: 32 term-hash shards, a query reads its own; heads: read only to render |
 
 Read frequency, not taste, draws these lines — and they coincide with D2's
@@ -3009,7 +3249,12 @@ offered:
 - DERIVED — graph adjacency (`touched`, `decided`, `noted`, `cites`). Offered
   as worth reading, never asserted: the record knows the work happened in the
   same places, never that a decision was ABOUT the file. Every result cites
-  the event id that produced its edge, so the claim is checkable.
+  the event id that produced its edge, so the claim is checkable. `cites` is
+  scanned from every citation source §Links names (linked-context 3.1):
+  decision prose and note text from their own nodes, a task's title and
+  status notes from its `task:<slug>#<id>` node (final plan only), and a
+  `session_ended.next_action` from the writing session's node; each edge's
+  event id is the event whose own text holds the handle.
 - TEXT — words from the question appearing in decision or note prose (BM25,
   no model, §Architectural invariants). Weaker still: OFFERED as prose
   containing the asker's words, never as an answer and never as a traversal
@@ -4050,7 +4295,7 @@ sofar_start_session.`
   is planned and validated AS A WHOLE against one fold before any append —
   one bad entry files nothing, not the good ones and not the write-back:
   `invalid_input` naming the entry (`tasks[1] (9.9): …`). Entries:
-  `tasks` {task_id, status, note?, title?, phase?} — planned exactly as
+  `tasks` {task_id, status, note?, title?, phase?, waits_on?} — planned exactly as
   sofar_update_task (phase-lifecycle D7), so a `title` naming a different
   task than the one the plan holds is refused. A task the plan has
   appends task_status_changed; one it lacks WITH a title appends task_added
@@ -4072,8 +4317,9 @@ sofar_start_session.`
   is read by already counts them (task_done needs both halves,
   session-driver D5). `tasks_applied` is present iff `tasks` was passed;
   `decisions` lists the `D<n>` handles and `memories` the `<slug> M<n>`
-  handles the batch took, and `warnings` carries §Rule fidelity's warning
-  for each batched rule, then the write-time judge's lines for the batched
+  handles the batch took, and `warnings` carries the declared-waits_on
+  lines and cite nudges (see "Declared waits_on on the write surfaces"
+  below), then §Rule fidelity's warning for each batched rule, then the write-time judge's lines for the batched
   decisions (typed-judge 3.1, see §Judge), judged against the fold the batch
   was planned on, then the filing judge's lines for the batched decisions,
   memories and notes and its evidence lines for the tasks the batch marked
@@ -4109,7 +4355,7 @@ sofar_start_session.`
   peer fields are added at the tool layer, never on the folded
   ParallelWriteback — who is reachable is a fact about live host processes,
   and folding it in would make one log fold differently on two machines.
-- sofar_update_task({initiative?, task_id, status, note?, title?, phase?}) → ok
+- sofar_update_task({initiative?, task_id, status, note?, title?, phase?, waits_on?}) → ok
   # ADDS a task (phase-lifecycle D7, superseding D4): a task_id the plan
   # lacks WITH a `title` appends task_added {phase, id, title, status} into
   # `phase` (resolved like sofar_update_phase; default the active phase),
@@ -4130,6 +4376,39 @@ sofar_start_session.`
   # ~600 chars per activation, while the point-of-use GUARD (§Hooks) is the
   # half that enforces. Changes landing at wrap-up ride sofar_end_session's
   # `tasks` — one call, not one per task.
+  Declared waits_on on the write surfaces (linked-context 2.3, §Links):
+  `waits_on` is accepted by sofar_update_task, each sofar_end_session
+  `tasks` entry, each sofar_update_plan task and `sofar new --waits-on`,
+  all through one resolver (engine mcp/waits-on.ts). Input entries are
+  `<slug>`, `<slug> D<n>|T<n>|<n>.<n>|M<n>` (slug any case) or a bare
+  `D<n>|T<n>|<n>.<n>`, qualified to the home slug; stored lowercase,
+  canonical, deduped in first-seen order. A bare `M<n>` is `invalid_input`
+  (qualified-only, linked-context D3). It rides the ONE event that sets the
+  task: task_status_changed for a held task, task_added for an add (not the
+  note's follow-up status change), the task in plan_updated for a replace.
+  - A slug naming no record under .sofar/initiatives/ is `invalid_input`;
+    nothing is filed (for a write-back, the whole batch).
+  - A handle naming nothing in an existing record — a task the plan AFTER
+    the write lacks (so a task the same write adds binds), a `D<n>`/`M<n>`
+    past the last ordinal, a superseded initiative whose successor is
+    missing — is filed, and `warnings` carries `… is dangling — <why>`.
+  - A cycle is filed, and `warnings` carries `waits_on cycle: <a> → … →
+    <a>` (beads' readiness predicate: a task is ready when nothing it waits
+    on is open, so a loop of open tasks never becomes ready). Edges run
+    task → task through OPEN targets only (a done/dropped task holds nothing
+    back); a whole-initiative target stands for its open tasks; `D<n>` and
+    `M<n>` have no out-edges. A write that closes the task is not walked.
+  - Cite nudges (linked-context 5.3) — offered, never a refusal; the batch
+    files as written. A write-back scans a `blocked` task change's `note`
+    and its `next_action` with the citation grammar (§Record graph, memories
+    on) for QUALIFIED handles naming another record. A note handle its task
+    does not wait on, and a next_action handle no task waits on, each add one
+    line, in text order, deduped per source; a set holding the handle or
+    its whole-record slug covers it, read as the batch leaves the sets:
+    `task <id> is blocked and its note cites <handle> without waits_on — if
+    it cannot finish until that moves, declare waits_on ["<handle>"]` and
+    `next_action cites <handle> and no task waits on it — if a task cannot
+    finish until that moves, declare waits_on ["<handle>"] on it`.
 - sofar_update_phase({initiative?, phase, status, note?})
   → {ok, event_id, tasks_done, tasks_total}   # phase-lifecycle D2, 2.2/2.3.
   Appends phase_status_changed. Phase status is WRITTEN, never derived from
@@ -5492,7 +5771,7 @@ Shims contain no logic — they invoke the sofar CLI.
   blank line), preserving all user content; .sofar/ is kept with a notice
   unless --purge deletes it (--purge alone may also delete files the run
   emptied — the byte-clean round-trip). Idempotent (added Phase 8, BD45).
-- `sofar new <slug> [--goal] [--supersedes <a>,<b>]` / `sofar switch <slug>`
+- `sofar new <slug> [--goal] [--supersedes <a>,<b>] [--waits-on <h>,<h>]` / `sofar switch <slug>`
   — create/select initiative; bind current branch in bindings.json. `switch`
   onto a CLOSED slug reopens it (§Initiative statuses, D3): appends status
   `active`, announces the revival, then binds. `--supersedes` names the
@@ -5501,7 +5780,22 @@ Shims contain no logic — they invoke the sofar CLI.
   each is closed as `superseded` by the new slug — bind first so the branch
   ends on live work, since closing unbinds (§Initiative statuses). `sofar new
   quick` refuses: `quick` is the quick-work lane (§Hooks), which creates
-  itself on the first edit of an unbound branch.
+  itself on the first edit of an unbound branch. `--waits-on` (linked-context
+  2.3, D11) declares what the new record waits on: a declared link lives on a
+  task and a new record has none, so after create it appends a plan_updated
+  seeding `Phase 1` / task `1.1 Wait on <handles>` carrying the set — the
+  umbrella shape of §Links. Handles are resolved as on every write surface
+  (see "Declared waits_on on the write surfaces" under §MCP tools); an unknown
+  slug refuses BEFORE anything is created, dangling and cycle lines print as
+  `warning:` detail lines. With `--goal`, `sofar new` then offers up to 3
+  OPEN records whose goal reads most like it (linked-context 5.3): BM25
+  (`rankLexical`) of the new goal over each other record's goal, skipping
+  closed records, those this one supersedes, `quick` and records still on
+  the default goal; score 0 is not offered, ties go to the slug bytewise. One
+  `similar goal: <slug> — <goal clipped to 80>` detail line each, then
+  `if this work waits on one, declare it on a task: waits_on ["<top slug>"]`
+  — related work is linked, never nested (linked-context D5). Offered only;
+  nothing is written.
 - `sofar close [slug] [--drop] [--reason <text>] [--superseded-by <slug>]` —
   record the initiative terminal (`done`; `dropped`, which REQUIRES
   `--reason`; or `superseded`, which names the existing record the work
@@ -5615,7 +5909,8 @@ Shims contain no logic — they invoke the sofar CLI.
   and neither traversed through (initiative-supersession 3.3; record-index
   D12 stands). Seeds resolve LITERALLY FIRST,
   in a fixed order — node id, initiative slug, decision handle (`<slug> D<n>`,
-  `<slug>#D<n>`, or `D<n>` with `--initiative`), session id, then path across
+  `<slug>#D<n>`, or `D<n>` with `--initiative`) or memory handle (`<slug> M<n>`
+  or `<slug>#M<n>`, qualified only — linked-context 3.3), session id, then path across
   checkouts. A query denoting NONE of those is treated as a question and matched
   against decision and note prose (record-index 3.5): tokenized, plurals and
   tenses folded, ranked by BM25 over the whole record with NO model, and reported
@@ -5635,6 +5930,46 @@ Shims contain no logic — they invoke the sofar CLI.
   only that the words are there, never that they answer the question. An
   expansion that hits the visit ceiling says so rather than presenting a partial
   answer as whole.
+- `sofar find <seed> --compose [--budget <chars>] [--since <event id|ISO>]
+  [--hops <n>] [--initiative <slug>]` — the answer packet (linked-context 7.1):
+  the same seed ladder and traversal as `sofar find`, flattened into one
+  budgeted list of ATOMS an agent can paste into its context. CLI only; no MCP
+  tool. Plain text always, never styled, so the bytes do not depend on the
+  terminal. GATHER: the seed's reach result, plus the DECLARED waits read from
+  the links tier (reach carries no `waits_on` edge) for the seed record when
+  the seed is an initiative, for a task seed, and for every task the traversal
+  reached — only links whose source task is one of those. ORDER, in tiers:
+  (1) declared waits, (2) reach hits whose edge is `cites` or `cited_by`,
+  (3) a text seed's BM25 matches, (4) every other reach hit. Within a tier:
+  hops ascending (a wait takes its source's distance, 0 for the seed itself),
+  then its time newest first, then id by code unit. A thing already rendered
+  in an earlier tier is not rendered again. An atom's TIME is its own event's
+  (a hit's `ts`, a match's `ts`), and for a wait the event that resolved its
+  target when resolved, else the link's anchor, both read from the ulid. ATOM:
+  one line, `<mark> <handle> · <relation> · event <id> — <label>`; the handle
+  (`<slug> D<n>`, `<slug> M<n>`, `<slug> <task id>`, `<slug> note`, a path, a
+  session's first 8, a slug, a wait's qualified target) and the event id are
+  never clipped, the label is clipped to 96 and omitted when empty. A wait's
+  relation is `waited on by <slug> <task> — <state>` with ` (<what>)` when the
+  tier holds one; a match's is `matched <terms>`; a hit's is `sofar find`'s
+  edge phrase. HEADER: `sofar find --compose — <seed>  [<kind>, <hops>]`, the
+  find caveat for that seed kind in parentheses, the visit-ceiling line when
+  the expansion stopped there, and the CHANGED-SINCE line
+  `Changed since <ISO> (<source>): <n> of <m> atoms, marked *`, counted over
+  every gathered atom whether rendered or cut. `--since` takes
+  an event id (its ulid time) or an ISO timestamp, anything else is exit 1;
+  without it the default is the ts of the latest `session_ended` in the
+  branch-bound record's log (source `last write-back of <slug>`); with neither
+  the line is omitted and every mark is `-`. An atom whose time is strictly
+  after the since instant is marked `*`, else `-`. BUDGET: the whole stdout,
+  in characters (UTF-16 code units), default 2000, below 200 exit 1. Atoms are
+  kept WHOLE: the longest prefix of the ordered atoms that fits together with
+  its exact tail — nothing when every atom fits, else `…and <K> more (sofar
+  find <seed>)`, where K counts the atoms cut plus the hits `sofar find`'s
+  per-kind caps already omitted. The header is always rendered, even if it
+  alone exceeds the budget. A seed that resolves to nothing renders the find
+  miss text, exit 0. The packet is byte-identical on a repeat. It offers,
+  never asserts, exactly as `sofar find` does (record-index D2).
 - `sofar drive [slug] [--policy task|threshold] [--threshold-pct <pct>]
   [--context-window <tokens>] [--max-sessions <n>] [--max-stalls <n>]
   [--cost-cap <usd>] [--session-timeout <seconds>] [--cwd <dir>] [--model <m>]

@@ -47,7 +47,13 @@ export default defineConfig({
         test: {
           name: 'unit',
           env: testState,
+          setupFiles: ['packages/engine/test/setup-plain-env.ts'],
           sequence: { groupOrder: 0 },
+          // Spawn- and git-heavy tests (conformance, attribution cache) blow
+          // the 5 s default when concurrent sessions load the machine (load
+          // avg ~19 on 2026-09-29): a timeout bounds a hang, it asserts
+          // nothing, so it is sized for a shared box. Latency is pinned apart.
+          testTimeout: 30_000,
           exclude: [
             '**/node_modules/**',
             'packages/engine/test/shim-latency.test.ts',
@@ -59,7 +65,13 @@ export default defineConfig({
         plugins: [shAsText()],
         test: {
           name: 'latency',
-          env: testState,
+          // Its own state dir: sharing the unit group's, SessionStart read
+          // what 175 files left behind and measured 114–123 ms in-suite vs
+          // passing alone (2026-09-29). The pin times the shim, not residue.
+          env: {
+            XDG_STATE_HOME: mkdtempSync(join(tmpdir(), 'sofar-vitest-latency-state-')),
+            XDG_CONFIG_HOME: testState.XDG_CONFIG_HOME,
+          },
           sequence: { groupOrder: 1 },
           include: ['packages/engine/test/shim-latency.test.ts'],
           fileParallelism: false,

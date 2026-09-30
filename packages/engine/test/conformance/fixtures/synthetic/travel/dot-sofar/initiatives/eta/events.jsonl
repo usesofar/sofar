@@ -1,0 +1,1 @@
+{"v":1,"id":"01M1E732K00000000000000001","ts":"2026-09-01T10:09:00.000Z","initiative":"eta","session":"cli","source":"cli","actor":"human","user":"fixture@example.invalid","type":"initiative_created","payload":{"goal":"the chain end","slug":"eta"}}

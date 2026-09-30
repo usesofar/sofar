@@ -51,6 +51,7 @@ const SHIPPING_WINDOW = 30
 /** Subject clip on the commits-by-task line (D24). */
 const COMMIT_SUBJECT_BUDGET = 72
 import { refreshTier0, refreshTier0Known } from '../core/index-tier0'
+import { readTravel } from '../core/index-links'
 import {
   foreignDecisions,
   lastTouch,
@@ -819,6 +820,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // Every other record's standing rules (memory-lead 2.2, D8): the other
     // fact no single log holds, from the same refresh.
     const rules: RepoRule[] = scope === null ? [] : repoRules(scope, slug, retireEnabled())
+    // The links tier, the travel block's only input (linked-context D2), kept
+    // materialised here as at write time.
+    const travel = readTravel(ctx.sofarDir, slug)
     // The per-session notices — recent work elsewhere, the closed banner, the
     // cold-resume advisory, shipping — once led the output as a preface. Since
     // r1-fixes 2.3 (D12) they ride INTO renderStatus as `notices` and land in
@@ -850,6 +854,7 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
       ...(git !== null ? { git } : {}),
       ...(neighbours.length > 0 ? { neighbours } : {}),
       ...(rules.length > 0 ? { repoRules: rules } : {}),
+      ...(travel.links.length > 0 ? { travel } : {}),
       ...(notices.length > 0 ? { notices } : {}),
       ...(slug === QUICK_LANE ? { lane: true } : {}),
       ...(activity ? {} : { activity: false }),

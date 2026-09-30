@@ -3,10 +3,12 @@ import { isAbsolute, join, relative } from 'node:path'
 import {
   buildGraph,
   relatedTasks,
+  taskCitations,
   taskNodeId,
   whyFile,
   type FileProvenance,
   type RelatedTasks,
+  type TaskCitations,
 } from '../core/graph'
 import { createToolContext, ToolError } from '../mcp/context'
 import { clip } from '../projections/templates/shared'
@@ -284,9 +286,10 @@ export function runRelated(
   const anchor = anchorNode
   const title = anchor !== undefined && anchor.kind === 'task' ? anchor.title : ''
   const status = anchor !== undefined && anchor.kind === 'task' ? anchor.status : 'pending'
+  const citations = citationBlocks(taskCitations(graph, nodeId))
   const stdout = caps.color
-    ? renderStyledRelated(rootDir, nodeId, title, status, result, caps)
-    : renderPlainRelated(rootDir, nodeId, title, status, result)
+    ? renderStyledRelated(rootDir, nodeId, title, status, result, citations, caps)
+    : renderPlainRelated(rootDir, nodeId, title, status, result, citations)
   return ok(stdout, stderr)
 }
 
@@ -311,6 +314,36 @@ function neighbourEntries(rootDir: string, result: RelatedTasks): Entry[] {
   })
 }
 
+/**
+ * The task's DERIVED links (linked-context 3.2), each naming its source and the
+ * sourcing event. Rendered only when there are any, so a task nothing cites
+ * reads exactly as it did before cites had sources beyond decisions.
+ */
+function citationBlocks(c: TaskCitations): Block[] {
+  const entries = (ends: TaskCitations['cites']): Entry[] =>
+    ends.map((e) => ({ head: `${e.handle}  ${day(e.ts)}  · event ${e.event_id}`, detail: [] }))
+  const blocks: Block[] = []
+  if (c.cites.length + c.omitted.cites > 0) {
+    blocks.push({
+      title: `Cites (${c.cites.length + c.omitted.cites})`,
+      caveat: CITES_CAVEAT,
+      entries: entries(c.cites),
+      omitted: c.omitted.cites,
+    })
+  }
+  if (c.cited_by.length + c.omitted.cited_by > 0) {
+    blocks.push({
+      title: `Cited by (${c.cited_by.length + c.omitted.cited_by})`,
+      caveat: CITES_CAVEAT,
+      entries: entries(c.cited_by),
+      omitted: c.omitted.cited_by,
+    })
+  }
+  return blocks
+}
+
+const CITES_CAVEAT = 'handles in record text — offered as worth reading, never as what this task waits on'
+
 const NEIGHBOUR_CAVEAT =
   'tasks that were active while the same recorded path was touched, ranked by shared paths'
 
@@ -320,6 +353,7 @@ function renderPlainRelated(
   title: string,
   status: string,
   result: RelatedTasks,
+  citations: Block[],
 ): string {
   const lines: string[] = [`sofar related — ${label(nodeId)}  [${status}]`]
   if (title !== '') lines.push(`  ${clip(title, PROSE)}`)
@@ -341,6 +375,12 @@ function renderPlainRelated(
   }
   const more = moreLine(block.omitted)
   if (more !== undefined) lines.push(`  ${more}`)
+  for (const cited of citations) {
+    lines.push('', `${cited.title}:`, `  (${cited.caveat})`)
+    for (const entry of cited.entries) lines.push(`  ${entry.head}`)
+    const over = moreLine(cited.omitted)
+    if (over !== undefined) lines.push(`  ${over}`)
+  }
   return `${lines.join('\n')}\n`
 }
 
@@ -350,6 +390,7 @@ function renderStyledRelated(
   title: string,
   status: string,
   result: RelatedTasks,
+  citations: Block[],
   caps: Caps,
 ): string {
   const s = createStyle(true)
@@ -370,8 +411,11 @@ function renderStyledRelated(
     lines.push(s.bold(`${block.title}:`))
     lines.push(`  ${s.dim(`(${NEIGHBOUR_CAVEAT})`)}`)
     lines.push(`  ${s.dim('(none — no other task touched a file this task touched)')}`)
-    return `${lines.join('\n')}\n`
+    if (citations.length === 0) return `${lines.join('\n')}\n`
+    lines.push('')
+  } else {
+    lines.push(...styledBlock(block, s, sym))
   }
-  lines.push(...styledBlock(block, s, sym))
+  for (const cited of citations) lines.push(...styledBlock(cited, s, sym))
   return `${lines.join('\n').replace(/\n+$/, '')}\n`
 }
