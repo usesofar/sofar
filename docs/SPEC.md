@@ -2280,10 +2280,13 @@ shims and loads the sofar MCP server, and sofar reads no Codex live-session
 registry (§Codex host). Everywhere else it is Tier 3. An untrusted project loads
 no project hook, and Codex skips a new or edited hook entry until it is trusted
 again, so one Codex binary can sit in either tier. The AGENTS.md block's CLI
-loop is what reaches the record from Tier 3. This placement rests on the wiring
-and its tests, as Cursor's did before r1-fixes 6.3's live proof. The live proof
-for Codex is agents-parity 3.2, which waits for the operator's consent
-(§Codex host, its Live proof paragraph).
+loop is what reaches the record from Tier 3. The placement is proven live by
+agents-parity 3.2 (codex 0.154.0 on 2026-09-17, 0.158.0 on 2026-09-30): an
+exec session writes back through the MCP server (pre-approved, 3.4) or through
+the CLI loop, both under its own thread id (3.3), and `sofar drive --agent
+codex` hands off `task_done` naming the hook-registered id. The interactive
+TUI write-back was checked on 0.154.0 before the 3.3 fix and not re-run; it
+uses the same CLI-append adoption the exec run proved.
 
 ## Cursor host (r1-fixes Phase 6, D33/D35 ruling, D34 contract)
 sofar serves Cursor with the SAME shims, the same MCP server and the same
@@ -2591,8 +2594,11 @@ Limits stated, not worked around:
   merged by Codex with a startup warning. init writes JSON only.
 - `sofar` is found on whatever PATH Codex gives its hooks, which is unverified,
   so the r1-fixes M6 caution applies.
-- Whether `codex exec` loads trusted project hooks is unverified. The drive
-  adapter works either way (the **Driven** paragraph below).
+- `codex exec` runs a trusted project's hooks: session-start, user-prompt,
+  post-tool, stop and session-end all fired (live, 0.154.0 and 0.158.0). On
+  0.158.0, `codex exec --dangerously-bypass-hook-trust` runs them without
+  `/hooks` trust, for automation that vets hook sources itself (help text,
+  live).
 - The apply_patch grammar beyond the header markers is unverified.
 
 **MCP.** Servers are `[mcp_servers.<name>]` tables in `config.toml` (binary), and
@@ -2701,11 +2707,11 @@ Stop handler every host runs (§Hooks), with no Codex branch.
   `turn_id` is unverified, and 3.2 checks `stop_hook_active` on it live. A
   Stop hook can reject Codex's memory-consolidation subagent (binary: "Memory
   consolidation was rejected by a Stop hook."). The gate holds only a session
-  the record registered that owes a write-back, and whether a project's hooks
-  run for that thread is unverified. Whether `codex exec` fires Stop is still
-  unverified. A driven session does not depend on it, because the driver
-  judges the write-back from the fold (session-driver D3). 3.2 checks it
-  live.
+  the record registered that owes a write-back. `codex exec` fires Stop
+  (live: exit 0 once the session has written back), and an interactive
+  continuation after a hold kept the turn's `turn_id` with `stop_hook_active`
+  true (live, 0.154.0). A driven session does not depend on Stop, because the
+  driver judges the write-back from the fold (session-driver D3).
 - Tests (`codex-host.test.ts`, D4): the contract fixture's `stop_hook_active`
   and `stop_runtime` sections.
 
@@ -7871,6 +7877,11 @@ stay the underlying derivation's, and exit codes are styling-independent.
     showed, whichever way it went, in §Codex host and in §Driver. The tier
     sentence in §Host tiers loses "rests on the wiring and its tests" or
     names what did not reach Codex.
+  - Met, 2026-09-30 (agents-parity 3.2, re-proof on 0.158.0 with
+    `gpt-reserve`): exec MCP write-back, exec CLI write-back and a one-task
+    drive all land under the thread id, and the drive hands off `task_done`
+    with its verification passed. The 2026-09-17 run's two failures are
+    closed by 3.3 and 3.4.
 - **Cursor live proof (r1-fixes 6.3/6.5/6.7/6.9):** checked LIVE with the
   operator's consent, on a scratch repo, with sofar's shims and MCP entry
   pinned by absolute path to a logging wrapper around the build under test
