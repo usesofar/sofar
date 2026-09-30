@@ -142,6 +142,7 @@ fn model_display(model: &str, style: Style) -> String {
 enum RecordSegment {
     Record {
         slug: String,
+        root: String,
         progress: TaskProgress,
         status: String,
         drive: Option<DriveSegment>,
@@ -217,15 +218,7 @@ fn drive_text(drive: &DriveSegment, style: Style) -> String {
     let label = style.dim("drive");
     match drive {
         DriveSegment::Gone => format!("{label} {}", style.error("gone")),
-        DriveSegment::Stopped { reason } => {
-            let toned = match reason.as_str() {
-                "needs_user" => style.warn(reason),
-                "error" | "stall" => style.error(reason),
-                "closed" => style.success(reason),
-                _ => style.dim(reason),
-            };
-            format!("{label} {toned}")
-        }
+        DriveSegment::Stopped { reason } => format!("{label} {}", stop_tone(reason, style)),
         DriveSegment::Live {
             task,
             liveness: RunLiveness::Absent,
@@ -242,6 +235,102 @@ fn drive_text(drive: &DriveSegment, style: Style) -> String {
                 style.info(task.as_deref().unwrap_or("running"))
             )
         }
+    }
+}
+
+/// `stopTone`: `needs_user` warn, error/stall error, closed success, else dim.
+fn stop_tone(reason: &str, style: Style) -> String {
+    match reason {
+        "needs_user" => style.warn(reason),
+        "error" | "stall" => style.error(reason),
+        "closed" => style.success(reason),
+        _ => style.dim(reason),
+    }
+}
+
+/// `LaunchedSegment` (drive-reach 1.3): a run this session launched that its
+/// own record segment does not show, read from the run's progress file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LaunchedSegment {
+    Live {
+        slug: String,
+        task: Option<String>,
+        done: u64,
+        total: u64,
+        liveness: RunLiveness,
+    },
+    Gone {
+        slug: String,
+    },
+    Stopped {
+        slug: String,
+        reason: String,
+    },
+}
+
+/// `launchedSegmentOf`: one open for the launch index, one for the file,
+/// one lock probe while the run is open — never a fold.
+pub fn launched_segment_of(
+    root: &Path,
+    session_id: Option<&str>,
+    own: Option<(&str, &str)>,
+    probe: impl Fn(&str) -> RunLiveness,
+) -> Option<LaunchedSegment> {
+    let own_real = own.map(|(slug, r)| {
+        (
+            slug,
+            crate::diagnostics::clone_real_path(Path::new(r))
+                .to_string_lossy()
+                .into_owned(),
+        )
+    });
+    let p = crate::run_progress::launched_run(
+        root,
+        session_id?,
+        own_real.as_ref().map(|(s, w)| (*s, w.as_str())),
+    )?;
+    if p.stopped {
+        return Some(LaunchedSegment::Stopped {
+            slug: p.slug,
+            reason: p.stop_reason?,
+        });
+    }
+    match probe(&p.run) {
+        RunLiveness::Free => Some(LaunchedSegment::Gone { slug: p.slug }),
+        liveness => Some(LaunchedSegment::Live {
+            slug: p.slug,
+            task: p.task,
+            done: p.done,
+            total: p.total,
+            liveness,
+        }),
+    }
+}
+
+/// `launchedText`.
+fn launched_text(drive: &LaunchedSegment, style: Style) -> String {
+    let head = |slug: &str| format!("{} {}", style.dim("drive"), style.dim(slug));
+    match drive {
+        LaunchedSegment::Gone { slug } => format!("{} {}", head(slug), style.error("gone")),
+        LaunchedSegment::Stopped { slug, reason } => {
+            format!("{} {}", head(slug), stop_tone(reason, style))
+        }
+        LaunchedSegment::Live {
+            slug,
+            task,
+            done,
+            total,
+            liveness,
+        } => format!(
+            "{} {} {done}/{total}{}",
+            head(slug),
+            style.info(task.as_deref().unwrap_or("running")),
+            if *liveness == RunLiveness::Absent {
+                format!(" {}", style.dim("liveness unknown"))
+            } else {
+                String::new()
+            }
+        ),
     }
 }
 
@@ -276,6 +365,7 @@ fn record_segment(root: &Path, hook: &Object) -> Option<RecordSegment> {
             );
             return Some(RecordSegment::Record {
                 slug,
+                root: candidate,
                 progress: facts.progress,
                 status: facts.status.clone(),
                 drive,
@@ -385,7 +475,12 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
         }
     }
 
-    match record_segment(root, &hook) {
+    let record = record_segment(root, &hook);
+    let own = match &record {
+        Some(RecordSegment::Record { slug, root, .. }) => Some((slug.clone(), root.clone())),
+        _ => None,
+    };
+    match record {
         Some(RecordSegment::Unbound) => segments.push(style.dim("unbound")),
         Some(RecordSegment::Lane) => segments.push(style.dim(QUICK_LANE)),
         Some(RecordSegment::Record {
@@ -393,6 +488,7 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
             progress,
             status,
             drive,
+            ..
         }) => {
             let closed = is_closed_initiative_status(&status);
             let slug = if closed {
@@ -430,6 +526,14 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
             }
         }
         None => {}
+    }
+    if let Some(launched) = launched_segment_of(
+        root,
+        str_field(hook.get("session_id")),
+        own.as_ref().map(|(s, r)| (s.as_str(), r.as_str())),
+        |run| crate::run_lock::probe_run_lock(root, run),
+    ) {
+        segments.push(launched_text(&launched, style));
     }
 
     if let Some(ctx) =

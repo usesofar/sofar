@@ -1,0 +1,111 @@
+# conformance golden: repo.drive-reach
+
+## step 1: Edit registers the session
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/packages/engine/src/core/fold.ts","old_string":"a","new_string":"b"},"tool_response":{}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/core/fold.ts is governed by [architecture-map D1], a standing rule: \"Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.\" (guard: path:packages/engine/src/**,packages/schema/src/**). Work against it needs a decision that supersedes architecture-map D1.\nsofar: packages/engine/src/core/fold.ts is governed by [phase-lifecycle D2], a standing rule: \"Never derive phase status from task status — not in the fold, not as a side effect of a task write. Doctor's stale-phase axis and closeout's phases_unresolved finding both exist to say \"tasks done, phase not finished\", and derivation deletes that sentence.\" (guard: path:**/core/fold.ts,**/core/closeout.ts). Work against it needs a decision that supersedes phase-lifecycle D2.\nsofar: [initiative-supersession D1] names packages/engine/src/core/fold.ts. Its standing rule: \"Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.\".\nsofar: …and 3 more decision(s) on packages/engine/src/core/fold.ts (in commit-attribution, record-graph, harness-build) — sofar find packages/engine/src/core/fold.ts."}}
+--- stderr
+(empty)
+
+## step 2: launched run open: statusline
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · drive linked-context 3.2 4/9 liveness unknown · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 3: launched run open: styled
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m [2mdrive[22m [2mlinked-context[22m [36m3.2[39m 4/9 [2mliveness unknown[22m [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 4: launched run open: prompt line
+argv: ["event","user-prompt"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01M3QAAAAAAAAAAAAAAAAAAAAA on linked-context liveness unknown · 4 handoffs · now on 3.2 · 4/9\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+
+## step 5: the same prompt again: nothing moved, no line
+argv: ["event","user-prompt"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+
+## step 6: another session launched nothing
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"aefa6315-3725-4e4d-9f9a-224ff6f86ddb","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · session-strategy-bench 20/20 · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 7: launched run stopped: statusline
+argv: ["statusline","--no-color"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+Fable 5.1 (1M) · root:rust-core · rust-core 1/15 · drive linked-context needs_user · ctx 42% · cache 90% ✓
+--- stderr
+(empty)
+
+## step 8: launched run stopped: styled
+argv: ["statusline"]
+stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
+exit: 0
+--- stdout
+[1m[35mFable 5.1 (1M)[39m[22m [2m·[22m [33mroot[39m [2m·[22m [34mrust-core[39m [2m·[22m [33m◔[39m [35mrust-core[39m 1/15 [2m·[22m [2mdrive[22m [2mlinked-context[22m [33mneeds_user[39m [2m·[22m [2mctx[22m [32m42%[39m [2m·[22m [32mcache 90% ✓[39m
+--- stderr
+(empty)
+
+## step 9: launched run stopped: prompt line
+argv: ["event","user-prompt"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01M3QAAAAAAAAAAAAAAAAAAAAA on linked-context stopped: needs_user · 7 handoffs · 7/9\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2"}}
+--- stderr
+(empty)
+
+## record delta
+=== .sofar/initiatives/rust-core/events.jsonl (appended 469 bytes after 28249 unchanged)
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"claude-code"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"conf-session","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"edit","path":"<ROOT>/packages/engine/src/core/fold.ts"}}
+=== .sofar/initiatives/rust-core/sessions/conf-session.md (added, 476 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session conf-session
+
+- Initiative: rust-core
+- Tool: claude-code
+- Started: <TS>
+- Ended: (in progress)
+
+## Summary
+
+(none recorded — no write-back yet; derived resume point below)
+
+## Next action
+
+(none recorded)
+
+## Activity (derived from mechanical events)
+
+- Derived: 1 file (<ROOT>/packages/engine/src/core/fold.ts)
+- Files:
+  - <ROOT>/packages/engine/src/core/fold.ts
+- Commands run: 0

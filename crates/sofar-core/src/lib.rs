@@ -20,7 +20,8 @@
 //! [`lessons`], [`cross_conflicts`]); the statusline (2.6: [`statusline`],
 //! [`ui`], [`update_cache`]); rule fidelity (memory-lead 1.4: [`rule_fidelity`]);
 //! trunk mirrors since main 72146d9: the run lock's probe (drive-visibility
-//! 2.3: [`run_lock`]).
+//! 2.3: [`run_lock`]); the progress file and launch index's read side
+//! (drive-reach 1.3: [`run_progress`]).
 
 pub mod append;
 pub mod atomic;
@@ -74,6 +75,7 @@ pub mod registrations;
 pub mod resolve;
 pub mod rule_fidelity;
 pub mod run_lock;
+pub mod run_progress;
 pub mod session_pointer;
 pub mod session_start;
 pub mod sha256;

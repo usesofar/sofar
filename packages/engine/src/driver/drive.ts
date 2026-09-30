@@ -15,6 +15,9 @@ import { TASK_FILES_CAP } from '../core/adjacency'
 import { applicableChecks, changedPaths, checkFailureLine, checksInForce, isApproved, type InForceCheck } from '../core/checks'
 import { refreshGuards } from '../core/index-tier1'
 import { claimRunLock, probeRunLock, type RunLockOptions } from '../core/run-lock'
+import { noteLaunched, writeRunProgress } from '../core/run-progress'
+import { cloneRealPath } from '../core/state-dir'
+import { taskProgress } from '../projections/templates/shared'
 import { createKeepAwake, type KeepAwakeOptions } from './keep-awake'
 import { createToolContext, ToolError } from '../mcp/context'
 import type { NudgeDetail } from './nudge'
@@ -322,6 +325,12 @@ export interface DriveOptions {
   stopPollMs?: number
   /** Test seam: where and with which primitive the run lock is taken (drive-visibility 2.1). */
   lock?: RunLockOptions
+  /**
+   * The session that started this run (drive-reach 1.2), written to the run's
+   * progress file so that session's statusline can find the run whatever it
+   * is bound to. Never recorded: it names a caller, not the run.
+   */
+  launchedBy?: string
   /**
    * Keeping the Mac awake for the run (drive-visibility D5). Absent means the
    * driver neither blocks sleep nor says anything about it — the CLI always
@@ -751,6 +760,63 @@ async function driveHolding(
   for (const line of opening) progress(line)
   awake?.start(progress)
 
+  // The run's progress file (drive-reach 1.1): a window on the record for a
+  // session that cannot fold it — written as the driver takes the run, at the
+  // head of every turn, after every handoff and after the stop. Never a stop
+  // when it fails: the record is the run's state, the file only a copy.
+  const worktree = cloneRealPath(rootDir)
+  let progressWarned = false
+  const publish = (state: InitiativeState, task: string | null, stopped?: RunStopReason): void => {
+    const p = taskProgress(state.phases)
+    const run = state.runs.find((r) => r.id === runId)
+    const lastHandoff = run?.handoffs[run.handoffs.length - 1]
+    try {
+      writeRunProgress(
+        rootDir,
+        {
+          version: 1,
+          run: runId,
+          slug: initiative,
+          worktree,
+          ...(options.launchedBy !== undefined ? { launched_by: options.launchedBy } : {}),
+          task: stopped === undefined ? task : null,
+          done: p.done,
+          total: p.total,
+          handoffs: run?.handoffs.length ?? 0,
+          ...(lastHandoff !== undefined
+            ? {
+                last_handoff: {
+                  reason: lastHandoff.reason,
+                  ...(lastHandoff.task !== undefined ? { task: lastHandoff.task } : {}),
+                  session_id: lastHandoff.session_id,
+                },
+              }
+            : {}),
+          state: stopped === undefined ? 'running' : 'stopped',
+          ...(stopped !== undefined ? { stop_reason: stopped } : {}),
+          updated: new Date().toISOString(),
+        },
+        options.lock?.env,
+      )
+    } catch (err) {
+      if (progressWarned) return
+      progressWarned = true
+      progress(`warning: the run's progress file could not be written (${err instanceof Error ? err.message : String(err)}) — a session bound elsewhere will not see this run on its statusline; the record still has it`)
+    }
+  }
+  {
+    const taken = ctx.foldState(initiative)
+    publish(taken, nextTask(taken)?.id ?? null)
+  }
+  // Where the launching session's surfaces look first (drive-reach 1.3).
+  if (options.launchedBy !== undefined) {
+    try {
+      noteLaunched(rootDir, options.launchedBy, runId, options.lock?.env)
+    } catch (err) {
+      progress(`warning: session ${options.launchedBy} will not see this run on its statusline (${err instanceof Error ? err.message : String(err)}); the record still has it`)
+    }
+  }
+
   // ---------------------------------------------------------------------
   // The verification gate (r1-fixes 3.1, D19). `gate` runs the task's
   // acceptance command, records the outcome, and on anything but a pass
@@ -1090,6 +1156,7 @@ async function driveHolding(
       progress(
         `session ${launched + 1}: ${task.id} — ${task.title}${routed !== adapter ? ` via ${routed.name}` : ''}`,
       )
+      publish(state, task.id)
       // What the last check said about this task, if it was reopened (D19):
       // its acceptance command, or a decision's check (memory-lead D9), with
       // the rule and the fix. A refused check never reopened anything.
@@ -1238,6 +1305,10 @@ async function driveHolding(
       progress(
         `  ${reason} — session ${sessionId}${tokens !== undefined ? `, ${tokens} ctx tokens` : ''}${detail !== undefined ? ` (${detail})` : ''}`,
       )
+      {
+        const filed = ctx.foldState(initiative)
+        publish(filed, nextTask(filed)?.id ?? null)
+      }
       if (judging.provider !== undefined && !interrupted) {
         const ended = after.sessions.find((s) => s.id === sessionId)
         const diff = headBefore !== null ? diffStatSince(cwd, headBefore) : null
@@ -1304,6 +1375,7 @@ async function driveHolding(
     { run: runId, reason: ended.reason, ...(ended.note !== undefined ? { note: ended.note } : {}) },
     { session: 'cli', source: 'cli', actor: 'human' },
   )
+  publish(ctx.foldState(initiative), null, ended.reason)
   return {
     run: runId,
     initiative,

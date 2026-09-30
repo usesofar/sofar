@@ -22,10 +22,18 @@ import { mcpRegistration } from '../mcp/register'
 
 export const CODEX_CONFIG = '.codex/config.toml'
 
+/**
+ * Pre-approves sofar's own tools (agents-parity 3.4). Without it, `codex exec`
+ * under approval_policy=never refuses every sofar call ("MCP tool call requires
+ * approval, but approval policy is never"). 0.158.0's parser takes
+ * auto|prompt|writes|approve here; `approve` proven live under exec.
+ */
+export const CODEX_TOOLS_APPROVAL = 'default_tools_approval_mode = "approve"'
+
 /** The table init appends: the same server `.mcp.json` registers, in TOML. */
 export const CODEX_MCP_TABLE = ((): string => {
   const { command, args } = mcpRegistration().mcpServers.sofar
-  return `[mcp_servers.sofar]\ncommand = ${JSON.stringify(command)}\nargs = [${args.map((arg) => JSON.stringify(arg)).join(', ')}]\n`
+  return `[mcp_servers.sofar]\ncommand = ${JSON.stringify(command)}\nargs = [${args.map((arg) => JSON.stringify(arg)).join(', ')}]\n${CODEX_TOOLS_APPROVAL}\n`
 })()
 
 /** The one user-level step when the project file cannot take the table: `codex mcp add` writes the user's config.toml (binary). */
@@ -313,6 +321,22 @@ export function codexMcpState(text: string): CodexMcpState {
     doc.headers.some((h) => h.array && h.path[0] === 'mcp_servers') ||
     doc.pairs.some((p) => p.path[0] === 'mcp_servers' && p.header?.path[0] !== 'mcp_servers')
   return blocked ? 'blocked' : 'absent'
+}
+
+/**
+ * Does sofar's server set a tools approval mode, in any form? The scanner reads
+ * no values, so a user's own `prompt` counts too — their choice wins (D7).
+ * False when sofar is not registered or the file is unreadable.
+ */
+export function codexSofarToolsApprovalSet(text: string): boolean {
+  const doc = scan(text)
+  if (doc === null) return false
+  const key: KeyPath = [...SOFAR, 'default_tools_approval_mode']
+  return doc.pairs.some(
+    (p) =>
+      (p.path.length === key.length && under(p.path, key)) ||
+      (p.path.length === SOFAR.length && under(p.path, SOFAR) && p.inlineKeys.includes('default_tools_approval_mode')),
+  )
 }
 
 /** Is sofar registered in the config.toml at this path? A missing or unreadable file answers false. */

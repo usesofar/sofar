@@ -30,8 +30,9 @@ The decisions matter most. Knowing that an idea was already tried and rejected
 is what stops the same dead end being walked twice.
 
 Everything is plain text that lives in your repo. There is no account and no
-server to run. sofar never calls an AI model itself, so it adds nothing to your
-bill and sends nothing anywhere.
+server to run. sofar never calls an AI model itself and sends nothing
+anywhere. `sofar drive` launches *your* agent under *your* login, so that
+agent's usage is yours — `--cost-cap` bounds one run of it.
 
 ## Install
 

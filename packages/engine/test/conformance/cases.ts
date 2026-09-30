@@ -56,6 +56,31 @@ const synthetic = (name: string, git: FixtureSpec['git'] = { branch: 'main', hea
   git,
 })
 
+/** drive-reach 1.3: `conf-session` launched LAUNCHED_RUN on another initiative, in another worktree. */
+const LAUNCHED_RUN = '01M3QAAAAAAAAAAAAAAAAAAAAA'
+function seedLaunched(m: Materialized, state: 'running' | 'stopped'): void {
+  const base = join(m.home, '.local', 'state', 'sofar')
+  mkdirSync(join(base, 'runs'), { recursive: true })
+  mkdirSync(join(base, 'launched'), { recursive: true })
+  writeFileSync(join(base, 'launched', 'conf-session.json'), `${JSON.stringify({ version: 1, runs: [LAUNCHED_RUN] })}\n`)
+  const progress = {
+    version: 1,
+    run: LAUNCHED_RUN,
+    slug: 'linked-context',
+    worktree: '/elsewhere/sofar-linked',
+    launched_by: 'conf-session',
+    task: state === 'running' ? '3.2' : null,
+    done: state === 'running' ? 4 : 7,
+    total: 9,
+    handoffs: state === 'running' ? 4 : 7,
+    last_handoff: { reason: 'task_done', task: state === 'running' ? '3.1' : '3.4', session_id: 'driven-1' },
+    state,
+    ...(state === 'stopped' ? { stop_reason: 'needs_user' } : {}),
+    updated: '2026-09-30T00:00:00.000Z',
+  }
+  writeFileSync(join(base, 'runs', `${LAUNCHED_RUN}.json`), `${JSON.stringify(progress)}\n`)
+}
+
 /** A registered session in the repo record's `speed` initiative (homeInitiative routing). */
 const SPEED_SESSION = 'aefa6315-3725-4e4d-9f9a-224ff6f86ddb'
 /** The last written-back session on `rust-core` at the snapshot. */
@@ -289,6 +314,24 @@ export const CASES: ConformanceCase[] = [
       s('numbers and escapes re-serialize canonically', ['event', 'append', '--type', 'note_added', '--payload', '{"text":"esc \\u0001 \\ud83d\\ude00 \\ud800 \\"q\\" \\\\ / \\u2028","z":1e21,"a":1e-7,"m":-0,"f":1.0,"big":12345678901234567890,"s":0.30000000000000004,"tiny":5e-324,"nest":{"b":[null,1,{"y":2,"x":1}],"a":true},"dup":1,"dup":2}']),
       s('status after the appends', ['status']),
       s('status of the other record', ['status', 'felt-cost']),
+    ],
+  },
+  {
+    // drive-reach 1.3: a run this session launched on ANOTHER initiative and
+    // worktree, seen only through its progress file and the session's launch
+    // index. No lock file is seeded, so liveness is unknown on both sides.
+    name: 'repo.drive-reach',
+    fixture: REPO,
+    steps: [
+      s('Edit registers the session', ['event', 'post-tool'], edit('<ROOT>/packages/engine/src/core/fold.ts')),
+      s('launched run open: statusline', ['statusline', '--no-color'], statusline(), { before: (m) => seedLaunched(m, 'running') }),
+      s('launched run open: styled', ['statusline'], statusline()),
+      s('launched run open: prompt line', ['event', 'user-prompt'], prompt()),
+      s('the same prompt again: nothing moved, no line', ['event', 'user-prompt'], prompt()),
+      s('another session launched nothing', ['statusline', '--no-color'], statusline({ session_id: SPEED_SESSION })),
+      s('launched run stopped: statusline', ['statusline', '--no-color'], statusline(), { before: (m) => seedLaunched(m, 'stopped') }),
+      s('launched run stopped: styled', ['statusline'], statusline()),
+      s('launched run stopped: prompt line', ['event', 'user-prompt'], prompt()),
     ],
   },
   {

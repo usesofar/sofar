@@ -19,9 +19,11 @@ import { AGENT_LABELS, AGENTS } from './agents'
 import {
   CODEX_CONFIG,
   CODEX_MCP_ADD,
+  CODEX_TOOLS_APPROVAL,
   codexConfigRegistersSofar,
   type CodexMcpState,
   codexMcpState,
+  codexSofarToolsApprovalSet,
   codexUserConfigPath,
 } from './codex-config'
 import {
@@ -351,6 +353,21 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     }
     if (state === 'registered') {
       findings.push({ level: 'ok', text: `${CODEX_CONFIG} sofar server registered` })
+      // 3.4: a table from an older init lacks the approval key, so `codex exec`
+      // refuses every sofar tool call. The table is the user's (D7): name the line.
+      let approvalSet = true
+      try {
+        approvalSet = codexSofarToolsApprovalSet(readFileSync(configPath, 'utf8'))
+      } catch {
+        // registered was read from this file; a vanished file is not this check's finding
+      }
+      if (!approvalSet) {
+        findings.push({
+          level: 'warn',
+          text: `${CODEX_CONFIG} sofar tools not pre-approved — codex exec and driven sessions refuse sofar's MCP calls`,
+          hint: `add \`${CODEX_TOOLS_APPROVAL}\` under [mcp_servers.sofar] in ${CODEX_CONFIG}`,
+        })
+      }
     } else if (codexConfigRegistersSofar(codexUserConfigPath(userHome))) {
       findings.push({ level: 'ok', text: 'Codex sofar server registered in your user config.toml' })
     } else {

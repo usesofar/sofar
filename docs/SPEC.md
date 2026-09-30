@@ -2119,7 +2119,7 @@ adapters therefore delete one named list before spawning: `CLAUDECODE`,
 `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ATTENDED`,
 `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`,
 `CLAUDE_EFFORT`, `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`,
-`CODEX_THREAD_ID`. Never a prefix strip: `CLAUDE_CONFIG_DIR`, the Bedrock and
+`CODEX_THREAD_ID`, `SOFAR_DRIVE_LAUNCHED_BY`. Never a prefix strip: `CLAUDE_CONFIG_DIR`, the Bedrock and
 Vertex switches, `ANTHROPIC_*` and `CODEX_HOME` route the operator's own auth
 (D1) and pass through untouched. Variables the driver itself sets
 (`SOFAR_DRIVE_NUDGE`) are applied after the deletion.
@@ -2159,6 +2159,65 @@ unknown`, NEVER `driver gone`: every reader that renders liveness renders
 that. Where the lock cannot be taken — Linux without `flock(1)`, Windows
 until sofar-core ships, a state base inside the repo — the opening lines say
 liveness is unavailable for this run (D9), and the run proceeds as before.
+
+**The run's progress file (drive-reach 1.1).** Beside its lock the driver
+keeps `<state base>/runs/<run id>.json`: `{version, run, slug, worktree,
+launched_by?, task, done, total, handoffs, last_handoff?, state,
+stop_reason?, updated}` — `worktree` the real path of the clone it drives,
+`launched_by` the session that started it (drive-reach 1.2: the
+caller's `CLAUDE_CODE_SESSION_ID`, else `CODEX_THREAD_ID`; `--detach`
+carries it to the child as `SOFAR_DRIVE_LAUNCHED_BY`, since the child's
+environment is otherwise clean of its caller; absent from a plain terminal
+and from Cursor, which exports no session id — the per-worktree session
+pointer is last-writer-wins and is not guessed from), `task` the
+driver's own next task (null when none is queued or once stopped), `done` /
+`total` the initiative's taskProgress, `last_handoff` {reason, task?,
+session_id}, `state` `running` or `stopped`. It is DERIVED state (r1-fixes
+D20): a copy of what the record already says, for a reader that cannot fold
+that record — a session bound to another initiative, or on another
+worktree, whose record copy never sees the run. Never part of the record,
+never committed, exported or synced; per user like the lock, refused where
+the lock is, and never unlinked by the driver. Written atomically
+(temp-and-rename) when the driver takes the run, at the head of every turn
+once it has chosen the task, after every handoff, and after `run_stopped`
+— so `done` moves at handoffs, not mid-session: the driver folds only at
+those points, and a fold per poll tick is the cost the stop scan exists to
+avoid. A driver that is fenced writes nothing more (the new owner writes the
+same file). `state: running` says only what the driver last wrote; whether
+it is alive is the lock's answer, and a reader probes it — a file that says
+running beside a FREE lock is a driver gone. A write that fails is a warning
+on the progress stream once, never a stop: the record is the run's state,
+the file only a window on it. Readers take a file whose `version` they do
+not know, or that does not parse, as absent.
+
+**Runs a session launched (drive-reach 1.3).** A driver with a launcher
+also keeps `<state base>/launched/<session id>.json` — `{version, runs}`,
+the run ids that session started, oldest first, the last 8 kept — written
+when it takes the run (read-merge-replace, atomically). A session id that
+could name a path gets no file. The reader looks at that one file for ITS
+session id, newest run first, and takes the first run whose progress file
+names another initiative or another worktree than the one the session's own
+surface already folds (a run on the session's own record and clone keeps
+today's path, unchanged); a session with no resolved record takes the
+newest. Cost: one open that fails with ENOENT for every session that never
+launched a run, else one small read, one progress-file read and one lock
+probe — no fold, no directory scan. Liveness is the probe's, exactly as on
+the own-record path: `running` with the lock HELD, gone with it FREE,
+`liveness unknown` with it ABSENT; a progress file that says `stopped`
+needs no probe. Every such run was started during the session, so its stop
+is always news and shows until the session ends or launches another.
+- The statusline appends, after the record segment (or where the record
+  segment would be, when nothing resolves), `drive <slug> <task>
+  <done>/<total>` (`running` when no task is queued; ` liveness unknown`
+  appended when ABSENT), `drive <slug> gone`, or `drive <slug> <stop
+  reason>` — toned as the own-record segment, the slug dim.
+- The UserPromptSubmit drive line, in the path that resolves a record,
+  adds `sofar drive: run <id> on <slug> <running|driver gone|liveness
+  unknown|stopped: reason> · <n> handoffs · now on <task> · <done>/<total>`,
+  gated as the own-record line is, on drive-seen marks keyed `<session
+  id>/launched` so the two lines never silence each other.
+Both implementations read the same files; the Rust core's statusline and
+prompt handler render the same bytes.
 
 **Fencing a takeover (drive-visibility 2.2).** The lock is machine-local; a
 record syncs. A `--resume` therefore appends `run_adopted {run, epoch}` with
@@ -2458,10 +2517,13 @@ shims and loads the sofar MCP server, and sofar reads no Codex live-session
 registry (§Codex host). Everywhere else it is Tier 3. An untrusted project loads
 no project hook, and Codex skips a new or edited hook entry until it is trusted
 again, so one Codex binary can sit in either tier. The AGENTS.md block's CLI
-loop is what reaches the record from Tier 3. This placement rests on the wiring
-and its tests, as Cursor's did before r1-fixes 6.3's live proof. The live proof
-for Codex is agents-parity 3.2, which waits for the operator's consent
-(§Codex host, its Live proof paragraph).
+loop is what reaches the record from Tier 3. The placement is proven live by
+agents-parity 3.2 (codex 0.154.0 on 2026-09-17, 0.158.0 on 2026-09-30): an
+exec session writes back through the MCP server (pre-approved, 3.4) or through
+the CLI loop, both under its own thread id (3.3), and `sofar drive --agent
+codex` hands off `task_done` naming the hook-registered id. The interactive
+TUI write-back was checked on 0.154.0 before the 3.3 fix and not re-run; it
+uses the same CLI-append adoption the exec run proved.
 
 ## Cursor host (r1-fixes Phase 6, D33/D35 ruling, D34 contract)
 sofar serves Cursor with the SAME shims, the same MCP server and the same
@@ -2769,8 +2831,11 @@ Limits stated, not worked around:
   merged by Codex with a startup warning. init writes JSON only.
 - `sofar` is found on whatever PATH Codex gives its hooks, which is unverified,
   so the r1-fixes M6 caution applies.
-- Whether `codex exec` loads trusted project hooks is unverified. The drive
-  adapter works either way (the **Driven** paragraph below).
+- `codex exec` runs a trusted project's hooks: session-start, user-prompt,
+  post-tool, stop and session-end all fired (live, 0.154.0 and 0.158.0). On
+  0.158.0, `codex exec --dangerously-bypass-hook-trust` runs them without
+  `/hooks` trust, for automation that vets hook sources itself (help text,
+  live).
 - The apply_patch grammar beyond the header markers is unverified.
 
 **MCP.** Servers are `[mcp_servers.<name>]` tables in `config.toml` (binary), and
@@ -2785,9 +2850,13 @@ elements` (binary, read in 2.2). Codex never reads `.mcp.json` or
 into `.codex/config.toml` (binary, migration strings). SessionStart hooks may
 run before an MCP server is ready (docs). Whether Codex passes the thread id to
 an MCP server's environment is unverified, so `sofar_start_session` still takes
-the id from the injected Session line. Whether Codex asks the operator to
-approve a project MCP server beyond trusting the project, as Cursor does, is
-unverified.
+the id from the injected Session line. Each tool call is gated by the
+server's `default_tools_approval_mode` or a per-tool
+`[mcp_servers.<name>.tools.<tool>] approval_mode`, one of `auto`, `prompt`,
+`writes` or `approve` (config parser, 0.154.0 and 0.158.0). Without one,
+`codex exec` under `approval_policy = "never"` refuses the call with "MCP tool
+call requires approval, but approval policy is never"; with `approve` the call
+completes (live, 0.158.0, agents-parity 3.4).
 
 **Wired MCP (agents-parity 2.2, D7).** `sofar init --agents codex` registers
 the server `.mcp.json` registers, as a table appended to the project's
@@ -2796,6 +2865,14 @@ the server `.mcp.json` registers, as a table appended to the project's
     [mcp_servers.sofar]
     command = "sofar"
     args = ["mcp"]
+    default_tools_approval_mode = "approve"
+
+- Pre-approved tools (agents-parity 3.4). `approve` lets exec and driven
+  sessions call sofar's tools. The operator's gates stay: the table loads only
+  in a trusted project, and hooks still need /hooks trust. A sofar table that
+  already exists is the user's and is not rewritten; `doctor` warns when it sets
+  no approval mode and names the line to add, and the user-level step's note
+  names it too.
 
 - No TOML dependency. `cli/codex-config.ts` reads only the file's structure:
   table headers, key paths, and where each sits. It knows basic, literal and
@@ -2867,11 +2944,11 @@ Stop handler every host runs (§Hooks), with no Codex branch.
   `turn_id` is unverified, and 3.2 checks `stop_hook_active` on it live. A
   Stop hook can reject Codex's memory-consolidation subagent (binary: "Memory
   consolidation was rejected by a Stop hook."). The gate holds only a session
-  the record registered that owes a write-back, and whether a project's hooks
-  run for that thread is unverified. Whether `codex exec` fires Stop is still
-  unverified. A driven session does not depend on it, because the driver
-  judges the write-back from the fold (session-driver D3). 3.2 checks it
-  live.
+  the record registered that owes a write-back. `codex exec` fires Stop
+  (live: exit 0 once the session has written back), and an interactive
+  continuation after a hold kept the turn's `turn_id` with `stop_hook_active`
+  true (live, 0.154.0). A driven session does not depend on Stop, because the
+  driver judges the write-back from the fold (session-driver D3).
 - Tests (`codex-host.test.ts`, D4): the contract fixture's `stop_hook_active`
   and `stop_runtime` sections.
 
@@ -8135,6 +8212,11 @@ stay the underlying derivation's, and exit codes are styling-independent.
     showed, whichever way it went, in §Codex host and in §Driver. The tier
     sentence in §Host tiers loses "rests on the wiring and its tests" or
     names what did not reach Codex.
+  - Met, 2026-09-30 (agents-parity 3.2, re-proof on 0.158.0 with
+    `gpt-reserve`): exec MCP write-back, exec CLI write-back and a one-task
+    drive all land under the thread id, and the drive hands off `task_done`
+    with its verification passed. The 2026-09-17 run's two failures are
+    closed by 3.3 and 3.4.
 - **Cursor live proof (r1-fixes 6.3/6.5/6.7/6.9):** checked LIVE with the
   operator's consent, on a scratch repo, with sofar's shims and MCP entry
   pinned by absolute path to a logging wrapper around the build under test

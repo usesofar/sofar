@@ -82,6 +82,14 @@ Details inside a section:
   shared with other strings are missing (28 fields, 18 seen). `url` appears in
   other copies of the same run. `cli_add` is the `codex mcp add` grammar from
   1.1's `--help` read.
+- `mcp.server_struct_fields_seen` gained `default_tools_approval_mode`, and
+  `mcp.tools_approval_modes` was added (agents-parity 3.4, read-from-binary):
+  config.toml's parser, run offline with `codex mcp list` against a scratch
+  CODEX_HOME, rejects a bad value with "unknown variant `bogus`, expected one
+  of `auto`, `prompt`, `writes`, `approve` in
+  `mcp_servers.sofar.default_tools_approval_mode`" on both 0.154.0 and 0.158.0.
+  That `approve` lets `codex exec` call the tools under approval_policy=never
+  was proven live on 0.158.0 (agents-parity decision 01M3RT50).
 - `agents_md.reads_claude_md_by_default: false` comes from the empty fallback
   default. The directory walk (repo root to cwd) is unverified.
 - `hooks.stop_hook_active` and `hooks.stop_runtime` were added in agents-parity

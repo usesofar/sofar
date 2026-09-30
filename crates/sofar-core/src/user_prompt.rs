@@ -401,6 +401,52 @@ fn drive_line(root: &Path, state: &InitiativeState, me: &SessionState) -> Option
     ))
 }
 
+/// `launchedDriveLine` (drive-reach 1.3): the drive line plus `on <slug>` for
+/// a run this session launched on another initiative or worktree, read from
+/// its progress file; gated on the drive-seen mark `<session id>/launched`.
+fn launched_drive_line(root: &Path, slug: &str, me: &SessionState) -> Option<String> {
+    if std::env::var_os(crate::nudge::NUDGE_ENV).is_some_and(|v| !v.is_empty()) {
+        return None;
+    }
+    let worktree = crate::diagnostics::clone_real_path(root)
+        .to_string_lossy()
+        .into_owned();
+    let p = crate::run_progress::launched_run(root, &me.id, Some((slug, &worktree)))?;
+    let n = p.handoffs;
+    let mut parts = vec![format!("{n} handoff{}", if n == 1 { "" } else { "s" })];
+    if let Some(task) = p.task.as_ref().filter(|_| !p.stopped) {
+        parts.push(format!("now on {task}"));
+    }
+    parts.push(format!("{}/{}", p.done, p.total));
+    let tail = parts.join(" · ");
+    let stopped = p
+        .stopped
+        .then(|| format!("stopped: {}", p.stop_reason.as_deref().unwrap_or("unknown")));
+    if !crate::drive_seen::note_drive_seen(
+        root,
+        &format!("{}/launched", me.id),
+        &format!(
+            "{} {} · {tail}",
+            p.run,
+            stopped.as_deref().unwrap_or("open")
+        ),
+    ) {
+        return None;
+    }
+    let fate = stopped.unwrap_or_else(|| {
+        match crate::run_lock::probe_run_lock(root, &p.run) {
+            RunLiveness::Held => "running",
+            RunLiveness::Free => "driver gone",
+            RunLiveness::Absent => "liveness unknown",
+        }
+        .to_owned()
+    });
+    Some(clip_to(
+        &format!("sofar drive: run {} on {} {fate} · {tail}", p.run, p.slug),
+        DRIVE_LINE_BUDGET,
+    ))
+}
+
 fn parallel_wrap_line(state: &InitiativeState, session_id: &str) -> Option<String> {
     let me = state.sessions.iter().find(|s| s.id == session_id)?;
     let since = me.ended.as_deref().unwrap_or(&me.started);
@@ -690,6 +736,10 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     // News too, of the run driving this initiative (drive-visibility 3.2).
     if let Some(drive) = drive_line(root, &state, me) {
         lines.push(drive);
+    }
+    // And of a run this session launched elsewhere (drive-reach 1.3).
+    if let Some(launched) = launched_drive_line(root, &slug, me) {
+        lines.push(launched);
     }
     let git = read_git_state(root);
     if let Some(line) =

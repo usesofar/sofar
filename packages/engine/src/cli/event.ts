@@ -73,6 +73,8 @@ import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
 import { nextTask } from '../core/drive-queue'
 import { noteDriveSeen } from '../core/drive-seen'
 import { probeRunLock, type RunLockOptions } from '../core/run-lock'
+import { launchedRun } from '../core/run-progress'
+import { cloneRealPath } from '../core/state-dir'
 import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } from '../core/run-await'
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { resolvePhaseOrThrow } from '../mcp/update-phase'
@@ -2408,6 +2410,36 @@ export function driveLine(
 }
 
 /**
+ * The drive line for a run this session LAUNCHED on another initiative or
+ * worktree (drive-reach 1.3): the same line as driveLine plus `on <slug>`,
+ * read from the run's progress file rather than a fold this session cannot
+ * make. Gated on its own drive-seen mark, `<session id>/launched`, so it and
+ * the own-record line never silence each other.
+ */
+export function launchedDriveLine(
+  rootDir: string,
+  slug: string,
+  me: SessionState,
+  env: NodeJS.ProcessEnv = process.env,
+  lock?: RunLockOptions,
+): string | null {
+  if ((env[NUDGE_ENV] ?? '').length > 0) return null
+  const p = launchedRun(rootDir, me.id, { slug, worktree: cloneRealPath(rootDir) }, env)
+  if (p === null) return null
+  const n = p.handoffs
+  const now = p.state === 'running' && p.task !== null ? p.task : undefined
+  const tail = [`${n} handoff${n === 1 ? '' : 's'}`, ...(now !== undefined ? [`now on ${now}`] : []), `${p.done}/${p.total}`].join(' · ')
+  const stopped = p.state === 'stopped' ? `stopped: ${p.stop_reason ?? 'unknown'}` : undefined
+  if (!noteDriveSeen(rootDir, `${me.id}/launched`, `${p.run} ${stopped ?? 'open'} · ${tail}`, env)) return null
+  let fate = stopped
+  if (fate === undefined) {
+    const liveness = probeRunLock(rootDir, p.run, { env, ...lock })
+    fate = liveness === 'held' ? 'running' : liveness === 'free' ? 'driver gone' : 'liveness unknown'
+  }
+  return clipTo(`sofar drive: run ${p.run} on ${p.slug} ${fate} · ${tail}`, DRIVE_LINE_BUDGET)
+}
+
+/**
  * PostToolUse rewake (drive-visibility 3.7): after a Bash call that started a
  * DETACHED run, wait on it and wake this session with one line when it stops
  * or its driver dies. Wired only for Claude Code, whose `asyncRewake` runs the
@@ -2540,6 +2572,9 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // News too, of the run driving this initiative (drive-visibility 3.2).
     const drive = driveLine(rootDir, state, me)
     if (drive !== null) lines.push(drive)
+    // And of a run this session launched elsewhere (drive-reach 1.3).
+    const launched = launchedDriveLine(rootDir, slug, me)
+    if (launched !== null) lines.push(launched)
 
     // One refs read (files, no subprocess) feeding both lines: the per-record
     // news first, then the repo-wide state. Order matters — "your commits
