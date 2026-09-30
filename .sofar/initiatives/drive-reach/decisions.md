@@ -2,4 +2,4 @@
 
 # Decisions: drive-reach
 
-(no decisions logged yet)
+- 2026-09-30T10:17:28.599Z — chose **launched_by from CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID only; Cursor-launched runs name no launcher** over Falling back to the per-worktree session pointer for Cursor because The pointer is last-writer-wins per worktree, so a guess could show a run on a stranger's statusline; absent keeps today's behaviour. Cursor exports no session id to its shell (a D35 gap to revisit if Cursor adds one).

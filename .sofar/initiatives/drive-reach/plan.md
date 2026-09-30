@@ -4,7 +4,7 @@
 
 Goal: A session that launches sofar drive sees that run's live progress in its statusline and prompt line whatever the run's initiative or worktree: the driver keeps a per-run progress file beside the machine-wide run lock and records the launching session; the statusline reads that one file within its budget, never another worktree's log.
 
-Progress: 3/4 tasks done (75%)
+Progress: 4/4 tasks done (100%)
 
 ## Phase 1 — Build [done] — 3/3 done
 
@@ -12,8 +12,8 @@ Progress: 3/4 tasks done (75%)
 - [x] 1.2 launched_by: `sofar drive --detach` captures the calling session id (hook-provided env / session registry) and passes it to the driver; absent when launched from a plain terminal
 - [x] 1.3 Statusline drive segment and UserPromptSubmit drive line show live runs this session launched, any initiative or worktree, from the progress file only (one stat + small read); own-record runs keep today's path; rust-core statusline parity
 
-## Phase 2 — Proof [pending] — 0/1 done
+## Phase 2 — Proof [done] — 1/1 done
 
-- [ ] 2.1 Live proof: detach a run on another worktree from a session bound elsewhere; statusline and prompt line track task/done/total and the stop; statusline p50 within its budget (D18)
+- [x] 2.1 Live proof: detach a run on another worktree from a session bound elsewhere; statusline and prompt line track task/done/total and the stop; statusline p50 within its budget (D18)
 
-Next action: 2.1 live proof: from a session bound elsewhere, `sofar drive <other-slug> --detach` on another worktree; watch statusline + prompt line track task/done/total and the stop; then run bench/read-paths.mjs (D18) baseline vs candidate dist for statusline and user-prompt p50
+Next action: Operator: decide whether Cursor-launched runs need a launcher (D1) before closing; if not, `sofar close drive-reach`
