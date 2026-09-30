@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: 2026-10-04 16:30 IST: operator bootstraps the rep-1 trio plists.
+Next action: Watch rep 1 through S11 (~6h); then score-batch, H9 proof, Codex window measure, reps 2–3 ruling.
