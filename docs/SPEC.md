@@ -2069,7 +2069,7 @@ opening rather than returning on spawn.
   model and stall.
 
 A FOREGROUND `sofar drive` whose environment says it runs inside an agent's
-shell (`CLAUDECODE`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`) warns on its
+shell (`CLAUDECODE`, `CODEX_SANDBOX`, `CODEX_THREAD_ID`, `CURSOR_AGENT`) warns on its
 progress stream that the agent's command timeout will end the driver and
 names `--detach`; it does not refuse, since an operator may have raised that
 timeout.
@@ -2119,7 +2119,8 @@ adapters therefore delete one named list before spawning: `CLAUDECODE`,
 `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ATTENDED`,
 `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`,
 `CLAUDE_EFFORT`, `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`,
-`CODEX_THREAD_ID`, `SOFAR_DRIVE_LAUNCHED_BY`. Never a prefix strip: `CLAUDE_CONFIG_DIR`, the Bedrock and
+`CODEX_THREAD_ID`, `CURSOR_AGENT`, `CURSOR_CONVERSATION_ID`,
+`CURSOR_REQUEST_ID`, `SOFAR_DRIVE_LAUNCHED_BY`. Never a prefix strip: `CLAUDE_CONFIG_DIR`, the Bedrock and
 Vertex switches, `ANTHROPIC_*` and `CODEX_HOME` route the operator's own auth
 (D1) and pass through untouched. Variables the driver itself sets
 (`SOFAR_DRIVE_NUDGE`) are applied after the deletion.
@@ -2165,11 +2166,13 @@ keeps `<state base>/runs/<run id>.json`: `{version, run, slug, worktree,
 launched_by?, task, done, total, handoffs, last_handoff?, state,
 stop_reason?, updated}` — `worktree` the real path of the clone it drives,
 `launched_by` the session that started it (drive-reach 1.2: the
-caller's `CLAUDE_CODE_SESSION_ID`, else `CODEX_THREAD_ID`; `--detach`
-carries it to the child as `SOFAR_DRIVE_LAUNCHED_BY`, since the child's
-environment is otherwise clean of its caller; absent from a plain terminal
-and from Cursor, which exports no session id — the per-worktree session
-pointer is last-writer-wins and is not guessed from), `task` the
+caller's `CLAUDE_CODE_SESSION_ID`, else `CODEX_THREAD_ID`, else
+`CURSOR_CONVERSATION_ID` — each equal to the id that host's hooks register
+(Cursor's measured live on cursor-agent 2026.09.28, drive-reach D2);
+`--detach` carries it to the child as `SOFAR_DRIVE_LAUNCHED_BY`, since the
+child's environment is otherwise clean of its caller; absent from a plain
+terminal — the per-worktree session pointer is last-writer-wins and is not
+guessed from), `task` the
 driver's own next task (null when none is queued or once stopped), `done` /
 `total` the initiative's taskProgress, `last_handoff` {reason, task?,
 session_id}, `state` `running` or `stopped`. It is DERIVED state (r1-fixes
@@ -2541,7 +2544,10 @@ and `.claude/settings.local.json` as "third-party" hooks — always in the
 CLI, and in the IDE behind a setting that is on by default. Project hooks
 run with cwd = project root through a shell, with `CURSOR_PROJECT_DIR`,
 `CLAUDE_PROJECT_DIR`, `CURSOR_VERSION` and `CURSOR_TRANSCRIPT_PATH` set;
-no variable carries the conversation id. MCP: `.cursor/mcp.json` and
+no variable carries the conversation id to a HOOK. The agent's own Shell
+commands do get it: cursor-agent's local executor sets `CURSOR_AGENT=1`,
+`CURSOR_CONVERSATION_ID` (equal to the hooks' `conversation_id`) and
+`CURSOR_REQUEST_ID` on every command (live, 2026.09.28, drive-reach D2). MCP: `.cursor/mcp.json` and
 `~/.cursor/mcp.json` only — a root `.mcp.json` is never read for a project,
 which is why round 1's Cursor cells made 0 sofar MCP calls. A project server
 starts only after the operator approves it once (IDE prompt, or

@@ -155,6 +155,11 @@ export const CALLER_SESSION_ENV: readonly string[] = [
   'CODEX_SANDBOX',
   'CODEX_SANDBOX_NETWORK_DISABLED',
   'CODEX_THREAD_ID',
+  // cursor-agent's per-command identity (drive-reach D2): the caller's, never
+  // a driven session's — a driven cursor-agent sets its own.
+  'CURSOR_AGENT',
+  'CURSOR_CONVERSATION_ID',
+  'CURSOR_REQUEST_ID',
   // The driver's own note of who launched it (drive-reach 1.2): the caller's,
   // never a driven session's.
   'SOFAR_DRIVE_LAUNCHED_BY',

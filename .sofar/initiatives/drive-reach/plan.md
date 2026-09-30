@@ -16,4 +16,4 @@ Progress: 4/4 tasks done (100%)
 
 - [x] 2.1 Live proof: detach a run on another worktree from a session bound elsewhere; statusline and prompt line track task/done/total and the stop; statusline p50 within its budget (D18)
 
-Next action: Operator: decide whether Cursor-launched runs need a launcher (D1) before closing; if not, `sofar close drive-reach`
+Next action: `sofar close drive-reach` — every task done and the Cursor gap closed (D2)

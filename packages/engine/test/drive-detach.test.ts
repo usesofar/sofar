@@ -172,7 +172,7 @@ describe('sofar drive --detach (in-session-drive D1)', () => {
     // with no inherited launcher — this suite may itself run inside an agent.
     const bare = (r2: Repo, extra: Record<string, string>): SpawnSyncReturns<string> => {
       const env: NodeJS.ProcessEnv = { ...process.env, XDG_STATE_HOME: state, TMPDIR: r2.logs, STUB_OUT: r2.out, ...extra }
-      for (const name of ['CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID', 'SOFAR_DRIVE_LAUNCHED_BY']) if (!(name in extra)) delete env[name]
+      for (const name of ['CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID', 'CURSOR_CONVERSATION_ID', 'SOFAR_DRIVE_LAUNCHED_BY']) if (!(name in extra)) delete env[name]
       return spawnSync(process.execPath, [bundle, 'drive', 'demo', '--detach', '--bin', stub], { cwd: r2.root, encoding: 'utf8', timeout: 60_000, env })
     }
     const codex = repo('launched-by-codex', ['1.1'])
@@ -180,6 +180,16 @@ describe('sofar drive --detach (in-session-drive D1)', () => {
     await until(() => latestRun(fold(codex))?.stopped !== undefined)
     const codexRun = latestRun(fold(codex))!.id
     expect(JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${codexRun}.json`), 'utf8')).launched_by).toBe('thread-7')
+
+    // Cursor's agent shell names its conversation (drive-reach D2); a driven session never inherits it.
+    const cursor = repo('launched-by-cursor', ['1.1'])
+    expect(bare(cursor, { CURSOR_AGENT: '1', CURSOR_CONVERSATION_ID: 'conv-9', CURSOR_REQUEST_ID: 'req-1' }).status).toBe(0)
+    await until(() => latestRun(fold(cursor))?.stopped !== undefined)
+    const cursorRun = latestRun(fold(cursor))!.id
+    expect(JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${cursorRun}.json`), 'utf8')).launched_by).toBe('conv-9')
+    for (const env of sessionEnvs(cursor)) {
+      for (const name of ['CURSOR_AGENT', 'CURSOR_CONVERSATION_ID', 'CURSOR_REQUEST_ID', 'SOFAR_DRIVE_LAUNCHED_BY']) expect(env.has(name), name).toBe(false)
+    }
 
     const plain = repo('launched-by-none', ['1.1'])
     const plainRes = bare(plain, {})

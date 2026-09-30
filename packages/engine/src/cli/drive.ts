@@ -89,7 +89,7 @@ export interface DriveCliOptions {
  * (in-session-drive D1). Detection, not a list to scrub: that is
  * CALLER_SESSION_ENV's job, and the detached child runs without these.
  */
-const AGENT_SHELL_ENV = ['CLAUDECODE', 'CODEX_SANDBOX', 'CODEX_THREAD_ID'] as const
+const AGENT_SHELL_ENV = ['CLAUDECODE', 'CODEX_SANDBOX', 'CODEX_THREAD_ID', 'CURSOR_AGENT'] as const
 
 export function insideAgentShell(env: NodeJS.ProcessEnv): boolean {
   return AGENT_SHELL_ENV.some((name) => (env[name] ?? '').length > 0)
@@ -104,12 +104,14 @@ export const LAUNCHED_BY_ENV = 'SOFAR_DRIVE_LAUNCHED_BY'
 /**
  * The session a run is being started from, as its agent's shell names it:
  * Claude Code's CLAUDE_CODE_SESSION_ID, Codex's CODEX_THREAD_ID (a thread id
- * equals the hooks' session_id, agents-parity 3.3). Cursor exports none, and
- * the per-worktree session pointer is last-writer-wins, so it is not guessed
- * at: a run that names no launcher shows only where it is bound, as before.
+ * equals the hooks' session_id, agents-parity 3.3), Cursor's
+ * CURSOR_CONVERSATION_ID (equal to its hooks' conversation_id, measured live
+ * on cursor-agent 2026.09.28 — drive-reach D2). Nothing else is guessed: the
+ * per-worktree session pointer is last-writer-wins, so a run with no launcher
+ * shows only where it is bound, as before.
  */
 export function launchingSession(env: NodeJS.ProcessEnv): string | undefined {
-  for (const name of [LAUNCHED_BY_ENV, 'CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID']) {
+  for (const name of [LAUNCHED_BY_ENV, 'CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID', 'CURSOR_CONVERSATION_ID']) {
     const id = (env[name] ?? '').trim()
     if (id.length > 0) return id
   }
