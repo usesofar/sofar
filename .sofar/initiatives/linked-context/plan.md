@@ -42,7 +42,7 @@ Progress: 25 done, 1 dropped, 0 remaining
 
 - [x] 6.1 read-paths D18 gate: session-start/user-prompt/stop/statusline p50 ≤+10% on repo and i1000-10mb, ABAB n≥25, arm SOFAR_TRAVEL=off|index — verified pass @1c4df7d (attempt 2)
 - [x] 6.2 Digest-bytes histogram over every real record before/after. PREDICT: 0 bytes added where no open link; ≤600 chars max; readiness-gated vs all-links ablation — verified pass @1c4df7d (attempt 2)
-- [x] 6.3 Cross-record resume scenario: blocked task whose target resolved — with travel the session notices the unblock unprompted; turns/tokens vs predictions in typed-judge note 01M2ZV3KEV2XA467NW7TN6WYWZ
+- [x] 6.3 Cross-record resume scenario: blocked task whose target resolved — with travel the session notices the unblock unprompted; turns/tokens vs predictions in typed-judge note 01M2ZV3KEV2XA467NW7TN6WYWZ — verified pass @7efa428 (attempt 1)
 - [x] 6.4 Ranking ablations: hub-damped vs raw citation count, focus-ranked vs newest-first, dedupe on/off — precision@3 against a hand-labelled link set from this repo — verified pass @1c4df7d (attempt 2)
 
 ## Phase 7 — Answer packets (later) [done] — 1/2 (1 dropped) done
