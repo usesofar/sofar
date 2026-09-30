@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Watch rep 1 through S11 (~6h); then score-batch, H9 proof, Codex window measure, reps 2–3 ruling.
+Next action: Relay the watcher's reports; after all cells finish S30, run score-batch and check-rep.
