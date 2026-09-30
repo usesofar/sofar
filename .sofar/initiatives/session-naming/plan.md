@@ -13,4 +13,4 @@ Progress: 4/4 tasks done (100%)
 - [x] 1.3 SPEC §Hooks paragraph for the session title (what is read, what is returned, when it is withheld), ARCHITECTURE.md line for host.ts/host.rs, README/protocol text if a surface names session names. PREDICT: docs suite passes; the § rule holds.
 - [x] 1.4 Live proof on this machine: a claude session in a scratch repo wired to the build under test shows '<slug> <task>' in ~/.claude/sessions/<pid>.json (nameSource hook) and in ListAgents; a /rename survives the next prompt. PREDICT: registry name equals the title the hook printed.
 
-Next action: Operator: rebuild/reinstall sofar, open two sessions on one initiative, confirm distinct "#tag" titles.
+Next action: Land session-naming D2 on the release line (release/0.34.0-rc.4 lacks it) so the next rc ships it.
