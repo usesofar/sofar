@@ -4,15 +4,14 @@
 
 Goal: Name each Claude Code session after the initiative and task it serves (e.g. 'agents-parity 3.4') instead of the host's derived folder+hex name, by returning hookSpecificOutput.sessionTitle from the SessionStart and UserPromptSubmit hooks — emitted only when it changes, never a registry write (peer-messaging D1).
 
-Progress: 4/5 tasks done (80%)
+Progress: 4 done, 1 dropped, 0 remaining
 
-## Phase 1 — Title from the hooks [done] — 4/5 done
+## Phase 1 — Title from the hooks [done] — 4/5 (1 dropped) done
 
 - [x] 1.1 TypeScript: handleSessionStart and handleUserPrompt decide the title (slug + focus task id; only over an absent, derived or sofar-owned session_title) and host.ts renders the Claude Code hookSpecificOutput form; Cursor/Codex unchanged; hooks.test.ts and cursor/codex host tests cover every branch. PREDICT: a SessionStart with no session_title prints JSON carrying the digest and 'agents-parity 3.4'; one with session_title 'my name' prints today's plain digest byte-for-byte.
 - [x] 1.2 Rust mirror in sofar-core (session_start.rs, user_prompt.rs, host.rs) with the same bytes; conformance goldens re-recorded with a MANIFEST.md entry (rust-core D11) and new steps for session_title absent/derived/ours/operator. PREDICT: conformance passes against target/release/sofar-core with zero masked diffs.
 - [x] 1.3 SPEC §Hooks paragraph for the session title (what is read, what is returned, when it is withheld), ARCHITECTURE.md line for host.ts/host.rs, README/protocol text if a surface names session names. PREDICT: docs suite passes; the § rule holds.
 - [x] 1.4 Live proof on this machine: a claude session in a scratch repo wired to the build under test shows '<slug> <task>' in ~/.claude/sessions/<pid>.json (nameSource hook) and in ListAgents; a /rename survives the next prompt. PREDICT: registry name equals the title the hook printed.
-- [ ] 1.5 Ship D2 (per-session #tag in titles, main e96b6482) in the first rc cut after bench round 3, the round-4 cut that also carries memory-lead 4.3 (L35). After publishing, reinstall the global at that pinned version, replacing the patched rc.4 (M1). PREDICT: two sessions on one task get distinct titles from the stock install. (blocked)
+- [-] 1.5 Ship D2 (per-session #tag in titles, main e96b6482) in the first rc cut after bench round 3, the round-4 cut that also carries memory-lead 4.3 (L35). After publishing, reinstall the global at that pinned version, replacing the patched rc.4 (M1). PREDICT: two sessions on one task get distinct titles from the stock install. (dropped)
 
 Next action: 1.5: after round 3, include D2 in the round-4 rc cut, then reinstall the global at that pinned version.
-Blocked on: task 1.5: Blocked on round 3: memory-lead freezes it on published rc.4 with no rc.5 (operator ruling 2026-09-29). The operator held publishing on 2026-09-30.
