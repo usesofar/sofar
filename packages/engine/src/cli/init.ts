@@ -30,6 +30,7 @@ import {
 import {
   CODEX_CONFIG,
   CODEX_MCP_ADD,
+  CODEX_TOOLS_APPROVAL,
   codexConfigRegistersSofar,
   codexMcpState,
   codexUserConfigPath,
@@ -2669,6 +2670,7 @@ export const CODEX_MCP_USER_STEP_HINT = [
   `note: sofar's MCP server is not registered for Codex, and ${CODEX_CONFIG} was left as it is.`,
   '  Register it once in your user config, for every project on this machine:',
   `    ${CODEX_MCP_ADD}`,
+  `  then add \`${CODEX_TOOLS_APPROVAL}\` under [mcp_servers.sofar] there, so codex exec can call sofar's tools.`,
 ].join('\n')
 
 /**

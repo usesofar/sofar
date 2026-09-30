@@ -6,7 +6,9 @@ import {
   CODEX_CONFIG,
   CODEX_MCP_ADD,
   CODEX_MCP_TABLE,
+  CODEX_TOOLS_APPROVAL,
   codexMcpState,
+  codexSofarToolsApprovalSet,
   codexUserConfigPath,
   withoutSofarServer,
   withSofarServer,
@@ -80,15 +82,35 @@ describe('the table init writes', () => {
     const [header, ...pairs] = CODEX_MCP_TABLE.trimEnd().split('\n')
     expect(header).toBe(`[${mcp.table as string}.sofar]`)
     const keys = pairs.map((line) => line.split(' = ')[0])
-    expect(keys).toEqual(['command', 'args'])
+    expect(keys).toEqual(['command', 'args', 'default_tools_approval_mode'])
     for (const key of keys) expect(mcp.server_struct_fields_seen).toContain(key)
+    expect(mcp.tools_approval_modes).toContain('approve')
   })
 
   it('registers the same server as .mcp.json, and the user-level step runs the same command', () => {
     const { command, args } = mcpRegistration().mcpServers.sofar
-    expect(CODEX_MCP_TABLE).toBe(`[mcp_servers.sofar]\ncommand = "${command}"\nargs = [${args.map((a) => `"${a}"`).join(', ')}]\n`)
+    expect(CODEX_MCP_TABLE).toBe(
+      `[mcp_servers.sofar]\ncommand = "${command}"\nargs = [${args.map((a) => `"${a}"`).join(', ')}]\n${CODEX_TOOLS_APPROVAL}\n`,
+    )
+    expect(CODEX_TOOLS_APPROVAL).toBe('default_tools_approval_mode = "approve"')
     expect(CODEX_MCP_ADD).toBe(`codex mcp add sofar -- ${[command, ...args].join(' ')}`)
     expect((mcp.cli_add as string).split('<NAME>')[0]).toBe('codex mcp add ')
+  })
+})
+
+describe('whether sofar’s tools are pre-approved (3.4)', () => {
+  const cases: Array<[string, string, boolean]> = [
+    ['the table init writes', CODEX_MCP_TABLE, true],
+    ['an older table without the key', '[mcp_servers.sofar]\ncommand = "sofar"\nargs = ["mcp"]\n', false],
+    ['the user’s own mode, which wins', '[mcp_servers.sofar]\ncommand = "sofar"\ndefault_tools_approval_mode = "prompt"\n', true],
+    ['a dotted key', 'mcp_servers.sofar.default_tools_approval_mode = "approve"\n', true],
+    ['an inline table', 'mcp_servers.sofar = { command = "sofar", default_tools_approval_mode = "approve" }\n', true],
+    ['another server’s key', '[mcp_servers.docs]\ndefault_tools_approval_mode = "approve"\n[mcp_servers.sofar]\ncommand = "sofar"\n', false],
+    ['a per-tool table only', '[mcp_servers.sofar]\ncommand = "sofar"\n[mcp_servers.sofar.tools.sofar_get_state]\napproval_mode = "approve"\n', false],
+    ['an unreadable file', '[mcp_servers.sofar\n', false],
+  ]
+  it.each(cases)('%s', (_, text, expected) => {
+    expect(codexSofarToolsApprovalSet(text)).toBe(expected)
   })
 })
 
@@ -303,6 +325,18 @@ describe('sofar doctor and Codex’s MCP server', () => {
     expect(result.exitCode).toBe(1)
     expect(result.stdout).toContain('.codex/config.toml sofar server not registered')
     expect(result.stdout).toContain('run `sofar init --agents codex` to (re)install it')
+  })
+
+  it('warns, naming the line, when a registered table does not pre-approve sofar’s tools (3.4)', () => {
+    const root = freshRepo()
+    init(root)
+    expect(doctor(root).stdout).not.toContain('sofar tools not pre-approved')
+
+    writeFileSync(join(root, CODEX_CONFIG), '[mcp_servers.sofar]\ncommand = "sofar"\nargs = ["mcp"]\n')
+    const result = doctor(root)
+    expect(result.stdout).toContain('.codex/config.toml sofar server registered')
+    expect(result.stdout).toContain('.codex/config.toml sofar tools not pre-approved')
+    expect(result.stdout).toContain(`add \`${CODEX_TOOLS_APPROVAL}\` under [mcp_servers.sofar] in .codex/config.toml`)
   })
 
   it('names the user-level step for a file init leaves, and passes once the user config has it', () => {

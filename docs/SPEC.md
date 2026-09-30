@@ -2607,9 +2607,13 @@ elements` (binary, read in 2.2). Codex never reads `.mcp.json` or
 into `.codex/config.toml` (binary, migration strings). SessionStart hooks may
 run before an MCP server is ready (docs). Whether Codex passes the thread id to
 an MCP server's environment is unverified, so `sofar_start_session` still takes
-the id from the injected Session line. Whether Codex asks the operator to
-approve a project MCP server beyond trusting the project, as Cursor does, is
-unverified.
+the id from the injected Session line. Each tool call is gated by the
+server's `default_tools_approval_mode` or a per-tool
+`[mcp_servers.<name>.tools.<tool>] approval_mode`, one of `auto`, `prompt`,
+`writes` or `approve` (config parser, 0.154.0 and 0.158.0). Without one,
+`codex exec` under `approval_policy = "never"` refuses the call with "MCP tool
+call requires approval, but approval policy is never"; with `approve` the call
+completes (live, 0.158.0, agents-parity 3.4).
 
 **Wired MCP (agents-parity 2.2, D7).** `sofar init --agents codex` registers
 the server `.mcp.json` registers, as a table appended to the project's
@@ -2618,6 +2622,14 @@ the server `.mcp.json` registers, as a table appended to the project's
     [mcp_servers.sofar]
     command = "sofar"
     args = ["mcp"]
+    default_tools_approval_mode = "approve"
+
+- Pre-approved tools (agents-parity 3.4). `approve` lets exec and driven
+  sessions call sofar's tools. The operator's gates stay: the table loads only
+  in a trusted project, and hooks still need /hooks trust. A sofar table that
+  already exists is the user's and is not rewritten; `doctor` warns when it sets
+  no approval mode and names the line to add, and the user-level step's note
+  names it too.
 
 - No TOML dependency. `cli/codex-config.ts` reads only the file's structure:
   table headers, key paths, and where each sits. It knows basic, literal and
