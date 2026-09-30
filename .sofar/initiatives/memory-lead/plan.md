@@ -4,7 +4,7 @@
 
 Goal: Make sofar measurably the best work memory for AI coding agents: never below any agent's native memory on any rep, bookkeeping at or below native overhead, and a lead of at least 25-30% (target 2x) on held-out long-horizon, cross-agent, decision-churn work. The lead must survive a native memory that syncs across machines and teammates, so it may never rest on native memory being machine-local.
 
-Progress: 20/25 tasks done (80%)
+Progress: 20/29 tasks done (68%)
 
 ## Phase 1 — Wave A: parity at native overhead (ships in 0.33.0-rc.2) [done] — 4/4 done
 
@@ -33,10 +33,14 @@ Progress: 20/25 tasks done (80%)
 - [ ] 3.3 [parked until the operator rules on the no-sync-service guard-rail] Team decision sync with merge semantics and conflict surfacing through sofar-cloud (fold snapshot contract)
 - [x] 3.4 rust-core mirrors 3.1 (the BM25 index and its prompt-time line) with conformance parity, as 2.5 does for 2.1
 
-## Phase 4 — Moat against a cloud-synced native memory [pending] — 1/2 done
+## Phase 4 — Moat against a cloud-synced native memory [pending] — 1/6 done
 
 - [x] 4.1 Moat spec: assume Claude Code (and others) ship shared cloud memory; list the advantages that survive: vendor-neutral cross-agent memory, branch- and PR-aware records that merge with the code, typed decisions with supersession and provenance to commits and tests, executable enforcement, deterministic zero-model capture, team governance of rules. Each maps to a benchmark claim with a falsifier.
 - [ ] 4.2 Retire any public claim or roadmap item whose advantage rests only on native memory being machine-local (blocked)
+- [ ] 4.3 L35: cut raw .sofar reads (R2-P10 falsified at 20–43 reads per cell). PREDICT ≤1 raw read per session, judged on a fresh held-out chain. Growth bet 5, founder-approved 2026-09-30; owner was round 4 in D25 notes only
+- [ ] 4.4 L34: cap the alwaysLoad per-turn cost (grew 205 → 3,267 chars). PREDICT store cost ≤ native overhead with no M3 loss, on a fresh held-out chain. Growth bet 5
+- [ ] 4.5 Compaction survival: after a forced compaction the record re-orients the agent at least as well as native memory (R3-P11 compaction survival ≥ native). Growth bet 5; MOAT §1.3 names it a native win with no owner
+- [ ] 4.6 Memory curation: dedupe and retire stale or superseded remember/notes so the digest stays sharp as records grow. Growth bet 5; MOAT §1.3 names it a native win with no owner
 
 ## Phase 5 — Proof: held-out Chain L (round 3) [pending] — 3/5 done
 
@@ -47,5 +51,5 @@ Progress: 20/25 tasks done (80%)
 - [ ] 5.5 Exploratory live arm for linked-context 6.3, OUTSIDE the frozen round-3 pre-registration (5.3): on round 3's harness and profile, resume a blocked task whose cross-record target resolved, SOFAR_TRAVEL on vs off, ~5 reps; measure unprompted unblock, turns and tokens; reported apart from the round-3 claims
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: Operator bootstraps the rep-1 trio (round-3-sofar-r1, native-synced-r1, competitor-r1) at 2026-10-04 16:30 IST.
+Next action: After rep-1 cells pass S11 (~5 h from 17:22 IST), run `python3 smoke-r3/check-rep.py round-3-sofar-r1 round-3-native-synced-r1 round-3-competitor-r1` and record gaps, Codex count and the H9 result in R3 §9.
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
