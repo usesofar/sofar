@@ -6,3 +6,5 @@ Cite these in .sofar/repo.md by qualified handle — `agents-parity M<n>` —
 which is how `sofar doctor` sees that a promoted fact reached repo memory.
 
 - **M1** (2026-09-28T08:06:54.524Z) — Claude Code 2.1.283 (binary read, unverified live): SessionStart and UserPromptSubmit hook output may carry hookSpecificOutput.sessionTitle; the host applies it as the session name (nameSource "hook"), the address SendMessage uses. Derived default = cwd folder + 2 hex of session id.
+- **M2** (2026-09-30T09:32:28.596Z) — Codex's Luna Reserve model id is `gpt-reserve`: `codex exec -m gpt-reserve` runs while the account's advanced-model limit is hit (proven 2026-09-21 and 2026-09-30); gpt-5.6-luna and gpt-6-luna do NOT, they share the exhausted limit.
+- **M3** (2026-09-30T09:32:28.596Z) — Local target/release/sofar-core can go stale after crates change; the digest-cache Rust-parity tests then fail (missing new fields). Rebuild with cargo build --release before reading those failures as a regression.
