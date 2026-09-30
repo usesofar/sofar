@@ -14,5 +14,5 @@ Progress: 4/5 tasks done (80%)
 - [x] 1.4 Live proof on this machine: a claude session in a scratch repo wired to the build under test shows '<slug> <task>' in ~/.claude/sessions/<pid>.json (nameSource hook) and in ListAgents; a /rename survives the next prompt. PREDICT: registry name equals the title the hook printed.
 - [ ] 1.5 Ship D2 (per-session #tag in titles, main e96b6482) in the first rc cut after bench round 3, the round-4 cut that also carries memory-lead 4.3 (L35). After publishing, reinstall the global at that pinned version, replacing the patched rc.4 (M1). PREDICT: two sessions on one task get distinct titles from the stock install. (blocked)
 
-Next action: Before bench round 3: if it runs the global ~/.local sofar, restore stock rc.4 (npm install -g --prefix ~/.local sofar.sh@0.34.0-rc.4). See M1.
+Next action: 1.5: after round 3, include D2 in the round-4 rc cut, then reinstall the global at that pinned version.
 Blocked on: task 1.5: Blocked on round 3: memory-lead freezes it on published rc.4 with no rc.5 (operator ruling 2026-09-29). The operator held publishing on 2026-09-30.
