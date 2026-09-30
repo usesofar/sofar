@@ -55,4 +55,4 @@ Progress: 0 done, 1 dropped, 24 remaining
 - [ ] 8.2 Keep reach current: refresh at write-back or in a detached child after writes, never inline in a hook; find then pays only query cost (the Phase 4 links tier rides the same refresh)
 - [ ] 8.3 Shard reach.json per initiative, stat-checked before parse (tier cursor pattern); a query loads only the shards it reaches; parity test against the monolithic answer. Freezes the on-disk format rust-core 4.5 reads
 
-Next action: 1.1: write the SPEC link vocabulary in docs/SPEC.md per the plan title and D2-D5
+Next action: Resume: cd ~/IO/sofar-linked-context and rerun sofar drive linked-context --detach (unit-only verify); 2.2 WIP is uncommitted there
