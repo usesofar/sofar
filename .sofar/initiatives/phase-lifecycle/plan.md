@@ -55,6 +55,7 @@ Progress: 22 done, 1 dropped, 1 remaining
 ## Phase 7 — Add a phase mid-plan (operator ask 2026-10-01) [pending] — 1/2 done
 
 - [x] 7.1 phase_added event + sofar_update_phase add/after + end_session phases[].add, TS and Rust folds, FP-19, SPEC/FORMAT
-- [ ] 7.2 Ship phase_added in the next release: installed 0.34.0-rc.4 skips it as an unknown event type, so other repos' agents cannot use add until a reader that knows it is installed
+- [ ] 7.2 Ship phase_added in the next release: installed 0.34.0-rc.4 skips it as an unknown event type, so other repos' agents cannot use add until a reader that knows it is installed (blocked)
 
-Next action: Ship phase_added in the next release (task 7.2), then mark Phase 7 done
+Next action: When round 3 releases the rc.4 freeze, cut rc.5 with phase_added
+Blocked on: task 7.2: Same gate as session-naming 1.5: round 3 is frozen on published rc.4 with no rc.5 (operator ruling 2026-09-29), and the rc.5 cut was held on 2026-09-30. phase_added ships in the first rc after the freeze lifts.
