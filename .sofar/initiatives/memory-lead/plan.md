@@ -51,5 +51,5 @@ Progress: 20/29 tasks done (68%)
 - [ ] 5.5 Exploratory live arm for linked-context 6.3, OUTSIDE the frozen round-3 pre-registration (5.3): on round 3's harness and profile, resume a blocked task whose cross-record target resolved, SOFAR_TRAVEL on vs off, ~5 reps; measure unprompted unblock, turns and tokens; reported apart from the round-3 claims
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: Record rep-1 scores when score-batch ends; put the reps 2–3 schedule to the operator using the measured ≥18 Codex sessions per window (D34).
+Next action: Classify the sofar S18–S20 cliff (harness vs agent) from bench-refresh's counts-only diagnosis; then put the reps 2–3 schedule (≥18 Codex/window) to the operator.
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
