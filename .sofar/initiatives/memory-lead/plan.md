@@ -51,5 +51,5 @@ Progress: 20/29 tasks done (68%)
 - [ ] 5.5 Exploratory live arm for linked-context 6.3, OUTSIDE the frozen round-3 pre-registration (5.3): on round 3's harness and profile, resume a blocked task whose cross-record target resolved, SOFAR_TRAVEL on vs off, ~5 reps; measure unprompted unblock, turns and tokens; reported apart from the round-3 claims
 
 Active phase: Phase 3 — Wave C: scale (Rust core, cloud)
-Next action: After rep-1 cells pass S11 (~5 h from 17:22 IST), run `python3 smoke-r3/check-rep.py round-3-sofar-r1 round-3-native-synced-r1 round-3-competitor-r1` and record gaps, Codex count and the H9 result in R3 §9.
+Next action: Record rep-1 scores when score-batch ends; put the reps 2–3 schedule to the operator using the measured ≥18 Codex sessions per window (D34).
 Blocked on: task 4.2: Repo audited, nothing to retire. The strategy vault (product doc/) is outside the repo boundary (repo.md), so the operator applies MOAT.md R1–R5 there.
