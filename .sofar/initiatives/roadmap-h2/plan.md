@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Relay the watcher's reports; after all cells finish S30, run score-batch and check-rep.
+Next action: Relay the score-batch and check-rep results; then the operator rules on reps 2–3 timing.
