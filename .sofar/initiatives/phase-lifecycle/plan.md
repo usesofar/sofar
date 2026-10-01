@@ -4,7 +4,7 @@
 
 Goal: Make phase status writable at the same tier as task status. SHIPPED 2026-08-13: sofar_update_phase is the twelfth MCP tool, phase status is written and never derived (D2), and phase_status_changed now counts as drift (D3). Remaining: the 35 stale phases across 16 initiatives, which D5 rules a one-off append-only repair — and the mechanism for writing across 16 records without tearing the session doing it is the open question. Settled up front on measurement: MCP-only, no CLI sibling (D1).
 
-Progress: 22 done, 1 dropped, 1 remaining
+Progress: 22 done, 2 dropped, 0 remaining
 
 ## Phase 1 — Settle the write path (blocks everything else) [done] — 3/3 done
 
@@ -52,10 +52,11 @@ Progress: 22 done, 1 dropped, 1 remaining
 - [x] 6.1 ONE change, ONE set of tests, for both halves of D8's family. (a) sofar_update_phase accepts a phase name that matches after a leading ordinal is stripped ("7. ", "7 ", "7)"), beside the number and the case-insensitive full name — round-1 loss row L11, whose refusal in claude-sofar/r3 S7 and S8 preceded the S9 full-replace that wiped phases 6–8. (b) sofar_update_plan stops discarding phase NOTES: carry the note of any phase whose name is unchanged, or take an optional note per phase, or refuse a replace that would drop one unless it is restated. Tests: bare name accepted for a numbered phase, a genuinely unknown name still typed-errors and names what it tried, a replace that omits notes preserves them, and a replace that renames a phase says what happened to its note.
 - [x] 6.2 Contract: docs/SPEC.md §MCP tools for both tools and a §Acceptance criteria bullet each, then retire the workaround memories that the fix makes obsolete (self-improve M8, and the last sentence of rust-core M2's repo.md paragraph, which rust-core is splitting so the worktree guidance survives).
 
-## Phase 7 — Add a phase mid-plan (operator ask 2026-10-01) [pending] — 1/2 done
+## Phase 7 — Add a phase mid-plan (operator ask 2026-10-01) [done] — 1/2 (1 dropped) done
+
+> 7.1 built and committed; release rides rc.5
 
 - [x] 7.1 phase_added event + sofar_update_phase add/after + end_session phases[].add, TS and Rust folds, FP-19, SPEC/FORMAT
-- [ ] 7.2 Ship phase_added in the next release: installed 0.34.0-rc.4 skips it as an unknown event type, so other repos' agents cannot use add until a reader that knows it is installed (blocked)
+- [-] 7.2 Ship phase_added in the next release: installed 0.34.0-rc.4 skips it as an unknown event type, so other repos' agents cannot use add until a reader that knows it is installed (dropped)
 
-Next action: When round 3 releases the rc.4 freeze, cut rc.5 with phase_added
-Blocked on: task 7.2: Same gate as session-naming 1.5: round 3 is frozen on published rc.4 with no rc.5 (operator ruling 2026-09-29), and the rc.5 cut was held on 2026-09-30. phase_added ships in the first rc after the freeze lifts.
+Next action: None here; phase_added ships with rc.5
