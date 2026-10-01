@@ -1,6 +1,6 @@
 {
   "name": "@sofar/schema",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Sofar event payload schemas + validation \u2014 the swappable part, and the ONLY schema home",
   "private": true,
   "type": "module",

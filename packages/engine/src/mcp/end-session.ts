@@ -1,7 +1,7 @@
 import { isClosedInitiativeStatus, validatePayload } from '@sofar/schema'
 import { validateToolInput, type EndSessionArgs, type ToolOkResult } from '@sofar/schema/tool-inputs'
 import { readBindingsFile, writeBinding } from '../core/bindings'
-import { overlappingWritebacks, type DecisionState, type InitiativeState, type ParallelWriteback } from '../core/fold'
+import { overlappingWritebacks, type DecisionState, type InitiativeState, type ParallelWriteback, type PhaseState } from '../core/fold'
 import { decisionJudgeWarnings, type DecisionDraft } from '../core/decision-judge'
 import { currentBranch, sameRepoWorktree } from '../core/git'
 import { isAbsolute, join } from 'node:path'
@@ -17,7 +17,7 @@ import { silentReversal } from '../core/reversal'
 import { ruleFidelityWarning } from '../core/rule-fidelity'
 import { homeInitiative, ToolError, type ToolContext } from './context'
 import { judgeOptionsFor } from './log-decision'
-import { resolvePhaseOrThrow } from './update-phase'
+import { planPhaseAdd, resolvePhaseOrThrow } from './update-phase'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 import { citeNudges, homeViewOf } from './waits-on'
 
@@ -98,7 +98,9 @@ interface PlannedBatch {
  *    refused — the fold would skip the change with a warning, a status
  *    silently lost at the one moment nobody is watching.
  *  - phases: resolved like sofar_update_phase (D32); an unchanged status and
- *    note files nothing, as there.
+ *    note files nothing, as there. One with `add` is planned FIRST
+ *    (phase-lifecycle D10), as sofar_update_phase plans it, so the batch's
+ *    tasks and status changes can name the phase it adds.
  *  - decisions: sofar_log_decision's argument contract, then the payload's,
  *    then the D31 reversal check against the record PLUS the batch's earlier
  *    decisions — a batch cannot reverse itself silently either.
@@ -116,6 +118,23 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
     appends.push({ type, payload })
   }
 
+  // Phase adds go first (phase-lifecycle D10), so every other entry —
+  // a task added into the new phase, a status set on it — resolves against
+  // the plan they leave behind.
+  const phases: PhaseState[] = [...state.phases]
+  const phaseChanges = args.phases ?? []
+  phaseChanges.forEach((ph, i) => {
+    const where = `phases[${i}] (${ph.phase})`
+    if (ph.add !== true) {
+      if (ph.after !== undefined) refuse(where, ['after: only with add: true'])
+      return
+    }
+    const planned = planPhaseAdd(phases, slug, ph)
+    check(where, 'phase_added', planned.payload)
+    phases.splice(planned.at, 0, { name: planned.payload.phase as string, status: ph.status, tasks: [] })
+  })
+  const view: InitiativeState = phases.length === state.phases.length ? state : { ...state, phases }
+
   // sofar_update_task's planner (phase-lifecycle D7); a task this batch adds
   // is held for the entries after it.
   const held = heldTasks(state)
@@ -126,15 +145,16 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
   let nextDeclared = 0
   tasks.forEach((t, i) => {
     const waits = t.waits_on !== undefined ? declared.handles[nextDeclared++] : undefined
-    const planned = planTaskChange(state, slug, t, held, waits)
+    const planned = planTaskChange(view, slug, t, held, waits)
     if (!planned.ok) return refuse(`tasks[${i}] (${t.task_id})`, planned.errors)
     appends.push(...planned.appends)
     if (!held.has(t.task_id)) held.set(t.task_id, t.title!)
   })
 
-  ;(args.phases ?? []).forEach((ph, i) => {
+  phaseChanges.forEach((ph, i) => {
+    if (ph.add === true) return
     const where = `phases[${i}] (${ph.phase})`
-    const phase = resolvePhaseOrThrow(state.phases, ph.phase, slug)
+    const phase = resolvePhaseOrThrow(phases, ph.phase, slug)
     const note = ph.note !== undefined && ph.note.length > 0 ? ph.note : undefined
     if (phase.status === ph.status && note === phase.note) return
     check(where, 'phase_status_changed', { phase: phase.name, status: ph.status, ...(note !== undefined ? { note } : {}) })

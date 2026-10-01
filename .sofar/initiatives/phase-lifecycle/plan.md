@@ -4,7 +4,7 @@
 
 Goal: Make phase status writable at the same tier as task status. SHIPPED 2026-08-13: sofar_update_phase is the twelfth MCP tool, phase status is written and never derived (D2), and phase_status_changed now counts as drift (D3). Remaining: the 35 stale phases across 16 initiatives, which D5 rules a one-off append-only repair — and the mechanism for writing across 16 records without tearing the session doing it is the open question. Settled up front on measurement: MCP-only, no CLI sibling (D1).
 
-Progress: 21 done, 1 dropped, 0 remaining
+Progress: 22 done, 1 dropped, 1 remaining
 
 ## Phase 1 — Settle the write path (blocks everything else) [done] — 3/3 done
 
@@ -52,4 +52,9 @@ Progress: 21 done, 1 dropped, 0 remaining
 - [x] 6.1 ONE change, ONE set of tests, for both halves of D8's family. (a) sofar_update_phase accepts a phase name that matches after a leading ordinal is stripped ("7. ", "7 ", "7)"), beside the number and the case-insensitive full name — round-1 loss row L11, whose refusal in claude-sofar/r3 S7 and S8 preceded the S9 full-replace that wiped phases 6–8. (b) sofar_update_plan stops discarding phase NOTES: carry the note of any phase whose name is unchanged, or take an optional note per phase, or refuse a replace that would drop one unless it is restated. Tests: bare name accepted for a numbered phase, a genuinely unknown name still typed-errors and names what it tried, a replace that omits notes preserves them, and a replace that renames a phase says what happened to its note.
 - [x] 6.2 Contract: docs/SPEC.md §MCP tools for both tools and a §Acceptance criteria bullet each, then retire the workaround memories that the fix makes obsolete (self-improve M8, and the last sentence of rust-core M2's repo.md paragraph, which rust-core is splitting so the worktree guidance survives).
 
-Next action: No open tasks here; close the initiative when the operator agrees.
+## Phase 7 — Add a phase mid-plan (operator ask 2026-10-01) [pending] — 1/2 done
+
+- [x] 7.1 phase_added event + sofar_update_phase add/after + end_session phases[].add, TS and Rust folds, FP-19, SPEC/FORMAT
+- [ ] 7.2 Ship phase_added in the next release: installed 0.34.0-rc.4 skips it as an unknown event type, so other repos' agents cannot use add until a reader that knows it is installed
+
+Next action: Ship phase_added in the next release (task 7.2), then mark Phase 7 done

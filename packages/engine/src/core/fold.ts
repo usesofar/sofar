@@ -44,6 +44,7 @@ import {
   type InitiativeStatusChangedPayload,
   type NoteAddedPayload,
   type PhaseStatus,
+  type PhaseAddedPayload,
   type PhaseStatusChangedPayload,
   type PlanUpdatedPayload,
   type SessionClosedPayload,
@@ -1184,6 +1185,8 @@ function recordFreshness(state: InitiativeState, event: EventEnvelope): void {
       mutation(() => (counts.tasks += 1))
       break
     case 'phase_status_changed':
+    case 'phase_added':
+      // A phase added is a plan change, so it is drift like a status change.
       mutation(() => (counts.phases += 1))
       break
     case 'note_added':
@@ -1635,6 +1638,24 @@ function applyEvent(
       phase.status = p.status
       if (p.note !== undefined && p.note.length > 0) phase.note = p.note
       else delete phase.note
+      break
+    }
+    case 'phase_added': {
+      // phase-lifecycle 7.1 (D10): an existing name is a skip, never a reset —
+      // a stale writer must not wipe a live phase's tasks or status.
+      const p = event.payload as unknown as PhaseAddedPayload
+      if (state.phases.some((ph) => ph.name === p.phase)) {
+        warnings.push(`line ${lineNo}: phase "${p.phase}" already in plan — phase_added skipped`)
+        break
+      }
+      const phase: PhaseState = { name: p.phase, status: p.status ?? 'pending', tasks: [] }
+      if (p.note !== undefined && p.note.length > 0) phase.note = p.note
+      const at = p.after === undefined ? -1 : state.phases.findIndex((ph) => ph.name === p.after)
+      if (p.after !== undefined && at < 0) {
+        warnings.push(`line ${lineNo}: phase "${p.after}" not in plan — phase "${p.phase}" added last`)
+      }
+      if (at < 0) state.phases.push(phase)
+      else state.phases.splice(at + 1, 0, phase)
       break
     }
     case 'task_added': {

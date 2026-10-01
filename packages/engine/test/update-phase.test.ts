@@ -10,6 +10,8 @@ import { runAppend } from '../src/cli/event'
 import { resolvePhase, updatePhase } from '../src/mcp/update-phase'
 import { updatePlan } from '../src/mcp/update-plan'
 import { updateTask } from '../src/mcp/update-task'
+import { endSession } from '../src/mcp/end-session'
+import { startSession } from '../src/mcp/start-session'
 
 /**
  * phase-lifecycle 5.2 — sofar_update_phase.
@@ -400,5 +402,98 @@ describe('silent discards in the plan and phase write path (phase-lifecycle 6.1,
     expect(result.warnings![1]).toContain('"Phase 2 — Build" moved active → pending')
     expect(phaseOf(f, 'Phase 1 — Decide')?.note).toBeUndefined()
     expect(phaseOf(f, 'Phase 2 — Build')?.note).toBeUndefined()
+  })
+})
+
+describe('adding a phase mid-plan (phase-lifecycle 7.1, D10)', () => {
+  const names = (f: Fixture) => foldLog(f.eventsPath).state.phases.map((p) => p.name)
+
+  it('appends one phase_added after the named phase, with no plan replace', () => {
+    const f = fx()
+    updateTask(f.ctx, { task_id: '1.1', status: 'done', note: 'kept' })
+    const before = f.events().length
+    const r = updatePhase(f.ctx, { phase: 'Phase 2b — Harden', status: 'active', add: true, after: '2', note: 'operator ask' })
+    expect(r).toMatchObject({ ok: true, tasks_done: 0, tasks_total: 0 })
+    const added = f.events().slice(before)
+    expect(added.map((e) => e.type)).toEqual(['phase_added'])
+    expect(added[0]!.payload).toEqual({ phase: 'Phase 2b — Harden', status: 'active', after: 'Phase 2 — Build', note: 'operator ask' })
+    expect(names(f)).toEqual(['Phase 1 — Settle', 'Phase 2 — Build', 'Phase 2b — Harden', 'Phase 3 — Prove'])
+    expect(phaseOf(f, 'Phase 2b — Harden')).toMatchObject({ status: 'active', note: 'operator ask', tasks: [] })
+    // Nothing else moved: the replace this replaces would have reset these.
+    expect(phaseOf(f, 'Phase 1 — Settle')!.tasks[0]).toMatchObject({ id: '1.1', status: 'done' })
+    expect(foldLog(f.eventsPath).warnings).toEqual([])
+    expect(readFileSync(f.planPath, 'utf8')).toContain('Phase 2b — Harden')
+  })
+
+  it('goes last without after, and a task can then be added into it', () => {
+    const f = fx()
+    updatePhase(f.ctx, { phase: 'Phase 4 — Ship', status: 'pending', add: true })
+    expect(names(f).at(-1)).toBe('Phase 4 — Ship')
+    updateTask(f.ctx, { task_id: '4.1', status: 'pending', title: 'release', phase: 'Phase 4 — Ship' })
+    expect(phaseOf(f, 'Phase 4 — Ship')!.tasks.map((t) => t.id)).toEqual(['4.1'])
+  })
+
+  it('refuses a held name, an unknown after, and after without add — appending nothing', () => {
+    const f = fx()
+    const before = readFileSync(f.eventsPath, 'utf8')
+    expect(() => updatePhase(f.ctx, { phase: 'phase 2 — build', status: 'pending', add: true })).toThrow(/already in the plan/)
+    expect(() => updatePhase(f.ctx, { phase: 'New', status: 'pending', add: true, after: 'Phase 9' })).toThrow(ToolError)
+    expect(readFileSync(f.eventsPath, 'utf8')).toBe(before)
+    const bad = validateToolInput('sofar_update_phase', { phase: 'New', status: 'pending', after: 'Phase 1' })
+    expect(bad.ok === false && bad.errors.join(' ')).toContain('after: only with add: true')
+  })
+
+  it('still refuses a mistyped name without add — the opt-in is the typo guard', () => {
+    const f = fx()
+    expect(() => updatePhase(f.ctx, { phase: 'Phase 4 — Ship', status: 'active' })).toThrow(/not in the plan/)
+  })
+
+  it('counts toward drift like a status change', () => {
+    const f = fx()
+    const before = freshnessTotal(foldLog(f.eventsPath).state.freshness)
+    updatePhase(f.ctx, { phase: 'Phase 4', status: 'pending', add: true })
+    expect(freshnessTotal(foldLog(f.eventsPath).state.freshness)).toBe(before + 1)
+  })
+
+  it('a write-back adds the phase before its tasks, so one batch can fill it', () => {
+    const f = fx()
+    startSession(f.ctx, { tool: 'claude-code', session_id: 'S1' })
+    const before = f.events().length
+    endSession(f.ctx, {
+      session_id: 'S1',
+      summary: 's',
+      next_action: 'n',
+      tasks: [{ task_id: '1b.1', status: 'active', title: 'wire it', phase: 'Phase 1b — Extend' }],
+      phases: [
+        { phase: 'Phase 1b — Extend', status: 'active', add: true, after: 'Phase 1 — Settle' },
+        { phase: 'Phase 1 — Settle', status: 'done' },
+      ],
+    })
+    const types = f.events().slice(before).map((e) => e.type)
+    expect(types.slice(0, 3)).toEqual(['phase_added', 'task_added', 'phase_status_changed'])
+    expect(names(f).slice(0, 2)).toEqual(['Phase 1 — Settle', 'Phase 1b — Extend'])
+    expect(phaseOf(f, 'Phase 1b — Extend')!.tasks).toMatchObject([{ id: '1b.1', status: 'active' }])
+  })
+
+  it('a write-back refuses after without add, filing nothing', () => {
+    const f = fx()
+    startSession(f.ctx, { tool: 'claude-code', session_id: 'S1' })
+    const before2 = readFileSync(f.eventsPath, 'utf8')
+    expect(() =>
+      endSession(f.ctx, { session_id: 'S1', summary: 's', next_action: 'n', phases: [{ phase: 'Phase 1', status: 'done', after: 'Phase 2' }] }),
+    ).toThrow(/after: only with add/)
+    expect(readFileSync(f.eventsPath, 'utf8')).toBe(before2)
+  })
+
+  it('the CLI append resolves after and refuses a held name', () => {
+    const f = fx()
+    const append = (payload: Record<string, unknown>) =>
+      runAppend(f.root, { type: 'phase_added', payload: JSON.stringify(payload), session: 's', source: 'codex', actor: 'agent' })
+    expect(append({ phase: 'Phase 1b', after: 'phase 1' }).exitCode).toBe(0)
+    expect(f.events().at(-1)!.payload).toEqual({ phase: 'Phase 1b', status: 'pending', after: 'Phase 1 — Settle' })
+    const held = append({ phase: 'Phase 1b' })
+    expect(held.exitCode).toBe(1)
+    expect(JSON.parse(held.stderr).message).toContain('already in the plan')
+    expect(names(f)).toHaveLength(4)
   })
 })

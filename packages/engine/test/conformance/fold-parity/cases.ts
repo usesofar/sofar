@@ -402,6 +402,23 @@ export function buildCases(): FoldParityCase[] {
     l.ev('task_added', { phase: 'Phase 1', id: '1.4', title: 'D', waits_on: ['Other D1'] }, { session: 'A' }) // invalid: uppercase slug
     cases.push({ id: 'FP-18-declared-waits-on', lines: l.lines, sidecar: { tail_at: 3, seeds: [53, 54, 55], order_independence: true, note: 'linked-context 2.2 (D10): a task carries its declared waits_on verbatim and unresolved — present replaces, [] clears, absent keeps, and a full-replace plan task that omits it keeps the set by id. A handle outside the canonical grammar (bare, uppercase, not a list) is an invalid line. The tail starts at the first status change carrying a set' } })
   }
+  {
+    // phase-lifecycle 7.1 (D10): a phase joins a live plan without a replace.
+    // `after` places it behind that exact name, absent puts it last, an
+    // unknown `after` puts it last with a warning, and a held name is skipped
+    // with a warning — never a reset of its status or tasks.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('plan_updated', { plan: { phases: [{ name: 'Phase 1', status: 'active', tasks: [{ id: '1.1', title: 'A', status: 'done' }] }, { name: 'Phase 2', tasks: [{ id: '2.1', title: 'B' }] }] } }, { session: 'A' })
+    l.ev('phase_added', { phase: 'Phase 1b', status: 'active', after: 'Phase 1', note: 'operator ask' }, { session: 'A' })
+    l.ev('task_added', { phase: 'Phase 1b', id: '1b.1', title: 'C' }, { session: 'A' })
+    l.ev('phase_added', { phase: 'Phase 3' }, { session: 'A' }) // last, pending
+    l.ev('phase_added', { phase: 'Phase 4', after: 'Phase 9' }, { session: 'A' }) // unknown after: last, warned
+    l.ev('phase_added', { phase: 'Phase 1', status: 'pending' }, { session: 'A' }) // held: skipped, warned
+    l.ev('phase_added', { phase: 'Phase 5', status: 'finished' }, { session: 'A' }) // invalid: status
+    l.ev('phase_added', { phase: 'Phase 6', after: '' }, { session: 'A' }) // invalid: empty after
+    cases.push({ id: 'FP-19-phase-added', lines: l.lines, sidecar: { tail_at: 3, seeds: [56, 57, 58], order_independence: true, note: 'phase-lifecycle 7.1 (D10): phase_added inserts after its `after`, else last; an unknown `after` lands last with a warning; a held name is skipped with a warning and keeps its status and tasks; a bad status or an empty `after` is an invalid line. The tail starts at the first add' } })
+  }
   return cases
 }
 

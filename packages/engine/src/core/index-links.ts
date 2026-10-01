@@ -6,6 +6,7 @@ import type {
   InitiativeCreatedPayload,
   InitiativeStatusChangedPayload,
   MemoryPromotedPayload,
+  PhaseAddedPayload,
   PhaseStatusChangedPayload,
   PlanUpdatedPayload,
   TaskAddedPayload,
@@ -144,7 +145,8 @@ interface SlugLinkState {
   /**
    * The current plan as [phase name, task ids], the fold's phases: a task_added
    * lands at the end of ITS phase, and a phase_status_changed naming no phase
-   * creates it, so link order is the fold's plan order.
+   * creates it, and a phase_added lands after its `after`, so link order is
+   * the fold's plan order.
    */
   plan: [string, string[]][]
   /** Every task ever titled, planned or noted — a replace that drops a task keeps its notes. */
@@ -163,6 +165,7 @@ const LINK_EVENTS = new Set([
   'initiative_status_changed',
   'plan_updated',
   'phase_status_changed',
+  'phase_added',
   'task_added',
   'task_status_changed',
   'decision_logged',
@@ -314,6 +317,14 @@ function applyLinks(state: SlugLinkState, event: IndexedEvent): void {
     }
     case 'phase_status_changed': {
       phaseOf(state, (event.payload as unknown as PhaseStatusChangedPayload).phase)
+      return
+    }
+    case 'phase_added': {
+      const p = event.payload as unknown as PhaseAddedPayload
+      if (state.plan.some(([n]) => n === p.phase)) return
+      const at = p.after === undefined ? -1 : state.plan.findIndex(([n]) => n === p.after)
+      if (at < 0) state.plan.push([p.phase, []])
+      else state.plan.splice(at + 1, 0, [p.phase, []])
       return
     }
     case 'task_added': {
@@ -765,7 +776,7 @@ const sameSlugs = (a: readonly string[], b: readonly string[]): boolean => a.len
  * literally or through `\u` escapes, and a line with any `\u` passes too.
  */
 const LINK_LINE =
-  /"type"[ \t\n\r]*:[ \t\n\r]*"(?:initiative_created|initiative_status_changed|plan_updated|phase_status_changed|task_added|task_status_changed|decision_logged|memory_promoted|correction)"/
+  /"type"[ \t\n\r]*:[ \t\n\r]*"(?:initiative_created|initiative_status_changed|plan_updated|phase_status_changed|phase_added|task_added|task_status_changed|decision_logged|memory_promoted|correction)"/
 
 export function linkLine(line: string): boolean {
   return line.includes('\\u') || LINK_LINE.test(line)

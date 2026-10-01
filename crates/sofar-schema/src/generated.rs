@@ -272,6 +272,7 @@ pub struct KnownEventPayloads {
     pub judgement_recorded: JudgementRecordedPayload,
     pub memory_promoted: MemoryPromotedPayload,
     pub note_added: NoteAddedPayload,
+    pub phase_added: PhaseAddedPayload,
     pub phase_status_changed: PhaseStatusChangedPayload,
     pub plan_updated: PlanUpdatedPayload,
     pub review_recorded: ReviewRecordedPayload,
@@ -308,6 +309,17 @@ pub struct MemoryPromotedPayload {
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct NoteAddedPayload {
     pub text: ::std::string::String,
+}
+#[doc = "One phase added to a live plan without resending it (phase-lifecycle 7.1, D10): plan_updated's full replace was the only way in, so adding a phase meant restating every task. `after` places it behind the phase of that exact name; absent, or naming no phase, it goes last. `status` defaults to `pending`; `note` is the same reason-for-status phase_status_changed carries."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
+pub struct PhaseAddedPayload {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub after: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub note: ::std::option::Option<::std::string::String>,
+    pub phase: ::std::string::String,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub status: ::std::option::Option<PhaseStatus>,
 }
 #[doc = "`PhaseStatus`"]
 #[derive(

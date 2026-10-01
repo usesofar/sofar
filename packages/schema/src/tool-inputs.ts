@@ -156,6 +156,10 @@ export interface EndSessionPhaseChange {
   phase: string
   status: PhaseStatus
   note?: string
+  /** Adds the phase (phase-lifecycle D10) — see UpdatePhaseArgs.add. */
+  add?: boolean
+  /** The phase an added one follows — name or number; default last. */
+  after?: string
 }
 /** sofar_log_decision's arguments minus `initiative` — the write-back has one home. */
 export type EndSessionDecision = Omit<LogDecisionArgs, 'initiative'>
@@ -187,6 +191,14 @@ export interface UpdatePhaseArgs {
   phase: string
   status: PhaseStatus
   note?: string
+  /**
+   * Adds `phase` to the plan (phase-lifecycle 7.1, D10) instead of addressing
+   * one — an explicit opt-in, so a mistyped name is still refused rather than
+   * minting a phantom phase. A name the plan already holds is refused too.
+   */
+  add?: boolean
+  /** With `add`: the phase it follows, resolved like `phase`; default last. */
+  after?: string
 }
 export interface LogDecisionArgs {
   initiative?: string
@@ -539,7 +551,13 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
         type: 'array',
         items: {
           type: 'object',
-          properties: { phase: { type: 'string' }, status: { enum: [...PHASE_STATUSES] }, note: { type: 'string' } },
+          properties: {
+            phase: { type: 'string' },
+            status: { enum: [...PHASE_STATUSES] },
+            note: { type: 'string' },
+            add: { type: 'boolean' },
+            after: { type: 'string' },
+          },
           required: ['phase', 'status'],
           additionalProperties: false,
         },
@@ -591,6 +609,8 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
         type: 'string',
         description: 'Why; required for `dropped`.',
       },
+      add: { type: 'boolean' },
+      after: { type: 'string' },
     },
     required: ['phase', 'status'],
     additionalProperties: false,
@@ -685,7 +705,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_update_phase',
     description:
-      "Set a phase's status now; wrap-up changes ride sofar_end_session.",
+      "Set a phase's status now, or add the phase (add; after = the phase it follows, default last). Wrap-up changes ride sofar_end_session.",
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_update_phase,
   },
   {
@@ -697,7 +717,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_update_plan',
     description:
-      'Full plan replace (goal, brief, phases), not a merge: an omitted status means `pending`, so restate every status you keep. `brief` = the operator\'s roadmap or spec, verbatim, kept if omitted. To add one task, sofar_update_task with title.',
+      'Full plan replace (goal, brief, phases), not a merge: an omitted status means `pending`, so restate every status you keep. `brief` = the operator\'s roadmap or spec, verbatim, kept if omitted. To add a task or phase: sofar_update_task with title, sofar_update_phase with add.',
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_update_plan,
   },
   {
@@ -793,6 +813,9 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
       e.push(`status: must be one of ${PHASE_STATUSES.join('|')}`)
     }
     if (!optStr(a.note)) e.push('note: must be a string')
+    if (a.add !== undefined && typeof a.add !== 'boolean') e.push('add: must be a boolean')
+    if (a.after !== undefined && !str(a.after)) e.push('after: must be a non-empty string')
+    if (a.after !== undefined && a.add !== true) e.push('after: only with add: true')
     // The task-drop rule (task-drop-state D3) and the initiative-drop rule one
     // level up, applied to the level between them — for the same reason both
     // give: nothing else in the record explains an abandonment.

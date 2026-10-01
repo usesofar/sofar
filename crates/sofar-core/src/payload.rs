@@ -51,11 +51,12 @@ pub const RUN_STOP_REASONS: [&str; 7] = [
 pub const VERIFICATION_RESULTS: [&str; 5] = ["pass", "fail", "timeout", "error", "refused"];
 
 /// `EVENT_TYPES`, in the schema's order.
-pub const EVENT_TYPES: [&str; 27] = [
+pub const EVENT_TYPES: [&str; 28] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
     "phase_status_changed",
+    "phase_added",
     "task_added",
     "task_status_changed",
     "decision_logged",
@@ -752,6 +753,21 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                     PHASE_STATUSES.join("|")
                 ));
             }
+            must(e, opt_str(p.get("note")), "note: must be a string");
+        }
+        "phase_added" => {
+            must(e, str(p.get("phase")), "phase: must be a non-empty string");
+            if !opt_one_of(p.get("status"), &PHASE_STATUSES) {
+                e.push(format!(
+                    "status: must be one of {}",
+                    PHASE_STATUSES.join("|")
+                ));
+            }
+            must(
+                e,
+                opt_nonempty_str(p.get("after")),
+                "after: must be a non-empty string when present",
+            );
             must(e, opt_str(p.get("note")), "note: must be a string");
         }
         "task_added" => {

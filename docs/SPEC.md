@@ -158,6 +158,10 @@ later replace omits it, like `goal`; r1-fixes 4.6, L36) ·
 phase_status_changed (phase, status: pending|active|done|blocked|dropped,
 note? — REQUIRED for `dropped`; the note explains the CURRENT status and is
 cleared by any later event that omits it; phase-lifecycle 2.1) ·
+phase_added (phase, status? — default `pending`, after? — the exact name of
+the phase it follows, last when absent or unknown, note?; a name the plan
+already holds is skipped with a warning, never reset; counts as drift like
+phase_status_changed; phase-lifecycle 7.1, D10) ·
 task_added · task_status_changed (id, status:
 pending|active|done|blocked|dropped, note?) · decision_logged (chose, over,
 because, rule? — optional standing-constraint clause, one short imperative;
@@ -4308,8 +4312,11 @@ sofar_start_session.`
   {phase, id, title, status} into `phase` (resolved like
   sofar_update_phase; default the active phase), plus a task_status_changed
   carrying `note` when one is given; one it lacks WITHOUT a title is refused
-  (the fold would skip it with a warning). `phases` {phase, status, note?} —
-  resolved and idempotent exactly as sofar_update_phase. `decisions` —
+  (the fold would skip it with a warning). `phases` {phase, status, note?,
+  add?, after?} — resolved and idempotent exactly as sofar_update_phase; an
+  entry with `add` is planned BEFORE every task and status entry
+  (phase-lifecycle D10), so the same batch can add tasks into the phase it
+  adds. `decisions` —
   sofar_log_decision's arguments minus `initiative`, checked by its input
   validator, the decision_logged payload validator and the D31 reversal
   check against the record PLUS the batch's earlier decisions, and against
@@ -4415,8 +4422,16 @@ sofar_start_session.`
     it cannot finish until that moves, declare waits_on ["<handle>"]` and
     `next_action cites <handle> and no task waits on it — if a task cannot
     finish until that moves, declare waits_on ["<handle>"] on it`.
-- sofar_update_phase({initiative?, phase, status, note?})
+- sofar_update_phase({initiative?, phase, status, note?, add?, after?})
   → {ok, event_id, tasks_done, tasks_total}   # phase-lifecycle D2, 2.2/2.3.
+  With `add: true` (phase-lifecycle 7.1, D10) it ADDS `phase` instead of
+  addressing one, appending one phase_added {phase, status, after?, note?}:
+  directly after `after` (resolved like `phase`, recorded by the plan's own
+  name), else last. The opt-in is explicit so a mistyped name without it is
+  still refused; with it, a name that already resolves to a phase is
+  invalid_input, as is an `after` that resolves to nothing, and `after`
+  without `add` is refused. `sofar event append --type phase_added` is
+  guarded the same way.
   Appends phase_status_changed. Phase status is WRITTEN, never derived from
   task status — "every task resolved, the phase itself not finished" is a
   state the record must be able to hold, and it is precisely what doctor's
@@ -7692,7 +7707,20 @@ stay the underlying derivation's, and exit codes are styling-independent.
   nothing from the batch, while a task added earlier in the same batch can
   change status later in it. `sofar event append --type task_added` resolves
   its phase the same way and refuses an unknown phase or a held id, leaving
-  the log unchanged. The serialized tool surface stays ≤8,000 chars.
+  the log unchanged. The serialized tool surface stays ≤8,200 chars (8,000
+  until phase-lifecycle D10).
+- **Adding a phase (phase-lifecycle 7.1, D10):** sofar_update_phase with
+  `add: true` appends exactly one phase_added and no plan_updated; the fold
+  places the phase directly after `after`, or last, with the given status and
+  no tasks, and every other phase and task keeps its status and note. A name
+  the plan already resolves to, or an `after` that resolves to nothing, is
+  invalid_input and leaves events.jsonl byte-identical. sofar_end_session's
+  `phases` entry with `add` lands before the batch's tasks, so a task added
+  in the same batch can name the new phase. The fold skips a phase_added
+  whose name is held (warning, never a reset) and appends last, with a
+  warning, one whose `after` names no phase; phase_added counts toward
+  freshness as `phases`. Both implementations agree on fold-parity case
+  FP-19-phase-added.
 - **core.hooksPath (hookspath-attribution):** a repo whose `core.hooksPath`
   resolves to its own `<common>/hooks` — spelled absolutely or relatively —
   gets the hook installed, and a hook placed in that directory demonstrably

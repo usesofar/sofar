@@ -77,7 +77,7 @@ import { launchedRun } from '../core/run-progress'
 import { cloneRealPath } from '../core/state-dir'
 import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } from '../core/run-await'
 import { describeRun, taskProgress } from '../projections/templates/shared'
-import { resolvePhaseOrThrow } from '../mcp/update-phase'
+import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
 import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
@@ -2699,6 +2699,14 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
     // is refused rather than minting a phantom phase (r1-fixes 4.1.5, D32).
     if (args.type === 'phase_status_changed' && typeof payload.phase === 'string') {
       payload.phase = resolvePhaseOrThrow(ctx.foldState(slug).phases, payload.phase, slug).name
+    }
+    // An added phase is refused when the plan already holds the name, and its
+    // `after` resolves like any phase reference (phase-lifecycle D10).
+    if (args.type === 'phase_added' && typeof payload.phase === 'string') {
+      const after = typeof payload.after === 'string' ? payload.after : undefined
+      const status = typeof payload.status === 'string' ? payload.status : 'pending'
+      const note = typeof payload.note === 'string' ? payload.note : undefined
+      Object.assign(payload, planPhaseAdd(ctx.foldState(slug).phases, slug, { phase: payload.phase, status, note, after }).payload)
     }
     // The same for an added task's phase, and an id the plan already holds is
     // refused rather than appended for the fold to skip (phase-lifecycle D7).

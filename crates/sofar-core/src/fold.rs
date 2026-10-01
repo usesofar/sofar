@@ -923,6 +923,35 @@ fn apply_event(
             phase.status = req_str(p, "status");
             phase.note = note;
         }
+        "phase_added" => {
+            // phase-lifecycle 7.1 (D10): an existing name is a skip, never a reset.
+            let name = req_str(p, "phase");
+            if state.phases.iter().any(|ph| ph.name == name) {
+                warnings.push(format!(
+                    "line {line_no}: phase \"{name}\" already in plan — phase_added skipped"
+                ));
+                return;
+            }
+            let phase = PhaseState {
+                name: name.clone(),
+                status: opt_str(p, "status").unwrap_or_else(|| "pending".to_owned()),
+                tasks: Vec::new(),
+                note: opt_str(p, "note").filter(|n| !n.is_empty()),
+            };
+            let after = opt_str(p, "after");
+            let at = after
+                .as_deref()
+                .and_then(|a| state.phases.iter().position(|ph| ph.name == a));
+            if let (Some(a), None) = (after.as_deref(), at) {
+                warnings.push(format!(
+                    "line {line_no}: phase \"{a}\" not in plan — phase \"{name}\" added last"
+                ));
+            }
+            match at {
+                Some(i) => state.phases.insert(i + 1, phase),
+                None => state.phases.push(phase),
+            }
+        }
         "task_added" => {
             let id = req_str(p, "id");
             if find_task(state, &id).is_some() {
@@ -1773,7 +1802,8 @@ fn record_freshness(
         | "suggestion_rejected"
         | "suggestion_reverted" => {}
         "task_status_changed" => mutation(state, |c| c.tasks += 1),
-        "phase_status_changed" => mutation(state, |c| c.phases += 1),
+        // A phase added is a plan change, so it is drift like a status change.
+        "phase_status_changed" | "phase_added" => mutation(state, |c| c.phases += 1),
         "note_added" => {
             mutation(state, |c| c.notes += 1);
             state.freshness.notes.push(NoteEntry {

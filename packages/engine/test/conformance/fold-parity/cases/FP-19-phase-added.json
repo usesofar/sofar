@@ -1,0 +1,10 @@
+{
+  "tail_at": 3,
+  "seeds": [
+    56,
+    57,
+    58
+  ],
+  "order_independence": true,
+  "note": "phase-lifecycle 7.1 (D10): phase_added inserts after its `after`, else last; an unknown `after` lands last with a warning; a held name is skipped with a warning and keeps its status and tasks; a bad status or an empty `after` is an invalid line. The tail starts at the first add"
+}

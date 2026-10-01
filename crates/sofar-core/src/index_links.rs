@@ -558,11 +558,12 @@ fn str_list(v: Option<&Json>) -> Option<Vec<String>> {
     read_strs(v)
 }
 
-const LINK_EVENTS: [&str; 8] = [
+const LINK_EVENTS: [&str; 9] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
     "phase_status_changed",
+    "phase_added",
     "task_added",
     "task_status_changed",
     "decision_logged",
@@ -664,6 +665,17 @@ impl SlugReducer for LinksReducer {
             }
             "phase_status_changed" => {
                 state.phase_of(text("phase").unwrap_or(""));
+            }
+            "phase_added" => {
+                let name = text("phase").unwrap_or("");
+                if state.plan.iter().any(|(n, _)| n == name) {
+                    return;
+                }
+                let at = text("after").and_then(|a| state.plan.iter().position(|(n, _)| n == a));
+                match at {
+                    Some(i) => state.plan.insert(i + 1, (name.to_owned(), Vec::new())),
+                    None => state.plan.push((name.to_owned(), Vec::new())),
+                }
             }
             "task_added" => {
                 let id = text("id").unwrap_or("");
@@ -1548,11 +1560,12 @@ fn same_deps(a: &[Dep], b: &[Dep]) -> bool {
 
 /// The names `link_line` accepts after `"type":` — `LINK_EVENTS` and
 /// `correction`, which can void one.
-const LINK_LINE_TYPES: [&str; 9] = [
+const LINK_LINE_TYPES: [&str; 10] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
     "phase_status_changed",
+    "phase_added",
     "task_added",
     "task_status_changed",
     "decision_logged",

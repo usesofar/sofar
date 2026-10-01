@@ -100,6 +100,7 @@ present, MUST be strings. Status enums for both tasks and phases are
 | `initiative_created` | `slug`, `goal` (required) | Declares the initiative; sets its slug and goal. Normally line 1 of the log. |
 | `plan_updated` | `plan` (required object, see below) | **Full replace** of the plan structure: goal (if present) and the entire phase/task tree. |
 | `phase_status_changed` | `phase`, `status` (required; `status` ∈ enum) | Sets the named phase's status. |
+| `phase_added` | `phase` (required); `status` (optional, ∈ enum, default `pending`); `after`, `note` (optional) | Adds one phase without replacing the plan: directly after the phase named `after`, else last. |
 | `task_added` | `phase`, `id`, `title` (required); `status` (optional, ∈ enum, default `pending`) | Adds one task to the named phase. Task ids are unique across the whole initiative, not per phase. |
 | `task_status_changed` | `id`, `status` (required; `status` ∈ enum); `note` (optional) | Sets a task's status. A `note` on a `blocked` transition explains the blockage and feeds `current.blocked_on` (§5.4). |
 | `decision_logged` | `chose`, `over`, `because` (required) | Records a decision **with** the rejected alternative and the rationale. All three are mandatory by design. |
@@ -194,6 +195,11 @@ does not un-void its original target (v1 behavior — see also §8).
   the payload carries one; missing statuses default to `pending`.
 - `phase_status_changed` — find the phase by name; if absent, **create it
   implicitly** (status `pending`, no tasks) with a warning, then set status.
+- `phase_added` — if a phase with this exact name exists, skip with a
+  warning (never reset its status or tasks); else insert `{name, status
+  (default pending), tasks: [], note?}` directly after the phase whose name
+  equals `after`, or last when `after` is absent — and last, with a warning,
+  when `after` names no phase.
 - `task_added` — if a task with this id exists in *any* phase, skip with a
   warning; else find-or-implicitly-create the phase and append the task.
 - `task_status_changed` — if the task id is unknown, skip with a warning;

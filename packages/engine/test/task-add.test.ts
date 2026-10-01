@@ -180,7 +180,7 @@ describe('over MCP — the schema carries title and phase', () => {
     const f = fx()
     const { client } = await connectServer(f.root, { hostSessionId: 'host-1' })
     const { tools } = await client.listTools()
-    expect(tools.find((t) => t.name === 'sofar_update_plan')!.description).toContain('To add one task, sofar_update_task with title.')
+    expect(tools.find((t) => t.name === 'sofar_update_plan')!.description).toContain('To add a task or phase: sofar_update_task with title, sofar_update_phase with add.')
     expect(Object.keys(tools.find((t) => t.name === 'sofar_update_task')!.inputSchema.properties ?? {})).toEqual(
       expect.arrayContaining(['title', 'phase']),
     )

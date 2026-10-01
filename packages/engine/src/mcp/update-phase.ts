@@ -36,6 +36,12 @@ export function updatePhase(ctx: ToolContext, args: UpdatePhaseArgs): UpdatePhas
   const slug = ctx.resolveWriteInitiative(args.initiative)
   const state = ctx.foldState(slug)
 
+  if (args.add === true) {
+    const planned = planPhaseAdd(state.phases, slug, args)
+    const event = ctx.appendAndProject(slug, 'phase_added', planned.payload)
+    return { ok: true, event_id: event.id, tasks_done: 0, tasks_total: 0 }
+  }
+
   const phase = resolvePhaseOrThrow(state.phases, args.phase, slug)
 
   const note = args.note !== undefined && args.note.length > 0 ? args.note : undefined
@@ -100,4 +106,30 @@ export function resolvePhaseOrThrow<P extends { name: string }>(phases: readonly
       ? `initiative "${slug}" has no phases yet — record a plan first (sofar_update_plan, or a plan_updated append)`
       : `phase "${ref}" not in the plan for "${slug}" — tried the exact name, any case, without a leading ordinal ("7. "), and by number ("3", "Phase 3"); this plan has ${listed}${more}`,
   )
+}
+
+/**
+ * The phase_added one add files (phase-lifecycle 7.1, D10), and the index the
+ * new phase takes in `phases` — so a write-back can resolve its later entries
+ * against a phase it adds. Shared by sofar_update_phase and
+ * sofar_end_session's `phases`. Refuses a name the plan already resolves to
+ * (the fold would skip it) and an `after` that resolves to nothing (the fold
+ * would put it last, which the caller did not ask for); `after` is recorded
+ * by its canonical name.
+ */
+export function planPhaseAdd<P extends { name: string }>(
+  phases: readonly P[],
+  slug: string,
+  args: { phase: string; status: string; note?: string; after?: string },
+): { payload: Record<string, unknown>; at: number } {
+  const name = args.phase.trim()
+  const held = resolvePhase(phases, name)
+  if (held !== undefined) {
+    throw new ToolError('invalid_input', `phase "${name}" is already in the plan for "${slug}" as "${held.name}" — drop add to set its status`)
+  }
+  const after = args.after === undefined ? undefined : resolvePhaseOrThrow(phases, args.after, slug)
+  const payload: Record<string, unknown> = { phase: name, status: args.status }
+  if (after !== undefined) payload.after = after.name
+  if (args.note !== undefined && args.note.length > 0) payload.note = args.note
+  return { payload, at: after === undefined ? phases.length : phases.indexOf(after) + 1 }
 }

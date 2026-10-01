@@ -175,6 +175,14 @@ export interface PlanUpdatedPayload { plan: PlanStructure }
  */
 export interface PhaseStatusChangedPayload { phase: string; status: PhaseStatus; note?: string }
 /**
+ * One phase added to a live plan without resending it (phase-lifecycle 7.1,
+ * D10): plan_updated's full replace was the only way in, so adding a phase
+ * meant restating every task. `after` places it behind the phase of that exact
+ * name; absent, or naming no phase, it goes last. `status` defaults to
+ * `pending`; `note` is the same reason-for-status phase_status_changed carries.
+ */
+export interface PhaseAddedPayload { phase: string; status?: PhaseStatus; after?: string; note?: string }
+/**
  * `waits_on` (linked-context 2.1, SPEC §Links) is the task's DECLARED link
  * set, additive and optional like command_run's `ok`/`exit`: an old reader
  * ignores it. Absent leaves the set unchanged, present replaces it, `[]`
@@ -673,6 +681,7 @@ export interface KnownEventPayloads {
   initiative_status_changed: InitiativeStatusChangedPayload
   plan_updated: PlanUpdatedPayload
   phase_status_changed: PhaseStatusChangedPayload
+  phase_added: PhaseAddedPayload
   task_added: TaskAddedPayload
   task_status_changed: TaskStatusChangedPayload
   decision_logged: DecisionLoggedPayload
@@ -706,13 +715,14 @@ export type KnownEventType = keyof KnownEventPayloads
  * a test pins it to package.json. Part of a fold snapshot's version hash —
  * bump it with any payload-shape change.
  */
-export const SCHEMA_VERSION = '0.10.0'
+export const SCHEMA_VERSION = '0.11.0'
 
 export const EVENT_TYPES = [
   'initiative_created',
   'initiative_status_changed',
   'plan_updated',
   'phase_status_changed',
+  'phase_added',
   'task_added',
   'task_status_changed',
   'decision_logged',
@@ -953,6 +963,12 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
   phase_status_changed(p, e) {
     if (!str(p.phase)) e.push('phase: must be a non-empty string')
     if (!phaseStatus(p.status)) e.push(`status: must be one of ${PHASE_STATUSES.join('|')}`)
+    if (!optStr(p.note)) e.push('note: must be a string')
+  },
+  phase_added(p, e) {
+    if (!str(p.phase)) e.push('phase: must be a non-empty string')
+    if (p.status !== undefined && !phaseStatus(p.status)) e.push(`status: must be one of ${PHASE_STATUSES.join('|')}`)
+    if (!optNonEmptyStr(p.after)) e.push('after: must be a non-empty string when present')
     if (!optStr(p.note)) e.push('note: must be a string')
   },
   task_added(p, e) {
@@ -1344,6 +1360,12 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
     summary: 'one phase changed status (name it exactly as in the plan)',
     fields: `phase, status: ${PHASE_STATUSES.join('|')}, note? (say why when dropped)`,
     example: { phase: 'Phase 1 — Data model', status: 'done' },
+  },
+  phase_added: {
+    writer: 'agent',
+    summary: 'one phase added to the plan, without resending it',
+    fields: `phase, status?: ${PHASE_STATUSES.join('|')} (default pending), after? (the phase it follows; default last), note?`,
+    example: { phase: 'Phase 2 — Billing', status: 'pending', after: 'Phase 1 — Data model' },
   },
   task_added: {
     writer: 'agent',

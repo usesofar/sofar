@@ -17,6 +17,9 @@
         "phase_status_changed": {
           "$ref": "#/definitions/PhaseStatusChangedPayload"
         },
+        "phase_added": {
+          "$ref": "#/definitions/PhaseAddedPayload"
+        },
         "task_added": {
           "$ref": "#/definitions/TaskAddedPayload"
         },
@@ -92,6 +95,7 @@
         "initiative_status_changed",
         "plan_updated",
         "phase_status_changed",
+        "phase_added",
         "task_added",
         "task_status_changed",
         "decision_logged",
@@ -323,6 +327,27 @@
         "status"
       ],
       "description": "`note` (phase-lifecycle 2.1) is the same field task_status_changed carries, one level up, and required for `dropped` for the same reason: a phase abandoned without a stated reason is indistinguishable from one quietly forgotten, and nothing else in the record explains it."
+    },
+    "PhaseAddedPayload": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/PhaseStatus"
+        },
+        "after": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase"
+      ],
+      "description": "One phase added to a live plan without resending it (phase-lifecycle 7.1, D10): plan_updated's full replace was the only way in, so adding a phase meant restating every task. `after` places it behind the phase of that exact name; absent, or naming no phase, it goes last. `status` defaults to `pending`; `note` is the same reason-for-status phase_status_changed carries."
     },
     "TaskAddedPayload": {
       "type": "object",

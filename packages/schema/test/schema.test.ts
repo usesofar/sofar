@@ -21,6 +21,7 @@ const validPayloads: Record<string, Record<string, unknown>> = {
     },
   },
   phase_status_changed: { phase: 'Phase 1', status: 'active' },
+  phase_added: { phase: 'Phase 2 — Billing', status: 'pending', after: 'Phase 1 — Data model' },
   task_added: { phase: 'Phase 1', id: '1.7', title: 'Extra task' },
   task_status_changed: { id: '1.1', status: 'done' },
   decision_logged: { chose: 'TypeScript', over: 'Rust', because: 'MCP SDK maturity' },
