@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Relay the builder's rc.5 cut results and the exact publish command to the operator (4.2).
+Next action: Operator: push the release branch and tag, dispatch CI, stage the 5 cores, publish cores then sofar.sh to npm next (commands in the 4.2 relay); or authorize the orchestrator to run everything up to the npm publish.
