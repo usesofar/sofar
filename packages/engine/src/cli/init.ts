@@ -1739,8 +1739,9 @@ ${PROTOCOL_END}
 /**
  * linked-context 5.4: LINKS, as in PROTOCOL_BLOCK, with the CLI append that
  * declares the wait. Everything else is V11, kept a byte-exact literal.
+ * Superseded by r3-fixes 2.7 below; kept byte-exact so init can replace it.
  */
-export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V11.replace(
+export const AGENTS_PROTOCOL_BLOCK_V12 = AGENTS_PROTOCOL_BLOCK_V11.replace(
   '- DURING, for operational facts:',
   `- LINKS: name another record's task, decision or memory as \`<slug> <id>\`
   (\`billing 2.3\`, \`billing D4\`, \`billing M2\`) — a bare id means this
@@ -1751,6 +1752,22 @@ export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V11.replace(
   change). A cite is only offered as worth reading; a declared wait is what
   the Travel block reports as moved or resolved.
 - DURING, for operational facts:`,
+)
+
+/**
+ * r3-fixes 2.7: the CLI dialect teaches the supersession link. Round 3's
+ * Codex sessions wrote through this block in 16 of 18 sessions and left 8 of
+ * 9 changed decisions unlinked, because its decision template never showed
+ * `supersedes`, so each old rule stayed in force beside its replacement.
+ * Everything else is V12.
+ */
+export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V12.replace(
+  '  Omit it for a one-off choice.\n',
+  `  Omit it for a one-off choice.
+  A decision that changes or replaces an earlier one names it, or the old
+  one stays in force beside the new: add \`"supersedes":"D<n>"\` (its handle
+  as \`sofar status\` shows it), and a "rule" when the old one had a rule.
+`,
 )
 
 /** Superseded AGENTS.md blocks, oldest first. */
@@ -1766,6 +1783,7 @@ export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [
   AGENTS_PROTOCOL_BLOCK_V9,
   AGENTS_PROTOCOL_BLOCK_V10,
   AGENTS_PROTOCOL_BLOCK_V11,
+  AGENTS_PROTOCOL_BLOCK_V12,
 ]
 
 // REPO_MD_STUB moved to ./shared (ui-free) so event.ts can import it without

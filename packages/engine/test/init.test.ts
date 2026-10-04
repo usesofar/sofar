@@ -704,9 +704,22 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     // The CLI append stores the handle as written, and the payload takes only
     // canonical ones — so the example is a real handle (cli-dialect validates it).
     expect(AGENTS_PROTOCOL_BLOCK).toContain('`--type task_status_changed --payload \'{"id":"<task-id>","status":"blocked","waits_on":["billing 2.3"]}\'`')
-    // Only LINKS was added: the current block minus it is the last shipped one, byte for byte.
+    // Only LINKS was added: the block minus it is the one shipped before it, byte for byte.
     expect(PROTOCOL_BLOCK.replace(links(PROTOCOL_BLOCK), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-1))
-    expect(AGENTS_PROTOCOL_BLOCK.replace(links(AGENTS_PROTOCOL_BLOCK), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
+    const v12 = SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)!
+    expect(v12.replace(links(v12), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2))
+  })
+
+  it('teaches the CLI dialect to name what a decision replaces (r3-fixes 2.7)', () => {
+    const sentence = [
+      '  A decision that changes or replaces an earlier one names it, or the old',
+      '  one stays in force beside the new: add `"supersedes":"D<n>"` (its handle',
+      '  as `sofar status` shows it), and a "rule" when the old one had a rule.',
+      '',
+    ].join('\n')
+    expect(AGENTS_PROTOCOL_BLOCK).toContain(sentence)
+    // Only that sentence was added: the current block minus it is V12, byte for byte.
+    expect(AGENTS_PROTOCOL_BLOCK.replace(sentence, '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
   })
 
   const driving = (b: string): string => /- DRIVING:[\s\S]*?(?=\n- BEFORE FINISHING)/.exec(b)![0]
