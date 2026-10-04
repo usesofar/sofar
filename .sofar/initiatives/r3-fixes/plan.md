@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 8 done, 2 dropped, 24 remaining
+Progress: 8 done, 2 dropped, 25 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -45,10 +45,11 @@ Progress: 8 done, 2 dropped, 24 remaining
 - [ ] 3.6 Optional local-model smoke profile for runner development only, never a scored arm
 - [ ] 3.7 Freeze the per-claim analysis script with PRE-REGISTRATION-R4 (round 3 had none until after scoring), and assert per-session store growth on every arm (beads r2's issues.jsonl froze at 66 lines S14–S30)
 
-## Phase 4 — Release candidate [pending] — 0/2 done
+## Phase 4 — Release candidate [pending] — 0/3 done
 
 - [ ] 4.1 Cut rc.5 with Phase 2: full suite, SPEC acceptance criteria, D18 read-path gate on both pinned fixtures
 - [ ] 4.2 Publish rc.5 to npm next (operator runs the publish)
+- [ ] 4.0 Rust parity gate before the rc.5 cut. The Rust core must be byte-identical to TS on digest, every hook's stdout and the CLI surfaces that agents read, on every real events.jsonl (this repo and sofar-cloud) plus the round-4 fixture, after all Phase 2 fixes land in both engines. rc.5 ships Rust only when green.
 
 ## Phase 5 — Round 4 benchmark [pending] — 0/6 done
 
