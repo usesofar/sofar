@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 23 done, 2 dropped, 15 remaining
+Progress: 24 done, 2 dropped, 14 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -20,7 +20,7 @@ Progress: 23 done, 2 dropped, 15 remaining
 - [x] 1.6 Round-2 losses carried forward: chain B's misses C1, C2, C3, C5 against automemory (bench-refresh D74, cause L36). Did rc.4's L36 fix hold on round 3's held-out chain? Every still-open miss becomes a loss row.
 - [x] 1.7 Remaining R3 readings (ROUND-3-REPORT §6): L-C9 (a) via H6 rule-fidelity on every arm; native-side L-C9 (b) and L-C10 (b)(c) counts to tell lead from parity; L-C6 store share and H2 background calls via the round-3 transcripts.py
 
-## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 10/14 (2 dropped) done
+## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 11/14 (2 dropped) done
 
 - [x] 2.0 Research survey per loss row (r3-fixes D1). Prior art from papers, products and OSS: context and memory systems, agent context engineering, prompt-cache layouts, retrieval budgets, merge drivers/CRDTs. Per loss, ranked options plus at least one candidate new method of our own, with predicted margin vs native and the best competitor.
 - [x] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
@@ -35,7 +35,7 @@ Progress: 23 done, 2 dropped, 15 remaining
 - [x] 2.10 LR1-A: bind guarded rules to tests; Stop blocks on a failed bound check (memory-lead D37). PREDICT guarded violations at S30 0.33x native, claim ≤0.5x
 - [x] 2.11 LR4: merge block in the digest, memories in edit-time surfacing, merge receipts. PREDICT L-C2 18-20 mean −11.2 → ≥0 (low confidence)
 - [x] 2.12 Record root walk-up (D12): hooks serve the record above the agent's cwd. Round 3 lost Claude Write/Edit capture 156 of 156 from subdirectories. PREDICT capture from a subdirectory 0% -> 100%
-- [ ] 2.13 2.10's Stop gate is over the D18 budget at i1000-10mb (SOFAR_ENFORCE off→on: Stop +48.9 ms, +37.2%; vs rc.4 +23.9%). Make it cheaper or put it behind a flag defaulted off before the rc.5 cut (4.1).
+- [x] 2.13 2.10's Stop gate is over the D18 budget at i1000-10mb (SOFAR_ENFORCE off→on: Stop +48.9 ms, +37.2%; vs rc.4 +23.9%). Make it cheaper or put it behind a flag defaulted off before the rc.5 cut (4.1).
 
 ## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 4/8 done
 
@@ -52,7 +52,7 @@ Progress: 23 done, 2 dropped, 15 remaining
 
 - [ ] 4.1 Cut rc.5 with Phase 2: full suite, SPEC acceptance criteria, D18 read-path gate on both pinned fixtures
 - [ ] 4.2 Publish rc.5 to npm next (operator runs the publish)
-- [ ] 4.0 Rust parity gate before the rc.5 cut. The Rust core must be byte-identical to TS on digest, every hook's stdout and the CLI surfaces that agents read, on every real events.jsonl (this repo and sofar-cloud) plus the round-4 fixture, after all Phase 2 fixes land in both engines. rc.5 ships Rust only when green.
+- [ ] 4.0 Rust parity gate before the rc.5 cut. The Rust core must be byte-identical to TS on digest, every hook's stdout and the CLI surfaces that agents read, on every real events.jsonl (this repo and sofar-cloud) plus the round-4 fixture, after all Phase 2 fixes land in both engines. rc.5 ships Rust only when green. (active)
 
 ## Phase 5 — Round 4 benchmark [pending] — 2/8 done
 
@@ -66,4 +66,4 @@ Progress: 23 done, 2 dropped, 15 remaining
 - [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
 Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
-Next action: Make 2.10's Stop gate cheaper at i1000-10mb (2.13), then 2.2.
+Next action: Build 2.2: land memory-lead 4.3 and 4.4 into the rc.
