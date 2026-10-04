@@ -37,7 +37,7 @@ Progress: 20/29 tasks done (68%)
 
 - [x] 4.1 Moat spec: assume Claude Code (and others) ship shared cloud memory; list the advantages that survive: vendor-neutral cross-agent memory, branch- and PR-aware records that merge with the code, typed decisions with supersession and provenance to commits and tests, executable enforcement, deterministic zero-model capture, team governance of rules. Each maps to a benchmark claim with a falsifier.
 - [ ] 4.2 Retire any public claim or roadmap item whose advantage rests only on native memory being machine-local (blocked)
-- [ ] 4.3 L35: cut raw .sofar reads (R2-P10 falsified at 20–43 reads per cell). PREDICT ≤1 raw read per session, judged on a fresh held-out chain. Growth bet 5, founder-approved 2026-09-30; owner was round 4 in D25 notes only
+- [ ] 4.3 L35: cut raw .sofar reads (R2-P10 falsified at 20–43 reads per cell). PREDICT ≤1 raw read per session, judged on a fresh held-out chain. Growth bet 5, founder-approved 2026-09-30; owner was round 4 in D25 notes only (active)
 - [ ] 4.4 L34: cap the alwaysLoad per-turn cost (grew 205 → 3,267 chars). PREDICT store cost ≤ native overhead with no M3 loss, on a fresh held-out chain. Growth bet 5
 - [ ] 4.5 Compaction survival: after a forced compaction the record re-orients the agent at least as well as native memory (R3-P11 compaction survival ≥ native). Growth bet 5; MOAT §1.3 names it a native win with no owner
 - [ ] 4.6 Memory curation: dedupe and retire stale or superseded remember/notes so the digest stays sharp as records grow. Growth bet 5; MOAT §1.3 names it a native win with no owner
