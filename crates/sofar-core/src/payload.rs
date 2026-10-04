@@ -872,9 +872,9 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
             }
             // Stamped by the writer (r3-fixes 2.5, D15), never passed.
             if let Some(ids) = p.get("link_candidates") {
-                let shaped = ids.as_arr().is_some_and(|a| {
-                    (1..=3).contains(&a.len()) && a.iter().all(|v| str(Some(v)))
-                });
+                let shaped = ids
+                    .as_arr()
+                    .is_some_and(|a| (1..=3).contains(&a.len()) && a.iter().all(|v| str(Some(v))));
                 must(
                     e,
                     shaped,

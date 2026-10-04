@@ -134,7 +134,11 @@ pub fn session_title(slug: &str, task_id: Option<&str>, session_id: Option<&str>
         .take(4)
         .map(|c| c.to_ascii_lowercase())
         .collect();
-    if tag.is_empty() { base } else { format!("{base} #{tag}") }
+    if tag.is_empty() {
+        base
+    } else {
+        format!("{base} #{tag}")
+    }
 }
 
 /// node's posix `basename`: trailing separators dropped, then the last segment.
@@ -299,7 +303,10 @@ mod tests {
     #[test]
     fn session_title_tags_each_session_as_the_typescript_does() {
         assert_eq!(session_title("demo", Some("1.1"), None), "demo 1.1");
-        assert_eq!(session_title("demo", None, Some("claude-sess-1")), "demo #clau");
+        assert_eq!(
+            session_title("demo", None, Some("claude-sess-1")),
+            "demo #clau"
+        );
         assert_eq!(
             session_title("demo", Some("p0-9"), Some("3C39c8e4-28ca")),
             "demo p0-9 #3c39"

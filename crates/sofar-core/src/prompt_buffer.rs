@@ -84,8 +84,8 @@ fn read_rows(path: &Path) -> Vec<Row> {
 
 /// Delete session files untouched for `PROMPT_RETENTION_DAYS`.
 fn sweep(dir: &Path) {
-    let Some(cutoff) = SystemTime::now()
-        .checked_sub(Duration::from_secs(PROMPT_RETENTION_DAYS * 24 * 60 * 60))
+    let Some(cutoff) =
+        SystemTime::now().checked_sub(Duration::from_secs(PROMPT_RETENTION_DAYS * 24 * 60 * 60))
     else {
         return;
     };

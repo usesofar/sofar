@@ -754,10 +754,7 @@ impl SlugReducer for LinksReducer {
                     return;
                 };
                 let ruled = state.decisions[at].ruled;
-                if let Some(t) = state.decisions[..at]
-                    .iter()
-                    .position(|d| d.id == target_id)
-                {
+                if let Some(t) = state.decisions[..at].iter().position(|d| d.id == target_id) {
                     let target = &mut state.decisions[t];
                     if !target.ruled || ruled {
                         #[allow(clippy::cast_precision_loss, reason = "ordinals fit f64")]

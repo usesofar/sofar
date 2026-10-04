@@ -1107,7 +1107,10 @@ fn apply_event(
                 // first id, and it stays in force until the link is answered.
                 let is_held = p.get("supersedes_held").is_some();
                 let (held, candidates) = if is_held {
-                    (resolve(&ids[..ids.len().min(1)]).first().copied(), resolve(ids.get(1..).unwrap_or(&[])))
+                    (
+                        resolve(&ids[..ids.len().min(1)]).first().copied(),
+                        resolve(ids.get(1..).unwrap_or(&[])),
+                    )
                 } else {
                     (None, resolve(ids))
                 };
@@ -2179,7 +2182,12 @@ impl DecisionState {
             #[allow(clippy::cast_precision_loss, reason = "ordinals fit f64")]
             l.insert(
                 "candidates",
-                Json::Arr(link.candidates.iter().map(|&n| Json::Num(n as f64)).collect()),
+                Json::Arr(
+                    link.candidates
+                        .iter()
+                        .map(|&n| Json::Num(n as f64))
+                        .collect(),
+                ),
             );
             if let Some(held) = link.held {
                 put_count(&mut l, "held", held);
@@ -2728,7 +2736,8 @@ impl DecisionState {
                         Some(Json::Arr(a)) => a
                             .iter()
                             .map(|v| match v {
-                                Json::Num(n) if n.fract() == 0.0 && *n >= 1.0 => {
+                                Json::Num(n) if n.fract() == 0.0 && *n >= 1.0 =>
+                                {
                                     #[allow(
                                         clippy::cast_possible_truncation,
                                         clippy::cast_sign_loss,

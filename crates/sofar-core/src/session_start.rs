@@ -429,8 +429,7 @@ fn session_merge_notice(
     scope: &crate::index_tier1::GuardIndex,
 ) -> Option<String> {
     use crate::merge::{
-        conflicted_files, merge_entries, merge_in_progress, merge_notice, merge_view,
-        reflog_merges,
+        conflicted_files, merge_entries, merge_in_progress, merge_notice, merge_view, reflog_merges,
     };
     let in_progress = merge_in_progress(root);
     let merges = reflog_merges(root);
@@ -553,7 +552,11 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let title = if hook_host(&hook).tool == CLAUDE_CODE {
         title_to_apply(
             &hook,
-            &session_title(&slug, focus_task(&state).map(|(t, _)| t.id.as_str()), session_id),
+            &session_title(
+                &slug,
+                focus_task(&state).map(|(t, _)| t.id.as_str()),
+                session_id,
+            ),
             &layout,
         )
     } else {
