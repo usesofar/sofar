@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Await the author's checklist result and re-pins; get owners for r3-fixes 2.2 and 3.2/3.3/3.7.
+Next action: Await sofar-4f's 2.13 numbers and then 2.2; owner for Phase 3 3.2/3.3/3.7; Chain M checklist result.
