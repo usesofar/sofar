@@ -290,7 +290,7 @@ describe('sofar uninit preserves foreign content in the files it edits', () => {
 
     const result = runUninit(root)
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain('updated .gitattributes (sofar union-merge rule removed)')
+    expect(result.stdout).toContain('updated .gitattributes (sofar union-merge rules removed)')
     expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe('*.png binary\n')
   })
 

@@ -1783,6 +1783,24 @@ export { REPO_MD_STUB } from './shared'
 export const GITATTRIBUTES_LINE = '.sofar/**/events.jsonl merge=union'
 
 /**
+ * The generated projections (r3-fixes 2.1): a pure function of events.jsonl,
+ * re-rendered on the next append — SessionStart's registration does it — so
+ * a merge of them is meaningless and must never stop one. Union keeps the
+ * merge clean; `linguist-generated` folds them in GitHub diffs. In round 3,
+ * every rep's S18 merge left 6 of them conflicted for the agent to resolve.
+ * bindings.json is not here: union would break its JSON.
+ */
+export const GITATTRIBUTES_PROJECTION_LINES: readonly string[] = [
+  '.sofar/**/plan.md merge=union linguist-generated',
+  '.sofar/**/decisions.md merge=union linguist-generated',
+  '.sofar/**/memory.md merge=union linguist-generated',
+  '.sofar/**/sessions/*.md merge=union linguist-generated',
+]
+
+/** Every line init owns in .gitattributes, in the order it writes them. */
+export const GITATTRIBUTES_LINES: readonly string[] = [GITATTRIBUTES_LINE, ...GITATTRIBUTES_PROJECTION_LINES]
+
+/**
  * Where the hook shims live, and the command prefix every host's config runs
  * them by (r1-fixes 7.1, D36). Claude Code's directory whenever Claude Code is
  * wired, so Cursor's entries stay byte-identical to settings.json's and fire
@@ -2236,29 +2254,28 @@ function initSofarDir(rootDir: string, report: string[]): void {
 }
 
 /**
- * Merge the union-merge rule into .gitattributes — never clobber: user
- * content is byte-preserved, the rule is appended. Any existing line
- * already targeting the events pattern wins over ours (the .mcp.json
- * precedent: a customized entry is the user's, theirs stays).
+ * Merge the union-merge rules into .gitattributes — never clobber: user
+ * content is byte-preserved, missing rules are appended. Any existing line
+ * already targeting one of our patterns wins over ours for that pattern (the
+ * .mcp.json precedent: a customized entry is the user's, theirs stays).
  */
 function ensureGitattributes(rootDir: string, report: string[]): void {
   const path = join(rootDir, '.gitattributes')
   if (!existsSync(path)) {
-    writeFileSync(path, `${GITATTRIBUTES_LINE}\n`, 'utf8')
-    report.push('created .gitattributes (union merge for event logs)')
+    writeFileSync(path, `${GITATTRIBUTES_LINES.join('\n')}\n`, 'utf8')
+    report.push('created .gitattributes (union merge for event logs and projections)')
     return
   }
   const content = readFileSync(path, 'utf8')
-  const hasEventsRule = content
-    .split(/\r?\n/)
-    .some((line) => line.trim().split(/\s+/)[0] === '.sofar/**/events.jsonl')
-  if (hasEventsRule) {
-    report.push('unchanged .gitattributes (events.jsonl rule present)')
+  const patterns = new Set(content.split(/\r?\n/).map((line) => line.trim().split(/\s+/)[0]))
+  const missing = GITATTRIBUTES_LINES.filter((line) => !patterns.has(line.split(' ')[0]))
+  if (missing.length === 0) {
+    report.push('unchanged .gitattributes (sofar rules present)')
     return
   }
   const separator = content.endsWith('\n') || content.length === 0 ? '' : '\n'
-  writeFileSync(path, `${content}${separator}${GITATTRIBUTES_LINE}\n`, 'utf8')
-  report.push('updated .gitattributes (union merge for event logs appended)')
+  writeFileSync(path, `${content}${separator}${missing.join('\n')}\n`, 'utf8')
+  report.push(`updated .gitattributes (union merge for ${missing.length} sofar path(s) appended)`)
 }
 
 /**

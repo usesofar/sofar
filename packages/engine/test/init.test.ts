@@ -21,6 +21,8 @@ import {
   CURSOR_HOOKS,
   CURSOR_MCP_HINT,
   GITATTRIBUTES_LINE,
+  GITATTRIBUTES_LINES,
+  GITATTRIBUTES_PROJECTION_LINES,
   hookCommand,
   PROTOCOL_BLOCK,
   PROTOCOL_BLOCK_V1,
@@ -108,8 +110,9 @@ describe('sofar init on a fresh repo', () => {
     expect(readFileSync(join(root, '.sofar', 'bindings.json'), 'utf8')).toBe('{}\n')
     expect(statSync(join(root, '.sofar', 'initiatives')).isDirectory()).toBe(true)
 
-    // .gitattributes: union-merge rule for committed event logs (team-readiness T2)
-    expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(`${GITATTRIBUTES_LINE}\n`)
+    // .gitattributes: union merge for committed event logs (team-readiness T2)
+    // and the generated projections (r3-fixes 2.1)
+    expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(`${GITATTRIBUTES_LINES.join('\n')}\n`)
 
     // Shims: exact source text (bundled, not read from disk), executable
     for (const shim of SHIMS) {
@@ -317,7 +320,7 @@ describe('sofar init merges — never clobbers — user files', () => {
 
     expect(runInit(root).exitCode).toBe(0)
     expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(
-      `*.png binary\n${GITATTRIBUTES_LINE}\n`,
+      `*.png binary\n${GITATTRIBUTES_LINES.join('\n')}\n`,
     )
 
     // double-init adds nothing
@@ -325,7 +328,7 @@ describe('sofar init merges — never clobbers — user files', () => {
     expect(again.exitCode).toBe(0)
     expect(again.stdout).toContain('unchanged .gitattributes')
     expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(
-      `*.png binary\n${GITATTRIBUTES_LINE}\n`,
+      `*.png binary\n${GITATTRIBUTES_LINES.join('\n')}\n`,
     )
   })
 
@@ -334,19 +337,20 @@ describe('sofar init merges — never clobbers — user files', () => {
     writeFileSync(join(root, '.gitattributes'), '*.png binary')
     expect(runInit(root).exitCode).toBe(0)
     expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(
-      `*.png binary\n${GITATTRIBUTES_LINE}\n`,
+      `*.png binary\n${GITATTRIBUTES_LINES.join('\n')}\n`,
     )
   })
 
-  it('a user-customized events.jsonl rule wins over ours', () => {
+  it('a user-customized events.jsonl rule wins over ours; the projection rules still go in', () => {
     const root = freshRepo()
     const custom = '.sofar/**/events.jsonl -merge\n'
     writeFileSync(join(root, '.gitattributes'), custom)
 
     const result = runInit(root)
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain('unchanged .gitattributes (events.jsonl rule present)')
-    expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(custom)
+    expect(result.stdout).toContain('updated .gitattributes (union merge for 4 sofar path(s) appended)')
+    expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(`${custom}${GITATTRIBUTES_PROJECTION_LINES.join('\n')}\n`)
+    expect(runInit(root).stdout).toContain('unchanged .gitattributes (sofar rules present)')
   })
 
   it('never overwrites a hand-written repo.md', () => {
@@ -543,7 +547,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
       [
         'created .sofar/repo.md',
         'created .sofar/bindings.json',
-        'created .gitattributes (union merge for event logs)',
+        'created .gitattributes (union merge for event logs and projections)',
         'created .claude/hooks/session-start.sh',
         'created .claude/hooks/user-prompt-submit.sh',
         'created .claude/hooks/post-tool-use.sh',

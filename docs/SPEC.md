@@ -5617,7 +5617,14 @@ Shims contain no logic — they invoke the sofar CLI.
   over ours (the customized-entry precedent). Union merge is safe for the
   record and ONLY for it: the log is append-only and the fold replays in
   ulid id order (D-sync-1), so a merge that keeps both sides' lines in
-  arbitrary order folds to the same state on every clone. Each installed protocol block
+  arbitrary order folds to the same state on every clone. Since r3-fixes 2.1
+  it also writes, in the same way and per pattern, `.sofar/**/plan.md`,
+  `decisions.md`, `memory.md` and `sessions/*.md` with `merge=union
+  linguist-generated`. The projections are a pure function of the log and are
+  re-rendered on the next append, so a merge must never leave one conflicted.
+  `bindings.json` is left out, since union would break its JSON. Replaying
+  round 3's S18 merges took conflicted `.sofar` files from 6/6/6 to 0/0/0, and
+  one append afterwards re-rendered them byte-stable. Each installed protocol block
   MUST include: (a) all work state lives in sofar records — never in tool
   memory or scratch files; (b) work matching no existing initiative requires
   creating one (sofar new) before proceeding; (c) bindings resolve which
@@ -5830,9 +5837,10 @@ Shims contain no logic — they invoke the sofar CLI.
   and refusing any other extra key (a customized statusLine is user config —
   kept; init-statusline D1, statusline-refresh D1), .mcp.json's sofar server
   (and `.cursor/mcp.json`'s, and the `[mcp_servers.sofar]` tables in
-  `.codex/config.toml` — agents-parity 2.2), our exact .gitattributes
-  union-merge line (a customized events.jsonl rule is user content — kept;
-  team-readiness T2), and the protocol blocks (markers + one seam
+  `.codex/config.toml` — agents-parity 2.2, and init's direct-call key),
+  our exact .gitattributes union-merge lines (a customized rule for one of
+  our patterns is user content — kept; team-readiness T2, r3-fixes 2.1),
+  and the protocol blocks (markers + one seam
   blank line), preserving all user content; .sofar/ is kept with a notice
   unless --purge deletes it (--purge alone may also delete files the run
   emptied — the byte-clean round-trip). Idempotent (added Phase 8, BD45).

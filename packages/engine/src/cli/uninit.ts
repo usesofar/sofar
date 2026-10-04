@@ -13,7 +13,7 @@ import { CODEX_CONFIG, codexMcpState, withoutSofarDirect, withoutSofarServer } f
 import {
   CODEX_SHIM_DIR,
   CODEX_SHIMS,
-  GITATTRIBUTES_LINE,
+  GITATTRIBUTES_LINES,
   GIT_HOOKS,
   isSofarStatusline,
   PROTOCOL_END,
@@ -363,8 +363,8 @@ function stripProtocolBlock(
 }
 
 /**
- * Remove exactly the union-merge line init installed (team-readiness T2).
- * A user-customized events.jsonl rule differs byte-wise and is therefore
+ * Remove exactly the union-merge lines init installed (team-readiness T2, r3-fixes 2.1).
+ * A user-customized rule for one of our patterns differs byte-wise and is therefore
  * user content — kept, like every other foreign line.
  */
 function stripGitattributes(rootDir: string, purge: boolean, report: string[]): void {
@@ -372,17 +372,17 @@ function stripGitattributes(rootDir: string, purge: boolean, report: string[]): 
   if (!existsSync(path)) return
   const content = readFileSync(path, 'utf8')
   const lines = content.split('\n')
-  const kept = lines.filter((line) => line.trimEnd() !== GITATTRIBUTES_LINE)
+  const kept = lines.filter((line) => !GITATTRIBUTES_LINES.includes(line.trimEnd()))
   if (kept.length === lines.length) return // no line of ours — untouched
   const result = kept.join('\n')
 
   if (purge && result.length === 0) {
     unlinkSync(path)
-    report.push('removed .gitattributes (contained only the sofar union-merge rule)')
+    report.push('removed .gitattributes (contained only the sofar union-merge rules)')
     return
   }
   writeFileSync(path, result, 'utf8')
-  report.push('updated .gitattributes (sofar union-merge rule removed)')
+  report.push('updated .gitattributes (sofar union-merge rules removed)')
 }
 
 /** Remove a directory ONLY when it exists and is empty. */
