@@ -138,6 +138,9 @@ describe('sofar init on a fresh repo', () => {
           ],
         },
       ],
+      PreToolUse: [
+        { matcher: 'Bash', hooks: [{ type: 'command', command: '$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use.sh' }] },
+      ],
       PostToolUse: [
         {
           matcher: 'Edit|Write|MultiEdit|Bash|Read|Grep',
@@ -251,7 +254,8 @@ describe('sofar init merges — never clobbers — user files', () => {
     const merged = readJSON(join(root, '.claude', 'settings.json'))
     expect(merged.permissions).toEqual({ allow: ['Bash(npm test)'] })
     const hooks = merged.hooks as Record<string, unknown[]>
-    expect(hooks.PreToolUse).toEqual(userSettings.hooks.PreToolUse) // untouched
+    // user's PreToolUse entry kept, ours (the read rewrite, memory-lead 4.3) appended after it
+    expect(hooks.PreToolUse).toEqual([...userSettings.hooks.PreToolUse, { matcher: 'Bash', hooks: [{ type: 'command', command: hookCommand('pre-tool-use.sh') }] }])
     // user's SessionStart entry kept, ours appended after it
     expect(hooks.SessionStart).toEqual([
       { hooks: [{ type: 'command', command: 'echo user-start' }] },
@@ -389,7 +393,7 @@ describe('sofar init --statusline (opt-in rent-meter wiring, D4 informed re-test
 
     const settings = readJSON(join(root, '.claude', 'settings.json'))
     expect(settings.statusLine).toEqual(STATUSLINE_SETTINGS_ENTRY)
-    expect(Object.keys(settings.hooks as object)).toHaveLength(6) // hooks untouched by the flag
+    expect(Object.keys(settings.hooks as object)).toHaveLength(7) // hooks untouched by the flag
   })
 
   it('is byte-level idempotent: a second --statusline run changes no file', () => {
@@ -535,7 +539,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
     expect(result.exitCode).toBe(0)
     // The report block ends at the blank line before the (unstyled) hint.
     const lines = (result.stdout.split('\n\n')[0] ?? '').split('\n')
-    expect(lines.at(-1)).toBe('\x1b[32m✓\x1b[39m sofar init: done (25 changes)')
+    expect(lines.at(-1)).toBe('\x1b[32m✓\x1b[39m sofar init: done (27 changes)')
     expect(lines[0]).toBe('\x1b[2m  └ created .sofar/repo.md\x1b[22m')
     for (const line of lines.slice(0, -1)) {
       expect(line.startsWith('\x1b[2m  └ ')).toBe(true)
@@ -552,6 +556,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .gitattributes (union merge for event logs and projections)',
         'created .claude/hooks/session-start.sh',
         'created .claude/hooks/user-prompt-submit.sh',
+        'created .claude/hooks/pre-tool-use.sh',
         'created .claude/hooks/post-tool-use.sh',
         'created .claude/hooks/drive-await.sh',
         'created .claude/hooks/post-tool-use-failure.sh',
@@ -559,6 +564,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .claude/hooks/session-end.sh',
         'created .codex/hooks/sofar/session-start.sh',
         'created .codex/hooks/sofar/user-prompt-submit.sh',
+        'created .codex/hooks/sofar/pre-tool-use.sh',
         'created .codex/hooks/sofar/post-tool-use.sh',
         'created .codex/hooks/sofar/stop.sh',
         'created .codex/hooks/sofar/session-end.sh',
@@ -572,7 +578,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .codex/config.toml',
         'created CLAUDE.md (sofar protocol block)',
         'created AGENTS.md (sofar protocol block)',
-        'sofar init: done (25 changes)',
+        'sofar init: done (27 changes)',
         '',
         STATUSLINE_HINT,
         '',

@@ -86,6 +86,7 @@ import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
 import { cacheChanges, cachedChanges, markWrote, pathspecKey, readWrote } from '../core/wrote'
+import { readGateEnabled, rewriteRawRead } from '../core/read-rewrite'
 import { RECALL_TOLD_KEY, recallBlock, recallEnabled } from '../core/recall'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
@@ -1014,6 +1015,37 @@ function classifyToolCall(hook: Obj): ClassifiedCall[] {
     ]
   }
   return []
+}
+
+/**
+ * PreToolUse (memory-lead 4.3 part C; D39, D42): a whole-file read of a record
+ * projection becomes `sofar read`, the index view with a `--full` escape,
+ * never a refusal. The rewrite is the host's own `updatedInput` (Claude Code,
+ * Codex) or `updated_input` (Cursor), with `allow`, which both require; the
+ * rest of the call's input is kept. Every other call, and every call under
+ * SOFAR_READ_GATE=off, passes untouched: exit 0, no output.
+ */
+export function handlePreTool(rootDir: string, input: string, declared?: HookHost): HookResult {
+  try {
+    if (!readGateEnabled()) return { ...OK }
+    const hook = parseHook(input)
+    const host = declared ?? hookHost(hook)
+    if (strField(hook, 'tool_name') !== 'Bash') return { ...OK }
+    const session = strField(hook, 'session_id')
+    const toolInput = isObj(hook.tool_input) ? hook.tool_input : null
+    const cmd = toolInput === null ? null : strField(toolInput, 'command')
+    if (session === null || toolInput === null || cmd === null) return { ...OK }
+    const rewritten = rewriteRawRead(cmd, strField(hook, 'cwd') ?? rootDir, rootDir, session)
+    if (rewritten === null) return { ...OK }
+    const updated = { ...toolInput, command: rewritten }
+    const out =
+      host.tool === 'cursor'
+        ? { permission: 'allow', updated_input: updated }
+        : { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', updatedInput: updated } }
+    return { ...OK, stdout: `${JSON.stringify(out)}\n` }
+  } catch {
+    return { ...OK }
+  }
 }
 
 /**
@@ -3243,6 +3275,12 @@ export const SUBCOMMANDS: ReadonlyArray<{
     description:
       'SessionStart hook: register the session in the log, print the status projection (≤10,000 chars) as injected context',
     handler: forHost('session-start', handleSessionStart),
+  },
+  {
+    name: 'pre-tool',
+    description:
+      "PreToolUse hook: rewrite an agent's whole-file read of plan.md, decisions.md, memory.md or events.jsonl into `sofar read` (memory-lead 4.3); every other call passes untouched",
+    handler: forHost('pre-tool', handlePreTool),
   },
   {
     name: 'post-tool',

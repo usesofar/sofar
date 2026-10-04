@@ -24,6 +24,10 @@ Commands:
   session-start [options]      SessionStart hook: register the session in the
                                log, print the status projection (≤10,000 chars)
                                as injected context
+  pre-tool [options]           PreToolUse hook: rewrite an agent's whole-file
+                               read of plan.md, decisions.md, memory.md or
+                               events.jsonl into `sofar read` (memory-lead 4.3);
+                               every other call passes untouched
   post-tool [options]          PostToolUse hook: append mechanical file_touched
                                (Edit|Write|MultiEdit|apply_patch) / command_run
                                (Bash) events, and surface every repo-wide

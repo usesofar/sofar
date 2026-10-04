@@ -223,6 +223,10 @@ pub fn with_session_title(name: Hook, result: CmdResult, title: Option<&str>) ->
 /// `toCursor`: a handler's Claude Code result, as Cursor reads it.
 #[must_use]
 pub fn to_cursor(name: Hook, result: CmdResult) -> CmdResult {
+    // The rewrite speaks Cursor's own preToolUse form already (D42).
+    if name == Hook::PreTool {
+        return result;
+    }
     if name == Hook::Stop {
         if result.exit_code != 2 {
             return result;

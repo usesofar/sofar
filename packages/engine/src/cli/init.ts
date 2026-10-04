@@ -49,6 +49,7 @@ import sessionStartShim from '../hooks/session-start.sh'
 import userPromptSubmitShim from '../hooks/user-prompt-submit.sh'
 import postToolUseShim from '../hooks/post-tool-use.sh'
 import postToolUseFailureShim from '../hooks/post-tool-use-failure.sh'
+import preToolUseShim from '../hooks/pre-tool-use.sh'
 import stopShim from '../hooks/stop.sh'
 import sessionEndShim from '../hooks/session-end.sh'
 import driveAwaitShim from '../hooks/drive-await.sh'
@@ -2073,7 +2074,7 @@ export function uninstallStatusline(
 
 interface ShimSpec {
   file: string
-  event: 'SessionStart' | 'UserPromptSubmit' | 'PostToolUse' | 'PostToolUseFailure' | 'Stop' | 'SessionEnd'
+  event: 'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'Stop' | 'SessionEnd'
   /** The `sofar event` subcommand the shim runs. */
   hook: HookName
   matcher?: string
@@ -2101,6 +2102,8 @@ export function shimsFor(host: ShimHome | 'codex'): readonly ShimSpec[] {
 export const SHIMS: readonly ShimSpec[] = [
   { file: 'session-start.sh', event: 'SessionStart', hook: 'session-start', text: sessionStartShim },
   { file: 'user-prompt-submit.sh', event: 'UserPromptSubmit', hook: 'user-prompt', text: userPromptSubmitShim },
+  // The raw-read rewrite (memory-lead 4.3 part C, D39): shell reads only.
+  { file: 'pre-tool-use.sh', event: 'PreToolUse', hook: 'pre-tool', matcher: 'Bash', text: preToolUseShim },
   {
     file: 'post-tool-use.sh',
     event: 'PostToolUse',
@@ -2161,6 +2164,8 @@ export const CODEX_HOOKS: Readonly<
 > = {
   SessionStart: { additionalContextLimit: 0 },
   UserPromptSubmit: {},
+  // memory-lead D39 supersedes agents-parity D5 for this entry alone.
+  PreToolUse: { matcher: 'Bash' },
   PostToolUse: { matcher: 'Bash|apply_patch' },
   Stop: {},
   SessionEnd: { timeout: 3 },
@@ -2622,6 +2627,7 @@ export const CURSOR_HOOKS: Readonly<
 > = {
   SessionStart: { event: 'sessionStart' },
   UserPromptSubmit: { event: 'beforeSubmitPrompt' },
+  PreToolUse: { event: 'preToolUse', matcher: 'Shell' },
   PostToolUse: { event: 'postToolUse', matcher: 'Shell|Write|Read' },
   PostToolUseFailure: { event: 'postToolUseFailure', matcher: 'Shell|Write' },
   Stop: { event: 'stop', loop_limit: 1 },

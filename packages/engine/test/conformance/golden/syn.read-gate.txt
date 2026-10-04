@@ -1,0 +1,68 @@
+# conformance golden: syn.read-gate
+
+## step 1: a whole-file read of the projections: rewritten, the call's other input kept
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .sofar/initiatives/baseline/plan.md .sofar/initiatives/baseline/decisions.md .sofar/initiatives/baseline/memory.md","description":"read the record","timeout":120000}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"sofar read --session 'sess-g' '.sofar/initiatives/baseline/plan.md' '.sofar/initiatives/baseline/decisions.md' '.sofar/initiatives/baseline/memory.md'","description":"read the record","timeout":120000}}}
+--- stderr
+(empty)
+
+## step 2: head -n 40 from a subdirectory
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>/src","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"head -n 40 ../.sofar/initiatives/baseline/events.jsonl"}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"sofar read --session 'sess-g' '../.sofar/initiatives/baseline/events.jsonl'"}}}
+--- stderr
+(empty)
+
+## step 3: Cursor: its own preToolUse form
+argv: ["event","pre-tool"]
+stdin: {"conversation_id":"conv-g","cursor_version":"2026.10.01","cwd":"<ROOT>","hook_event_name":"preToolUse","tool_name":"Shell","tool_input":{"command":"cat .sofar/initiatives/baseline/decisions.md"}}
+exit: 0
+--- stdout
+{"permission":"allow","updated_input":{"command":"sofar read --session 'conv-g' '.sofar/initiatives/baseline/decisions.md'"}}
+--- stderr
+(empty)
+
+## step 4: a grep is left alone
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"grep -n rule .sofar/initiatives/baseline/decisions.md"}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 5: a pipe is left alone
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .sofar/initiatives/baseline/plan.md | head -5"}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 6: the Read tool is left alone
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"file_path":"<ROOT>/.sofar/initiatives/baseline/plan.md"}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 7: SOFAR_READ_GATE=off
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .sofar/initiatives/baseline/plan.md"}}
+env: {"SOFAR_READ_GATE":"off"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## record delta
+(no change)

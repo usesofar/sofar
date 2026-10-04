@@ -1,5 +1,13 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **memory-lead 4.3 part C** (D39, D42, the raw-read rewrite): one new
+case, `syn.read-gate`. A whole-file `cat` of plan.md, decisions.md and memory.md
+is rewritten to `sofar read --session …` in Claude Code's PreToolUse form, the
+call's other input kept; `head -n 40` of events.jsonl from a subdirectory too;
+Cursor gets its own `{permission, updated_input}` form. A grep, a pipe, the Read
+tool and `SOFAR_READ_GATE=off` pass untouched. One golden moved: `argv.fast-path`,
+whose `sofar event --help` listing gains the `pre-tool` subcommand.
+
 ADDED and RE-RECORDED for **memory-lead 4.3 part B** (D25, recall at the
 first prompt): one new case, `syn.recall`. A session's first prompt,
 unregistered, gets the recall block (the decision it names by handle first, then

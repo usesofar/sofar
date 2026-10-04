@@ -44,6 +44,8 @@ export type HookName =
   | 'session-start'
   | 'post-tool'
   | 'post-tool-failure'
+  /** PreToolUse (memory-lead 4.3 part C, D39): the raw-read rewrite. */
+  | 'pre-tool'
   | 'user-prompt'
   | 'stop'
   | 'session-end'
@@ -169,6 +171,8 @@ function json(value: Obj): string {
  * handling is to discard the lot.
  */
 export function toCursor(name: HookName, result: HookResult): HookResult {
+  // The rewrite speaks each host's own preToolUse form already (D42).
+  if (name === 'pre-tool') return result
   if (name === 'stop') {
     if (result.exitCode !== 2) return result
     const message = result.stderr.trim()

@@ -36,6 +36,7 @@ import { runRemember } from './remember'
 import { runBind } from './bind'
 import { runSupersedes } from './supersedes'
 import { runShow } from './show'
+import { runRead } from './read'
 import { runNativeImport } from './native-import'
 import { registerStatuslineCommand } from './statusline'
 import { startServer, renderServeBanner, DEFAULT_PORT } from './serve'
@@ -410,6 +411,15 @@ program
   .option('--root <dir>', 'repo root (default: the record above the current directory)')
   .action((decision: string, target: string, opts: { initiative?: string; root?: string }) => {
     emit(runSupersedes(rootOf(opts), decision, target, opts.initiative !== undefined ? { initiative: opts.initiative } : {}))
+  })
+
+program
+  .command('read <paths...>')
+  .description('read record files as the index the agent needs: what a raw cat of plan.md, decisions.md, memory.md or events.jsonl becomes (memory-lead 4.3)')
+  .option('--session <id>', 'the session reading: a re-read of an unchanged view prints one line')
+  .option('--full', 'print the files as written')
+  .action((paths: string[], opts: { session?: string; full?: boolean }) => {
+    emit(runRead(process.cwd(), paths, { ...(opts.session !== undefined ? { session: opts.session } : {}), ...(opts.full === true ? { full: true } : {}) }))
   })
 
 program

@@ -1,0 +1,184 @@
+[
+ {
+  "cmd": "cat .sofar/initiatives/demo/plan.md .sofar/initiatives/demo/decisions.md .sofar/initiatives/demo/memory.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/plan.md' '.sofar/initiatives/demo/decisions.md' '.sofar/initiatives/demo/memory.md'"
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/decisions.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/decisions.md'"
+ },
+ {
+  "cmd": "cat /r/.sofar/initiatives/demo/events.jsonl",
+  "cwd": "/r/apps/web",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '/r/.sofar/initiatives/demo/events.jsonl'"
+ },
+ {
+  "cmd": "cat ../../.sofar/initiatives/demo/memory.md",
+  "cwd": "/r/apps/web",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '../../.sofar/initiatives/demo/memory.md'"
+ },
+ {
+  "cmd": "head -n 50 .sofar/initiatives/demo/plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/plan.md'"
+ },
+ {
+  "cmd": "tail -100 .sofar/initiatives/demo/decisions.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/decisions.md'"
+ },
+ {
+  "cmd": "cat -n .sofar/initiatives/demo/decisions.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/decisions.md'"
+ },
+ {
+  "cmd": "less '.sofar/initiatives/demo/plan.md'",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/plan.md'"
+ },
+ {
+  "cmd": "  cat   .sofar/initiatives/demo/plan.md  ",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/plan.md'"
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/plan.md | head",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/plan.md > /tmp/x",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/plan.md && ls",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/plan.md; ls",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat $(echo .sofar/initiatives/demo/plan.md)",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "grep -n rule .sofar/initiatives/demo/decisions.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "sed -n 1,20p .sofar/initiatives/demo/decisions.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/plan.md README.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/sessions/s1.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/notes.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat /other/.sofar/initiatives/demo/plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/repo.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat -A .sofar/initiatives/demo/plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat \".sofar/initiatives/demo/plan.md\"",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "wc -l .sofar/initiatives/demo/decisions.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/../demo/plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/../demo/plan.md'"
+ }
+]

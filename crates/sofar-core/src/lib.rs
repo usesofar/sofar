@@ -71,6 +71,7 @@ pub mod peers;
 pub mod post_tool;
 pub mod projections;
 pub mod prompt_buffer;
+pub mod read_rewrite;
 pub mod recall;
 pub mod record_copies;
 pub mod redact;

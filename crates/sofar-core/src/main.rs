@@ -142,6 +142,15 @@ fn main() -> ExitCode {
             }))
         }
         Dispatch::Owned(Owned::Event {
+            hook: Hook::PreTool,
+            root,
+        }) => {
+            let root = resolve_root(root.as_deref());
+            mirror(&for_host(Hook::PreTool, &read_stdin(), |input| {
+                sofar_core::read_rewrite::handle_pre_tool(&root, input)
+            }))
+        }
+        Dispatch::Owned(Owned::Event {
             hook: Hook::UserPrompt,
             root,
         }) => {

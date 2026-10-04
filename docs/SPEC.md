@@ -5226,12 +5226,28 @@ dispatch, and every behaviour below holds for both hosts (§Cursor host),
 except that Cursor's print mode (`cursor-agent -p`, what `sofar drive
 --agent cursor` launches) fires only sessionStart, postToolUse,
 postToolUseFailure and sessionEnd: no Stop gate and no per-prompt lines reach
-a headless Cursor session. Codex runs its own five copies from .codex/hooks.json, each declaring
+a headless Cursor session. Codex runs its own six copies from .codex/hooks.json, each declaring
 `--host codex`; every behaviour below holds for Codex too, except where
 §Codex host says otherwise (no PostToolUseFailure, no asserted `ok`, JSON
 context carriers). Codex runs them only in a project it trusts, and only
 after the operator trusts each entry in `/hooks`; anywhere else nothing below
 fires, and a Codex session is Tier 3 (§Host tiers).
+- PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, Cursor
+  `preToolUse` matcher `Shell`, Codex `PreToolUse` matcher `Bash`, its entry
+  added under D39, which supersedes agents-parity D5 for it alone) → `sofar
+  event pre-tool`. It rewrites ONE kind of call: a single shell segment whose
+  program is `cat`, `head`, `tail`, `less` or `more` and whose every operand
+  resolves to a record's `plan.md`, `decisions.md`, `memory.md` or
+  `events.jsonl`, with no `|`, `&`, `;`, `<`, `>`, backtick, `$`, `(`, `)`,
+  backslash, double quote or newline anywhere in the command. `head`/`tail`
+  counts and `cat -n` are dropped; any other option leaves the call alone. It
+  becomes `sofar read --session '<id>' '<operand>'…`, the operands as typed:
+  Claude Code and Codex get `{"hookSpecificOutput":{"hookEventName":"PreToolUse",
+  "permissionDecision":"allow","updatedInput":{…the call's input, command
+  replaced}}}`, Cursor `{"permission":"allow","updated_input":{…}}` (live docs,
+  2026-10-04). Every other call (a grep, a pipe, the Read tool), and every
+  call under `SOFAR_READ_GATE=off` (also `0`, `false`), gets exit 0 and no
+  output.
 - SessionStart shim → `sofar event session-start` then prints the status
   projection to stdout (context injection). The block carries a
   `Session: <id> — when calling sofar_start_session, pass this as
@@ -6552,6 +6568,21 @@ subdirectory, against 33 of 33 from the root.
   adding a note when the command is not test-shaped, because the Stop gate
   cannot read such a command. It refuses a non-handle, a missing decision, a
   decision with no rule, and a retired one (naming its replacement).
+- `sofar read <paths…> [--session <id>] [--full]` (memory-lead 4.3 part C,
+  D42) — what a rewritten whole-file read runs. For a record's projection it
+  prints, under a `==> <path> (sofar read: … ) <==` header naming
+  `sofar show` and `--full`: for decisions.md one line per decision in force,
+  `- D<n> · <date> · rule: "<rule>"` or `· chose <head of 110>`, then `(<n>
+  replaced decision(s) not shown.)`; for memory.md one line per memory in
+  force, its text cut at 160; for plan.md the plan as rendered without its
+  brief, then `Brief, one line per paragraph:` and `- brief¶<k> <head of
+  160>`; for events.jsonl one line naming its event and byte counts and the
+  ways to read the record instead. With `--session`, a view already printed
+  to that session context (the told set holds its hash) prints `==> <path>:
+  unchanged since you read it this session — … <==` instead. `--full`, and any
+  path that is not a projection, prints the file as written; a missing file is
+  named on stderr with exit 1. Views are pure functions of the fold, so a
+  record that cannot be folded is printed as written, never refused.
 - `sofar show <ids…> [--initiative <slug>]` (memory-lead 4.3 part D, D25) —
   print record entries whole by handle, from the fold: `D<n>` (or
   `D<n>·<sfx>`) as its date, replacement, rule, quote, chose, over, because,
@@ -8899,6 +8930,17 @@ stay the underlying derivation's, and exit codes are styling-independent.
   prints each whole, and `sofar show D9 X` names both on stderr with exit 1.
   Replay over round 3's 45 Claude supersessions: the target is in the block
   for 36 (28 whole). Tests: test/recall.test.ts.
+- **The read rewrite (memory-lead 4.3 part C, D39, D42):** `cat
+  .sofar/initiatives/demo/decisions.md` from PreToolUse becomes `sofar read
+  --session 's1' '.sofar/initiatives/demo/decisions.md'` in Claude Code's
+  form with the call's description and timeout kept, and in Cursor's
+  `{permission, updated_input}` form; a grep, a pipe, `cat … README.md`, the
+  Read tool and `SOFAR_READ_GATE=off` pass untouched. `sofar read` prints D2
+  and D3 as one line each and not the replaced D1, the brief one line a
+  paragraph, `M1 ·`; a second read of the same view in the same session is
+  one line, another session's is whole, `--full` is the file as written. The
+  rewrite table (crates/sofar-core/tests/fixtures/js-read-rewrite.json) is
+  asserted by both engines. Tests: test/read-rewrite.test.ts.
 - **Per-turn byte budget (memory-lead 4.4, L34):** the always-loaded tool
   definitions as served stay ≤3,500 chars (3,370 on 2026-10-04), the server
   instructions ≤800 (722), and the digest's cap ≤6,000. Tests:

@@ -259,6 +259,7 @@ describe('sofar init for a subset of agents', () => {
       '.claude/hooks/drive-await.sh',
       '.claude/hooks/post-tool-use-failure.sh',
       '.claude/hooks/post-tool-use.sh',
+      '.claude/hooks/pre-tool-use.sh',
       '.claude/hooks/session-end.sh',
       '.claude/hooks/session-start.sh',
       '.claude/hooks/stop.sh',
@@ -425,7 +426,7 @@ describe('uninit and doctor for a subset of agents', () => {
     const broken = runDoctor(root, {}, plain)
     expect(broken.exitCode).toBe(1)
     expect(broken.stdout).toContain('Codex hook shims missing: stop.sh')
-    expect(broken.stdout).toContain('.codex/hooks.json missing hooks: SessionStart, UserPromptSubmit, Stop, SessionEnd')
+    expect(broken.stdout).toContain('.codex/hooks.json missing hooks: SessionStart, UserPromptSubmit, PreToolUse, Stop, SessionEnd')
     expect(broken.stdout).toContain('run `sofar init --agents codex` to (re)install it')
   })
 
@@ -433,7 +434,7 @@ describe('uninit and doctor for a subset of agents', () => {
     const root = freshRepo()
     init(root, ['cursor'])
     const result = runDoctor(root, {}, plain)
-    expect(result.stdout).toContain('hook shims installed (6/6)')
+    expect(result.stdout).toContain('hook shims installed (7/7)')
     expect(result.stdout).toContain('.cursor/hooks.json hooks wired')
     expect(result.stdout).toContain('AGENTS.md protocol block current')
     expect(result.stdout).not.toContain('.claude/settings.json')
