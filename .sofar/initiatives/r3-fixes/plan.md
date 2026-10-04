@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 9 done, 2 dropped, 28 remaining
+Progress: 14 done, 2 dropped, 23 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -20,10 +20,10 @@ Progress: 9 done, 2 dropped, 28 remaining
 - [x] 1.6 Round-2 losses carried forward: chain B's misses C1, C2, C3, C5 against automemory (bench-refresh D74, cause L36). Did rc.4's L36 fix hold on round 3's held-out chain? Every still-open miss becomes a loss row.
 - [x] 1.7 Remaining R3 readings (ROUND-3-REPORT §6): L-C9 (a) via H6 rule-fidelity on every arm; native-side L-C9 (b) and L-C10 (b)(c) counts to tell lead from parity; L-C6 store share and H2 background calls via the round-3 transcripts.py
 
-## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 2/13 (2 dropped) done
+## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 3/13 (2 dropped) done
 
 - [x] 2.0 Research survey per loss row (r3-fixes D1). Prior art from papers, products and OSS: context and memory systems, agent context engineering, prompt-cache layouts, retrieval budgets, merge drivers/CRDTs. Per loss, ranked options plus at least one candidate new method of our own, with predicted margin vs native and the best competitor.
-- [ ] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
+- [x] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
 - [ ] 2.2 Land memory-lead 4.3 (L35: ≤1 raw .sofar read per session) and 4.4 (L34: cap the alwaysLoad per-turn cost) — owned there; this task tracks them into the rc
 - [-] 2.3 Non-Claude context diet: whatever 1.2 finds for Codex and Cursor. PREDICT stated from 1.2's numbers before build (dropped)
 - [-] 2.4 Fixes from 1.3–1.6 findings, one task per finding, each with its PREDICT (dropped)
@@ -36,16 +36,16 @@ Progress: 9 done, 2 dropped, 28 remaining
 - [ ] 2.11 LR4: merge block in the digest, memories in edit-time surfacing, merge receipts. PREDICT L-C2 18-20 mean −11.2 → ≥0 (low confidence)
 - [ ] 2.12 Record root walk-up (D12): hooks serve the record above the agent's cwd. Round 3 lost Claude Write/Edit capture 156 of 156 from subdirectories. PREDICT capture from a subdirectory 0% -> 100% (active)
 
-## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 0/8 done
+## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 4/8 done
 
-- [ ] 3.1 Reboot safety: bench plists must not relaunch stale or finished jobs at login (RunAtLoad relaunched smoke-r3-h4/smoke-r3-h on 2026-10-03)
+- [x] 3.1 Reboot safety: bench plists must not relaunch stale or finished jobs at login (RunAtLoad relaunched smoke-r3-h4/smoke-r3-h on 2026-10-03)
 - [ ] 3.2 score-batch reads the round's own env (BENCH_CHAIN_DIR etc.) from its ledger or plist, so scoring cannot fail on a missing chain
 - [ ] 3.3 Fair agent-lock scheduling: no cell starves behind the others (sofar r3 waited ~4h of its first 6h)
-- [ ] 3.4 Operator hold/resume command for a running round (today: bootout + re-bootstrap by hand)
-- [ ] 3.5 Per-agent cost and token readout built into check-rep (today hand-computed from ledgers)
+- [x] 3.4 Operator hold/resume command for a running round (today: bootout + re-bootstrap by hand)
+- [x] 3.5 Per-agent cost and token readout built into check-rep (today hand-computed from ledgers)
 - [ ] 3.6 Optional local-model smoke profile for runner development only, never a scored arm
-- [ ] 3.7 Freeze the per-claim analysis script with PRE-REGISTRATION-R4 (round 3 had none until after scoring), and assert per-session store growth on every arm (beads r2's issues.jsonl froze at 66 lines S14–S30)
-- [ ] 3.8 Codex hooks in every cell (ROUND-3-REPORT H-f): launchCodex passes --dangerously-bypass-hook-trust, and check-rep asserts hook-sourced events per agent on each hook-using arm (round 3: 0 Codex hook events on all 3 sofar reps) (active)
+- [ ] 3.7 Freeze the per-claim analysis script with PRE-REGISTRATION-R4 (round 3 had none until after scoring), and assert per-session store growth on every arm (beads r2's issues.jsonl froze at 66 lines S14–S30) (active)
+- [x] 3.8 Codex hooks in every cell (ROUND-3-REPORT H-f): launchCodex passes --dangerously-bypass-hook-trust, and check-rep asserts hook-sourced events per agent on each hook-using arm (round 3: 0 Codex hook events on all 3 sofar reps)
 
 ## Phase 4 — Release candidate [pending] — 0/3 done
 
@@ -65,4 +65,4 @@ Progress: 9 done, 2 dropped, 28 remaining
 - [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
 Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
-Next action: When the Rust port lands, run both engines' suites, then commit 2.10 and 2.12 with their goldens.
+Next action: When the Rust port lands, run both engines' suites, then commit 2.10, 2.10c and 2.12 with their goldens.
