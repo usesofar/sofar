@@ -2,4 +2,5 @@
 
 # Decisions: chain-m-author
 
-(no decisions logged yet)
+- 2026-10-04T16:41:40.282Z — chose **One sealed reference whose rule versions come from a per-checkpoint policy table (BINWISE_REF_CHECKPOINT), with each decision mutated via BINWISE_REF_MUTATE** over A reference snapshot (commit) per session because It validates all 30 checkpoint suites and per-checkpoint mutation detection from one codebase in about 12 s
+- 2026-10-04T16:41:40.283Z — chose **X1/X2 are extra to the 24 plants, on wt/pick-path at s17; s18 merges only wt/case-pack and wt/order-caps** over Counting abandoned-branch decisions inside the 24 because It keeps Chain L's 8/8/4/4 mix identical, so rounds 3 and 4 stay comparable
