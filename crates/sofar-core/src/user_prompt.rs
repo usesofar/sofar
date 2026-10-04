@@ -686,7 +686,11 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     let title = if hook_host(&hook).tool == CLAUDE_CODE {
         title_to_apply(
             &hook,
-            &session_title(&slug, focus_task(&state).map(|(t, _)| t.id.as_str()), Some(session_id)),
+            &session_title(
+                &slug,
+                focus_task(&state).map(|(t, _)| t.id.as_str()),
+                Some(session_id),
+            ),
             &layout,
         )
     } else {
@@ -769,7 +773,10 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     with_session_title(Hook::UserPrompt, result, title.as_deref())
 }
 
-/// `handleStop`: exit 2 with the block on stderr when this session owes a write-back.
+/// `handleStop`: exit 2 with the block on stderr when this session owes a
+/// write-back, or when the test gate (r3-fixes 2.10, D10/D11; memory-lead
+/// D37) holds it — a rule bearing on its edits needs a covering test that
+/// passed after the last one. `SOFAR_ENFORCE=off` restores D10's Stop.
 #[must_use]
 pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     let layout = Layout::new(root);
@@ -790,35 +797,116 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     let Some(session) = state.sessions.iter().find(|s| s.id == session_id) else {
         return silent();
     };
-    if session.summary.is_some() {
-        return silent();
-    }
-    if session_debt(&state, session) == 0 {
-        return silent();
+    let gate =
+        crate::checks::enforce_enabled().then(|| stop_gate_for(root, &layout, &state, session));
+    // Drift gate (drift-signal 1.2): this session owes nothing when it wrote
+    // back or never mutated the record.
+    let owes = session.summary.is_none() && session_debt(&state, session) != 0;
+    if !owes {
+        return match gate {
+            Some(g) if g.blocks => CmdResult {
+                exit_code: 2,
+                stdout: String::new(),
+                stderr: g.lines.join("\n"),
+            },
+            _ => silent(),
+        };
     }
     let mut lines = vec![STOP_BLOCK_MESSAGE.to_owned()];
     lines.extend(guard_violation_lines(
         &session_guard_violations(&state, session_id, session.ended.as_deref()),
         root,
     ));
-    // Decision checks ride the same block (memory-lead 2.3, D9/D10): they
-    // run only here, where the gate already holds the session, so a failing
-    // check is read before the write-back and never stops a turn.
+    // Decision checks ride the same block (D9/D10): they run only here, where
+    // the write-back gate already holds the session. Under the test gate, only
+    // checks it cannot judge — not test-shaped — run here; its lines cover the rest.
     let files = session
         .activity
         .as_ref()
         .map(|a| a.files.clone())
         .unwrap_or_default();
+    let gated = gate.is_some();
+    if let Some(g) = gate {
+        lines.extend(g.lines);
+    }
     lines.extend(crate::checks::stop_check_lines(
         root,
         &crate::index_tier1::refresh_guards(&layout),
         &files,
+        gated,
     ));
     CmdResult {
         exit_code: 2,
         stdout: String::new(),
         stderr: lines.join("\n"),
     }
+}
+
+/// `stopGateFor` (r3-fixes D10, D11): the test gate's verdict for this
+/// session. Edits are the hooks' captures plus what `git status` reports,
+/// asked only when the session ran a command; a run counts only once it
+/// finished after the newest of those files' mtimes. The suite is the
+/// session's own newest test command, else the record's.
+fn stop_gate_for(
+    root: &Path,
+    layout: &Layout,
+    state: &InitiativeState,
+    session: &SessionState,
+) -> crate::checks::StopGate {
+    let none = crate::checks::StopGate::default();
+    let activity = session.activity.as_ref();
+    let captured: Vec<String> = activity
+        .map(|a| {
+            a.files
+                .iter()
+                .filter(|f| !f.starts_with('+'))
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+    let commands = activity.map_or(0, |a| a.commands);
+    if captured.is_empty() && commands == 0 {
+        return none; // no work: no index, no git
+    }
+    let index = crate::index_tier1::refresh_guards(layout);
+    if !crate::checks::rules_can_bear(&index) {
+        return none;
+    }
+    let from_git = if commands > 0 {
+        crate::checks::worktree_changes(root).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let files: Vec<String> = captured.into_iter().chain(from_git).collect();
+    if files.is_empty() {
+        return none;
+    }
+    let mut edited_at: Option<f64> = None;
+    for p in &files {
+        let path = if Path::new(p).is_absolute() {
+            Path::new(p).to_path_buf()
+        } else {
+            root.join(p)
+        };
+        if let Ok(meta) = std::fs::metadata(&path) {
+            let mtime = crate::index_store::mtime_ms_of(&meta);
+            if edited_at.is_none_or(|at| mtime > at) {
+                edited_at = Some(mtime);
+            }
+        }
+    }
+    let known = activity
+        .and_then(|a| a.last_test.as_ref())
+        .or_else(|| {
+            state
+                .sessions
+                .iter()
+                .rev()
+                .find_map(|s| s.activity.as_ref().and_then(|a| a.last_test.as_ref()))
+        })
+        .map(|t| t.cmd.as_str());
+    let tests = activity.map_or(&[][..], |a| a.tests_since_edit.as_slice());
+    crate::checks::stop_gate(&index, &files, tests, known, edited_at)
 }
 
 /// `handleSessionEnd`: append `session_closed` once.

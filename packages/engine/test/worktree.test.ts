@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { TRAILER_KEY } from '../src/core/attribution'
-import { commonGitDir, gitDir, readGitState } from '../src/core/git'
+import { commonGitDir, gitDir, readGitState, recordRoot } from '../src/core/git'
 import { runDoctor } from '../src/cli/doctor'
 import { runInit } from '../src/cli/init'
 import { runUninit } from '../src/cli/uninit'
@@ -62,6 +62,25 @@ function worktreePair(name: string): Pair {
   git(main, 'worktree', 'add', '-q', wt, '-b', 'feature')
   return { main, wt }
 }
+
+describe('recordRoot (r3-fixes 2.12): hooks run where the agent cd\'d', () => {
+  it('finds the record above a subdirectory, never past the repo, and leaves the rest where it was', () => {
+    const top = realpathSync(mkdtempSync(join(tmpdir(), 'sofar-root-')))
+    roots.push(top)
+    const repo = join(top, 'repo')
+    mkdirSync(join(repo, 'apps', 'web', 'lib'), { recursive: true })
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repo })
+    expect(recordRoot(join(repo, 'apps', 'web', 'lib'))).toBe(join(repo, 'apps', 'web', 'lib')) // no record: as before
+    mkdirSync(join(repo, '.sofar'))
+    expect(recordRoot(join(repo, 'apps', 'web', 'lib'))).toBe(repo)
+    expect(recordRoot(repo)).toBe(repo)
+    mkdirSync(join(repo, 'apps', 'web', '.sofar')) // a nearer record wins
+    expect(recordRoot(join(repo, 'apps', 'web', 'lib'))).toBe(join(repo, 'apps', 'web'))
+    mkdirSync(join(top, '.sofar')) // a record above the repo is not this repo's
+    mkdirSync(join(top, 'other'))
+    expect(recordRoot(join(top, 'other'))).toBe(join(top, 'other')) // outside any repo: no walk
+  })
+})
 
 describe('commonGitDir', () => {
   it('is the .git dir itself in an ordinary checkout', () => {

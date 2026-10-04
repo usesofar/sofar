@@ -552,6 +552,18 @@ export const CASES: ConformanceCase[] = [
         tool_response: {},
       })),
       s('stop: the block carries the checks', ['event', 'stop'], stop({ session_id: 'sess-a' })),
+      // r3-fixes 2.10 (D10): the test gate holds a written-back session until a
+      // covering test passed after its last edit, once per stop.
+      s('gate: a rule whose check is a test', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-a', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'freeze legacy', over: 'editing it', because: 'b', rule: 'Keep the legacy tree frozen.', guard: 'path:src/legacy/**', check: { cmd: 'bun test test/legacy.test.ts', hint: 'restore src/legacy/old.ts' } })]),
+      s('gate: sess-a writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-a', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('gate: the written-back session is held for its test', ['event', 'stop'], stop({ session_id: 'sess-a' })),
+      s('gate: one ask per stop', ['event', 'stop'], stop({ session_id: 'sess-a', stop_hook_active: true })),
+      s('gate: the suite passes', ['event', 'post-tool'], bash('bun test', { session_id: 'sess-a' })),
+      s('gate: released', ['event', 'stop'], stop({ session_id: 'sess-a' })),
+      // r3-fixes 2.12: a host runs hooks in the agent's current directory. From
+      // a subdirectory the record above it still serves every hook.
+      s('subdir: an Edit run from src/legacy lands in the record above', ['event', 'post-tool'], edit('<ROOT>/src/legacy/old.ts', { session_id: 'sess-a', cwd: '<ROOT>/src/legacy' }), { cwd: 'src/legacy' }),
+      s('subdir: Stop holds again from there — edited after the pass', ['event', 'stop'], stop({ session_id: 'sess-a', cwd: '<ROOT>/src/legacy' }), { cwd: 'src/legacy' }),
       s('unbound: a read still surfaces, every handle qualified', ['event', 'post-tool'], read('<ROOT>/src/core/fold.ts', { session_id: 'sess-u' }), {
         before: (m) => writeFileSync(join(m.root, '.git', 'HEAD'), 'ref: refs/heads/unbound\n'),
       }),

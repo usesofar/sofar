@@ -27,7 +27,8 @@ import { cloneKey, resolvesInside, stateBase } from './state-dir'
 /** One checkpoint file per implementation: the files are derived and never compared. */
 const IMPL = 'ts'
 const FOLDS_DIR = 'folds'
-export const FOLD_CHECKPOINT_VERSION = 1
+/** 2: ActivityAcc gained testsSinceEdit (r3-fixes D10), so a v1 file would resume without it. */
+export const FOLD_CHECKPOINT_VERSION = 2
 /** How much of the log's head a resumed log must still match (as the registration cache). */
 const HEAD_BYTES = 4096
 /**

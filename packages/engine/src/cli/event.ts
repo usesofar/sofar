@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join, relative, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import { cachedDigestState } from '../core/digest-cache'
 import { readBindingsFile } from '../core/bindings'
-import { currentBranch } from '../core/git'
+import { currentBranch, recordRoot } from '../core/git'
 import { ensureIndexDir } from '../core/index-store'
 import { QUICK_LANE, QUICK_LANE_GOAL } from '../core/lane'
 import { refreshLexicon } from '../core/index-lexicon'
@@ -37,9 +37,9 @@ import {
   type SessionState,
 } from '../core/fold'
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
-import { activityEnabled } from '../core/derived'
+import { activityEnabled, testShapedCommand } from '../core/derived'
 import { retireEnabled } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, isApproved, runChecks, unapprovedLine } from '../core/checks'
+import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, isApproved, rulesCanBear, runChecks, stopGate, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -1251,17 +1251,27 @@ export function handleStop(
     const state = ctx.foldState(slug)
     const session = state.sessions.find((s) => s.id === sessionId)
     if (session === undefined) return { ...OK } // never registered — not ours to block
-    if (session.summary !== undefined) return { ...OK } // write-back done
+
+    // The test gate (r3-fixes 2.10, D10; memory-lead D37) holds a session on
+    // its own, write-back or not: a rule bearing on its edits needs a covering
+    // test that passed after the last one. sofar runs nothing here — the agent
+    // runs the tests under its host's permissions — and stop_hook_active above
+    // bounds it to one ask per stop. SOFAR_ENFORCE=off restores D10's Stop.
+    const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, state, session) : null
 
     // Drift gate (drift-signal 1.2): silent exit when THIS session owes
     // nothing — it wrote back, or it never mutated the record. NaN or a
     // throw is NOT zero — both enforce (fail closed, never a silent skip
     // of the gate).
-    try {
-      if (computeDrift(state, session) === 0) return { ...OK }
-    } catch {
-      // fall through to the block below
+    let owes = session.summary === undefined // write-back done owes nothing
+    if (owes) {
+      try {
+        if (computeDrift(state, session) === 0) owes = false
+      } catch {
+        // fall through to the block below
+      }
     }
+    if (!owes) return gate?.blocks === true ? { exitCode: 2, stdout: '', stderr: gate.lines.join('\n') } : { ...OK }
 
     // Guard crossings RIDE the block; they never cause one (D3). By the time
     // we are here the gate has already decided to hold this session for its
@@ -1273,10 +1283,14 @@ export function handleStop(
       sessionGuardViolations(state, sessionId, session.ended),
       rootDir,
     )
-    // Decision checks ride the same block (memory-lead 2.3, D9/D10): they run
-    // only here, where the gate already holds the session, so a failing check
-    // is read before the write-back and can never be what stops a turn.
-    const checks = stopCheckLines(rootDir, ctx.sofarDir, session)
+    // Decision checks ride the same block (D9/D10): they run only here, where
+    // the write-back gate already holds the session, so an approved check costs
+    // no turn of its own. Under the test gate, only checks it cannot judge —
+    // not test-shaped — run here; the gate's lines cover the rest.
+    const checks =
+      gate === null
+        ? stopCheckLines(rootDir, ctx.sofarDir, session)
+        : [...gate.lines, ...stopCheckLines(rootDir, ctx.sofarDir, session, (c) => testShapedCommand(c.check.cmd) === null)]
     return {
       exitCode: 2,
       stdout: '',
@@ -1284,6 +1298,45 @@ export function handleStop(
     }
   } catch {
     return { ...OK }
+  }
+}
+
+/**
+ * The test gate's verdict for this session (r3-fixes D10, D11), from its edits
+ * and the tests it ran since the last one. Edits are the hooks' captures plus
+ * what git reports changed in the working tree: round 3's replay found Bash
+ * writes and lost Write/Edit captures invisible to the hooks. A run counts
+ * only once it finished after the newest of those files' mtimes. The suite is
+ * the session's own newest test command, else the record's. Fails open: a gate
+ * that cannot read the index says nothing, since it is never the write-back gate.
+ */
+function stopGateFor(rootDir: string, sofarDir: string, state: InitiativeState, session: SessionState): StopGate {
+  const none: StopGate = { lines: [], blocks: false }
+  try {
+    const captured = (session.activity?.files ?? []).filter((f) => !f.startsWith('+'))
+    const commands = session.activity?.commands ?? 0
+    if (captured.length === 0 && commands === 0) return none // no work: no index, no git
+    const index = refreshGuards(sofarDir)
+    if (!rulesCanBear(index)) return none
+    // Only a shell command edits what the hooks never see, so git is asked
+    // only when one ran — once (speed T2).
+    const fromGit = commands > 0 ? (worktreeChanges(rootDir) ?? []) : []
+    const files = [...captured, ...fromGit]
+    if (files.length === 0) return none
+    let editedAt: number | null = null
+    for (const p of files) {
+      try {
+        const mtime = statSync(isAbsolute(p) ? p : join(rootDir, p)).mtimeMs
+        if (editedAt === null || mtime > editedAt) editedAt = mtime
+      } catch {
+        // a deleted file has no mtime; its removal is still an edit git names
+      }
+    }
+    let known = session.activity?.last_test?.cmd ?? null
+    for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
+    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt)
+  } catch {
+    return none
   }
 }
 
@@ -1298,9 +1351,14 @@ export const STOP_CHECK_MAX_MS = 30_000
  * cap touched too much to scope, so every check applies. Never throws: a
  * check that cannot be read is one that says nothing.
  */
-function stopCheckLines(rootDir: string, sofarDir: string, session: SessionState): string[] {
+function stopCheckLines(
+  rootDir: string,
+  sofarDir: string,
+  session: SessionState,
+  only: (c: InForceCheck) => boolean = () => true,
+): string[] {
   try {
-    const checks = checksInForce(refreshGuards(sofarDir))
+    const checks = checksInForce(refreshGuards(sofarDir)).filter(only)
     if (checks.length === 0) return []
     const files = session.activity?.files ?? []
     const overflow = files.some((f) => f.startsWith('+'))
@@ -3028,7 +3086,7 @@ export function registerEventCommand(program: Command): void {
           return
         }
         mirror(
-          runAppend(resolve(opts.root ?? process.cwd()), {
+          runAppend(resolve(opts.root ?? recordRoot(process.cwd())), {
             type: opts.type,
             payload: input.text,
             ...(opts.session !== undefined ? { session: opts.session } : {}),
@@ -3064,7 +3122,7 @@ export function registerEventCommand(program: Command): void {
       )
       .action(async (opts: { root?: string; host?: DeclaredHost }) => {
         const input = await readStdin()
-        mirror(await handler(resolve(opts.root ?? process.cwd()), input, opts.host))
+        mirror(await handler(resolve(opts.root ?? recordRoot(process.cwd())), input, opts.host))
       })
   }
 }

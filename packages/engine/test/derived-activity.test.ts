@@ -113,6 +113,7 @@ describe('the fold (D24 (2))', () => {
       commands: 4,
       failed: 1,
       last_test: { cmd: 'npm test -- --run', ok: true },
+      tests_since_edit: [{ cmd: 'npm test -- --run', ok: true, ts: expect.any(String) }], // r3-fixes D10: after src/a.ts
       task_changes: [],
     })
     expect(state.task_tests).toBeDefined()

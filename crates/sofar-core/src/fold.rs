@@ -155,6 +155,17 @@ pub struct TestOutcome {
     pub exit: Option<f64>,
 }
 
+/// A [`TestOutcome`] with the ts of the event that reported it — when the run
+/// had finished (`TimedTestOutcome`, r3-fixes D10).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TimedTestOutcome {
+    pub outcome: TestOutcome,
+    pub ts: String,
+}
+
+/// How many test outcomes since the last edit a session keeps (`TESTS_SINCE_EDIT_CAP`, r3-fixes D10).
+pub const TESTS_SINCE_EDIT_CAP: usize = 8;
+
 /// The latest [`TestOutcome`] a task saw while active, with the event it came from.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TaskTestOutcome {
@@ -173,6 +184,10 @@ pub struct SessionActivity {
     pub failed: Option<u64>,
     /// The newest test-shaped command with a known outcome; absent when none (D24).
     pub last_test: Option<TestOutcome>,
+    /// Test-shaped outcomes since the session's latest `touched` edge, oldest
+    /// first, the newest [`TESTS_SINCE_EDIT_CAP`] kept; empty (absent) when none
+    /// (r3-fixes 2.10, D10). What Stop's gate reads.
+    pub tests_since_edit: Vec<TimedTestOutcome>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -1587,6 +1602,8 @@ pub struct ActivityAcc {
     commands: u64,
     failed: u64,
     last_test: Option<TestOutcome>,
+    /// Test outcomes since the last `touched` edge, oldest first (r3-fixes D10).
+    tests_since_edit: Vec<TimedTestOutcome>,
     task_changes: Vec<String>,
     task_changes_overflow: u64,
 }
@@ -1648,6 +1665,9 @@ impl EdgeAccumulator {
                 "touched" => {
                     let a = self.session(&edge.from);
                     let path = path_of_node_id(&edge.to);
+                    // Every touch, a re-touch included, voids the tests run
+                    // before it (r3-fixes D10) — so this runs ahead of the dedupe.
+                    a.tests_since_edit.clear();
                     if a.seen.contains(path) {
                         continue; // dedupe — first touch wins the slot
                     }
@@ -1666,6 +1686,13 @@ impl EdgeAccumulator {
                             a.failed += 1;
                         }
                         if let Some(outcome) = attrs.outcome() {
+                            a.tests_since_edit.push(TimedTestOutcome {
+                                outcome: outcome.clone(),
+                                ts: edge.ts.clone().unwrap_or_default(),
+                            });
+                            if a.tests_since_edit.len() > TESTS_SINCE_EDIT_CAP {
+                                a.tests_since_edit.remove(0);
+                            }
                             a.last_test = Some(outcome);
                         }
                     }
@@ -1733,6 +1760,7 @@ impl EdgeAccumulator {
                         task_changes,
                         failed: (a.failed > 0).then_some(a.failed),
                         last_test: a.last_test.clone(),
+                        tests_since_edit: a.tests_since_edit.clone(),
                     },
                 )
             })
@@ -2123,6 +2151,20 @@ impl SessionActivity {
         }
         if let Some(t) = &self.last_test {
             o.insert("last_test", t.to_json());
+        }
+        if !self.tests_since_edit.is_empty() {
+            let runs = self
+                .tests_since_edit
+                .iter()
+                .map(|t| {
+                    let Json::Obj(mut to) = t.outcome.to_json() else {
+                        unreachable!("an object")
+                    };
+                    put(&mut to, "ts", &t.ts);
+                    Json::Obj(to)
+                })
+                .collect();
+            o.insert("tests_since_edit", Json::Arr(runs));
         }
         o.insert("task_changes", str_arr(&self.task_changes));
         Json::Obj(o)
@@ -2633,6 +2675,20 @@ impl SessionState {
                         last_test: match a.get("last_test") {
                             None => None,
                             Some(t) => Some(TestOutcome::from_json(t.as_obj()?)?),
+                        },
+                        tests_since_edit: match a.get("tests_since_edit") {
+                            None => Vec::new(),
+                            Some(runs) => runs
+                                .as_arr()?
+                                .iter()
+                                .map(|r| {
+                                    let r = r.as_obj()?;
+                                    Some(TimedTestOutcome {
+                                        outcome: TestOutcome::from_json(r)?,
+                                        ts: rs(r, "ts")?,
+                                    })
+                                })
+                                .collect::<Option<Vec<_>>>()?,
                         },
                     })
                 }

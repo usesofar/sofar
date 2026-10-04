@@ -14,6 +14,33 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
  * the most expensive line in the block.
  */
 
+/**
+ * The directory a command or hook serves when no `--root` names one (r3-fixes
+ * 2.12): the nearest ancestor of `start` holding a `.sofar/` directory, looked
+ * for only inside the git repo `start` is in — up to and including its top, the
+ * first ancestor with a `.git` entry. Outside a repo, or with no record in it,
+ * `start` itself, as before. Hosts run hooks in the agent's current directory,
+ * which follows its `cd`: in round 3, 60% of Claude turns ran from a
+ * subdirectory, where every hook found no record and silently did nothing.
+ */
+export function recordRoot(start: string): string {
+  const from = resolve(start)
+  const climbed: string[] = []
+  for (let dir = from; ; dir = dirname(dir)) {
+    climbed.push(dir)
+    if (existsSync(join(dir, '.git'))) break
+    if (dirname(dir) === dir) return from // no repo: no walk
+  }
+  for (const dir of climbed) {
+    try {
+      if (statSync(join(dir, '.sofar')).isDirectory()) return dir
+    } catch {
+      // no record at this level
+    }
+  }
+  return from
+}
+
 /** The .git directory, following a worktree-style .git FILE. Null if absent. */
 export function gitDir(rootDir: string): string | null {
   try {

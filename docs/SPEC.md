@@ -642,14 +642,17 @@ without a hint, `make the work hold the rule (the operator: "<quote>"), or
 log a decision that supersedes <slug> D<n>`. <how> is `exit N`, `timed out
 after Ns`, `killed by <signal>` or `could not run`.
 
-WHERE, AND WHETHER IT BLOCKS (the user's ruling "Drive + opt-in pre-commit",
-D9 as restated by D10). It qualifies drift-hardening D3 rather than
-overturning it: a GUARD still never changes an exit code.
-- Stop: checks run ONLY when the write-back block already fires, over the
-  session's touched files (every check when its file list overflowed), within
-  45 s in total. Failures, the unapproved line and a budget line ride the
-  block's stderr. They never cause a block, and a session that wrote back is
-  never held and runs nothing.
+WHERE, AND WHETHER IT BLOCKS (the user's rulings "Drive + opt-in pre-commit"
+and "allow Stop to block", memory-lead D37 superseding D10). It qualifies
+drift-hardening D3 rather than overturning it: a GUARD still never changes an
+exit code.
+- Stop: the TEST GATE below holds a session on its own, write-back done or
+  not. When the write-back block also fires, the gate's lines ride it, and the
+  approved checks the gate cannot judge (not test-shaped) run there as before,
+  over the session's touched files (every check when its file list
+  overflowed), within 45 s in total, with the unapproved line and a budget
+  line. `SOFAR_ENFORCE=off` (also `0`, `false`) restores D10: no gate, every
+  applicable check rides the write-back block, nothing else holds a session.
 - pre-commit: the `pre-commit` git hook (§Hooks) runs `sofar check --staged`
   over the staged paths. It warns on stderr and exits 10 ONLY when the clone
   opted in (`sofar check --block-commits on`, in the same file) and an approved
@@ -658,6 +661,46 @@ overturning it: a GUARD still never changes an exit code.
   commit through.
 - drive: at task acceptance (§Driver, Decision checks at acceptance).
 - `sofar check` (§CLI): warns, exit 0; `--strict` exits 1 on a failure.
+
+THE TEST GATE (r3-fixes 2.10, D10, D11). sofar executes nothing: the agent
+runs the tests under its host's permissions, and the gate reads what it ran
+from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
+- EDITS: the session's captured `file_touched` paths, plus, when the session
+  ran a command, what `git status --porcelain=v1 -z --untracked-files=all
+  --no-renames` reports changed outside `.sofar/` (one spawn). A shell write
+  never reaches the hooks. A session with no captured file and no command, or
+  a repo whose in-force rules have neither a guard nor a file mention, skips
+  the gate and asks git nothing.
+- BEARING: every in-force ruled decision, repo-wide, whose guard matches or
+  whose file mentions name an edited path (the scope tier's
+  scopeHitsForSubject). A rule that names no edited path bears on nothing.
+- REQUIREMENT: a rule whose check is test-shaped needs that check's test
+  segment. Any other rule needs the record's known suite: the runner head of
+  the session's own `last_test`, else the newest session's, run with no
+  arguments. With no known suite, such a rule asks nothing.
+- COVERING: a run covers a requirement when its runner head (the tokens before
+  the first path, file, flag, assignment or quoted argument; shell redirections
+  such as `2>&1` or `> out.log` dropped) is the same and it has no arguments,
+  or it names every argument the requirement names. A requirement with no
+  arguments is covered only by an argless run. A run counts only when its
+  event's ts is after the newest mtime among the edited files that exist.
+- VERDICT, per requirement: the newest covering run since the last edit passed
+  → satisfied; it failed → `sofar: \`<run>\` failed (exit N) after your last
+  edit, and it covers [<slug> D<n>] "<rule>"… — fix: <hint>`; none → `sofar:
+  [<slug> D<n>] "<rule>"… bear on files you edited, and no covering test passed
+  since your last edit — run \`<cmd>\` and fix any failure before stopping
+  (fix: <hint>)`, where <cmd> is the check's own command or the suite's head.
+  At most 5 lines, then a count line. Any line blocks: exit 2 with the lines on
+  stderr, which each host adapter delivers (§Cursor host, §Codex host).
+- BOUNDS: `stop_hook_active` exits 0 first, so the gate asks once per stop. An
+  unreadable index makes it say nothing (it is never the write-back gate).
+- BINDING (2.10c). A rule that guards or names a file but has no test-shaped
+  check gets one more warning from `sofar_log_decision` and from each decision
+  in a write-back: `D<n> names <guard or first file> but no test is bound to it,
+  so Stop can hold edits there only to the whole suite. If a test can prove
+  the rule, write it now and run \`sofar bind D<n> "<the command that runs
+  it>"\`.` In round 3, 11 of the 14 guarded violations at S30 never passed:
+  no test held the rule.
 
 ### Read-time surfacing (memory-lead 2.1, D6)
 The point-of-use push of §Decision guards (drift-hardening D3), extended from
@@ -4762,7 +4805,9 @@ dropped — `cd pkg && npm test` and `CI=1 npx vitest run` are test-shaped,
 a `tested` edge (task → command) is written for every task ACTIVE at a
 test-shaped command with a known `ok` — the task_files window. On finalize a
 session's activity gains OPTIONAL `failed` (ok:false only; an absent `ok` is
-UNKNOWN, never a failure) and `last_test` {cmd, ok, exit?}, and the state
+UNKNOWN, never a failure), `last_test` {cmd, ok, exit?} and `tests_since_edit`
+(the test-shaped outcomes since the session's latest `touched` edge, a re-touch
+included, oldest first, the newest 8 kept; r3-fixes D10), and the state
 gains OPTIONAL `task_tests` (task id → latest {cmd, ok, exit?, ts, event_id}),
 present only when non-empty — a record without outcome fields folds
 byte-identically, so every fold-parity golden and pre-capture projection is
@@ -5543,6 +5588,16 @@ fires, and a Codex session is Tier 3 (§Host tiers).
 Shims contain no logic — they invoke the sofar CLI.
 
 ## CLI
+ROOT (r3-fixes 2.12, D12). Every repo-scoped command and hook without `--root`
+serves the nearest ancestor of its working directory that holds a `.sofar/`
+directory, looked for only inside the git repo that directory is in, up to and
+including its top (the first ancestor with a `.git` entry). Outside a repo, or
+with no record in it, the working directory itself, as before. `--root` is
+taken as given. Hosts run hooks in the agent's current directory, which
+follows its `cd`. In round 3, with cwd as the root, every hook silently did
+nothing from `apps/web`: Claude Write/Edit capture was 0 of 156 from a
+subdirectory, against 33 of 33 from the root.
+
 - `sofar init [--agents <list>]` — create .sofar/, write repo.md stub, install hook shims
   (including git's own `.git/hooks/prepare-commit-msg`, never clobbering —
   commit-attribution D7, §Hooks)
@@ -6157,6 +6212,14 @@ Shims contain no logic — they invoke the sofar CLI.
   `unknown_event` typed-error JSON naming the known types. Every example is
   pinned by test to pass validatePayload and to append through `event
   append`.
+- `sofar bind <D<n>> <cmd> [--hint <text>] [--initiative <slug>]` (r3-fixes
+  2.10c) — give a standing rule the test that proves it. It re-files D<n>
+  exactly as recorded (chose, over, because, rule, quote, guard), plus
+  `check: {cmd, hint?}` and `supersedes: D<n>`, through the same validated
+  append. It prints `bound <slug> D<m> (supersedes D<n>): check \`<cmd>\``,
+  adding a note when the command is not test-shaped, because the Stop gate
+  cannot read such a command. It refuses a non-handle, a missing decision, a
+  decision with no rule, and a retired one (naming its replacement).
 - `sofar remember [text] [--supersedes <handle>] [--initiative <slug>]`
   (repo-memory-capture D1; input forms and supersession r1-fixes 1.5, D8) —
   append memory_promoted and print the `<slug> M<n>` handle repo.md must
@@ -6311,8 +6374,9 @@ Shims contain no logic — they invoke the sofar CLI.
   allowedOrigins is deliberately left unset there because the SDK treats a
   MISSING Origin as failure, which would lock out every non-browser client.
 - `sofar mcp [--root <dir>]` — start the stdio MCP server (server name:
-  sofar) exposing §MCP tools; --root overrides the repo root (default:
-  cwd). Added in Phase 2 (BD13); `sofar init` registers it in .mcp.json.
+  sofar) exposing §MCP tools; --root overrides the repo root (default: the
+  record above the cwd, as ROOT in §CLI says). Added in Phase 2 (BD13); `sofar init`
+  registers it in .mcp.json.
 - `sofar upgrade [version] [--check|--dry-run|--force]` — self-update the
   globally-installed CLI to `latest` (or a pinned version). Derives the real
   npm prefix from the running binary's own path (…/lib/node_modules/…) rather
@@ -8460,6 +8524,36 @@ stay the underlying derivation's, and exit codes are styling-independent.
   a write-back batch is refused whole naming `decisions[0]` and
   sofar_log_decision as the route. Tests: test/repo-scope.test.ts,
   test/reversal.test.ts.
+- **Stop test gate (r3-fixes 2.10, D10):** a session that wrote back and
+  edited a path a ruled decision guards is held (exit 2) with the ask line
+  naming the check's command, and released once a covering run passed after
+  its last edit; `stop_hook_active` releases it once per stop. A run of
+  another file does not cover, a superset of the files and the argless suite
+  do, and a re-touch voids every run before it. A failed covering run gives
+  the failure line with its exit and hint. A rule without a check needs the
+  argless suite the record knows (`bun test` from an earlier `bun test
+  test/x.test.ts`), and with no test command anywhere in the record it asks
+  nothing. Rules bear repo-wide; a retired rule and a file no rule names do
+  not. Owing a write-back, the gate's lines ride the block after its first
+  line; `SOFAR_ENFORCE=off` releases the written-back session. A file written
+  by a shell command (a `command_run`, no `file_touched`) bears once git
+  reports it changed, a run that finished before its mtime does not count,
+  and one after does (D11). `bun run test` covers `bun run test 2>&1`.
+- **Binding (r3-fixes 2.10c):** `sofar bind D1 'bun test test/store.test.ts'`
+  files D2 with D1's rule, quote and guard plus the check, retires D1, and a
+  session that edits the guarded file is then asked to run that test. It
+  refuses `twelve`, a missing D9, a rule-less decision and a retired one. A
+  rule naming `src/db/store.ts` with no check is nudged with `sofar bind D1`;
+  one with a test-shaped check, and one naming no file, are not.
+- **CLI dialect supersession (r3-fixes 2.7):** the AGENTS.md block tells a
+  decision that changes an earlier one to add `"supersedes":"D<n>"`, and a
+  rule when the old one had one. The block minus that sentence is V12 byte
+  for byte, and V12 is in the shipped ledger, so init replaces it in place.
+- **Record root (r3-fixes 2.12):** `recordRoot` returns the repo top holding
+  `.sofar/` from `apps/web/lib`, a nearer `.sofar/` when one exists, the start
+  itself in a repo with no record, and never a `.sofar/` above the repo or
+  outside any repo. A PostToolUse Edit and a Stop run with their cwd in
+  `src/legacy` serve the record at the root (`syn.surfacing`).
 - **Decision checks (memory-lead 2.3):** decision_logged `check` without
   `rule` is refused, as are an empty or 501-char cmd, a 301-char hint, a
   timeout_ms of 0 or 600,001 and an unknown key; verification_recorded
@@ -8479,7 +8573,7 @@ stay the underlying derivation's, and exit codes are styling-independent.
   or no git it exits 0 silently. The pre-commit shim refuses a real `git
   commit` on 10 and lets one through on 1 (silently) and 0 (its output shown). A session owing its
   write-back gets the failure and unapproved lines on the Stop block (exit 2,
-  as before). A written-back session is not held, and its check never runs.
+  as before). A written-back session's check never runs at Stop.
   Under drive, another record's check reopens the task
   (`verify_failed`, detail with the fix) and the next prompt carries it; a
   pass accepts it with task.verification absent. An unapproved check

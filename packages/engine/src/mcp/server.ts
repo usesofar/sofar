@@ -28,6 +28,7 @@ import { updatePlan } from './update-plan'
 import { addNoteJudged } from './add-note'
 import { rememberJudged } from './remember'
 import { withCopyLag } from './copy-lag'
+import { recordRoot } from '../core/git'
 
 /**
  * Sofar MCP server (SPEC §MCP tools) — low-level SDK API on purpose (BD12):
@@ -179,7 +180,7 @@ export interface SofarServerHandle {
  * InMemoryTransport and production attaches stdio.
  */
 export function createSofarServer(options: CreateSofarServerOptions = {}): SofarServerHandle {
-  const rootDir = resolve(options.rootDir ?? process.cwd())
+  const rootDir = resolve(options.rootDir ?? recordRoot(process.cwd()))
   const context = createToolContext(rootDir)
   const hostSessionId = options.hostSessionId?.trim() || undefined
 

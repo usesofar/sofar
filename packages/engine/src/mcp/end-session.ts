@@ -16,7 +16,7 @@ import { resolvePeers } from '../core/peers'
 import { silentReversal } from '../core/reversal'
 import { ruleFidelityWarning } from '../core/rule-fidelity'
 import { homeInitiative, ToolError, type ToolContext } from './context'
-import { fitQuote, judgeOptionsFor, quoteFitWarning } from './log-decision'
+import { bindNudge, fitQuote, judgeOptionsFor, quoteFitWarning } from './log-decision'
 import { planPhaseAdd, resolvePhaseOrThrow } from './update-phase'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 import { citeNudges, homeViewOf } from './waits-on'
@@ -205,6 +205,8 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
       ...(d.supersedes !== undefined ? { supersedes: d.supersedes } : {}),
     })
     if (fit !== null) warnings.push(quoteFitWarning(ordinal, fit))
+    const nudge = bindNudge(ordinal, d)
+    if (nudge !== null) warnings.push(nudge)
     if (d.rule !== undefined) {
       const warning = ruleFidelityWarning(ordinal, d.rule, payload.quote as string | undefined)
       if (warning !== null) warnings.push(warning)

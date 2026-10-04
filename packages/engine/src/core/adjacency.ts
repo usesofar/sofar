@@ -298,13 +298,28 @@ export interface SessionActivity {
   failed?: number
   /** The newest test-shaped command with a known outcome; absent when none (D24). */
   last_test?: TestOutcome
+  /**
+   * Test-shaped outcomes since this session's latest `touched` edge, oldest
+   * first, the newest TESTS_SINCE_EDIT_CAP kept; absent when none (r3-fixes
+   * 2.10, D10). What Stop's gate reads: a rule bearing on the session's edits
+   * holds only if a covering test passed AFTER the last one.
+   */
+  tests_since_edit?: TimedTestOutcome[]
 }
+
+/** How many test outcomes since the last edit a session keeps (r3-fixes D10). */
+export const TESTS_SINCE_EDIT_CAP = 8
 
 /** A test-shaped command_run the host reported an outcome for (r1-fixes 2.5, D24). */
 export interface TestOutcome {
   cmd: string
   ok: boolean
   exit?: number
+}
+
+/** A test outcome with the ts of the event that reported it — when the run had finished. */
+export interface TimedTestOutcome extends TestOutcome {
+  ts: string
 }
 
 /** The latest TestOutcome a task saw while active, with the event it came from. */
@@ -338,6 +353,8 @@ export interface ActivityAcc {
   commands: number
   failed: number
   lastTest?: TestOutcome
+  /** Test outcomes since the last `touched` edge, oldest first (r3-fixes D10). */
+  testsSinceEdit: TimedTestOutcome[]
   taskChanges: string[]
   taskChangesOverflow: number
 }
@@ -393,6 +410,9 @@ export class EdgeAccumulator {
         case 'touched': {
           const a = this.session(edge.from)
           const path = pathOfNodeId(edge.to)
+          // Every touch, a re-touch included, voids the tests run before it
+          // (r3-fixes D10) — so this runs ahead of the dedupe below.
+          a.testsSinceEdit = []
           if (a.seen.has(path)) break // dedupe — first touch wins the slot
           a.seen.add(path)
           if (a.files.length < ACTIVITY_LIST_CAP) a.files.push(path)
@@ -405,7 +425,11 @@ export class EdgeAccumulator {
           if (edge.attrs !== undefined) {
             if (edge.attrs.ok === false) a.failed += 1
             const outcome = outcomeOf(edge.attrs)
-            if (outcome !== null) a.lastTest = outcome
+            if (outcome !== null) {
+              a.lastTest = outcome
+              a.testsSinceEdit.push({ ...outcome, ts: edge.ts ?? '' })
+              if (a.testsSinceEdit.length > TESTS_SINCE_EDIT_CAP) a.testsSinceEdit.shift()
+            }
           }
           break
         }
@@ -424,7 +448,7 @@ export class EdgeAccumulator {
     const id = sessionNode.slice('session:'.length)
     let a = this.sessions.get(id)
     if (a === undefined) {
-      a = { files: [], seen: new Set(), filesOverflow: 0, commands: 0, failed: 0, taskChanges: [], taskChangesOverflow: 0 }
+      a = { files: [], seen: new Set(), filesOverflow: 0, commands: 0, failed: 0, testsSinceEdit: [], taskChanges: [], taskChangesOverflow: 0 }
       this.sessions.set(id, a)
     }
     return a
@@ -451,6 +475,7 @@ export class EdgeAccumulator {
         commands: a.commands,
         ...(a.failed > 0 ? { failed: a.failed } : {}),
         ...(a.lastTest !== undefined ? { last_test: { ...a.lastTest } } : {}),
+        ...(a.testsSinceEdit.length > 0 ? { tests_since_edit: a.testsSinceEdit.map((t) => ({ ...t })) } : {}),
         task_changes:
           a.taskChangesOverflow > 0 ? [...a.taskChanges, `+${a.taskChangesOverflow} more`] : [...a.taskChanges],
       })

@@ -26,6 +26,7 @@ fn empty_activity() -> SessionActivity {
         task_changes: Vec::new(),
         failed: None,
         last_test: None,
+        tests_since_edit: Vec::new(),
     }
 }
 

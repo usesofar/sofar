@@ -419,6 +419,26 @@ export function buildCases(): FoldParityCase[] {
     l.ev('phase_added', { phase: 'Phase 6', after: '' }, { session: 'A' }) // invalid: empty after
     cases.push({ id: 'FP-19-phase-added', lines: l.lines, sidecar: { tail_at: 3, seeds: [56, 57, 58], order_independence: true, note: 'phase-lifecycle 7.1 (D10): phase_added inserts after its `after`, else last; an unknown `after` lands last with a warning; a held name is skipped with a warning and keeps its status and tasks; a bad status or an empty `after` is an invalid line. The tail starts at the first add' } })
   }
+  {
+    // r3-fixes 2.10 (D10): a session's tests since its last edit — what Stop's
+    // test gate reads. Every touch, a re-touch of a path already seen included,
+    // empties the list; only test-shaped runs with a known `ok` join it; the
+    // newest 8 are kept. The tail starts at the re-touch, so snapshot-plus-tail
+    // resets a list the snapshot carried.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('plan_updated', plan(1))
+    l.ev('session_started', { tool: 'claude-code' }, { session: 'A' })
+    l.ev('file_touched', { path: 'src/a.ts', op: 'edit' }, { session: 'A' })
+    l.ev('command_run', { cmd: 'npm test', ok: true }, { session: 'A' })
+    l.ev('file_touched', { path: 'src/a.ts', op: 'edit' }, { session: 'A' }) // re-touch: the run above no longer counts
+    for (let i = 1; i <= 9; i += 1) l.ev('command_run', { cmd: `bun test test/t${i}.test.ts`, ok: i !== 4, ...(i === 4 ? { exit: 1 } : {}) }, { session: 'A' })
+    l.ev('command_run', { cmd: 'ls -la', ok: true }, { session: 'A' }) // not test-shaped
+    l.ev('command_run', { cmd: 'bun test' }, { session: 'A' }) // ok unknown: not an outcome
+    l.ev('session_started', { tool: 'codex' }, { session: 'B' })
+    l.ev('command_run', { cmd: 'cargo test', ok: true }, { session: 'B' }) // runs with no edit at all
+    cases.push({ id: 'FP-20-tests-since-edit', lines: l.lines, sidecar: { tail_at: 5, seeds: [59, 60, 61], order_independence: true, note: 'r3-fixes 2.10 (D10): tests_since_edit holds the test-shaped outcomes since the session\'s latest touched edge, oldest first, the newest 8 kept; a re-touch of a seen path empties it; a non-test and an ok-unknown run never join; a session with runs and no edit keeps them. The tail starts at the re-touch' } })
+  }
   return cases
 }
 

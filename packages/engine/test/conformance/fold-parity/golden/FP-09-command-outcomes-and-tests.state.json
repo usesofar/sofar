@@ -78,6 +78,24 @@
             "1.2 → active",
             "1.1 → done",
             "1.2 → done"
+          ],
+          "tests_since_edit": [
+            {
+              "cmd": "npm test",
+              "ok": true,
+              "ts": "2026-01-01T00:00:04.000Z"
+            },
+            {
+              "cmd": "npm test -- --run",
+              "exit": 1,
+              "ok": false,
+              "ts": "2026-01-01T00:00:06.000Z"
+            },
+            {
+              "cmd": "pytest -q",
+              "ok": true,
+              "ts": "2026-01-01T00:00:11.000Z"
+            }
           ]
         },
         "ended": "2026-01-01T00:00:12.000Z",

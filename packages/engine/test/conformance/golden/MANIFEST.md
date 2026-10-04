@@ -1,5 +1,19 @@
 # Golden manifest (rust-core D11)
 
+EXTENDED for **r3-fixes 2.10** (D10, the Stop test gate; memory-lead D37), on
+main 2064387: `syn.surfacing` gains six steps after "stop: the block carries
+the checks". A rule whose check is a test (`bun test test/legacy.test.ts`)
+guards the legacy tree, sess-a writes back, and Stop still holds it with the
+ask line. `stop_hook_active` releases it once, and a passing `bun test` releases
+it. The steps after those (unbound read, status) move only by the new
+decision: D9 in the standing constraints and the record delta. No other golden
+moved. fold-parity re-recorded FP-09 (its session now carries
+`tests_since_edit`, each entry with the `ts` its run finished at) and added
+FP-20-tests-since-edit. Two more `syn.surfacing` steps run from `src/legacy`
+(r3-fixes 2.12, the new per-step `cwd`): an Edit lands in the record above,
+and Stop holds the session again. No previous set is kept: nothing else
+changed.
+
 Re-recorded from the TypeScript reference for **session-naming D2**, on
 main d3fcbfa: every session title sofar proposes now ends in ` #<tag>` — the
 first four ASCII alphanumerics of the session id, lowercased — so sessions

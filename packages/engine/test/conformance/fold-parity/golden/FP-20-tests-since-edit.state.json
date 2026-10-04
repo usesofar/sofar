@@ -1,0 +1,170 @@
+{
+  "state": {
+    "brief": "",
+    "current": {
+      "active_phase": "Phase 1 — first",
+      "next_action": null
+    },
+    "cursor": "01KDVDNWHR6D87THWBENGF2S4K",
+    "decisions": [],
+    "drop_notes": {},
+    "files_touched": [
+      "src/a.ts"
+    ],
+    "freshness": {
+      "events_since_writeback": {
+        "commands": 13,
+        "decisions": 0,
+        "files": 2,
+        "memories": 0,
+        "notes": 0,
+        "phases": 0,
+        "reviews": 0,
+        "tasks": 0
+      },
+      "last_writeback_ts": null,
+      "notes": [],
+      "unattributed_mutations": 0
+    },
+    "goal": "a goal of realistic length for the parity suite",
+    "guard_violations": [],
+    "memories": [],
+    "phases": [
+      {
+        "name": "Phase 1 — first",
+        "status": "active",
+        "tasks": [
+          {
+            "id": "1.1",
+            "status": "active",
+            "title": "task 1"
+          }
+        ]
+      },
+      {
+        "name": "Phase 2 — second",
+        "status": "pending",
+        "tasks": [
+          {
+            "id": "2.1",
+            "route": {
+              "agent": "codex"
+            },
+            "status": "pending",
+            "title": "later",
+            "verify": {
+              "cmd": "npm test"
+            }
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "runs": [],
+    "sessions": [
+      {
+        "activity": {
+          "commands": 12,
+          "failed": 1,
+          "files": [
+            "src/a.ts"
+          ],
+          "last_test": {
+            "cmd": "bun test test/t9.test.ts",
+            "ok": true
+          },
+          "task_changes": [],
+          "tests_since_edit": [
+            {
+              "cmd": "bun test test/t2.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:08.000Z"
+            },
+            {
+              "cmd": "bun test test/t3.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:09.000Z"
+            },
+            {
+              "cmd": "bun test test/t4.test.ts",
+              "exit": 1,
+              "ok": false,
+              "ts": "2026-01-01T00:00:10.000Z"
+            },
+            {
+              "cmd": "bun test test/t5.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:11.000Z"
+            },
+            {
+              "cmd": "bun test test/t6.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:12.000Z"
+            },
+            {
+              "cmd": "bun test test/t7.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:13.000Z"
+            },
+            {
+              "cmd": "bun test test/t8.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:14.000Z"
+            },
+            {
+              "cmd": "bun test test/t9.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:15.000Z"
+            }
+          ]
+        },
+        "id": "A",
+        "started": "2026-01-01T00:00:03.000Z",
+        "tool": "claude-code",
+        "unwritten": 2
+      },
+      {
+        "activity": {
+          "commands": 1,
+          "files": [],
+          "last_test": {
+            "cmd": "cargo test",
+            "ok": true
+          },
+          "task_changes": [],
+          "tests_since_edit": [
+            {
+              "cmd": "cargo test",
+              "ok": true,
+              "ts": "2026-01-01T00:00:19.000Z"
+            }
+          ]
+        },
+        "id": "B",
+        "started": "2026-01-01T00:00:18.000Z",
+        "tool": "codex",
+        "unwritten": 0
+      }
+    ],
+    "slug": "demo",
+    "status": "active",
+    "status_note": null,
+    "status_overrides": [],
+    "status_ts": null,
+    "successor": null,
+    "task_files": {
+      "1.1": [
+        "src/a.ts"
+      ]
+    },
+    "task_tests": {
+      "1.1": {
+        "cmd": "cargo test",
+        "event_id": "01KDVDNWHR6D87THWBENGF2S4K",
+        "ok": true,
+        "ts": "2026-01-01T00:00:19.000Z"
+      }
+    }
+  },
+  "warnings": []
+}

@@ -3,8 +3,10 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { guardMatches, parseGuard, type DecisionCheck } from '@sofar/schema'
+import type { TestOutcome, TimedTestOutcome } from './adjacency'
+import { testShapedCommand } from './derived'
 import { commonGitDir } from './git'
-import type { GuardIndex } from './index-tier1'
+import { scopeHitsForSubject, type GuardIndex } from './index-tier1'
 import { byCodeUnit } from './order'
 import { cloneKey, resolvesInside, stateBase, type StateEnv } from './state-dir'
 
@@ -20,10 +22,12 @@ import { cloneKey, resolvesInside, stateBase, type StateEnv } from './state-dir'
  * append-only record, and its script is surfaced on read like any file the
  * decision names.
  *
- * WHEN IT BLOCKS (the user's ruling, D9/D10, qualifying drift-hardening D3):
- * never at Stop, where failures ride the write-back block; at pre-commit only
- * when the operator opted in; and at `sofar drive`'s task acceptance, because
- * an unattended run has no one to read a warning. Everywhere else it warns.
+ * WHEN IT BLOCKS (the user's rulings, D9 and memory-lead D37, qualifying
+ * drift-hardening D3): at Stop through the test gate below, which runs nothing
+ * itself (`SOFAR_ENFORCE=off` restores D10, where failures only ride the
+ * write-back block); at pre-commit only when the operator opted in; and at
+ * `sofar drive`'s task acceptance, because an unattended run has no one to
+ * read a warning. Everywhere else it warns.
  *
  * WHETHER IT RUNS AT ALL. A check is text an agent wrote into a record that
  * travels with branches and teammates. Run from a Stop or git hook it would
@@ -82,6 +86,28 @@ export function applicableChecks(checks: readonly InForceCheck[], paths: readonl
     if (guard === null || guard.domain !== 'path') return true
     return paths.some((p) => guardMatches(guard, p))
   })
+}
+
+/**
+ * Paths the working tree changed against HEAD, untracked ones included, the
+ * record excluded — what `git status` reports, in ONE spawn (the Stop gate's
+ * cost, speed T2). Null without git.
+ */
+export function worktreeChanges(rootDir: string): string[] | null {
+  const out = git(rootDir, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames'])
+  if (out === null) return null
+  const paths: string[] = []
+  for (const entry of out.split('\0')) {
+    if (entry.length < 4) continue
+    const path = entry.slice(3)
+    if (!path.startsWith(RECORD)) paths.push(path)
+  }
+  return paths
+}
+
+/** Whether any in-force rule could bear on a path: one with a guard or a file mention. */
+export function rulesCanBear(index: GuardIndex): boolean {
+  return index.scoped.some((d) => d.rule !== undefined && d.superseded_by === undefined && (d.guard !== undefined || d.mentions.length > 0))
 }
 
 /** The record directory, a git-changed path outside it, and nothing else. */
@@ -277,4 +303,165 @@ export function runChecks(
     left -= outcome.duration_ms
   }
   return { ran, skipped }
+}
+
+// ---------------------------------------------------------------------------
+// The Stop gate (r3-fixes 2.10, D10; memory-lead D37): sofar executes nothing.
+// ---------------------------------------------------------------------------
+
+/** Env switch: `SOFAR_ENFORCE=off` (also `0`, `false`) restores D10's Stop — the ablation arm. */
+export const ENFORCE_ENV = 'SOFAR_ENFORCE'
+
+export function enforceEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const v = env[ENFORCE_ENV]?.trim().toLowerCase()
+  return !(v === 'off' || v === '0' || v === 'false')
+}
+
+/** At most this many gate lines ride one Stop; the rest are counted. */
+export const STOP_GATE_LINES = 5
+
+/** A test segment split into its runner head and its arguments. */
+interface TestSpec {
+  head: string
+  args: string[]
+}
+
+const ARG_TOKEN = /[/.=]|^-|^['"]/
+/** A shell redirection: `2>&1`, `>out`, `&>log`, `<in`; a bare operator also takes the next token. */
+const REDIRECT = /^(?:\d*|&)(?:>>?|<)(?:&\d+|.*)$/
+
+/**
+ * The runner and its arguments: the head is every token up to the first that
+ * reads as an argument — a path, a file, a flag, an assignment or a quoted
+ * filter — so `bun test test/a.test.ts` is `bun test` plus one argument and
+ * `npx vitest run src/db` is `npx vitest run` plus one (a bare word such as `src` reads as part of the runner). Redirections are not
+ * part of what runs: `bun run test 2>&1` is `bun run test` (round-3 replay).
+ */
+function testSpec(segment: string): TestSpec {
+  const raw = segment.trim().split(/\s+/).filter((t) => t.length > 0)
+  const tokens: string[] = []
+  for (let i = 0; i < raw.length; i += 1) {
+    const t = raw[i]!
+    if (!REDIRECT.test(t)) tokens.push(t)
+    else if (/^(?:\d*|&)(?:>>?|<)$/.test(t)) i += 1 // `> file`: the target goes too
+  }
+  const at = tokens.findIndex((t) => ARG_TOKEN.test(t))
+  return at === -1 ? { head: tokens.join(' '), args: [] } : { head: tokens.slice(0, at).join(' '), args: tokens.slice(at) }
+}
+
+/**
+ * Whether a run covers a requirement: the same runner, and either the whole
+ * suite (no arguments) or every argument the requirement names. A requirement
+ * with no arguments is the whole suite, which only an argless run covers.
+ */
+function covers(run: TestSpec, req: TestSpec): boolean {
+  if (run.head !== req.head) return false
+  if (run.args.length === 0) return true
+  return req.args.length > 0 && req.args.every((a) => run.args.includes(a))
+}
+
+/** One requirement the gate checks, and the rules that hang on it. */
+interface Requirement {
+  spec: TestSpec
+  /** What the ask line tells the agent to run. */
+  cmd: string
+  rules: Array<{ handle: string; rule: string; hint?: string }>
+}
+
+export interface StopGate {
+  /** Ask and failure lines, at most STOP_GATE_LINES plus a count line. */
+  lines: string[]
+  /** Whether Stop holds the session for them. */
+  blocks: boolean
+}
+
+const flatClip = (text: string, max: number): string => {
+  const f = flat(text)
+  return f.length > max ? `${f.slice(0, max - 1)}…` : f
+}
+
+function namedRules(req: Requirement): string {
+  const shown = req.rules.slice(0, 3).map((r) => `[${r.handle}] "${flatClip(r.rule, 140)}"`)
+  return `${shown.join('; ')}${req.rules.length > 3 ? `; +${req.rules.length - 3} more` : ''}`
+}
+
+/**
+ * The gate (r3-fixes D10): every in-force rule, repo-wide, that guards or names a path
+ * this session edited needs a covering test that passed AFTER the session's
+ * last edit — its check's test segment, or for a rule without a test-shaped
+ * check the repo's suite (the runner of `knownTest`, the record's newest test
+ * command). A failed latest covering run is a failure line; no covering run
+ * is an ask. With no known suite, an unchecked rule asks nothing: sofar never
+ * demands tests a repo does not have. Pure: the caller hands it the index, the
+ * session's files and its tests since the last edit.
+ */
+export function stopGate(
+  index: GuardIndex,
+  files: readonly string[],
+  testsSinceEdit: readonly TimedTestOutcome[],
+  knownTest: string | null,
+  editedAtMs: number | null = null,
+): StopGate {
+  // A run counts only if it finished after the newest edit on disk: edits the
+  // hooks never saw (Bash writes, lost captures) void earlier runs too.
+  const runs = editedAtMs === null ? testsSinceEdit : testsSinceEdit.filter((r) => Date.parse(r.ts) > editedAtMs)
+  const bearing = new Map<string, (typeof index.scoped)[number]>()
+  for (const path of files) {
+    if (path.startsWith('+')) continue // the overflow sentinel, not a path
+    for (const hit of scopeHitsForSubject(index, 'path', path)) {
+      const d = hit.decision
+      if (d.rule === undefined || d.superseded_by !== undefined) continue
+      bearing.set(d.id, d)
+    }
+  }
+  if (bearing.size === 0) return { lines: [], blocks: false }
+
+  const suite = knownTest === null ? null : testSpec(knownTest).head
+  const reqs = new Map<string, Requirement>()
+  const ordered = [...bearing.values()].sort((a, b) =>
+    a.initiative === b.initiative ? a.ordinal - b.ordinal : byCodeUnit(a.initiative, b.initiative),
+  )
+  for (const d of ordered) {
+    const own = d.check === undefined ? null : testShapedCommand(d.check.cmd)
+    let spec: TestSpec
+    let cmd: string
+    if (own !== null) {
+      spec = testSpec(own)
+      cmd = d.check!.cmd
+    } else if (suite !== null && suite.length > 0) {
+      spec = { head: suite, args: [] }
+      cmd = suite
+    } else continue
+    const key = `${spec.head}\0${[...spec.args].sort(byCodeUnit).join('\0')}`
+    const req = reqs.get(key) ?? { spec, cmd, rules: [] }
+    req.rules.push({
+      handle: `${d.initiative} D${d.ordinal}`,
+      rule: d.rule!,
+      ...(d.check?.hint !== undefined ? { hint: d.check.hint } : {}),
+    })
+    reqs.set(key, req)
+  }
+
+  const lines: string[] = []
+  for (const req of reqs.values()) {
+    let latest: TestOutcome | undefined
+    for (let i = runs.length - 1; i >= 0; i -= 1) {
+      const run = runs[i]!
+      if (covers(testSpec(run.cmd), req.spec)) {
+        latest = run
+        break
+      }
+    }
+    if (latest?.ok === true) continue
+    const hint = req.rules.find((r) => r.hint !== undefined)?.hint
+    const fix = hint !== undefined ? flat(hint) : 'make the work hold the rule, or log a decision that supersedes it'
+    lines.push(
+      latest === undefined
+        ? `sofar: ${namedRules(req)} bear on files you edited, and no covering test passed since your last edit — run \`${req.cmd}\` and fix any failure before stopping (fix: ${fix})`
+        : `sofar: \`${latest.cmd}\` failed${latest.exit !== undefined ? ` (exit ${latest.exit})` : ''} after your last edit, and it covers ${namedRules(req)} — fix: ${fix}`,
+    )
+  }
+  const shown = lines.slice(0, STOP_GATE_LINES)
+  if (lines.length > STOP_GATE_LINES) shown.push(`sofar: +${lines.length - STOP_GATE_LINES} more test requirement(s) bear on this session's edits — \`sofar check\` lists the rules`)
+  return { lines: shown, blocks: lines.length > 0 }
 }

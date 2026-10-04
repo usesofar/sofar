@@ -65,16 +65,43 @@ pub fn posix_normalize(path: &str, keep_trailing: bool) -> String {
     out
 }
 
-/// `path.resolve(--root ?? cwd)`: absolute and normalised.
+/// `path.resolve(--root ?? recordRoot(cwd))`: absolute and normalised. With
+/// no `--root`, the record above the cwd (r3-fixes 2.12).
 #[must_use]
 pub fn resolve_root(root: Option<&Path>) -> PathBuf {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
     let raw = match root {
         Some(r) if r.is_absolute() => r.to_path_buf(),
         Some(r) => cwd.join(r),
-        None => cwd,
+        None => record_root(&cwd),
     };
     PathBuf::from(posix_normalize(&raw.to_string_lossy(), false))
+}
+
+/// `recordRoot` (core/git.ts, r3-fixes 2.12): the nearest ancestor of `start`
+/// holding a `.sofar/` directory, looked for only inside the git repo `start`
+/// is in — up to and including its top, the first ancestor with a `.git`
+/// entry. Outside a repo, or with no record in it, `start` itself. Hosts run
+/// hooks in the agent's current directory, which follows its `cd`.
+#[must_use]
+pub fn record_root(start: &Path) -> PathBuf {
+    let from = PathBuf::from(posix_normalize(&start.to_string_lossy(), false));
+    let mut climbed: Vec<PathBuf> = Vec::new();
+    let mut dir = from.clone();
+    loop {
+        climbed.push(dir.clone());
+        if dir.join(".git").exists() {
+            break;
+        }
+        match dir.parent() {
+            Some(parent) => dir = parent.to_path_buf(),
+            None => return from, // no repo: no walk
+        }
+    }
+    climbed
+        .into_iter()
+        .find(|d| std::fs::metadata(d.join(".sofar")).is_ok_and(|m| m.is_dir()))
+        .unwrap_or(from)
 }
 
 const MAX_LISTED: usize = 10;

@@ -308,6 +308,8 @@ export interface Step {
   before?: (m: Materialized) => void
   /** Bytes outside `.sofar` the step is judged on (a commit message file), read after it runs. */
   artifact?: (m: Materialized) => string
+  /** The child's working directory, relative to the root — a host runs hooks where the agent `cd`'d (r3-fixes 2.12). */
+  cwd?: string
 }
 
 export interface StepOutcome {
@@ -333,7 +335,7 @@ export function runStep(m: Materialized, step: Step): StepOutcome {
     m,
   )
   const result = spawnSync(command[0]!, [...command.slice(1), ...argv], {
-    cwd: m.root,
+    cwd: step.cwd === undefined ? m.root : join(m.root, step.cwd),
     input,
     env: childEnv(m, step.env),
     encoding: 'utf8',

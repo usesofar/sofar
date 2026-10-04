@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -19,6 +19,7 @@ import { makeEvent } from '../src/core/envelope'
 import { foldLog } from '../src/core/fold'
 import { refreshGuards } from '../src/core/index-tier1'
 import { appendEvent } from '../src/core/log'
+import { runBind } from '../src/cli/bind'
 import { runCheck, STAGED_REFUSE_EXIT } from '../src/cli/check'
 import { handleStop, STOP_BLOCK_MESSAGE } from '../src/cli/event'
 import { GIT_HOOKS } from '../src/cli/init'
@@ -323,6 +324,188 @@ describe('Stop: failures ride the write-back block, never cause one', () => {
     emit(root, 'demo', 'session_ended', { session_id: 's2', summary: 's', next_action: 'n' }, 's2')
     expect(stop(root, 's2').exitCode).toBe(0)
     expect(existsSync(join(root, 'ran.txt'))).toBe(false)
+  })
+})
+
+describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
+  const ran = (root: string, id: string, cmd: string, ok: boolean, exit?: number): void =>
+    emit(root, 'demo', 'command_run', { cmd, ok, ...(exit !== undefined ? { exit } : {}) }, id)
+  const touched = (root: string, id: string, file: string): void => emit(root, 'demo', 'file_touched', { path: file, op: 'edit' }, id)
+  const wroteBack = (root: string, id: string): void =>
+    emit(root, 'demo', 'session_ended', { session_id: id, summary: 's', next_action: 'n' }, id)
+  const stop = (root: string, id: string, active = false) =>
+    handleStop(root, JSON.stringify({ session_id: id, hook_event_name: 'Stop', stop_hook_active: active, cwd: root }), () => 0)
+  const CHECK = { cmd: 'cd apps/web && bun test test/store.test.ts', hint: 'restore soft delete in src/db/store.ts' }
+  /** A session that edited the guarded file and wrote back: only the gate can hold it. */
+  function edited(root: string, id: string): void {
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, id)
+    touched(root, id, 'src/db/store.ts')
+  }
+  afterEach(() => {
+    delete process.env.SOFAR_ENFORCE
+  })
+
+  it('holds a session that wrote back until a covering test passed after its last edit — once per stop', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    const r = stop(root, 's1')
+    expect(r.exitCode).toBe(2)
+    expect(r.stderr).toBe(
+      'sofar: [demo D1] "Never hard-delete anything the traveller made." bear on files you edited, and no covering test passed since your last edit — run `cd apps/web && bun test test/store.test.ts` and fix any failure before stopping (fix: restore soft delete in src/db/store.ts)',
+    )
+    expect(stop(root, 's1', true).exitCode).toBe(0) // stop_hook_active: one ask per stop
+    ran(root, 's1', 'cd apps/web && bun test test/store.test.ts', true, 0)
+    expect(stop(root, 's1').exitCode).toBe(0)
+  })
+
+  it('the whole suite covers a check; another file does not; a superset of its files does', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    ran(root, 's1', 'cd apps/web && bun test test/other.test.ts', true, 0)
+    expect(stop(root, 's1').exitCode).toBe(2)
+    ran(root, 's1', 'bun test test/other.test.ts test/store.test.ts', true, 0)
+    expect(stop(root, 's1').exitCode).toBe(0)
+    touched(root, 's1', 'src/db/store.ts') // a re-touch voids every run before it
+    expect(stop(root, 's1').exitCode).toBe(2)
+    ran(root, 's1', 'cd apps/web && bun test', true, 0)
+    expect(stop(root, 's1').exitCode).toBe(0)
+  })
+
+  it('a failed covering run is a failure line with its exit and the fix', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    ran(root, 's1', 'bun test', false, 1)
+    const r = stop(root, 's1')
+    expect(r.exitCode).toBe(2)
+    expect(r.stderr).toBe(
+      'sofar: `bun test` failed (exit 1) after your last edit, and it covers [demo D1] "Never hard-delete anything the traveller made." — fix: restore soft delete in src/db/store.ts',
+    )
+  })
+
+  it('a rule without a check needs the whole suite the record knows; with none known it asks nothing', () => {
+    const root = repo()
+    emit(root, 'demo', 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'b', rule: 'Keep src/db/store.ts soft.' })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    expect(stop(root, 's1').exitCode).toBe(0) // no test command anywhere in the record
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's0')
+    ran(root, 's0', 'bun test test/x.test.ts', true, 0)
+    const r = stop(root, 's1')
+    expect(r.exitCode).toBe(2)
+    expect(r.stderr).toContain('run `bun test` and fix any failure')
+    ran(root, 's1', 'bun test test/store.test.ts', true, 0) // one file is not the suite
+    expect(stop(root, 's1').exitCode).toBe(2)
+    ran(root, 's1', 'bun test', true, 0)
+    expect(stop(root, 's1').exitCode).toBe(0)
+  })
+
+  it('bears repo-wide, never for a retired rule or a file no rule names', () => {
+    const root = repo()
+    emit(root, 'policy', 'initiative_created', { slug: 'policy', goal: 'g' })
+    emit(root, 'policy', 'decision_logged', { chose: 'x', over: 'y', because: 'b', rule: 'Old rule.', guard: 'path:src/db/**', check: CHECK })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    expect(stop(root, 's1').stderr).toContain('[policy D1]')
+    emit(root, 'policy', 'decision_logged', { chose: 'x', over: 'y', because: 'b', rule: 'New rule.', supersedes: 'D1' })
+    expect(stop(root, 's1').exitCode).toBe(0)
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's2')
+    touched(root, 's2', 'README.md')
+    wroteBack(root, 's2')
+    expect(stop(root, 's2').exitCode).toBe(0)
+  })
+
+  it('an edit only git sees bears too, and voids a run that finished before it (r3-fixes D11)', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
+    wroteBack(root, 's1')
+    const file = join(root, 'src', 'db', 'store.ts')
+    writeFileSync(file, 'export const x = 1\n') // a Bash write: a command, no file_touched
+    ran(root, 's1', "sed -i '' s/a/b/ src/db/store.ts", true, 0)
+    const past = new Date(Date.now() - 60_000)
+    utimesSync(file, past, past)
+    expect(stop(root, 's1').exitCode).toBe(2)
+    ran(root, 's1', 'bun test test/store.test.ts', true, 0) // finished after the edit
+    expect(stop(root, 's1').exitCode).toBe(0)
+    const later = new Date(Date.now() + 60_000)
+    utimesSync(file, later, later) // edited again after that run
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
+  it('a redirection is not part of what runs: `bun run test` covers `bun run test 2>&1`', () => {
+    const root = repo()
+    emit(root, 'demo', 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'b', rule: 'Keep src/db/store.ts soft.' })
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's0')
+    ran(root, 's0', 'bun run test 2>&1 | tail -5', true, 0)
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    expect(stop(root, 's1').stderr).toContain('run `bun run test` and fix any failure')
+    ran(root, 's1', 'bun run test > out.log', true, 0)
+    expect(stop(root, 's1').exitCode).toBe(0)
+  })
+
+  it('rides the write-back block when one is owed, and SOFAR_ENFORCE=off restores D10', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    const owed = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 1)
+    expect(owed.stderr.split('\n')[0]).toBe(STOP_BLOCK_MESSAGE.split('\n')[0])
+    expect(owed.stderr).toContain('no covering test passed since your last edit')
+    wroteBack(root, 's1')
+    process.env.SOFAR_ENFORCE = 'off'
+    expect(stop(root, 's1').exitCode).toBe(0)
+  })
+})
+
+describe('binding a rule to its test (r3-fixes 2.10c)', () => {
+  const plain = { color: false, unicode: false, animate: false, width: 100 } as const
+  it('sofar bind re-files the rule as recorded with the check, superseding it, and the gate reads it', () => {
+    const root = repo()
+    emit(root, 'demo', 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'b', rule: SOFT, quote: 'never hard-delete', guard: 'path:src/db/**' })
+    const r = runBind(root, 'D1', 'bun test test/store.test.ts', { hint: 'restore soft delete' }, plain, plain)
+    expect(r.exitCode).toBe(0)
+    expect(r.stdout).toContain('bound demo D2 (supersedes D1): check `bun test test/store.test.ts`')
+    const [d1, d2] = foldLog(logOf(root)).state.decisions
+    expect(d1!.superseded_by).toBe(2)
+    expect(d2).toMatchObject({ rule: SOFT, quote: 'never hard-delete', guard: 'path:src/db/**', check: { cmd: 'bun test test/store.test.ts', hint: 'restore soft delete' }, supersedes: 'D1' })
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
+    emit(root, 'demo', 'file_touched', { path: 'src/db/store.ts', op: 'edit' }, 's1')
+    emit(root, 'demo', 'session_ended', { session_id: 's1', summary: 's', next_action: 'n' }, 's1')
+    const held = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 0)
+    expect(held.stderr).toContain('[demo D2]')
+    expect(held.stderr).toContain('run `bun test test/store.test.ts`')
+  })
+
+  it('refuses what it cannot bind, and says when the command is not a test', () => {
+    const root = repo()
+    emit(root, 'demo', 'decision_logged', { chose: 'sqlite', over: 'postgres', because: 'b' })
+    emit(root, 'demo', 'decision_logged', { chose: 'x', over: 'y', because: 'b', rule: 'Lint twice.' })
+    emit(root, 'demo', 'decision_logged', { chose: 'x2', over: 'y', because: 'b', rule: 'Lint thrice.', supersedes: 'D2' })
+    expect(runBind(root, 'twelve', 'bun test', {}, plain, plain).stderr).toContain('is not a decision handle')
+    expect(runBind(root, 'D9', 'bun test', {}, plain, plain).stderr).toContain('demo has no D9')
+    expect(runBind(root, 'D1', 'bun test', {}, plain, plain).stderr).toContain('is not a rule')
+    expect(runBind(root, 'D2', 'bun test', {}, plain, plain).stderr).toContain('was replaced by D3')
+    expect(runBind(root, 'D3', 'npm run lint', {}, plain, plain).stdout).toContain('not a test command, so the Stop gate cannot read it')
+  })
+
+  it('a rule naming a file with no test is nudged once, at the write; a tested or file-less rule is not', async () => {
+    const root = repo()
+    const { client } = await connectServer(root)
+    await callTool(client, 'sofar_start_session', { tool: 'claude-code', initiative: 'demo' })
+    const base = { chose: 'soft delete in src/db/store.ts', over: 'hard delete', because: 'b' }
+    const nudged = await callTool(client, 'sofar_log_decision', { ...base, rule: 'Never hard-delete in src/db/store.ts.' })
+    expect(nudged.body).toMatchObject({ warnings: [expect.stringContaining('D1 names src/db/store.ts but no test is bound to it')] })
+    expect(JSON.stringify(nudged.body)).toContain('sofar bind D1')
+    const tested = await callTool(client, 'sofar_log_decision', { ...base, rule: 'Never hard-delete in src/db/store.ts, ever.', check: { cmd: 'bun test test/store.test.ts' } })
+    expect(JSON.stringify(tested.body)).not.toContain('no test is bound')
+    const fileless = await callTool(client, 'sofar_log_decision', { chose: 'be kind', over: 'be terse', because: 'b', rule: 'Be kind to users.' })
+    expect(JSON.stringify(fileless.body)).not.toContain('no test is bound')
   })
 })
 

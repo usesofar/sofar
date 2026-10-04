@@ -2,18 +2,24 @@
 //! half of a rule, as the Stop block runs them. A check is text an agent wrote
 //! into a shared record, so it runs only once the operator approved that exact
 //! command on this clone (the approval lives in the state dir, never in the
-//! repo); everything else is named with the approval command. At Stop a check
-//! only ever WARNS: it rides the write-back block, never causes one (D10).
+//! repo); everything else is named with the approval command. At Stop the
+//! test gate (r3-fixes 2.10, D10/D11; memory-lead D37) holds a session whose
+//! edits a rule bears on until a covering test passed after the last one —
+//! sofar runs nothing for it. `SOFAR_ENFORCE=off` restores D10, where a check
+//! only rides the write-back block and never causes one.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+use crate::date::js_date_parse;
+use crate::derived::test_shaped_command;
 use crate::diagnostics::{clone_key, resolves_inside, state_base};
+use crate::fold::TimedTestOutcome;
 use crate::guards::{GuardDomain, guard_matches, parse_guard};
-use crate::index_tier1::GuardIndex;
+use crate::index_tier1::{GuardIndex, ScopedDecision, scope_hits_for_subject};
 use crate::json::{self, Json};
-use crate::text::{cmp_utf16, js_trim, one_line, utf16_len};
+use crate::text::{cmp_utf16, is_js_whitespace, js_trim, one_line, utf16_len, utf16_prefix};
 
 /// `DEFAULT_CHECK_TIMEOUT_MS`: a check's bound when its decision sets none.
 pub const DEFAULT_CHECK_TIMEOUT_MS: f64 = 120_000.0;
@@ -516,9 +522,19 @@ pub fn run_checks<'a>(
 /// `stopCheckLines`: the decision checks bearing on what this session
 /// touched, run and reported for the write-back block. A session whose file
 /// list overflowed its cap touched too much to scope, so every check applies.
+/// `only_untestable`: under the test gate, only the checks it cannot judge —
+/// not test-shaped — run here.
 #[must_use]
-pub fn stop_check_lines(root: &Path, index: &GuardIndex, files: &[String]) -> Vec<String> {
-    let checks = checks_in_force(index);
+pub fn stop_check_lines(
+    root: &Path,
+    index: &GuardIndex,
+    files: &[String],
+    only_untestable: bool,
+) -> Vec<String> {
+    let checks: Vec<InForceCheck> = checks_in_force(index)
+        .into_iter()
+        .filter(|c| !only_untestable || test_shaped_command(&c.cmd).is_none())
+        .collect();
     if checks.is_empty() {
         return Vec::new();
     }
@@ -553,4 +569,388 @@ pub fn stop_check_lines(root: &Path, index: &GuardIndex, files: &[String]) -> Ve
         ));
     }
     lines
+}
+
+// ---------------------------------------------------------------------------
+// The Stop gate (r3-fixes 2.10, D10/D11; memory-lead D37): sofar executes nothing.
+
+/// `enforceEnabled`: `SOFAR_ENFORCE=off` (also `0`, `false`) restores D10's Stop.
+#[must_use]
+pub fn enforce_enabled() -> bool {
+    let Some(raw) = std::env::var_os("SOFAR_ENFORCE") else {
+        return true;
+    };
+    let v = raw.to_string_lossy();
+    let v = js_trim(&v).to_lowercase();
+    !(v == "off" || v == "0" || v == "false")
+}
+
+/// `STOP_GATE_LINES`: at most this many gate lines ride one Stop; the rest are counted.
+pub const STOP_GATE_LINES: usize = 5;
+
+/// The record directory (`RECORD`).
+const RECORD: &str = ".sofar/";
+
+/// `git(cwd, args)` (core/checks.ts): stdout on a zero exit, else `None`.
+fn checks_git(root: &Path, args: &[&str]) -> Option<String> {
+    let out = Command::new("git")
+        .args(args)
+        .current_dir(root)
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    if !out.status.success() || out.stdout.len() > 64 * 1024 * 1024 {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// `worktreeChanges`: paths the working tree changed against HEAD, untracked
+/// ones included, the record excluded — `git status`, in ONE spawn. `None` without git.
+#[must_use]
+pub fn worktree_changes(root: &Path) -> Option<Vec<String>> {
+    let out = checks_git(
+        root,
+        &[
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
+            "--no-renames",
+        ],
+    )?;
+    let mut paths = Vec::new();
+    for entry in out.split('\0') {
+        if utf16_len(entry) < 4 {
+            continue;
+        }
+        let path = entry.get(3..).unwrap_or("");
+        if !path.starts_with(RECORD) {
+            paths.push(path.to_owned());
+        }
+    }
+    Some(paths)
+}
+
+/// `rulesCanBear`: whether any in-force rule could bear on a path — one with a guard or a file mention.
+#[must_use]
+pub fn rules_can_bear(index: &GuardIndex) -> bool {
+    index.scoped.iter().any(|d| {
+        d.rule.is_some()
+            && d.superseded_by.is_none()
+            && (d.guard.is_some() || !d.mentions.is_empty())
+    })
+}
+
+/// A test segment split into its runner head and its arguments (`TestSpec`).
+#[derive(Debug, Clone, PartialEq)]
+struct TestSpec {
+    head: String,
+    args: Vec<String>,
+}
+
+/// What follows `&` or the leading ASCII digits of a redirection token.
+fn redirect_rest(token: &str) -> &str {
+    match token.strip_prefix('&') {
+        Some(rest) => rest,
+        None => token.trim_start_matches(|c: char| c.is_ascii_digit()),
+    }
+}
+
+/// `REDIRECT`: `2>&1`, `>out`, `&>log`, `<in`.
+fn is_redirect(token: &str) -> bool {
+    let rest = redirect_rest(token);
+    rest.starts_with('>') || rest.starts_with('<')
+}
+
+/// A bare redirection operator, whose target is the next token.
+fn is_bare_redirect(token: &str) -> bool {
+    matches!(redirect_rest(token), ">" | ">>" | "<")
+}
+
+/// `ARG_TOKEN`: a path, a file, a flag, an assignment or a quoted filter.
+fn is_arg_token(token: &str) -> bool {
+    token.contains(['/', '.', '='])
+        || token.starts_with('-')
+        || token.starts_with('\'')
+        || token.starts_with('"')
+}
+
+/// `testSpec`: the runner and its arguments, redirections dropped.
+fn test_spec(segment: &str) -> TestSpec {
+    let raw: Vec<&str> = js_trim(segment)
+        .split(is_js_whitespace)
+        .filter(|t| !t.is_empty())
+        .collect();
+    let mut tokens: Vec<&str> = Vec::with_capacity(raw.len());
+    let mut i = 0;
+    while i < raw.len() {
+        let t = raw[i];
+        if !is_redirect(t) {
+            tokens.push(t);
+        } else if is_bare_redirect(t) {
+            i += 1; // `> file`: the target goes too
+        }
+        i += 1;
+    }
+    match tokens.iter().position(|t| is_arg_token(t)) {
+        None => TestSpec {
+            head: tokens.join(" "),
+            args: Vec::new(),
+        },
+        Some(at) => TestSpec {
+            head: tokens[..at].join(" "),
+            args: tokens[at..].iter().map(|t| (*t).to_owned()).collect(),
+        },
+    }
+}
+
+/// `covers`: the same runner, and either the whole suite or every argument
+/// the requirement names. A requirement with no arguments is covered only by
+/// an argless run.
+fn covers(run: &TestSpec, req: &TestSpec) -> bool {
+    if run.head != req.head {
+        return false;
+    }
+    if run.args.is_empty() {
+        return true;
+    }
+    !req.args.is_empty() && req.args.iter().all(|a| run.args.contains(a))
+}
+
+/// One rule hanging on a requirement.
+struct GateRule {
+    handle: String,
+    rule: String,
+    hint: Option<String>,
+}
+
+/// One requirement the gate checks (`Requirement`).
+struct Requirement {
+    spec: TestSpec,
+    /// What the ask line tells the agent to run.
+    cmd: String,
+    rules: Vec<GateRule>,
+}
+
+/// `StopGate`: ask and failure lines, and whether Stop holds the session for them.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct StopGate {
+    pub lines: Vec<String>,
+    pub blocks: bool,
+}
+
+/// `flatClip`: one line, clipped to `max` UTF-16 units with an ellipsis.
+fn flat_clip(text: &str, max: usize) -> String {
+    let f = one_line(text);
+    if utf16_len(&f) > max {
+        format!("{}…", utf16_prefix(&f, max - 1))
+    } else {
+        f
+    }
+}
+
+/// `namedRules`.
+fn named_rules(req: &Requirement) -> String {
+    let shown: Vec<String> = req
+        .rules
+        .iter()
+        .take(3)
+        .map(|r| format!("[{}] \"{}\"", r.handle, flat_clip(&r.rule, 140)))
+        .collect();
+    let more = if req.rules.len() > 3 {
+        format!("; +{} more", req.rules.len() - 3)
+    } else {
+        String::new()
+    };
+    format!("{}{more}", shown.join("; "))
+}
+
+/// The `cmd` and `hint` of a decision's check object.
+fn check_field(d: &ScopedDecision, key: &str) -> Option<String> {
+    d.check.as_ref()?.as_obj()?.get(key).map(json::js_to_string)
+}
+
+/// The requirements the bearing rules hang on, in rule order (`stopGate`'s
+/// grouping): a rule's own test-shaped check, else the suite's head.
+fn gate_requirements(
+    mut bearing: Vec<&ScopedDecision>,
+    suite: Option<&str>,
+) -> Vec<(String, Requirement)> {
+    bearing.sort_by(|a, b| {
+        if a.initiative == b.initiative {
+            a.ordinal
+                .partial_cmp(&b.ordinal)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        } else {
+            cmp_utf16(&a.initiative, &b.initiative)
+        }
+    });
+    let mut reqs: Vec<(String, Requirement)> = Vec::new();
+    for d in bearing {
+        let check_cmd = check_field(d, "cmd");
+        let own = check_cmd.as_deref().and_then(test_shaped_command);
+        let (spec, cmd) = if let Some(own) = own {
+            (test_spec(&own), check_cmd.unwrap_or_default())
+        } else if let Some(suite) = suite.filter(|s| !s.is_empty()) {
+            (
+                TestSpec {
+                    head: suite.to_owned(),
+                    args: Vec::new(),
+                },
+                suite.to_owned(),
+            )
+        } else {
+            continue;
+        };
+        let mut sorted = spec.args.clone();
+        sorted.sort_by(|a, b| cmp_utf16(a, b));
+        let key = format!("{}\0{}", spec.head, sorted.join("\0"));
+        let rule = GateRule {
+            handle: format!("{} D{}", d.initiative, json::number_to_string(d.ordinal)),
+            rule: d.rule.clone().unwrap_or_default(),
+            hint: check_field(d, "hint"),
+        };
+        match reqs.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, req)) => req.rules.push(rule),
+            None => reqs.push((
+                key,
+                Requirement {
+                    spec,
+                    cmd,
+                    rules: vec![rule],
+                },
+            )),
+        }
+    }
+    reqs
+}
+
+/// One requirement's line: `None` when its newest covering run passed, a
+/// failure line when it failed, an ask when none ran.
+fn gate_line(req: &Requirement, runs: &[&TimedTestOutcome]) -> Option<String> {
+    let latest = runs
+        .iter()
+        .rev()
+        .find(|r| covers(&test_spec(&r.outcome.cmd), &req.spec));
+    if latest.is_some_and(|r| r.outcome.ok) {
+        return None;
+    }
+    let fix = req
+        .rules
+        .iter()
+        .find_map(|r| r.hint.as_deref())
+        .map_or_else(
+            || "make the work hold the rule, or log a decision that supersedes it".to_owned(),
+            one_line,
+        );
+    Some(match latest {
+        None => format!(
+            "sofar: {} bear on files you edited, and no covering test passed since your last edit — run `{}` and fix any failure before stopping (fix: {fix})",
+            named_rules(req),
+            req.cmd
+        ),
+        Some(run) => format!(
+            "sofar: `{}` failed{} after your last edit, and it covers {} — fix: {fix}",
+            run.outcome.cmd,
+            run.outcome
+                .exit
+                .map(|e| format!(" (exit {})", json::number_to_string(e)))
+                .unwrap_or_default(),
+            named_rules(req)
+        ),
+    })
+}
+
+/// `stopGate`: every in-force rule, repo-wide, that guards or names a path
+/// this session edited needs a covering test that passed after its last edit
+/// — its check's test segment, or the repo's suite (the runner of
+/// `known_test`). A run counts only if it finished after `edited_at_ms`.
+#[must_use]
+pub fn stop_gate(
+    index: &GuardIndex,
+    files: &[String],
+    tests_since_edit: &[TimedTestOutcome],
+    known_test: Option<&str>,
+    edited_at_ms: Option<f64>,
+) -> StopGate {
+    let runs: Vec<&TimedTestOutcome> = match edited_at_ms {
+        None => tests_since_edit.iter().collect(),
+        Some(at) => tests_since_edit
+            .iter()
+            .filter(|r| js_date_parse(&r.ts).is_some_and(|ts| ts > at))
+            .collect(),
+    };
+    let mut bearing: Vec<&ScopedDecision> = Vec::new();
+    for path in files {
+        if path.starts_with('+') {
+            continue; // the overflow sentinel, not a path
+        }
+        for hit in scope_hits_for_subject(index, GuardDomain::Path, path) {
+            let d = hit.decision;
+            if d.rule.is_none() || d.superseded_by.is_some() {
+                continue;
+            }
+            if !bearing.iter().any(|b| b.id == d.id) {
+                bearing.push(d);
+            }
+        }
+    }
+    if bearing.is_empty() {
+        return StopGate::default();
+    }
+
+    let suite = known_test.map(|k| test_spec(k).head);
+    let reqs = gate_requirements(bearing, suite.as_deref());
+    let mut lines: Vec<String> = reqs
+        .iter()
+        .filter_map(|(_, req)| gate_line(req, &runs))
+        .collect();
+    let blocks = !lines.is_empty();
+    let more = lines.len().saturating_sub(STOP_GATE_LINES);
+    lines.truncate(STOP_GATE_LINES);
+    if more > 0 {
+        lines.push(format!(
+            "sofar: +{more} more test requirement(s) bear on this session's edits — `sofar check` lists the rules"
+        ));
+    }
+    StopGate { lines, blocks }
+}
+
+#[cfg(test)]
+mod gate_tests {
+    use super::*;
+
+    #[test]
+    fn spec_splits_head_from_args_and_drops_redirections() {
+        let s = test_spec("bun test test/a.test.ts");
+        assert_eq!(s.head, "bun test");
+        assert_eq!(s.args, vec!["test/a.test.ts".to_owned()]);
+        assert_eq!(test_spec("bun run test 2>&1").head, "bun run test");
+        assert!(test_spec("bun run test 2>&1").args.is_empty());
+        assert_eq!(test_spec("bun run test > out.log").head, "bun run test");
+        assert!(test_spec("bun run test > out.log").args.is_empty());
+        // A bare word is not an argument (TS ARG_TOKEN): only a path-, file-,
+        // flag-, assignment- or quote-shaped token starts the arguments.
+        assert_eq!(test_spec("npx vitest run src/").head, "npx vitest run");
+        assert_eq!(test_spec("npx vitest run src").head, "npx vitest run src");
+        assert!(!is_redirect("&2>"));
+        assert!(is_redirect("&>log"));
+        assert!(is_bare_redirect(">>"));
+    }
+
+    #[test]
+    fn covers_the_suite_or_a_superset_of_files() {
+        let req = test_spec("bun test test/a.test.ts");
+        assert!(covers(&test_spec("bun test"), &req));
+        assert!(covers(
+            &test_spec("bun test test/b.test.ts test/a.test.ts"),
+            &req
+        ));
+        assert!(!covers(&test_spec("bun test test/b.test.ts"), &req));
+        let suite = test_spec("bun test");
+        assert!(!covers(&test_spec("bun test test/a.test.ts"), &suite));
+        assert!(covers(&test_spec("bun test"), &suite));
+    }
 }

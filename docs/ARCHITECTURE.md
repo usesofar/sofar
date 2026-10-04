@@ -206,6 +206,7 @@ a commit.
 | `cli/find.ts` | `sofar find` — traverse from a seed within a hop budget. Offers adjacency, never asserts relevance; every row cites its event. |
 | `cli/compose.ts` | `sofar find --compose` — the answer packet: declared waits (links tier), citations, text matches and adjacency as one budgeted, id-cited list with a changed-since mark. |
 | `cli/remember.ts` | `sofar remember` — promote an operational fact. |
+| `cli/bind.ts` | `sofar bind` — give a standing rule its test: re-file it with `check`, superseding it (r3-fixes 2.10c). |
 | `cli/native-import.ts` | `sofar remember --from-native` — show each importable Claude memory entry on the operator's terminal and append the approved ones as memory marked with their origin; refuses without a terminal (D13). |
 | `cli/statusline.ts` | `sofar statusline` — the one-line host status. Resolves session-first. |
 | `cli/serve.ts` | `sofar serve` — localhost JSON state server. |

@@ -33,6 +33,7 @@ import { COMPOSE_BUDGET, runCompose } from './compose'
 import { runFind } from './find'
 import { REACH_DEFAULT_HOPS, REACH_MAX_HOPS } from '../core/index-reach'
 import { runRemember } from './remember'
+import { runBind } from './bind'
 import { runNativeImport } from './native-import'
 import { registerStatuslineCommand } from './statusline'
 import { startServer, renderServeBanner, DEFAULT_PORT } from './serve'
@@ -45,6 +46,7 @@ import { runUpgrade } from './upgrade'
 import { runCheckStatus, runRefresh, withUpdateNotice } from './update-check'
 import { writeAutoUpgrade } from './user-config'
 import { emit, fail, ok, readAllStdin, readInput } from './shared'
+import { recordRoot } from '../core/git'
 
 const program = new Command()
 
@@ -61,9 +63,9 @@ program
   .option('--color', 'force styled output, even piped')
   .option('--no-color', 'plain output, even on a TTY')
 
-/** Every repo-scoped command takes --root (default: cwd) — the mcp/event precedent. */
+/** Every repo-scoped command takes --root (default: the record above the cwd, r3-fixes 2.12) — the mcp/event precedent. */
 function rootOf(opts: { root?: string }): string {
-  return resolve(opts.root ?? process.cwd())
+  return resolve(opts.root ?? recordRoot(process.cwd()))
 }
 
 program
@@ -375,6 +377,21 @@ program
       runRemember(rootOf(opts), input.text, {
         ...(opts.initiative !== undefined ? { initiative: opts.initiative } : {}),
         ...(opts.supersedes !== undefined ? { supersedes: opts.supersedes } : {}),
+      }),
+    )
+  })
+
+program
+  .command('bind <decision> <cmd>')
+  .description("give a standing rule the test that proves it: re-file D<n> as recorded, plus check {cmd}, superseding it (r3-fixes 2.10c)")
+  .option('--hint <text>', 'the fix a failure shows')
+  .option('--initiative <slug>', 'record to bind in (default: the bound one)')
+  .option('--root <dir>', 'repo root (default: the record above the current directory)')
+  .action((decision: string, cmd: string, opts: { hint?: string; initiative?: string; root?: string }) => {
+    emit(
+      runBind(rootOf(opts), decision, cmd, {
+        ...(opts.initiative !== undefined ? { initiative: opts.initiative } : {}),
+        ...(opts.hint !== undefined ? { hint: opts.hint } : {}),
       }),
     )
   })

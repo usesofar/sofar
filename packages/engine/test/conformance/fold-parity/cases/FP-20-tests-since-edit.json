@@ -1,0 +1,10 @@
+{
+  "tail_at": 5,
+  "seeds": [
+    59,
+    60,
+    61
+  ],
+  "order_independence": true,
+  "note": "r3-fixes 2.10 (D10): tests_since_edit holds the test-shaped outcomes since the session's latest touched edge, oldest first, the newest 8 kept; a re-touch of a seen path empties it; a non-test and an ok-unknown run never join; a session with runs and no edit keeps them. The tail starts at the re-touch"
+}

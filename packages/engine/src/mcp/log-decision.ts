@@ -2,6 +2,8 @@ import { RULE_QUOTE_MAX } from '@sofar/schema'
 import type { LogDecisionArgs, LogDecisionResult } from '@sofar/schema/tool-inputs'
 import { resolveJudgeProvider } from '../client/judge'
 import { decisionJudgeWarnings, type DecisionDraft } from '../core/decision-judge'
+import { testShapedCommand } from '../core/derived'
+import { fileMentions } from '../core/file-mentions'
 import { filingWarnings } from '../core/filing-judge'
 import type { InitiativeState } from '../core/fold'
 import { foreignDecisions } from '../core/index-tier1'
@@ -100,6 +102,20 @@ export function quoteFitWarning(ordinal: number, fit: { quote: string; kept: num
   return `D${ordinal}'s quote was over ${RULE_QUOTE_MAX} chars, so it was cut to the operator's ${fit.kept} of ${fit.of} sentences closest to the rule, verbatim: "${fit.quote}". If a different sentence is the one the rule came from, log it again with supersedes D${ordinal}.`
 }
 
+/**
+ * The binding nudge (r3-fixes 2.10c): a rule that guards or names a file but
+ * carries no test-shaped check can be held at Stop only to the whole suite.
+ * Asked once, at the moment the rule is written and the agent knows which
+ * test would prove it. Null otherwise.
+ */
+export function bindNudge(ordinal: number, d: { chose: string; over: string; rule?: string; guard?: string; check?: { cmd: string } }): string | null {
+  if (d.rule === undefined) return null
+  if (d.check !== undefined && testShapedCommand(d.check.cmd) !== null) return null
+  const subject = d.guard !== undefined ? d.guard : fileMentions(`${d.chose} ${d.over} ${d.rule}`)[0]
+  if (subject === undefined) return null
+  return `D${ordinal} names ${subject} but no test is bound to it, so Stop can hold edits there only to the whole suite. If a test can prove the rule, write it now and run \`sofar bind D${ordinal} "<the command that runs it>"\`.`
+}
+
 /** The configured provider for this repo, or deterministic only. Never throws. */
 export function judgeOptionsFor(ctx: ToolContext): JudgeOptions {
   const { provider } = resolveJudgeProvider(ctx.rootDir)
@@ -133,8 +149,10 @@ function logDecisionLogged(
   })
   // What the rule adds to the operator's words (memory-lead 1.2, D2) — after
   // the append, so a warning never reads as a refusal.
+  const nudge = bindNudge(ordinal, args)
   const warnings = [
     ...(fit !== null ? [quoteFitWarning(ordinal, fit)] : []),
+    ...(nudge !== null ? [nudge] : []),
     ...(args.rule !== undefined ? [ruleFidelityWarning(ordinal, args.rule, quote)].filter((w): w is string => w !== null) : []),
   ]
   return {
