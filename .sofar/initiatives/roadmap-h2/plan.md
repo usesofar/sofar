@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Resume score-batch for the three r2 rounds with the r2 plist env (~1h); then compare with rep 1.
+Next action: Assign 2.2 and Phase 3 (3.2/3.3/3.7) to sofar-b0 or new sessions; then gate 4.0 when 2.11 and 2.2 land.
