@@ -93,8 +93,9 @@ export function applicableChecks(checks: readonly InForceCheck[], paths: readonl
  * record excluded — what `git status` reports, in ONE spawn (the Stop gate's
  * cost, speed T2). Null without git.
  */
-export function worktreeChanges(rootDir: string): string[] | null {
-  const out = git(rootDir, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames'])
+export function worktreeChanges(rootDir: string, pathspecs: readonly string[] | null = null): string[] | null {
+  const scope = pathspecs === null ? [] : ['--', ...pathspecs]
+  const out = git(rootDir, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames', ...scope])
   if (out === null) return null
   const paths: string[] = []
   for (const entry of out.split('\0')) {
@@ -103,6 +104,52 @@ export function worktreeChanges(rootDir: string): string[] | null {
     if (!path.startsWith(RECORD)) paths.push(path)
   }
   return paths
+}
+
+/**
+ * A git glob pathspec covering every path one sofar path glob or file token
+ * matches (r3-fixes D26), or null when git's glob cannot be trusted to: git
+ * reads `[…]` as a class and a `**` inside a segment as `*`, both narrower
+ * than a guard. A guard matches by tail at a `/` boundary, so the spec does
+ * too, behind a leading `**` segment.
+ */
+function globSpec(glob: string): string | null {
+  const g = glob.endsWith('/') ? `${glob}**` : glob
+  if (g.length === 0 || g.startsWith('/') || /[[\]\\]/.test(g) || g.includes(':')) return null
+  for (let i = g.indexOf('**'); i >= 0; i = g.indexOf('**', i + 2)) {
+    if ((i > 0 && g[i - 1] !== '/') || (i + 2 < g.length && g[i + 2] !== '/')) return null
+  }
+  return g === '**' || g.startsWith('**/') ? `:(glob)${g}` : `:(glob)**/${g}`
+}
+
+/**
+ * The pathspecs Stop's git question is scoped to (r3-fixes D26): every
+ * positive guard glob and file mention of an in-force rule. Null — the whole
+ * tree — when one of them cannot be expressed safely or when there are none
+ * to scope by, so a scoped answer is never narrower than the gate's own match.
+ */
+export function gatePathspecs(index: GuardIndex): string[] | null {
+  const specs = new Set<string>()
+  for (const d of index.scoped) {
+    if (d.rule === undefined || d.superseded_by !== undefined) continue
+    if (d.guard !== undefined) {
+      const g = parseGuard(d.guard)
+      if (g !== null && g.domain === 'path') {
+        for (const p of g.patterns) {
+          if (p.negated) continue
+          const spec = globSpec(p.source)
+          if (spec === null) return null
+          specs.add(spec)
+        }
+      }
+    }
+    for (const token of d.mentions) {
+      const spec = globSpec(token)
+      if (spec === null) return null
+      specs.add(spec)
+    }
+  }
+  return specs.size === 0 ? null : [...specs].sort(byCodeUnit)
 }
 
 /** Whether any in-force rule could bear on a path: one with a guard or a file mention. */

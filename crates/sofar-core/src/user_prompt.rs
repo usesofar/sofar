@@ -1014,6 +1014,29 @@ fn stop_link_lines(state: &InitiativeState, session_id: &str, retired: &[usize])
     lines
 }
 
+/// `gitChangesFor` (r3-fixes D23, D26): cached against the mark count and
+/// the pathspecs; empty for an unmarked session; a git failure is never cached.
+fn git_changes_for(
+    root: &Path,
+    layout: &Layout,
+    session: &str,
+    index: &crate::index_tier1::GuardIndex,
+) -> Vec<String> {
+    let Some(marks) = crate::wrote::read_wrote(layout, session) else {
+        return Vec::new();
+    };
+    let specs = crate::checks::gate_pathspecs(index);
+    let key = crate::wrote::pathspec_key(specs.as_deref());
+    if let Some(cached) = crate::wrote::cached_changes(layout, session, marks, &key) {
+        return cached;
+    }
+    let Some(files) = crate::checks::worktree_changes(root, specs.as_deref()) else {
+        return Vec::new();
+    };
+    crate::wrote::cache_changes(layout, session, marks, &key, &files);
+    files
+}
+
 /// `gateIndex` (r3-fixes 2.13, D23): the declared index as the session's last
 /// hook refreshed it, no freshness pass, with the bound record's own entries
 /// rebuilt from the fold Stop already holds. A missing or old index is built.
@@ -1062,12 +1085,9 @@ fn stop_gate_for(
     if !crate::checks::rules_can_bear(&index) {
         return none;
     }
-    // Git is asked only when a command that may write ran (D23).
-    let from_git = if crate::wrote::has_wrote(layout, &session.id) {
-        crate::checks::worktree_changes(root).unwrap_or_default()
-    } else {
-        Vec::new()
-    };
+    // Git is asked only when a command that may write ran (D23), about the
+    // paths a rule can bear on, and again only after another one ran (D26).
+    let from_git = git_changes_for(root, layout, &session.id, &index);
     let files: Vec<String> = captured.into_iter().chain(from_git).collect();
     if files.is_empty() {
         return none;

@@ -609,17 +609,19 @@ fn checks_git(root: &Path, args: &[&str]) -> Option<String> {
 /// `worktreeChanges`: paths the working tree changed against HEAD, untracked
 /// ones included, the record excluded — `git status`, in ONE spawn. `None` without git.
 #[must_use]
-pub fn worktree_changes(root: &Path) -> Option<Vec<String>> {
-    let out = checks_git(
-        root,
-        &[
-            "status",
-            "--porcelain=v1",
-            "-z",
-            "--untracked-files=all",
-            "--no-renames",
-        ],
-    )?;
+pub fn worktree_changes(root: &Path, pathspecs: Option<&[String]>) -> Option<Vec<String>> {
+    let mut args: Vec<&str> = vec![
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all",
+        "--no-renames",
+    ];
+    if let Some(specs) = pathspecs {
+        args.push("--");
+        args.extend(specs.iter().map(String::as_str));
+    }
+    let out = checks_git(root, &args)?;
     let mut paths = Vec::new();
     for entry in out.split('\0') {
         if utf16_len(entry) < 4 {
@@ -631,6 +633,69 @@ pub fn worktree_changes(root: &Path) -> Option<Vec<String>> {
         }
     }
     Some(paths)
+}
+
+/// `globSpec` (r3-fixes D26): a git glob pathspec covering every path one
+/// sofar path glob or file token matches, by tail, or `None` when git's glob
+/// cannot be trusted to (a `[`, `]` or `\\`, a `**` inside a segment, a
+/// leading `/`, a `:`).
+fn glob_spec(glob: &str) -> Option<String> {
+    let g = if glob.ends_with('/') {
+        format!("{glob}**")
+    } else {
+        glob.to_owned()
+    };
+    if g.is_empty() || g.starts_with('/') || g.contains(['[', ']', '\\', ':']) {
+        return None;
+    }
+    let bytes = g.as_bytes();
+    let mut from = 0;
+    while let Some(at) = g[from..].find("**") {
+        let i = from + at;
+        if (i > 0 && bytes[i - 1] != b'/') || (i + 2 < bytes.len() && bytes[i + 2] != b'/') {
+            return None;
+        }
+        from = i + 2;
+    }
+    Some(if g == "**" || g.starts_with("**/") {
+        format!(":(glob){g}")
+    } else {
+        format!(":(glob)**/{g}")
+    })
+}
+
+/// `gatePathspecs` (r3-fixes D26): every positive guard glob and file mention
+/// of an in-force rule, or `None` (the whole tree) when one cannot be
+/// expressed safely or there are none.
+#[must_use]
+pub fn gate_pathspecs(index: &crate::index_tier1::GuardIndex) -> Option<Vec<String>> {
+    let mut specs: Vec<String> = Vec::new();
+    let mut add = |spec: String| {
+        if !specs.contains(&spec) {
+            specs.push(spec);
+        }
+    };
+    for d in &index.scoped {
+        if d.rule.is_none() || d.superseded_by.is_some() {
+            continue;
+        }
+        if let Some(guard) = &d.guard
+            && let Some(g) = crate::guards::parse_guard(guard)
+            && g.domain == crate::guards::GuardDomain::Path
+        {
+            for p in g.patterns.iter().filter(|p| !p.negated) {
+                add(glob_spec(&p.source)?);
+            }
+        }
+        for token in &d.mentions {
+            add(glob_spec(token)?);
+        }
+    }
+    if specs.is_empty() {
+        return None;
+    }
+    specs.sort_by(|a, b| crate::text::cmp_utf16(a, b));
+    Some(specs)
 }
 
 /// `rulesCanBear`: whether any in-force rule could bear on a path — one with a guard or a file mention.

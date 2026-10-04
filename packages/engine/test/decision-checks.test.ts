@@ -23,6 +23,7 @@ import { runBind } from '../src/cli/bind'
 import { runCheck, STAGED_REFUSE_EXIT } from '../src/cli/check'
 import { handlePostTool, handleStop, STOP_BLOCK_MESSAGE } from '../src/cli/event'
 import { createToolContext } from '../src/mcp/context'
+import { gatePathspecs } from '../src/core/checks'
 import { GIT_HOOKS } from '../src/cli/init'
 import { drive } from '../src/driver/drive'
 import { buildSurface } from '../src/driver/permissions'
@@ -455,6 +456,41 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     expect(stop(root, 's1').exitCode).toBe(0)
     bash('echo y > notes.txt') // may write: git is asked, and the guarded change bears
     expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
+  it("git's answer is cached until another may-write command runs, and scoped to the paths rules bear on (r3-fixes D26)", () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
+    wroteBack(root, 's1')
+    const bash = (command: string) =>
+      handlePostTool(root, JSON.stringify({ session_id: 's1', cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command }, tool_response: {} }))
+    bash('echo y > notes.txt') // marks; nothing guarded changed
+    expect(stop(root, 's1').exitCode).toBe(0)
+    writeFileSync(join(root, 'src', 'db', 'store.ts'), 'export const x = 2\n') // no command: the cached answer stands
+    expect(stop(root, 's1').exitCode).toBe(0)
+    bash('echo z > notes.txt') // marks again: git is asked again, and the guarded change bears
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
+  it('gatePathspecs: every positive guard glob and mention, by tail; the whole tree when git cannot match it as a guard does', () => {
+    const index = (entries: Array<{ guard?: string; mentions?: string[]; superseded_by?: number }>) => ({
+      guards: [],
+      retired: new Set<string>(),
+      decisions: {},
+      memories: [],
+      scoped: entries.map((e, i) => ({ id: `e${i}`, initiative: 'demo', ordinal: i + 1, ts: '', chose: 'c', over: 'o', rule: 'r', mentions: e.mentions ?? [], ...(e.guard !== undefined ? { guard: e.guard } : {}), ...(e.superseded_by !== undefined ? { superseded_by: e.superseded_by } : {}) })),
+    })
+    expect(gatePathspecs(index([{ guard: 'path:src/db/**,!src/db/README.md' }, { mentions: ['db.ts'] }, { guard: 'path:**/core/fold.ts' }, { guard: 'path:docs/' }]))).toEqual([
+      ':(glob)**/core/fold.ts',
+      ':(glob)**/db.ts',
+      ':(glob)**/docs/**',
+      ':(glob)**/src/db/**',
+    ])
+    expect(gatePathspecs(index([{ guard: 'path:src/[ab].ts' }]))).toBeNull()
+    expect(gatePathspecs(index([{ guard: 'path:src/a**b.ts' }]))).toBeNull()
+    expect(gatePathspecs(index([{ guard: 'path:src/x.ts', superseded_by: 2 }]))).toBeNull() // nothing in force to scope by
+    expect(gatePathspecs(index([{ guard: 'cmd:npm publish' }]))).toBeNull()
   })
 
   it('a redirection is not part of what runs: `bun run test` covers `bun run test 2>&1`', () => {

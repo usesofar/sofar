@@ -705,7 +705,14 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
     or `e` command; `sort` or `tree` with no `-o`/`--output`; `uniq` with at
     most one operand.
   A false mark costs one spawn, a missed one a missed edit. A self-recording
-  command counts. A session with commands and no mark asks git nothing. A
+  command counts. SCOPE AND CACHE (D26): the mark counts may-write commands
+  (`{"v":1,"n":<count>}`). git is asked about the rules' paths only: `--
+  :(glob)**/<glob>` for every positive guard glob and file mention of an
+  in-force rule (a guard matches by tail), or the whole tree when one of them
+  holds `[`, `]`, `\`, `:`, a leading `/` or a `**` inside a segment. The answer
+  is cached in `.sofar/.index/wrote/<session>.git.json` under the count and a
+  key of the pathspec set, and reused until either changes; a git failure is
+  never cached. A session with commands and no mark asks git nothing. A
   session with no captured file and no command, or a repo whose in-force rules
   have neither a guard nor a file mention, skips the gate and asks git
   nothing.

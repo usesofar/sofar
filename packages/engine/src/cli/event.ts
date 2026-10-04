@@ -39,7 +39,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, isApproved, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
+import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -85,7 +85,7 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
-import { hasWrote, markWrote } from '../core/wrote'
+import { cacheChanges, cachedChanges, markWrote, pathspecKey, readWrote } from '../core/wrote'
 import { RECALL_TOLD_KEY, recallBlock, recallEnabled } from '../core/recall'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
@@ -1384,8 +1384,9 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     const index = gateIndex(sofarDir, slug, state)
     if (!rulesCanBear(index)) return none
     // Only a shell command edits what the hooks never see, so git is asked
-    // only when one that may write ran (D23) — once (speed T2).
-    const fromGit = hasWrote(sofarDir, session.id) ? (worktreeChanges(rootDir) ?? []) : []
+    // only when one that may write ran (D23) — once (speed T2), about the
+    // paths a rule can bear on, and again only after another one ran (D26).
+    const fromGit = gitChangesFor(rootDir, sofarDir, session.id, index)
     const files = [...captured, ...fromGit]
     if (files.length === 0) return none
     let editedAt: number | null = null
@@ -1426,6 +1427,26 @@ function stopMergeLines(rootDir: string, state: InitiativeState, session: Sessio
   } catch {
     return []
   }
+}
+
+/**
+ * What git reports changed on the paths a rule can bear on, for a session
+ * that ran a may-write command (r3-fixes D23, D26): cached against the mark
+ * count and the pathspecs, so a Stop with no may-write command since the last
+ * one asks git nothing. Empty for an unmarked session; a git failure is never
+ * cached.
+ */
+function gitChangesFor(rootDir: string, sofarDir: string, session: string, index: GuardIndex): string[] {
+  const marks = readWrote(sofarDir, session)
+  if (marks === null) return []
+  const specs = gatePathspecs(index)
+  const key = pathspecKey(specs)
+  const cached = cachedChanges(sofarDir, session, marks, key)
+  if (cached !== null) return cached
+  const files = worktreeChanges(rootDir, specs)
+  if (files === null) return []
+  cacheChanges(sofarDir, session, marks, key, files)
+  return files
 }
 
 /**
