@@ -1,5 +1,15 @@
 # Golden manifest (rust-core D11)
 
+ADDED and RE-RECORDED for **memory-lead 4.3 part B** (D25, recall at the
+first prompt): one new case, `syn.recall`. A session's first prompt,
+unregistered, gets the recall block (the decision it names by handle first, then
+the BM25 matches, and at most 3 memories); the next prompt gets none; a
+compaction re-arms it; a prompt that names nothing leaves it armed;
+`SOFAR_RECALL=off` and Cursor say nothing. One golden moved: `repo.lessons`,
+whose first prompt now carries the recall block after the lesson line, and whose
+told set gains the `recall prompt` key. No previous set is kept: nothing else
+changed.
+
 ADDED and RE-RECORDED for **r3-fixes 2.11** (D19, D20; merges and memories at
 the point of use): one new case, `syn.merge`. Its first step replaces the
 skeleton `.git` with a real repo holding round 3's S18 merge in miniature

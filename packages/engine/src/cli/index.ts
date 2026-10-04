@@ -35,6 +35,7 @@ import { REACH_DEFAULT_HOPS, REACH_MAX_HOPS } from '../core/index-reach'
 import { runRemember } from './remember'
 import { runBind } from './bind'
 import { runSupersedes } from './supersedes'
+import { runShow } from './show'
 import { runNativeImport } from './native-import'
 import { registerStatuslineCommand } from './statusline'
 import { startServer, renderServeBanner, DEFAULT_PORT } from './serve'
@@ -409,6 +410,15 @@ program
   .option('--root <dir>', 'repo root (default: the record above the current directory)')
   .action((decision: string, target: string, opts: { initiative?: string; root?: string }) => {
     emit(runSupersedes(rootOf(opts), decision, target, opts.initiative !== undefined ? { initiative: opts.initiative } : {}))
+  })
+
+program
+  .command('show <ids...>')
+  .description('print record entries whole by handle: D12, M3, brief, brief¶4 (memory-lead 4.3)')
+  .option('--initiative <slug>', 'record the entries are in (default: the bound one)')
+  .option('--root <dir>', 'repo root (default: the record above the current directory)')
+  .action((ids: string[], opts: { initiative?: string; root?: string }) => {
+    emit(runShow(rootOf(opts), ids, opts.initiative !== undefined ? { initiative: opts.initiative } : {}))
   })
 
 program

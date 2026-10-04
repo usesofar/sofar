@@ -5489,6 +5489,32 @@ fires, and a Codex session is Tier 3 (§Host tiers).
   Measured in-process on this repo: a warm refresh takes 0.4 ms, and a refresh
   plus ranking takes 1.2 ms, against the fold path's ~1.5 ms at 17 decisions.
   The end-to-end D18 check belongs to rust-core's 3.4, after the smokes.
+  RECALL (memory-lead 4.3 part B, D25): once per session context, the same
+  shim hands the prompt this record's entries it names, before the
+  registration check (a bench session's only prompt lands before anything
+  registers it). Never on Cursor, whose prompt hook cannot inject.
+  - CORPUS: the record's in-force decisions (rule, chose, over, quote,
+    because; first 1,200 chars) and unreplaced memories. Not the brief: it
+    holds every operator turn verbatim (L36), and on round 3 its paragraphs
+    took supersede targets in a block from 36 of 44 to 1.
+  - ORDER: a `D<n>` or `M<n>` the prompt names as a word comes first, in
+    prompt order; then rankLexical over the prompt's first 2,000 chars. A
+    match needs at least 2 shared terms (3 below 5 entries) and a quarter of
+    the top score; at most 3 memories.
+  - RENDER: `sofar: what this record holds on your prompt, strongest first
+    (\`sofar show <id>\` prints any entry whole):`, then one line per entry:
+    `- [D<n>] rule: "<rule>"; chose <chose>; over <over>; because <because>`
+    (each part one line; `rule` only when there is one, `over` only when real)
+    or `- [M<n>] memory: <text>`. The first 8 render up to 600 chars and the
+    rest as 160-char heads, each cut to its first 599 or 159 plus `…`, until
+    the block would pass 8,000 chars. It leads the line after every other
+    line but the prompt-keep line.
+  - ONCE: the told set gains `recall prompt` when a block is delivered;
+    SessionStart `compact` or `clear` empties it, so the block comes back with
+    the context that lost it. A prompt that names nothing leaves it armed.
+    `SOFAR_RECALL=off` (also `0`, `false`) is the ablation arm.
+  - COST: the first prompt pays once. Measured on this repo's record, TS,
+    2026-10-04: +6.8 ms p50 for a 6.6k block. Steady-state p50 within D18.
   The same shim also emits the PARALLEL-WRAP line (record-integrity 4.2),
   independently of the drift nudge — both may appear, newest first. It fires
   when another session in this initiative ENDED with a real write-back
@@ -6519,6 +6545,13 @@ subdirectory, against 33 of 33 from the root.
   adding a note when the command is not test-shaped, because the Stop gate
   cannot read such a command. It refuses a non-handle, a missing decision, a
   decision with no rule, and a retired one (naming its replacement).
+- `sofar show <ids…> [--initiative <slug>]` (memory-lead 4.3 part D, D25) —
+  print record entries whole by handle, from the fold: `D<n>` (or
+  `D<n>·<sfx>`) as its date, replacement, rule, quote, chose, over, because,
+  guard, check, supersedes and until, one field a line; `M<n>` as its date,
+  replacement and text; `brief` as every paragraph, `brief¶<k>` (or `¶<k>`) as
+  one. A handle it cannot find is named on stderr with exit 1, after printing
+  the rest. The recall block points here instead of at a whole file.
 - `sofar supersedes <D<n>> <D<m>|none> [--initiative <slug>]` (r3-fixes 2.5,
   D15) — say what a filed decision replaces, after the fact: appends
   decision_linked with both event ids stamped (§Link disposition), and prints
@@ -8851,6 +8884,18 @@ stay the underlying derivation's, and exit codes are styling-independent.
   by a shell command (a `command_run`, no `file_touched`) bears once git
   reports it changed, a run that finished before its mtime does not count,
   and one after does (D11). `bun run test` covers `bun run test 2>&1`.
+- **Recall at the first prompt (memory-lead 4.3, D25):** a first prompt,
+  unregistered, naming D4 and sharing words with D1 and M1 gets them, D4
+  first, whole, within 8,000 chars, and nothing from the brief; the next
+  prompt gets none until a compaction; `continue` gets none and leaves it
+  armed; Cursor and `SOFAR_RECALL=off` get none. `sofar show D1 M1 brief¶1`
+  prints each whole, and `sofar show D9 X` names both on stderr with exit 1.
+  Replay over round 3's 45 Claude supersessions: the target is in the block
+  for 36 (28 whole). Tests: test/recall.test.ts.
+- **Per-turn byte budget (memory-lead 4.4, L34):** the always-loaded tool
+  definitions as served stay ≤3,500 chars (3,370 on 2026-10-04), the server
+  instructions ≤800 (722), and the digest's cap ≤6,000. Tests:
+  test/overhead-cut.test.ts.
 - **Merge block (r3-fixes 2.11, D19):** after two worktree branches merge
   into main, the second with its conflict committed, the next session start
   leads its notices with the merges, `src/db.ts` as the file holding markers

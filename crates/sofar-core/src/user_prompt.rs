@@ -699,25 +699,26 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     // The session's name follows the record's focus task (session-naming D1)
     // — decided before the registration check, because a session's first
     // prompt usually lands before its first event registers it.
-    let title = if hook_host(&hook).tool == CLAUDE_CODE {
-        title_to_apply(
-            &hook,
-            &session_title(
-                &slug,
-                focus_task(&state).map(|(t, _)| t.id.as_str()),
-                Some(session_id),
-            ),
-            &layout,
-        )
-    } else {
-        None
-    };
+    let title = prompt_title(&hook, &slug, &state, session_id, &layout);
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
     let prompt = str_field(&hook, "prompt");
     let keep = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
+    // Recall (memory-lead 4.3, D25) before the registration check too; never
+    // on Cursor, whose prompt hook cannot inject.
+    let recall = match prompt {
+        Some(p) if hook_host(&hook).tool != "cursor" && crate::recall::recall_enabled() => {
+            crate::recall::prompt_recall(&layout, &state, session_id, p)
+        }
+        _ => None,
+    };
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        let result = keep.map_or_else(silent, ok);
+        let first: Vec<String> = [recall, keep].into_iter().flatten().collect();
+        let result = if first.is_empty() {
+            silent()
+        } else {
+            ok(first.join("\n"))
+        };
         return with_session_title(Hook::UserPrompt, result, title.as_deref());
     };
     let mut lines: Vec<String> = Vec::new();
@@ -786,6 +787,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
             "sofar: {debt} unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop."
         ));
     }
+    lines.extend(recall);
     lines.extend(keep);
     let result = if lines.is_empty() {
         silent()
@@ -793,6 +795,28 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         ok(lines.join("\n"))
     };
     with_session_title(Hook::UserPrompt, result, title.as_deref())
+}
+
+/// The session's name for this prompt (session-naming D1): Claude Code only.
+fn prompt_title(
+    hook: &crate::json::Object,
+    slug: &str,
+    state: &InitiativeState,
+    session_id: &str,
+    layout: &Layout,
+) -> Option<String> {
+    if hook_host(hook).tool != CLAUDE_CODE {
+        return None;
+    }
+    title_to_apply(
+        hook,
+        &session_title(
+            slug,
+            focus_task(state).map(|(t, _)| t.id.as_str()),
+            Some(session_id),
+        ),
+        layout,
+    )
 }
 
 /// `handleStop`: exit 2 with the block on stderr when this session owes a

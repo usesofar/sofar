@@ -86,6 +86,7 @@ import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
 import { hasWrote, markWrote } from '../core/wrote'
+import { RECALL_TOLD_KEY, recallBlock, recallEnabled } from '../core/recall'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes } from '../core/handle'
@@ -2733,8 +2734,15 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // before anything registers it.
     const prompt = strField(hook, 'prompt')
     const keep = prompt === null ? null : keepLine(rootDir, slug, sessionId, prompt)
+    // Recall (memory-lead 4.3, D25) before the registration check too: the
+    // first prompt is the cue, and in a bench session it is the only one.
+    // Cursor's prompt hook cannot inject, so it is never spent there.
+    const recall = prompt !== null && host.tool !== 'cursor' && recallEnabled() ? promptRecall(ctx.sofarDir, state, sessionId, prompt) : null
     const me = state.sessions.find((s) => s.id === sessionId)
-    if (me === undefined) return withSessionTitle('user-prompt', keep === null ? { ...OK } : { ...OK, stdout: keep }, title) // not ours to nudge
+    if (me === undefined) {
+      const first = [recall, keep].filter((l): l is string => l !== null)
+      return withSessionTitle('user-prompt', first.length === 0 ? { ...OK } : { ...OK, stdout: first.join('\n') }, title) // not ours to nudge
+    }
 
     // Live hazard first (a sibling is IN this file now), then news (what a
     // sibling finished), then state (where the repo stands), then the nudge
@@ -2819,12 +2827,26 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
           `is warm; an unwritten session gets force-blocked at Stop.`,
       )
     }
+    if (recall !== null) lines.push(recall)
     if (keep !== null) lines.push(keep)
 
     return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)
   } catch {
     return { ...OK }
   }
+}
+
+/**
+ * The recall block for this prompt (memory-lead 4.3, D25), once per session
+ * context: the told set carries the mark, and a compaction clears it. A
+ * prompt that names nothing the record holds leaves it unmarked, so a later
+ * one still gets its block.
+ */
+function promptRecall(sofarDir: string, state: InitiativeState, session: string, prompt: string): string | null {
+  if (readTold(sofarDir, session).has(RECALL_TOLD_KEY)) return null
+  const block = recallBlock(state, prompt, retireEnabled())
+  if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY])
+  return block
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import { foldLog } from '../src/core/fold'
 import { makeEvent } from '../src/core/envelope'
 import { serializeEvent } from '../src/core/log'
 import { ALWAYS_LOADED_TOOLS } from '../src/mcp/server'
+import { STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
 import { callTool, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
 
 /**
@@ -54,6 +55,27 @@ describe('always-load', () => {
     // The drive runner seeds plans through this tool — it stays (bench note, 2026-09-17).
     expect(tools.map((t) => t.name)).toContain('sofar_update_plan')
     await client.close()
+  })
+})
+
+describe('the per-turn byte budget (memory-lead 4.4, L34)', () => {
+  // What every API call carries before a word of work: the always-loaded tool
+  // definitions as tools/list serves them (activity guidance included) and the
+  // server instructions; and what every session start injects. Round 3 put
+  // them at about $0.5 a chain (R3-FIX-SURVEY part A, section 2), so they get no lever
+  // of their own, only this ceiling: growth fails here, not in a benchmark.
+  it('the always-loaded definitions stay ≤3,500 chars and the instructions ≤800', async () => {
+    const { client } = await connectServer(fx().root)
+    const { tools } = await client.listTools()
+    const always = tools.filter((t) => (t._meta as Record<string, unknown> | undefined)?.['anthropic/alwaysLoad'] === true)
+    const chars = always.reduce((n, t) => n + JSON.stringify({ name: t.name, description: t.description, inputSchema: t.inputSchema }).length, 0)
+    expect(chars).toBeLessThanOrEqual(3_500)
+    expect((client.getInstructions() ?? '').length).toBeLessThanOrEqual(800)
+    await client.close()
+  })
+
+  it('the session-start digest is capped at 6,000 chars', () => {
+    expect(STATUS_CHAR_LIMIT).toBeLessThanOrEqual(6_000)
   })
 })
 

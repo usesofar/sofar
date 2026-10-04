@@ -1,5 +1,5 @@
 import { rmSync } from 'node:fs'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { foldLog } from '../src/core/fold'
@@ -121,6 +121,18 @@ describe('relevantLessons — the ranking (D16)', () => {
 })
 
 describe('sofar event user-prompt — the lessons line (r1-fixes 3.3, D16)', () => {
+  // The lessons line alone: recall (memory-lead 4.3, D25) shares the prompt
+  // hook and has its own suite (test/recall.test.ts).
+  let recall: string | undefined
+  beforeAll(() => {
+    recall = process.env.SOFAR_RECALL
+    process.env.SOFAR_RECALL = 'off'
+  })
+  afterAll(() => {
+    if (recall === undefined) delete process.env.SOFAR_RECALL
+    else process.env.SOFAR_RECALL = recall
+  })
+
   it('renders the handle, the rejected approach and the matched words; appends nothing', () => {
     const f = fx()
     register(f)

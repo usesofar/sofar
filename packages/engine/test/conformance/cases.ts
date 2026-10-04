@@ -103,6 +103,20 @@ const SPEED_SESSION = 'aefa6315-3725-4e4d-9f9a-224ff6f86ddb'
 /** The last written-back session on `rust-core` at the snapshot. */
 const RUST_CORE_SESSION = '38d26db0-c497-44bf-b41d-11623a8486f5'
 
+/** syn.recall's record (memory-lead 4.3, D25): decisions and memories a prompt can reach. */
+function recallSeed(m: Materialized): void {
+  const line = (id: string, ts: string, type: string, payload: Record<string, unknown>): string =>
+    JSON.stringify({ v: 1, id, ts, initiative: 'baseline', session: 'cli', source: 'cli', actor: 'agent', user: 'fixture@example.invalid', type, payload })
+  const log = join(m.root, '.sofar', 'initiatives', 'baseline', 'events.jsonl')
+  const added = [
+    line('01M2Z0PCM00000000000000011', '2026-09-20T09:00:00.000Z', 'decision_logged', { chose: 'percent coupons apply before fixed amounts', over: 'fixed first', because: 'the operator said so', rule: 'Percent coupons come off before fixed coupons.' }),
+    line('01M2Z0R7700000000000000012', '2026-09-20T09:01:00.000Z', 'decision_logged', { chose: 'store money as integer cents', over: 'floats', because: 'rounding errors in invoices' }),
+    line('01M2Z0T1T00000000000000013', '2026-09-20T09:02:00.000Z', 'decision_logged', { chose: 'coupons never take a total below zero', over: 'negative totals as credit', because: 'refunds handle credit' }),
+    line('01M2Z0VWD00000000000000014', '2026-09-20T09:03:00.000Z', 'memory_promoted', { text: 'Coupon stacking lives in apps/web/lib/coupons.ts; the provider flag is stackable.' }),
+  ]
+  writeFileSync(log, `${readFileSync(log, 'utf8')}${added.join('\n')}\n`)
+}
+
 /**
  * syn.merge's repo (r3-fixes 2.11): the skeleton .git gives way to a real one
  * holding the S18 merge, every date pinned so every sha is too, and the
@@ -754,6 +768,21 @@ export const CASES: ConformanceCase[] = [
       s('Read under SOFAR_SURFACE_MEMORIES=off: the rule alone', ['event', 'post-tool'], read('<ROOT>/src/db.ts', { session_id: 'sess-19' }), { env: { SOFAR_SURFACE_MEMORIES: 'off' } }),
       s('sess-19 runs the suite green', ['event', 'post-tool'], bash('bun test', { session_id: 'sess-19' })),
       s('session-start: verified, nothing to say', ['event', 'session-start'], start({ session_id: 'sess-20' })),
+    ],
+  },
+  {
+    // memory-lead 4.3 part B (D25) on the hot path: recall at the first
+    // prompt, once per session context, never on Cursor.
+    name: 'syn.recall',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('first prompt, unregistered: the recall block', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'Percent coupons before fixed ones: how do coupons stack when the provider marks them stackable? See D3.' }), { before: recallSeed }),
+      s('the next prompt: already recalled', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'and the percent coupons again' })),
+      s('compact clears the told set', ['event', 'session-start'], start({ session_id: 'sess-r', source: 'compact' })),
+      s('the first prompt after it: recalled again', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'percent coupons stack with fixed coupons' })),
+      s('a prompt that names nothing: no block, still armed', ['event', 'user-prompt'], prompt({ session_id: 'sess-q', prompt: 'continue' })),
+      s('SOFAR_RECALL=off', ['event', 'user-prompt'], prompt({ session_id: 'sess-off', prompt: 'percent coupons stack with fixed coupons' }), { env: { SOFAR_RECALL: 'off' } }),
+      s('Cursor: never', ['event', 'user-prompt'], hook('beforeSubmitPrompt', { session_id: 'sess-c', prompt: 'percent coupons stack with fixed coupons', cursor_version: '2026.10.01' })),
     ],
   },
   {
