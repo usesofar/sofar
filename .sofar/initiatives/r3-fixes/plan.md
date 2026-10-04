@@ -8,26 +8,29 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 0/24 tasks done (0%)
+Progress: 1/28 tasks done (3%)
 
-## Phase 1 — Diagnose round 3 [active] — 0/6 done
+## Phase 1 — Diagnose round 3 [active] — 1/7 done
 
-- [ ] 1.1 3-rep readout per pre-registered claim (PRE-REGISTRATION-R3, memory-lead 5.4): per-rep values, pooled margins, CIs; list every miss as a loss row with evidence (active)
+- [x] 1.1 3-rep readout per pre-registered claim (PRE-REGISTRATION-R3, memory-lead 5.4): per-rep values, pooled margins, CIs; list every miss as a loss row with evidence
 - [ ] 1.2 Cost attribution per agent (Claude, Codex, Cursor): split each sofar cell's tokens by source — digest, alwaysLoad block, raw .sofar reads, tool output — against native and beads; find why non-Claude agents cost 1.4–2× tokens
 - [ ] 1.3 Wall-time decomposition: lock-wait vs agent time vs turns per session, per arm; separate queue starvation from real slowness
 - [ ] 1.4 Early-chain variance: is rep 1's S2–S11 dip (~82% vs 84–95%) a signal or noise across 3 reps? Read transcripts of the low sessions if it recurs
 - [ ] 1.5 S18 merge post-mortem across all arms and reps: which files conflict, how each agent resolved them, why rep 1 sofar broke the app (D36)
 - [ ] 1.6 Round-2 losses carried forward: chain B's misses C1, C2, C3, C5 against automemory (bench-refresh D74, cause L36). Did rc.4's L36 fix hold on round 3's held-out chain? Every still-open miss becomes a loss row.
+- [ ] 1.7 Remaining R3 readings (ROUND-3-REPORT §6): L-C9 (a) via H6 rule-fidelity on every arm; native-side L-C9 (b) and L-C10 (b)(c) counts to tell lead from parity; L-C6 store share and H2 background calls via the round-3 transcripts.py
 
-## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [pending] — 0/5 done
+## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [pending] — 0/7 done
 
 - [ ] 2.0 Research survey per loss row (r3-fixes D1). Prior art from papers, products and OSS: context and memory systems, agent context engineering, prompt-cache layouts, retrieval budgets, merge drivers/CRDTs. Per loss, ranked options plus at least one candidate new method of our own, with predicted margin vs native and the best competitor.
 - [ ] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
 - [ ] 2.2 Land memory-lead 4.3 (L35: ≤1 raw .sofar read per session) and 4.4 (L34: cap the alwaysLoad per-turn cost) — owned there; this task tracks them into the rc
 - [ ] 2.3 Non-Claude context diet: whatever 1.2 finds for Codex and Cursor. PREDICT stated from 1.2's numbers before build
 - [ ] 2.4 Fixes from 1.3–1.6 findings, one task per finding, each with its PREDICT
+- [ ] 2.5 Cross-agent supersession links (LR2): Codex/Cursor sessions logged 13 of 18 changed decisions with no supersedes and 1 against the wrong target (Claude: 1 of 30), so the old rule stays live beside the new. PREDICT after 2.0's survey
+- [ ] 2.6 Supersede-target integrity (LR3): r1 Cursor retired guarded L03 via an unrelated supersede; r2 Claude superseded the wrong entry from file-order D-numbers off a raw events.jsonl read (fold order differs after a merge). Check the target is related; print each entry's own id in decisions.md. PREDICT after 2.0
 
-## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 0/6 done
+## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 0/7 done
 
 - [ ] 3.1 Reboot safety: bench plists must not relaunch stale or finished jobs at login (RunAtLoad relaunched smoke-r3-h4/smoke-r3-h on 2026-10-03)
 - [ ] 3.2 score-batch reads the round's own env (BENCH_CHAIN_DIR etc.) from its ledger or plist, so scoring cannot fail on a missing chain
@@ -35,6 +38,7 @@ Progress: 0/24 tasks done (0%)
 - [ ] 3.4 Operator hold/resume command for a running round (today: bootout + re-bootstrap by hand)
 - [ ] 3.5 Per-agent cost and token readout built into check-rep (today hand-computed from ledgers)
 - [ ] 3.6 Optional local-model smoke profile for runner development only, never a scored arm
+- [ ] 3.7 Freeze the per-claim analysis script with PRE-REGISTRATION-R4 (round 3 had none until after scoring), and assert per-session store growth on every arm (beads r2's issues.jsonl froze at 66 lines S14–S30)
 
 ## Phase 4 — Release candidate [pending] — 0/2 done
 
@@ -50,4 +54,4 @@ Progress: 0/24 tasks done (0%)
 - [ ] 5.5 Readout per claim; D19 gate ruling; stable publish only if it passes
 
 Active phase: Phase 1 — Diagnose round 3
-Next action: 1.1: per-claim readout vs PRE-REGISTRATION-R3; then read the rep-3 transcripts for the stale v2/v3 rule hypothesis.
+Next action: 1.2 cost attribution per agent (Claude 1.087x, Codex output 1.12x native, Codex tokens 1.46x beads)
