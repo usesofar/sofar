@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 8 done, 2 dropped, 25 remaining
+Progress: 9 done, 2 dropped, 28 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -20,7 +20,7 @@ Progress: 8 done, 2 dropped, 25 remaining
 - [x] 1.6 Round-2 losses carried forward: chain B's misses C1, C2, C3, C5 against automemory (bench-refresh D74, cause L36). Did rc.4's L36 fix hold on round 3's held-out chain? Every still-open miss becomes a loss row.
 - [x] 1.7 Remaining R3 readings (ROUND-3-REPORT §6): L-C9 (a) via H6 rule-fidelity on every arm; native-side L-C9 (b) and L-C10 (b)(c) counts to tell lead from parity; L-C6 store share and H2 background calls via the round-3 transcripts.py
 
-## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 1/12 (2 dropped) done
+## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 2/13 (2 dropped) done
 
 - [x] 2.0 Research survey per loss row (r3-fixes D1). Prior art from papers, products and OSS: context and memory systems, agent context engineering, prompt-cache layouts, retrieval budgets, merge drivers/CRDTs. Per loss, ranked options plus at least one candidate new method of our own, with predicted margin vs native and the best competitor.
 - [ ] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
@@ -29,13 +29,14 @@ Progress: 8 done, 2 dropped, 25 remaining
 - [-] 2.4 Fixes from 1.3–1.6 findings, one task per finding, each with its PREDICT (dropped)
 - [ ] 2.5 Cross-agent supersession links (LR2): Codex/Cursor sessions logged 13 of 18 changed decisions with no supersedes and 1 against the wrong target (Claude: 1 of 30), so the old rule stays live beside the new. PREDICT after 2.0's survey
 - [ ] 2.6 Supersede-target integrity (LR3): r1 Cursor retired guarded L03 via an unrelated supersede; r2 Claude superseded the wrong entry from file-order D-numbers off a raw events.jsonl read (fold order differs after a merge). Check the target is related; print each entry's own id in decisions.md. PREDICT after 2.0
-- [ ] 2.7 Non-Claude write path (LR2's cause): Codex writes every event through raw `sofar event append`, as the AGENTS.md protocol block teaches; its decision_logged template has no supersedes, and the append skips supersede resolution, the reversal guard and quote validation. plan_updated as a full replace forces raw events.jsonl reads. PREDICT after 2.0
-- [ ] 2.8 Write-backs rejected whole: 34-42% of sofar_end_session calls fail on one decision's 300-char quote ('nothing was filed') and the agent resends the whole ~20k-char payload (~$2/chain, about 0.98x on L-C6). PREDICT after 2.0
+- [ ] 2.7 Non-Claude write path (LR2's cause): Codex writes every event through raw `sofar event append`, as the AGENTS.md protocol block teaches; its decision_logged template has no supersedes, and the append skips supersede resolution, the reversal guard and quote validation. plan_updated as a full replace forces raw events.jsonl reads. PREDICT after 2.0 (active)
+- [x] 2.8 Write-backs rejected whole: 34-42% of sofar_end_session calls fail on one decision's 300-char quote ('nothing was filed') and the agent resends the whole ~20k-char payload (~$2/chain, about 0.98x on L-C6). PREDICT after 2.0
 - [ ] 2.9 Brief growth under full-replace plans: the L36 fix keeps every session's operator words in the brief (46-55k chars by S30), and plan_updated resends it whole each session (1.05-1.34M chars a chain, 50-60% of events.jsonl, quadratic over a chain). Append to the brief without resending the plan. PREDICT after 2.0
-- [ ] 2.10 LR1-A: bind guarded rules to tests; Stop blocks on a failed bound check (memory-lead D37). PREDICT guarded violations at S30 0.33x native, claim ≤0.5x
+- [ ] 2.10 LR1-A: bind guarded rules to tests; Stop blocks on a failed bound check (memory-lead D37). PREDICT guarded violations at S30 0.33x native, claim ≤0.5x (active)
 - [ ] 2.11 LR4: merge block in the digest, memories in edit-time surfacing, merge receipts. PREDICT L-C2 18-20 mean −11.2 → ≥0 (low confidence)
+- [ ] 2.12 Record root walk-up (D12): hooks serve the record above the agent's cwd. Round 3 lost Claude Write/Edit capture 156 of 156 from subdirectories. PREDICT capture from a subdirectory 0% -> 100% (active)
 
-## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 0/7 done
+## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 0/8 done
 
 - [ ] 3.1 Reboot safety: bench plists must not relaunch stale or finished jobs at login (RunAtLoad relaunched smoke-r3-h4/smoke-r3-h on 2026-10-03)
 - [ ] 3.2 score-batch reads the round's own env (BENCH_CHAIN_DIR etc.) from its ledger or plist, so scoring cannot fail on a missing chain
@@ -44,6 +45,7 @@ Progress: 8 done, 2 dropped, 25 remaining
 - [ ] 3.5 Per-agent cost and token readout built into check-rep (today hand-computed from ledgers)
 - [ ] 3.6 Optional local-model smoke profile for runner development only, never a scored arm
 - [ ] 3.7 Freeze the per-claim analysis script with PRE-REGISTRATION-R4 (round 3 had none until after scoring), and assert per-session store growth on every arm (beads r2's issues.jsonl froze at 66 lines S14–S30)
+- [ ] 3.8 Codex hooks in every cell (ROUND-3-REPORT H-f): launchCodex passes --dangerously-bypass-hook-trust, and check-rep asserts hook-sourced events per agent on each hook-using arm (round 3: 0 Codex hook events on all 3 sofar reps) (active)
 
 ## Phase 4 — Release candidate [pending] — 0/3 done
 
@@ -51,7 +53,7 @@ Progress: 8 done, 2 dropped, 25 remaining
 - [ ] 4.2 Publish rc.5 to npm next (operator runs the publish)
 - [ ] 4.0 Rust parity gate before the rc.5 cut. The Rust core must be byte-identical to TS on digest, every hook's stdout and the CLI surfaces that agents read, on every real events.jsonl (this repo and sofar-cloud) plus the round-4 fixture, after all Phase 2 fixes land in both engines. rc.5 ships Rust only when green.
 
-## Phase 5 — Round 4 benchmark [pending] — 0/6 done
+## Phase 5 — Round 4 benchmark [pending] — 0/8 done
 
 - [ ] 5.1 Fresh held-out chain authored blind (D22; chain-l-author pattern)
 - [ ] 5.2 PRE-REGISTRATION-R4: claims with predicted margins from Phase 2, frozen in the operator's own words before any scored run
@@ -59,6 +61,8 @@ Progress: 8 done, 2 dropped, 25 remaining
 - [ ] 5.4 Run 3 reps; score-batch and check-rep each
 - [ ] 5.5 Readout per claim; D19 gate ruling; stable publish only if it passes
 - [ ] 5.0 Pin the latest stable agents and beads at the freeze, checked live (D5); re-check the Codex contract fixtures on the new pin
+- [ ] 5.6 R4-B chain content: the blind round-4 author plants ≥2 decisions on branches that are never merged, with hidden tests asserting trunk behaviour, so branch containment is measurable (R3-FIX-SURVEY C §4 B; D9)
+- [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
 Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
-Next action: Run R3-FIX-SURVEY §4's live probes on the latest stable agents, then build 2.10 and 2.2.
+Next action: When the Rust port lands, run both engines' suites, then commit 2.10 and 2.12 with their goldens.
