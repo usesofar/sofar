@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 30 done, 2 dropped, 10 remaining
+Progress: 31 done, 2 dropped, 9 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -20,7 +20,7 @@ Progress: 30 done, 2 dropped, 10 remaining
 - [x] 1.6 Round-2 losses carried forward: chain B's misses C1, C2, C3, C5 against automemory (bench-refresh D74, cause L36). Did rc.4's L36 fix hold on round 3's held-out chain? Every still-open miss becomes a loss row.
 - [x] 1.7 Remaining R3 readings (ROUND-3-REPORT §6): L-C9 (a) via H6 rule-fidelity on every arm; native-side L-C9 (b) and L-C10 (b)(c) counts to tell lead from parity; L-C6 store share and H2 background calls via the round-3 transcripts.py
 
-## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 12/15 (2 dropped) done
+## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 13/15 (2 dropped) done
 
 - [x] 2.0 Research survey per loss row (r3-fixes D1). Prior art from papers, products and OSS: context and memory systems, agent context engineering, prompt-cache layouts, retrieval budgets, merge drivers/CRDTs. Per loss, ranked options plus at least one candidate new method of our own, with predicted margin vs native and the best competitor.
 - [x] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
@@ -36,7 +36,7 @@ Progress: 30 done, 2 dropped, 10 remaining
 - [x] 2.11 LR4: merge block in the digest, memories in edit-time surfacing, merge receipts. PREDICT L-C2 18-20 mean −11.2 → ≥0 (low confidence)
 - [x] 2.12 Record root walk-up (D12): hooks serve the record above the agent's cwd. Round 3 lost Claude Write/Edit capture 156 of 156 from subdirectories. PREDICT capture from a subdirectory 0% -> 100%
 - [x] 2.13 2.10's Stop gate is over the D18 budget at i1000-10mb (SOFAR_ENFORCE off→on: Stop +48.9 ms, +37.2%; vs rc.4 +23.9%). Make it cheaper or put it behind a flag defaulted off before the rc.5 cut (4.1).
-- [ ] 2.14 `sofar doctor` gitattributes check: every projection and shard path (2.1's lines plus brief.md, decisions/*.md, memory/*.md, phases/*.md) carries merge=union and linguist-generated; it prints the exact fix and warns, never errors. Apply the lines to this repo's .gitattributes. (active)
+- [x] 2.14 `sofar doctor` gitattributes check: every projection and shard path (2.1's lines plus brief.md, decisions/*.md, memory/*.md, phases/*.md) carries merge=union and linguist-generated; it prints the exact fix and warns, never errors. Apply the lines to this repo's .gitattributes.
 
 ## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 8/9 done
 
@@ -68,4 +68,4 @@ Progress: 30 done, 2 dropped, 10 remaining
 - [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
 Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
-Next action: Build 2.2: land memory-lead 4.3 and 4.4 into the rc.
+Next action: Cut rc.5 (4.1) once the orchestrator's parity:real:full on fresh builds reports clean.

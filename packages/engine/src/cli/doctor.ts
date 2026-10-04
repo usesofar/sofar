@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { version as CURRENT_VERSION } from '../../package.json'
 import { isClosedInitiativeStatus, isResolvedTaskStatus } from '@sofar/schema'
@@ -35,6 +36,7 @@ import {
   CODEX_SHIMS,
   codexHookCommand,
   CURSOR_HOOKS,
+  GITATTRIBUTES_LINES,
   hookCommand,
   PROTOCOL_BLOCK,
   SHIM_HOMES,
@@ -446,9 +448,63 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
   }
 
   auditAttribution(rootDir, findings)
+  auditGitattributes(rootDir, findings)
   auditCore(findings)
 
   return { title: 'Wiring integrity', findings }
+}
+
+/**
+ * The merge rules (r3-fixes 2.14): every generated path — the event log, the
+ * projections and, since memory-lead D45, brief.md and the shards — must
+ * carry the attributes init writes, or a merge leaves them conflicted (round
+ * 3's S18 merges: 6 per rep). Git is asked what actually applies to a path
+ * each rule covers, so a later override, a nested .gitattributes or
+ * core.attributesFile all count; where git cannot answer, .gitattributes is
+ * read. A warning, never a failure: the record is safe either way, only a
+ * merge is noisier. The fix names what `sofar init` appends — it never
+ * touches a line the user wrote for one of our patterns — and, for those, the
+ * line to make theirs read.
+ */
+export function auditGitattributes(rootDir: string, findings: Finding[]): void {
+  const pattern = (line: string): string => line.split(' ')[0]!
+  const probe = (line: string): string => pattern(line).replace('**', 'initiatives/doctor-probe').replace('*', 'probe')
+  const wanted = (line: string): Array<[string, string]> =>
+    line
+      .split(/\s+/)
+      .slice(1)
+      .map((a): [string, string] => (a.includes('=') ? [a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)] : [a, 'set']))
+  const path = join(rootDir, '.gitattributes')
+  const content = existsSync(path) ? readFileSync(path, 'utf8') : ''
+  const lines = content.split(/\r?\n/).map((l) => l.trim().split(/\s+/))
+  const ours = new Set(lines.map((l) => l[0]))
+
+  const r = spawnSync('git', ['check-attr', 'merge', 'linguist-generated', '--', ...GITATTRIBUTES_LINES.map(probe)], {
+    cwd: rootDir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  })
+  const applied = (line: string, attr: string, value: string): boolean => {
+    if (r.error === undefined && r.status === 0) return r.stdout.split('\n').includes(`${probe(line)}: ${attr}: ${value}`)
+    // No git to ask: the rule's own line must be there, carrying the attribute.
+    const token = value === 'set' ? attr : `${attr}=${value}`
+    return lines.some((l) => l[0] === pattern(line) && l.includes(token))
+  }
+  const short = GITATTRIBUTES_LINES.filter((line) => wanted(line).some(([attr, value]) => !applied(line, attr, value)))
+  if (short.length === 0) {
+    findings.push({ level: 'ok', text: `.gitattributes merges every generated sofar path clean (${GITATTRIBUTES_LINES.length} rules)` })
+    return
+  }
+  const addable = short.filter((line) => !ours.has(pattern(line)))
+  const owned = short.filter((line) => ours.has(pattern(line)))
+  const hint: string[] = []
+  if (addable.length > 0) hint.push('run `sofar init` to append them (it never touches your own lines), or add:', ...addable.map((l) => `  ${l}`))
+  if (owned.length > 0) hint.push("your own line wins for these and init leaves it; make it read:", ...owned.map((l) => `  ${l}`))
+  findings.push({
+    level: 'warn',
+    text: `.gitattributes leaves ${short.length} of ${GITATTRIBUTES_LINES.length} generated sofar path(s) to a text merge, which can conflict on them`,
+    hint: hint.join('\n'),
+  })
 }
 
 /**

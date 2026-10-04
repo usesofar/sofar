@@ -1,4 +1,15 @@
 .sofar/**/events.jsonl merge=union
+# The generated projections and shards (r3-fixes 2.1 and 2.14, memory-lead D45):
+# a pure function of events.jsonl, re-rendered on the next append, so a merge of
+# them must never conflict. `sofar doctor` checks these lines.
+.sofar/**/plan.md merge=union linguist-generated
+.sofar/**/decisions.md merge=union linguist-generated
+.sofar/**/memory.md merge=union linguist-generated
+.sofar/**/sessions/*.md merge=union linguist-generated
+.sofar/**/brief.md merge=union linguist-generated
+.sofar/**/decisions/*.md merge=union linguist-generated
+.sofar/**/memory/*.md merge=union linguist-generated
+.sofar/**/phases/*.md merge=union linguist-generated
 packages/engine/test/conformance/fixtures/** linguist-generated
 
 # Byte-exact fixtures (rust-core 3.2, first Windows CI run): the conformance

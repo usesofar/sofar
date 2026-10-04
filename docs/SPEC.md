@@ -6138,14 +6138,27 @@ subdirectory, against 33 of 33 from the root.
   shim from either home or .cursor/mcp.json registers sofar; Codex when
   .codex/hooks.json runs one of its shims or .codex/config.toml registers
   sofar (AGENTS.md is shared with Cursor, so it no longer stands for Codex,
-  agents-parity 2.1), checked for its five shims, its five hooks.json entries
-  and its sofar server, in `.codex/config.toml` or the user's config.toml
+  agents-parity 2.1), checked for its six shims, its six hooks.json entries
+  (five until memory-lead D39 added PreToolUse) and its sofar server, in `.codex/config.toml` or the user's config.toml
   (agents-parity 2.2) — each unwired agent gets one ok line naming
   `sofar init --agents <id>`, a partial install's repair hint names its own
   agents, and a record with no agent wired at all FAILs. A passing Codex
   check means wired, not running: doctor cannot see whether Codex trusts the
   project or sofar's hooks, because the file holding that state is
-  unverified (§Codex host). Plus the
+  unverified (§Codex host). Plus the MERGE-RULES check (r3-fixes 2.14):
+  every rule `sofar init` writes to .gitattributes (§CLI, its init entry:
+  events.jsonl, the projections, and since memory-lead D45 brief.md and
+  the shards) is checked as git resolves it, by `git check-attr merge
+  linguist-generated` on a path each rule covers, so a later override, a
+  nested .gitattributes or core.attributesFile counts; where git cannot
+  answer, .gitattributes itself is read. All present: one ok line naming the
+  rule count. Otherwise ONE warning, never a failure, `.gitattributes leaves
+  <n> of <m> generated sofar path(s) to a text merge, which can conflict on
+  them`, whose hint gives the exact fix: for a rule no line of .gitattributes
+  names, `run \`sofar init\` to append them (it never touches your own
+  lines), or add:` and the lines; for a pattern the user's own line governs,
+  which init leaves alone, `your own line wins for these and init leaves it;
+  make it read:` and our line. Tests: test/doctor-gitattributes.test.ts. Plus the
   ATTRIBUTION check (commit-attribution 2.4), which is deliberately EMPIRICAL
   rather than diagnostic: it asks whether the last 20 commits actually carry
   trailers, not why they might not. Attribution goes silently off for several
