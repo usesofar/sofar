@@ -8,22 +8,24 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 0/22 tasks done (0%)
+Progress: 0/24 tasks done (0%)
 
-## Phase 1 — Diagnose round 3 [active] — 0/5 done
+## Phase 1 — Diagnose round 3 [active] — 0/6 done
 
 - [ ] 1.1 3-rep readout per pre-registered claim (PRE-REGISTRATION-R3, memory-lead 5.4): per-rep values, pooled margins, CIs; list every miss as a loss row with evidence
 - [ ] 1.2 Cost attribution per agent (Claude, Codex, Cursor): split each sofar cell's tokens by source — digest, alwaysLoad block, raw .sofar reads, tool output — against native and beads; find why non-Claude agents cost 1.4–2× tokens
 - [ ] 1.3 Wall-time decomposition: lock-wait vs agent time vs turns per session, per arm; separate queue starvation from real slowness
 - [ ] 1.4 Early-chain variance: is rep 1's S2–S11 dip (~82% vs 84–95%) a signal or noise across 3 reps? Read transcripts of the low sessions if it recurs
 - [ ] 1.5 S18 merge post-mortem across all arms and reps: which files conflict, how each agent resolved them, why rep 1 sofar broke the app (D36)
+- [ ] 1.6 Round-2 losses carried forward: chain B's misses C1, C2, C3, C5 against automemory (bench-refresh D74, cause L36). Did rc.4's L36 fix hold on round 3's held-out chain? Every still-open miss becomes a loss row.
 
-## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [pending] — 0/4 done
+## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [pending] — 0/5 done
 
+- [ ] 2.0 Research survey per loss row (r3-fixes D1). Prior art from papers, products and OSS: context and memory systems, agent context engineering, prompt-cache layouts, retrieval budgets, merge drivers/CRDTs. Per loss, ranked options plus at least one candidate new method of our own, with predicted margin vs native and the best competitor.
 - [ ] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
 - [ ] 2.2 Land memory-lead 4.3 (L35: ≤1 raw .sofar read per session) and 4.4 (L34: cap the alwaysLoad per-turn cost) — owned there; this task tracks them into the rc
 - [ ] 2.3 Non-Claude context diet: whatever 1.2 finds for Codex and Cursor. PREDICT stated from 1.2's numbers before build
-- [ ] 2.4 Fixes from 1.3–1.5 findings, one task per finding, each with its PREDICT
+- [ ] 2.4 Fixes from 1.3–1.6 findings, one task per finding, each with its PREDICT
 
 ## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 0/6 done
 
