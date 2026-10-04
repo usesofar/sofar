@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator starts sessions for r3-fixes 2.2 and Phase 3; gate 4.0 when 2.11 and 2.2 land.
+Next action: Await the author's checklist result and re-pins; get owners for r3-fixes 2.2 and 3.2/3.3/3.7.
