@@ -1,5 +1,7 @@
 import type { DecisionState, InitiativeState, SessionActivity, SessionState } from '../../core/fold'
 import { LANE_RECENT_SESSIONS } from '../../core/lane'
+import { suiteOf } from '../../core/checks'
+import { mergeFacts } from '../../core/merge'
 import { retiredOrdinals } from '../../core/retire'
 import { hasRealAlternative, MAX_DECISIONS, UNWRITTEN_SIBLING_CAP } from './status'
 
@@ -31,6 +33,9 @@ import { hasRealAlternative, MAX_DECISIONS, UNWRITTEN_SIBLING_CAP } from './stat
  *   placeholder when its activity is still counted, both dropped otherwise.
  * - The lane's `since` reads sessions[0].started.
  * Everything else becomes `''` (id, tool, started), 0 (unwritten) or absent.
+ *
+ * merge_facts (r3-fixes D19) is added from the full sessions: the session
+ * start reads it beside renderStatus, never through it.
  *
  * Decisions: rule, quote, supersedes, until and superseded_by are kept (the
  * standing rules and retirement), and a pending link's candidates (its
@@ -190,8 +195,12 @@ export function digestState(state: InitiativeState): InitiativeState {
   const laneCount = newest(sessions, LANE_RECENT_SESSIONS + 1, (s) => s.activity !== undefined)
   const unwrittenIds = newest(sessions, UNWRITTEN_SIBLING_CAP + 1, (s) => s.summary === undefined && s.activity !== undefined)
   const decisions = decisionTextKept(state)
+  // The merge block's record side (r3-fixes D19), from the sessions before the
+  // cut drops their fields; renderStatus never reads it.
+  const facts = mergeFacts(sessions, suiteOf)
   return {
     ...state,
+    ...(Object.keys(facts).length > 0 ? { merge_facts: facts } : {}),
     files_touched: [],
     sessions: sessions.map((s, i) => {
       const last = i === newestSummary

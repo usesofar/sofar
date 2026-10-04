@@ -17,7 +17,7 @@ use crate::layout::Layout;
 use crate::snapshot::current_version;
 
 const DIGEST_DIR: &str = "digest";
-const DIGEST_CACHE_VERSION: f64 = 3.0;
+const DIGEST_CACHE_VERSION: f64 = 4.0;
 
 fn digest_file(layout: &Layout, slug: &str) -> PathBuf {
     layout
@@ -151,7 +151,7 @@ mod tests {
         assert_eq!(cached_digest_state(&layout, "x"), want, "hit");
         for bad in [
             "nope".to_owned(),
-            good.replace("\"v\":3", "\"v\":4"),
+            good.replace("\"v\":4", "\"v\":5"),
             good.replace("\"sessions\":[", "\"sessions\":7,\"x\":["),
         ] {
             assert_ne!(bad, good);

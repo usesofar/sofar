@@ -129,6 +129,7 @@ fn options_from(value: &Json) -> StatusOptions {
         neighbours,
         repo_rules,
         notices,
+        merge: opt_str(o, "merge"),
         lane: o.get("lane").is_some_and(Json::is_true),
         activity: o.get("activity").map(Json::is_true),
         retire: true,

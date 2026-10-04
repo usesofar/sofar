@@ -417,6 +417,55 @@ fn other_worktrees_notice(root: &Path, slug: &str, log_path: &Path) -> Option<St
     worktree_leads_notice(&worktree_leads(root, slug, log_path), home_dir().as_deref())
 }
 
+/// `sessionMergeNotice` (r3-fixes D19): the merge block for this start, or
+/// `None`. Files only until a merge is in progress or new since the last
+/// session: then ONE git spawn names what it left conflicted, and the scope
+/// tier, already refreshed for this start, names the rules and memories on
+/// those files.
+fn session_merge_notice(
+    root: &Path,
+    slug: &str,
+    state: &InitiativeState,
+    scope: &crate::index_tier1::GuardIndex,
+) -> Option<String> {
+    use crate::merge::{
+        conflicted_files, merge_entries, merge_in_progress, merge_notice, merge_view,
+        reflog_merges,
+    };
+    let in_progress = merge_in_progress(root);
+    let merges = reflog_merges(root);
+    if in_progress.is_none() && merges.is_empty() {
+        return None;
+    }
+    let facts = state.merge_facts.clone().unwrap_or_default();
+    let view = merge_view(&merges, &facts);
+    let conflicted = if in_progress.is_some() {
+        conflicted_files(root, None)
+    } else if let Some(first) = view.fresh.first() {
+        conflicted_files(root, Some(&first.from))
+    } else {
+        None
+    };
+    let entries = match &conflicted {
+        Some(files) if !files.is_empty() => merge_entries(
+            scope,
+            root,
+            files,
+            slug,
+            retire_enabled(),
+            crate::index_tier1::memory_surfacing_enabled(),
+        ),
+        _ => Vec::new(),
+    };
+    merge_notice(
+        &view,
+        in_progress.as_ref(),
+        conflicted.as_deref(),
+        &entries,
+        facts.suite.as_deref(),
+    )
+}
+
 /// `handleSessionStart`.
 #[must_use]
 pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
@@ -460,6 +509,12 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     // None at all while HEAD has not moved (rust-core 4.4, L1).
     let commits = cached_attribution(&layout, SHIPPING_WINDOW);
     let activity = activity_enabled();
+    // A merge since the last session (r3-fixes D19), protected in the tail.
+    let merge = if crate::merge::merge_block_enabled() {
+        session_merge_notice(root, &slug, &state, &scope)
+    } else {
+        None
+    };
     let notices: Vec<String> = [
         recent_work_elsewhere_notice(&layout, &slug, via, now),
         other_worktrees_notice(root, &slug, &events_path),
@@ -484,6 +539,7 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             neighbours,
             repo_rules,
             notices,
+            merge,
             lane: slug == QUICK_LANE,
             activity: if activity { None } else { Some(false) },
             retire: retire_enabled(),

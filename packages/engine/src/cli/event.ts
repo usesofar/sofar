@@ -39,7 +39,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, isApproved, rulesCanBear, runChecks, stopGate, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
+import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, isApproved, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -59,12 +59,16 @@ import {
   refreshGuards,
   refreshNeighbours,
   repoRules,
+  memoryHitsForSubject,
+  memorySurfacingEnabled,
+  MEMORY_NOTICE_MAX,
   scopeHitsForSubject,
   type FileIndex,
   type GuardIndex,
   type NeighbourRecord,
   type RepoRule,
   type ScopedDecision,
+  type ScopedMemory,
 } from '../core/index-tier1'
 import { rankByRelevance, refreshRelevance, relevance, type RelevanceRow } from '../core/index-relevance'
 import { addTold, clearTold, readTold, toldKey } from '../core/told'
@@ -79,6 +83,7 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
+import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes } from '../core/handle'
 import { briefEntryText, capturePrompt, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
@@ -773,6 +778,32 @@ function declaredIndex(sofarDir: string): GuardIndex | null {
   }
 }
 
+/**
+ * The merge block for this session start (r3-fixes D19), or null. Files only
+ * until a merge is in progress or new since the last session: then ONE git
+ * spawn names what it left conflicted, and the scope tier, already refreshed
+ * for this start, names the rules and memories on those files. Fails open.
+ */
+function sessionMergeNotice(rootDir: string, slug: string, state: InitiativeState, scope: GuardIndex | null): string | null {
+  try {
+    const inProgress = mergeInProgress(rootDir)
+    const merges = reflogMerges(rootDir)
+    if (inProgress === null && merges.length === 0) return null
+    const facts = state.merge_facts ?? {}
+    const view = mergeView(merges, facts)
+    let conflicted: string[] | null = null
+    if (inProgress !== null) conflicted = conflictedFiles(rootDir, null)
+    else if (view.fresh.length > 0) conflicted = conflictedFiles(rootDir, view.fresh[0]!.from)
+    const entries =
+      scope === null || conflicted === null || conflicted.length === 0
+        ? []
+        : mergeEntries(scope, rootDir, conflicted, slug, retireEnabled(), memorySurfacingEnabled())
+    return mergeNotice({ view, inProgress, conflicted, entries, suite: facts.suite ?? null })
+  } catch {
+    return null
+  }
+}
+
 export function handleSessionStart(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
@@ -841,6 +872,10 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // and none at all while HEAD has not moved (rust-core 4.4, L1).
     const commits = cachedAttribution(rootDir, ctx.sofarDir, SHIPPING_WINDOW)
     const activity = activityEnabled()
+    // A merge since the last session (r3-fixes D19): the riskiest moment in a
+    // branch's life, and the one no event recorded. Protected in the tail, so
+    // the cap on a long record never takes it.
+    const merge = mergeBlockEnabled() ? sessionMergeNotice(rootDir, slug, state, scope) : null
     const notices = [
       recentWorkElsewhereNotice(ctx.sofarDir, slug, via),
       otherWorktreesNotice(rootDir, slug, ctx.eventsPath(slug)),
@@ -859,6 +894,7 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
       ...(rules.length > 0 ? { repoRules: rules } : {}),
       ...(travel.links.length > 0 ? { travel } : {}),
       ...(notices.length > 0 ? { notices } : {}),
+      ...(merge !== null ? { merge } : {}),
       ...(slug === QUICK_LANE ? { lane: true } : {}),
       ...(activity ? {} : { activity: false }),
     })
@@ -1265,6 +1301,9 @@ export function handleStop(
     // per stop: a rule it filed naming nothing it replaces. SOFAR_LINK_ASK=off
     // is its ablation arm.
     const links = linkAskEnabled() ? stopLinkLines(state, sessionId, retireEnabled() ? retiredOrdinals(state) : new Set<number>()) : []
+    // The merge ask (r3-fixes D19) holds a session that began after a merge no
+    // passing test has followed. SOFAR_MERGE_BLOCK=off is its ablation arm.
+    const merge = mergeBlockEnabled() ? stopMergeLines(rootDir, state, session) : []
 
     // Drift gate (drift-signal 1.2): silent exit when THIS session owes
     // nothing — it wrote back, or it never mutated the record. NaN or a
@@ -1279,7 +1318,7 @@ export function handleStop(
       }
     }
     if (!owes) {
-      const held = [...(gate?.blocks === true ? gate.lines : []), ...links]
+      const held = [...(gate?.blocks === true ? gate.lines : []), ...merge, ...links]
       return held.length > 0 ? { exitCode: 2, stdout: '', stderr: held.join('\n') } : { ...OK }
     }
 
@@ -1304,7 +1343,7 @@ export function handleStop(
     return {
       exitCode: 2,
       stdout: '',
-      stderr: [host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : STOP_BLOCK_MESSAGE, ...crossings, ...checks, ...links].join('\n'),
+      stderr: [host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : STOP_BLOCK_MESSAGE, ...crossings, ...checks, ...merge, ...links].join('\n'),
     }
   } catch {
     return { ...OK }
@@ -1347,6 +1386,29 @@ function stopGateFor(rootDir: string, sofarDir: string, state: InitiativeState, 
     return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt)
   } catch {
     return none
+  }
+}
+
+/**
+ * The merge ask for this stop (r3-fixes D19): a session that did work and
+ * began after the newest merge since the record began, while no test has
+ * passed after an edit since it. The suite is the session's own newest test
+ * command, else the record's, as for the test gate (D10). Fails open.
+ */
+function stopMergeLines(rootDir: string, state: InitiativeState, session: SessionState): string[] {
+  try {
+    const activity = session.activity
+    if (activity === undefined || (activity.files.length === 0 && activity.commands === 0)) return []
+    const merges = reflogMerges(rootDir)
+    if (merges.length === 0) return []
+    const facts = mergeFacts(state.sessions, suiteOf)
+    const view = mergeView(merges, facts)
+    if (view.newest === null || view.verified || !startedAfter(session.started, view.newest)) return []
+    const own = activity.last_test === undefined ? '' : suiteOf(activity.last_test.cmd)
+    const suite = own.length > 0 ? own : facts.suite
+    return suite === undefined ? [] : [mergeStopLine(view.newest, suite)]
+  } catch {
+    return []
   }
 }
 
@@ -2008,18 +2070,32 @@ export interface NoticeSubject {
   edit: boolean
 }
 
-/** A decision to tell, and why: 0 guard, 1 ruled mention, 2 unruled mention. */
-interface ScopeNotice {
-  tier: 0 | 1 | 2
-  decision: ScopedDecision
+/**
+ * A decision or a memory to tell, and why: 0 guard, 1 ruled mention, 2 memory
+ * (r3-fixes D20), 3 unruled mention.
+ */
+type ScopeNotice = {
+  tier: 0 | 1 | 2 | 3
   depth: number
   rendered: string
   domain: GuardDomain
-}
+} & ({ decision: ScopedDecision; memory?: undefined } | { memory: ScopedMemory; decision?: undefined })
+
+/** What a notice speaks for: its decision, or its memory. */
+const noticeEntry = (n: ScopeNotice): ScopedDecision | ScopedMemory => n.decision ?? n.memory
 
 function scopeHandle(d: ScopedDecision, slug: string): string {
   // `D<n>` is initiative-scoped, so a handle from elsewhere carries its record.
   return d.initiative === slug ? `D${d.ordinal}` : `${d.initiative} D${d.ordinal}`
+}
+
+function memoryHandle(m: ScopedMemory, slug: string): string {
+  return m.initiative === slug ? `M${m.ordinal}` : `${m.initiative} M${m.ordinal}`
+}
+
+/** A memory's text as a notice renders it: one line, cut at MEMORY_NOTICE_MAX. */
+function memoryNoticeText(m: ScopedMemory): string {
+  return m.text.length > MEMORY_NOTICE_MAX ? `${m.text.slice(0, MEMORY_NOTICE_MAX - 1)}…` : m.text
 }
 
 function scopeRuleText(d: ScopedDecision): string {
@@ -2029,6 +2105,10 @@ function scopeRuleText(d: ScopedDecision): string {
 
 /** The line for one notice, worded as a fact (SPEC §Read-time surfacing (memory-lead 2.1, D6)). */
 export function scopeNoticeLine(n: ScopeNotice, slug: string): string {
+  if (n.memory !== undefined) {
+    const text = memoryNoticeText(n.memory)
+    return `sofar: [${memoryHandle(n.memory, slug)}] names ${n.rendered} (repo memory): ${text}${/[.!?…]$/.test(text) ? '' : '.'}`
+  }
   const d = n.decision
   const handle = scopeHandle(d, slug)
   if (n.tier === 0) {
@@ -2043,31 +2123,36 @@ export function scopeNoticeLine(n: ScopeNotice, slug: string): string {
 }
 
 /**
- * Order notices tier by tier (D6 (c)). Guards: other initiatives first, then
- * initiative, then ordinal. Mentions: the longer matched tail, then the newest.
- * Stored relevance (typed-judge D10) then reranks WITHIN each tier only, so a
- * high p never lifts a mention over a guard. Strangers the judge would add are
- * not rendered here: no writer of `file:` rows exists yet, and a judged
- * relevance is not a mention, so its wording belongs to that writer's task.
+ * Order notices tier by tier (D6 (c); memories, r3-fixes D20). Guards: other
+ * initiatives first, then initiative, then ordinal. Mentions and memories: the
+ * longer matched tail, then the newest. Stored relevance (typed-judge D10)
+ * then reranks WITHIN each decision tier only, so a high p never lifts a
+ * mention over a guard; it holds no rows for memories, which keep their order.
+ * Strangers the judge would add are not rendered here: no writer of `file:`
+ * rows exists yet, and a judged relevance is not a mention, so its wording
+ * belongs to that writer's task.
  */
 function orderNotices(notices: readonly ScopeNotice[], slug: string, rows: readonly RelevanceRow[]): ScopeNotice[] {
-  const byTier: ScopeNotice[][] = [[], [], []]
+  const byTier: ScopeNotice[][] = [[], [], [], []]
   for (const n of notices) byTier[n.tier]!.push(n)
   byTier[0]!.sort((a, b) => {
-    const [x, y] = [a.decision, b.decision]
+    const [x, y] = [a.decision!, b.decision!]
     if ((x.initiative === slug) !== (y.initiative === slug)) return x.initiative === slug ? 1 : -1
     return x.initiative === y.initiative ? x.ordinal - y.ordinal : byCodeUnit(x.initiative, y.initiative)
   })
-  for (const tier of [byTier[1]!, byTier[2]!]) {
-    tier.sort((a, b) => b.depth - a.depth || byCodeUnit(b.decision.ts, a.decision.ts) || byCodeUnit(a.decision.id, b.decision.id))
+  for (const tier of [byTier[1]!, byTier[2]!, byTier[3]!]) {
+    tier.sort((a, b) => {
+      const [x, y] = [noticeEntry(a), noticeEntry(b)]
+      return b.depth - a.depth || byCodeUnit(y.ts, x.ts) || byCodeUnit(x.id, y.id)
+    })
   }
   const ordered: ScopeNotice[] = []
   for (const tier of byTier) {
-    if (rows.length === 0 || tier.length < 2) {
+    if (rows.length === 0 || tier.length < 2 || tier[0]!.memory !== undefined) {
       ordered.push(...tier)
       continue
     }
-    const byHandle = new Map(tier.map((n) => [`${n.decision.initiative} D${n.decision.ordinal}`, n]))
+    const byHandle = new Map(tier.map((n) => [`${n.decision!.initiative} D${n.decision!.ordinal}`, n]))
     for (const handle of rankByRelevance([...byHandle.keys()], rows)) {
       const n = byHandle.get(handle)
       if (n !== undefined) ordered.push(n)
@@ -2102,7 +2187,8 @@ function scopeNotice(
 ): string[] {
   try {
     const index = refreshGuards(sofarDir)
-    if (index.scoped.length === 0 || subjects.length === 0) return []
+    const memories = memorySurfacingEnabled() ? index.memories : []
+    if ((index.scoped.length === 0 && memories.length === 0) || subjects.length === 0) return []
     const retire = retireEnabled()
     const told = readTold(sofarDir, session)
     let files: FileIndex | null = null
@@ -2111,26 +2197,37 @@ function scopeNotice(
     const shown = new Set<string>()
     const tell: string[] = []
     for (const { domain, subject, edit } of subjects) {
-      let hits = scopeHitsForSubject(index, domain, subject).filter(
+      let hits: Array<{ entry: ScopedDecision | ScopedMemory; tier: ScopeNotice['tier']; depth: number }> = scopeHitsForSubject(index, domain, subject)
         // An until-scoped decision is never a candidate (task resolution is not
         // indexed); a superseded one is out while retirement is on.
-        ({ decision: d }) => d.until === undefined && !(retire && d.superseded_by !== undefined),
-      )
+        .filter(({ decision: d }) => d.until === undefined && !(retire && d.superseded_by !== undefined))
+        .map(({ decision, guarded, depth }) => ({ entry: decision, tier: guarded ? 0 : decision.rule !== undefined ? 1 : 3, depth }))
+      // A memory names a path or nothing (r3-fixes D20), and a replaced one is
+      // never told: it is the fact the record withdrew.
+      if (domain === 'path' && memories.length > 0) {
+        for (const { memory, depth } of memoryHitsForSubject(index, subject)) {
+          if (memory.superseded_by === undefined) hits.push({ entry: memory, tier: 2, depth })
+        }
+      }
       if (hits.length === 0) continue
       const rendered = renderSubject(domain, subject, rootDir)
       if (domain === 'path' && session !== 'cli') {
-        hits = hits.filter(({ decision }) => !told.has(toldKey(decision.id, rendered)))
+        hits = hits.filter(({ entry }) => !told.has(toldKey(entry.id, rendered)))
         if (edit && hits.length > 0) {
           files ??= refreshFiles(sofarDir)
           const since = lastTouch(files, subject, session)
-          if (since !== null) hits = hits.filter(({ decision }) => decision.ts > since)
+          if (since !== null) hits = hits.filter(({ entry }) => entry.ts > since)
         }
-        for (const { decision } of hits) tell.push(toldKey(decision.id, rendered))
+        for (const { entry } of hits) tell.push(toldKey(entry.id, rendered))
       }
-      for (const { decision, guarded, depth } of hits) {
-        if (shown.has(decision.id)) continue
-        shown.add(decision.id)
-        notices.push({ tier: guarded ? 0 : decision.rule !== undefined ? 1 : 2, decision, depth, rendered, domain })
+      for (const { entry, tier, depth } of hits) {
+        if (shown.has(entry.id)) continue
+        shown.add(entry.id)
+        notices.push(
+          tier === 2
+            ? { tier, memory: entry as ScopedMemory, depth, rendered, domain }
+            : { tier, decision: entry as ScopedDecision, depth, rendered, domain },
+        )
       }
     }
     if (notices.length === 0) return []
@@ -2158,11 +2255,17 @@ function scopeNotice(
 function overflowLine(dropped: readonly ScopeNotice[]): string | null {
   if (dropped.length === 0) return null
   const first = dropped[0]!
-  const where = [...new Set(dropped.map((n) => n.decision.initiative))].join(', ')
+  const where = [...new Set(dropped.map((n) => noticeEntry(n).initiative))].join(', ')
   // Not a pointer at `sofar doctor`: doctor audits ONE initiative, and the
   // decisions dropped here may live in several.
   const pointer = first.domain === 'path' ? `sofar find ${first.rendered}` : 'read their decisions.md'
-  return `sofar: …and ${dropped.length} more decision(s) on ${first.rendered} (in ${where}) — ${pointer}.`
+  const memories = dropped.filter((n) => n.memory !== undefined).length
+  const decisions = dropped.length - memories
+  const what = [
+    ...(decisions > 0 ? [`${decisions} more decision(s)`] : []),
+    ...(memories > 0 ? [`${memories} more ${memories === 1 ? 'memory' : 'memories'}`] : []),
+  ].join(' and ')
+  return `sofar: …and ${what} on ${first.rendered} (in ${where}) — ${pointer}.`
 }
 
 /**
@@ -2171,8 +2274,8 @@ function overflowLine(dropped: readonly ScopeNotice[]): string | null {
  * pays nothing. Rows for retired decisions are never returned.
  */
 function storedRelevance(sofarDir: string, index: GuardIndex, notices: readonly ScopeNotice[]): RelevanceRow[] {
-  const counts = [0, 0, 0]
-  for (const n of notices) counts[n.tier]! += 1
+  const counts = [0, 0, 0, 0]
+  for (const n of notices) if (n.memory === undefined) counts[n.tier]! += 1
   if (counts.every((c) => c < 2)) return []
   const relevanceIndex = refreshRelevance(sofarDir)
   const abouts = [...new Set(notices.filter((n) => n.domain === 'path').map((n) => `file:${n.rendered}`))]

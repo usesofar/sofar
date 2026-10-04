@@ -751,15 +751,18 @@ unchanged. `sofar init` widens an entry of ours that still carries a matcher
 an earlier sofar shipped (`Edit|Write|MultiEdit|Bash`, Cursor's
 `Shell|Write`) in place, and leaves any other matcher, the user's, alone.
 
-**Candidates** are in-force decisions from EVERY initiative, in three tiers:
+**Candidates** are in-force decisions and memories from EVERY initiative, in
+four tiers:
 1. GUARD: a `path:` guard matches the subject. `cmd:` guards keep matching
    commands, as §Decision guards (drift-hardening D3) has them.
 2. RULED MENTION: a decision with a `rule` whose `chose`, `over` or `rule`
    names the file.
-3. UNRULED MENTION: any other decision that names it.
+3. MEMORY (r3-fixes 2.11, D20): a promoted memory whose text names the file.
+4. UNRULED MENTION: any other decision that names it.
 
-A decision NAMES a file when a file token of that text equals the subject's
-path, or its tail at a `/` boundary.
+A decision or memory NAMES a file when a file token of that text equals the
+subject's path, or its tail at a `/` boundary. A memory names paths only; it
+carries no guard.
 
 File tokens (core/file-mentions.ts):
 - Split on whitespace, backticks, quotes, brackets, commas and semicolons.
@@ -784,25 +787,34 @@ IN FORCE:
   not indexed.
 - A voided decision is gone, as everywhere.
 
+- A memory a later memory of its own record replaced (the fold's
+  `memory_promoted` rule: a qualified handle into the same record, by the
+  stamped id when there is one) never surfaces. `SOFAR_SURFACE_MEMORIES=off`
+  keeps memories out entirely (D20's ablation arm).
+
 The edit-time guard notice obeys the same filter, so a superseded guard stops
 speaking. The fold's own `guard_violations` are unchanged.
 
 **Order and cap.** Tier by tier:
 - Guards: other initiatives before this one, then initiative, then ordinal,
   as §Decision guards (drift-hardening D3) ordered them.
-- Mentions: the longer matched tail (counted in segments) first, then the
-  newest.
+- Mentions and memories: the longer matched tail (counted in segments) first,
+  then the newest.
 
 Stored relevance (typed-judge D10; core/index-relevance.ts, with `about:
 "file:<repo-relative path>"`) reranks WITHIN a tier through `rankByRelevance`,
-and never across tiers. It is read only when some tier holds two notices. A
+and never across tiers, and never within the memory tier, which holds no
+rows. It is read only when some decision tier holds two notices. A
 subject it would ADD at p ≥ 0.8 is not rendered yet: no writer of `file:` rows
 exists, and a judged relevance is not a mention, so its wording belongs to the
 task that first writes those rows.
 
-A call surfaces at most 3 decisions across all its subjects, each decision
-once. The rest become ONE line: `sofar: …and N more decision(s) on <first
-dropped subject> (in <initiatives>) — sofar find <subject>`.
+A call surfaces at most 3 decisions and memories across all its subjects,
+each once. The rest become ONE line: `sofar: …and N more decision(s) on
+<first dropped subject> (in <initiatives>) — sofar find <subject>`. When
+memories were dropped too, the count reads `N more decision(s) and M more
+memories` (`1 more memory`), and with only memories dropped, `M more
+memories`.
 
 **Told once.** Each (session, decision, subject) is told once, overflow
 included.
@@ -835,6 +847,10 @@ The lines:
 - unruled mention: `sofar: [<handle>] <YYYY-MM-DD> names <subject>: chose
   <head>[ over <head>].` There is no over clause for the `(no alternative
   recorded)` placeholder.
+- memory: `sofar: [<handle>] names <subject> (repo memory): <text>.` The
+  handle is `M<n>` for the bound record and `<slug> M<n>` otherwise. The text
+  is one line, cut at 300 chars as its first 299 plus `…`; the closing `.` is
+  left off when it already ends in `.`, `!`, `?` or `…`.
 
 Only a guard says "governed by" (record-index D2). A mention states that the
 decision names the file, never that it governs it.
@@ -861,17 +877,22 @@ decision-scope tier. Per initiative it holds:
   `over` are kept as their first 120 whitespace-collapsed characters: a head of
   at most 90 depends only on its first 90 and on whether the text runs past
   them, so it renders the same bytes. On this repo the tier falls from 246 KB
-  to 102 KB. Rules and quotes are kept whole.
+  to 102 KB. Rules and quotes are kept whole;
+- the memory count and the event id of EVERY memory (stamped supersession),
+  and one entry per memory whose text names a file (r3-fixes D20): id,
+  initiative, ordinal, ts, text (one line, its first 301 chars), mentions and
+  superseded_by?.
 
 `guards` is the view of entries that carry both a rule and a guard. Superseded
 entries stay in it, marked, to stay faithful to the fold; the filter runs at
-render time. INDEX_SCHEMA_VERSION is 10 (6 at 2.1; 7 when 2.2 added every rule
+render time. INDEX_SCHEMA_VERSION is 12 (6 at 2.1; 7 when 2.2 added every rule
 and the labels tier; 8 when 2.3 added each ruled entry's `check` and the
 check command's file tokens to its mentions; 9 when 2.8 added every
 decision's id, and each label entry's id, for supersession by stamped id; 10
 when linked-context 3.1 added task nodes and the task, note and next-action
 citation sources to the reach index; 11 when linked-context 3.3 added memory
-nodes and scanned `M<n>` in every source).
+nodes and scanned `M<n>` in every source; 12 when r3-fixes 2.11 added the
+memory entries).
 
 **Labels tier (memory-lead 2.2, D8).** labels.json on its own cursor
 (meta-labels.json), read only by sofar_log_decision, sofar_end_session and
@@ -895,6 +916,92 @@ and quote any context it received, the model quoted `sofar: [probe D1]
 2026-09-22 names docs/notes.txt: chose keep docs/notes.txt ASCII-only over
 allowing UTF-8 in notes.` from a system reminder, and no quick lane was
 created. The payload is test/fixtures/cursor/hook-payloads.cursor-agent-2026.09.18.json.
+
+### Merges (r3-fixes 2.11, D19)
+A merge is the riskiest moment in a branch's life and the one no event
+records. The block, the receipt and the Stop ask below are DERIVED, as push
+state is (record-integrity 4.1): the worktree's HEAD reflog says which merges
+happened and when, and the record says which sessions ended and which tests
+passed after their last edit. Nothing is appended. `SOFAR_MERGE_BLOCK=off`
+turns all three off (the ablation arm).
+
+**Reading git.** Files only, except where a spawn is named:
+- MERGES: the last 16 KB of `<gitdir>/logs/HEAD`, the worktree's own; a line
+  the window begins inside of is dropped. A line is `<old> <new> <who>
+  <seconds> <±hhmm>`, a tab, then the message. It is a merge when the message
+  is `commit (merge): <subject>` (a conflicted merge committed by hand), or
+  `merge` or `pull` as a whole word, then no colon up to `: Merge made by `.
+  A fast-forward is not a merge. The label is the subject, else the text
+  before the colon.
+- IN PROGRESS: the first line of `<gitdir>/MERGE_HEAD` when it is a sha; the
+  label is the first line of `MERGE_MSG`.
+- CONFLICTED FILES, one spawn, only while a merge is in progress or fresh:
+  `git diff --name-only -z --relative --diff-filter=U` while MERGE_HEAD
+  exists, else `git diff --name-only -z --relative
+  -G'^(<<<<<<<|>>>>>>>)( |$)' <pre> --`, where `<pre>` is the first fresh
+  merge's old sha. That names the files whose conflict-marker lines differ
+  from the pre-merge commit, so a fixture that held markers before is never
+  named.
+
+**Reading the record.** `merge_facts`, set by the digest cut from the full
+sessions (the fold never sets it):
+- first: the first session's start. A merge before it is none of the
+  record's business.
+- ended: the newest session end (`session_ended` or `session_closed`).
+- green: the newest passing run among every session's `tests_since_edit`, a
+  test that passed after its session's last edit.
+- suite: the runner head of the newest session's `last_test`, the test
+  gate's suite.
+
+A merge is FRESH when its second is at or after `ended`'s (else `first`'s).
+NEWEST is the newest merge at or after `first`, VERIFIED when `green` is at or
+after it.
+
+**The block** renders in the digest's volatile tail (r1-fixes D12), after the
+notices and right before the standing constraints, as a PROTECTED block: the
+session after a merge is the one whose digest most often runs to the cap on a
+long record, and the cap's cut takes the end of the unprotected text first.
+Within 1,800 chars:
+- in progress: `⚠ Merge in progress: <sha7>[ (<label>)] is being merged into
+  this branch.`, then `Unmerged: N file(s) — <files>.` or `No path is left
+  unmerged; the merge is not committed yet.`
+- fresh: `⚠ Merged since the last session: <sha7> <label>; …[ (+N
+  earlier)].` naming the newest 3, then, when files hold markers, `Conflict
+  markers remain in N file(s): <files>.`
+- At most 10 files are named, then `, +N more`. Labels clip at 80 chars.
+- Then `Rules and memories that name them:`, one line per in-force rule or
+  unreplaced memory that guards or names a listed file (the first 50 are
+  looked up): `- [<handle>] governs <file>: "<rule>"`, `- [<handle>] names
+  <file>: "<rule>"` and `- [<M-handle>] names <file> (repo memory): <text>`,
+  the text cut at 300 chars. Guards, then rules that name, then memories;
+  within a tier git's file order, the deeper tail, the newer entry. Rules are
+  whole: what the budget cannot hold becomes `…and N more — \`sofar find
+  <file>\`.`
+- Then, with markers or a merge in progress: `Resolve them, then run
+  \`<suite>\` and fix what fails: until a test passes after the last edit,
+  later sessions are told the merge is unverified.`, or with no suite
+  `Resolve them and test the merged tree before new work.` A fresh merge
+  with no markers says `No test has passed on the merged tree yet: run
+  \`<suite>\` before building on it.`, and nothing at all when it is verified
+  or no suite is known.
+
+**The receipt.** With no fresh merge and none in progress, a NEWEST that is
+not verified renders, given a suite: `⚠ Merge <sha7> <label> is unverified:
+no test has passed after an edit since it landed. Run \`<suite>\` before
+building on it.`
+
+**The Stop ask** (memory-lead D37). A session with activity (a captured file
+or a command) that started at or after NEWEST, while NEWEST is not verified,
+is held once: exit 2 with `sofar: this session started after merge <sha7>
+<label>, and no test has passed after an edit since — run \`<suite>\` and fix
+what fails before stopping; until one passes, later sessions are told the
+merge is unverified.` The suite is the session's own newest test command,
+else the record's; with none there is no ask. `stop_hook_active` releases it.
+It rides the write-back block after the test gate's lines, and holds a
+written-back session on its own.
+
+**Cost.** A start with no merge in the reflog tail reads one file. A merge no
+session ended before costs one spawn; an older one, none.
 
 ### Rule fidelity (memory-lead 1.2, D2)
 A `rule` is the agent's restatement of what the operator said, and a
@@ -8714,6 +8821,21 @@ stay the underlying derivation's, and exit codes are styling-independent.
   by a shell command (a `command_run`, no `file_touched`) bears once git
   reports it changed, a run that finished before its mtime does not count,
   and one after does (D11). `bun run test` covers `bun run test 2>&1`.
+- **Merge block (r3-fixes 2.11, D19):** after two worktree branches merge
+  into main, the second with its conflict committed, the next session start
+  leads its notices with the merges, `src/db.ts` as the file holding markers
+  (never a fixture that held markers before), the guard and the unreplaced
+  memories naming it, and the suite. A merge in progress names its unmerged
+  paths. A session that resolved it by an edit and ran no test is held once at
+  Stop; the next session start says the merge is unverified; a passing `bun
+  test` after the edit silences both. A session with no activity is never
+  held, and `SOFAR_MERGE_BLOCK=off` and a record with no session say nothing.
+  Tests: test/merge-block.test.ts.
+- **Memories at the point of use (r3-fixes 2.11, D20):** a Read of a file a
+  memory names surfaces `sofar: [M1] names src/db.ts (repo memory): <text>`,
+  cut at 300 chars, after ruled mentions and before unruled ones, once per
+  session. Another record's memory is `[other M1]`, a replaced memory is
+  silent, and `SOFAR_SURFACE_MEMORIES=off` drops them all.
 - **Binding (r3-fixes 2.10c):** `sofar bind D1 'bun test test/store.test.ts'`
   files D2 with D1's rule, quote and guard plus the check, retires D1, and a
   session that edits the guarded file is then asked to run that test. It

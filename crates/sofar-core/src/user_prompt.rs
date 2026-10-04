@@ -833,6 +833,12 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     } else {
         Vec::new()
     };
+    // The merge ask (r3-fixes D19); SOFAR_MERGE_BLOCK=off is its ablation arm.
+    let merge = if crate::merge::merge_block_enabled() {
+        stop_merge_lines(root, &state, session)
+    } else {
+        Vec::new()
+    };
     // Drift gate (drift-signal 1.2): this session owes nothing when it wrote
     // back or never mutated the record.
     let owes = session.summary.is_none() && session_debt(&state, session) != 0;
@@ -841,6 +847,7 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
             Some(g) if g.blocks => g.lines,
             _ => Vec::new(),
         };
+        held.extend(merge);
         held.extend(asks);
         return if held.is_empty() {
             silent()
@@ -875,12 +882,46 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
         &files,
         gated,
     ));
+    lines.extend(merge);
     lines.extend(asks);
     CmdResult {
         exit_code: 2,
         stdout: String::new(),
         stderr: lines.join("\n"),
     }
+}
+
+/// `stopMergeLines` (r3-fixes D19): a session that did work and began after
+/// the newest merge since the record began, while no test has passed after an
+/// edit since it. The suite is the session's own newest test command, else
+/// the record's, as for the test gate (D10).
+fn stop_merge_lines(root: &Path, state: &InitiativeState, session: &SessionState) -> Vec<String> {
+    use crate::merge::{merge_facts, merge_stop_line, merge_view, reflog_merges, started_after};
+    let Some(activity) = session.activity.as_ref() else {
+        return Vec::new();
+    };
+    if activity.files.is_empty() && activity.commands == 0 {
+        return Vec::new();
+    }
+    let merges = reflog_merges(root);
+    if merges.is_empty() {
+        return Vec::new();
+    }
+    let facts = merge_facts(&state.sessions);
+    let view = merge_view(&merges, &facts);
+    let Some(newest) = view.newest.as_ref() else {
+        return Vec::new();
+    };
+    if view.verified || !started_after(&session.started, newest) {
+        return Vec::new();
+    }
+    let own = activity
+        .last_test
+        .as_ref()
+        .map(|t| crate::checks::suite_of(&t.cmd))
+        .unwrap_or_default();
+    let suite = if own.is_empty() { facts.suite } else { Some(own) };
+    suite.map_or_else(Vec::new, |s| vec![merge_stop_line(newest, &s)])
 }
 
 /// At most this many links are asked at one Stop; the rest wait in the digest.

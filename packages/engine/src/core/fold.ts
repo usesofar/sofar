@@ -58,6 +58,7 @@ import {
   type TaskStatusChangedPayload,
 } from '@sofar/schema'
 import { byCodeUnit } from './order'
+import type { MergeFacts } from './merge'
 
 /**
  * Fold/replay: events.jsonl → InitiativeState (SPEC §State).
@@ -639,6 +640,13 @@ export interface InitiativeState {
    * record without outcome fields folds to byte-identical state (D21).
    */
   task_tests?: Record<string, TaskTestOutcome>
+  /**
+   * What a session start reads about merges (r3-fixes D19): the record's
+   * first start, newest end, newest after-edit pass and suite. Set ONLY by
+   * the digest cut (digestState), which drops the session fields they come
+   * from; the fold never sets it, so fold output is unchanged.
+   */
+  merge_facts?: MergeFacts
   /**
    * Task id → the reason given when it was dropped (task-drop-state D3).
    * A drop is the one way a task closes without being delivered, so the

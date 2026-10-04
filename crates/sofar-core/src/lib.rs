@@ -64,6 +64,7 @@ pub mod lessons;
 pub mod lexicon;
 pub mod lock;
 pub mod log;
+pub mod merge;
 pub mod nudge;
 pub mod payload;
 pub mod peers;

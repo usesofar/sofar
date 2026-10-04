@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -101,6 +102,83 @@ const promptBuffer =
 const SPEED_SESSION = 'aefa6315-3725-4e4d-9f9a-224ff6f86ddb'
 /** The last written-back session on `rust-core` at the snapshot. */
 const RUST_CORE_SESSION = '38d26db0-c497-44bf-b41d-11623a8486f5'
+
+/**
+ * syn.merge's repo (r3-fixes 2.11): the skeleton .git gives way to a real one
+ * holding the S18 merge, every date pinned so every sha is too, and the
+ * baseline record gains what the merge block reads — a session that ran
+ * `bun test` green and ended before the merge, a guard on src/db.ts, and two
+ * memories naming it, the first replaced by the second.
+ */
+function mergedBaseline(m: Materialized): void {
+  rmSync(join(m.root, '.git'), { recursive: true, force: true })
+  const git = (args: string[], when: string): void => {
+    execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false', ...args], {
+      cwd: m.root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        PATH: process.env.PATH ?? '',
+        HOME: m.home,
+        GIT_CONFIG_NOSYSTEM: '1',
+        GIT_AUTHOR_NAME: 'Conformance',
+        GIT_AUTHOR_EMAIL: 'conformance@example.invalid',
+        GIT_COMMITTER_NAME: 'Conformance',
+        GIT_COMMITTER_EMAIL: 'conformance@example.invalid',
+        GIT_AUTHOR_DATE: when,
+        GIT_COMMITTER_DATE: when,
+        TZ: 'UTC',
+      },
+    })
+  }
+  const tryGit = (args: string[], when: string): void => {
+    try {
+      git(args, when)
+    } catch {
+      // a conflicted merge exits 1
+    }
+  }
+  const early = '2026-09-20T08:00:00Z'
+  const at = '2026-09-20T12:00:00Z'
+  const write = (rel: string, text: string): void => {
+    mkdirSync(join(m.root, rel, '..'), { recursive: true })
+    writeFileSync(join(m.root, rel), text)
+  }
+  write('.gitignore', '.sofar/\ntranscript.jsonl\n')
+  write('src/db.ts', 'a\nb\nc\n')
+  write('fixture.txt', '<<<<<<< ours\nx\n=======\ny\n>>>>>>> theirs\n')
+  git(['init', '-q', '-b', 'main'], early)
+  git(['add', '-A'], early)
+  git(['commit', '-q', '--no-verify', '-m', 'init'], early)
+  git(['checkout', '-q', '-b', 'wt-16'], early)
+  write('src/db.ts', 'a\nB16\nc\n')
+  git(['commit', '-q', '--no-verify', '-am', 's16'], early)
+  git(['checkout', '-q', '-b', 'wt-15', 'main'], early)
+  write('src/other.ts', 'o\n')
+  git(['add', '-A'], early)
+  git(['commit', '-q', '--no-verify', '-m', 's15'], early)
+  git(['checkout', '-q', '-b', 'wt-17', 'main'], early)
+  write('src/db.ts', 'a\nB17\nc\n')
+  git(['commit', '-q', '--no-verify', '-am', 's17'], early)
+  git(['checkout', '-q', 'main'], early)
+  git(['merge', '--no-ff', '--no-edit', '-m', 'bench: merge wt-15 before S18', 'wt-15'], at)
+  git(['merge', '--no-ff', '--no-edit', '-m', 'bench: merge wt-16 before S18', 'wt-16'], at)
+  tryGit(['merge', '--no-ff', '--no-edit', '-m', 'bench: merge wt-17 before S18', 'wt-17'], at)
+  git(['add', '-A'], at)
+  git(['commit', '-q', '--no-verify', '-m', 'bench: merge wt-17 before S18 (conflicts left for S18)'], at)
+
+  const line = (id: string, ts: string, session: string, type: string, payload: Record<string, unknown>): string =>
+    JSON.stringify({ v: 1, id, ts, initiative: 'baseline', session, source: session === 'cli' ? 'cli' : 'claude-code', actor: 'agent', user: 'fixture@example.invalid', type, payload })
+  const log = join(m.root, '.sofar', 'initiatives', 'baseline', 'events.jsonl')
+  const added = [
+    line('01M2Z0PCM00000000000000001', '2026-09-20T09:00:00.000Z', 'cli', 'decision_logged', { chose: 'append migrations', over: 're-chaining them', because: 'b', rule: 'Append migrations; never re-chain them.', guard: 'path:src/db.ts' }),
+    line('01M2Z0R7700000000000000002', '2026-09-20T09:01:00.000Z', 'cli', 'memory_promoted', { text: 'Replaced: src/db.ts holds the old migration chain.' }),
+    line('01M2Z0T1T00000000000000003', '2026-09-20T09:02:00.000Z', 'cli', 'memory_promoted', { text: 'Migrations in src/db.ts run in array order on a fresh database at app start', supersedes: 'baseline M2', supersedes_id: '01M2Z0R7700000000000000002' }),
+    line('01M2Z4488000000000000000S7', '2026-09-20T10:00:00.000Z', 'sess-17', 'session_started', { tool: 'claude-code' }),
+    line('01M2Z5V6200000000000000017', '2026-09-20T10:30:00.000Z', 'sess-17', 'command_run', { cmd: 'bun test', ok: true }),
+    line('01M2Z7J3W00000000000000E17', '2026-09-20T11:00:00.000Z', 'sess-17', 'session_ended', { summary: 'S17', next_action: 'merge' }),
+  ]
+  writeFileSync(log, `${readFileSync(log, 'utf8')}${added.join('\n')}\n`)
+}
 
 // ---------------------------------------------------------------------------
 // stdin shapes.
@@ -653,6 +731,29 @@ export const CASES: ConformanceCase[] = [
         before: (m) => writeFileSync(join(m.root, '.git', 'HEAD'), 'ref: refs/heads/unbound\n'),
       }),
       s('status', ['status', 'surf']),
+    ],
+  },
+  {
+    // r3-fixes 2.11 (D19, D20) on the hot path: round 3's S18 merge in
+    // miniature, in a real repo with pinned dates — wt-15 merged clean, wt-16
+    // and wt-17 conflicting on src/db.ts, the conflict committed as the
+    // bench's handoff policy commits it. Sessions after the merge are the
+    // run's own (now), so the merge is always behind them.
+    name: 'syn.merge',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('session-start: the merge block leads the notices', ['event', 'session-start'], start({ session_id: 'sess-18' }), { before: mergedBaseline }),
+      s('Read: memories that name the file surface beside the rule', ['event', 'post-tool'], read('<ROOT>/src/db.ts', { session_id: 'sess-18' })),
+      s('Edit: the resolution registers sess-18', ['event', 'post-tool'], edit('<ROOT>/src/db.ts', { session_id: 'sess-18' })),
+      s('stop: the write-back block carries the merge ask', ['event', 'stop'], stop({ session_id: 'sess-18' })),
+      s('sess-18 writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-18', '--source', 'claude-code', '--payload', '{"summary":"resolved the merge","next_action":"n"}']),
+      s('stop: the merge ask holds a written-back session alone', ['event', 'stop'], stop({ session_id: 'sess-18' })),
+      s('stop: one ask per stop', ['event', 'stop'], stop({ session_id: 'sess-18', stop_hook_active: true })),
+      s('session-start: the receipt says the merge is unverified', ['event', 'session-start'], start({ session_id: 'sess-19' })),
+      s('session-start under SOFAR_MERGE_BLOCK=off: no receipt', ['event', 'session-start'], start({ session_id: 'sess-19' }), { env: { SOFAR_MERGE_BLOCK: 'off' } }),
+      s('Read under SOFAR_SURFACE_MEMORIES=off: the rule alone', ['event', 'post-tool'], read('<ROOT>/src/db.ts', { session_id: 'sess-19' }), { env: { SOFAR_SURFACE_MEMORIES: 'off' } }),
+      s('sess-19 runs the suite green', ['event', 'post-tool'], bash('bun test', { session_id: 'sess-19' })),
+      s('session-start: verified, nothing to say', ['event', 'session-start'], start({ session_id: 'sess-20' })),
     ],
   },
   {

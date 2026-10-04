@@ -349,6 +349,11 @@ function testSpec(segment: string): TestSpec {
   return at === -1 ? { head: tokens.join(' '), args: [] } : { head: tokens.slice(0, at).join(' '), args: tokens.slice(at) }
 }
 
+/** The runner a test command names, its arguments dropped: the suite an ask names (r3-fixes D10, D19). */
+export function suiteOf(cmd: string): string {
+  return testSpec(cmd).head
+}
+
 /**
  * Whether a run covers a requirement: the same runner, and either the whole
  * suite (no arguments) or every argument the requirement names. A requirement

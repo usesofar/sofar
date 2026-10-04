@@ -372,6 +372,10 @@ pub struct InitiativeState {
     pub current: Current,
     pub freshness: FreshnessState,
     pub cursor: Option<String>,
+    /// What a session start reads about merges (r3-fixes D19). Set ONLY by
+    /// the digest cut; the fold never sets it, so fold output is unchanged.
+    #[serde(default)]
+    pub merge_facts: Option<crate::merge::MergeFacts>,
 }
 
 impl Default for InitiativeState {
@@ -405,6 +409,7 @@ pub fn empty_state() -> InitiativeState {
         current: Current::default(),
         freshness: FreshnessState::default(),
         cursor: None,
+        merge_facts: None,
     }
 }
 
@@ -2480,6 +2485,9 @@ impl InitiativeState {
             }
             o.insert("task_tests", Json::Obj(tests));
         }
+        if let Some(facts) = &self.merge_facts {
+            o.insert("merge_facts", facts.to_json());
+        }
         let mut drop_notes = Object::with_capacity(self.drop_notes.len());
         for (id, note) in self.drop_notes.iter() {
             drop_notes.insert(id, Json::Str(note.to_owned()));
@@ -3043,6 +3051,10 @@ impl InitiativeState {
             },
             freshness: FreshnessState::from_json(o.get("freshness")?.as_obj()?)?,
             cursor: ns(o, "cursor")?,
+            merge_facts: match o.get("merge_facts") {
+                None => None,
+                Some(v) => Some(crate::merge::MergeFacts::from_json(v)?),
+            },
         })
     }
 }

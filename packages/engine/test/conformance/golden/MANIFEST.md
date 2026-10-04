@@ -1,5 +1,25 @@
 # Golden manifest (rust-core D11)
 
+ADDED and RE-RECORDED for **r3-fixes 2.11** (D19, D20; merges and memories at
+the point of use): one new case, `syn.merge`. Its first step replaces the
+skeleton `.git` with a real repo holding round 3's S18 merge in miniature
+(wt-15 clean, wt-16 and wt-17 conflicting on `src/db.ts`, the conflict
+committed as the bench commits it), every git date pinned so every sha is too,
+and seeds the baseline record with a pre-merge session that ran `bun test`
+green, a guard on `src/db.ts` and two memories naming it, the first replaced.
+The session start renders the protected merge block (the three merges, the
+file holding markers, the guard and the unreplaced memory, the suite); a Read
+surfaces the memory beside the guard; Stop carries the merge ask in the
+write-back block and holds the written-back session on its own, once; the
+next start renders the receipt; `SOFAR_MERGE_BLOCK=off` and
+`SOFAR_SURFACE_MEMORIES=off` each silence their part; a green `bun test`
+spends the receipt. Four goldens moved: `repo.hook-lifecycle` and
+`repo.drive-reach`, where memories of this repo's record that name
+`core/fold.ts` and `cli/event.ts` now join the overflow count ("…and 3 more
+decision(s) and 4 more memories"); `repo.lessons` and `syn.lessons-cut`, whose
+lexicon artifact hashes move with INDEX_SCHEMA_VERSION 12 alone. No previous
+set is kept: nothing else changed.
+
 ADDED and RE-RECORDED for **r3-fixes 2.6** (D18, supersede-target
 integrity): one new case, `repo.link-hold`. A rule naming D1 is taken and
 the write result names what it retired (`retires`); a second rule naming D1,

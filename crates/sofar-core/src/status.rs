@@ -402,6 +402,9 @@ pub struct StatusOptions {
     /// already applied; empty when the index is unreadable.
     pub repo_rules: Vec<crate::index_tier1::RepoRule>,
     pub notices: Vec<String>,
+    /// The merge block (r3-fixes 2.11, D19), budgeted by its builder and
+    /// PROTECTED right before the standing constraints.
+    pub merge: Option<String>,
     pub lane: bool,
     /// `activity !== false`: the D24 test line. `None`/`Some(true)` render it.
     pub activity: Option<bool>,
@@ -423,6 +426,7 @@ impl Default for StatusOptions {
             neighbours: Vec::new(),
             repo_rules: Vec::new(),
             notices: Vec::new(),
+            merge: None,
             lane: false,
             activity: None,
             retire: true,
@@ -1714,6 +1718,12 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     }
     for notice in options.notices.iter().filter(|n| !js_trim(n).is_empty()) {
         fixed(&mut blocks, vec![notice.clone(), String::new()]);
+    }
+    if let Some(merge) = options.merge.as_ref().filter(|m| !js_trim(m).is_empty()) {
+        blocks.push(Block::Fixed {
+            lines: vec![merge.clone(), String::new()],
+            protected: true,
+        });
     }
 
     // (10) Standing constraints LAST, most relevant first, then the other

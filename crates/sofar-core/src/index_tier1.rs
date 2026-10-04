@@ -60,6 +60,64 @@ pub struct ScopedDecision {
     pub mentions: Vec<String>,
 }
 
+/// A promoted memory that names a file (`ScopedMemory`, r3-fixes 2.11, D20):
+/// what a read or edit of that file surfaces beside the decisions naming it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScopedMemory {
+    pub id: String,
+    pub initiative: String,
+    /// 1-based position among this initiative's memories — the `M<n>` handle.
+    pub ordinal: f64,
+    pub ts: String,
+    /// One line, the first `MEMORY_HEAD_SOURCE` UTF-16 units.
+    pub text: String,
+    pub mentions: Vec<String>,
+    /// The ordinal of the later memory of this record that replaced it.
+    pub superseded_by: Option<f64>,
+}
+
+impl ScopedMemory {
+    fn to_json(&self) -> Json {
+        let mut m = Object::with_capacity(7);
+        m.insert("id", Json::Str(self.id.clone()));
+        m.insert("initiative", Json::Str(self.initiative.clone()));
+        m.insert("ordinal", Json::Num(self.ordinal));
+        m.insert("ts", Json::Str(self.ts.clone()));
+        m.insert("text", Json::Str(self.text.clone()));
+        m.insert(
+            "mentions",
+            Json::Arr(self.mentions.iter().map(|t| Json::Str(t.clone())).collect()),
+        );
+        // Set after the push, so it follows `mentions` in the TypeScript object.
+        if let Some(by) = self.superseded_by {
+            m.insert("superseded_by", Json::Num(by));
+        }
+        Json::Obj(m)
+    }
+
+    fn from_json(v: &Json) -> Option<Self> {
+        let m = v.as_obj()?;
+        let s = |k: &str| m.get(k)?.as_str().map(str::to_owned);
+        Some(ScopedMemory {
+            id: s("id")?,
+            initiative: s("initiative")?,
+            ordinal: m.get("ordinal")?.as_f64()?,
+            ts: s("ts")?,
+            text: s("text")?,
+            mentions: m
+                .get("mentions")?
+                .as_arr()?
+                .iter()
+                .map(|t| t.as_str().map(str::to_owned))
+                .collect::<Option<_>>()?,
+            superseded_by: match m.get("superseded_by") {
+                None => None,
+                Some(v) => Some(v.as_f64()?),
+            },
+        })
+    }
+}
+
 /// One initiative's scope-tier state (`SlugGuardState`), in the TypeScript
 /// key order the index file holds.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -75,6 +133,12 @@ pub struct SlugGuardState {
     /// Ordinals scoped by `until`.
     pub until: Vec<f64>,
     pub entries: Vec<ScopedDecision>,
+    /// `memory_promoted` events applied so far — the `M<n>` base (r3-fixes D20).
+    pub memories: f64,
+    /// The event id of EVERY memory, by ordinal − 1.
+    pub memory_ids: Vec<String>,
+    /// The memories that name a file.
+    pub memory_entries: Vec<ScopedMemory>,
 }
 
 /// session id → (most recent ts, touch count), insertion-ordered.
@@ -207,6 +271,15 @@ impl SlugGuardState {
             "entries",
             Json::Arr(self.entries.iter().map(ScopedDecision::to_json).collect()),
         );
+        o.insert("memories", Json::Num(self.memories));
+        o.insert(
+            "memory_ids",
+            Json::Arr(self.memory_ids.iter().map(|i| Json::Str(i.clone())).collect()),
+        );
+        o.insert(
+            "memory_entries",
+            Json::Arr(self.memory_entries.iter().map(ScopedMemory::to_json).collect()),
+        );
         Json::Obj(o)
     }
 
@@ -228,6 +301,19 @@ impl SlugGuardState {
                 .as_arr()?
                 .iter()
                 .map(ScopedDecision::from_json)
+                .collect::<Option<_>>()?,
+            memories: o.get("memories")?.as_f64()?,
+            memory_ids: o
+                .get("memory_ids")?
+                .as_arr()?
+                .iter()
+                .map(|i| i.as_str().map(str::to_owned))
+                .collect::<Option<_>>()?,
+            memory_entries: o
+                .get("memory_entries")?
+                .as_arr()?
+                .iter()
+                .map(ScopedMemory::from_json)
                 .collect::<Option<_>>()?,
         })
     }
@@ -316,6 +402,10 @@ impl SlugReducer for GuardReducer {
     /// `applyGuard`: the decision-scope half, mirroring the fold's own
     /// bookkeeping — the same ordinals and the same supersession marks.
     fn apply(&self, state: &mut SlugGuardState, event: &IndexedEvent, slug: &str) {
+        if event.event_type == "memory_promoted" {
+            apply_memory(state, event, slug);
+            return;
+        }
         if event.event_type != "decision_logged" {
             return;
         }
@@ -411,6 +501,83 @@ impl SlugReducer for GuardReducer {
             mentions,
         });
     }
+}
+
+/// `MEMORY_NOTICE_MAX`: the most of a memory's text a notice renders.
+pub const MEMORY_NOTICE_MAX: usize = 300;
+const MEMORY_HEAD_SOURCE: usize = MEMORY_NOTICE_MAX + 1;
+
+/// `/^([a-z0-9-]+) M([1-9][0-9]*)$/`: a qualified memory handle's slug and
+/// number, as `Number.parseInt` reads it.
+fn memory_handle(text: &str) -> Option<(&str, f64)> {
+    let (slug, rest) = text.split_once(' ')?;
+    if slug.is_empty()
+        || !slug
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    {
+        return None;
+    }
+    let digits = rest.strip_prefix('M')?;
+    if digits.is_empty() || digits.starts_with('0') || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    Some((slug, digits.parse::<f64>().unwrap_or(f64::INFINITY)))
+}
+
+/// `applyMemory` (r3-fixes D20): `M<n>` counts every memory, and a qualified
+/// handle into this record retires its target, by the stamped id when there
+/// is one, else by the ordinal — as the fold resolves it.
+fn apply_memory(state: &mut SlugGuardState, event: &IndexedEvent, slug: &str) {
+    let p = &event.payload;
+    state.memories += 1.0;
+    let ordinal = state.memories;
+    state.memory_ids.push(event.id.clone());
+    if let Some(handle) = p.get("supersedes").and_then(Json::as_str) {
+        let mut at: Option<usize> = None;
+        if let Some((target_slug, n)) = memory_handle(handle)
+            && target_slug == event.initiative
+        {
+            if let Some(id) = p.get("supersedes_id").and_then(Json::as_str) {
+                let before = state.memory_ids.len() - 1;
+                at = state.memory_ids[..before].iter().rposition(|i| i == id);
+            } else if n < ordinal {
+                #[allow(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "1 <= n < ordinal"
+                )]
+                let i = n as usize - 1;
+                at = Some(i);
+            }
+        }
+        if let Some(i) = at {
+            let target = crate::json::usize_to_f64(i + 1);
+            if let Some(entry) = state
+                .memory_entries
+                .iter_mut()
+                .find(|e| e.ordinal.total_cmp(&target).is_eq())
+            {
+                entry.superseded_by = Some(ordinal);
+            }
+        }
+    }
+    let Some(text) = p.get("text").and_then(Json::as_str) else {
+        return;
+    };
+    let mentions = crate::file_mentions::file_mentions(text);
+    if mentions.is_empty() {
+        return;
+    }
+    state.memory_entries.push(ScopedMemory {
+        id: event.id.clone(),
+        initiative: slug.to_owned(),
+        ordinal,
+        ts: event.ts.clone(),
+        text: crate::text::utf16_prefix(&crate::text::one_line(text), MEMORY_HEAD_SOURCE),
+        mentions,
+        superseded_by: None,
+    });
 }
 
 struct FileReducer;
@@ -514,6 +681,9 @@ pub struct GuardIndex {
     /// `<slug> D<n>` of every superseded or until-scoped decision.
     pub retired: std::collections::HashSet<String>,
     pub decisions: Vec<(String, f64)>,
+    /// Every memory that names a file, repo-wide, replaced ones included and
+    /// marked (r3-fixes D20), by initiative then ordinal.
+    pub memories: Vec<ScopedMemory>,
 }
 
 fn by_initiative_then_ordinal(a: (&str, f64), b: (&str, f64)) -> std::cmp::Ordering {
@@ -530,6 +700,7 @@ fn declared_view(states: &[(String, SlugGuardState)]) -> GuardIndex {
     let mut index = GuardIndex::default();
     for (slug, state) in slugs {
         index.decisions.push((slug.clone(), state.decisions));
+        index.memories.extend(state.memory_entries.iter().cloned());
         for n in state.superseded.iter().chain(&state.until) {
             index
                 .retired
@@ -555,6 +726,9 @@ fn declared_view(states: &[(String, SlugGuardState)]) -> GuardIndex {
         by_initiative_then_ordinal((&a.initiative, a.ordinal), (&b.initiative, b.ordinal))
     });
     index.scoped.sort_by(|a, b| {
+        by_initiative_then_ordinal((&a.initiative, a.ordinal), (&b.initiative, b.ordinal))
+    });
+    index.memories.sort_by(|a, b| {
         by_initiative_then_ordinal((&a.initiative, a.ordinal), (&b.initiative, b.ordinal))
     });
     index
@@ -643,6 +817,44 @@ pub fn scope_hits_for_subject<'a>(
         }
     }
     hits
+}
+
+/// `memorySurfacingEnabled`: `SOFAR_SURFACE_MEMORIES=off` (also `0`,
+/// `false`) keeps memories out of edit-time surfacing — the ablation arm (D20).
+#[must_use]
+pub fn memory_surfacing_enabled() -> bool {
+    let Some(raw) = std::env::var_os("SOFAR_SURFACE_MEMORIES") else {
+        return true;
+    };
+    let v = raw.to_string_lossy();
+    let v = crate::text::js_trim(&v).to_lowercase();
+    !(v == "off" || v == "0" || v == "false")
+}
+
+/// How one memory bears on one path (`MemoryHit`): by a file token alone.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MemoryHit<'a> {
+    pub memory: &'a ScopedMemory,
+    pub depth: usize,
+}
+
+/// `memoryHitsForSubject`: every indexed memory whose text names this path,
+/// replaced ones included — retirement is the caller's to apply.
+#[must_use]
+pub fn memory_hits_for_subject<'a>(index: &'a GuardIndex, path: &str) -> Vec<MemoryHit<'a>> {
+    index
+        .memories
+        .iter()
+        .filter_map(|memory| {
+            let depth = memory
+                .mentions
+                .iter()
+                .map(|t| crate::file_mentions::mention_depth(t, path))
+                .max()
+                .unwrap_or(0);
+            (depth > 0).then_some(MemoryHit { memory, depth })
+        })
+        .collect()
 }
 
 /// `refreshNeighbours` (record-index 3.3): the records that have worked this

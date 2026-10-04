@@ -95,7 +95,7 @@ describe('session-start digest cache (rust-core 4.4)', () => {
   // implementation reads the other's file, and a v1 file is a miss rewritten
   // as v2 — cold, warm and corrupt, on a real record (this repo's rust-core).
   const core = join(__dirname, '..', '..', '..', 'target', 'release', 'sofar-core')
-  it.skipIf(!existsSync(core))('the Rust core writes the same v3 bytes and reads the TypeScript file', () => {
+  it.skipIf(!existsSync(core))('the Rust core writes the same v4 bytes and reads the TypeScript file', () => {
     const f = makeRepoFixture({ slug: 'rust-core' })
     roots.push(f.root)
     copyFileSync(join(__dirname, '..', '..', '..', '.sofar', 'initiatives', 'rust-core', 'events.jsonl'), f.eventsPath)
@@ -109,7 +109,7 @@ describe('session-start digest cache (rust-core 4.4)', () => {
     const want = ts()
     const tsBytes = readFileSync(file, 'utf8')
     expect(JSON.parse(tsBytes).v).toBe(DIGEST_CACHE_VERSION)
-    expect(DIGEST_CACHE_VERSION).toBe(3)
+    expect(DIGEST_CACHE_VERSION).toBe(4)
     expect(rust(), 'rust warm on the TypeScript file').toBe(want)
     rmSync(file)
     expect(rust(), 'rust cold').toBe(want)
@@ -120,9 +120,12 @@ describe('session-start digest cache (rust-core 4.4)', () => {
     const good = JSON.parse(tsBytes) as Record<string, unknown>
     const v1 = JSON.stringify({ ...good, v: 1, state: JSON.parse(JSON.stringify(fullFold(f)())) })
     const v2 = JSON.stringify({ ...good, v: 2 })
+    // v4 (r3-fixes D19): the cut carries merge_facts, so a v3 file is a miss.
+    const v3 = JSON.stringify({ ...good, v: 3 })
     for (const [label, bad] of [
       ['v1 file', v1],
       ['v2 file', v2],
+      ['v3 file', v3],
       ['garbage', 'nope'],
       ['truncated', tsBytes.slice(0, 200)],
       ['state null', JSON.stringify({ ...good, state: null })],
@@ -137,7 +140,7 @@ describe('session-start digest cache (rust-core 4.4)', () => {
     }
   }, 120_000)
 
-  it.skipIf(!existsSync(core))('every real record and a team-shaped one: TypeScript and Rust write the same v3 bytes', () => {
+  it.skipIf(!existsSync(core))('every real record and a team-shaped one: TypeScript and Rust write the same v4 bytes', () => {
     const dir = join(__dirname, '..', '..', '..', '.sofar', 'initiatives')
     const logs: Array<[string, string]> = readdirSync(dir)
       .filter((slug) => existsSync(join(dir, slug, 'events.jsonl')))

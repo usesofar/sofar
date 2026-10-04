@@ -506,6 +506,13 @@ export interface StatusOptions {
    */
   notices?: readonly string[]
   /**
+   * The merge block (r3-fixes 2.11, D19), already budgeted by its builder.
+   * PROTECTED, right before the standing constraints: the session after a
+   * merge is the one whose block most often runs to the cap on a long record,
+   * and a cut there would take the merge first. Still in the volatile tail.
+   */
+  merge?: string
+  /**
    * Render as the quick-work lane (r1-fixes 2.6, D14): the same template
    * minus every section that presumes a plan or a write-back — no phases,
    * progress, next action, staleness, blocked line, derived-resume or
@@ -932,11 +939,13 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   // Hook notices (r1-fixes D12) — each already budgeted by its builder.
   for (const notice of (options?.notices ?? []).filter((n) => n.trim().length > 0)) fixed([notice, ''])
 
-  // (10) Standing constraints LAST (D4), most relevant to the focus first,
-  // then the other records' rules in what this record's own left (D8).
   const protect = (lines: string[]): void => {
     if (lines.length > 0) blocks.push({ lines, protected: true })
   }
+  if (options?.merge !== undefined && options.merge.trim().length > 0) protect([options.merge, ''])
+
+  // (10) Standing constraints LAST (D4), most relevant to the focus first,
+  // then the other records' rules in what this record's own left (D8).
   const ownUsed = rules.reduce((n, line) => n + line.length + 1, 0)
   const elsewhere = repoRuleLines(
     options?.repoRules ?? [],

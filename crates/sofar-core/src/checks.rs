@@ -677,6 +677,13 @@ fn is_arg_token(token: &str) -> bool {
         || token.starts_with('"')
 }
 
+/// `suiteOf`: the runner a test command names, its arguments dropped — the
+/// suite an ask names (r3-fixes D10, D19).
+#[must_use]
+pub fn suite_of(cmd: &str) -> String {
+    test_spec(cmd).head
+}
+
 /// `testSpec`: the runner and its arguments, redirections dropped.
 fn test_spec(segment: &str) -> TestSpec {
     let raw: Vec<&str> = js_trim(segment)

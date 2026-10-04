@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DECISION_HANDLE_RE, parseGuard, type DecisionCheck, type GuardDomain } from '@sofar/schema'
-import type { DecisionLoggedPayload, FileTouchedPayload } from '@sofar/schema'
+import type { DecisionLoggedPayload, FileTouchedPayload, MemoryPromotedPayload } from '@sofar/schema'
 import { GRAPH_RESULT_CAP, matchRecordedPaths } from './adjacency'
 import { writeFileAtomic } from './atomic'
 import { fileMentions, mentionDepth } from './file-mentions'
@@ -195,6 +195,25 @@ export interface ScopedDecision {
   mentions: string[]
 }
 
+/**
+ * A promoted memory that names a file (r3-fixes 2.11, D20): what a read or
+ * edit of that file surfaces beside the decisions naming it. A memory reaches
+ * the agent otherwise only in the SessionStart digest, long before the edit.
+ */
+export interface ScopedMemory {
+  id: string
+  initiative: string
+  /** 1-based position among this initiative's memories — the `M<n>` handle. */
+  ordinal: number
+  ts: string
+  /** One line, cut at what a notice renders (MEMORY_HEAD_SOURCE). */
+  text: string
+  /** File tokens of the text (core/file-mentions). */
+  mentions: string[]
+  /** The ordinal of the later memory of this record that replaced it, marked as the fold marks it. */
+  superseded_by?: number
+}
+
 /** One session's touches of one path, as the graph's `touched` edge records it. */
 export interface PathToucher {
   /** session node id, matching the graph's identity for it. */
@@ -238,6 +257,12 @@ interface SlugGuardState {
   /** Ordinals scoped by `until`. */
   until: number[]
   entries: ScopedDecision[]
+  /** memory_promoted events applied so far — the `M<n>` base (r3-fixes D20). */
+  memories: number
+  /** The event id of EVERY memory, by ordinal − 1: a stamped supersession names its target by id. */
+  memory_ids: string[]
+  /** The memories that name a file. */
+  memory_entries: ScopedMemory[]
 }
 
 interface SlugFileState {
@@ -269,10 +294,12 @@ export interface Tier1Index {
   decisions: Record<string, number>
   /** path → session id → { initiatives, ts, touches } — the cross-initiative join. */
   files: Map<string, Map<string, { initiatives: Set<string>; ts: string; touches: number }>>
+  /** Every memory that names a file, repo-wide, replaced ones included and marked (r3-fixes D20). */
+  memories: ScopedMemory[]
 }
 
 /** The declared half alone — what a hot path asks for. */
-export type GuardIndex = Pick<Tier1Index, 'guards' | 'scoped' | 'retired' | 'decisions'>
+export type GuardIndex = Pick<Tier1Index, 'guards' | 'scoped' | 'retired' | 'decisions' | 'memories'>
 /** The derived half alone. */
 export type FileIndex = Pick<Tier1Index, 'files'>
 
@@ -282,7 +309,17 @@ function isTierDisk<S>(v: unknown): v is TierDisk<S> {
   return r.version === INDEX_SCHEMA_VERSION && typeof r.initiatives === 'object' && r.initiatives !== null
 }
 
-const emptyGuards = (): SlugGuardState => ({ decisions: 0, ruled: '', ids: [], superseded: [], until: [], entries: [] })
+const emptyGuards = (): SlugGuardState => ({
+  decisions: 0,
+  ruled: '',
+  ids: [],
+  superseded: [],
+  until: [],
+  entries: [],
+  memories: 0,
+  memory_ids: [],
+  memory_entries: [],
+})
 
 function cloneGuards(state: SlugGuardState): SlugGuardState {
   return {
@@ -292,6 +329,9 @@ function cloneGuards(state: SlugGuardState): SlugGuardState {
     superseded: [...state.superseded],
     until: [...state.until],
     entries: state.entries.map((e) => ({ ...e, mentions: [...e.mentions] })),
+    memories: state.memories,
+    memory_ids: [...state.memory_ids],
+    memory_entries: state.memory_entries.map((m) => ({ ...m, mentions: [...m.mentions] })),
   }
 }
 
@@ -343,6 +383,10 @@ export function supersededOrdinal(p: DecisionLoggedPayload, ordinal: number, ids
  * (core/fold.ts, decision_logged).
  */
 function applyGuard(state: SlugGuardState, event: IndexedEvent, slug: string): void {
+  if (event.type === 'memory_promoted') {
+    applyMemory(state, event, slug)
+    return
+  }
   if (event.type !== 'decision_logged') return
   const p = event.payload as unknown as DecisionLoggedPayload
   // Counted BEFORE the scope test: `D<n>` is a position among all decisions,
@@ -388,6 +432,51 @@ function applyGuard(state: SlugGuardState, event: IndexedEvent, slug: string): v
       ? { check: { cmd: check.cmd, ...(check.hint !== undefined ? { hint: check.hint } : {}), ...(check.timeout_ms !== undefined ? { timeout_ms: check.timeout_ms } : {}) } }
       : {}),
     ...(typeof p.until === 'string' ? { until: p.until } : {}),
+    mentions,
+  })
+}
+
+/**
+ * How much of a memory's text the tier keeps, one line: a notice renders at
+ * most MEMORY_NOTICE_MAX of it, and one more character says it ran past.
+ */
+export const MEMORY_NOTICE_MAX = 300
+const MEMORY_HEAD_SOURCE = MEMORY_NOTICE_MAX + 1
+
+/**
+ * Apply one memory_promoted to the decision-scope half (r3-fixes D20),
+ * mirroring the fold (core/fold.ts, memory_promoted): `M<n>` counts every
+ * memory, and a qualified handle into this record retires its target, by the
+ * stamped id when there is one, else by the ordinal. A handle into another
+ * record retires nothing here, as in the fold.
+ */
+function applyMemory(state: SlugGuardState, event: IndexedEvent, slug: string): void {
+  const p = event.payload as unknown as MemoryPromotedPayload
+  state.memories += 1
+  const ordinal = state.memories
+  state.memory_ids.push(event.id)
+  if (typeof p.supersedes === 'string') {
+    const m = /^([a-z0-9-]+) M([1-9][0-9]*)$/.exec(p.supersedes)
+    let at = -1
+    if (m !== null && m[1] === event.initiative) {
+      if (typeof p.supersedes_id === 'string') {
+        for (let i = ordinal - 2; i >= 0 && at < 0; i--) if (state.memory_ids[i] === p.supersedes_id) at = i
+      } else if (Number.parseInt(m[2]!, 10) < ordinal) {
+        at = Number.parseInt(m[2]!, 10) - 1
+      }
+    }
+    const target = at < 0 ? undefined : state.memory_entries.find((e) => e.ordinal === at + 1)
+    if (target !== undefined) target.superseded_by = ordinal
+  }
+  if (typeof p.text !== 'string') return
+  const mentions = fileMentions(p.text)
+  if (mentions.length === 0) return
+  state.memory_entries.push({
+    id: event.id,
+    initiative: slug,
+    ordinal,
+    ts: event.ts,
+    text: p.text.replace(/\s+/g, ' ').trim().slice(0, MEMORY_HEAD_SOURCE),
     mentions,
   })
 }
@@ -589,7 +678,7 @@ export function readTier1(sofarDir: string): Tier1Index | null {
   if (guards === null && files === null) return null
   return {
     ...(guards === null
-      ? { guards: [], scoped: [], retired: new Set<string>(), decisions: {} }
+      ? { guards: [], scoped: [], retired: new Set<string>(), decisions: {}, memories: [] }
       : declaredView(guards.initiatives)),
     files: files === null ? new Map() : unionFiles(files.initiatives),
   }
@@ -606,11 +695,13 @@ export function readTier1(sofarDir: string): Tier1Index | null {
 function declaredView(states: Record<string, SlugGuardState>): GuardIndex {
   const guards: GuardedDecision[] = []
   const scoped: ScopedDecision[] = []
+  const memories: ScopedMemory[] = []
   const retired = new Set<string>()
   const decisions: Record<string, number> = {}
   for (const slug of Object.keys(states).sort()) {
     const state = states[slug]
     decisions[slug] = state?.decisions ?? 0
+    for (const m of state?.memory_entries ?? []) memories.push({ ...m, mentions: [...m.mentions] })
     for (const n of [...(state?.superseded ?? []), ...(state?.until ?? [])]) retired.add(`${slug} D${n}`)
     for (const entry of state?.entries ?? []) {
       scoped.push({ ...entry, mentions: [...entry.mentions] })
@@ -631,7 +722,8 @@ function declaredView(states: Record<string, SlugGuardState>): GuardIndex {
     a.initiative === b.initiative ? a.ordinal - b.ordinal : byCodeUnit(a.initiative, b.initiative)
   guards.sort(order)
   scoped.sort(order)
-  return { guards, scoped, retired, decisions }
+  memories.sort(order)
+  return { guards, scoped, retired, decisions, memories }
 }
 
 /** How one in-scope decision bears on one subject. */
@@ -660,6 +752,35 @@ export function scopeHitsForSubject(index: GuardIndex, domain: GuardDomain, subj
     let depth = 0
     if (domain === 'path') for (const token of decision.mentions) depth = Math.max(depth, mentionDepth(token, subject))
     if (guarded || depth > 0) hits.push({ decision, guarded, depth })
+  }
+  return hits
+}
+
+/** Env switch: `SOFAR_SURFACE_MEMORIES=off` (also `0`, `false`) keeps memories out of edit-time surfacing — the ablation arm (r3-fixes D20). */
+export const SURFACE_MEMORIES_ENV = 'SOFAR_SURFACE_MEMORIES'
+
+export function memorySurfacingEnabled(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  const v = env[SURFACE_MEMORIES_ENV]?.trim().toLowerCase()
+  return !(v === 'off' || v === '0' || v === 'false')
+}
+
+/** How one memory bears on one path (r3-fixes D20): by a file token alone, since a memory carries no guard. */
+export interface MemoryHit {
+  memory: ScopedMemory
+  /** Segments of the path the memory's best file token names. */
+  depth: number
+}
+
+/**
+ * Every indexed memory whose text names this path, replaced ones included:
+ * retirement is the caller's to apply, as for decisions.
+ */
+export function memoryHitsForSubject(index: GuardIndex, path: string): MemoryHit[] {
+  const hits: MemoryHit[] = []
+  for (const memory of index.memories) {
+    let depth = 0
+    for (const token of memory.mentions) depth = Math.max(depth, mentionDepth(token, path))
+    if (depth > 0) hits.push({ memory, depth })
   }
   return hits
 }

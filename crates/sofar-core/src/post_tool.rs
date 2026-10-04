@@ -14,7 +14,8 @@ use crate::hook::{clip_to, parse_hook, str_field};
 use crate::host::hook_host;
 use crate::index_relevance::{RelevanceRow, rank_by_relevance, refresh_relevance, relevance};
 use crate::index_tier1::{
-    GuardIndex, ScopeHit, ScopedDecision, last_touch, refresh_files, refresh_guards,
+    GuardIndex, MEMORY_NOTICE_MAX, ScopedDecision, ScopedMemory, last_touch,
+    memory_hits_for_subject, memory_surfacing_enabled, refresh_files, refresh_guards,
     scope_hits_for_subject,
 };
 use crate::json::{self, Json, Object};
@@ -236,13 +237,60 @@ pub struct NoticeSubject {
     pub edit: bool,
 }
 
-/// A decision to tell, and why: tier 0 guard, 1 ruled mention, 2 unruled mention.
+/// What a notice speaks for (`noticeEntry`): a decision, or a memory (r3-fixes D20).
+#[derive(Clone, Copy)]
+enum Entry<'a> {
+    Decision(&'a ScopedDecision),
+    Memory(&'a ScopedMemory),
+}
+
+impl<'a> Entry<'a> {
+    fn id(self) -> &'a str {
+        match self {
+            Entry::Decision(d) => &d.id,
+            Entry::Memory(m) => &m.id,
+        }
+    }
+    fn initiative(self) -> &'a str {
+        match self {
+            Entry::Decision(d) => &d.initiative,
+            Entry::Memory(m) => &m.initiative,
+        }
+    }
+    fn ts(self) -> &'a str {
+        match self {
+            Entry::Decision(d) => &d.ts,
+            Entry::Memory(m) => &m.ts,
+        }
+    }
+}
+
+/// A decision or a memory to tell, and why: tier 0 guard, 1 ruled mention,
+/// 2 memory (r3-fixes D20), 3 unruled mention.
 struct ScopeNotice<'a> {
     tier: usize,
-    decision: &'a ScopedDecision,
+    entry: Entry<'a>,
     depth: usize,
     rendered: String,
     domain: GuardDomain,
+}
+
+/// `memoryNoticeText`: one line, cut at `MEMORY_NOTICE_MAX` UTF-16 units.
+pub(crate) fn memory_notice_text(m: &ScopedMemory) -> String {
+    if utf16_len(&m.text) > MEMORY_NOTICE_MAX {
+        format!("{}…", utf16_prefix(&m.text, MEMORY_NOTICE_MAX - 1))
+    } else {
+        m.text.clone()
+    }
+}
+
+pub(crate) fn memory_handle(m: &ScopedMemory, slug: &str) -> String {
+    let ordinal = json::number_to_string(m.ordinal);
+    if m.initiative == slug {
+        format!("M{ordinal}")
+    } else {
+        format!("{} M{ordinal}", m.initiative)
+    }
 }
 
 fn scope_handle(d: &ScopedDecision, slug: &str) -> String {
@@ -265,7 +313,18 @@ fn scope_rule_text(d: &ScopedDecision) -> String {
 
 /// `scopeNoticeLine`: one notice, worded as a fact (SPEC §Read-time surfacing (memory-lead 2.1, D6)).
 fn scope_notice_line(n: &ScopeNotice<'_>, slug: &str) -> String {
-    let d = n.decision;
+    let d = match n.entry {
+        Entry::Memory(m) => {
+            let text = memory_notice_text(m);
+            let stop = if text.ends_with(['.', '!', '?', '…']) { "" } else { "." };
+            return format!(
+                "sofar: [{}] names {} (repo memory): {text}{stop}",
+                memory_handle(m, slug),
+                n.rendered
+            );
+        }
+        Entry::Decision(d) => d,
+    };
     let handle = scope_handle(d, slug);
     match n.tier {
         0 => format!(
@@ -307,13 +366,15 @@ fn order_notices<'a>(
     slug: &str,
     rows: &[RelevanceRow],
 ) -> Vec<ScopeNotice<'a>> {
-    let mut by_tier: [Vec<ScopeNotice<'a>>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+    let mut by_tier: [Vec<ScopeNotice<'a>>; 4] = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
     for n in notices {
         let tier = n.tier;
         by_tier[tier].push(n);
     }
     by_tier[0].sort_by(|a, b| {
-        let (x, y) = (a.decision, b.decision);
+        let (Entry::Decision(x), Entry::Decision(y)) = (a.entry, b.entry) else {
+            return std::cmp::Ordering::Equal;
+        };
         let (xm, ym) = (x.initiative == slug, y.initiative == slug);
         if xm != ym {
             return if xm {
@@ -332,24 +393,24 @@ fn order_notices<'a>(
         tier.sort_by(|a, b| {
             b.depth
                 .cmp(&a.depth)
-                .then_with(|| by_code_unit(&b.decision.ts, &a.decision.ts))
-                .then_with(|| by_code_unit(&a.decision.id, &b.decision.id))
+                .then_with(|| by_code_unit(b.entry.ts(), a.entry.ts()))
+                .then_with(|| by_code_unit(a.entry.id(), b.entry.id()))
         });
     }
     let mut ordered = Vec::new();
     for tier in by_tier {
-        if rows.is_empty() || tier.len() < 2 {
+        // Stored relevance holds no rows for memories, which keep their order.
+        if rows.is_empty() || tier.len() < 2 || matches!(tier[0].entry, Entry::Memory(_)) {
             ordered.extend(tier);
             continue;
         }
         let handles: Vec<String> = tier
             .iter()
-            .map(|n| {
-                format!(
-                    "{} D{}",
-                    n.decision.initiative,
-                    json::number_to_string(n.decision.ordinal)
-                )
+            .map(|n| match n.entry {
+                Entry::Decision(d) => {
+                    format!("{} D{}", d.initiative, json::number_to_string(d.ordinal))
+                }
+                Entry::Memory(_) => String::new(),
             })
             .collect();
         let mut slots: Vec<Option<ScopeNotice<'a>>> = tier.into_iter().map(Some).collect();
@@ -369,8 +430,8 @@ fn overflow_line(dropped: &[ScopeNotice<'_>]) -> Option<String> {
     let first = dropped.first()?;
     let mut wheres: Vec<&str> = Vec::new();
     for n in dropped {
-        if !wheres.contains(&n.decision.initiative.as_str()) {
-            wheres.push(&n.decision.initiative);
+        if !wheres.contains(&n.entry.initiative()) {
+            wheres.push(n.entry.initiative());
         }
     }
     let pointer = if first.domain == GuardDomain::Path {
@@ -378,9 +439,24 @@ fn overflow_line(dropped: &[ScopeNotice<'_>]) -> Option<String> {
     } else {
         "read their decisions.md".to_owned()
     };
+    let memories = dropped
+        .iter()
+        .filter(|n| matches!(n.entry, Entry::Memory(_)))
+        .count();
+    let decisions = dropped.len() - memories;
+    let mut what: Vec<String> = Vec::new();
+    if decisions > 0 {
+        what.push(format!("{decisions} more decision(s)"));
+    }
+    if memories > 0 {
+        what.push(format!(
+            "{memories} more {}",
+            if memories == 1 { "memory" } else { "memories" }
+        ));
+    }
     Some(format!(
-        "sofar: …and {} more decision(s) on {} (in {}) — {pointer}.",
-        dropped.len(),
+        "sofar: …and {} on {} (in {}) — {pointer}.",
+        what.join(" and "),
         first.rendered,
         wheres.join(", ")
     ))
@@ -393,8 +469,8 @@ fn stored_relevance(
     index: &GuardIndex,
     notices: &[ScopeNotice<'_>],
 ) -> Vec<RelevanceRow> {
-    let mut counts = [0usize; 3];
-    for n in notices {
+    let mut counts = [0usize; 4];
+    for n in notices.iter().filter(|n| matches!(n.entry, Entry::Decision(_))) {
         counts[n.tier] += 1;
     }
     if counts.iter().all(|c| *c < 2) {
@@ -424,7 +500,8 @@ fn scope_notice(
     subjects: &[NoticeSubject],
 ) -> Vec<String> {
     let index = refresh_guards(layout);
-    if index.scoped.is_empty() || subjects.is_empty() {
+    let memories_on = memory_surfacing_enabled() && !index.memories.is_empty();
+    if (index.scoped.is_empty() && !memories_on) || subjects.is_empty() {
         return Vec::new();
     }
     let retire = retire_enabled();
@@ -439,48 +516,57 @@ fn scope_notice(
         edit,
     } in subjects
     {
-        let mut hits: Vec<ScopeHit<'_>> = scope_hits_for_subject(&index, *domain, subject)
+        // (entry, tier, depth): an until-scoped decision is never a candidate,
+        // a superseded one is out while retirement is on.
+        let mut hits: Vec<(Entry<'_>, usize, usize)> = scope_hits_for_subject(&index, *domain, subject)
             .into_iter()
             .filter(|h| {
                 h.decision.until.is_none() && !(retire && h.decision.superseded_by.is_some())
             })
+            .map(|h| {
+                let tier = if h.guarded {
+                    0
+                } else if h.decision.rule.is_some() {
+                    1
+                } else {
+                    3
+                };
+                (Entry::Decision(h.decision), tier, h.depth)
+            })
             .collect();
+        // A memory names a path or nothing (r3-fixes D20), and a replaced one
+        // is never told.
+        if *domain == GuardDomain::Path && memories_on {
+            for h in memory_hits_for_subject(&index, subject) {
+                if h.memory.superseded_by.is_none() {
+                    hits.push((Entry::Memory(h.memory), 2, h.depth));
+                }
+            }
+        }
         if hits.is_empty() {
             continue;
         }
         let rendered = render_subject(*domain, subject, &layout.root);
         if *domain == GuardDomain::Path && session != "cli" {
-            hits.retain(|h| !told.contains(&told_key(&h.decision.id, &rendered)));
+            hits.retain(|(e, _, _)| !told.contains(&told_key(e.id(), &rendered)));
             if *edit && !hits.is_empty() {
                 let files = files.get_or_insert_with(|| refresh_files(layout));
                 if let Some(since) = last_touch(files, subject, session) {
-                    hits.retain(|h| cmp_utf16(&h.decision.ts, &since).is_gt());
+                    hits.retain(|(e, _, _)| cmp_utf16(e.ts(), &since).is_gt());
                 }
             }
-            for h in &hits {
-                tell.push(told_key(&h.decision.id, &rendered));
+            for (e, _, _) in &hits {
+                tell.push(told_key(e.id(), &rendered));
             }
         }
-        for ScopeHit {
-            decision,
-            guarded,
-            depth,
-        } in hits
-        {
-            if shown.contains(&decision.id.as_str()) {
+        for (entry, tier, depth) in hits {
+            if shown.contains(&entry.id()) {
                 continue;
             }
-            shown.push(&decision.id);
-            let tier = if guarded {
-                0
-            } else if decision.rule.is_some() {
-                1
-            } else {
-                2
-            };
+            shown.push(entry.id());
             notices.push(ScopeNotice {
                 tier,
-                decision,
+                entry,
                 depth,
                 rendered: rendered.clone(),
                 domain: *domain,

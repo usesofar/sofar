@@ -25,7 +25,7 @@ import { currentVersion, sortKeysDeep } from './snapshot'
  */
 
 const DIGEST_DIR = 'digest'
-export const DIGEST_CACHE_VERSION = 3
+export const DIGEST_CACHE_VERSION = 4
 
 interface DigestFile {
   v: number
@@ -49,7 +49,13 @@ function isDigestState(v: unknown): v is InitiativeState {
   for (const key of ['phases', 'decisions', 'sessions', 'memories', 'runs', 'status_overrides', 'files_touched'] as const) {
     if (!Array.isArray(v[key])) return false
   }
-  return isRecord(v.current) && isRecord(v.freshness) && isRecord(v.task_files) && (v.task_tests === undefined || isRecord(v.task_tests))
+  return (
+    isRecord(v.current) &&
+    isRecord(v.freshness) &&
+    isRecord(v.task_files) &&
+    (v.task_tests === undefined || isRecord(v.task_tests)) &&
+    (v.merge_facts === undefined || isRecord(v.merge_facts))
+  )
 }
 
 function digestFile(sofarDir: string, slug: string): string {

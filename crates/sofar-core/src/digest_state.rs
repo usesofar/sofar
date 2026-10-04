@@ -274,7 +274,11 @@ pub fn digest_state(state: &InitiativeState) -> InitiativeState {
             }
         })
         .collect();
+    // The merge block's record side (r3-fixes D19), from the sessions before
+    // the cut drops their fields; render_status never reads it.
+    let facts = crate::merge::merge_facts(sessions);
     InitiativeState {
+        merge_facts: (!facts.is_empty()).then_some(facts),
         files_touched: Vec::new(),
         sessions: cut_sessions,
         decisions: state
