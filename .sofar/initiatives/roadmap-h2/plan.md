@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator removes /Users/Shared/bench-cells/boopada/fake-x; await 2.2; then the final parity run and the rc.5 cut.
+Next action: Await the marked-Stop re-measure, then 2.2 A and C (read rewrite D39); operator removes fake-x; then the final parity run and the rc.5 cut.
