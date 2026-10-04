@@ -1,6 +1,7 @@
 import { resolveHandle } from '../core/handle'
 import type { InitiativeState } from '../core/fold'
 import { createToolContext, ToolError } from '../mcp/context'
+import { decisionEntry, memoryEntry } from '../projections/templates/shards'
 import { errMessage, fail, ok, type CmdResult } from './shared'
 
 /**
@@ -40,23 +41,13 @@ function showOne(state: InitiativeState, id: string): string | null {
   if (/^D[1-9]/i.test(id)) {
     const which = resolveHandle(state.decisions, id)
     if (which === null || !which.ok) return null
-    const d = state.decisions[which.ordinal - 1]
-    if (d === undefined) return null
-    const lines = [`D${which.ordinal} — ${d.ts.slice(0, 10)}${d.superseded_by !== undefined ? ` — replaced by D${d.superseded_by}` : ''}`]
-    if (d.rule !== undefined) lines.push(`rule: ${d.rule}`)
-    if (d.quote !== undefined) lines.push(`quote: ${d.quote}`)
-    lines.push(`chose: ${d.chose}`, `over: ${d.over}`, `because: ${d.because}`)
-    if (d.guard !== undefined) lines.push(`guard: ${d.guard}`)
-    if (d.check !== undefined) lines.push(`check: ${d.check.cmd}`)
-    if (d.supersedes !== undefined) lines.push(`supersedes: ${d.supersedes}`)
-    if (d.until !== undefined) lines.push(`until: ${d.until}`)
-    return lines.join('\n')
+    // The shard's own text (memory-lead D43), so the file and the command agree.
+    return state.decisions[which.ordinal - 1] === undefined ? null : decisionEntry(state, which.ordinal)
   }
   const memory = /^M([1-9][0-9]*)$/i.exec(id)
   if (memory !== null) {
-    const m = state.memories[Number(memory[1]) - 1]
-    if (m === undefined) return null
-    return `M${memory[1]} — ${m.ts.slice(0, 10)}${m.superseded_by !== undefined ? ` — replaced by ${m.superseded_by}` : ''}\n${m.text}`
+    const n = Number(memory[1])
+    return state.memories[n - 1] === undefined ? null : memoryEntry(state, n)
   }
   const paragraphs = state.brief
     .split(/\n\s*\n/)

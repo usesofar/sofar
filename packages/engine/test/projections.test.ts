@@ -348,7 +348,7 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
       { id: '01ARZ3NDEKTSV4RRFFQ69G5F02', ts: '2026-07-03T00:00:00.000Z', chose: 'x', over: '(no alternative recorded)', because: 'y' },
     ]
     const status = renderStatus(state)
-    expect(status).toContain('Recent decisions (2; full text in decisions.md):')
+    expect(status).toContain('Recent decisions (2; full text in decisions/D<n>.md):')
     expect(status).toContain('- [D1] 2026-07-03 sqlite — over postgres')
     expect(status).toContain('- [D2] 2026-07-03 x\n')
     // the placeholder over is not promoted into the line, and `because` is on demand
@@ -368,7 +368,7 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
       because: `reason ${i + 1} ${'b'.repeat(300)}`,
     }))
     const status = renderStatus(state)
-    expect(status).toContain('Recent decisions (last 5 of 8; full text in decisions.md):')
+    expect(status).toContain('Recent decisions (last 5 of 8; full text in decisions/D<n>.md):')
     expect(status).toContain('Earlier rejected approaches — do NOT re-propose (3 older):')
     // window: D4..D8 with chose clipped at 90 and over clipped at 70 (memory-lead D4) — separately,
     // so the alternative survives however long the chose runs
@@ -510,7 +510,7 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
     // 37 open phases (3 of the 40 are done and collapse into one line).
     expect(status).toContain('…and 25 more phases (see plan.md)')
     expect(status).toContain('- done: Phase 0, Phase 1, Phase 2 (24/24 tasks)')
-    expect(status).toContain('Recent decisions (last 5 of 60; full text in decisions.md):')
+    expect(status).toContain('Recent decisions (last 5 of 60; full text in decisions/D<n>.md):')
     expect(status).toContain('- [D60] 2026-07-03 choice 59')
     expect(status).toContain('summary 29')
   })
@@ -669,7 +669,7 @@ describe('standing constraints — verbatim render contract (drift-hardening 2.1
     expect(status.indexOf('Standing constraints')).toBeGreaterThan(status.indexOf('Next ids:'))
     expect(status.indexOf('Standing constraints')).toBeLessThan(status.indexOf('Read-back:'))
     // the recent window did age D1 out — the premise of the immunity claim
-    expect(status).toContain('Recent decisions (last 5 of 7; full text in decisions.md):')
+    expect(status).toContain('Recent decisions (last 5 of 7; full text in decisions/D<n>.md):')
     expect(status).not.toContain('choice 1 ')
   })
 
@@ -828,12 +828,10 @@ describe('standing constraints — verbatim render contract (drift-hardening 2.1
     const md = renderDecisions(state)
     // Each entry leads with its own check-suffixed handle (r3-fixes 2.6, D18).
     expect(md).toContain(
-      `- ${suffixedHandle(1, state.decisions[0]!.id)} 2026-08-01T00:00:00.000Z — rule: **Never do the thing.** — chose **choice 1** over alternative 1 because reason 1`,
+      `- ${suffixedHandle(1, state.decisions[0]!.id)} 2026-08-01 — rule: Never do the thing.\n`,
     )
-    // rule-less decisions keep their historical byte shape after the handle
+    // A rule-less decision carries the head of what it chose (memory-lead D45).
     state.decisions = [decision(2)]
-    expect(renderDecisions(state)).toContain(
-      `- ${suffixedHandle(1, state.decisions[0]!.id)} 2026-08-01T00:00:00.000Z — chose **choice 2** over alternative 2 because reason 2`,
-    )
+    expect(renderDecisions(state)).toContain(`- ${suffixedHandle(1, state.decisions[0]!.id)} 2026-08-01 — chose choice 2\n`)
   })
 })

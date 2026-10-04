@@ -127,7 +127,8 @@ describe('MCP tools round-trip (2.2)', () => {
     expect(planMd.startsWith(GENERATED_HEADER)).toBe(true)
     expect(planMd).toContain('- [x] 1.1 first task')
     expect(decisionsMd.startsWith(GENERATED_HEADER)).toBe(true)
-    expect(decisionsMd).toContain('chose **sqlite** over postgres because zero ops')
+    expect(decisionsMd).toContain('— chose sqlite')
+    expect(readFileSync(`${fixture.initiativeDir}/decisions/D1.md`, 'utf8')).toContain('chose: sqlite\nover: postgres\nbecause: zero ops')
 
     // get_state view:full over MCP matches the direct fold (slug filled in
     // from the resolved initiative — no initiative_created event in this log)
@@ -407,7 +408,7 @@ describe('get_state progressive disclosure — digest default vs view:full (toke
     // rejected (M4 dead-end guard) on one citable line; the why is on demand.
     expect(text).toContain('- [D1] ')
     expect(text).toContain('sqlite — over postgres')
-    expect(text).toContain('full text in decisions.md')
+    expect(text).toContain('full text in decisions/D<n>.md')
     expect(text).not.toContain('zero ops overhead')
     // Digest is bounded (SessionStart budget applies to the projection).
     expect(text.length).toBeLessThanOrEqual(10_000)

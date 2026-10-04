@@ -1607,8 +1607,11 @@ export const LESSON_LINE_BUDGET = 320
 export function lessonLines(lessons: readonly Lesson[]): string[] {
   return lessons.map((l) => {
     const matched = `matched: ${l.terms.join(', ')}`
-    // Where the full text is: this record's decisions.md, or another's (D15).
-    const where = l.initiative === undefined ? 'decisions.md' : `${l.initiative}/decisions.md`
+    // Where the full text is: the decision's own shard (memory-lead D43), in
+    // this record or another's (D15).
+    const ordinal = /D(\d+)$/.exec(l.handle)?.[1]
+    const file = ordinal === undefined ? 'decisions.md' : `decisions/D${ordinal}.md`
+    const where = l.initiative === undefined ? file : `${l.initiative}/${file}`
     const line =
       l.kind === 'decided'
         ? `sofar: decided before — [${l.handle}] chose ${l.text} (${matched}; full text in ${where})`

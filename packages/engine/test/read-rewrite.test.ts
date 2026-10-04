@@ -6,8 +6,10 @@ import { handlePreTool } from '../src/cli/event'
 import { forHost } from '../src/cli/host'
 import { runRead } from '../src/cli/read'
 import { makeEvent } from '../src/core/envelope'
+import { foldLog } from '../src/core/fold'
 import { appendEvent } from '../src/core/log'
 import { rewriteRawRead } from '../src/core/read-rewrite'
+import { regenerateProjections } from '../src/projections/generator'
 
 /**
  * memory-lead 4.3 part C (D39, D42): the raw-read rewrite and `sofar read`.
@@ -49,7 +51,8 @@ function repo(): string {
   emit('decision_logged', { chose: 'percent coupons first', over: 'fixed first', because: 'b', rule: 'Percent coupons come off before fixed coupons.' })
   emit('decision_logged', { chose: 'store money as decimal strings', over: 'integer cents', because: 'display', supersedes: 'D1' })
   emit('memory_promoted', { text: 'Run the suite with bun test from apps/web.' })
-  for (const f of ['decisions.md', 'plan.md', 'memory.md']) writeFileSync(join(root, '.sofar', 'initiatives', 'demo', f), 'the projection as written\n')
+  const dir = join(root, '.sofar', 'initiatives', 'demo')
+  regenerateProjections(dir, foldLog(join(dir, 'events.jsonl')).state)
   return root
 }
 
@@ -81,26 +84,34 @@ describe('the pre-tool hook (D39)', () => {
   })
 })
 
-describe('sofar read (D42)', () => {
-  it('reads decisions as one line each in force, the plan with its brief one line a paragraph, memories as heads', () => {
+describe('sofar read (D42, D45)', () => {
+  const file = (root: string, f: string): string => readFileSync(join(root, P, f), 'utf8')
+
+  it('prints the index as written: decisions and memories one line each, the brief a pointer', () => {
     const root = repo()
     const r = runRead(root, [`${P}/decisions.md`, `${P}/plan.md`, `${P}/memory.md`])
     expect(r.exitCode).toBe(0)
-    expect(r.stdout).toContain(`==> ${P}/decisions.md (sofar read: one line per decision in force; \`sofar show D<n>\` prints one whole, \`sofar read ${P}/decisions.md --full\` prints the file as written) <==\n- D2 · `)
-    expect(r.stdout).toContain(' · rule: "Percent coupons come off before fixed coupons."')
-    expect(r.stdout).toContain(' · chose store money as decimal strings')
-    expect(r.stdout).not.toContain('integer cents') // D1 was replaced
-    expect(r.stdout).toContain('(1 replaced decision(s) not shown.)')
-    expect(r.stdout).toContain('Brief, one line per paragraph:\n- brief¶1 Operator: build invoices first.\n- brief¶2 Then coupons, stacked by the provider flag.')
-    expect(r.stdout).toContain('- M1 · ')
+    expect(r.stdout).toBe(`${['decisions.md', 'plan.md', 'memory.md'].map((f) => file(root, f).replace(/\n$/, '')).join('\n\n')}\n`)
+    expect(r.stdout).toMatch(/^- D1·\w{4} — superseded by D3$/m)
+    expect(r.stdout).toMatch(/— rule: Percent coupons come off before fixed coupons\.$/m)
+    expect(r.stdout).toMatch(/— \(supersedes D1\) chose store money as decimal strings$/m)
+    expect(r.stdout).toMatch(/^Brief: the operator's words, \d+ chars, verbatim in brief\.md;/m)
+    expect(r.stdout).not.toContain('stacked by the provider flag')
+    expect(r.stdout).toMatch(/^- M1 \S+ — Run the suite with bun test from apps\/web\.$/m)
+    expect(runRead(root, [`${P}/brief.md`]).stdout).toContain('Then coupons, stacked by the provider flag.')
   })
 
-  it('a re-read of an unchanged view in the same session is one line; --full is the file as written', () => {
+  it('a re-read of unchanged bytes in the same session is one line; --full is the file as written', () => {
     const root = repo()
-    expect(runRead(root, [`${P}/decisions.md`], { session: 's1' }).stdout).toContain('- D2 · ')
+    const whole = `${file(root, 'decisions.md').replace(/\n$/, '')}\n`
+    expect(runRead(root, [`${P}/decisions.md`], { session: 's1' }).stdout).toBe(whole)
     expect(runRead(root, [`${P}/decisions.md`], { session: 's1' }).stdout).toBe(`==> ${P}/decisions.md: unchanged since you read it this session — \`sofar read ${P}/decisions.md --full\` prints the file as written <==\n`)
-    expect(runRead(root, [`${P}/decisions.md`], { session: 's2' }).stdout).toContain('- D2 · ')
-    expect(runRead(root, [`${P}/decisions.md`], { session: 's1', full: true }).stdout).toBe('the projection as written\n')
+    expect(runRead(root, [`${P}/decisions.md`], { session: 's2' }).stdout).toBe(whole)
+    expect(runRead(root, [`${P}/decisions.md`], { session: 's1', full: true }).stdout).toBe(whole)
+    // What the record gained since is read whole again.
+    appendEvent(join(root, P, 'events.jsonl'), makeEvent({ initiative: 'demo', session: 'author', source: 'claude-code', actor: 'agent', type: 'decision_logged', payload: { chose: 'tax inclusive', over: 'exclusive', because: 'catalogue' } }))
+    regenerateProjections(join(root, P), foldLog(join(root, P, 'events.jsonl')).state)
+    expect(runRead(root, [`${P}/decisions.md`], { session: 's1' }).stdout).toContain('— chose tax inclusive')
   })
 
   it('points away from the raw log, reads any other file as cat would, and names a missing one', () => {

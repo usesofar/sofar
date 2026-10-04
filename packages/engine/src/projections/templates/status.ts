@@ -62,12 +62,12 @@ const GOAL_BUDGET = 400
 // verbatim, as a FIXED block after the goal. Round 2's chain A lost every S9
 // recovery probe because the record held only the agent's one-line tasks;
 // the brief is the source those tasks summarise, so the cap never cuts it
-// first. Long briefs continue in plan.md.
+// first. Long briefs continue in brief.md.
 export const BRIEF_BUDGET = 1_500
 export const BRIEF_HEADER =
   'Brief — the operator\'s words, verbatim; the plan is this record\'s reading of it, and a finished task list does not finish the brief:'
 export const briefTruncationMarker = (slug: string): string =>
-  `…truncated — the whole brief is in .sofar/initiatives/${slug}/plan.md`
+  `…truncated — the whole brief is in .sofar/initiatives/${slug}/brief.md`
 // The next task's spec (memory-lead 1.3, D4): plan tasks carry it in the
 // title, which renders whole to this budget; its open siblings as heads.
 const NEXT_TASK_TITLE_BUDGET = 1_000
@@ -438,7 +438,7 @@ function pendingLinkLines(state: InitiativeState, retired: ReadonlySet<number>):
   ]
 }
 
-/** The digest's brief block: header, then the text clipped to BRIEF_BUDGET with a pointer to plan.md. */
+/** The digest's brief block: header, then the text clipped to BRIEF_BUDGET with a pointer to brief.md. */
 function briefLines(state: InitiativeState): string[] {
   const text = state.brief
   if (text.length <= BRIEF_BUDGET) return [BRIEF_HEADER, ...text.split('\n')]
@@ -853,7 +853,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
     const recent = inForce.slice(-MAX_DECISIONS)
     const olderCount = inForce.length - recent.length
     const count = olderCount > 0 ? `last ${recent.length} of ${inForce.length}` : `${inForce.length}`
-    const windowHeader = `Recent decisions (${retired.size > 0 ? `${count} in force, ${retired.size} retired` : count}; full text in decisions.md):`
+    const windowHeader = `Recent decisions (${retired.size > 0 ? `${count} in force, ${retired.size} retired` : count}; full text in decisions/D<n>.md):`
     const windowEntries = recent.map(({ d, ordinal }) => {
       const ruled = d.rule !== undefined && shownRules.has(String(ordinal))
       const chose = minutiaeHead(d.chose, ruled ? DECISION_RULED_CHOSE_BUDGET : DECISION_CHOSE_BUDGET)
@@ -1053,7 +1053,7 @@ const CLAUSE_BOUNDARIES = ['; ', ' — ', ': ', ' (']
  * one as a head, then a count of what did not fit.
  */
 function memoryLines(ranked: ReadonlyArray<{ text: string; ordinal: number; mark: string }>, focus: ReadonlySet<string>, budget: number): string[] {
-  const header = `Memory (${ranked.length}; full text in memory.md):`
+  const header = `Memory (${ranked.length}; full text in memory/M<n>.md):`
   if (header.length + 1 + OVERFLOW_RESERVE > budget) return []
   const lines = [header]
   let used = header.length + 1

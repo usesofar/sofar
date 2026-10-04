@@ -15,7 +15,8 @@ use sofar_core::git::GitState;
 use sofar_core::index_tier1::RepoRule;
 use sofar_core::json::{self, Json};
 use sofar_core::projections::{
-    render_decisions, render_memory, render_plan, render_session, session_file_name,
+    render_brief, render_decisions, render_memory, render_plan, render_session, render_shards,
+    session_file_name,
 };
 use sofar_core::snapshot::{fold_file, state_of};
 use sofar_core::status::{
@@ -392,6 +393,16 @@ fn every_surface_matches_the_typescript_golden_byte_for_byte() {
         if !state.memories.is_empty() {
             check(&id, "memory", by_name["memory"], &render_memory(&state));
             expected_sections.push("memory".into());
+        }
+        // The index-and-shard layout's files (memory-lead D45).
+        if !state.brief.is_empty() {
+            check(&id, "brief", by_name["brief"], &render_brief(&state));
+            expected_sections.push("brief".into());
+        }
+        for (shard, content) in render_shards(&state) {
+            let name = format!("shard {shard}");
+            check(&id, &name, by_name[name.as_str()], &content);
+            expected_sections.push(name);
         }
         for session in &state.sessions {
             let name = format!("session {}", session_file_name(&session.id));

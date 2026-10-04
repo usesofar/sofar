@@ -81,7 +81,7 @@ describe('memory, ranked by the focus', () => {
   it('the relevant memory renders to 280 chars first, the rest as heads, within the cap', () => {
     const text = renderStatus(s9Shape())
     expect(text.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
-    expect(text).toContain('Memory (8; full text in memory.md):')
+    expect(text).toContain('Memory (8; full text in memory/M<n>.md):')
     const memory = text.split('\n').filter((l) => l.startsWith('- [M'))
     expect(memory[0]).toMatch(/^- \[M6\] Advisor internals: suggestions publish through offer\(\) a+…$/)
     expect(memory[0]!.length).toBe('- [M6] '.length + 280)

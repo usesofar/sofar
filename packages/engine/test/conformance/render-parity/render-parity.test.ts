@@ -5,6 +5,7 @@ import { emptyState, foldLines, foldLog, type InitiativeState } from '../../../s
 import { renderDecisions } from '../../../src/projections/templates/decisions'
 import { renderMemory } from '../../../src/projections/templates/memory'
 import { renderPlan } from '../../../src/projections/templates/plan'
+import { renderBrief, renderShards } from '../../../src/projections/templates/shards'
 import { renderSession } from '../../../src/projections/templates/session'
 import { renderFullStatus, renderStatus, type StatusOptions, STATUS_CHAR_LIMIT } from '../../../src/projections/templates/status'
 
@@ -13,7 +14,9 @@ import { renderFullStatus, renderStatus, type StatusOptions, STATUS_CHAR_LIMIT }
  * renders, proved byte-for-byte on every initiative the conformance fixtures
  * hold: `renderStatus` (SessionStart block / get_state digest, under its
  * 10,000-unit cap) in five option variants, `renderFullStatus` (plain `sofar
- * status`), plan.md, decisions.md, memory.md and every sessions/<id>.md.
+ * status`), plan.md, decisions.md, memory.md, brief.md, every shard
+ * (decisions/D<n>.md, memory/M<n>.md, phases/P<k>.md; memory-lead D45) and
+ * every sessions/<id>.md.
  *
  * One golden per (fixture kind, fixture, slug), sections framed as
  * `== <name> (<bytes> bytes) ==` so a reader needs no escaping. The options
@@ -211,6 +214,9 @@ export function renderGolden(c: RenderCase): string {
   parts.push(section('plan', renderPlan(state)))
   parts.push(section('decisions', renderDecisions(state)))
   if (state.memories.length > 0) parts.push(section('memory', renderMemory(state)))
+  // The index-and-shard layout's files (memory-lead D45).
+  if (state.brief.length > 0) parts.push(section('brief', renderBrief(state)))
+  for (const shard of renderShards(state)) parts.push(section(`shard ${shard.name}`, shard.content))
   for (const session of state.sessions) {
     parts.push(section(`session ${sessionFileName(session.id)}`, renderSession(state, session)))
   }

@@ -1,5 +1,26 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **memory-lead 4.3 part A** (D45, the index-and-shard layout):
+25 goldens moved, for three reasons and no other.
+- (a) The digest's pointers name shards: `Recent decisions (…; full text in
+  decisions/D<n>.md):` and `Memory (…; full text in memory/M<n>.md):`. This
+  moves every golden that renders a session start (`argv.fast-path`, the four
+  cells, every `repo.*` and `syn.*` listed below).
+- (b) The record bytes a run writes: decisions.md, memory.md and plan.md as
+  indexes, plus brief.md and the shards decisions/D<n>.md, memory/M<n>.md and
+  phases/P<k>.md as added files in the record delta.
+- (c) A lesson line's `full text in decisions/D<n>.md` (`repo.lessons`,
+  `syn.lessons-cut`).
+
+argv.fast-path, cell.calib-1, cell.round-1-sofar, cell.smoke-4-drive,
+cell.smoke-4-sofar, repo.append, repo.branch-elsewhere, repo.drive-nudge,
+repo.drive-reach, repo.hook-lifecycle, repo.lessons, repo.link-disposition,
+repo.link-hold, repo.peers, repo.prompt-capture, repo.session-start,
+syn.baseline, syn.copies, syn.guards, syn.lessons-cut, syn.merge, syn.no-git,
+syn.recall, syn.surfacing, syn.unicode. The Rust core reproduces every one
+(`SOFAR_CORE=… vitest run test/conformance`: 284 passed). No previous set is
+kept.
+
 ADDED for **memory-lead 4.3 part C** (D39, D42, the raw-read rewrite): one new
 case, `syn.read-gate`. A whole-file `cat` of plan.md, decisions.md and memory.md
 is rewritten to `sofar read --session …` in Claude Code's PreToolUse form, the

@@ -27,7 +27,7 @@ export function readGateEnabled(env: Readonly<Record<string, string | undefined>
 const READERS = new Set(['cat', 'head', 'tail', 'less', 'more'])
 /** Options of `head` and `tail` that take a value as the next word. */
 const VALUE_FLAGS = new Set(['-n', '-c', '--lines', '--bytes'])
-export const PROJECTIONS = new Set(['plan.md', 'decisions.md', 'memory.md', 'events.jsonl'])
+export const PROJECTIONS = new Set(['plan.md', 'decisions.md', 'memory.md', 'brief.md', 'events.jsonl'])
 
 /** Is `abs` a record projection: `<root>/.sofar/initiatives/<slug>/<projection>`? */
 export function isProjection(abs: string, rootDir: string): boolean {

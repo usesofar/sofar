@@ -10,6 +10,7 @@ import { runAppend } from '../src/cli/event'
 import { AGENTS_PROTOCOL_BLOCK, PROTOCOL_BLOCK, runInit } from '../src/cli/init'
 import { runNew } from '../src/cli/new'
 import { renderPlan } from '../src/projections/templates/plan'
+import { renderBrief } from '../src/projections/templates/shards'
 import { BRIEF_BUDGET, BRIEF_HEADER, briefTruncationMarker, renderFullStatus, renderStatus } from '../src/projections/templates/status'
 import type { Caps } from '../src/cli/ui'
 
@@ -147,12 +148,14 @@ describe('the S9 shape: every task done, the roadmap still readable verbatim', (
     expect(digest).toContain('   - "add <activity name> to day <n>"')
     expect(digest).toContain('POST /api/chat { trip_id, message } returns { reply, changed, suggestions? }.')
     expect(digest).not.toContain(briefTruncationMarker('planner'))
-    // plan.md and `sofar status` hold it in full.
-    expect(renderPlan(state)).toContain(`Brief (the operator's words, verbatim):\n\n${ROADMAP}\n`)
+    // brief.md and `sofar status` hold it in full; plan.md points there (memory-lead D45).
+    expect(renderBrief(state)).toContain(`The operator's words, verbatim. \`sofar show brief¶<k>\` prints one paragraph.\n\n${ROADMAP}\n`)
+    expect(renderPlan(state)).toContain(`Brief: the operator's words, ${ROADMAP.length} chars, verbatim in brief.md;`)
+    expect(renderPlan(state)).not.toContain(ROADMAP)
     expect(renderFullStatus(state)).toContain(`${BRIEF_HEADER}\n${ROADMAP}`)
   })
 
-  it('clips a long brief at its budget and points at plan.md, where it is whole', () => {
+  it('clips a long brief at its budget and points at brief.md, where it is whole', () => {
     const root = initedRepo()
     const long = `${ROADMAP}\n${'Appendix: '.repeat(200)}`
     expect(long.length).toBeGreaterThan(BRIEF_BUDGET)
@@ -161,7 +164,8 @@ describe('the S9 shape: every task done, the roadmap still readable verbatim', (
     const digest = renderStatus(state)
     expect(digest).toContain(`${BRIEF_HEADER}\n${long.slice(0, BRIEF_BUDGET)}\n${briefTruncationMarker('planner')}`)
     expect(digest).not.toContain(long)
-    expect(renderPlan(state)).toContain(long)
+    expect(briefTruncationMarker('planner')).toContain('.sofar/initiatives/planner/brief.md')
+    expect(renderBrief(state)).toContain(long)
   })
 })
 

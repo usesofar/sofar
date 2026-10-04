@@ -7,6 +7,7 @@ import { relevantLessons } from '../src/core/lessons'
 import { RETIRE_ENV, retireEnabled, retiredOrdinals } from '../src/core/retire'
 import { serializeEvent } from '../src/core/log'
 import { renderDecisions } from '../src/projections/templates/decisions'
+import { decisionEntry } from '../src/projections/templates/shards'
 import { renderReviewPacket } from '../src/projections/templates/review'
 import { renderFullStatus, renderStatus } from '../src/projections/templates/status'
 
@@ -162,7 +163,7 @@ describe('digest (renderStatus)', () => {
     expect(text).not.toContain('[D2]')
     expect(text).not.toContain('[D1]')
     expect(text).not.toContain('[D3]')
-    expect(text).toContain('Recent decisions (3 in force, 3 retired; full text in decisions.md):')
+    expect(text).toContain('Recent decisions (3 in force, 3 retired; full text in decisions/D<n>.md):')
     expect(text).toContain('[D5] ')
     expect(text).toMatch(/- \[D6\] \d{4}-\d{2}-\d{2} \(rule below; supersedes D2\) never call a model, even locally/)
     expect(text).toContain('Next ids: D7 (decision)')
@@ -172,7 +173,7 @@ describe('digest (renderStatus)', () => {
     for (let i = 0; i < 6; i++) many.push(decide(`later ${i}`, `rejected ${i}`))
     const state = foldOf(many)
     const text = withEnv(on, () => renderStatus(state))
-    expect(text).toContain('Recent decisions (last 5 of 10 in force, 2 retired; full text in decisions.md):')
+    expect(text).toContain('Recent decisions (last 5 of 10 in force, 2 retired; full text in decisions/D<n>.md):')
     expect(text).toContain('Earlier rejected approaches — do NOT re-propose (5 older):')
     // D1 (superseded) and D2 (rule, superseded) are gone; D3–D7 are the older in-force ones.
     expect(text).not.toMatch(/^- \[D1\]/m)
@@ -185,7 +186,7 @@ describe('digest (renderStatus)', () => {
     const text = withEnv(off, () => renderStatus(state))
     expect(text).toContain('Standing constraints — obey verbatim (2):')
     expect(text).toContain('- [D2] Never call a model.')
-    expect(text).toContain('Recent decisions (last 5 of 6; full text in decisions.md):')
+    expect(text).toContain('Recent decisions (last 5 of 6; full text in decisions/D<n>.md):')
     expect(text).not.toContain('retired')
     expect(text).not.toContain('supersedes D2')
     expect(withEnv(off, () => renderFullStatus(state))).toContain('- [D2] Never call a model.')
@@ -203,20 +204,26 @@ describe('digest (renderStatus)', () => {
       decide('e', 'f', { until: '1.2' }),
     ])
     expect(withEnv(on, () => renderStatus(state))).toBe(withEnv(off, () => renderStatus(state)))
-    expect(withEnv(on, () => renderStatus(state))).toContain('Recent decisions (3; full text in decisions.md):')
+    expect(withEnv(on, () => renderStatus(state))).toContain('Recent decisions (3; full text in decisions/D<n>.md):')
   })
 })
 
 describe('other surfaces', () => {
   it('decisions.md keeps every decision and marks why one left the digest', () => {
     const md = renderDecisions(foldOf(record(ev('task_status_changed', { id: '1.1', status: 'done' }))))
-    expect(md).toMatch(/— \(superseded by D5\) chose \*\*sqlite for the local store\*\*/)
-    expect(md).toMatch(/— \(superseded by D6\) rule: \*\*Never call a model\.\*\*/)
-    expect(md).toMatch(/— \(retired: 1\.1 resolved\) chose \*\*a scratch dir per task\*\*/)
-    expect(md).toMatch(/— \(supersedes D2\) chose \*\*lift the model ban\*\*/)
-    expect(md).toMatch(/— \(supersedes D2\) rule: \*\*Never call a model, local or remote\.\*\*/)
+    // The index (memory-lead D45): a replaced or retired decision is its
+    // handle and why; one in force carries its rule or chose head.
+    expect(md).toMatch(/^- D1·\w{4} — superseded by D5$/m)
+    expect(md).toMatch(/^- D2·\w{4} — superseded by D6$/m)
+    expect(md).toMatch(/^- D3·\w{4} — retired: 1\.1 resolved$/m)
+    expect(md).toMatch(/ — \(supersedes D2\) chose lift the model ban$/m)
+    expect(md).toMatch(/ — \(supersedes D2\) rule: Never call a model, local or remote\.$/m)
     const open = renderDecisions(foldOf(record()))
-    expect(open).toMatch(/— \(until 1\.1\) chose \*\*a scratch dir per task\*\*/)
+    expect(open).toMatch(/ — \(until 1\.1\) chose a scratch dir per task$/m)
+    // The shard keeps the whole entry and says why it left.
+    const state = foldOf(record(ev('task_status_changed', { id: '1.1', status: 'done' })))
+    expect(decisionEntry(state, 1)).toMatch(/^D1 — \S+ — replaced by D5\nchose: sqlite for the local store\n/)
+    expect(decisionEntry(state, 3)).toMatch(/^D3 — \S+ — retired: 1\.1 resolved\n/)
   })
   it('the review packet demands only rules in force and keeps the rejected list complete', () => {
     const packet = renderReviewPacket(foldOf(record()), { scope: 'final', commits: [], watermark: null })

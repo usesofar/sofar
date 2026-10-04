@@ -79,12 +79,51 @@ engine-only scope law still applies during the Fable window.
                                #   under the XDG state dir — §Diagnostics store
   initiatives/<slug>/
     events.jsonl               # TRUTH — append-only
-    plan.md                    # generated projection
-    decisions.md               # generated projection
+    plan.md                    # generated projection — the plan's index
+    decisions.md               # generated projection — one line a decision
     memory.md                  # generated projection — only once something
                                #   is promoted; staging list for repo.md
+    brief.md                   # generated — the brief whole, once there is one
+    decisions/D<n>.md          # generated — one decision whole
+    memory/M<n>.md             # generated — one memory whole
+    phases/P<k>.md             # generated — one closed phase's tasks
     sessions/<session-id>.md   # generated per-session summaries
 ```
+
+**Index and shards (memory-lead 4.3 part A, D45).** decisions.md, memory.md
+and plan.md are indexes, and each entry's full text is its own file — the
+layout native memory reads with, an index plus topic files. Round 3's agents
+opened sessions by catting the three whole files (117k, 67k and 31k chars by
+S30), and their greps returned whole thousand-char entries.
+- decisions.md: a line of what it is (`One line per decision, in log order.
+  Its full text … is in decisions/D<n>.md, or \`sofar show D<n>\`.`), then
+  per decision `- D<n>·<sfx> <date> — (<marks>) rule: <rule>` with the rule
+  whole and whitespace collapsed, or `… chose <head of 80>`. Marks are `until
+  <task>`, `supersedes D<m>`, `names D<m>, held`. A replaced decision is
+  `- D<n>·<sfx> — superseded by D<m>`, a retired one `- D<n>·<sfx> —
+  retired: <task> resolved`. Every decision stays listed; ordinals never
+  renumber.
+- decisions/D<n>.md: the generated header, then the decision a field a line
+  — `D<n> — <date>[ — replaced by D<m> | — retired: <task> resolved]`, then
+  `rule:`, `quote:`, `chose:`, `over:`, `because:`, `guard:`, `check:`,
+  `supersedes:`, `until:` as present. `sofar show D<n>` prints the same text.
+- memory.md: its citation note and `One line per memory; its full text is in
+  memory/M<n>.md, or \`sofar show M<n>\`.`, then `- M<n> <date> —
+  [(supersedes M<m>) ][native mark]<head of 80>`, or `- M<n> — superseded by
+  M<m>`. memory/M<n>.md: `M<n> — <date>[ — replaced by …][ — supersedes …]`,
+  then the native mark and the text whole.
+- plan.md: the brief leaves for brief.md, and plan.md says `Brief: the
+  operator's words, <n> chars, verbatim in brief.md; …`. A closed phase (done
+  or dropped) is one line, `## <name> [<status>] — <x/y> done — its tasks in
+  phases/P<k>.md` (k counts phases in plan order), and its shard holds that
+  head, its note and its task lines. An open phase stays whole in plan.md.
+- Heads cut at 80 UTF-16 units with an ellipsis in the last. No env switch
+  changes the layout (D43): the ablation arm is the pinned previous release.
+  Shards ride the projection manifest (§Derived index) keyed by the hash of
+  their bytes, so an append rewrites only the shards whose bytes moved.
+- Every pointer names a shard: the digest's `full text in decisions/D<n>.md`
+  and `memory/M<n>.md`, the clipped brief's `…/brief.md`, a lesson line's
+  `full text in decisions/D<n>.md` (or `<slug>/decisions/D<n>.md`).
 
 A slug MUST match `[a-z0-9-]+` (security-hardening 1.1). This is not a
 cosmetic rule: the engine resolves an initiative by joining the slug under
@@ -6023,7 +6062,9 @@ subdirectory, against 33 of 33 from the root.
   arbitrary order folds to the same state on every clone. Since r3-fixes 2.1
   it also writes, in the same way and per pattern, `.sofar/**/plan.md`,
   `decisions.md`, `memory.md` and `sessions/*.md` with `merge=union
-  linguist-generated`. The projections are a pure function of the log and are
+  linguist-generated`, and since memory-lead D45 `brief.md`, `decisions/*.md`,
+  `memory/*.md` and `phases/*.md` (index and shards; an existing repo gets them
+  on its next `sofar init`). The projections are a pure function of the log and are
   re-rendered on the next append, so a merge must never leave one conflicted.
   `bindings.json` is left out, since union would break its JSON. Replaying
   round 3's S18 merges took conflicted `.sofar` files from 6/6/6 to 0/0/0, and
@@ -6569,25 +6610,21 @@ subdirectory, against 33 of 33 from the root.
   cannot read such a command. It refuses a non-handle, a missing decision, a
   decision with no rule, and a retired one (naming its replacement).
 - `sofar read <paths…> [--session <id>] [--full]` (memory-lead 4.3 part C,
-  D42) — what a rewritten whole-file read runs. For a record's projection it
-  prints, under a `==> <path> (sofar read: … ) <==` header naming
-  `sofar show` and `--full`: for decisions.md one line per decision in force,
-  `- D<n> · <date> · rule: "<rule>"` or `· chose <head of 110>`, then `(<n>
-  replaced decision(s) not shown.)`; for memory.md one line per memory in
-  force, its text cut at 160; for plan.md the plan as rendered without its
-  brief, then `Brief, one line per paragraph:` and `- brief¶<k> <head of
-  160>`; for events.jsonl one line naming its event and byte counts and the
-  ways to read the record instead. With `--session`, a view already printed
-  to that session context (the told set holds its hash) prints `==> <path>:
-  unchanged since you read it this session — … <==` instead. `--full`, and any
-  path that is not a projection, prints the file as written; a missing file is
-  named on stderr with exit 1. Views are pure functions of the fold, so a
-  record that cannot be folded is printed as written, never refused.
+  D42, D45) — what a rewritten whole-file read runs. A record's plan.md,
+  decisions.md, memory.md and brief.md print as written (the first three are
+  the index, §Record layout); events.jsonl prints one `==> <path> (sofar
+  read: the raw event log, <n> events, <b> bytes, is not shown; …) <==` line
+  naming `sofar show`, `sofar find` and the indexes. With `--session`, bytes
+  already printed to that session context (the told set holds their hash)
+  print `==> <path>: unchanged since you read it this session — … <==`
+  instead. `--full`, and any path that is not a projection, prints the file as
+  written; a missing file is named on stderr with exit 1.
 - `sofar show <ids…> [--initiative <slug>]` (memory-lead 4.3 part D, D25) —
   print record entries whole by handle, from the fold: `D<n>` (or
-  `D<n>·<sfx>`) as its date, replacement, rule, quote, chose, over, because,
-  guard, check, supersedes and until, one field a line; `M<n>` as its date,
-  replacement and text; `brief` as every paragraph, `brief¶<k>` (or `¶<k>`) as
+  `D<n>·<sfx>`) as its date, replacement or retirement, rule, quote, chose,
+  over, because, guard, check, supersedes and until, one field a line; `M<n>`
+  as its date, replacement, what it supersedes and text — for both, the text
+  their shard holds (D45); `brief` as every paragraph, `brief¶<k>` (or `¶<k>`) as
   one. A handle it cannot find is named on stderr with exit 1, after printing
   the rest. The recall block points here instead of at a whole file.
 - `sofar supersedes <D<n>> <D<m>|none> [--initiative <slug>]` (r3-fixes 2.5,
@@ -8935,12 +8972,24 @@ stay the underlying derivation's, and exit codes are styling-independent.
   --session 's1' '.sofar/initiatives/demo/decisions.md'` in Claude Code's
   form with the call's description and timeout kept, and in Cursor's
   `{permission, updated_input}` form; a grep, a pipe, `cat … README.md`, the
-  Read tool and `SOFAR_READ_GATE=off` pass untouched. `sofar read` prints D2
-  and D3 as one line each and not the replaced D1, the brief one line a
-  paragraph, `M1 ·`; a second read of the same view in the same session is
-  one line, another session's is whole, `--full` is the file as written. The
-  rewrite table (crates/sofar-core/tests/fixtures/js-read-rewrite.json) is
-  asserted by both engines. Tests: test/read-rewrite.test.ts.
+  Read tool and `SOFAR_READ_GATE=off` pass untouched. `sofar read` prints the
+  index as written and events.jsonl as one pointer line; a second read of the
+  same bytes in the same session is one line, another session's is whole,
+  `--full` is the file as written. The rewrite table
+  (crates/sofar-core/tests/fixtures/js-read-rewrite.json) is asserted by both
+  engines. Tests: test/read-rewrite.test.ts.
+- **Index and shards (memory-lead 4.3 part A, D45):** decisions.md lists
+  every decision as one line, a replaced one as its handle and successor and a
+  retired one as its handle and task; decisions/D<n>.md holds it whole and
+  equals `sofar show D<n>`; memory.md and memory/M<n>.md likewise; the brief
+  is in brief.md and not in plan.md; a done phase is one line in plan.md and
+  whole in phases/P<k>.md. An append rewrites only shards whose bytes moved.
+  The render-parity goldens carry every shard and brief.md, so both engines
+  render them byte for byte. On round 3's 430 Claude raw reads, re-executed
+  against the record at each session's start, rendered before and after (
+  bench-sealed read_replay.mts), store chars fall to 51.5% of recorded with
+  B's recall block counted; every projection emptied gives 39.5%, the floor
+  while agent behaviour is frozen. Tests: test/index-shards.test.ts.
 - **Per-turn byte budget (memory-lead 4.4, L34):** the always-loaded tool
   definitions as served stay ≤3,500 chars (3,370 on 2026-10-04), the server
   instructions ≤800 (722), and the digest's cap ≤6,000. Tests:

@@ -64,6 +64,13 @@ retirement, D25; 5.2 code-unit order, D26), merged into rust-core after 2.4.
   goldens ADDED for the fold-parity cases (`fold-parity.cases.FP-*`), which
   are the only records with retirement fields — FP-10 renders the retired
   window, the `(supersedes D<n>)` marks and decisions.md's retirement marks.
+- memory-lead 4.3 part A (D45, the index-and-shard layout): 76 of the 128
+  goldens re-recorded. Each now carries a `brief` section where the record has
+  a brief and a `shard <path>` section per decisions/D<n>.md, memory/M<n>.md
+  and closed-phase phases/P<k>.md (crates/sofar-core/tests/render_parity.rs
+  checks them too). The `plan`, `decisions` and `memory` sections are the
+  indexes, and the digests point at shards. The rest have no decision,
+  memory, brief or closed phase, and are byte-unchanged.
 
 Re-record (`RENDER_PARITY_RECORD=1 npx vitest run render-parity`) only when a
 template changes on purpose; add a row per changed golden with the commit and

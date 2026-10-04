@@ -201,7 +201,7 @@ describe('sofar event user-prompt — the indexed line (D15)', () => {
     const f = seeded()
     const [line] = lessonLinesOf(handleUserPrompt(f.root, prompt(text)).stdout)
     expect(line).toMatch(/^sofar: ruled out before — \[storage D11\] migrating the datastore to Postgres/)
-    expect(line).toContain('full text in storage/decisions.md')
+    expect(line).toContain('full text in storage/decisions/D11.md')
   })
 
   it('is told once per session; another session is told again', () => {

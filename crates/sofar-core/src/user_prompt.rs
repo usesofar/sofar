@@ -7,11 +7,11 @@ use std::path::Path;
 use crate::append::{append_and_project, fold_state};
 use crate::attribution::{AttributionQuery, CommitAttribution, read_attribution_query};
 use crate::cli::Hook;
-use crate::date::now_ms;
 use crate::cross_conflicts::{CrossFileConflict, cross_conflicts_from_open_sessions};
+use crate::date::now_ms;
+use crate::envelope::iso_from_epoch_ms;
 use crate::fold::{GuardViolation, InitiativeState, SessionState, session_debt};
 use crate::fold_cli::CmdResult;
-use crate::envelope::iso_from_epoch_ms;
 use crate::git::{GitState, read_git_state};
 use crate::home::resolve_session_first;
 use crate::hook::{clip_to, parse_hook, str_field};
@@ -31,7 +31,8 @@ use crate::prompt_buffer::{PROMPT_ANNOUNCE_MIN, capture_prompt, prompt_keep_line
 use crate::session_pointer::{clear_session_pointer, write_session_pointer};
 use crate::shipwatch::{note_engine, note_upstream};
 use crate::status::{
-    FileConflict, QUICK_LANE, link_ask_enabled, focus_task, open_session_file_conflicts, open_session_files,
+    FileConflict, QUICK_LANE, focus_task, link_ask_enabled, open_session_file_conflicts,
+    open_session_files,
 };
 use crate::text::{cmp_utf16, utf16_len, utf16_prefix};
 use crate::told::{add_told, read_told, told_key};
@@ -134,17 +135,26 @@ pub fn guard_violation_lines(violations: &[&GuardViolation], root: &Path) -> Vec
     lines
 }
 
+/// `/D(\d+)$/` on a lesson handle → `decisions/D<n>.md`.
+fn shard_of(handle: &str) -> Option<String> {
+    let digits = handle.len() - handle.trim_end_matches(|c: char| c.is_ascii_digit()).len();
+    let head = &handle[..handle.len() - digits];
+    (digits > 0 && head.ends_with('D')).then(|| format!("decisions/D{}.md", &handle[head.len()..]))
+}
+
 /// `lessonLines`: ruled out, decided or noted before, pointing at where the
-/// full text is — this record's decisions.md, or another's (D15).
+/// full text is — this record's decision shard, or another's (D15).
 fn lesson_lines(lessons: &[Lesson]) -> Vec<String> {
     lessons
         .iter()
         .map(|l| {
             let matched = format!("matched: {}", l.terms.join(", "));
-            let place = l.initiative.as_ref().map_or_else(
-                || "decisions.md".to_owned(),
-                |i| format!("{i}/decisions.md"),
-            );
+            // The decision's own shard (memory-lead D45), when the handle ends in D<n>.
+            let file = shard_of(&l.handle).unwrap_or_else(|| "decisions.md".to_owned());
+            let place = l
+                .initiative
+                .as_ref()
+                .map_or_else(|| file.clone(), |i| format!("{i}/{file}"));
             let line = match l.kind {
                 LessonKind::Decided => format!(
                     "sofar: decided before — [{}] chose {} ({matched}; full text in {place})",
@@ -843,8 +853,8 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     let Some(session) = state.sessions.iter().find(|s| s.id == session_id) else {
         return silent();
     };
-    let gate =
-        crate::checks::enforce_enabled().then(|| stop_gate_for(root, &layout, &slug, &state, session));
+    let gate = crate::checks::enforce_enabled()
+        .then(|| stop_gate_for(root, &layout, &slug, &state, session));
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop; SOFAR_LINK_ASK=off is its ablation arm.
     let asks = if link_ask_enabled() {
@@ -944,7 +954,11 @@ fn stop_merge_lines(root: &Path, state: &InitiativeState, session: &SessionState
         .as_ref()
         .map(|t| crate::checks::suite_of(&t.cmd))
         .unwrap_or_default();
-    let suite = if own.is_empty() { facts.suite } else { Some(own) };
+    let suite = if own.is_empty() {
+        facts.suite
+    } else {
+        Some(own)
+    };
     suite.map_or_else(Vec::new, |s| vec![merge_stop_line(newest, &s)])
 }
 

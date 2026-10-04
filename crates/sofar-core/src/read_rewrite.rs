@@ -27,7 +27,13 @@ pub fn read_gate_enabled() -> bool {
 
 const READERS: &[&str] = &["cat", "head", "tail", "less", "more"];
 const VALUE_FLAGS: &[&str] = &["-n", "-c", "--lines", "--bytes"];
-const PROJECTIONS: &[&str] = &["plan.md", "decisions.md", "memory.md", "events.jsonl"];
+const PROJECTIONS: &[&str] = &[
+    "plan.md",
+    "decisions.md",
+    "memory.md",
+    "brief.md",
+    "events.jsonl",
+];
 
 fn split_last(path: &str) -> (&str, &str) {
     match path.rfind('/') {

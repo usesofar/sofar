@@ -137,6 +137,7 @@ Regenerated on every append. Never hand-edited.
 | module | renders |
 | --- | --- |
 | `projections/generator.ts` | Writes all projections for an initiative after an append. |
+| `projections/templates/shards.ts` | The index-and-shard layout's shards (memory-lead 4.3 part A, D45): `decisions/D<n>.md`, `memory/M<n>.md` (the text `sofar show` prints), `phases/P<k>.md` for closed phases, and `brief.md`. |
 | `projections/templates/plan.ts` | `plan.md` — goal, phases, tasks, next action. |
 | `projections/templates/decisions.ts` | `decisions.md` — decisions, standing constraints, rejected approaches. |
 | `projections/templates/session.ts` | `sessions/<id>.md` — one file per session. |

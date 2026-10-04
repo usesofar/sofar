@@ -208,7 +208,9 @@ describe('batched write-back', () => {
     expect(state.decisions.map((d) => d.chose)).toEqual(['Allow-list interests', 'Soft delete'])
     expect(state.memories.map((m) => m.text)).toEqual(['Run the suite with npm test at the root'])
     // One projection pass still leaves every projection current.
-    expect(readFileSync(`${f.initiativeDir}/plan.md`, 'utf8')).toContain('1.3 profile tests')
+    // A done phase is one line in plan.md and whole in its shard (memory-lead D45).
+    expect(readFileSync(`${f.initiativeDir}/plan.md`, 'utf8')).toContain('## Phase 1 — Profiles [done] — 3/3 done — its tasks in phases/P1.md')
+    expect(readFileSync(`${f.initiativeDir}/phases/P1.md`, 'utf8')).toContain('1.3 profile tests')
     expect(readFileSync(`${f.initiativeDir}/decisions.md`, 'utf8')).toContain('Soft delete')
     await client.close()
   })

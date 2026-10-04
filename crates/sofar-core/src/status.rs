@@ -477,7 +477,9 @@ pub fn held_ask(
     };
     let mut answers = Vec::new();
     if live(h) {
-        answers.push(format!("`sofar supersedes D{ordinal} D{h}` if D{h} is right"));
+        answers.push(format!(
+            "`sofar supersedes D{ordinal} D{h}` if D{h} is right"
+        ));
     }
     for n in &offers {
         answers.push(format!("`sofar supersedes D{ordinal} D{n}` if D{n} is"));
@@ -563,7 +565,7 @@ fn brief_lines(state: &InitiativeState) -> Vec<String> {
                 .map(str::to_owned),
         );
         lines.push(format!(
-            "…truncated — the whole brief is in .sofar/initiatives/{}/plan.md",
+            "…truncated — the whole brief is in .sofar/initiatives/{}/brief.md",
             state.slug
         ));
     }
@@ -756,7 +758,7 @@ fn memory_lines(
     focus: &[String],
     budget: usize,
 ) -> Vec<String> {
-    let header = format!("Memory ({}; full text in memory.md):", ranked.len());
+    let header = format!("Memory ({}; full text in memory/M<n>.md):", ranked.len());
     if utf16_len(&header) + 1 + OVERFLOW_RESERVE > budget {
         return Vec::new();
     }
@@ -1520,7 +1522,7 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
             in_force.len().to_string()
         };
         let window_header = format!(
-            "Recent decisions ({}; full text in decisions.md):",
+            "Recent decisions ({}; full text in decisions/D<n>.md):",
             if retired.is_empty() {
                 count
             } else {

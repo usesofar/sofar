@@ -7,6 +7,7 @@ import { renderRule, ruleFidelityWarning, ruleSpecifics, unquotedSpecifics } fro
 import { runAppend } from '../src/cli/event'
 import { fitQuote } from '../src/mcp/log-decision'
 import { renderDecisions } from '../src/projections/templates/decisions'
+import { decisionEntry } from '../src/projections/templates/shards'
 import { renderReviewPacket } from '../src/projections/templates/review'
 import { renderFullStatus, renderStatus } from '../src/projections/templates/status'
 import { callTool, callToolExpectError, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
@@ -122,7 +123,9 @@ describe('render', () => {
 
   it('decisions.md and the review packet carry the quote too', () => {
     const state = stateWith(decision({ rule: R1_RULE, quote: R1_QUOTE }))
-    expect(renderDecisions(state)).toContain(`rule: **${R1_RULE}** — operator: "${R1_QUOTE}" (not in the operator's words: 4xx) — chose`)
+    // The index carries the rule; the shard carries the operator's words, flagged (memory-lead D45).
+    expect(renderDecisions(state)).toContain(`rule: ${R1_RULE}`)
+    expect(decisionEntry(state, 1)).toContain(`rule: ${R1_RULE}\noperator: "${R1_QUOTE}" (not in the operator's words: 4xx)\nchose:`)
     expect(renderReviewPacket(state, { scope: 'final', commits: [], watermark: null })).toContain(
       `- [D1] ${R1_RULE} — operator: "${R1_QUOTE}" (not in the operator's words: 4xx)`,
     )

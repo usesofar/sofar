@@ -60,7 +60,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: lengths, rust, ryu, formatting, number, char; full text in decisions.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: lengths, rust, ryu, formatting, number, char; full text in decisions/D2.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -79,7 +79,7 @@ stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<
 env: {"SOFAR_LESSONS":"fold"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: formatting, lengths, number, char, ryu, rust; full text in decisions.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: formatting, lengths, number, char, ryu, rust; full text in decisions/D2.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 

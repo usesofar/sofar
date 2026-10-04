@@ -26,15 +26,22 @@ lines can reconstruct the full state.
   bindings.json                # { "<git-branch-or-worktree>": "<slug>" }
   initiatives/<slug>/
     events.jsonl               # TRUTH — append-only event log
-    plan.md                    # generated projection
-    decisions.md               # generated projection
+    plan.md                    # generated projection (an index)
+    decisions.md               # generated projection (an index)
+    memory.md                  # generated projection (an index)
+    brief.md                   # generated: the plan's brief, whole
+    decisions/D<n>.md          # generated: one decision, whole
+    memory/M<n>.md             # generated: one memory, whole
+    phases/P<k>.md             # generated: one closed phase's tasks
     sessions/<session-id>.md   # generated per-session summaries
 ```
 
 - `events.jsonl` is the single source of truth. All state is a fold
   (deterministic replay) of this file — see §5.
-- `plan.md`, `decisions.md`, and `sessions/*.md` are **generated
-  projections** of the log. A writer MUST NOT hand-edit them: the engine
+- `plan.md`, `decisions.md`, `memory.md`, `brief.md`, the shards under
+  `decisions/`, `memory/` and `phases/`, and `sessions/*.md` are **generated
+  projections** of the log (the index-and-shard layout since engine 0.34.0:
+  the three indexes carry one line an entry, each shard one entry whole). A writer MUST NOT hand-edit them: the engine
   regenerates them on every append and overwrites any edit. Readers MAY read
   them as a convenience view but MUST NOT treat them as authoritative. The
   engine writes projections atomically (temp file + rename), so a reader

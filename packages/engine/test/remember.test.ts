@@ -65,7 +65,7 @@ describe('sofar remember (repo-memory-capture D1)', () => {
 
     expect(existsSync(memoryMd)).toBe(true)
     const rendered = readFileSync(memoryMd, 'utf8')
-    expect(rendered).toContain('**M1**')
+    expect(rendered).toMatch(/^- M1 \d{4}-\d\d-\d\d — a fact worth keeping$/m)
     expect(rendered).toContain('a fact worth keeping')
     expect(rendered).toContain('alpha M<n>')
   })

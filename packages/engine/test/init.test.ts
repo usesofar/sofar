@@ -354,7 +354,7 @@ describe('sofar init merges — never clobbers — user files', () => {
 
     const result = runInit(root)
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain('updated .gitattributes (union merge for 4 sofar path(s) appended)')
+    expect(result.stdout).toContain('updated .gitattributes (union merge for 8 sofar path(s) appended)')
     expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(`${custom}${GITATTRIBUTES_PROJECTION_LINES.join('\n')}\n`)
     expect(runInit(root).stdout).toContain('unchanged .gitattributes (sofar rules present)')
   })

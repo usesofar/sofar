@@ -9,6 +9,7 @@ import { renderPlan } from './templates/plan'
 import { renderDecisions } from './templates/decisions'
 import { renderMemory } from './templates/memory'
 import { renderSession } from './templates/session'
+import { renderBrief, renderShards } from './templates/shards'
 
 /**
  * Projection generator — regenerates the derived markdown files from a
@@ -16,8 +17,11 @@ import { renderSession } from './templates/session'
  *
  * Called on every append (BD14 seam, SPEC §MCP tools). Full templates since
  * Phase 3 (task 3.6): plan.md (goal, progress, phase tree), decisions.md,
- * and sessions/<session-id>.md per known session. The status block is not a
- * file — `sofar event session-start` renders it straight to stdout.
+ * and sessions/<session-id>.md per known session. Since memory-lead 4.3 part
+ * A (D43) decisions.md and memory.md are indexes, with each entry's full text
+ * in decisions/D<n>.md or memory/M<n>.md and the brief in brief.md. The
+ * status block is not a file — `sofar event session-start` renders it
+ * straight to stdout.
  *
  * Every write is ATOMIC (task 6.3, BD38): temp file in the SAME directory,
  * then rename over the target — atomic on POSIX same-fs — so concurrent
@@ -80,23 +84,32 @@ export function regenerateProjections(initiativeDir: string, state: InitiativeSt
   if (state.memories.length > 0) {
     writeFileAtomicIfChanged(join(initiativeDir, 'memory.md'), renderMemory(state))
   }
+  if (state.brief.length > 0) {
+    writeFileAtomicIfChanged(join(initiativeDir, 'brief.md'), renderBrief(state))
+  }
 
-  if (state.sessions.length > 0) {
-    const sessionsDir = join(initiativeDir, 'sessions')
-    mkdirSync(sessionsDir, { recursive: true })
-    const fingerprint = options?.fingerprint !== undefined ? options.fingerprint : BUILD_FINGERPRINT
-    if (fingerprint === null) {
-      for (const session of state.sessions) {
-        writeFileAtomicIfChanged(join(sessionsDir, sessionFileName(session.id)), renderSession(state, session))
-      }
-    } else {
-      regenerateDirtySessions(initiativeDir, sessionsDir, state, fingerprint)
+  const shards = renderShards(state)
+  if (state.decisions.length > 0) mkdirSync(join(initiativeDir, 'decisions'), { recursive: true })
+  if (state.memories.length > 0) mkdirSync(join(initiativeDir, 'memory'), { recursive: true })
+  if (shards.some((s) => s.name.startsWith('phases/'))) mkdirSync(join(initiativeDir, 'phases'), { recursive: true })
+  const sessionsDir = join(initiativeDir, 'sessions')
+  if (state.sessions.length > 0) mkdirSync(sessionsDir, { recursive: true })
+  const fingerprint = options?.fingerprint !== undefined ? options.fingerprint : BUILD_FINGERPRINT
+  if (fingerprint === null) {
+    for (const shard of shards) writeFileAtomicIfChanged(join(initiativeDir, shard.name), shard.content)
+    for (const session of state.sessions) {
+      writeFileAtomicIfChanged(join(sessionsDir, sessionFileName(session.id)), renderSession(state, session))
     }
+  } else if (shards.length > 0 || state.sessions.length > 0) {
+    regenerateDirty(initiativeDir, sessionsDir, state, shards, fingerprint)
   }
 }
 
 // ---------------------------------------------------------------------------
-// Dirty-only session files (rust-core 4.4, decision 01M39M4B). renderSession
+// Dirty-only session files and shards (rust-core 4.4, decision 01M39M4B;
+// shards since memory-lead D43, keyed `decisions/D<n>.md`, `memory/M<n>.md`,
+// with the hash of their rendered bytes as the inputs: they are cheap to
+// render, and it is the read-to-compare of one file per entry that costs). renderSession
 // reads state.slug and its own SessionState and nothing else (pinned by
 // test/projection-dirty.test.ts), so a session file needs writing only when
 // those inputs change, or when the template does. A derived manifest records,
@@ -168,7 +181,13 @@ function statOf(path: string): { size: number; mtimeMs: number } | null {
   }
 }
 
-function regenerateDirtySessions(initiativeDir: string, sessionsDir: string, state: InitiativeState, fingerprint: string): void {
+function regenerateDirty(
+  initiativeDir: string,
+  sessionsDir: string,
+  state: InitiativeState,
+  shards: ReadonlyArray<{ name: string; content: string }>,
+  fingerprint: string,
+): void {
   const { engine, schema } = currentVersion()
   const path = manifestPath(initiativeDir)
   const prior = readManifest(path, { engine, schema, fingerprint })
@@ -189,6 +208,22 @@ function regenerateDirtySessions(initiativeDir: string, sessionsDir: string, sta
     writeFileAtomicIfChanged(file, renderSession(state, session))
     const st = statOf(file)
     if (st !== null) entries[name] = { fp, ...st }
+    changed = true
+  }
+  for (const shard of shards) {
+    const file = join(initiativeDir, shard.name)
+    const fp = createHash('sha256').update(shard.content).digest('hex')
+    const before = Object.hasOwn(prior, shard.name) ? prior[shard.name] : undefined
+    if (before !== undefined && before.fp === fp) {
+      const st = statOf(file)
+      if (st !== null && st.size === before.size && st.mtimeMs === before.mtimeMs) {
+        entries[shard.name] = before
+        continue
+      }
+    }
+    writeFileAtomicIfChanged(file, shard.content)
+    const st = statOf(file)
+    if (st !== null) entries[shard.name] = { fp, ...st }
     changed = true
   }
   if (!changed && Object.keys(entries).length === Object.keys(prior).length) return

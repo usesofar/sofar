@@ -1875,6 +1875,11 @@ export const GITATTRIBUTES_PROJECTION_LINES: readonly string[] = [
   '.sofar/**/decisions.md merge=union linguist-generated',
   '.sofar/**/memory.md merge=union linguist-generated',
   '.sofar/**/sessions/*.md merge=union linguist-generated',
+  // The index-and-shard layout's files (memory-lead D43).
+  '.sofar/**/brief.md merge=union linguist-generated',
+  '.sofar/**/decisions/*.md merge=union linguist-generated',
+  '.sofar/**/memory/*.md merge=union linguist-generated',
+  '.sofar/**/phases/*.md merge=union linguist-generated',
 ]
 
 /** Every line init owns in .gitattributes, in the order it writes them. */

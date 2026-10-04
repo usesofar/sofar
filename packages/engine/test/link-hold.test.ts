@@ -117,7 +117,7 @@ describe('check-suffixed handles', () => {
     const f = fx()
     logDecision(f.ctx, RETRY)
     const state = fold(f)
-    expect(renderDecisions(state)).toContain(`- ${suffixedHandle(1, state.decisions[0]!.id)} ${state.decisions[0]!.ts} — rule: **${RETRY.rule}**`)
+    expect(renderDecisions(state)).toContain(`- ${suffixedHandle(1, state.decisions[0]!.id)} ${state.decisions[0]!.ts.slice(0, 10)} — rule: ${RETRY.rule}`)
   })
 
   it('every write path accepts a suffixed handle and stores the bare one with its id', () => {

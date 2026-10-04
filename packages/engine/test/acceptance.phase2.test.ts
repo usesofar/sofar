@@ -207,7 +207,9 @@ describe('each tool appends exactly its event and projections regenerate', () =>
     expect(state.decisions[0]).toMatchObject({ chose: 'events', id: events[0]!.id })
     const decisionsMd = readFileSync(join(fixture.initiativeDir, 'decisions.md'), 'utf8')
     expect(decisionsMd.startsWith(GENERATED_HEADER)).toBe(true)
-    expect(decisionsMd).toContain('chose **events** over snapshots because replayable')
+    // The index line, and the decision whole in its shard (memory-lead D45).
+    expect(decisionsMd).toMatch(/^- D1·\w{4} \d{4}-\d\d-\d\d — chose events$/m)
+    expect(readFileSync(join(fixture.initiativeDir, 'decisions', 'D1.md'), 'utf8')).toContain('chose: events\nover: snapshots\nbecause: replayable')
     await client.close()
   })
 

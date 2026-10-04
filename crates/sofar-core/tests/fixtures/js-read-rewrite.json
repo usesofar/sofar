@@ -7,6 +7,20 @@
   "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/plan.md' '.sofar/initiatives/demo/decisions.md' '.sofar/initiatives/demo/memory.md'"
  },
  {
+  "cmd": "cat .sofar/initiatives/demo/brief.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/brief.md'"
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/decisions/D12.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
   "cmd": "cat .sofar/initiatives/demo/decisions.md",
   "cwd": "/r",
   "root": "/r",

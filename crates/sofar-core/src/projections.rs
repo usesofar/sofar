@@ -16,7 +16,7 @@ use crate::fold::{
 };
 use crate::json::{Json, number_to_string};
 use crate::rule_fidelity::{quote_clause, render_rule};
-use crate::text::{js_trim, js_trim_end, one_line, utf16_len, utf16_prefix};
+use crate::text::{date_part, js_trim, js_trim_end, one_line, utf16_len, utf16_prefix};
 
 /// The header that makes hand-editing a projection a visible bug (BD5).
 pub const GENERATED_HEADER: &str =
@@ -838,11 +838,12 @@ pub fn render_plan(state: &InitiativeState) -> String {
         }
     ));
     lines.push(String::new());
-    // The brief in full (r1-fixes 4.6, L36), where the digest's clipped block points.
+    // The brief is its own file (memory-lead 4.3 part A, D45); brief.md holds it whole.
     if !state.brief.is_empty() {
-        lines.push("Brief (the operator's words, verbatim):".to_owned());
-        lines.push(String::new());
-        lines.extend(state.brief.split('\n').map(str::to_owned));
+        lines.push(format!(
+            "Brief: the operator's words, {} chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.",
+            utf16_len(&state.brief)
+        ));
         lines.push(String::new());
     }
     lines.push(format!(
@@ -854,37 +855,22 @@ pub fn render_plan(state: &InitiativeState) -> String {
         lines.push("(no plan recorded yet — call sofar_update_plan)".to_owned());
         lines.push(String::new());
     }
-    for phase in &state.phases {
-        lines.push(format!(
-            "## {} [{}] — {} done",
-            phase.name,
-            phase.status,
-            phase_fraction(task_progress([phase]))
-        ));
-        lines.push(String::new());
-        if let Some(note) = &phase.note {
-            lines.push(format!("> {note}"));
+    // A closed phase is one line here and whole in its shard (D45).
+    for (k, phase) in state.phases.iter().enumerate() {
+        let head = phase_head(phase);
+        if is_closed_phase(phase) {
+            lines.push(format!("{head} — its tasks in {}", phase_shard(k + 1)));
             lines.push(String::new());
+            // Its note stays where its status is read (phase-lifecycle 2.1).
+            if let Some(note) = &phase.note {
+                lines.push(format!("> {note}"));
+                lines.push(String::new());
+            }
+        } else {
+            lines.push(head);
+            lines.push(String::new());
+            lines.extend(phase_body(phase));
         }
-        for task in &phase.tasks {
-            let bx = match task.status.as_str() {
-                "done" => 'x',
-                "dropped" => '-',
-                _ => ' ',
-            };
-            let suffix = match task.status.as_str() {
-                "active" | "blocked" | "dropped" => format!(" ({})", task.status),
-                _ => String::new(),
-            };
-            lines.push(format!(
-                "- [{bx}] {} {}{suffix}{}{}",
-                task.id,
-                task.title,
-                route_suffix(task),
-                verify_suffix(task)
-            ));
-        }
-        lines.push(String::new());
     }
     if let Some(active) = &state.current.active_phase {
         lines.push(format!("Active phase: {active}"));
@@ -896,6 +882,68 @@ pub fn render_plan(state: &InitiativeState) -> String {
         lines.push(format!("Blocked on: {blocked}"));
     }
     doc(&lines)
+}
+
+/// `phaseShard`: `phases/P<k>.md`, k counting phases in plan order.
+#[must_use]
+pub fn phase_shard(k: usize) -> String {
+    format!("phases/P{k}.md")
+}
+
+/// `isClosedPhase`: done or dropped — one line in the plan index.
+#[must_use]
+pub fn is_closed_phase(phase: &PhaseState) -> bool {
+    phase.status == "done" || phase.status == "dropped"
+}
+
+/// `phaseHead`.
+#[must_use]
+pub fn phase_head(phase: &PhaseState) -> String {
+    format!(
+        "## {} [{}] — {} done",
+        phase.name,
+        phase.status,
+        phase_fraction(task_progress([phase]))
+    )
+}
+
+/// `phaseBody`: the note and task lines, then a blank line.
+#[must_use]
+pub fn phase_body(phase: &PhaseState) -> Vec<String> {
+    let mut lines = Vec::new();
+    if let Some(note) = &phase.note {
+        lines.push(format!("> {note}"));
+        lines.push(String::new());
+    }
+    for task in &phase.tasks {
+        let bx = match task.status.as_str() {
+            "done" => 'x',
+            "dropped" => '-',
+            _ => ' ',
+        };
+        let suffix = match task.status.as_str() {
+            "active" | "blocked" | "dropped" => format!(" ({})", task.status),
+            _ => String::new(),
+        };
+        lines.push(format!(
+            "- [{bx}] {} {}{suffix}{}{}",
+            task.id,
+            task.title,
+            route_suffix(task),
+            verify_suffix(task)
+        ));
+    }
+    lines.push(String::new());
+    lines
+}
+
+/// `clip` of the index templates: UTF-16 units, an ellipsis in the last one.
+fn index_clip(text: &str, max: usize) -> String {
+    if utf16_len(text) > max {
+        format!("{}…", utf16_prefix(text, max - 1))
+    } else {
+        text.to_owned()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -921,7 +969,11 @@ pub fn suffixed_handle(ordinal: usize, id: &str) -> String {
     format!("D{ordinal}·{}", handle_suffix(id))
 }
 
-/// `renderDecisions`.
+/// `INDEX_HEAD_MAX`: how much of a decision's `chose` an index line carries.
+pub const INDEX_HEAD_MAX: usize = 80;
+
+/// `renderDecisions` — the index (memory-lead 4.3 part A, D45): one line per
+/// decision, its full text in decisions/D<n>.md.
 #[must_use]
 pub fn render_decisions(state: &InitiativeState) -> String {
     let mut lines: Vec<String> = vec![GENERATED_HEADER.to_owned(), String::new()];
@@ -929,20 +981,26 @@ pub fn render_decisions(state: &InitiativeState) -> String {
     lines.push(String::new());
     if state.decisions.is_empty() {
         lines.push("(no decisions logged yet)".to_owned());
+    } else {
+        lines.push("One line per decision, in log order. Its full text — chose, over, because, the operator's words — is in decisions/D<n>.md, or `sofar show D<n>`.".to_owned());
+        lines.push(String::new());
     }
-    // Every decision, retired or not (r1-fixes 3.2, D25), marked with why.
     let retired = retired_ordinals(state);
     for (i, d) in state.decisions.iter().enumerate() {
         let ordinal = i + 1;
-        let mut marks: Vec<String> = Vec::new();
+        // Each entry's own handle, check-suffixed (r3-fixes 2.6, D18).
+        let handle = suffixed_handle(ordinal, &d.id);
         if let Some(by) = d.superseded_by {
-            marks.push(format!("superseded by D{by}"));
-        } else if let Some(until) = &d.until {
-            marks.push(if retired.contains(&ordinal) {
-                format!("retired: {until} resolved")
-            } else {
-                format!("until {until}")
-            });
+            lines.push(format!("- {handle} — superseded by D{by}"));
+            continue;
+        }
+        if let Some(until) = d.until.as_ref().filter(|_| retired.contains(&ordinal)) {
+            lines.push(format!("- {handle} — retired: {until} resolved"));
+            continue;
+        }
+        let mut marks: Vec<String> = Vec::new();
+        if let Some(until) = &d.until {
+            marks.push(format!("until {until}"));
         }
         if let Some(supersedes) = &d.supersedes {
             marks.push(format!("supersedes {supersedes}"));
@@ -954,28 +1012,12 @@ pub fn render_decisions(state: &InitiativeState) -> String {
         } else {
             format!("({}) ", marks.join("; "))
         };
-        // The operator's words follow the rule they sourced (memory-lead D2).
-        let rule = d
-            .rule
-            .as_ref()
-            .map(|r| {
-                let source = d
-                    .quote
-                    .as_deref()
-                    .map(|q| format!("{} — ", quote_clause(r, q)))
-                    .unwrap_or_default();
-                format!("rule: **{r}** — {source}")
-            })
-            .unwrap_or_default();
-        // Each entry's own handle, check-suffixed (r3-fixes 2.6, D18).
-        lines.push(format!(
-            "- {} {} — {mark}{rule}chose **{}** over {} because {}",
-            suffixed_handle(ordinal, &d.id),
-            d.ts,
-            d.chose,
-            d.over,
-            d.because
-        ));
+        // Rule leads (drift-hardening 2.2) and is never cut.
+        let what = d.rule.as_ref().map_or_else(
+            || format!("chose {}", index_clip(&one_line(&d.chose), INDEX_HEAD_MAX)),
+            |r| format!("rule: {}", one_line(r)),
+        );
+        lines.push(format!("- {handle} {} — {mark}{what}", date_part(&d.ts)));
     }
     doc(&lines)
 }
@@ -983,7 +1025,11 @@ pub fn render_decisions(state: &InitiativeState) -> String {
 // ---------------------------------------------------------------------------
 // memory.ts
 
-/// `renderMemory` — written only when something was promoted.
+/// `MEMORY_HEAD_MAX`: how much of a memory an index line carries.
+pub const MEMORY_HEAD_MAX: usize = 80;
+
+/// `renderMemory` — written only when something was promoted; an index since
+/// memory-lead D45, each memory whole in memory/M<n>.md.
 #[must_use]
 pub fn render_memory(state: &InitiativeState) -> String {
     let mut lines: Vec<String> = vec![GENERATED_HEADER.to_owned(), String::new()];
@@ -1003,25 +1049,160 @@ pub fn render_memory(state: &InitiativeState) -> String {
     lines.push(
         "which is how `sofar doctor` sees that a promoted fact reached repo memory.".to_owned(),
     );
+    lines.push(
+        "One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.".to_owned(),
+    );
     lines.push(String::new());
     for (index, memory) in state.memories.iter().enumerate() {
-        let body = match &memory.superseded_by {
-            Some(by) => format!("~~{}~~ — superseded by {by}", memory.text),
-            None => memory.text.clone(),
-        };
+        if let Some(by) = &memory.superseded_by {
+            lines.push(format!("- M{} — superseded by {by}", index + 1));
+            continue;
+        }
         let replaces = memory
             .supersedes
             .as_ref()
-            .map(|s| format!(" (supersedes {s})"))
+            .map(|s| format!("(supersedes {s}) "))
             .unwrap_or_default();
         lines.push(format!(
-            "- **M{}** ({}){replaces} — {}{body}",
+            "- M{} {} — {replaces}{}{}",
             index + 1,
-            memory.ts,
-            native_origin_mark(memory.origin.as_deref())
+            date_part(&memory.ts),
+            native_origin_mark(memory.origin.as_deref()),
+            index_clip(&one_line(&memory.text), MEMORY_HEAD_MAX)
         ));
     }
     doc(&lines)
+}
+
+// ---------------------------------------------------------------------------
+// shards.ts (memory-lead 4.3 part A, D45)
+
+/// `decisionShard`.
+#[must_use]
+pub fn decision_shard(ordinal: usize) -> String {
+    format!("decisions/D{ordinal}.md")
+}
+
+/// `memoryShard`.
+#[must_use]
+pub fn memory_shard(ordinal: usize) -> String {
+    format!("memory/M{ordinal}.md")
+}
+
+/// `decisionEntry`: one decision whole, a field a line.
+#[must_use]
+pub fn decision_entry(state: &InitiativeState, ordinal: usize, retired: &[usize]) -> String {
+    let d = &state.decisions[ordinal - 1];
+    let why = if let Some(by) = d.superseded_by {
+        format!(" — replaced by D{by}")
+    } else if let Some(until) = d.until.as_ref().filter(|_| retired.contains(&ordinal)) {
+        format!(" — retired: {until} resolved")
+    } else {
+        String::new()
+    };
+    let mut lines = vec![format!("D{ordinal} — {}{why}", date_part(&d.ts))];
+    if let Some(rule) = &d.rule {
+        lines.push(format!("rule: {rule}"));
+    }
+    // The operator's words follow the rule they sourced (memory-lead D2).
+    if let Some(quote) = &d.quote {
+        lines.push(d.rule.as_ref().map_or_else(
+            || format!("quote: {quote}"),
+            |rule| quote_clause(rule, quote),
+        ));
+    }
+    lines.push(format!("chose: {}", d.chose));
+    lines.push(format!("over: {}", d.over));
+    lines.push(format!("because: {}", d.because));
+    if let Some(guard) = &d.guard {
+        lines.push(format!("guard: {guard}"));
+    }
+    if let Some(check) = &d.check {
+        let cmd = check
+            .as_obj()
+            .and_then(|o| o.get("cmd"))
+            .map_or_else(|| "undefined".to_owned(), crate::json::js_to_string);
+        lines.push(format!("check: {cmd}"));
+    }
+    if let Some(supersedes) = &d.supersedes {
+        lines.push(format!("supersedes: {supersedes}"));
+    }
+    if let Some(until) = &d.until {
+        lines.push(format!("until: {until}"));
+    }
+    lines.join("\n")
+}
+
+/// `memoryEntry`: one memory whole.
+#[must_use]
+pub fn memory_entry(state: &InitiativeState, ordinal: usize) -> String {
+    let m = &state.memories[ordinal - 1];
+    let replaced = m
+        .superseded_by
+        .as_ref()
+        .map(|by| format!(" — replaced by {by}"))
+        .unwrap_or_default();
+    let supersedes = m
+        .supersedes
+        .as_ref()
+        .map(|s| format!(" — supersedes {s}"))
+        .unwrap_or_default();
+    format!(
+        "M{ordinal} — {}{replaced}{supersedes}\n{}{}",
+        date_part(&m.ts),
+        native_origin_mark(m.origin.as_deref()),
+        m.text
+    )
+}
+
+/// `renderBrief`: brief.md, written only when there is a brief.
+#[must_use]
+pub fn render_brief(state: &InitiativeState) -> String {
+    let mut lines: Vec<String> = vec![
+        GENERATED_HEADER.to_owned(),
+        String::new(),
+        format!("# Brief: {}", slug_or_unnamed(state)),
+        String::new(),
+        "The operator's words, verbatim. `sofar show brief¶<k>` prints one paragraph.".to_owned(),
+        String::new(),
+    ];
+    lines.extend(state.brief.split('\n').map(str::to_owned));
+    doc(&lines)
+}
+
+/// `renderShards`: every shard, path relative to the initiative directory, in
+/// a fixed order — decisions, memories, then closed phases.
+#[must_use]
+pub fn render_shards(state: &InitiativeState) -> Vec<(String, String)> {
+    let retired = retired_ordinals(state);
+    let mut out = Vec::with_capacity(state.decisions.len() + state.memories.len());
+    for n in 1..=state.decisions.len() {
+        let body = decision_entry(state, n, &retired);
+        out.push((
+            decision_shard(n),
+            doc(&[GENERATED_HEADER.to_owned(), String::new(), body]),
+        ));
+    }
+    for n in 1..=state.memories.len() {
+        let body = memory_entry(state, n);
+        out.push((
+            memory_shard(n),
+            doc(&[GENERATED_HEADER.to_owned(), String::new(), body]),
+        ));
+    }
+    for (k, phase) in state.phases.iter().enumerate() {
+        if is_closed_phase(phase) {
+            let mut lines = vec![
+                GENERATED_HEADER.to_owned(),
+                String::new(),
+                phase_head(phase),
+                String::new(),
+            ];
+            lines.extend(phase_body(phase));
+            out.push((phase_shard(k + 1), doc(&lines)));
+        }
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -1177,30 +1358,50 @@ pub fn regenerate_projections_with(
     if !state.memories.is_empty() {
         write_if_changed(&initiative_dir.join("memory.md"), &render_memory(state))?;
     }
+    if !state.brief.is_empty() {
+        write_if_changed(&initiative_dir.join("brief.md"), &render_brief(state))?;
+    }
+    let shards = render_shards(state);
+    if !state.decisions.is_empty() {
+        fs::create_dir_all(initiative_dir.join("decisions"))?;
+    }
+    if !state.memories.is_empty() {
+        fs::create_dir_all(initiative_dir.join("memory"))?;
+    }
+    if shards.iter().any(|(name, _)| name.starts_with("phases/")) {
+        fs::create_dir_all(initiative_dir.join("phases"))?;
+    }
+    let sessions_dir = initiative_dir.join("sessions");
     if !state.sessions.is_empty() {
-        let sessions_dir = initiative_dir.join("sessions");
         fs::create_dir_all(&sessions_dir)?;
-        match fingerprint {
-            None => {
-                for session in &state.sessions {
-                    write_if_changed(
-                        &sessions_dir.join(session_file_name(&session.id)),
-                        &render_session(state, session),
-                    )?;
-                }
+    }
+    match fingerprint {
+        None => {
+            for (name, content) in &shards {
+                write_if_changed(&initiative_dir.join(name), content)?;
             }
-            Some(fp) => regenerate_dirty_sessions(initiative_dir, &sessions_dir, state, fp)?,
+            for session in &state.sessions {
+                write_if_changed(
+                    &sessions_dir.join(session_file_name(&session.id)),
+                    &render_session(state, session),
+                )?;
+            }
         }
+        Some(fp) if !shards.is_empty() || !state.sessions.is_empty() => {
+            regenerate_dirty(initiative_dir, &sessions_dir, state, &shards, fp)?;
+        }
+        Some(_) => {}
     }
     Ok(())
 }
 
 // ---------------------------------------------------------------------------
-// Dirty-only session files (`regenerateDirtySessions`, 01M39M4B): render_session
-// reads the slug and its own SessionState only, so a file is rewritten only
-// when those inputs, the file on disk, or the manifest key moved. The output
-// is byte-identical to a full regeneration; the event-by-event parity tests
-// gate that.
+// Dirty-only session files and shards (`regenerateDirty`, 01M39M4B; shards
+// since memory-lead D45, keyed by their path and the hash of their bytes):
+// render_session reads the slug and its own SessionState only, so a file is
+// rewritten only when those inputs, the file on disk, or the manifest key
+// moved. The output is byte-identical to a full regeneration; the
+// event-by-event parity tests gate that.
 
 const PROJECTION_MANIFEST_VERSION: u32 = 1;
 
@@ -1249,10 +1450,11 @@ fn file_stat(path: &Path) -> Option<(u64, f64)> {
     clippy::float_cmp,
     reason = "exact equality of a stored stat IS the contract"
 )]
-fn regenerate_dirty_sessions(
+fn regenerate_dirty(
     initiative_dir: &Path,
     sessions_dir: &Path,
     state: &InitiativeState,
+    shards: &[(String, String)],
     fingerprint: &str,
 ) -> io::Result<()> {
     let version = crate::snapshot::current_version();
@@ -1285,6 +1487,22 @@ fn regenerate_dirty_sessions(
         write_if_changed(&file, &render_session(state, session))?;
         if let Some((size, mtime_ms)) = file_stat(&file) {
             entries.insert(name, ManifestEntry { fp, size, mtime_ms });
+        }
+        changed = true;
+    }
+    for (name, content) in shards {
+        let file = initiative_dir.join(name);
+        let fp = crate::sha256::hex_digest(content.as_bytes());
+        if let Some(before) = prior.get(name)
+            && before.fp == fp
+            && file_stat(&file) == Some((before.size, before.mtime_ms))
+        {
+            entries.insert(name.clone(), before.clone());
+            continue;
+        }
+        write_if_changed(&file, content)?;
+        if let Some((size, mtime_ms)) = file_stat(&file) {
+            entries.insert(name.clone(), ManifestEntry { fp, size, mtime_ms });
         }
         changed = true;
     }
