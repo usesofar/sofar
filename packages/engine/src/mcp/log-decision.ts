@@ -1,3 +1,4 @@
+import { RULE_QUOTE_MAX } from '@sofar/schema'
 import type { LogDecisionArgs, LogDecisionResult } from '@sofar/schema/tool-inputs'
 import { resolveJudgeProvider } from '../client/judge'
 import { decisionJudgeWarnings, type DecisionDraft } from '../core/decision-judge'
@@ -45,6 +46,60 @@ export async function logDecisionJudged(
   return { ...result, warnings: [...(result.warnings ?? []), ...judged] }
 }
 
+const QUOTE_GAP = ' … '
+const quoteTerms = (text: string): Set<string> => new Set((text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []))
+
+/**
+ * A quote over RULE_QUOTE_MAX, cut to the operator's own whole sentences
+ * (r3-fixes 2.8): those sharing a term with the rule, most terms first and
+ * earliest on a tie (with none sharing one, the earliest that fits), kept in
+ * their order — adjacent ones with the bytes between them,
+ * the rest joined by ` … ` — up to the cap. Nothing is paraphrased or cut
+ * mid-sentence (memory-lead D2: the sentence, not the message). Null when it
+ * fits already, or when no whole sentence fits: the payload validator then
+ * refuses it as before. In round 3, 38 of 101 write-backs were refused whole
+ * on this cap alone, and each was resent whole.
+ */
+export function fitQuote(quote: string, rule: string): { quote: string; kept: number; of: number } | null {
+  if (quote.length <= RULE_QUOTE_MAX) return null
+  const spans: Array<{ start: number; end: number; score: number }> = []
+  const want = quoteTerms(rule)
+  const re = /[^\n.!?;]+[.!?;]*/g
+  for (let m = re.exec(quote); m !== null; m = re.exec(quote)) {
+    const lead = m[0].length - m[0].trimStart().length
+    const text = m[0].trim()
+    if (text.length === 0) continue
+    let score = 0
+    for (const term of quoteTerms(text)) if (want.has(term)) score += 1
+    spans.push({ start: m.index + lead, end: m.index + lead + text.length, score })
+  }
+  const render = (kept: number[]): string =>
+    kept
+      .map((i, k) => {
+        const s = spans[i]!
+        const body = quote.slice(s.start, s.end)
+        if (k === 0) return body
+        const prev = kept[k - 1]!
+        return `${prev === i - 1 ? quote.slice(spans[prev]!.end, s.start) : QUOTE_GAP}${body}`
+      })
+      .join('')
+  // Only sentences the rule shares a term with; with none, the earliest that fits.
+  const related = spans.map((_, i) => i).filter((i) => spans[i]!.score > 0)
+  const order = (related.length > 0 ? related : spans.map((_, i) => i)).sort((a, b) => spans[b]!.score - spans[a]!.score || a - b)
+  let kept: number[] = []
+  for (const i of order) {
+    const next = [...kept, i].sort((a, b) => a - b)
+    if (render(next).length <= RULE_QUOTE_MAX) kept = next
+    if (related.length === 0 && kept.length > 0) break
+  }
+  return kept.length === 0 ? null : { quote: render(kept), kept: kept.length, of: spans.length }
+}
+
+/** The write result's line for a quote fitQuote cut, naming what was filed. */
+export function quoteFitWarning(ordinal: number, fit: { quote: string; kept: number; of: number }): string {
+  return `D${ordinal}'s quote was over ${RULE_QUOTE_MAX} chars, so it was cut to the operator's ${fit.kept} of ${fit.of} sentences closest to the rule, verbatim: "${fit.quote}". If a different sentence is the one the rule came from, log it again with supersedes D${ordinal}.`
+}
+
 /** The configured provider for this repo, or deterministic only. Never throws. */
 export function judgeOptionsFor(ctx: ToolContext): JudgeOptions {
   const { provider } = resolveJudgeProvider(ctx.rootDir)
@@ -62,13 +117,15 @@ function logDecisionLogged(
   const refusal = silentReversal(state, args, foreignDecisions(ctx.sofarDir, slug))
   if (refusal !== null) throw new ToolError('invalid_input', refusal.message, refusal.errors)
   const ordinal = state.decisions.length + 1
+  const fit = args.quote !== undefined ? fitQuote(args.quote, args.rule ?? args.chose) : null
+  const quote = fit?.quote ?? args.quote
   const event = ctx.appendAndProject(slug, 'decision_logged', {
     chose: args.chose,
     over: args.over,
     because: args.because,
     // Absent stays absent (drift-hardening D1) — never an empty key.
     ...(args.rule !== undefined ? { rule: args.rule } : {}),
-    ...(args.quote !== undefined ? { quote: args.quote } : {}),
+    ...(quote !== undefined ? { quote } : {}),
     ...(args.guard !== undefined ? { guard: args.guard } : {}),
     ...(args.supersedes !== undefined ? { supersedes: args.supersedes } : {}),
     ...(args.until !== undefined ? { until: args.until } : {}),
@@ -76,9 +133,12 @@ function logDecisionLogged(
   })
   // What the rule adds to the operator's words (memory-lead 1.2, D2) — after
   // the append, so a warning never reads as a refusal.
-  const warning = args.rule !== undefined ? ruleFidelityWarning(ordinal, args.rule, args.quote) : null
+  const warnings = [
+    ...(fit !== null ? [quoteFitWarning(ordinal, fit)] : []),
+    ...(args.rule !== undefined ? [ruleFidelityWarning(ordinal, args.rule, quote)].filter((w): w is string => w !== null) : []),
+  ]
   return {
-    result: { ok: true, event_id: event.id, ...(warning !== null ? { warnings: [warning] } : {}) },
+    result: { ok: true, event_id: event.id, ...(warnings.length > 0 ? { warnings } : {}) },
     before: state,
     draft: {
       ordinal,

@@ -846,6 +846,26 @@ operator's own words beside the rule — non-empty, at most RULE_QUOTE_MAX (300)
 chars, rejected without `rule` — and core/rule-fidelity.ts names what the rule
 adds to them. It is pure: no env, no clock, no locale.
 
+QUOTE FIT (r3-fixes 2.8). The MCP writers (`sofar_log_decision`, and each
+decision in a `sofar_end_session` batch) cut an over-cap quote rather than
+refuse it. In round 3, 34 of 101 write-backs were refused whole for this alone,
+and each was resent whole.
+- What is kept: the operator's whole sentences (split after `.`, `!`, `?` or
+  `;`, and at newlines) that share at least one term (3+ letters or digits,
+  case-folded) with the rule, else with `chose`. Most shared terms first,
+  earliest on a tie, added while the result fits. With none sharing a term, the
+  earliest sentence that fits.
+- How they are joined: in their order. Adjacent sentences keep the bytes
+  between them; the rest are joined by ` … `. Nothing is paraphrased or cut
+  mid-sentence.
+- What the writer says: `D<n>'s quote was over 300 chars, so it was cut to the
+  operator's <k> of <m> sentences closest to the rule, verbatim: "<quote>". If a
+  different sentence is the one the rule came from, log it again with
+  supersedes D<n>.` The rule-fidelity warning then reads the filed quote.
+- When no whole sentence fits, the payload validator refuses it as before. The
+  CLI append (`sofar event append`) does no fitting: it files one event, so a
+  refusal there costs that event alone.
+
 SPECIFICS of a rule, in rule order, deduplicated case-insensitively:
 backticked, straight double-quoted and curly double-quoted spans first, each
 one `value` holding its whitespace-collapsed inner text. The text between
@@ -8311,6 +8331,12 @@ stay the underlying derivation's, and exit codes are styling-independent.
   event append` both append and return `warnings` naming `4xx` and the
   ordinal, return none for a faithful rule, and a quote without a rule
   appends nothing. The `rule` description says to word it as the operator did.
+- **Quote fit (r3-fixes 2.8):** a six-sentence quote over 300 chars with a
+  trial-cancellation rule files as its two trial sentences joined by ` … `,
+  verbatim, through sofar_log_decision and through a write-back batch alike,
+  each returning the cut warning with `2 of 6`; a sentence-less 301-char quote
+  is still refused. Replayed over round 3's write-backs, all 34 refused for the
+  quote cap file (refused whole 37 of 101 → 3).
 - **Overhead cut (memory-lead 1.1):** a server created with a
   `hostSessionId` and never sent sofar_start_session files a decision and a
   bare `sofar_end_session({summary, next_action})` under that id, registering

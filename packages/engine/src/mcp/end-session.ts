@@ -16,7 +16,7 @@ import { resolvePeers } from '../core/peers'
 import { silentReversal } from '../core/reversal'
 import { ruleFidelityWarning } from '../core/rule-fidelity'
 import { homeInitiative, ToolError, type ToolContext } from './context'
-import { judgeOptionsFor } from './log-decision'
+import { fitQuote, judgeOptionsFor, quoteFitWarning } from './log-decision'
 import { planPhaseAdd, resolvePhaseOrThrow } from './update-phase'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 import { citeNudges, homeViewOf } from './waits-on'
@@ -181,6 +181,10 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
     for (const key of ['rule', 'quote', 'guard', 'supersedes', 'until', 'check'] as const) {
       if (d[key] !== undefined) payload[key] = d[key]
     }
+    // An over-long quote is cut to whole operator sentences (r3-fixes 2.8)
+    // rather than refusing the whole write-back over one entry.
+    const fit = d.quote !== undefined ? fitQuote(d.quote, d.rule ?? d.chose) : null
+    if (fit !== null) payload.quote = fit.quote
     const reversal = silentReversal({ ...state, decisions: seen } as InitiativeState, d, foreign)
     if (reversal !== null) {
       // A replacement for another record's decision lands in THAT record,
@@ -200,8 +204,9 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
       ...(d.rule !== undefined ? { rule: d.rule } : {}),
       ...(d.supersedes !== undefined ? { supersedes: d.supersedes } : {}),
     })
+    if (fit !== null) warnings.push(quoteFitWarning(ordinal, fit))
     if (d.rule !== undefined) {
-      const warning = ruleFidelityWarning(ordinal, d.rule, d.quote)
+      const warning = ruleFidelityWarning(ordinal, d.rule, payload.quote as string | undefined)
       if (warning !== null) warnings.push(warning)
     }
   })

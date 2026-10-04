@@ -5,6 +5,7 @@ import { TOOL_INPUT_SCHEMAS } from '@sofar/schema/tool-inputs'
 import { emptyState, foldLog, type DecisionState, type InitiativeState } from '../src/core/fold'
 import { renderRule, ruleFidelityWarning, ruleSpecifics, unquotedSpecifics } from '../src/core/rule-fidelity'
 import { runAppend } from '../src/cli/event'
+import { fitQuote } from '../src/mcp/log-decision'
 import { renderDecisions } from '../src/projections/templates/decisions'
 import { renderReviewPacket } from '../src/projections/templates/review'
 import { renderFullStatus, renderStatus } from '../src/projections/templates/status'
@@ -154,6 +155,51 @@ describe('both agent-facing writers warn, never refuse', () => {
     const err = await callToolExpectError(client, 'sofar_log_decision', { ...base, chose: 'A quote alone', quote: R1_QUOTE })
     expect(err.code).toBe('invalid_input')
     expect(foldLog(f.eventsPath).state.decisions).toHaveLength(2)
+  })
+
+  // r3-fixes 2.8: in round 3, 38 of 101 write-backs were refused whole on the quote cap.
+  const LONG = [
+    'We had a long call about billing.',
+    'Trials with no card must cancel at trial end with a notice and no invoice.',
+    'Also the weather was bad, and the office coffee machine broke again, which nobody fixed for a week.',
+    'Never invoice a trial that has no payment method.',
+    'The rest of this message is about the offsite agenda, the travel booking, and the new seating plan for the team.',
+    'Finally, please keep the changelog tidy.',
+  ].join(' ')
+  const TRIAL_RULE = 'Cancel a trial with no card at trial end; never invoice it.'
+
+  it('fitQuote keeps the operator\'s whole sentences closest to the rule, in order, verbatim', () => {
+    expect(LONG.length).toBeGreaterThan(RULE_QUOTE_MAX)
+    const fit = fitQuote(LONG, TRIAL_RULE)!
+    expect(fit.quote).toBe(
+      'Trials with no card must cancel at trial end with a notice and no invoice. … Never invoice a trial that has no payment method.',
+    )
+    expect(fit).toMatchObject({ kept: 2, of: 6 })
+    expect(fit.quote.length).toBeLessThanOrEqual(RULE_QUOTE_MAX)
+    expect(fitQuote('short enough', TRIAL_RULE)).toBeNull()
+    expect(fitQuote('x'.repeat(RULE_QUOTE_MAX + 1), TRIAL_RULE)).toBeNull() // no whole sentence fits: refused as before
+  })
+
+  it('sofar_log_decision and a write-back file a cut quote with a warning instead of refusing', async () => {
+    const f = fx()
+    const { client } = await connectServer(f.root)
+    const started = await callTool(client, 'sofar_start_session', { tool: 'claude-code', initiative: 'demo' })
+    const base = { chose: 'Cancel cardless trials', over: 'invoicing them', because: 'the operator said so', rule: TRIAL_RULE, quote: LONG }
+    const logged = await callTool(client, 'sofar_log_decision', base)
+    expect(logged.isError).toBe(false)
+    expect(logged.body).toMatchObject({ ok: true, warnings: [expect.stringContaining("D1's quote was over 300 chars, so it was cut to the operator's 2 of 6 sentences")] })
+    expect(foldLog(f.eventsPath).state.decisions[0]!.quote).toBe(fitQuote(LONG, TRIAL_RULE)!.quote)
+
+    const session_id = (started.body as { session_id: string }).session_id
+    const back = await callTool(client, 'sofar_end_session', {
+      session_id,
+      decisions: [{ ...base, chose: 'Cancel cardless trials, restated' }],
+      summary: 's',
+      next_action: 'n',
+    })
+    expect(back.isError).toBe(false)
+    expect(back.body).toMatchObject({ ok: true, decisions: ['D2'], warnings: expect.arrayContaining([expect.stringContaining("D2's quote was over 300 chars")]) })
+    expect(foldLog(f.eventsPath).state.decisions[1]!.quote).toBe(fitQuote(LONG, TRIAL_RULE)!.quote)
   })
 
   it('sofar event append --type decision_logged', () => {
