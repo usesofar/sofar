@@ -1,0 +1,202 @@
+[
+ {
+  "cmd": "cat src/db.ts",
+  "may_write": false
+ },
+ {
+  "cmd": "cat a | grep x | head -5",
+  "may_write": false
+ },
+ {
+  "cmd": "grep -rn foo src 2>&1 | tail -3",
+  "may_write": false
+ },
+ {
+  "cmd": "git status --short",
+  "may_write": false
+ },
+ {
+  "cmd": "git -C sub log --oneline -5",
+  "may_write": false
+ },
+ {
+  "cmd": "git --no-pager diff --stat > /dev/null",
+  "may_write": false
+ },
+ {
+  "cmd": "ls -la && pwd",
+  "may_write": false
+ },
+ {
+  "cmd": "sed -n 1,20p src/a.ts",
+  "may_write": false
+ },
+ {
+  "cmd": "find . -name '*.ts' -not -path './node_modules/*'",
+  "may_write": false
+ },
+ {
+  "cmd": "npm test -- --run",
+  "may_write": false
+ },
+ {
+  "cmd": "CI=1 bun test test/a.test.ts 2>&1",
+  "may_write": false
+ },
+ {
+  "cmd": "cd apps/web && bun test",
+  "may_write": false
+ },
+ {
+  "cmd": "rg 'a > b' src",
+  "may_write": false
+ },
+ {
+  "cmd": "echo \"x > y\"",
+  "may_write": false
+ },
+ {
+  "cmd": "jq .version package.json",
+  "may_write": false
+ },
+ {
+  "cmd": "sofar status",
+  "may_write": false
+ },
+ {
+  "cmd": "git commit -m 'x'",
+  "may_write": false
+ },
+ {
+  "cmd": "git add -A",
+  "may_write": false
+ },
+ {
+  "cmd": "",
+  "may_write": false
+ },
+ {
+  "cmd": "echo hi 1>&2",
+  "may_write": false
+ },
+ {
+  "cmd": "make test",
+  "may_write": false
+ },
+ {
+  "cmd": "cargo test -p sofar-core 2>/dev/null",
+  "may_write": false
+ },
+ {
+  "cmd": "wc -l src/*.ts; date",
+  "may_write": false
+ },
+ {
+  "cmd": "git log --format='%h > %s' -3",
+  "may_write": false
+ },
+ {
+  "cmd": "echo x > notes.txt",
+  "may_write": true
+ },
+ {
+  "cmd": "cat a >> b",
+  "may_write": true
+ },
+ {
+  "cmd": "sed -i '' s/a/b/ src/db/store.ts",
+  "may_write": true
+ },
+ {
+  "cmd": "sed --in-place s/a/b/ f",
+  "may_write": true
+ },
+ {
+  "cmd": "git checkout -- src/a.ts",
+  "may_write": true
+ },
+ {
+  "cmd": "git stash pop",
+  "may_write": true
+ },
+ {
+  "cmd": "git -c core.x=y reset --hard HEAD",
+  "may_write": true
+ },
+ {
+  "cmd": "npm run build",
+  "may_write": true
+ },
+ {
+  "cmd": "node scripts/gen.js",
+  "may_write": true
+ },
+ {
+  "cmd": "python3 x.py",
+  "may_write": true
+ },
+ {
+  "cmd": "find . -name '*.tmp' -delete",
+  "may_write": true
+ },
+ {
+  "cmd": "find . -exec rm {} \\;",
+  "may_write": true
+ },
+ {
+  "cmd": "mv a b",
+  "may_write": true
+ },
+ {
+  "cmd": "cp a b",
+  "may_write": true
+ },
+ {
+  "cmd": "rm -rf dist",
+  "may_write": true
+ },
+ {
+  "cmd": "tee out.txt < in",
+  "may_write": true
+ },
+ {
+  "cmd": "cat <<'EOF' > f.ts",
+  "may_write": true
+ },
+ {
+  "cmd": "awk '{print > \"out\"}' f",
+  "may_write": true
+ },
+ {
+  "cmd": "ls >| list.txt",
+  "may_write": true
+ },
+ {
+  "cmd": "npm test > out.log",
+  "may_write": true
+ },
+ {
+  "cmd": "bun test && npm run build",
+  "may_write": true
+ },
+ {
+  "cmd": "xargs rm < list",
+  "may_write": true
+ },
+ {
+  "cmd": "make",
+  "may_write": true
+ },
+ {
+  "cmd": "echo x >",
+  "may_write": true
+ },
+ {
+  "cmd": "env FOO=1 ls",
+  "may_write": true
+ },
+ {
+  "cmd": "FOO=1 ls",
+  "may_write": false
+ }
+]

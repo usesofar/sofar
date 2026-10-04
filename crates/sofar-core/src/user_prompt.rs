@@ -820,7 +820,7 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
         return silent();
     };
     let gate =
-        crate::checks::enforce_enabled().then(|| stop_gate_for(root, &layout, &state, session));
+        crate::checks::enforce_enabled().then(|| stop_gate_for(root, &layout, &slug, &state, session));
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop; SOFAR_LINK_ASK=off is its ablation arm.
     let asks = if link_ask_enabled() {
@@ -990,6 +990,23 @@ fn stop_link_lines(state: &InitiativeState, session_id: &str, retired: &[usize])
     lines
 }
 
+/// `gateIndex` (r3-fixes 2.13, D23): the declared index as the session's last
+/// hook refreshed it, no freshness pass, with the bound record's own entries
+/// rebuilt from the fold Stop already holds. A missing or old index is built.
+fn gate_index(
+    layout: &Layout,
+    slug: &str,
+    state: &InitiativeState,
+) -> crate::index_tier1::GuardIndex {
+    let mut index = crate::index_tier1::read_guards(layout)
+        .unwrap_or_else(|| crate::index_tier1::refresh_guards(layout));
+    index.scoped.retain(|d| d.initiative != slug);
+    index
+        .scoped
+        .extend(crate::index_tier1::scoped_from_fold(slug, &state.decisions));
+    index
+}
+
 /// `stopGateFor` (r3-fixes D10, D11): the test gate's verdict for this
 /// session. Edits are the hooks' captures plus what `git status` reports,
 /// asked only when the session ran a command; a run counts only once it
@@ -998,6 +1015,7 @@ fn stop_link_lines(state: &InitiativeState, session_id: &str, retired: &[usize])
 fn stop_gate_for(
     root: &Path,
     layout: &Layout,
+    slug: &str,
     state: &InitiativeState,
     session: &SessionState,
 ) -> crate::checks::StopGate {
@@ -1016,11 +1034,12 @@ fn stop_gate_for(
     if captured.is_empty() && commands == 0 {
         return none; // no work: no index, no git
     }
-    let index = crate::index_tier1::refresh_guards(layout);
+    let index = gate_index(layout, slug, state);
     if !crate::checks::rules_can_bear(&index) {
         return none;
     }
-    let from_git = if commands > 0 {
+    // Git is asked only when a command that may write ran (D23).
+    let from_git = if crate::wrote::has_wrote(layout, &session.id) {
         crate::checks::worktree_changes(root).unwrap_or_default()
     } else {
         Vec::new()

@@ -221,6 +221,18 @@ pub fn render_subject(domain: GuardDomain, subject: &str, root: &Path) -> String
     }
 }
 
+/// `markShellWrites` (r3-fixes 2.13, D23): mark the session when a shell
+/// call may have written a file the hooks never capture; self-recording
+/// commands count (`git checkout` appends nothing and rewrites the tree).
+fn mark_shell_writes(layout: &Layout, session: &str, calls: &[ClassifiedCall]) {
+    if calls
+        .iter()
+        .any(|c| c.domain == GuardDomain::Cmd && crate::derived::may_write_command(&c.subject))
+    {
+        crate::wrote::mark_wrote(layout, session);
+    }
+}
+
 /// `SCOPE_DECISIONS_MAX` / `SCOPE_NOTICE_BUDGET` (memory-lead 2.1, D6).
 pub const SCOPE_DECISIONS_MAX: usize = 3;
 pub const SCOPE_NOTICE_BUDGET: usize = 1500;
@@ -316,7 +328,11 @@ fn scope_notice_line(n: &ScopeNotice<'_>, slug: &str) -> String {
     let d = match n.entry {
         Entry::Memory(m) => {
             let text = memory_notice_text(m);
-            let stop = if text.ends_with(['.', '!', '?', '…']) { "" } else { "." };
+            let stop = if text.ends_with(['.', '!', '?', '…']) {
+                ""
+            } else {
+                "."
+            };
             return format!(
                 "sofar: [{}] names {} (repo memory): {text}{stop}",
                 memory_handle(m, slug),
@@ -470,7 +486,10 @@ fn stored_relevance(
     notices: &[ScopeNotice<'_>],
 ) -> Vec<RelevanceRow> {
     let mut counts = [0usize; 4];
-    for n in notices.iter().filter(|n| matches!(n.entry, Entry::Decision(_))) {
+    for n in notices
+        .iter()
+        .filter(|n| matches!(n.entry, Entry::Decision(_)))
+    {
         counts[n.tier] += 1;
     }
     if counts.iter().all(|c| *c < 2) {
@@ -518,22 +537,23 @@ fn scope_notice(
     {
         // (entry, tier, depth): an until-scoped decision is never a candidate,
         // a superseded one is out while retirement is on.
-        let mut hits: Vec<(Entry<'_>, usize, usize)> = scope_hits_for_subject(&index, *domain, subject)
-            .into_iter()
-            .filter(|h| {
-                h.decision.until.is_none() && !(retire && h.decision.superseded_by.is_some())
-            })
-            .map(|h| {
-                let tier = if h.guarded {
-                    0
-                } else if h.decision.rule.is_some() {
-                    1
-                } else {
-                    3
-                };
-                (Entry::Decision(h.decision), tier, h.depth)
-            })
-            .collect();
+        let mut hits: Vec<(Entry<'_>, usize, usize)> =
+            scope_hits_for_subject(&index, *domain, subject)
+                .into_iter()
+                .filter(|h| {
+                    h.decision.until.is_none() && !(retire && h.decision.superseded_by.is_some())
+                })
+                .map(|h| {
+                    let tier = if h.guarded {
+                        0
+                    } else if h.decision.rule.is_some() {
+                        1
+                    } else {
+                        3
+                    };
+                    (Entry::Decision(h.decision), tier, h.depth)
+                })
+                .collect();
         // A memory names a path or nothing (r3-fixes D20), and a replaced one
         // is never told.
         if *domain == GuardDomain::Path && memories_on {
@@ -846,6 +866,7 @@ pub fn handle_post_tool(root: &Path, input: &str) -> CmdResult {
         None
     };
 
+    mark_shell_writes(&layout, session, &calls);
     let mut registered = false;
     for c in calls.iter().filter(|c| !c.exempt) {
         if !registered {
@@ -927,6 +948,7 @@ pub fn handle_post_tool_failure(root: &Path, input: &str) -> CmdResult {
     if !exempt {
         register_lazily(&layout, &slug, session, host.tool);
     }
+    mark_shell_writes(&layout, session, &calls);
     for c in calls.iter().filter(|c| !c.exempt) {
         let mut payload = c.payload.clone();
         payload.insert("ok", Json::Bool(false));

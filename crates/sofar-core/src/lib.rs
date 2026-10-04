@@ -96,6 +96,7 @@ pub mod update_cache;
 pub mod user_prompt;
 pub mod version;
 pub mod warmth;
+pub mod wrote;
 
 #[cfg(test)]
 pub(crate) mod testing;

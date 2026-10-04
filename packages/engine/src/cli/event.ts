@@ -37,7 +37,7 @@ import {
   type SessionState,
 } from '../core/fold'
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
-import { activityEnabled, testShapedCommand } from '../core/derived'
+import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
 import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, isApproved, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
@@ -62,6 +62,8 @@ import {
   memoryHitsForSubject,
   memorySurfacingEnabled,
   MEMORY_NOTICE_MAX,
+  readGuards,
+  scopedFromFold,
   scopeHitsForSubject,
   type FileIndex,
   type GuardIndex,
@@ -83,6 +85,7 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
+import { hasWrote, markWrote } from '../core/wrote'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes } from '../core/handle'
@@ -1013,6 +1016,16 @@ function classifyToolCall(hook: Obj): ClassifiedCall[] {
 }
 
 /**
+ * Mark the session when a shell call may have written a file the hooks never
+ * capture (r3-fixes 2.13, D23): Stop's test gate asks git only then. A failed
+ * command may have written too. Self-recording commands count: `git checkout`
+ * appends nothing and still rewrites the tree.
+ */
+function markShellWrites(sofarDir: string, session: string, calls: readonly ClassifiedCall[]): void {
+  if (calls.some((c) => c.domain === 'cmd' && mayWriteCommand(c.subject))) markWrote(sofarDir, session)
+}
+
+/**
  * Lazy registration through the ONE locked path (r1-fixes D2, 1.2): hosts
  * that fire hooks in parallel otherwise registered a session once per
  * process. "cli" is never a session identity, so it is never registered.
@@ -1061,6 +1074,7 @@ export function handlePostToolFailure(rootDir: string, input: string, declared?:
     const exit = typeof hook.exit_code === 'number' ? hook.exit_code : null
     const interrupt = typeof hook.is_interrupt === 'boolean' ? hook.is_interrupt : null
     if (!exempt) registerLazily(ctx, slug, session, host)
+    markShellWrites(ctx.sofarDir, session, calls)
     for (const { type, payload, exempt: self } of calls) {
       if (self) continue
       ctx.appendAndProject(
@@ -1179,6 +1193,7 @@ export function handlePostTool(rootDir: string, input: string, declared?: HookHo
     const exit = response !== null && typeof response.exit_code === 'number' ? response.exit_code : null
     const ok = interrupted ? false : postToolProvesSuccess(host) ? true : undefined
 
+    markShellWrites(ctx.sofarDir, session, calls)
     let registered = false
     for (const { type, payload, exempt: self } of calls) {
       if (self) continue
@@ -1296,7 +1311,7 @@ export function handleStop(
     // test that passed after the last one. sofar runs nothing here — the agent
     // runs the tests under its host's permissions — and stop_hook_active above
     // bounds it to one ask per stop. SOFAR_ENFORCE=off restores D10's Stop.
-    const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, state, session) : null
+    const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, slug, state, session) : null
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop: a rule it filed naming nothing it replaces. SOFAR_LINK_ASK=off
     // is its ablation arm.
@@ -1359,17 +1374,17 @@ export function handleStop(
  * the session's own newest test command, else the record's. Fails open: a gate
  * that cannot read the index says nothing, since it is never the write-back gate.
  */
-function stopGateFor(rootDir: string, sofarDir: string, state: InitiativeState, session: SessionState): StopGate {
+function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState): StopGate {
   const none: StopGate = { lines: [], blocks: false }
   try {
     const captured = (session.activity?.files ?? []).filter((f) => !f.startsWith('+'))
     const commands = session.activity?.commands ?? 0
     if (captured.length === 0 && commands === 0) return none // no work: no index, no git
-    const index = refreshGuards(sofarDir)
+    const index = gateIndex(sofarDir, slug, state)
     if (!rulesCanBear(index)) return none
     // Only a shell command edits what the hooks never see, so git is asked
-    // only when one ran — once (speed T2).
-    const fromGit = commands > 0 ? (worktreeChanges(rootDir) ?? []) : []
+    // only when one that may write ran (D23) — once (speed T2).
+    const fromGit = hasWrote(sofarDir, session.id) ? (worktreeChanges(rootDir) ?? []) : []
     const files = [...captured, ...fromGit]
     if (files.length === 0) return none
     let editedAt: number | null = null
@@ -1410,6 +1425,20 @@ function stopMergeLines(rootDir: string, state: InitiativeState, session: Sessio
   } catch {
     return []
   }
+}
+
+/**
+ * The rules Stop's gate reads (r3-fixes 2.13, D23): the declared index as the
+ * session's last hook refreshed it, with no freshness pass over every log —
+ * at 1,000 records that pass was most of the gate's cost — and the bound
+ * record's own entries rebuilt from the fold Stop already holds, so a rule
+ * this session logged after its last tool call still bears. Another record's
+ * new rule reaches the next Stop after a hook refreshes. A missing or old
+ * index is built, as before.
+ */
+function gateIndex(sofarDir: string, slug: string, state: InitiativeState): GuardIndex {
+  const index = readGuards(sofarDir) ?? refreshGuards(sofarDir)
+  return { ...index, scoped: [...index.scoped.filter((d) => d.initiative !== slug), ...scopedFromFold(slug, state)] }
 }
 
 /** Stop's bound on decision checks (D9): the whole pass, and any one check. */

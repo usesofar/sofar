@@ -11,6 +11,7 @@ import { type IndexedEvent } from './index-tail'
 import { initiativeSlugs } from './listing'
 import { byCodeUnit } from './order'
 import type { ForeignDecision } from './reversal'
+import type { DecisionState } from './fold'
 
 /**
  * Tier 1: the record graph, materialized and KEYED for lookup (record-index 3.1).
@@ -663,6 +664,46 @@ export function repoRules(index: GuardIndex, slug: string, retire = true): RepoR
     if (retire && d.superseded_by !== undefined) continue
     out.push({ initiative: d.initiative, ordinal: d.ordinal, ts: d.ts, rule: d.rule, ...(d.quote !== undefined ? { quote: d.quote } : {}) })
   }
+  return out
+}
+
+/**
+ * The declared half as last written, with no freshness pass (r3-fixes 2.13,
+ * D23): what Stop's gate reads. Null when there is no usable file.
+ */
+export function readGuards(sofarDir: string): GuardIndex | null {
+  const guards = readIndexFile<TierDisk<SlugGuardState>>(sofarDir, GUARDS_FILE, isTierDisk)
+  return guards === null ? null : declaredView(guards.initiatives)
+}
+
+/**
+ * One record's ruled entries built from its fold rather than its log (D23),
+ * as applyGuard builds them: the same ordinals, heads, mentions and marks.
+ * Rule-less decisions are left out — the gate reads rules alone.
+ */
+export function scopedFromFold(slug: string, state: { decisions: readonly DecisionState[] }): ScopedDecision[] {
+  const out: ScopedDecision[] = []
+  state.decisions.forEach((d, i) => {
+    if (typeof d.rule !== 'string') return
+    const check = typeof d.check?.cmd === 'string' ? d.check : undefined
+    out.push({
+      id: d.id,
+      initiative: slug,
+      ordinal: i + 1,
+      ts: d.ts,
+      chose: headSource(d.chose),
+      over: headSource(d.over),
+      rule: d.rule,
+      ...(typeof d.quote === 'string' ? { quote: d.quote } : {}),
+      ...(typeof d.guard === 'string' ? { guard: d.guard } : {}),
+      ...(check !== undefined
+        ? { check: { cmd: check.cmd, ...(check.hint !== undefined ? { hint: check.hint } : {}), ...(check.timeout_ms !== undefined ? { timeout_ms: check.timeout_ms } : {}) } }
+        : {}),
+      ...(typeof d.until === 'string' ? { until: d.until } : {}),
+      ...(d.superseded_by !== undefined ? { superseded_by: d.superseded_by } : {}),
+      mentions: fileMentions([d.chose, d.over, d.rule, check?.cmd ?? ''].join('\n')),
+    })
+  })
   return out
 }
 

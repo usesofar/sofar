@@ -24,6 +24,7 @@ import {
 } from '../core/fold'
 import { currentBranch } from '../core/git'
 import { refreshLinks, travelEnabled } from '../core/index-links'
+import { refreshGuards } from '../core/index-tier1'
 import { ensureIndexDir } from '../core/index-store'
 import { QUICK_LANE } from '../core/lane'
 import { linkCandidates, linkHold, linkHoldEnabled, SUPERSEDES_NONE, withoutNone } from '../core/link-candidates'
@@ -386,6 +387,9 @@ export interface ToolContext {
   ): EventEnvelope | null
 }
 
+/** Event types that can change the declared index (r3-fixes D23). */
+const DECLARED_TYPES = new Set(['decision_logged', 'decision_linked', 'memory_promoted', 'correction'])
+
 export function createToolContext(rootDir: string): ToolContext {
   const sofarDir = join(rootDir, '.sofar')
   const bindingsPath = join(sofarDir, 'bindings.json')
@@ -732,6 +736,17 @@ export function createToolContext(rootDir: string): ToolContext {
         // ablation arm pays nothing for the tier; its cursors catch up later.
         try {
           if (travelEnabled()) refreshLinks(sofarDir, slug)
+        } catch {
+          // see above
+        }
+      }
+      // The declared index is kept current at write time (r3-fixes 2.13,
+      // D23): Stop's gate reads it with no freshness pass, so a rule, memory,
+      // link or correction written through any write path reaches the next
+      // Stop. Derived and disposable, so a failure costs a reader a pass.
+      if (DECLARED_TYPES.has(type)) {
+        try {
+          refreshGuards(sofarDir)
         } catch {
           // see above
         }

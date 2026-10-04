@@ -23,7 +23,7 @@ pub fn told_key(decision_id: &str, subject: &str) -> String {
 }
 
 /// `session.replace(/[^A-Za-z0-9_-]/g, '_')`, per UTF-16 unit.
-fn safe_session(session: &str) -> String {
+pub(crate) fn safe_session(session: &str) -> String {
     session
         .encode_utf16()
         .map(|u| match char::from_u32(u32::from(u)) {

@@ -452,3 +452,226 @@ mod tests {
         assert_eq!(match_window("a b  c d   e f").len(), "a b  c d   ".len());
     }
 }
+
+/// `READ_ONLY_HEADS` (r3-fixes 2.13, D23): heads that read and never write a
+/// file, whatever their arguments.
+const READ_ONLY_HEADS: &[&str] = &[
+    "cat",
+    "head",
+    "tail",
+    "less",
+    "more",
+    "grep",
+    "egrep",
+    "fgrep",
+    "rg",
+    "ag",
+    "ls",
+    "tree",
+    "wc",
+    "sort",
+    "uniq",
+    "cut",
+    "tr",
+    "diff",
+    "cmp",
+    "stat",
+    "file",
+    "du",
+    "df",
+    "pwd",
+    "which",
+    "type",
+    "echo",
+    "printf",
+    "true",
+    "false",
+    "date",
+    "whoami",
+    "uname",
+    "jq",
+    "cd",
+    "sleep",
+    "test",
+    "[",
+    "basename",
+    "dirname",
+    "realpath",
+    "readlink",
+    "nl",
+    "od",
+    "xxd",
+    "hexdump",
+    "md5",
+    "md5sum",
+    "shasum",
+    "sha256sum",
+    "sofar",
+];
+
+/// `GIT_TREE_WRITERS`: git subcommands that change working-tree files.
+const GIT_TREE_WRITERS: &[&str] = &[
+    "checkout",
+    "switch",
+    "restore",
+    "reset",
+    "merge",
+    "pull",
+    "rebase",
+    "cherry-pick",
+    "revert",
+    "stash",
+    "clean",
+    "mv",
+    "rm",
+    "apply",
+    "am",
+    "worktree",
+    "submodule",
+    "sparse-checkout",
+    "clone",
+    "init",
+];
+
+/// `FIND_WRITERS`: find's actions that delete, run or write.
+const FIND_WRITERS: &[&str] = &[
+    "-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls",
+];
+
+/// `redirectsToFile`: output redirection to anything but `/dev/null`,
+/// `/dev/stdout` or `/dev/stderr`, outside quotes; `2>&1` and `>&2` are not.
+fn redirects_to_file(cmd: &str) -> bool {
+    let chars: Vec<char> = cmd.chars().collect();
+    let mut quote: Option<char> = None;
+    let mut i = 0;
+    while i < chars.len() {
+        let ch = chars[i];
+        if let Some(q) = quote {
+            if ch == q {
+                quote = None;
+            } else if ch == '\\' && q == '"' {
+                i += 1;
+            }
+            i += 1;
+            continue;
+        }
+        if ch == '"' || ch == '\'' {
+            quote = Some(ch);
+            i += 1;
+            continue;
+        }
+        if ch == '\\' {
+            i += 2;
+            continue;
+        }
+        if ch != '>' {
+            i += 1;
+            continue;
+        }
+        let mut j = i + 1;
+        if matches!(chars.get(j), Some('>' | '|')) {
+            j += 1;
+        }
+        if chars.get(j) == Some(&'&') {
+            i += 1; // a descriptor copy: 2>&1, >&2
+            continue;
+        }
+        while matches!(chars.get(j), Some(' ' | '\t')) {
+            j += 1;
+        }
+        let mut k = j;
+        while k < chars.len()
+            && !is_js_whitespace(chars[k])
+            && !matches!(chars[k], ';' | '&' | '|' | '(' | ')' | '<' | '>')
+        {
+            k += 1;
+        }
+        let target: String = chars[j..k].iter().collect();
+        if target != "/dev/null" && target != "/dev/stdout" && target != "/dev/stderr" {
+            return true;
+        }
+        i = k;
+    }
+    false
+}
+
+/// `readOnlySegment`: a known read-only head, or git or find doing nothing
+/// that writes.
+fn read_only_segment(seg: &str) -> bool {
+    let tokens: Vec<&str> = seg
+        .split(is_js_whitespace)
+        .filter(|t| !t.is_empty())
+        .collect();
+    let head = tokens.first().copied().unwrap_or("");
+    match head {
+        "git" => {
+            let mut i = 1;
+            while i < tokens.len() && tokens[i].starts_with('-') {
+                i += if tokens[i] == "-C" || tokens[i] == "-c" {
+                    2
+                } else {
+                    1
+                };
+            }
+            i >= tokens.len() || !GIT_TREE_WRITERS.contains(&tokens[i])
+        }
+        "find" => !tokens.iter().any(|t| FIND_WRITERS.contains(t)),
+        "sed" => !tokens
+            .iter()
+            .any(|t| t.starts_with("-i") || *t == "--in-place" || t.starts_with("--in-place=")),
+        _ => READ_ONLY_HEADS.contains(&head),
+    }
+}
+
+/// `mayWriteCommand` (r3-fixes 2.13, D23): whether a shell command may write
+/// a file the hooks never capture — the one reason Stop's test gate asks
+/// git. False only when every segment is a test run or reads only, and
+/// nothing redirects output to a file.
+#[must_use]
+pub fn may_write_command(cmd: &str) -> bool {
+    if redirects_to_file(cmd) {
+        return true;
+    }
+    for raw in split_segments(cmd) {
+        let seg = js_trim(strip_env_assignments(raw));
+        if seg.is_empty() {
+            continue;
+        }
+        let head = seg.split(is_js_whitespace).next().unwrap_or("");
+        if HEADS.contains(&head) {
+            let chars = match_window(seg);
+            if pkg_test(&chars) || runner(&chars) || tool_test(&chars) {
+                continue;
+            }
+        }
+        if !read_only_segment(seg) {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod may_write_tests {
+    use super::may_write_command;
+    use crate::json::{self, Json};
+
+    /// The table the TypeScript suite asserts too (test/may-write.test.ts).
+    #[test]
+    fn every_case_classifies_as_typescript_does() {
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/js-may-write.json"
+        ))
+        .unwrap();
+        let cases = json::parse(&text).unwrap();
+        let cases = cases.as_arr().unwrap();
+        assert!(cases.len() >= 40);
+        for case in cases {
+            let case = case.as_obj().unwrap();
+            let cmd = case.get("cmd").and_then(Json::as_str).unwrap();
+            let want = case.get("may_write") == Some(&Json::Bool(true));
+            assert_eq!(may_write_command(cmd), want, "{cmd}");
+        }
+    }
+}

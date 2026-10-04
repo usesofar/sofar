@@ -274,11 +274,21 @@ impl SlugGuardState {
         o.insert("memories", Json::Num(self.memories));
         o.insert(
             "memory_ids",
-            Json::Arr(self.memory_ids.iter().map(|i| Json::Str(i.clone())).collect()),
+            Json::Arr(
+                self.memory_ids
+                    .iter()
+                    .map(|i| Json::Str(i.clone()))
+                    .collect(),
+            ),
         );
         o.insert(
             "memory_entries",
-            Json::Arr(self.memory_entries.iter().map(ScopedMemory::to_json).collect()),
+            Json::Arr(
+                self.memory_entries
+                    .iter()
+                    .map(ScopedMemory::to_json)
+                    .collect(),
+            ),
         );
         Json::Obj(o)
     }
@@ -732,6 +742,63 @@ fn declared_view(states: &[(String, SlugGuardState)]) -> GuardIndex {
         by_initiative_then_ordinal((&a.initiative, a.ordinal), (&b.initiative, b.ordinal))
     });
     index
+}
+
+/// `readGuards` (r3-fixes 2.13, D23): the declared half as last written,
+/// with no freshness pass — what Stop's gate reads. `None` with no usable file.
+#[must_use]
+pub fn read_guards(layout: &Layout) -> Option<GuardIndex> {
+    read_half(layout, GUARDS_FILE, SlugGuardState::from_json).map(|states| declared_view(&states))
+}
+
+/// `scopedFromFold` (D23): one record's ruled entries built from its fold, as
+/// `applyGuard` builds them — the same ordinals, heads, mentions and marks.
+#[must_use]
+pub fn scoped_from_fold(
+    slug: &str,
+    decisions: &[crate::fold::DecisionState],
+) -> Vec<ScopedDecision> {
+    let mut out = Vec::new();
+    for (i, d) in decisions.iter().enumerate() {
+        let Some(rule) = &d.rule else {
+            continue;
+        };
+        let check = d
+            .check
+            .as_ref()
+            .and_then(Json::as_obj)
+            .filter(|c| c.get("cmd").and_then(Json::as_str).is_some());
+        let cmd = check
+            .and_then(|c| c.get("cmd").and_then(Json::as_str))
+            .unwrap_or("");
+        out.push(ScopedDecision {
+            id: d.id.clone(),
+            initiative: slug.to_owned(),
+            ordinal: crate::json::usize_to_f64(i + 1),
+            ts: d.ts.clone(),
+            chose: head_source(&d.chose),
+            over: head_source(&d.over),
+            rule: Some(rule.clone()),
+            quote: d.quote.clone(),
+            guard: d.guard.clone(),
+            check: check.map(|c| {
+                let mut o = Object::with_capacity(3);
+                for key in ["cmd", "hint", "timeout_ms"] {
+                    if let Some(v) = c.get(key) {
+                        o.insert(key, v.clone());
+                    }
+                }
+                Json::Obj(o)
+            }),
+            until: d.until.clone(),
+            #[allow(clippy::cast_precision_loss, reason = "ordinals are small")]
+            superseded_by: d.superseded_by.map(|n| n as f64),
+            mentions: crate::file_mentions::file_mentions(
+                &[d.chose.as_str(), d.over.as_str(), rule.as_str(), cmd].join("\n"),
+            ),
+        });
+    }
+    out
 }
 
 /// `refreshGuards`: bring the declared half up to date — every decision in

@@ -21,7 +21,8 @@ import { refreshGuards } from '../src/core/index-tier1'
 import { appendEvent } from '../src/core/log'
 import { runBind } from '../src/cli/bind'
 import { runCheck, STAGED_REFUSE_EXIT } from '../src/cli/check'
-import { handleStop, STOP_BLOCK_MESSAGE } from '../src/cli/event'
+import { handlePostTool, handleStop, STOP_BLOCK_MESSAGE } from '../src/cli/event'
+import { createToolContext } from '../src/mcp/context'
 import { GIT_HOOKS } from '../src/cli/init'
 import { drive } from '../src/driver/drive'
 import { buildSurface } from '../src/driver/permissions'
@@ -412,7 +413,9 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     edited(root, 's1')
     wroteBack(root, 's1')
     expect(stop(root, 's1').stderr).toContain('[policy D1]')
-    emit(root, 'policy', 'decision_logged', { chose: 'x', over: 'y', because: 'b', rule: 'New rule.', supersedes: 'D1' })
+    // Through a write path, which keeps the declared index current (r3-fixes D23):
+    // Stop reads it with no freshness pass.
+    createToolContext(root).appendAndProject('policy', 'decision_logged', { chose: 'x', over: 'y', because: 'b', rule: 'New rule.', supersedes: 'D1' })
     expect(stop(root, 's1').exitCode).toBe(0)
     emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's2')
     touched(root, 's2', 'README.md')
@@ -427,7 +430,8 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     wroteBack(root, 's1')
     const file = join(root, 'src', 'db', 'store.ts')
     writeFileSync(file, 'export const x = 1\n') // a Bash write: a command, no file_touched
-    ran(root, 's1', "sed -i '' s/a/b/ src/db/store.ts", true, 0)
+    // Through the hook, which classifies it as a command that may write (r3-fixes D23).
+    handlePostTool(root, JSON.stringify({ session_id: 's1', cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: "sed -i '' s/a/b/ src/db/store.ts" }, tool_response: { exit_code: 0 } }))
     const past = new Date(Date.now() - 60_000)
     utimesSync(file, past, past)
     expect(stop(root, 's1').exitCode).toBe(2)
@@ -435,6 +439,21 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     expect(stop(root, 's1').exitCode).toBe(0)
     const later = new Date(Date.now() + 60_000)
     utimesSync(file, later, later) // edited again after that run
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
+  it('a session whose commands only read and test never asks git (r3-fixes D23)', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
+    wroteBack(root, 's1')
+    writeFileSync(join(root, 'src', 'db', 'store.ts'), 'export const x = 1\n') // changed, but by no command of this session
+    const bash = (command: string) =>
+      handlePostTool(root, JSON.stringify({ session_id: 's1', cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command }, tool_response: {} }))
+    bash('cat src/db/store.ts | grep x')
+    bash('git status && git diff --stat 2>&1 | tail -3')
+    expect(stop(root, 's1').exitCode).toBe(0)
+    bash('echo y > notes.txt') // may write: git is asked, and the guarded change bears
     expect(stop(root, 's1').exitCode).toBe(2)
   })
 
