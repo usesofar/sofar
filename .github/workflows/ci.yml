@@ -134,6 +134,10 @@ jobs:
       # events.jsonl of this repository, every branch tip included. sofar-cloud's
       # logs are private, so they are proved in its own CI, never here.
       - run: SOFAR_CONFORMANCE_BIN=$PWD/target/release/sofar-core npx vitest run --project unit packages/engine/test/conformance/real-logs
+      # r3-fixes 4.0: every record of this repository through BOTH engines —
+      # fold, every hook's stdout/stderr/exit, status, statusline and the
+      # bytes written — compared byte for byte (scripts/parity-real.mjs).
+      - run: npm run parity:real
 
   # Loose read-path tripwire (r1-fixes D18): a gross regression cannot reach
   # an RC unnoticed. Wide budget on purpose — hosted noise cannot hide a 2×

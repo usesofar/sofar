@@ -17,6 +17,8 @@
     "typecheck": "npm run typecheck -w @sofar/schema && npm run typecheck -w sofar.sh",
     "schema:emit": "node packages/schema/scripts/emit-fingerprint.mjs && node tools/schema-codegen/emit.mjs",
     "schema:check": "node tools/schema-codegen/emit.mjs --check && cargo xtask schema --check",
+    "parity:real": "node scripts/parity-real.mjs",
+    "parity:real:full": "node scripts/parity-real.mjs --full",
     "bench:read-paths": "npm run bench:read-paths -w sofar.sh --",
     "bench:find": "npm run bench:find -w sofar.sh --"
   },
