@@ -65,4 +65,4 @@ Progress: 20 done, 2 dropped, 17 remaining
 - [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
 Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
-Next action: Build 2.11 (LR4): merge block in the digest, memories in edit-time surfacing, merge receipts. Start from R3-FIX-SURVEY part C, section 2.
+Next action: Operator starts a fresh blind session for 5.1 + 5.6 (chain-l-author pattern); peers finish Phase 2 and 3.2/3.3/3.7.
