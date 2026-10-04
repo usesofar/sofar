@@ -81,8 +81,12 @@ program
     '--statusline',
     'also wire `sofar statusline` as the project statusLine (merged only when settings.json has none — an existing statusLine is never touched)',
   )
+  // --prompt-capture first, so commander leaves the value undefined when
+  // neither is passed and a plain re-run changes nothing (r3-fixes 2.9, D6).
+  .option('--prompt-capture', 'turn prompt capture back on for this clone')
+  .option('--no-prompt-capture', "don't keep this clone's prompts in the private buffer that briefs are kept from by id")
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action(async (opts: { agents?: string; statusline?: boolean; root?: string }) => {
+  .action(async (opts: { agents?: string; statusline?: boolean; root?: string; promptCapture?: boolean }) => {
     const root = rootOf(opts)
     const caps = stderrCaps()
     const choice = await resolveInitAgents(root, opts.agents, {
@@ -93,7 +97,8 @@ program
     })
     if ('error' in choice) return emit(fail(`sofar init: ${choice.error}`))
     if ('cancelled' in choice) return emit(fail('sofar init: cancelled — nothing written'))
-    emit(withUpdateNotice(runInit(root, { statusline: opts.statusline === true, agents: choice.agents })))
+    const capture = opts.promptCapture === undefined ? {} : { promptCapture: opts.promptCapture }
+    emit(withUpdateNotice(runInit(root, { statusline: opts.statusline === true, agents: choice.agents, ...capture })))
   })
 
 program

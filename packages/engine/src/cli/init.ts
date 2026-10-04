@@ -15,6 +15,7 @@ import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { effectiveHooksDir } from '../core/attribution'
 import { commonGitDir } from '../core/git'
+import { promptCaptureEnabled, setPromptCapture } from '../core/prompt-buffer'
 import { mcpRegistration } from '../mcp/register'
 import {
   AGENTS,
@@ -790,11 +791,47 @@ ${PROTOCOL_END}
 `
 
 /**
- * linked-context 5.4: LINKS — name another record as `<slug> <id>`, and
- * declare waits_on when blocked on it. Everything else is V12, which stays a
- * byte-exact literal; this block inserts the bullet before DURING.
+ * r3-fixes 2.9 (D6): the PLAN wording each block shipped with, and what
+ * replaced it — the brief grows by reference (a kept prompt id, or the words
+ * appended), never by retyping or resending it. Exported so the ledger tests
+ * can strip exactly this edit and find the shipped block underneath.
  */
-export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V12.replace(
+export const BRIEF_BY_REFERENCE = {
+  claude: [`  before you decompose them into phases and tasks. Tasks are your summary
+  and lose words; the brief is what "the next item on the roadmap" means in
+  a later session, and a finished task list does not finish the brief. A
+  replace that omits \`brief\` keeps the last one.`,
+  `  before you decompose them into phases and tasks. Tasks are your summary
+  and lose words; the brief is what "the next item on the roadmap" means in
+  a later session, and a finished task list does not finish the brief. A
+  replace that omits \`brief\` keeps the last one. Never retype or resend
+  it to add to it: sofar keeps a session's prompts as P1, P2, … (the prompt
+  hook names a long one), so keep the operator's by id —
+  \`sofar_end_session\` \`brief_append: ["P1"]\` — and sofar copies it
+  verbatim; words with no id go in \`brief_append\` as they are.`],
+  agents: [`  a later session, and a finished task list does not finish the brief. A
+  replace that omits "brief" keeps the last one. plan_updated is
+  a FULL replace — resend every phase and task, with statuses, each time:
+  \`sofar event append <slug> --source <tool> --type plan_updated --payload '{"plan":{"goal":"<goal>","brief":"<roadmap or spec, verbatim>","phases":`,
+  `  a later session, and a finished task list does not finish the brief.
+  Never retype or resend it to add to it: sofar keeps a session's prompts
+  as P1, P2, … (sofar's prompt hook names a long one), so keep the
+  operator's by id and sofar copies it verbatim —
+  \`sofar event append <slug> --source <tool> --type brief_appended --payload '{"prompt":"P1"}'\`
+  — and put words with no id in as \`{"text":"<their words, verbatim>"}\`
+  (with MCP tools, \`brief_append\` on the write-back). A
+  plan_updated that omits "brief" keeps it. plan_updated is
+  a FULL replace — resend every phase and task, with statuses, each time:
+  \`sofar event append <slug> --source <tool> --type plan_updated --payload '{"plan":{"goal":"<goal>","phases":`],
+} as const satisfies Record<'claude' | 'agents', readonly [string, string]>
+
+/**
+ * linked-context 5.4: LINKS — name another record as `<slug> <id>`, and
+ * declare waits_on when blocked on it; r3-fixes 2.9: BRIEF_BY_REFERENCE.
+ * Everything else is V12, which stays a byte-exact literal; this block
+ * inserts the bullet before DURING.
+ */
+export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.claude).replace(
   '- DURING: work; the record is written once',
   `- LINKS: name another record's task, decision or memory as \`<slug> <id>\`
   (\`billing 2.3\`, \`billing D4\`, \`billing M2\`) — a bare id means this
@@ -1759,9 +1796,9 @@ export const AGENTS_PROTOCOL_BLOCK_V12 = AGENTS_PROTOCOL_BLOCK_V11.replace(
  * Codex sessions wrote through this block in 16 of 18 sessions and left 8 of
  * 9 changed decisions unlinked, because its decision template never showed
  * `supersedes`, so each old rule stayed in force beside its replacement.
- * Everything else is V12.
+ * r3-fixes 2.9: BRIEF_BY_REFERENCE. Everything else is V12.
  */
-export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V12.replace(
+export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.agents).replace(
   '  Omit it for a one-off choice.\n',
   `  Omit it for a one-off choice.
   A decision that changes or replaces an earlier one names it, or the old
@@ -1888,6 +1925,12 @@ export interface InitOptions {
    * git hook are shared and always installed.
    */
   agents?: readonly AgentId[]
+  /**
+   * Prompt capture for this clone (r3-fixes 2.9, D6): false writes the
+   * per-clone off marker, true removes it, absent leaves it as it is — a plain
+   * re-run never turns capture back on behind the operator's back.
+   */
+  promptCapture?: boolean
 }
 
 export type StatuslineInstall =
@@ -2960,6 +3003,10 @@ export function runInit(
     }
     if (claude) {
       appendProtocolBlock(rootDir, 'CLAUDE.md', PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS, report)
+    }
+    if (options.promptCapture !== undefined && options.promptCapture !== promptCaptureEnabled(rootDir)) {
+      setPromptCapture(rootDir, options.promptCapture)
+      report.push(`${options.promptCapture ? 'enabled' : 'disabled'} prompt capture for this clone (kept outside the repo)`)
     }
     // AGENTS.md is the file Cursor always reads and the only protocol file
     // Codex reads (D36).

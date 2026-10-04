@@ -1,0 +1,154 @@
+# conformance golden: repo.prompt-capture
+
+## step 1: a long prompt before registration: captured, offered as P1
+argv: ["event","user-prompt"]
+stdin: {"session_id":"cap-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓."}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: this prompt is P1 — if it is roadmap or spec, keep it in the brief by id at write-back (brief_append [\"P1\"]); sofar copies it verbatim.","sessionTitle":"rust-core 1.2 #caps"}}
+--- stderr
+(empty)
+--- artifact
+{"id":"P1","ts":"<TS>","text":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓."}
+
+## step 2: a short prompt: captured silently as P2
+argv: ["event","user-prompt"]
+stdin: {"session_id":"cap-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #caps"}}
+--- stderr
+(empty)
+--- artifact
+{"id":"P1","ts":"<TS>","text":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓."}
+{"id":"P2","ts":"<TS>","text":"continue"}
+
+## step 3: the same prompt again: its id, no new row
+argv: ["event","user-prompt"]
+stdin: {"session_id":"cap-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #caps"}}
+--- stderr
+(empty)
+--- artifact
+{"id":"P1","ts":"<TS>","text":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓."}
+{"id":"P2","ts":"<TS>","text":"continue"}
+
+## step 4: a second long prompt: P3
+argv: ["event","user-prompt"]
+stdin: {"session_id":"cap-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓. Then tax."}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: this prompt is P3 — if it is roadmap or spec, keep it in the brief by id at write-back (brief_append [\"P3\"]); sofar copies it verbatim.","sessionTitle":"rust-core 1.2 #caps"}}
+--- stderr
+(empty)
+--- artifact
+{"id":"P1","ts":"<TS>","text":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓."}
+{"id":"P2","ts":"<TS>","text":"continue"}
+{"id":"P3","ts":"<TS>","text":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓. Then tax."}
+
+## step 5: SOFAR_PROMPT_CAPTURE=off: nothing filed, nothing said
+argv: ["event","user-prompt"]
+stdin: {"session_id":"cap-off","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓."}
+env: {"SOFAR_PROMPT_CAPTURE":"off"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #capo"}}
+--- stderr
+(empty)
+--- artifact
+no buffer file
+
+## step 6: the clone marker: nothing filed, nothing said
+argv: ["event","user-prompt"]
+stdin: {"session_id":"cap-marked","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓."}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #capm"}}
+--- stderr
+(empty)
+--- artifact
+no buffer file
+
+## step 7: keep P1 through the CLI: the dated, scrubbed text is filed
+argv: ["event","append","--type","brief_appended","--session","cap-seeded","--source","codex","--payload","{\"prompt\":\"P1\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>"}
+--- stderr
+(empty)
+
+## step 8: an id that session never captured is refused
+argv: ["event","append","--type","brief_appended","--session","cap-seeded","--source","codex","--payload","{\"prompt\":\"P7\"}"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"invalid_input","message":"prompt: no prompt P7 was captured in this session (capture off, another session's id, or a host that sends no prompt) — nothing filed for it; append the operator's words instead"}
+
+## record delta
+=== .sofar/initiatives/rust-core/events.jsonl (appended 603 bytes after 28249 unchanged)
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"cap-seeded","source":"codex","actor":"agent","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"codex"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"cap-seeded","source":"codex","actor":"agent","user":"conformance@example.invalid","type":"brief_appended","payload":{"text":"--- Operator, 2026-01-02 ---\n\nNext: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓. Use API_KEY=[redacted] in staging."}}
+=== .sofar/initiatives/rust-core/plan.md (rewritten, 3368 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Plan: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Brief (the operator's words, verbatim):
+
+--- Operator, 2026-01-02 ---
+
+Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓. Use API_KEY=[redacted] in staging.
+
+Progress: 1/15 tasks done (6%)
+
+## Phase 1 — Contract [active] — 1/3 done
+
+- [x] 1.1 Inventory the hot-path surface from docs/SPEC.md and engine code: every hook's stdin/stdout/exit behaviour, CLI commands in scope (event append, status, statusline), env vars, files written, event envelope and projection outputs. List every SPEC gap found.
+- [ ] 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first. (active)
+- [ ] 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 10, 100 and 1,000 initiatives and 1–10 MB records, TypeScript numbers recorded as the target to beat
+
+## Phase 2 — Rust core [pending] — 0/6 done
+
+- [ ] 2.1 Cargo workspace crates/sofar-core; schema codegen from packages/schema/src (no hand-written payload types); dependency list per D1
+- [ ] 2.2 Event envelope and atomic O_APPEND append; unknown and corrupt lines skipped with a warning, never fatal, never rewritten
+- [ ] 2.3 Fold to initiative state with conformance parity
+- [ ] 2.4 Digest/status render byte-identical to the projection templates (golden tests), including the 10k char cap behaviour
+- [ ] 2.5 Hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end) with conformance parity, including r1-fixes wave 1–2 behaviour
+- [ ] 2.6 Statusline command parity
+
+## Phase 3 — Integration and distribution [pending] — 0/3 done
+
+- [ ] 3.1 TS entry points and hook shims dispatch to sofar-core when present, with TypeScript fallback and an explicit override for debugging
+- [ ] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
+- [ ] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
+
+## Phase 4 — Prove and switch [pending] — 0/3 done
+
+- [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
+- [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
+- [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
+
+Active phase: Phase 1 — Contract
+Next action: Get the run owner's rulings on docs/HOTPATH.md §Open decisions O1–O6 (collation, update spawn, identity spawn, styled status, commit-trailer scope, SOFAR_NOW), then build the 1.2 black-box conformance suite in packages/engine/test against the built CLI.
+=== .sofar/initiatives/rust-core/sessions/cap-seeded.md (added, 271 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session cap-seeded
+
+- Initiative: rust-core
+- Tool: codex
+- Started: <TS>
+- Ended: (in progress)
+
+## Summary
+
+(none recorded — session did not write back)
+
+## Next action
+
+(none recorded)

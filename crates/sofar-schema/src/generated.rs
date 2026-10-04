@@ -2,6 +2,11 @@
 // itself emitted from packages/schema/src/events.ts by `npm run schema:emit`.
 // Do not edit: change the TypeScript, regenerate, review the diff (rust-core D1).
 
+#[doc = "Words added to the plan's brief without resending it (r3-fixes 2.9, D6). The L36 fix keeps every session's operator words in the brief, so a plan_updated that restated it grew with the chain: round 3 resent 0.70–0.81M chars of brief a chain, 50–60% of events.jsonl. The fold appends `text` to the brief after a blank line; plan_updated's `brief` stays the full restatement. A write path that keeps a captured prompt by id fills `text` with the prompt, verbatim and scrubbed — the event itself carries words only."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
+pub struct BriefAppendedPayload {
+    pub text: ::std::string::String,
+}
 #[doc = "`CommandRunPayload`"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct CommandRunPayload {
@@ -262,6 +267,7 @@ pub struct JudgementRecordedPayload {
 #[doc = "`KnownEventPayloads`"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct KnownEventPayloads {
+    pub brief_appended: BriefAppendedPayload,
     pub command_run: CommandRunPayload,
     pub correction: CorrectionPayload,
     pub decision_logged: DecisionLoggedPayload,

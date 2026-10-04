@@ -18,6 +18,7 @@ import { ruleFidelityWarning } from '../core/rule-fidelity'
 import { homeInitiative, ToolError, type ToolContext } from './context'
 import { bindNudge, fitQuote, judgeOptionsFor, quoteFitWarning } from './log-decision'
 import { planPhaseAdd, resolvePhaseOrThrow } from './update-phase'
+import { briefEntryText, uncapturedWarning } from '../core/prompt-buffer'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 import { citeNudges, homeViewOf } from './waits-on'
 
@@ -105,8 +106,12 @@ interface PlannedBatch {
  *    then the D31 reversal check against the record PLUS the batch's earlier
  *    decisions — a batch cannot reverse itself silently either.
  *  - memories, notes: non-empty text (the tool-input validator's check).
+ *  - brief_append (r3-fixes 2.9, D6): one brief_appended each, LAST. A `P<n>`
+ *    this session captured is copied from the prompt buffer; one it never
+ *    captured is a warning and files nothing, never a refusal of the batch
+ *    (2.8) — the agent still holds the words and can append them.
  */
-function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): PlannedBatch {
+function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, sessionId: string): PlannedBatch {
   const state = ctx.foldState(slug)
   const appends: PlannedBatch['appends'] = []
   const refuse = (where: string, errors: readonly string[]): never => {
@@ -218,6 +223,11 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs): Planne
     return `${slug} M${state.memories.length + i + 1}`
   })
   ;(args.notes ?? []).forEach((text, i) => check(`notes[${i}]`, 'note_added', { text }))
+  ;(args.brief_append ?? []).forEach((entry, i) => {
+    const text = briefEntryText(ctx.rootDir, sessionId, entry)
+    if (text === null) warnings.push(uncapturedWarning(`brief_append[${i}]`, entry))
+    else check(`brief_append[${i}]`, 'brief_appended', { text })
+  })
 
   return { appends, decisions, memories, warnings, before: state, drafts }
 }
@@ -462,7 +472,7 @@ function endSessionFiled(
   // session_ended, so the fold the write-back is read by already counts them
   // (task_done needs both halves, session-driver D5), with ONE projection
   // pass at the end instead of one per event.
-  const batch = planBatch(ctx, slug, args)
+  const batch = planBatch(ctx, slug, args, sessionId)
   for (const { type, payload } of batch.appends) ctx.appendAndProject(slug, type, payload, { project: false })
 
   const event = ctx.appendAndProject(slug, 'session_ended', {

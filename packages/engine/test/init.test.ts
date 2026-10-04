@@ -13,6 +13,7 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
+  BRIEF_BY_REFERENCE,
   AGENTS_PROTOCOL_BLOCK,
   AGENTS_PROTOCOL_BLOCK_V3,
   AGENTS_PROTOCOL_BLOCK_V4,
@@ -704,8 +705,11 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     // The CLI append stores the handle as written, and the payload takes only
     // canonical ones — so the example is a real handle (cli-dialect validates it).
     expect(AGENTS_PROTOCOL_BLOCK).toContain('`--type task_status_changed --payload \'{"id":"<task-id>","status":"blocked","waits_on":["billing 2.3"]}\'`')
-    // Only LINKS was added: the block minus it is the one shipped before it, byte for byte.
-    expect(PROTOCOL_BLOCK.replace(links(PROTOCOL_BLOCK), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-1))
+    // Only LINKS and the brief wording (r3-fixes 2.9) were added: the block
+    // minus both is the one shipped before it, byte for byte.
+    const [shipped, now] = BRIEF_BY_REFERENCE.claude
+    const unbriefed = PROTOCOL_BLOCK.replace(now, shipped)
+    expect(unbriefed.replace(links(unbriefed), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-1))
     const v12 = SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)!
     expect(v12.replace(links(v12), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2))
   })
@@ -718,8 +722,10 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
       '',
     ].join('\n')
     expect(AGENTS_PROTOCOL_BLOCK).toContain(sentence)
-    // Only that sentence was added: the current block minus it is V12, byte for byte.
-    expect(AGENTS_PROTOCOL_BLOCK.replace(sentence, '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
+    // Only that sentence and the brief wording (r3-fixes 2.9) were added: the
+    // current block minus both is V12, byte for byte.
+    const [shipped, now] = BRIEF_BY_REFERENCE.agents
+    expect(AGENTS_PROTOCOL_BLOCK.replace(sentence, '').replace(now, shipped)).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
   })
 
   const driving = (b: string): string => /- DRIVING:[\s\S]*?(?=\n- BEFORE FINISHING)/.exec(b)![0]

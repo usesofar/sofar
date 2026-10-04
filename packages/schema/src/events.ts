@@ -168,6 +168,24 @@ export interface InitiativeStatusChangedPayload {
 }
 export interface PlanUpdatedPayload { plan: PlanStructure }
 /**
+ * Words added to the plan's brief without resending it (r3-fixes 2.9, D6).
+ * The L36 fix keeps every session's operator words in the brief, so a
+ * plan_updated that restated it grew with the chain: round 3 resent 0.70–0.81M
+ * chars of brief a chain, 50–60% of events.jsonl. The fold appends `text` to
+ * the brief after a blank line; plan_updated's `brief` stays the full
+ * restatement. A write path that keeps a captured prompt by id fills `text`
+ * with the prompt, verbatim and scrubbed — the event itself carries words only.
+ */
+export interface BriefAppendedPayload { text: string }
+/**
+ * One row of the private prompt buffer (r3-fixes 2.9, D6) — NOT an event. The
+ * prompt hook appends the operator's prompt here verbatim, outside the repo
+ * (`$XDG_STATE_HOME/sofar/prompts/<clone key>/<session>.jsonl`), and nothing
+ * reaches the record unless a write-back keeps it by `id`: `P<n>`, the n-th
+ * prompt of that session.
+ */
+export interface CapturedPromptRow { id: string; ts: string; text: string }
+/**
  * `note` (phase-lifecycle 2.1) is the same field task_status_changed carries,
  * one level up, and required for `dropped` for the same reason: a phase
  * abandoned without a stated reason is indistinguishable from one quietly
@@ -680,6 +698,7 @@ export interface KnownEventPayloads {
   initiative_created: InitiativeCreatedPayload
   initiative_status_changed: InitiativeStatusChangedPayload
   plan_updated: PlanUpdatedPayload
+  brief_appended: BriefAppendedPayload
   phase_status_changed: PhaseStatusChangedPayload
   phase_added: PhaseAddedPayload
   task_added: TaskAddedPayload
@@ -715,12 +734,13 @@ export type KnownEventType = keyof KnownEventPayloads
  * a test pins it to package.json. Part of a fold snapshot's version hash —
  * bump it with any payload-shape change.
  */
-export const SCHEMA_VERSION = '0.11.0'
+export const SCHEMA_VERSION = '0.12.0'
 
 export const EVENT_TYPES = [
   'initiative_created',
   'initiative_status_changed',
   'plan_updated',
+  'brief_appended',
   'phase_status_changed',
   'phase_added',
   'task_added',
@@ -959,6 +979,9 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
   },
   plan_updated(p, e) {
     validatePlan(p.plan, e)
+  },
+  brief_appended(p, e) {
+    if (!str(p.text)) e.push('text: must be a non-empty string')
   },
   phase_status_changed(p, e) {
     if (!str(p.phase)) e.push('phase: must be a non-empty string')
@@ -1337,7 +1360,7 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   },
   plan_updated: {
     writer: 'agent',
-    summary: 'the WHOLE plan — a full replace: resend every phase and task each time, or the omitted ones vanish; brief is the operator\'s roadmap or spec verbatim, kept when omitted',
+    summary: 'the WHOLE plan — a full replace: resend every phase and task each time, or the omitted ones vanish; brief is the operator\'s roadmap or spec verbatim, kept when omitted — add to it with brief_appended, never by resending it',
     fields: `plan: {goal?, brief?, phases: [{name, status?: ${PHASE_STATUSES.join('|')}, tasks: [{id, title, status?: ${TASK_STATUSES.join('|')}, route?: {agent?, model?, effort?}, verify?: {cmd, cwd?, timeout_ms?}, waits_on?: [qualified handle]}]}]}`,
     example: {
       plan: {
@@ -1354,6 +1377,12 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
         ],
       },
     },
+  },
+  brief_appended: {
+    writer: 'agent',
+    summary: 'the operator\'s roadmap or spec words added to the plan\'s brief, without resending the brief or the plan',
+    fields: 'text (verbatim); the CLI also takes {"prompt":"P<n>"} instead: a prompt this session\'s hooks captured, copied verbatim',
+    example: { text: '--- Operator, 2026-10-04 ---\n\nNext: refunds. A refund never exceeds what was paid.' },
   },
   phase_status_changed: {
     writer: 'agent',

@@ -174,8 +174,15 @@ describe('the surfaces that teach the brief', () => {
       expect(block).toContain('a finished task list does not finish the brief')
       expect(block).toContain('the next item on the roadmap')
     }
-    expect(flat(AGENTS_PROTOCOL_BLOCK)).toContain('"brief":"<roadmap or spec, verbatim>"')
     expect(flat(PROTOCOL_BLOCK)).toContain('`sofar_update_plan`')
+    // r3-fixes 2.9 (D6): the brief grows by reference, never by a resend.
+    for (const block of [PROTOCOL_BLOCK, AGENTS_PROTOCOL_BLOCK].map(flat)) {
+      expect(block).toContain('Never retype or resend it to add to it')
+      expect(block).toContain('P1, P2, …')
+    }
+    expect(flat(PROTOCOL_BLOCK)).toContain('`brief_append: ["P1"]`')
+    expect(flat(AGENTS_PROTOCOL_BLOCK)).toContain(`--type brief_appended --payload '{"prompt":"P1"}'`)
+    expect(flat(AGENTS_PROTOCOL_BLOCK)).not.toContain('"brief":"<roadmap or spec, verbatim>"')
   })
 
   it('sofar_update_plan accepts it', () => {

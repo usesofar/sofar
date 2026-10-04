@@ -44,6 +44,7 @@ import {
   type InitiativeStatusChangedPayload,
   type NoteAddedPayload,
   type PhaseStatus,
+  type BriefAppendedPayload,
   type PhaseAddedPayload,
   type PhaseStatusChangedPayload,
   type PlanUpdatedPayload,
@@ -1205,6 +1206,14 @@ function recordFreshness(state: InitiativeState, event: EventEnvelope): void {
     case 'review_recorded':
       mutation(() => (counts.reviews += 1))
       break
+    case 'brief_appended':
+      // Brief additions are EXCLUDED from drift, deliberately (commit-
+      // attribution D18 requires the class decided here). They are the delta
+      // form of plan_updated's brief, which has never counted: the operator's
+      // words, filed by the write-back that read them, change no plan entry.
+      // Counting the delta would make the cheap form drift where the full
+      // resend it replaces never was.
+      break
     case 'judgement_recorded':
       // Stored judgements are EXCLUDED from drift, deliberately (commit-
       // attribution D18 requires the class decided here). A judgement is
@@ -1638,6 +1647,13 @@ function applyEvent(
       phase.status = p.status
       if (p.note !== undefined && p.note.length > 0) phase.note = p.note
       else delete phase.note
+      break
+    }
+    case 'brief_appended': {
+      // r3-fixes 2.9 (D6): the brief grows by delta, after a blank line — the
+      // separator the L36 resends used, so a brief built either way reads alike.
+      const { text } = event.payload as unknown as BriefAppendedPayload
+      state.brief = state.brief.length > 0 ? `${state.brief}\n\n${text}` : text
       break
     }
     case 'phase_added': {

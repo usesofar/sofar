@@ -136,6 +136,13 @@ export interface EndSessionArgs {
   decisions?: EndSessionDecision[]
   memories?: string[]
   notes?: string[]
+  /**
+   * Words for the plan's brief (r3-fixes 2.9, D6), each filed as one
+   * brief_appended — never a resend of the brief. An entry naming a prompt
+   * this session's hooks captured (`P<n>`) is copied from the private buffer
+   * verbatim, secrets scrubbed; any other entry is the words themselves.
+   */
+  brief_append?: string[]
 }
 export interface EndSessionTaskChange {
   task_id: string
@@ -568,6 +575,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
       decisions: { type: 'array', description: 'Decisions not yet logged, each as sofar_log_decision args.', items: { type: 'object' } },
       memories: { type: 'array', description: 'Facts to promote (sofar_remember).', items: { type: 'string' } },
       notes: { type: 'array', items: { type: 'string' } },
+      brief_append: { type: 'array', description: 'Operator roadmap/spec words for the brief: a captured prompt id (P1, copied verbatim) or the words.', items: { type: 'string' } },
     },
     required: ['summary', 'next_action'],
     additionalProperties: false,
@@ -717,7 +725,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_update_plan',
     description:
-      'Full plan replace (goal, brief, phases), not a merge: an omitted status means `pending`, so restate every status you keep. `brief` = the operator\'s roadmap or spec, verbatim, kept if omitted. To add a task or phase: sofar_update_task with title, sofar_update_phase with add.',
+      'Full plan replace (goal, brief, phases), not a merge: an omitted status means `pending`, so restate every status you keep. `brief` = the operator\'s roadmap or spec, verbatim, kept if omitted; add to it via sofar_end_session brief_append. To add a task or phase: sofar_update_task with title, sofar_update_phase with add.',
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_update_plan,
   },
   {
@@ -782,7 +790,7 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
         e.push(`${key}: must be an array of objects`)
       }
     }
-    for (const key of ['memories', 'notes'] as const) {
+    for (const key of ['memories', 'notes', 'brief_append'] as const) {
       if (a[key] !== undefined && !(Array.isArray(a[key]) && (a[key] as unknown[]).every(str))) {
         e.push(`${key}: must be an array of non-empty strings`)
       }

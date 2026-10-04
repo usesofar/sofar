@@ -4,6 +4,7 @@ import { EVENT_TYPES, isKnownEventType, validatePayload } from '../src/events'
 const validPayloads: Record<string, Record<string, unknown>> = {
   initiative_created: { slug: 'sofar-build', goal: 'Build the v1 engine' },
   initiative_status_changed: { status: 'done', note: 'v1 engine shipped' },
+  brief_appended: { text: 'Next: refunds, never more than was paid.' },
   plan_updated: {
     plan: {
       goal: 'Build it',

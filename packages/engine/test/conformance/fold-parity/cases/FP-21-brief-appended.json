@@ -1,0 +1,10 @@
+{
+  "tail_at": 3,
+  "seeds": [
+    62,
+    63,
+    64
+  ],
+  "order_independence": true,
+  "note": "r3-fixes 2.9 (D6): brief_appended sets an empty brief to its text and appends after a blank line otherwise; a plan_updated without brief keeps it and one with brief replaces the whole; an empty or missing text is an invalid line; never drift. The tail starts at the first append"
+}

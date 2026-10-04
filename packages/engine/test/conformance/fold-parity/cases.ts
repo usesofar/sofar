@@ -439,6 +439,23 @@ export function buildCases(): FoldParityCase[] {
     l.ev('command_run', { cmd: 'cargo test', ok: true }, { session: 'B' }) // runs with no edit at all
     cases.push({ id: 'FP-20-tests-since-edit', lines: l.lines, sidecar: { tail_at: 5, seeds: [59, 60, 61], order_independence: true, note: 'r3-fixes 2.10 (D10): tests_since_edit holds the test-shaped outcomes since the session\'s latest touched edge, oldest first, the newest 8 kept; a re-touch of a seen path empties it; a non-test and an ok-unknown run never join; a session with runs and no edit keeps them. The tail starts at the re-touch' } })
   }
+  {
+    // r3-fixes 2.9 (D6): the brief grows by delta. An empty brief takes the
+    // text whole, a held one gains it after a blank line, a plan_updated
+    // without `brief` keeps it, one with `brief` replaces the whole, and an
+    // empty or missing text is an invalid line. Never drift.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('session_started', { tool: 'claude-code' }, { session: 'A' })
+    l.ev('brief_appended', { text: 'First words.' }, { session: 'A' }) // empty brief: set
+    l.ev('plan_updated', plan(1), { session: 'A' }) // no brief: kept
+    l.ev('brief_appended', { text: '--- Operator, 2026-10-04 ---\n\nNext: refunds — “never more than paid” ✓' }, { session: 'A' })
+    l.ev('brief_appended', { text: '' }, { session: 'A' }) // invalid: empty
+    l.ev('brief_appended', {}, { session: 'A' }) // invalid: missing
+    l.ev('plan_updated', { plan: { brief: 'Restated.', phases: [{ name: 'Phase 1', status: 'active', tasks: [{ id: '1.1', title: 'A' }] }] } }, { session: 'A' })
+    l.ev('brief_appended', { text: 'Then tax.' }, { session: 'A' })
+    cases.push({ id: 'FP-21-brief-appended', lines: l.lines, sidecar: { tail_at: 3, seeds: [62, 63, 64], order_independence: true, note: 'r3-fixes 2.9 (D6): brief_appended sets an empty brief to its text and appends after a blank line otherwise; a plan_updated without brief keeps it and one with brief replaces the whole; an empty or missing text is an invalid line; never drift. The tail starts at the first append' } })
+  }
   return cases
 }
 

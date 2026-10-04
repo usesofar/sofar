@@ -79,6 +79,7 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
+import { briefEntryText, capturePrompt, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
 import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
 import { newestEvent } from '../core/warmth'
@@ -2558,6 +2559,17 @@ function slugOf(command: string): string | null {
   return m === null ? null : m[1]!
 }
 
+/**
+ * The prompt, kept privately by id so the brief can grow by reference
+ * (r3-fixes 2.9, D6). The id is offered only for a prompt long enough to be
+ * worth not retyping, and never in the quick lane, which has no brief.
+ */
+function keepLine(rootDir: string, slug: string, sessionId: string, prompt: string): string | null {
+  if (slug === QUICK_LANE) return null
+  const id = capturePrompt(rootDir, sessionId, prompt, new Date().toISOString())
+  return id !== null && prompt.length >= PROMPT_ANNOUNCE_MIN ? promptKeepLine(id) : null
+}
+
 export function handleUserPrompt(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
@@ -2576,8 +2588,12 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // prompt usually lands before its first event registers it.
     const title =
       host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
+    // Before the registration check: a bench session's only prompt lands
+    // before anything registers it.
+    const prompt = strField(hook, 'prompt')
+    const keep = prompt === null ? null : keepLine(rootDir, slug, sessionId, prompt)
     const me = state.sessions.find((s) => s.id === sessionId)
-    if (me === undefined) return withSessionTitle('user-prompt', { ...OK }, title) // not ours to nudge
+    if (me === undefined) return withSessionTitle('user-prompt', keep === null ? { ...OK } : { ...OK, stdout: keep }, title) // not ours to nudge
 
     // Live hazard first (a sibling is IN this file now), then news (what a
     // sibling finished), then state (where the repo stands), then the nudge
@@ -2620,7 +2636,6 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // host passes; a payload without one renders nothing.
     // `SOFAR_LESSONS=off` is the ablation switch (D18): round 2 prices the
     // line's tokens on their own, and a lever must be separable to be priced.
-    const prompt = strField(hook, 'prompt')
     if (prompt !== null && lessonsEnabled()) lines.unshift(...lessonLines(promptLessons(ctx.sofarDir, state, slug, sessionId, prompt)))
     lines.unshift(...guardViolationLines(sessionGuardViolations(state, sessionId, me.ended), rootDir))
 
@@ -2663,6 +2678,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
           `is warm; an unwritten session gets force-blocked at Stop.`,
       )
     }
+    if (keep !== null) lines.push(keep)
 
     return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)
   } catch {
@@ -2782,6 +2798,15 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
       }
     }
     const session = args.session ?? adoptSession(ctx, rootDir, slug, args.type)
+    // A kept prompt (r3-fixes 2.9, D6): {"prompt":"P<n>"} names one this
+    // session's hooks captured, and sofar files its text. An explicit caller
+    // gets the refusal a single append owes it (BD17), not a warning.
+    if (args.type === 'brief_appended' && typeof payload.prompt === 'string' && payload.text === undefined) {
+      const text = PROMPT_ID_RE.test(payload.prompt) ? briefEntryText(rootDir, session, payload.prompt) : null
+      if (text === null) throw new ToolError('invalid_input', uncapturedWarning('prompt', payload.prompt))
+      delete payload.prompt
+      payload.text = text
+    }
     // The id is only news when sofar chose it.
     const named = args.session === undefined ? { session } : {}
     // A repeat start is a no-op, not a second line (r1-fixes 1.2): the dialect

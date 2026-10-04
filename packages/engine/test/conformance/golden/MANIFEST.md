@@ -1,5 +1,16 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r3-fixes 2.9** (D6, the brief by reference), on main 0d5d074: one
+new case, `repo.prompt-capture`. A long prompt from an unregistered session is
+filed in the private prompt buffer as P1 and offered by id; a short one is
+filed silently as P2; the same prompt again keeps its id; `SOFAR_PROMPT_CAPTURE=off`
+and the clone's `off` marker each file and say nothing. Each step's artifact is
+the session's buffer file (under the scratch home, outside the record delta).
+A seeded P1 is kept through `event append --type brief_appended` as dated,
+scrubbed text, and an uncaptured P7 is refused. fold-parity adds
+FP-21-brief-appended, with its render-parity golden. No existing golden moved:
+every other prompt in the suite is shorter than the 100-unit offer threshold.
+
 EXTENDED for **r3-fixes 2.10** (D10, the Stop test gate; memory-lead D37), on
 main 2064387: `syn.surfacing` gains six steps after "stop: the block carries
 the checks". A rule whose check is a test (`bun test test/legacy.test.ts`)

@@ -155,6 +155,9 @@ rejected on every other status; initiative-supersession D1, see
 §Initiative statuses) · plan_updated (full plan structure; `plan.brief?` —
 the operator's roadmap or spec in their own words, verbatim, kept when a
 later replace omits it, like `goal`; r1-fixes 4.6, L36) ·
+brief_appended (text — words added to the brief without resending it: the
+fold appends them after a blank line; never counted as drift, like
+plan_updated; r3-fixes 2.9, D6) ·
 phase_status_changed (phase, status: pending|active|done|blocked|dropped,
 note? — REQUIRED for `dropped`; the note explains the CURRENT status and is
 cleared by any later event that omits it; phase-lifecycle 2.1) ·
@@ -4381,7 +4384,7 @@ sofar_start_session.`
   write-back linkage breaks). That is the record-integrity misroute class,
   and the side-index workaround for it is already rejected.
 - sofar_end_session({session_id?, summary, next_action, tasks?, phases?,
-  decisions?, memories?, notes?}) → {ok, event_id, tasks_applied?,
+  decisions?, memories?, notes?, brief_append?}) → {ok, event_id, tasks_applied?,
   decisions?, memories?, warnings?, parallel_writebacks?, rebound?}  # the
   write-back. `session_id` is optional since memory-lead D3: omitted, the
   ACTIVE session (adopted or started) is ended; with none, `invalid_input`
@@ -4409,8 +4412,16 @@ sofar_start_session.`
   `a replacement for <slug> D<n> is filed with sofar_log_decision, not a
   write-back`, since a batch entry takes no `initiative`. `memories`
   and `notes` — non-empty strings, appended as memory_promoted {text} and
-  note_added {text}. Appended in order — tasks, phases, decisions, memories,
-  notes — under the session BEFORE session_ended, with projections
+  note_added {text}. `brief_append` (r3-fixes 2.9, D6) — non-empty strings,
+  each appended as one brief_appended {text}: an entry matching `P<n>` names
+  a prompt THIS session's hooks captured (§Hooks, PROMPT CAPTURE) and files
+  `--- Operator, <YYYY-MM-DD of its capture> ---`, a blank line, then the
+  prompt verbatim through the prose secret scrub (core/redact.ts
+  redactProse); any other entry is filed as written. A `P<n>` with no
+  capture behind it files nothing and adds a `warnings` line naming it —
+  never a refusal of the batch (r3-fixes 2.8). Appended in order — tasks,
+  phases, decisions, memories, notes, brief_append — under the session
+  BEFORE session_ended, with projections
   regenerated ONCE (on the session_ended append), so the fold the write-back
   is read by already counts them (task_done needs both halves,
   session-driver D5). `tasks_applied` is present iff `tasks` was passed;
@@ -5121,6 +5132,27 @@ fires, and a Codex session is Tier 3 (§Host tiers).
   summary/next_action overwritten, freshness reset, Stop passes once any
   exists). Best-effort (BD22): every failure path is silence, never a
   blocked prompt.
+  PROMPT CAPTURE (r3-fixes 2.9, D6): when a record resolves and it is not
+  the quick lane, the shim first appends the payload's `prompt` verbatim to
+  the private prompt buffer — `$XDG_STATE_HOME/sofar/prompts/<clone
+  key>/<session id, sanitized like a diagnostics name>.jsonl`, one
+  `{"id","ts","text"}` row, `id` = `P<n>` for the session's n-th prompt
+  (a prompt equal to the session's last one keeps its id: a host that fires
+  twice). Outside the repo by construction, like §Diagnostics store
+  (refused when the path would land inside the clone), mode 0600 in a 0700
+  directory; creating a session's file deletes session files untouched for
+  30 days. Off when `SOFAR_PROMPT_CAPTURE=off` (the ablation switch) or when
+  this clone's `off` marker exists (`sofar init --no-prompt-capture`). This
+  runs BEFORE the registration check — a session's first prompt usually
+  lands before anything registers it. A captured prompt of ≥100 UTF-16 units
+  adds ONE line, last in the output, also for a session not yet registered:
+  `sofar: this prompt is P<n> — if it is roadmap or spec, keep it in the
+  brief by id at write-back (brief_append ["P<n>"]); sofar copies it
+  verbatim.` A shorter prompt is cheaper to retype than to announce, so it
+  is captured silently. Nothing reaches the record unless a write-back keeps
+  the id (sofar_end_session `brief_append`, or `sofar event append --type
+  brief_appended --payload '{"prompt":"P<n>"}'`, refused there when no such
+  prompt was captured in the append's session).
   RELEVANT LESSONS (r1-fixes 3.3, D16): the same shim reads the payload's
   `prompt` (first 2,000 chars) and BM25-ranks it — core/lexicon.ts
   rankLexical, the `sofar find` ranker, no model — against THIS
@@ -5598,7 +5630,7 @@ follows its `cd`. In round 3, with cwd as the root, every hook silently did
 nothing from `apps/web`: Claude Write/Edit capture was 0 of 156 from a
 subdirectory, against 33 of 33 from the root.
 
-- `sofar init [--agents <list>]` — create .sofar/, write repo.md stub, install hook shims
+- `sofar init [--agents <list>] [--[no-]prompt-capture]` — create .sofar/, write repo.md stub, install hook shims
   (including git's own `.git/hooks/prepare-commit-msg`, never clobbering —
   commit-attribution D7, §Hooks)
   + .claude/settings.json hooks block, emit .mcp.json registration, the
@@ -5624,7 +5656,11 @@ subdirectory, against 33 of 33 from the root.
   Cursor `.cursor/hooks.json`, `.cursor/mcp.json`, AGENTS.md; Codex
   `.codex/hooks.json`, its shims in `.codex/hooks/sofar/`, the
   `[mcp_servers.sofar]` table in `.codex/config.toml`, and AGENTS.md
-  (agents-parity 2.1, D5; 2.2, D7). `.sofar/`,
+  (agents-parity 2.1, D5; 2.2, D7). PROMPT CAPTURE (r3-fixes 2.9, D6) is on
+  by default; `--no-prompt-capture` writes this clone's `off` marker in its
+  prompt buffer directory (outside the repo, §Hooks), `--prompt-capture`
+  removes it, and neither flag leaves it as it is, so a plain re-run never
+  turns capture back on. A run that changes it reports one line. `.sofar/`,
   `.gitattributes` and the git hook are shared and always installed. `--agents` takes
   `claude-code`, `cursor`, `codex` comma-separated, or `all`; an unknown name
   exits 1 and writes nothing. Without the flag, when stdin and stderr are a
@@ -8554,6 +8590,25 @@ stay the underlying derivation's, and exit codes are styling-independent.
   itself in a repo with no record, and never a `.sofar/` above the repo or
   outside any repo. A PostToolUse Edit and a Stop run with their cwd in
   `src/legacy` serve the record at the root (`syn.surfacing`).
+- **Brief by reference (r3-fixes 2.9, D6):** brief_appended {text} refuses
+  an empty text; the fold sets an empty brief to it, else appends it after a
+  blank line, and a later plan_updated carrying `brief` replaces the whole;
+  it is never drift (FP-21, both engines). The prompt hook captures a prompt
+  of ≥100 UTF-16 units in a session not yet registered and prints its P1
+  line, captures a short one silently, keeps the id for the same prompt
+  twice, and captures nothing under `SOFAR_PROMPT_CAPTURE=off` or the off
+  marker (`syn.surfacing`, both engines). sofar_end_session `brief_append:
+  ["P1", "<words>"]` files two brief_appended, the first `--- Operator,
+  <date> ---`, a blank line and the scrubbed prompt; an uncaptured `P9`
+  files nothing for itself with a warning, and the rest of the batch files.
+  `sofar event append --type brief_appended --payload '{"prompt":"P1"}'`
+  files the kept text and refuses an uncaptured id. redactProse scrubs
+  `NAME=value`, a `--token` flag, a Bearer header, URL credentials, token
+  shapes and a private key block, and leaves "re-authenticate the user" and
+  "Authorization: we need sign-off" whole. `sofar init --no-prompt-capture`
+  turns capture off for the clone, a plain re-run leaves it off, and
+  `--prompt-capture` turns it back on. The tool surface stays ≤8,450 chars
+  (D14).
 - **Decision checks (memory-lead 2.3):** decision_logged `check` without
   `rule` is refused, as are an empty or 501-char cmd, a 301-char hint, a
   timeout_ms of 0 or 600,001 and an unknown key; verification_recorded

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { FixtureSpec, Materialized, Step } from './harness'
 
@@ -80,6 +80,22 @@ function seedLaunched(m: Materialized, state: 'running' | 'stopped'): void {
   }
   writeFileSync(join(base, 'runs', `${LAUNCHED_RUN}.json`), `${JSON.stringify(progress)}\n`)
 }
+
+/** A prompt long enough for the hook to offer its id (r3-fixes 2.9, PROMPT_ANNOUNCE_MIN = 100). */
+const CAPTURE_LONG =
+  'Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓.'
+/** This clone's prompt buffer directory under the scratch home. */
+function promptDir(m: Materialized): string {
+  const key = createHash('sha256').update(realpathSync(m.root)).digest('hex').slice(0, 32)
+  return join(m.home, '.local', 'state', 'sofar', 'prompts', key)
+}
+/** A session's buffer file as the step left it, or a line saying there is none. */
+const promptBuffer =
+  (session: string) =>
+  (m: Materialized): string => {
+    const file = join(promptDir(m), `${session}.jsonl`)
+    return existsSync(file) ? readFileSync(file, 'utf8') : 'no buffer file\n'
+  }
 
 /** A registered session in the repo record's `speed` initiative (homeInitiative routing). */
 const SPEED_SESSION = 'aefa6315-3725-4e4d-9f9a-224ff6f86ddb'
@@ -294,6 +310,35 @@ export const CASES: ConformanceCase[] = [
       s('prompt after write-back', ['event', 'user-prompt'], prompt()),
       s('status shows the session', ['status']),
       s('statusline after the run', ['statusline', '--no-color'], statusline()),
+    ],
+  },
+  {
+    // r3-fixes 2.9 (D6): the prompt hook files each prompt in the private
+    // buffer as P<n> and offers a long one's id; the artifact is the
+    // session's buffer file, outside .sofar/ and so outside the record delta.
+    name: 'repo.prompt-capture',
+    fixture: REPO,
+    steps: [
+      s('a long prompt before registration: captured, offered as P1', ['event', 'user-prompt'], prompt({ session_id: 'cap-session', prompt: CAPTURE_LONG }), { artifact: promptBuffer('cap-session') }),
+      s('a short prompt: captured silently as P2', ['event', 'user-prompt'], prompt({ session_id: 'cap-session', prompt: 'continue' }), { artifact: promptBuffer('cap-session') }),
+      s('the same prompt again: its id, no new row', ['event', 'user-prompt'], prompt({ session_id: 'cap-session', prompt: 'continue' }), { artifact: promptBuffer('cap-session') }),
+      s('a second long prompt: P3', ['event', 'user-prompt'], prompt({ session_id: 'cap-session', prompt: `${CAPTURE_LONG} Then tax.` }), { artifact: promptBuffer('cap-session') }),
+      s('SOFAR_PROMPT_CAPTURE=off: nothing filed, nothing said', ['event', 'user-prompt'], prompt({ session_id: 'cap-off', prompt: CAPTURE_LONG }), { env: { SOFAR_PROMPT_CAPTURE: 'off' }, artifact: promptBuffer('cap-off') }),
+      s('the clone marker: nothing filed, nothing said', ['event', 'user-prompt'], prompt({ session_id: 'cap-marked', prompt: CAPTURE_LONG }), {
+        before: (m) => {
+          mkdirSync(promptDir(m), { recursive: true })
+          writeFileSync(join(promptDir(m), 'off'), '')
+        },
+        artifact: promptBuffer('cap-marked'),
+      }),
+      s('keep P1 through the CLI: the dated, scrubbed text is filed', ['event', 'append', '--type', 'brief_appended', '--session', 'cap-seeded', '--source', 'codex', '--payload', '{"prompt":"P1"}'], undefined, {
+        before: (m) => {
+          rmSync(join(promptDir(m), 'off'), { force: true })
+          const row = { id: 'P1', ts: '2026-01-02T03:04:05.000Z', text: `${CAPTURE_LONG} Use API_KEY=abc123 in staging.` }
+          writeFileSync(join(promptDir(m), 'cap-seeded.jsonl'), `${JSON.stringify(row)}\n`)
+        },
+      }),
+      s('an id that session never captured is refused', ['event', 'append', '--type', 'brief_appended', '--session', 'cap-seeded', '--source', 'codex', '--payload', '{"prompt":"P7"}']),
     ],
   },
   {

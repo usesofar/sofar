@@ -938,6 +938,16 @@ fn apply_event(
             phase.status = req_str(p, "status");
             phase.note = note;
         }
+        "brief_appended" => {
+            // r3-fixes 2.9 (D6): the brief grows by delta, after a blank line.
+            let text = req_str(p, "text");
+            if state.brief.is_empty() {
+                state.brief = text;
+            } else {
+                state.brief.push_str("\n\n");
+                state.brief.push_str(&text);
+            }
+        }
         "phase_added" => {
             // phase-lifecycle 7.1 (D10): an existing name is a skip, never a reset.
             let name = req_str(p, "phase");
@@ -1825,6 +1835,9 @@ fn record_freshness(
         // Stored judgements too (typed-judge 2.4): enrichment derived from
         // the record, owing no write-back.
         | "judgement_recorded"
+        // And brief additions (r3-fixes 2.9): the delta form of plan_updated's
+        // brief, which has never counted.
+        | "brief_appended"
         | "suggestion_proposed"
         | "suggestion_approved"
         | "suggestion_rejected"

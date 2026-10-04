@@ -14,6 +14,9 @@
         "plan_updated": {
           "$ref": "#/definitions/PlanUpdatedPayload"
         },
+        "brief_appended": {
+          "$ref": "#/definitions/BriefAppendedPayload"
+        },
         "phase_status_changed": {
           "$ref": "#/definitions/PhaseStatusChangedPayload"
         },
@@ -94,6 +97,7 @@
         "initiative_created",
         "initiative_status_changed",
         "plan_updated",
+        "brief_appended",
         "phase_status_changed",
         "phase_added",
         "task_added",
@@ -308,6 +312,18 @@
         "cmd"
       ],
       "description": "The task's acceptance command (r1-fixes 3.1, D19): what `sofar drive` runs before it accepts the task as done. A shell command line, run in `cwd` relative to the launch directory (default the launch directory itself), killed after `timeout_ms`. The plan carries it like a route, and like a route it survives only as long as a full-replace plan restates it. An agent can write a plan, so the driver runs a plan-level command ONLY when it falls inside the run's recorded permission surface (D19) — the operator's `--verify` is the other, always-approved source."
+    },
+    "BriefAppendedPayload": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "description": "Words added to the plan's brief without resending it (r3-fixes 2.9, D6). The L36 fix keeps every session's operator words in the brief, so a plan_updated that restated it grew with the chain: round 3 resent 0.70–0.81M chars of brief a chain, 50–60% of events.jsonl. The fold appends `text` to the brief after a blank line; plan_updated's `brief` stays the full restatement. A write path that keeps a captured prompt by id fills `text` with the prompt, verbatim and scrubbed — the event itself carries words only."
     },
     "PhaseStatusChangedPayload": {
       "type": "object",

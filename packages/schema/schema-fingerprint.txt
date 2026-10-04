@@ -1,7 +1,8 @@
-0.11.0
+0.12.0
 initiative_created: slug ([a-z0-9-]+), goal
 initiative_status_changed: status: active|done|dropped|superseded, note? (required for dropped), successor? (required for superseded, else rejected), overrides?: string[]
 plan_updated: plan: {goal?, brief?, phases: [{name, status?: pending|active|done|blocked|dropped, tasks: [{id, title, status?: pending|active|done|blocked|dropped, route?: {agent?, model?, effort?}, verify?: {cmd, cwd?, timeout_ms?}, waits_on?: [qualified handle]}]}]}
+brief_appended: text (verbatim); the CLI also takes {"prompt":"P<n>"} instead: a prompt this session's hooks captured, copied verbatim
 phase_status_changed: phase, status: pending|active|done|blocked|dropped, note? (say why when dropped)
 phase_added: phase, status?: pending|active|done|blocked|dropped (default pending), after? (the phase it follows; default last), note?
 task_added: phase, id, title, status?: pending|active|done|blocked|dropped, verify?: {cmd, cwd?, timeout_ms?} (the acceptance command sofar drive runs before accepting the task), waits_on? (qualified handles this task waits on; replaces the set, [] clears)

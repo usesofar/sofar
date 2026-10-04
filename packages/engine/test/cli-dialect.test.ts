@@ -214,7 +214,14 @@ describe('the AGENTS.md block teaches a project initiative with a plan (r1-fixes
       expect.arrayContaining(['session_started', 'plan_updated', 'task_status_changed', 'phase_status_changed', 'decision_logged', 'note_added', 'session_ended']),
     )
     for (const { type, json } of typed) {
-      expect(validatePayload(type as KnownEventType, firstOption(JSON.parse(json))), type!).toEqual({ ok: true })
+      const payload = firstOption(JSON.parse(json))
+      // A kept prompt (r3-fixes 2.9) is the CLI's input form: runAppend turns
+      // {"prompt":"P<n>"} into {text} before the payload is validated.
+      if (type === 'brief_appended' && typeof (payload as { prompt?: unknown }).prompt === 'string') {
+        expect((payload as { prompt: string }).prompt).toMatch(/^P[1-9][0-9]*$/)
+        continue
+      }
+      expect(validatePayload(type as KnownEventType, payload), type!).toEqual({ ok: true })
     }
   })
 

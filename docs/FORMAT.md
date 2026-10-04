@@ -99,6 +99,7 @@ present, MUST be strings. Status enums for both tasks and phases are
 | ---- | ------- | --------- |
 | `initiative_created` | `slug`, `goal` (required) | Declares the initiative; sets its slug and goal. Normally line 1 of the log. |
 | `plan_updated` | `plan` (required object, see below) | **Full replace** of the plan structure: goal (if present) and the entire phase/task tree. |
+| `brief_appended` | `text` (required) | Adds words to the plan's brief without resending it: appended after a blank line, or the whole brief when it is empty. `plan_updated`'s `brief` stays the full restatement. |
 | `phase_status_changed` | `phase`, `status` (required; `status` ∈ enum) | Sets the named phase's status. |
 | `phase_added` | `phase` (required); `status` (optional, ∈ enum, default `pending`); `after`, `note` (optional) | Adds one phase without replacing the plan: directly after the phase named `after`, else last. |
 | `task_added` | `phase`, `id`, `title` (required); `status` (optional, ∈ enum, default `pending`) | Adds one task to the named phase. Task ids are unique across the whole initiative, not per phase. |
@@ -193,6 +194,9 @@ does not un-void its original target (v1 behavior — see also §8).
 - `initiative_created` — set `slug` and `goal`.
 - `plan_updated` — replace the phase tree wholesale; replace `goal` only if
   the payload carries one; missing statuses default to `pending`.
+- `brief_appended` — set the brief to `text` when it is empty, else to the
+  brief, a blank line (`\n\n`), then `text`. A later `plan_updated` that
+  carries `brief` replaces the whole of it.
 - `phase_status_changed` — find the phase by name; if absent, **create it
   implicitly** (status `pending`, no tasks) with a warning, then set status.
 - `phase_added` — if a phase with this exact name exists, skip with a

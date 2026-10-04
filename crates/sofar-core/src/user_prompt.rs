@@ -7,9 +7,11 @@ use std::path::Path;
 use crate::append::{append_and_project, fold_state};
 use crate::attribution::{AttributionQuery, CommitAttribution, read_attribution_query};
 use crate::cli::Hook;
+use crate::date::now_ms;
 use crate::cross_conflicts::{CrossFileConflict, cross_conflicts_from_open_sessions};
 use crate::fold::{GuardViolation, InitiativeState, SessionState, session_debt};
 use crate::fold_cli::CmdResult;
+use crate::envelope::iso_from_epoch_ms;
 use crate::git::{GitState, read_git_state};
 use crate::home::resolve_session_first;
 use crate::hook::{clip_to, parse_hook, str_field};
@@ -25,6 +27,7 @@ use crate::lessons::{
 use crate::peers::{Peer, resolve_peers};
 use crate::post_tool::{GUARD_RULES_MAX, render_subject};
 use crate::projections::{RunLiveness, retire_enabled, task_progress};
+use crate::prompt_buffer::{PROMPT_ANNOUNCE_MIN, capture_prompt, prompt_keep_line};
 use crate::session_pointer::{clear_session_pointer, write_session_pointer};
 use crate::shipwatch::{note_engine, note_upstream};
 use crate::status::{
@@ -667,6 +670,19 @@ fn landed_notice(
     lines
 }
 
+/// The prompt, kept privately by id so the brief can grow by reference
+/// (r3-fixes 2.9, D6). The id is offered only for a prompt long enough to be
+/// worth not retyping, and never in the quick lane, which has no brief.
+fn keep_line(root: &Path, slug: &str, session_id: &str, prompt: &str) -> Option<String> {
+    if slug == QUICK_LANE {
+        return None;
+    }
+    #[allow(clippy::cast_possible_truncation, reason = "epoch ms fit i64")]
+    let ts = iso_from_epoch_ms(now_ms() as i64);
+    let id = capture_prompt(root, session_id, prompt, &ts)?;
+    (utf16_len(prompt) >= PROMPT_ANNOUNCE_MIN).then(|| prompt_keep_line(&id))
+}
+
 /// `handleUserPrompt`.
 #[must_use]
 pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
@@ -696,8 +712,13 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     } else {
         None
     };
+    // Before the registration check: a bench session's only prompt lands
+    // before anything registers it.
+    let prompt = str_field(&hook, "prompt");
+    let keep = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        return with_session_title(Hook::UserPrompt, silent(), title.as_deref());
+        let result = keep.map_or_else(silent, ok);
+        return with_session_title(Hook::UserPrompt, result, title.as_deref());
     };
     let mut lines: Vec<String> = Vec::new();
     let mine = my_file_conflicts(&state, session_id);
@@ -725,7 +746,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         &session_guard_violations(&state, session_id, me.ended.as_deref()),
         root,
     );
-    if let Some(prompt) = str_field(&hook, "prompt")
+    if let Some(prompt) = prompt
         && lessons_enabled()
     {
         head.extend(lesson_lines(&prompt_lessons(
@@ -765,6 +786,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
             "sofar: {debt} unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop."
         ));
     }
+    lines.extend(keep);
     let result = if lines.is_empty() {
         silent()
     } else {

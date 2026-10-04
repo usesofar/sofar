@@ -51,10 +51,11 @@ pub const RUN_STOP_REASONS: [&str; 7] = [
 pub const VERIFICATION_RESULTS: [&str; 5] = ["pass", "fail", "timeout", "error", "refused"];
 
 /// `EVENT_TYPES`, in the schema's order.
-pub const EVENT_TYPES: [&str; 28] = [
+pub const EVENT_TYPES: [&str; 29] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
+    "brief_appended",
     "phase_status_changed",
     "phase_added",
     "task_added",
@@ -914,7 +915,10 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                 e.push("exit: must be an integer".to_owned());
             }
         }
-        "note_added" => must(e, str(p.get("text")), "text: must be a non-empty string"),
+        // brief_appended (r3-fixes 2.9) shares note_added's one rule.
+        "note_added" | "brief_appended" => {
+            must(e, str(p.get("text")), "text: must be a non-empty string");
+        }
         "memory_promoted" => {
             must(e, str(p.get("text")), "text: must be a non-empty string");
             if p.contains_key("supersedes")

@@ -77,3 +77,31 @@ export function redactCommand(cmd: string): string {
   for (const { re, replace } of RULES) out = out.replace(re, replace)
   return out
 }
+
+/**
+ * Prose rules (r3-fixes 2.9, D6): the RULES above minus the two that read a
+ * command line's grammar into ordinary words. A flag must start a word here
+ * (`re-authenticate the user` is not `-authenticate <value>`), and a header
+ * needs its scheme (`Authorization: we need sign-off` is a sentence). Private
+ * key blocks are added: a prompt is where one gets pasted whole.
+ */
+const PROSE_RULES: Array<{ re: RegExp; replace: string }> = [
+  RULES[0]!,
+  { re: new RegExp(`(^|\\s)(--?${SECRET_NAME})(=|[ \\t]+)${VALUE}`, 'gi'), replace: `$1$2$3${REDACTED}` },
+  { re: /\b((?:proxy-)?authorization\s*:\s*)(bearer|basic|token|digest)\s+(?:"[^"]*"|'[^']*'|\S+)/gi, replace: `$1$2 ${REDACTED}` },
+  RULES[3]!,
+  RULES[4]!,
+  { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, replace: REDACTED },
+]
+
+/**
+ * Redact credential-shaped material from the operator's prose before it
+ * enters the committed record — the deterministic scrub a kept prompt passes
+ * (r3-fixes 2.9, D6). Same bias as redactCommand: a `[redacted]` in a brief
+ * costs less than a live credential in an append-only, replicated log.
+ */
+export function redactProse(text: string): string {
+  let out = text
+  for (const { re, replace } of PROSE_RULES) out = out.replace(re, replace)
+  return out
+}
