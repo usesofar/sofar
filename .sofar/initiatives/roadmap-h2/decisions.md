@@ -2,4 +2,4 @@
 
 # Decisions: roadmap-h2
 
-(no decisions logged yet)
+- 2026-10-04T16:04:53.634Z — chose **Session 04957a5e, homed in roadmap-h2, orchestrates the other sessions working the sofar repo. It checks in on peers, routes tasks, relays operator rulings, and guards Chain M's blindness. It does not build fixes itself, and never sends fix content to the chain-m-author session.** over Each session self-routing from the record alone because Operator 2026-10-04: "from now on you will be orchastrating other sessions for sofar repo". 3–4 sessions are building r3-fixes in parallel, and a blind author starts now.
