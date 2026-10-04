@@ -1,6 +1,6 @@
 {
   "name": "sofar-core-win32-x64",
-  "version": "0.33.0-rc.2+trunk",
+  "version": "0.34.0-rc.5",
   "description": "sofar's native hot-path core (sofar-core) for win32-x64. Installed by sofar.sh as an optional dependency; never depend on it directly.",
   "repository": {
     "type": "git",

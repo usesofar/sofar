@@ -1,5 +1,13 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.34.0-rc.5** (from main ac8d5b17) from the
+TypeScript reference. The version bump is the whole diff: two goldens
+changed, each by one string. `argv.fast-path` (`--version` is now
+`0.34.0-rc.5`) and `open.O2-update-segment` (`you have 0.34.0-rc.5`), both
+previously `0.33.0-rc.2+trunk`. Every other golden is byte-identical, and
+the entries below keep the versions they were recorded against, which is
+what makes them history.
+
 RE-RECORDED for **memory-lead 4.3 part A** (D45, the index-and-shard layout):
 25 goldens moved, for three reasons and no other.
 - (a) The digest's pointers name shards: `Recent decisions (…; full text in
