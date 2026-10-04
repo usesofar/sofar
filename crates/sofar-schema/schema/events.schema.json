@@ -32,6 +32,9 @@
         "decision_logged": {
           "$ref": "#/definitions/DecisionLoggedPayload"
         },
+        "decision_linked": {
+          "$ref": "#/definitions/DecisionLinkedPayload"
+        },
         "session_started": {
           "$ref": "#/definitions/SessionStartedPayload"
         },
@@ -103,6 +106,7 @@
         "task_added",
         "task_status_changed",
         "decision_logged",
+        "decision_linked",
         "session_started",
         "session_ended",
         "session_closed",
@@ -452,6 +456,13 @@
           "type": "string",
           "description": "`supersedes_id` (memory-lead 2.8, D12): the event id of the decision `supersedes` named when it was written, stamped by the writer from its own fold — agents never pass it. `D<n>` is a position in id order, so a union merge of branches that both logged decisions moves it; the id does not. When present the fold resolves by it alone. Only alongside `supersedes`."
         },
+        "link_candidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "`link_candidates` (r3-fixes 2.5, D15): event ids of up to three earlier, in-force, rule-carrying decisions this one may replace, stamped by the writer when a rule arrives naming no `supersedes` — agents never pass it. Its presence marks the link PENDING until a decision_linked answers it: round 3 left 14 of 48 changed rules unlinked, each old rule still in force beside its replacement, because nothing asked. Only alongside `rule`, never alongside `supersedes`."
+        },
         "until": {
           "type": "string",
           "description": "`until` (r1-fixes 3.2, D25): the id of a task in this record. The decision is in force until that task RESOLVES (done or dropped, as replayed) and then leaves the digest — validity derives from recorded events, never from a clock. REJECTED alongside `rule`: a standing constraint never ages out. An id the plan never names never retires."
@@ -487,6 +498,28 @@
         "cmd"
       ],
       "description": "The command that checks a decision still holds, and the fix to show when it does not (D9)."
+    },
+    "DecisionLinkedPayload": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string"
+        },
+        "decision_id": {
+          "type": "string"
+        },
+        "supersedes": {
+          "type": "string"
+        },
+        "supersedes_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision",
+        "decision_id"
+      ],
+      "description": "A decision's supersession, answered after it was filed (r3-fixes 2.5, D15): `sofar link D<n> <D<m>|none>`. `supersedes` absent means \"checked, it replaces nothing\". The handles are as the writer read them; the ids, stamped by the writer, decide — a merge renumbers handles, never ids. The fold clears the decision's pending link and retires the target under D25's law: a rule is replaced only by a rule, and only an earlier decision can be replaced."
     },
     "SessionStartedPayload": {
       "type": "object",

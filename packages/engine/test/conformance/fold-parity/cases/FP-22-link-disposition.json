@@ -1,0 +1,10 @@
+{
+  "tail_at": 5,
+  "seeds": [
+    65,
+    66,
+    67
+  ],
+  "order_independence": true,
+  "note": "r3-fixes 2.5 (D15): a rule with link_candidates is link-pending for its session, candidates as ordinals (an unknown id drops out); decision_linked clears it and retires an earlier target, a rule only by a rule, else retires nothing with a warning; one naming an unfolded decision is skipped; a candidate list without a rule, and a supersedes without its id, are invalid lines; never drift. The tail starts at the first pending rule"
+}

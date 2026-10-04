@@ -67,6 +67,8 @@ const MAX_CONFLICT_LINES: usize = 8;
 const STALENESS_LINE_BUDGET: usize = 200;
 const PARALLEL_LINE_BUDGET: usize = 260;
 const MAX_PARALLEL_LINES: usize = 3;
+/// Pending links (r3-fixes 2.5): the newest rules filed naming nothing they replace.
+const MAX_PENDING_LINKS: usize = 3;
 const NOTE_LINE_BUDGET: usize = 200;
 const MAX_NOTES: usize = 5;
 const TASK_FILES_LINE_BUDGET: usize = 300;
@@ -427,6 +429,61 @@ impl Default for StatusOptions {
             travel: crate::travel::TravelInput::default(),
         }
     }
+}
+
+/// `SOFAR_LINK_ASK=off` (r3-fixes 2.5, the ablation arm): no pending-link
+/// block here and no Stop ask; the write result still names candidates.
+#[must_use]
+pub fn link_ask_enabled() -> bool {
+    std::env::var_os("SOFAR_LINK_ASK").is_none_or(|v| v != "off")
+}
+
+/// `pendingLinkLines`: a header naming the answer, then one line per pending
+/// rule still in force — newest first, at most `MAX_PENDING_LINKS` — with the
+/// candidates still in force.
+fn pending_link_lines(state: &InitiativeState, retired: &[usize]) -> Vec<String> {
+    let live = |n: usize| {
+        state
+            .decisions
+            .get(n.wrapping_sub(1))
+            .is_some_and(|d| d.superseded_by.is_none())
+            && !retired.contains(&n)
+    };
+    let mut pending: Vec<String> = Vec::new();
+    for (i, d) in state.decisions.iter().enumerate().rev() {
+        let Some(link) = &d.link_pending else {
+            continue;
+        };
+        if !live(i + 1) {
+            continue;
+        }
+        #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+        let may: Vec<String> = link
+            .candidates
+            .iter()
+            .map(|&n| n as usize)
+            .filter(|&n| live(n))
+            .map(|n| format!("D{n}"))
+            .collect();
+        pending.push(if may.is_empty() {
+            format!("- D{}", i + 1)
+        } else {
+            format!("- D{} may replace {}", i + 1, may.join(" or "))
+        });
+    }
+    if pending.is_empty() {
+        return Vec::new();
+    }
+    let shown = pending.len().min(MAX_PENDING_LINKS);
+    let mut lines = vec![format!(
+        "⚠ Links pending — {} rule(s) filed naming nothing they replace; answer each: `sofar supersedes D<n> <D<m>|none>`",
+        pending.len()
+    )];
+    lines.extend(pending[..shown].iter().cloned());
+    if pending.len() > shown {
+        lines.push(format!("- …and {} more", pending.len() - shown));
+    }
+    lines
 }
 
 /// `briefLines`: the header, then the brief clipped to `BRIEF_BUDGET` UTF-16 units with the plan.md pointer.
@@ -1021,6 +1078,11 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     }
     if !lane && let Some(blocked) = &state.current.blocked_on {
         state_lines.push(format!("Blocked on: {}", clip(blocked, BLOCKED_BUDGET)));
+    }
+    // Pending links (r3-fixes 2.5, D15): rules filed naming nothing they
+    // replace, each with the in-force rules it may replace, until answered.
+    if !lane && link_ask_enabled() {
+        state_lines.extend(pending_link_lines(state, &retired));
     }
     let conflicts = open_session_file_conflicts(state, None);
     if !conflicts.is_empty() {

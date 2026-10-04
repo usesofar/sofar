@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   BRIEF_BY_REFERENCE,
+  LINK_DISPOSITION,
   AGENTS_PROTOCOL_BLOCK,
   AGENTS_PROTOCOL_BLOCK_V3,
   AGENTS_PROTOCOL_BLOCK_V4,
@@ -708,7 +709,7 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     // Only LINKS and the brief wording (r3-fixes 2.9) were added: the block
     // minus both is the one shipped before it, byte for byte.
     const [shipped, now] = BRIEF_BY_REFERENCE.claude
-    const unbriefed = PROTOCOL_BLOCK.replace(now, shipped)
+    const unbriefed = PROTOCOL_BLOCK.replace(now, shipped).replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
     expect(unbriefed.replace(links(unbriefed), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-1))
     const v12 = SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)!
     expect(v12.replace(links(v12), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2))
@@ -725,7 +726,8 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     // Only that sentence and the brief wording (r3-fixes 2.9) were added: the
     // current block minus both is V12, byte for byte.
     const [shipped, now] = BRIEF_BY_REFERENCE.agents
-    expect(AGENTS_PROTOCOL_BLOCK.replace(sentence, '').replace(now, shipped)).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
+    const undisposed = AGENTS_PROTOCOL_BLOCK.replace(LINK_DISPOSITION.agents[1], LINK_DISPOSITION.agents[0])
+    expect(undisposed.replace(sentence, '').replace(now, shipped)).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
   })
 
   const driving = (b: string): string => /- DRIVING:[\s\S]*?(?=\n- BEFORE FINISHING)/.exec(b)![0]
@@ -761,9 +763,11 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     const v11 = SHIPPED_PROTOCOL_BLOCKS[10]! // V11: D17's block, before r1-fixes 4.6 added PLAN
     // D17 changed DRIVING alone.
     expect(v11.replace(driving(v11), driving(v10))).toBe(v10)
-    // 4.6 added the PLAN bullet alone (the brief, L36).
+    // 4.6 added the PLAN bullet alone (the brief, L36), once r3-fixes 2.5's
+    // link disposition in DURING is set aside.
     const plan = (b: string): string => /- PLAN:[\s\S]*?(?=\n- DURING)/.exec(b)![0]
-    expect(PROTOCOL_BLOCK.replace(`${plan(PROTOCOL_BLOCK)}\n`, '')).toBe(v11)
+    const block = PROTOCOL_BLOCK.replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
+    expect(block.replace(`${plan(block)}\n`, '')).toBe(v11)
     expect(v11).not.toContain('brief')
     expect(flat(v10)).toContain('Then run `sofar drive <slug> --await` in a background shell: silent until the run stops')
     expect(classifyProtocolBlock(v10, PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS)).toBe('stale')

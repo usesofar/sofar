@@ -168,6 +168,15 @@ export interface InitiativeStatusChangedPayload {
 }
 export interface PlanUpdatedPayload { plan: PlanStructure }
 /**
+ * A decision's supersession, answered after it was filed (r3-fixes 2.5, D15):
+ * `sofar link D<n> <D<m>|none>`. `supersedes` absent means "checked, it
+ * replaces nothing". The handles are as the writer read them; the ids, stamped
+ * by the writer, decide — a merge renumbers handles, never ids. The fold clears
+ * the decision's pending link and retires the target under D25's law: a rule
+ * is replaced only by a rule, and only an earlier decision can be replaced.
+ */
+export interface DecisionLinkedPayload { decision: string; decision_id: string; supersedes?: string; supersedes_id?: string }
+/**
  * Words added to the plan's brief without resending it (r3-fixes 2.9, D6).
  * The L36 fix keeps every session's operator words in the brief, so a
  * plan_updated that restated it grew with the chain: round 3 resent 0.70–0.81M
@@ -260,6 +269,16 @@ export interface DecisionLoggedPayload {
    * When present the fold resolves by it alone. Only alongside `supersedes`.
    */
   supersedes_id?: string
+  /**
+   * `link_candidates` (r3-fixes 2.5, D15): event ids of up to three earlier,
+   * in-force, rule-carrying decisions this one may replace, stamped by the
+   * writer when a rule arrives naming no `supersedes` — agents never pass it.
+   * Its presence marks the link PENDING until a decision_linked answers it:
+   * round 3 left 14 of 48 changed rules unlinked, each old rule still in force
+   * beside its replacement, because nothing asked. Only alongside `rule`,
+   * never alongside `supersedes`.
+   */
+  link_candidates?: string[]
   /**
    * `until` (r1-fixes 3.2, D25): the id of a task in this record. The
    * decision is in force until that task RESOLVES (done or dropped, as
@@ -704,6 +723,7 @@ export interface KnownEventPayloads {
   task_added: TaskAddedPayload
   task_status_changed: TaskStatusChangedPayload
   decision_logged: DecisionLoggedPayload
+  decision_linked: DecisionLinkedPayload
   session_started: SessionStartedPayload
   session_ended: SessionEndedPayload
   session_closed: SessionClosedPayload
@@ -734,7 +754,7 @@ export type KnownEventType = keyof KnownEventPayloads
  * a test pins it to package.json. Part of a fold snapshot's version hash —
  * bump it with any payload-shape change.
  */
-export const SCHEMA_VERSION = '0.12.0'
+export const SCHEMA_VERSION = '0.13.0'
 
 export const EVENT_TYPES = [
   'initiative_created',
@@ -746,6 +766,7 @@ export const EVENT_TYPES = [
   'task_added',
   'task_status_changed',
   'decision_logged',
+  'decision_linked',
   'session_started',
   'session_ended',
   'session_closed',
@@ -1050,6 +1071,23 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
       if (!str(p.rule)) e.push('check: requires `rule` — a failing check has to cite the clause it enforces')
       e.push(...checkSpecErrors(p.check))
     }
+    if (p.link_candidates !== undefined) {
+      const ids = p.link_candidates
+      if (!(Array.isArray(ids) && ids.length >= 1 && ids.length <= 3 && ids.every(str))) {
+        e.push('link_candidates: must be 1 to 3 non-empty event ids when present (stamped by the writer, never passed)')
+      }
+      if (!str(p.rule)) e.push('link_candidates: requires `rule` — only a rule is asked for its link')
+      if (p.supersedes !== undefined) e.push('link_candidates: not allowed with `supersedes` — the link is already named')
+    }
+  },
+  decision_linked(p, e) {
+    if (!(str(p.decision) && DECISION_HANDLE_RE.test(p.decision))) e.push('decision: must be the bare handle `D<n>` of the decision being linked')
+    if (!str(p.decision_id)) e.push('decision_id: must be a non-empty string (that decision\'s event id)')
+    if (p.supersedes !== undefined && !(str(p.supersedes) && DECISION_HANDLE_RE.test(p.supersedes as string))) {
+      e.push('supersedes: must be the bare handle `D<n>` of the decision it replaces when present')
+    }
+    if (p.supersedes !== undefined && !str(p.supersedes_id)) e.push('supersedes_id: required with `supersedes` (that decision\'s event id)')
+    if (p.supersedes === undefined && p.supersedes_id !== undefined) e.push('supersedes_id: requires `supersedes`')
   },
   session_started(p, e) {
     if (!str(p.tool)) e.push('tool: must be a non-empty string')
@@ -1411,10 +1449,10 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   decision_logged: {
     writer: 'agent',
     summary: 'a design decision: what was chosen, over what, and why',
-    fields: 'chose, over, because, rule? (one imperative every later session must obey), quote? (the operator\'s exact words the rule came from; only with rule), guard? (path:<globs> or cmd:<globs>; only with rule), supersedes? (D<n> of the earlier decision this one replaces), supersedes_id? (that decision\'s event id; stamped by the writer, never passed), until? (task id — in force until it resolves; never with rule), check? ({cmd, hint?, timeout_ms?}: a command whose exit 0 means the rule holds; only with rule)',
+    fields: 'chose, over, because, rule? (one imperative every later session must obey), quote? (the operator\'s exact words the rule came from; only with rule), guard? (path:<globs> or cmd:<globs>; only with rule), supersedes? (D<n> of the earlier decision this one replaces), supersedes_id? (that decision\'s event id; stamped by the writer, never passed), link_candidates? (ids of the rules it may replace; stamped by the writer, never passed), until? (task id — in force until it resolves; never with rule), check? ({cmd, hint?, timeout_ms?}: a command whose exit 0 means the rule holds; only with rule)',
     // The condition rides `via` (printed as `note:`), not `fields`: fields is
     // hashed into the schema fingerprint both implementations embed (D22).
-    via: 'add rule when the operator states the choice for the whole project — every later session sees it as a standing constraint, whichever record it works in; omit it for a one-off choice. Word the rule as the operator did (no status code, path or value they did not state) and put their exact words in quote. A decision that reverses a standing one in ANY record is refused unless supersedes names it or because cites it (a narrower exception); another record\'s is cited as `<slug> D<n>` and replaced from its own record (--initiative <slug>, supersedes D<n>)',
+    via: 'add rule when the operator states the choice for the whole project — every later session sees it as a standing constraint, whichever record it works in; omit it for a one-off choice. Word the rule as the operator did (no status code, path or value they did not state) and put their exact words in quote. A decision that reverses a standing one in ANY record is refused unless supersedes names it or because cites it (a narrower exception); another record\'s is cited as `<slug> D<n>` and replaced from its own record (--initiative <slug>, supersedes D<n>). A rule that replaces nothing says "supersedes":"none"; one that says neither is filed with its link pending (`sofar link`)',
     example: {
       chose: 'SQLite via better-sqlite3',
       over: 'Postgres',
@@ -1422,6 +1460,13 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
       rule: 'Keep SQLite as the only datastore',
       quote: 'Use SQLite, nothing else',
     },
+  },
+  decision_linked: {
+    writer: 'command',
+    via: 'sofar link D<n> <D<m>|none>',
+    summary: 'a decision\'s supersession, answered after it was filed',
+    fields: 'decision (D<n>), decision_id (its event id), supersedes? (D<m> it replaces; absent = none), supersedes_id? (that decision\'s event id; required with supersedes)',
+    example: { decision: 'D4', decision_id: '01K0000000000000000000000D', supersedes: 'D2', supersedes_id: '01K0000000000000000000000B' },
   },
   session_started: {
     writer: 'agent',

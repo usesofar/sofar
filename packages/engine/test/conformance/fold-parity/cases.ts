@@ -456,10 +456,31 @@ export function buildCases(): FoldParityCase[] {
     l.ev('brief_appended', { text: 'Then tax.' }, { session: 'A' })
     cases.push({ id: 'FP-21-brief-appended', lines: l.lines, sidecar: { tail_at: 3, seeds: [62, 63, 64], order_independence: true, note: 'r3-fixes 2.9 (D6): brief_appended sets an empty brief to its text and appends after a blank line otherwise; a plan_updated without brief keeps it and one with brief replaces the whole; an empty or missing text is an invalid line; never drift. The tail starts at the first append' } })
   }
+  {
+    // r3-fixes 2.5 (D15): a rule filed with link_candidates is pending, its
+    // candidates resolved to ordinals (an id this log never folded drops out);
+    // decision_linked clears it and retires the target under D25's law — an
+    // earlier decision, a rule only by a rule — or retires nothing with a
+    // warning; one naming a decision never folded is skipped. Never drift.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('session_started', { tool: 'codex' }, { session: 'A' })
+    const d1 = l.ev('decision_logged', { chose: 'retry 3x', over: 'hourly', because: 'rate limits', rule: 'Retry at most three times' }, { session: 'A' })
+    const d2 = l.ev('decision_logged', { chose: 'round per line', over: 'per total', because: 'provider', rule: 'Round tax per line' }, { session: 'A' })
+    const d3 = l.ev('decision_logged', { chose: 'retry 5x', over: 'retry 3x', because: 'finance', rule: 'Retry at most five times', link_candidates: [d1, d2] }, { session: 'A' })
+    const d4 = l.ev('decision_logged', { chose: 'retry 7x', over: 'retry 5x', because: 'finance again', rule: 'Retry at most seven times', link_candidates: [d1, '01KDVDNZZZZZZZZZZZZZZZZZZZ'] }, { session: 'B' })
+    l.ev('decision_linked', { decision: 'D3', decision_id: d3, supersedes: 'D1', supersedes_id: d1 }, { session: 'A' }) // D1 retired by D3
+    l.ev('decision_linked', { decision: 'D4', decision_id: d4 }, { session: 'B' }) // none: cleared
+    const d5 = l.ev('decision_logged', { chose: 'queue retries', over: 'cron', because: 'simpler' }, { session: 'A' })
+    const d6 = l.ev('decision_logged', { chose: 'round half-even', over: 'half-up', because: 'provider', rule: 'Round tax half-even', link_candidates: [d2] }, { session: 'A' })
+    l.ev('decision_linked', { decision: 'D5', decision_id: d5, supersedes: 'D2', supersedes_id: d2 }, { session: 'A' }) // plain names a rule: inert
+    l.ev('decision_linked', { decision: 'D2', decision_id: d2, supersedes: 'D6', supersedes_id: d6 }, { session: 'A' }) // forward: inert
+    l.ev('decision_linked', { decision: 'D9', decision_id: '01KDVDNYYYYYYYYYYYYYYYYYYY' }, { session: 'A' }) // never folded: skipped
+    l.ev('decision_logged', { chose: 'c', over: 'o', because: 'b', link_candidates: [d1] }, { session: 'A' }) // invalid: no rule
+    l.ev('decision_linked', { decision: 'D6', decision_id: d6, supersedes: 'D2' }, { session: 'A' }) // invalid: no supersedes_id
+    cases.push({ id: 'FP-22-link-disposition', lines: l.lines, sidecar: { tail_at: 5, seeds: [65, 66, 67], order_independence: true, note: 'r3-fixes 2.5 (D15): a rule with link_candidates is link-pending for its session, candidates as ordinals (an unknown id drops out); decision_linked clears it and retires an earlier target, a rule only by a rule, else retires nothing with a warning; one naming an unfolded decision is skipped; a candidate list without a rule, and a supersedes without its id, are invalid lines; never drift. The tail starts at the first pending rule' } })
+  }
   return cases
-}
-
-/** A seeded Fisher–Yates  return cases
 }
 
 /** A seeded Fisher–Yates over a copy: the same seed shuffles the same way on every machine. */

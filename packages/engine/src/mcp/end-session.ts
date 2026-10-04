@@ -19,6 +19,7 @@ import { homeInitiative, ToolError, type ToolContext } from './context'
 import { bindNudge, fitQuote, judgeOptionsFor, quoteFitWarning } from './log-decision'
 import { planPhaseAdd, resolvePhaseOrThrow } from './update-phase'
 import { briefEntryText, uncapturedWarning } from '../core/prompt-buffer'
+import { pendingLinkLine, withoutNone } from '../core/link-candidates'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 import { citeNudges, homeViewOf } from './waits-on'
 
@@ -197,7 +198,11 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
       const route = reversal.elsewhere.length > 0 ? [`a replacement for ${reversal.elsewhere[0]} is filed with sofar_log_decision, not a write-back`] : []
       refuse(where, [reversal.message, ...reversal.errors, ...route])
     }
-    check(where, 'decision_logged', payload)
+    // "supersedes":"none" (r3-fixes 2.5) is the writer's to strip at the
+    // append; the payload rules judge the decision without it.
+    const valid = validatePayload('decision_logged', withoutNone(payload))
+    if (!valid.ok) refuse(where, valid.errors)
+    appends.push({ type: 'decision_logged', payload })
     const ordinal = seen.length + 1
     seen.push({ id: `batch-${i}`, ts: new Date().toISOString(), chose: d.chose, over: d.over, because: d.because, ...(d.rule !== undefined ? { rule: d.rule } : {}) })
     decisions.push(`D${ordinal}`)
@@ -473,7 +478,11 @@ function endSessionFiled(
   // (task_done needs both halves, session-driver D5), with ONE projection
   // pass at the end instead of one per event.
   const batch = planBatch(ctx, slug, args, sessionId)
-  for (const { type, payload } of batch.appends) ctx.appendAndProject(slug, type, payload, { project: false })
+  const pending: string[] = []
+  for (const { type, payload } of batch.appends) {
+    const appended = ctx.appendAndProject(slug, type, payload, { project: false })
+    if (appended.payload.link_candidates !== undefined) pending.push(appended.id)
+  }
 
   const event = ctx.appendAndProject(slug, 'session_ended', {
     session_id: sessionId,
@@ -483,12 +492,6 @@ function endSessionFiled(
   // Reach catches up here, persisted, once per session (linked-context 8.2,
   // D26): a find reads the rest lazily, and no hook ever refreshes it.
   refreshBuiltReach(ctx.sofarDir)
-  const applied = {
-    ...(args.tasks !== undefined ? { tasks_applied: args.tasks.length } : {}),
-    ...(batch.decisions.length > 0 ? { decisions: batch.decisions } : {}),
-    ...(batch.memories.length > 0 ? { memories: batch.memories } : {}),
-    ...(batch.warnings.length > 0 ? { warnings: batch.warnings } : {}),
-  }
 
   // Tell the WRITER, at write time (writeback-collisions 1.2). The same
   // collision already reaches the next SessionStart, but that is a fresh
@@ -504,6 +507,18 @@ function endSessionFiled(
   // One fold serves both readers below: the collision check, and the
   // closed-record guard on the rebind.
   const state = ctx.foldState(slug)
+  // Rules filed naming nothing they replace (r3-fixes 2.5, D15), read from
+  // the fold that holds them, so a candidate the batch itself filed resolves.
+  for (const id of pending) {
+    const line = pendingLinkLine(state, state.decisions.findIndex((d) => d.id === id) + 1)
+    if (line !== null) batch.warnings.push(line)
+  }
+  const applied = {
+    ...(args.tasks !== undefined ? { tasks_applied: args.tasks.length } : {}),
+    ...(batch.decisions.length > 0 ? { decisions: batch.decisions } : {}),
+    ...(batch.memories.length > 0 ? { memories: batch.memories } : {}),
+    ...(batch.warnings.length > 0 ? { warnings: batch.warnings } : {}),
+  }
   const rebound = rebindBranch(ctx, slug, state, sessionId)
   const bound = rebound === undefined ? {} : { rebound }
 

@@ -26,12 +26,12 @@ use crate::lessons::{
 };
 use crate::peers::{Peer, resolve_peers};
 use crate::post_tool::{GUARD_RULES_MAX, render_subject};
-use crate::projections::{RunLiveness, retire_enabled, task_progress};
+use crate::projections::{RunLiveness, retire_enabled, retired_ordinals, task_progress};
 use crate::prompt_buffer::{PROMPT_ANNOUNCE_MIN, capture_prompt, prompt_keep_line};
 use crate::session_pointer::{clear_session_pointer, write_session_pointer};
 use crate::shipwatch::{note_engine, note_upstream};
 use crate::status::{
-    FileConflict, QUICK_LANE, focus_task, open_session_file_conflicts, open_session_files,
+    FileConflict, QUICK_LANE, link_ask_enabled, focus_task, open_session_file_conflicts, open_session_files,
 };
 use crate::text::{cmp_utf16, utf16_len, utf16_prefix};
 use crate::told::{add_told, read_told, told_key};
@@ -821,17 +821,35 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     };
     let gate =
         crate::checks::enforce_enabled().then(|| stop_gate_for(root, &layout, &state, session));
+    // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
+    // per stop; SOFAR_LINK_ASK=off is its ablation arm.
+    let asks = if link_ask_enabled() {
+        let retired = if retire_enabled() {
+            retired_ordinals(&state)
+        } else {
+            Vec::new()
+        };
+        stop_link_lines(&state, session_id, &retired)
+    } else {
+        Vec::new()
+    };
     // Drift gate (drift-signal 1.2): this session owes nothing when it wrote
     // back or never mutated the record.
     let owes = session.summary.is_none() && session_debt(&state, session) != 0;
     if !owes {
-        return match gate {
-            Some(g) if g.blocks => CmdResult {
+        let mut held: Vec<String> = match gate {
+            Some(g) if g.blocks => g.lines,
+            _ => Vec::new(),
+        };
+        held.extend(asks);
+        return if held.is_empty() {
+            silent()
+        } else {
+            CmdResult {
                 exit_code: 2,
                 stdout: String::new(),
-                stderr: g.lines.join("\n"),
-            },
-            _ => silent(),
+                stderr: held.join("\n"),
+            }
         };
     }
     let mut lines = vec![STOP_BLOCK_MESSAGE.to_owned()];
@@ -857,11 +875,67 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
         &files,
         gated,
     ));
+    lines.extend(asks);
     CmdResult {
         exit_code: 2,
         stdout: String::new(),
         stderr: lines.join("\n"),
     }
+}
+
+/// At most this many links are asked at one Stop; the rest wait in the digest.
+const STOP_LINKS_MAX: usize = 5;
+
+/// `stopLinkLines` (r3-fixes 2.5, D15): one line per rule THIS session filed
+/// with its link still pending, newest first, while it is in force.
+fn stop_link_lines(state: &InitiativeState, session_id: &str, retired: &[usize]) -> Vec<String> {
+    let live = |n: usize| {
+        state
+            .decisions
+            .get(n.wrapping_sub(1))
+            .is_some_and(|d| d.superseded_by.is_none())
+            && !retired.contains(&n)
+    };
+    let mut lines: Vec<String> = Vec::new();
+    let mut more = 0usize;
+    for (i, d) in state.decisions.iter().enumerate().rev() {
+        let Some(link) = &d.link_pending else {
+            continue;
+        };
+        if link.session != session_id || !live(i + 1) {
+            continue;
+        }
+        if lines.len() == STOP_LINKS_MAX {
+            more += 1;
+            continue;
+        }
+        #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+        let may: Vec<usize> = link
+            .candidates
+            .iter()
+            .map(|&n| n as usize)
+            .filter(|&n| live(n))
+            .collect();
+        let target = may
+            .first()
+            .map_or_else(|| "D<n>".to_owned(), |n| format!("D{n}"));
+        let what = if may.is_empty() {
+            String::new()
+        } else {
+            let named: Vec<String> = may.iter().map(|n| format!("D{n}")).collect();
+            format!(" — it may replace {}", named.join(" or "))
+        };
+        let n = i + 1;
+        lines.push(format!(
+            "sofar: D{n} is a rule this session filed naming nothing it replaces{what}. Answer before stopping: `sofar supersedes D{n} {target}` if it does, `sofar supersedes D{n} none` if not."
+        ));
+    }
+    if more > 0 {
+        lines.push(format!(
+            "sofar: …and {more} more pending link(s) this session filed (the digest lists them)."
+        ));
+    }
+    lines
 }
 
 /// `stopGateFor` (r3-fixes D10, D11): the test gate's verdict for this

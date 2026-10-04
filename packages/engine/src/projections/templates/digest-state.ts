@@ -33,7 +33,8 @@ import { hasRealAlternative, MAX_DECISIONS, UNWRITTEN_SIBLING_CAP } from './stat
  * Everything else becomes `''` (id, tool, started), 0 (unwritten) or absent.
  *
  * Decisions: rule, quote, supersedes, until and superseded_by are kept (the
- * standing rules and retirement). ts and chose are kept for the recent window
+ * standing rules and retirement), and a pending link's candidates (its
+ * session becomes `''`). ts and chose are kept for the recent window
  * and over for the window and the rejected ledger's head, under SOFAR_RETIRE
  * on AND off (read at render time). Every other `over` keeps only whether it
  * is a real alternative. id, because, guard and check are never rendered.
@@ -160,6 +161,8 @@ function cutDecision(d: DecisionState, i: number, kept: { window: Set<number>; o
   if (d.supersedes !== undefined) cut.supersedes = d.supersedes
   if (d.until !== undefined) cut.until = d.until
   if (d.superseded_by !== undefined) cut.superseded_by = d.superseded_by
+  // The digest names a pending link's candidates (r3-fixes 2.5), never its session.
+  if (d.link_pending !== undefined) cut.link_pending = { session: '', candidates: [...d.link_pending.candidates] }
   return cut
 }
 

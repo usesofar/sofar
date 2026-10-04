@@ -1,0 +1,112 @@
+{
+  "state": {
+    "brief": "",
+    "current": {
+      "active_phase": null,
+      "next_action": null
+    },
+    "cursor": "01KDVDNRMRJ9M36D87THWBENGF",
+    "decisions": [
+      {
+        "because": "rate limits",
+        "chose": "retry 3x",
+        "id": "01KDVDNCXRPXRQA1CVY50ZJ9M3",
+        "over": "hourly",
+        "rule": "Retry at most three times",
+        "superseded_by": 3,
+        "ts": "2026-01-01T00:00:03.000Z"
+      },
+      {
+        "because": "provider",
+        "chose": "round per line",
+        "id": "01KDVDNDX0KPXRQA1CVY50ZJ9M",
+        "over": "per total",
+        "rule": "Round tax per line",
+        "ts": "2026-01-01T00:00:04.000Z"
+      },
+      {
+        "because": "finance",
+        "chose": "retry 5x",
+        "id": "01KDVDNEW8GF2S4KPXRQA1CVY5",
+        "over": "retry 3x",
+        "rule": "Retry at most five times",
+        "supersedes": "D1",
+        "ts": "2026-01-01T00:00:05.000Z"
+      },
+      {
+        "because": "finance again",
+        "chose": "retry 7x",
+        "id": "01KDVDNFVGD87THWBENGF2S4KP",
+        "over": "retry 5x",
+        "rule": "Retry at most seven times",
+        "ts": "2026-01-01T00:00:06.000Z"
+      },
+      {
+        "because": "simpler",
+        "chose": "queue retries",
+        "id": "01KDVDNJS84KPXRQA1CVY50ZJ9",
+        "over": "cron",
+        "ts": "2026-01-01T00:00:09.000Z"
+      },
+      {
+        "because": "provider",
+        "chose": "round half-even",
+        "id": "01KDVDNKRG1CVY50ZJ9M36D87T",
+        "link_pending": {
+          "candidates": [
+            2
+          ],
+          "session": "A"
+        },
+        "over": "half-up",
+        "rule": "Round tax half-even",
+        "ts": "2026-01-01T00:00:10.000Z"
+      }
+    ],
+    "drop_notes": {},
+    "files_touched": [],
+    "freshness": {
+      "events_since_writeback": {
+        "commands": 0,
+        "decisions": 6,
+        "files": 0,
+        "memories": 0,
+        "notes": 0,
+        "phases": 0,
+        "reviews": 0,
+        "tasks": 0
+      },
+      "last_writeback_ts": null,
+      "notes": [],
+      "unattributed_mutations": 1
+    },
+    "goal": "g",
+    "guard_violations": [],
+    "memories": [],
+    "phases": [],
+    "reviews": [],
+    "runs": [],
+    "sessions": [
+      {
+        "id": "A",
+        "started": "2026-01-01T00:00:02.000Z",
+        "tool": "codex",
+        "unwritten": 5
+      }
+    ],
+    "slug": "demo",
+    "status": "active",
+    "status_note": null,
+    "status_overrides": [],
+    "status_ts": null,
+    "successor": null,
+    "task_files": {}
+  },
+  "warnings": [
+    "line 11: decision_linked D5 → D2 retires nothing (not an earlier decision, or a rule named by a plain one)",
+    "line 12: decision_linked D2 → D6 retires nothing (not an earlier decision, or a rule named by a plain one)",
+    "line 13: decision_linked names D9 (01KDVDNYYYYYYYYYYYYYYYYYYY), which this record never folded — skipped",
+    "line 14: invalid decision_logged payload (link_candidates: requires `rule` — only a rule is asked for its link) — skipped",
+    "line 15: invalid decision_linked payload (supersedes_id: required with `supersedes` (that decision's event id)) — skipped"
+  ]
+}

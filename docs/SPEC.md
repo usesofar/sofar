@@ -179,8 +179,16 @@ alongside `rule`; see §Decision checks, memory-lead D9 — supersedes? —
 the bare handle `D<n>` of an earlier decision in this record that this one
 replaces — supersedes_id? — that decision's event id, stamped by the writer
 and never passed by an agent, valid ONLY alongside `supersedes`; memory-lead
-2.8, D12 — until? — a task id this decision is in force until; never with
+2.8, D12 — link_candidates? — 1–3 event ids of in-force rules this one may
+replace, stamped by the writer when a RULE names no `supersedes` and never
+passed (refused); valid ONLY with `rule` and never with `supersedes`; its
+presence makes the link PENDING (§Link disposition); r3-fixes 2.5, D15 —
+until? — a task id this decision is in force until; never with
 `rule`; r1-fixes 3.2, D25) ·
+decision_linked (decision — `D<n>`, decision_id — its event id,
+supersedes? — `D<m>` it replaces, absent = "replaces nothing",
+supersedes_id? — that decision's event id, required with `supersedes`; both
+ids stamped by `sofar supersedes`; never drift; r3-fixes 2.5, D15) ·
 session_started (tool, model?, rehome? — `true` only: a deliberate re-home
 back into a log that already registered this session, folded silently;
 binding-follows-session D5) · session_ended (summary, next_action) ·
@@ -4248,6 +4256,52 @@ re-imports an EARLIER line, which the fast path refuses as
 `out_of_order_id` — the full fold is the reference there, as for FP-04
 (`correction`), FP-05 (`out_of_order_id`) and FP-07 (`invalid_line`).
 
+## Link disposition (r3-fixes 2.5 — a rule names what it replaces, or is asked)
+Round 3 left 14 of 48 changed rules unlinked (Codex 8 of 9, Cursor 5 of 9),
+so each old rule stayed in force beside its replacement: nothing asked. All
+48 were rules, so only a rule is asked — a plain decision cannot retire a
+rule (D25), and asking every unlinked decision would spend 264 of round 3's
+342 asks on ones that retire nothing enforced. Adopted as r3-fixes D15.
+
+- WRITE (`appendAndProject`, so sofar_log_decision, sofar_end_session's
+  `decisions` and `sofar event append` alike): `"supersedes":"none"` means
+  "checked, it replaces nothing" and is stripped before the payload. A
+  decision with `rule` and no `supersedes` is stamped with `link_candidates`:
+  up to 3 in-force, rule-carrying decisions (not superseded, not retired),
+  BM25-ranked (core/lexicon.ts rankLexical, no model) by each one's `rule`
+  and `chose` against the new one's rule, chose, over and because, each
+  sharing ≥2 distinct words with it; none qualifying, nothing is stamped and
+  nothing is pending. A caller-supplied `link_candidates` is refused. The
+  write result's `warnings` gains `D<n> is a rule that names nothing it
+  replaces; it may replace D<m> "<rule, 80>"[, or …]. If it does, answer
+  \`sofar supersedes D<n> D<m>\`; if not, \`sofar supersedes D<n> none\`.
+  Until then the digest shows it and Stop asks.`
+- FOLD: the decision's `link_pending` = {session: the envelope's, candidates:
+  the stamped ids resolved to ordinals of decisions folded before it — an id
+  never folded drops out}. decision_linked finds the decision by
+  `decision_id` (absent: skipped with a warning), clears `link_pending`, and
+  with `supersedes_id` retires that decision when it is EARLIER and the law
+  holds (a rule only by a rule): target `superseded_by` = this ordinal, this
+  `supersedes` = `D<target>`; otherwise it retires nothing, with a warning.
+  Neither counts as drift.
+- DIGEST (both engines, after the Blocked on line; never in the lane; not
+  under `SOFAR_LINK_ASK=off`): when any in-force decision has a pending
+  link, `⚠ Links pending — <k> rule(s) filed naming nothing they replace;
+  answer each: \`sofar supersedes D<n> <D<m>|none>\`` then, newest first, at
+  most 3 lines `- D<n> may replace D<a> or D<b>` (candidates still in force;
+  `- D<n>` when none is), then `- …and <k-3> more`.
+- STOP (both engines; not under `SOFAR_LINK_ASK=off`): after the
+  `stop_hook_active` guard, each in-force rule THIS session filed with its
+  link pending, newest first, at most 5, adds `sofar: D<n> is a rule this
+  session filed naming nothing it replaces — it may replace D<a> or D<b>.
+  Answer before stopping: \`sofar supersedes D<n> D<a>\` if it does,
+  \`sofar supersedes D<n> none\` if not.` (then `sofar: …and <k> more pending
+  link(s) this session filed (the digest lists them).`). The lines hold a
+  written-back session on their own (exit 2, after the test gate's lines)
+  and ride the write-back block of one that owes it.
+- ABLATION: `SOFAR_LINK_ASK=off` drops the digest block and the Stop ask;
+  the stamp and the write result stay.
+
 ## MCP tools (server name: sofar)
 
 **Server instructions (r1-fixes 2.1, D10; memory-lead 1.1, D3).** The
@@ -6256,6 +6310,16 @@ subdirectory, against 33 of 33 from the root.
   adding a note when the command is not test-shaped, because the Stop gate
   cannot read such a command. It refuses a non-handle, a missing decision, a
   decision with no rule, and a retired one (naming its replacement).
+- `sofar supersedes <D<n>> <D<m>|none> [--initiative <slug>]` (r3-fixes 2.5,
+  D15) — say what a filed decision replaces, after the fact: appends
+  decision_linked with both event ids stamped (§Link disposition), and prints
+  `<slug> D<n> supersedes D<m> — retired: "<rule or chose, 80 chars>"`, or
+  `<slug> D<n> replaces nothing — link answered`. It refuses what the fold
+  would make inert, so an answer never looks taken when it was not: a
+  non-handle, a missing decision, a decision that already names one, a target
+  not earlier than D<n>, a target already replaced (naming its replacement:
+  `sofar supersedes D<n> D<k>`), one no longer in force, and a rule named by a
+  plain decision. (`sofar link` is the sync client's command, §Sync client.)
 - `sofar remember [text] [--supersedes <handle>] [--initiative <slug>]`
   (repo-memory-capture D1; input forms and supersession r1-fixes 1.5, D8) —
   append memory_promoted and print the `<slug> M<n>` handle repo.md must
@@ -8609,6 +8673,21 @@ stay the underlying derivation's, and exit codes are styling-independent.
   turns capture off for the clone, a plain re-run leaves it off, and
   `--prompt-capture` turns it back on. The tool surface stays ≤8,450 chars
   (D14).
+- **Link disposition (r3-fixes 2.5, D15):** a rule logged with no
+  `supersedes` beside an in-force rule sharing its words is stamped with that
+  rule's id in `link_candidates` and its write result names it, on
+  sofar_log_decision, a write-back batch and `sofar event append` alike;
+  `"supersedes":"none"` is stripped and stamps nothing, and neither a plain
+  decision nor an unrelated rule is stamped; a caller's `link_candidates` is
+  refused. `sofar supersedes D2 D1` retires D1, clears the pending link and is
+  not drift; `none` clears it; it refuses a target already replaced (naming the
+  replacement), a later one, a rule named by a plain decision, a decision that
+  already names one, and unknown handles. The digest lists the pending link
+  and Stop asks the session that filed it, after its write-back too, once per
+  stop; another session is not asked; `SOFAR_LINK_ASK=off` drops both
+  (`repo.link-disposition`, both engines). The fold resolves candidates to
+  ordinals, clears on decision_linked and retires under D25's law (FP-22,
+  both engines).
 - **Decision checks (memory-lead 2.3):** decision_logged `check` without
   `rule` is refused, as are an empty or 501-char cmd, a 301-char hint, a
   timeout_ms of 0 or 600,001 and an unknown key; verification_recorded

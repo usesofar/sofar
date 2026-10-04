@@ -5,6 +5,7 @@ const validPayloads: Record<string, Record<string, unknown>> = {
   initiative_created: { slug: 'sofar-build', goal: 'Build the v1 engine' },
   initiative_status_changed: { status: 'done', note: 'v1 engine shipped' },
   brief_appended: { text: 'Next: refunds, never more than was paid.' },
+  decision_linked: { decision: 'D4', decision_id: '01K0000000000000000000000D', supersedes: 'D2', supersedes_id: '01K0000000000000000000000B' },
   plan_updated: {
     plan: {
       goal: 'Build it',

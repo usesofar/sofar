@@ -51,7 +51,7 @@ pub const RUN_STOP_REASONS: [&str; 7] = [
 pub const VERIFICATION_RESULTS: [&str; 5] = ["pass", "fail", "timeout", "error", "refused"];
 
 /// `EVENT_TYPES`, in the schema's order.
-pub const EVENT_TYPES: [&str; 29] = [
+pub const EVENT_TYPES: [&str; 30] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
@@ -61,6 +61,7 @@ pub const EVENT_TYPES: [&str; 29] = [
     "task_added",
     "task_status_changed",
     "decision_logged",
+    "decision_linked",
     "session_started",
     "session_ended",
     "session_closed",
@@ -868,6 +869,61 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                     "check: requires `rule` — a failing check has to cite the clause it enforces",
                 );
                 e.extend(check_spec_errors(check));
+            }
+            // Stamped by the writer (r3-fixes 2.5, D15), never passed.
+            if let Some(ids) = p.get("link_candidates") {
+                let shaped = ids.as_arr().is_some_and(|a| {
+                    (1..=3).contains(&a.len()) && a.iter().all(|v| str(Some(v)))
+                });
+                must(
+                    e,
+                    shaped,
+                    "link_candidates: must be 1 to 3 non-empty event ids when present (stamped by the writer, never passed)",
+                );
+                must(
+                    e,
+                    str(p.get("rule")),
+                    "link_candidates: requires `rule` — only a rule is asked for its link",
+                );
+                must(
+                    e,
+                    !p.contains_key("supersedes"),
+                    "link_candidates: not allowed with `supersedes` — the link is already named",
+                );
+            }
+        }
+        "decision_linked" => {
+            must(
+                e,
+                p.get("decision")
+                    .and_then(Json::as_str)
+                    .is_some_and(|h| !h.is_empty() && is_decision_handle(h)),
+                "decision: must be the bare handle `D<n>` of the decision being linked",
+            );
+            must(
+                e,
+                str(p.get("decision_id")),
+                "decision_id: must be a non-empty string (that decision's event id)",
+            );
+            if let Some(supersedes) = p.get("supersedes") {
+                must(
+                    e,
+                    supersedes
+                        .as_str()
+                        .is_some_and(|h| !h.is_empty() && is_decision_handle(h)),
+                    "supersedes: must be the bare handle `D<n>` of the decision it replaces when present",
+                );
+                must(
+                    e,
+                    str(p.get("supersedes_id")),
+                    "supersedes_id: required with `supersedes` (that decision's event id)",
+                );
+            } else {
+                must(
+                    e,
+                    !p.contains_key("supersedes_id"),
+                    "supersedes_id: requires `supersedes`",
+                );
             }
         }
         "session_started" => {

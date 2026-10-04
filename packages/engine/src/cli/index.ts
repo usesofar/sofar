@@ -34,6 +34,7 @@ import { runFind } from './find'
 import { REACH_DEFAULT_HOPS, REACH_MAX_HOPS } from '../core/index-reach'
 import { runRemember } from './remember'
 import { runBind } from './bind'
+import { runSupersedes } from './supersedes'
 import { runNativeImport } from './native-import'
 import { registerStatuslineCommand } from './statusline'
 import { startServer, renderServeBanner, DEFAULT_PORT } from './serve'
@@ -399,6 +400,15 @@ program
         ...(opts.hint !== undefined ? { hint: opts.hint } : {}),
       }),
     )
+  })
+
+program
+  .command('supersedes <decision> <target>')
+  .description('say what a filed decision replaces, after the fact: D<m>, or none (r3-fixes 2.5) — answers a pending link')
+  .option('--initiative <slug>', 'record the decisions are in (default: the bound one)')
+  .option('--root <dir>', 'repo root (default: the record above the current directory)')
+  .action((decision: string, target: string, opts: { initiative?: string; root?: string }) => {
+    emit(runSupersedes(rootOf(opts), decision, target, opts.initiative !== undefined ? { initiative: opts.initiative } : {}))
   })
 
 program

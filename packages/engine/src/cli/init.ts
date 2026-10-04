@@ -826,12 +826,36 @@ export const BRIEF_BY_REFERENCE = {
 } as const satisfies Record<'claude' | 'agents', readonly [string, string]>
 
 /**
+ * r3-fixes 2.5 (D15): the link disposition — a rule names what it replaces,
+ * or says "none", or sofar asks. As BRIEF_BY_REFERENCE: what each block
+ * shipped with and what replaced it, exported for the ledger tests.
+ */
+export const LINK_DISPOSITION = {
+  claude: [
+    `  worded it, with their exact words in \`quote\`. A note or summary is WHY:`,
+    `  worded it, with their exact words in \`quote\`. A rule that replaces an
+  earlier one names it in \`supersedes\` ("D<n>"); one that replaces nothing
+  says \`"supersedes":"none"\`, or sofar asks you to answer with
+  \`sofar supersedes D<n> <D<m>|none>\`. A note or summary is WHY:`,
+  ],
+  agents: [
+    `  as \`sofar status\` shows it), and a "rule" when the old one had a rule.
+`,
+    `  as \`sofar status\` shows it), and a "rule" when the old one had a rule.
+  A new rule that replaces nothing says "supersedes":"none"; a rule that
+  says neither is filed with its link pending, and sofar asks you to answer
+  with \`sofar supersedes D<n> <D<m>|none>\`.
+`,
+  ],
+} as const satisfies Record<'claude' | 'agents', readonly [string, string]>
+
+/**
  * linked-context 5.4: LINKS — name another record as `<slug> <id>`, and
- * declare waits_on when blocked on it; r3-fixes 2.9: BRIEF_BY_REFERENCE.
- * Everything else is V12, which stays a byte-exact literal; this block
+ * declare waits_on when blocked on it; r3-fixes 2.9: BRIEF_BY_REFERENCE;
+ * r3-fixes 2.5: LINK_DISPOSITION. Everything else is V12, which stays a byte-exact literal; this block
  * inserts the bullet before DURING.
  */
-export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.claude).replace(
+export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.claude).replace(...LINK_DISPOSITION.claude).replace(
   '- DURING: work; the record is written once',
   `- LINKS: name another record's task, decision or memory as \`<slug> <id>\`
   (\`billing 2.3\`, \`billing D4\`, \`billing M2\`) — a bare id means this
@@ -1796,7 +1820,7 @@ export const AGENTS_PROTOCOL_BLOCK_V12 = AGENTS_PROTOCOL_BLOCK_V11.replace(
  * Codex sessions wrote through this block in 16 of 18 sessions and left 8 of
  * 9 changed decisions unlinked, because its decision template never showed
  * `supersedes`, so each old rule stayed in force beside its replacement.
- * r3-fixes 2.9: BRIEF_BY_REFERENCE. Everything else is V12.
+ * r3-fixes 2.9: BRIEF_BY_REFERENCE; 2.5: LINK_DISPOSITION. Everything else is V12.
  */
 export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.agents).replace(
   '  Omit it for a one-off choice.\n',
@@ -1805,7 +1829,7 @@ export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V12.replace(...BRIEF_
   one stays in force beside the new: add \`"supersedes":"D<n>"\` (its handle
   as \`sofar status\` shows it), and a "rule" when the old one had a rule.
 `,
-)
+).replace(...LINK_DISPOSITION.agents)
 
 /** Superseded AGENTS.md blocks, oldest first. */
 export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [

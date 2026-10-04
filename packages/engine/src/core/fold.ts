@@ -45,6 +45,7 @@ import {
   type NoteAddedPayload,
   type PhaseStatus,
   type BriefAppendedPayload,
+  type DecisionLinkedPayload,
   type PhaseAddedPayload,
   type PhaseStatusChangedPayload,
   type PlanUpdatedPayload,
@@ -176,6 +177,15 @@ export interface DecisionState {
    * depends on the task's final status, so core/retire.ts derives it.
    */
   superseded_by?: number
+  /**
+   * A rule filed naming nothing it replaces (r3-fixes 2.5, D15): the session
+   * that filed it, and the ordinals of the rules the writer stamped as ones it
+   * may replace — resolved from their ids here, in this fold, so a merge that
+   * renumbered the record still names the right ones. Cleared by a
+   * decision_linked; the digest shows it and that session's Stop asks for it
+   * until then.
+   */
+  link_pending?: { session: string; candidates: number[] }
 }
 
 /** One performed review (commit-attribution 4.4). */
@@ -1206,6 +1216,12 @@ function recordFreshness(state: InitiativeState, event: EventEnvelope): void {
     case 'review_recorded':
       mutation(() => (counts.reviews += 1))
       break
+    case 'decision_linked':
+      // Links answered after the fact are EXCLUDED from drift, deliberately
+      // (commit-attribution D18 requires the class decided here). The
+      // decision they complete was counted when it was filed; the answer is
+      // bookkeeping on it, usually given at Stop after the write-back, and
+      // counting it would make that write-back owe another.
     case 'brief_appended':
       // Brief additions are EXCLUDED from drift, deliberately (commit-
       // attribution D18 requires the class decided here). They are the delta
@@ -1758,7 +1774,37 @@ function applyEvent(
         // After a merge renumbered the record, the handle as written names
         // some other decision; state names the one actually replaced.
         if (typeof p.supersedes_id === 'string' && at >= 0) state.decisions[ordinal - 1]!.supersedes = `D${at + 1}`
+      } else if (p.link_candidates !== undefined) {
+        const ordinal = state.decisions.length
+        const candidates = p.link_candidates
+          .map((id) => state.decisions.findIndex((d) => d.id === id) + 1)
+          .filter((n) => n > 0 && n < ordinal)
+        state.decisions[ordinal - 1]!.link_pending = { session: event.session, candidates }
       }
+      break
+    }
+    case 'decision_linked': {
+      // r3-fixes 2.5 (D15): a link answered after the fact. The ids decide;
+      // the handles are only what the writer read. The target retires under
+      // the same law as a supersedes at log time — an earlier decision, and a
+      // rule only by a rule — and an answer the law refuses is inert.
+      const p = event.payload as unknown as DecisionLinkedPayload
+      const at = state.decisions.findIndex((d) => d.id === p.decision_id)
+      if (at < 0) {
+        warnings.push(`line ${lineNo}: decision_linked names ${p.decision} (${p.decision_id}), which this record never folded — skipped`)
+        break
+      }
+      const decision = state.decisions[at]!
+      delete decision.link_pending
+      if (p.supersedes_id === undefined) break
+      const t = state.decisions.findIndex((d) => d.id === p.supersedes_id)
+      const target = t >= 0 && t < at ? state.decisions[t]! : undefined
+      if (target === undefined || (target.rule !== undefined && decision.rule === undefined)) {
+        warnings.push(`line ${lineNo}: decision_linked ${p.decision} → ${p.supersedes ?? '?'} retires nothing (not an earlier decision, or a rule named by a plain one)`)
+        break
+      }
+      target.superseded_by = at + 1
+      decision.supersedes = `D${t + 1}`
       break
     }
     case 'memory_promoted': {

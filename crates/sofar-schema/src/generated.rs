@@ -35,6 +35,16 @@ pub struct DecisionCheck {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub timeout_ms: ::std::option::Option<i64>,
 }
+#[doc = "A decision's supersession, answered after it was filed (r3-fixes 2.5, D15): `sofar link D<n> <D<m>|none>`. `supersedes` absent means \"checked, it replaces nothing\". The handles are as the writer read them; the ids, stamped by the writer, decide — a merge renumbers handles, never ids. The fold clears the decision's pending link and retires the target under D25's law: a rule is replaced only by a rule, and only an earlier decision can be replaced."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
+pub struct DecisionLinkedPayload {
+    pub decision: ::std::string::String,
+    pub decision_id: ::std::string::String,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub supersedes: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub supersedes_id: ::std::option::Option<::std::string::String>,
+}
 #[doc = "`rule` (drift-hardening D1): optional standing-constraint clause — one short imperative every future session must obey. Its presence is what makes a decision a standing constraint; there is no separate flag. Render contract: verbatim on every surface, never clipped, never aged out — the C-abl ablation showed decisions are the load-bearing resume field, and clipped normative text is how dead ends recur."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct DecisionLoggedPayload {
@@ -46,6 +56,9 @@ pub struct DecisionLoggedPayload {
     #[doc = "`guard` (drift-hardening D3): the mechanical half of the SAME clause — a `path:`/`cmd:` glob list (src/guards.ts) the fold matches against file_touched / command_run events logged after this decision. Valid only alongside `rule`: a guard with no clause has nothing to cite when it fires, and what it produces is a WARNING that never changes an exit code."]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub guard: ::std::option::Option<::std::string::String>,
+    #[doc = "`link_candidates` (r3-fixes 2.5, D15): event ids of up to three earlier, in-force, rule-carrying decisions this one may replace, stamped by the writer when a rule arrives naming no `supersedes` — agents never pass it. Its presence marks the link PENDING until a decision_linked answers it: round 3 left 14 of 48 changed rules unlinked, each old rule still in force beside its replacement, because nothing asked. Only alongside `rule`, never alongside `supersedes`."]
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub link_candidates: ::std::vec::Vec<::std::string::String>,
     pub over: ::std::string::String,
     #[doc = "`quote` (memory-lead 1.2, D2): the operator's own words the rule came from, copied exactly — ≤ RULE_QUOTE_MAX chars, valid only alongside `rule`. The rule is the agent's restatement; the quote is its source, and every surface that renders the rule renders the quote beside it, flagging the status codes, paths and values the rule adds (engine core/rule-fidelity.ts). Round 1 lost a test to a rule that added \"with 4xx\" to an operator's \"Reject anything else\"."]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -270,6 +283,7 @@ pub struct KnownEventPayloads {
     pub brief_appended: BriefAppendedPayload,
     pub command_run: CommandRunPayload,
     pub correction: CorrectionPayload,
+    pub decision_linked: DecisionLinkedPayload,
     pub decision_logged: DecisionLoggedPayload,
     pub file_touched: FileTouchedPayload,
     pub handoff: HandoffPayload,

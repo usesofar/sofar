@@ -94,7 +94,7 @@ sofar: check for [surf D1] failed (exit 3): legacy tree modified: src/legacy/old
 sofar: 1 decision check(s) bear on this work but are not approved on this clone, so none ran: [surf D8] `node -e "process.exit(1)"` — the operator approves one with `sofar check --approve "<handle>"`
 
 ## step 11: gate: a rule whose check is a test
-argv: ["event","append","--type","decision_logged","--session","sess-a","--source","claude-code","--payload","{\"chose\":\"freeze legacy\",\"over\":\"editing it\",\"because\":\"b\",\"rule\":\"Keep the legacy tree frozen.\",\"guard\":\"path:src/legacy/**\",\"check\":{\"cmd\":\"bun test test/legacy.test.ts\",\"hint\":\"restore src/legacy/old.ts\"}}"]
+argv: ["event","append","--type","decision_logged","--session","sess-a","--source","claude-code","--payload","{\"chose\":\"freeze legacy\",\"over\":\"editing it\",\"because\":\"b\",\"rule\":\"Keep the legacy tree frozen.\",\"guard\":\"path:src/legacy/**\",\"check\":{\"cmd\":\"bun test test/legacy.test.ts\",\"hint\":\"restore src/legacy/old.ts\"},\"supersedes\":\"none\"}"]
 exit: 0
 --- stdout
 {"ok":true,"event_id":"<ULID>"}

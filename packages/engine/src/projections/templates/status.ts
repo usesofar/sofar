@@ -12,6 +12,7 @@ import {
 import type { GitState } from '../../core/git'
 import type { NeighbourRecord, RepoRule } from '../../core/index-tier1'
 import { LANE_RECENT_SESSIONS, QUICK_LANE } from '../../core/lane'
+import { linkAskEnabled } from '../../core/link-candidates'
 import type { RecordProvenance } from '../../core/record-copies'
 import type { RunLiveness } from '../../core/run-lock'
 import { retireEnabled, retiredOrdinals } from '../../core/retire'
@@ -142,6 +143,8 @@ const STALENESS_LINE_BUDGET = 200
 // disagree, so the common single-session case pays nothing.
 const PARALLEL_LINE_BUDGET = 260
 const MAX_PARALLEL_LINES = 3
+// Pending links (r3-fixes 2.5): the newest rules filed naming nothing they replace.
+const MAX_PENDING_LINKS = 3
 // Notes since write-back (notes-in-digest 2.1): the drift CONTENT beside the
 // staleness line's drift signal — corrections recorded after the write-back
 // would otherwise die invisible in the log. Newest-last window mirroring
@@ -401,6 +404,32 @@ const TASK_MARKS: Record<string, string> = {
  * nudge inside its bracket. Constant-bounded suffix, so phase lines stay
  * budget-safe wherever names are clipped.
  */
+/**
+ * The digest's pending-link block (r3-fixes 2.5, D15): a header naming the
+ * answer, then one line per pending rule still in force — newest first, at
+ * most MAX_PENDING_LINKS — with the candidates still in force.
+ */
+function pendingLinkLines(state: InitiativeState, retired: ReadonlySet<number>): string[] {
+  const live = (n: number): boolean => {
+    const d = state.decisions[n - 1]
+    return d !== undefined && d.superseded_by === undefined && !retired.has(n)
+  }
+  const pending: string[] = []
+  for (let i = state.decisions.length - 1; i >= 0; i--) {
+    const link = state.decisions[i]!.link_pending
+    if (link === undefined || !live(i + 1)) continue
+    const may = link.candidates.filter(live).map((n) => `D${n}`)
+    pending.push(`- D${i + 1}${may.length > 0 ? ` may replace ${may.join(' or ')}` : ''}`)
+  }
+  if (pending.length === 0) return []
+  const shown = pending.slice(0, MAX_PENDING_LINKS)
+  return [
+    `⚠ Links pending — ${pending.length} rule(s) filed naming nothing they replace; answer each: \`sofar supersedes D<n> <D<m>|none>\``,
+    ...shown,
+    ...(pending.length > shown.length ? [`- …and ${pending.length - shown.length} more`] : []),
+  ]
+}
+
 /** The digest's brief block: header, then the text clipped to BRIEF_BUDGET with a pointer to plan.md. */
 function briefLines(state: InitiativeState): string[] {
   const text = state.brief
@@ -636,6 +665,9 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   if (!lane && state.current.blocked_on !== undefined) {
     stateLines.push(`Blocked on: ${clip(state.current.blocked_on, BLOCKED_BUDGET)}`)
   }
+  // Pending links (r3-fixes 2.5, D15): rules filed naming nothing they
+  // replace, each with the in-force rules it may replace, until answered.
+  if (!lane && linkAskEnabled()) stateLines.push(...pendingLinkLines(state, retired))
   // Concurrent-edit heads-up (task 11.4, BD-P11).
   const conflicts = openSessionFileConflicts(state)
   if (conflicts.length > 0) {

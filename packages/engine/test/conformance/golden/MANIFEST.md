@@ -1,5 +1,18 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r3-fixes 2.5** (D15, the link disposition): one new case,
+`repo.link-disposition`. A rule appended naming nothing it replaces is stamped
+with the bound record's two rules (the write result names them), the session
+writes back, and Stop still asks it, once; `SOFAR_LINK_ASK=off` silences that;
+the next session's digest lists the pending link; `sofar supersedes D3 D1`
+answers it and Stop passes. fold-parity adds FP-22-link-disposition with its
+render-parity golden. One existing golden moved, in one line: `syn.surfacing`'s
+2.10 rule ("Keep the legacy tree frozen.") now passes `"supersedes":"none"`,
+so its gate steps still test the gate alone. Only that step's argv line
+changed: the writer strips "none", so the stored payload is byte-identical.
+The pre-existing stray text inside the shuffle doc comment in fold-parity
+cases.ts is removed (no case moved).
+
 ADDED for **r3-fixes 2.9** (D6, the brief by reference), on main 0d5d074: one
 new case, `repo.prompt-capture`. A long prompt from an unregistered session is
 filed in the private prompt buffer as P1 and offered by id; a short one is

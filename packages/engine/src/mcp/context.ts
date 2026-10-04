@@ -26,6 +26,7 @@ import { currentBranch } from '../core/git'
 import { refreshLinks, travelEnabled } from '../core/index-links'
 import { ensureIndexDir } from '../core/index-store'
 import { QUICK_LANE } from '../core/lane'
+import { linkCandidates, SUPERSEDES_NONE, withoutNone } from '../core/link-candidates'
 import { initiativeSlugs } from '../core/listing'
 import { withFileLock } from '../core/lock'
 import { EdgeAccumulator } from '../core/adjacency'
@@ -618,13 +619,36 @@ export function createToolContext(rootDir: string): ToolContext {
     return payload
   }
 
+  /**
+   * The link disposition (r3-fixes 2.5, D15), on the same one mutation path:
+   * `"supersedes":"none"` is the writer saying it checked and the decision
+   * replaces nothing, so it is stripped and nothing is stamped; a RULE that
+   * names no `supersedes` gets the in-force rules it may replace, as event
+   * ids, in `link_candidates` — which marks its link pending in the fold.
+   * A caller-supplied `link_candidates` is refused: it is the writer's.
+   */
+  function stampLinkCandidates(slug: string, type: string, payload: Record<string, unknown>): Record<string, unknown> {
+    if (type !== 'decision_logged') return payload
+    if (payload.link_candidates !== undefined) {
+      throw new ToolError('invalid_input', 'refusing to append decision_logged: link_candidates is stamped by the writer — omit it', [
+        'link_candidates: omit it; name what the decision replaces in supersedes, or "none"',
+      ])
+    }
+    if (payload.supersedes === SUPERSEDES_NONE) return withoutNone(payload)
+    if (payload.supersedes !== undefined || typeof payload.rule !== 'string') return payload
+    const { chose, over, because, rule } = payload
+    if (typeof chose !== 'string' || typeof over !== 'string' || typeof because !== 'string') return payload
+    const ids = linkCandidates(foldState(slug), { chose, over, because, rule })
+    return ids.length === 0 ? payload : { ...payload, link_candidates: ids }
+  }
+
   function appendAndProject(
     slug: string,
     type: string,
     raw: Record<string, unknown>,
     options?: AppendOptions,
   ): EventEnvelope {
-    const payload = stampSupersession(slug, type, raw)
+    const payload = stampSupersession(slug, type, stampLinkCandidates(slug, type, raw))
     // Belt and braces: tool arg validation should make this unreachable, but
     // an invalid payload must never reach the log.
     const check = validatePayload(type, payload)

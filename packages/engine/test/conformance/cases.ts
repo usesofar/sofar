@@ -342,6 +342,24 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r3-fixes 2.5 (D15): a rule filed naming nothing it replaces is stamped
+    // with the in-force rules it may replace (the append is the TypeScript
+    // writer's); Stop asks the session that filed it, after its write-back too,
+    // SOFAR_LINK_ASK=off silences the ask, the next session's digest lists it,
+    // and `sofar supersedes` answers it.
+    name: 'repo.link-disposition',
+    fixture: REPO,
+    steps: [
+      s('a rule naming nothing it replaces: stamped, the write result says so', ['event', 'append', '--type', 'decision_logged', '--session', 'link-sess', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'Hook output is pinned by the conformance goldens on both implementations', over: 'Unit tests per implementation', because: 'one suite judges both', rule: 'Hot-path hook output must match the conformance goldens on both implementations' })]),
+      s('write-back', ['event', 'append', '--type', 'session_ended', '--session', 'link-sess', '--source', 'claude-code', '--payload', '{"summary":"filed a rule","next_action":"answer its link"}']),
+      s('stop asks the session that filed it', ['event', 'stop'], stop({ session_id: 'link-sess' })),
+      s('SOFAR_LINK_ASK=off: no ask', ['event', 'stop'], stop({ session_id: 'link-sess' }), { env: { SOFAR_LINK_ASK: 'off' } }),
+      s('the next session sees it in the digest', ['event', 'session-start'], start({ session_id: 'link-next' })),
+      s('answer: D3 supersedes D1', ['supersedes', 'D3', 'D1']),
+      s('stop passes once answered', ['event', 'stop'], stop({ session_id: 'link-sess' })),
+    ],
+  },
+  {
     name: 'repo.append',
     fixture: REPO,
     steps: [
@@ -599,7 +617,7 @@ export const CASES: ConformanceCase[] = [
       s('stop: the block carries the checks', ['event', 'stop'], stop({ session_id: 'sess-a' })),
       // r3-fixes 2.10 (D10): the test gate holds a written-back session until a
       // covering test passed after its last edit, once per stop.
-      s('gate: a rule whose check is a test', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-a', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'freeze legacy', over: 'editing it', because: 'b', rule: 'Keep the legacy tree frozen.', guard: 'path:src/legacy/**', check: { cmd: 'bun test test/legacy.test.ts', hint: 'restore src/legacy/old.ts' } })]),
+      s('gate: a rule whose check is a test', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-a', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'freeze legacy', over: 'editing it', because: 'b', rule: 'Keep the legacy tree frozen.', guard: 'path:src/legacy/**', check: { cmd: 'bun test test/legacy.test.ts', hint: 'restore src/legacy/old.ts' }, supersedes: 'none' })]),
       s('gate: sess-a writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-a', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
       s('gate: the written-back session is held for its test', ['event', 'stop'], stop({ session_id: 'sess-a' })),
       s('gate: one ask per stop', ['event', 'stop'], stop({ session_id: 'sess-a', stop_hook_active: true })),

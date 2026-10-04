@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isResolvedTaskStatus } from '@sofar/schema'
 import type {
+  DecisionLinkedPayload,
   DecisionLoggedPayload,
   InitiativeCreatedPayload,
   InitiativeStatusChangedPayload,
@@ -169,6 +170,7 @@ const LINK_EVENTS = new Set([
   'task_added',
   'task_status_changed',
   'decision_logged',
+  'decision_linked',
   'memory_promoted',
 ])
 
@@ -370,6 +372,16 @@ function applyLinks(state: SlugLinkState, event: IndexedEvent): void {
         const target = Number.isInteger(n) && n >= 1 && n < ordinal ? state.decisions[n - 1] : undefined
         if (target !== undefined && (!target.ruled || ruled)) target.superseded_by = ordinal
       }
+      return
+    }
+    case 'decision_linked': {
+      // A link answered after the fact (r3-fixes 2.5): the fold's rule, by id.
+      const p = event.payload as unknown as DecisionLinkedPayload
+      const at = state.decisions.findIndex((d) => d.id === p.decision_id)
+      if (at < 0 || p.supersedes_id === undefined) return
+      const t = state.decisions.findIndex((d) => d.id === p.supersedes_id)
+      const target = t >= 0 && t < at ? state.decisions[t] : undefined
+      if (target !== undefined && (!target.ruled || state.decisions[at]!.ruled)) target.superseded_by = at + 1
       return
     }
     case 'memory_promoted': {
@@ -776,7 +788,7 @@ const sameSlugs = (a: readonly string[], b: readonly string[]): boolean => a.len
  * literally or through `\u` escapes, and a line with any `\u` passes too.
  */
 const LINK_LINE =
-  /"type"[ \t\n\r]*:[ \t\n\r]*"(?:initiative_created|initiative_status_changed|plan_updated|phase_status_changed|phase_added|task_added|task_status_changed|decision_logged|memory_promoted|correction)"/
+  /"type"[ \t\n\r]*:[ \t\n\r]*"(?:initiative_created|initiative_status_changed|plan_updated|phase_status_changed|phase_added|task_added|task_status_changed|decision_logged|decision_linked|memory_promoted|correction)"/
 
 export function linkLine(line: string): boolean {
   return line.includes('\\u') || LINK_LINE.test(line)

@@ -558,7 +558,7 @@ fn str_list(v: Option<&Json>) -> Option<Vec<String>> {
     read_strs(v)
 }
 
-const LINK_EVENTS: [&str; 9] = [
+const LINK_EVENTS: [&str; 10] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
@@ -567,6 +567,7 @@ const LINK_EVENTS: [&str; 9] = [
     "task_added",
     "task_status_changed",
     "decision_logged",
+    "decision_linked",
     "memory_promoted",
 ];
 
@@ -740,6 +741,28 @@ impl SlugReducer for LinksReducer {
                         if !target.ruled || ruled {
                             target.superseded_by = Some(ord);
                         }
+                    }
+                }
+            }
+            "decision_linked" => {
+                // A link answered after the fact (r3-fixes 2.5): the fold's rule, by id.
+                let (Some(id), Some(target_id)) = (text("decision_id"), text("supersedes_id"))
+                else {
+                    return;
+                };
+                let Some(at) = state.decisions.iter().position(|d| d.id == id) else {
+                    return;
+                };
+                let ruled = state.decisions[at].ruled;
+                if let Some(t) = state.decisions[..at]
+                    .iter()
+                    .position(|d| d.id == target_id)
+                {
+                    let target = &mut state.decisions[t];
+                    if !target.ruled || ruled {
+                        #[allow(clippy::cast_precision_loss, reason = "ordinals fit f64")]
+                        let ord = (at + 1) as f64;
+                        target.superseded_by = Some(ord);
                     }
                 }
             }
@@ -1560,7 +1583,7 @@ fn same_deps(a: &[Dep], b: &[Dep]) -> bool {
 
 /// The names `link_line` accepts after `"type":` — `LINK_EVENTS` and
 /// `correction`, which can void one.
-const LINK_LINE_TYPES: [&str; 10] = [
+const LINK_LINE_TYPES: [&str; 11] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
@@ -1569,6 +1592,7 @@ const LINK_LINE_TYPES: [&str; 10] = [
     "task_added",
     "task_status_changed",
     "decision_logged",
+    "decision_linked",
     "memory_promoted",
     "correction",
 ];

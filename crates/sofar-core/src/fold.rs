@@ -117,6 +117,17 @@ pub struct DecisionState {
     /// fold when a later `supersedes` resolves here and is permitted (a rule
     /// is replaced only by a rule). Retirement by `until` is derived at render.
     pub superseded_by: Option<u64>,
+    /// A rule filed naming nothing it replaces (r3-fixes 2.5, D15): its
+    /// session and the ordinals of the rules it may replace, resolved from
+    /// the stamped ids in this fold. Cleared by a `decision_linked`.
+    pub link_pending: Option<LinkPending>,
+}
+
+/// `DecisionState.link_pending`.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct LinkPending {
+    pub session: String,
+    pub candidates: Vec<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -1051,6 +1062,7 @@ fn apply_event(
                 until: opt_str(p, "until"),
                 check: p.get("check").and_then(Json::as_obj).map(decision_check),
                 superseded_by: None,
+                link_pending: None,
             });
             // Supersession (r1-fixes 3.2, D25): resolve against the decisions
             // already folded — the log alone, no clock, no env. Inert when it
@@ -1071,6 +1083,50 @@ fn apply_event(
                         state.decisions[ordinal - 1].supersedes = Some(format!("D{}", at + 1));
                     }
                 }
+            } else if let Some(ids) = p.get("link_candidates").and_then(Json::as_arr) {
+                let ordinal = state.decisions.len();
+                let candidates = ids
+                    .iter()
+                    .filter_map(Json::as_str)
+                    .filter_map(|id| state.decisions.iter().position(|d| d.id == *id))
+                    .map(|i| i + 1)
+                    .filter(|&n| n < ordinal)
+                    .map(|n| n as u64)
+                    .collect();
+                state.decisions[ordinal - 1].link_pending = Some(LinkPending {
+                    session: event.session.clone(),
+                    candidates,
+                });
+            }
+        }
+        "decision_linked" => {
+            // r3-fixes 2.5 (D15): a link answered after the fact. The ids
+            // decide; the target retires under D25's law or not at all.
+            let handle = req_str(p, "decision");
+            let id = req_str(p, "decision_id");
+            let Some(at) = state.decisions.iter().position(|d| d.id == id) else {
+                warnings.push(format!(
+                    "line {line_no}: decision_linked names {handle} ({id}), which this record never folded — skipped"
+                ));
+                return;
+            };
+            state.decisions[at].link_pending = None;
+            let Some(target_id) = opt_str(p, "supersedes_id") else {
+                return;
+            };
+            let t = state.decisions[..at].iter().position(|d| d.id == target_id);
+            let allowed = t.is_some_and(|t| {
+                state.decisions[t].rule.is_none() || state.decisions[at].rule.is_some()
+            });
+            match t {
+                Some(t) if allowed => {
+                    state.decisions[t].superseded_by = Some((at + 1) as u64);
+                    state.decisions[at].supersedes = Some(format!("D{}", t + 1));
+                }
+                _ => warnings.push(format!(
+                    "line {line_no}: decision_linked {handle} → {} retires nothing (not an earlier decision, or a rule named by a plain one)",
+                    opt_str(p, "supersedes").unwrap_or_else(|| "?".to_owned())
+                )),
             }
         }
         "memory_promoted" => {
@@ -1836,8 +1892,10 @@ fn record_freshness(
         // the record, owing no write-back.
         | "judgement_recorded"
         // And brief additions (r3-fixes 2.9): the delta form of plan_updated's
-        // brief, which has never counted.
+        // brief, which has never counted; and links answered after the fact
+        // (2.5): bookkeeping on a decision already counted.
         | "brief_appended"
+        | "decision_linked"
         | "suggestion_proposed"
         | "suggestion_approved"
         | "suggestion_rejected"
@@ -2095,6 +2153,16 @@ impl DecisionState {
         }
         if let Some(by) = self.superseded_by {
             put_count(&mut o, "superseded_by", by);
+        }
+        if let Some(link) = &self.link_pending {
+            let mut l = Object::with_capacity(2);
+            put(&mut l, "session", &link.session);
+            #[allow(clippy::cast_precision_loss, reason = "ordinals fit f64")]
+            l.insert(
+                "candidates",
+                Json::Arr(link.candidates.iter().map(|&n| Json::Num(n as f64)).collect()),
+            );
+            o.insert("link_pending", Json::Obj(l));
         }
         Json::Obj(o)
     }
@@ -2626,6 +2694,30 @@ impl DecisionState {
             superseded_by: match o.get("superseded_by") {
                 None => None,
                 Some(_) => Some(count(o, "superseded_by")?),
+            },
+            link_pending: match o.get("link_pending") {
+                None => None,
+                Some(Json::Obj(l)) => Some(LinkPending {
+                    session: rs(l, "session")?,
+                    candidates: match l.get("candidates") {
+                        Some(Json::Arr(a)) => a
+                            .iter()
+                            .map(|v| match v {
+                                Json::Num(n) if n.fract() == 0.0 && *n >= 1.0 => {
+                                    #[allow(
+                                        clippy::cast_possible_truncation,
+                                        clippy::cast_sign_loss,
+                                        reason = "a positive whole ordinal"
+                                    )]
+                                    Some(*n as u64)
+                                }
+                                _ => None,
+                            })
+                            .collect::<Option<_>>()?,
+                        _ => return None,
+                    },
+                }),
+                Some(_) => return None,
             },
         })
     }

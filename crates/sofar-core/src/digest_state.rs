@@ -192,6 +192,11 @@ fn cut_decision(
         until: d.until.clone(),
         check: None,
         superseded_by: d.superseded_by,
+        // The digest names a pending link's candidates (r3-fixes 2.5), never its session.
+        link_pending: d.link_pending.as_ref().map(|l| crate::fold::LinkPending {
+            session: String::new(),
+            candidates: l.candidates.clone(),
+        }),
     }
 }
 

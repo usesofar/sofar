@@ -105,6 +105,7 @@ present, MUST be strings. Status enums for both tasks and phases are
 | `task_added` | `phase`, `id`, `title` (required); `status` (optional, ∈ enum, default `pending`) | Adds one task to the named phase. Task ids are unique across the whole initiative, not per phase. |
 | `task_status_changed` | `id`, `status` (required; `status` ∈ enum); `note` (optional) | Sets a task's status. A `note` on a `blocked` transition explains the blockage and feeds `current.blocked_on` (§5.4). |
 | `decision_logged` | `chose`, `over`, `because` (required) | Records a decision **with** the rejected alternative and the rationale. All three are mandatory by design. |
+| `decision_linked` | `decision`, `decision_id` (required); `supersedes`, `supersedes_id` (optional, together) | Answers a decision's supersession after it was filed: what it replaces, or (both absent) nothing. |
 | `session_started` | `tool` (required); `model` (optional) | Registers a work session. The session's id is the envelope `session` field — the payload carries no id. |
 | `session_ended` | `summary`, `next_action` (required); `session_id` (optional) | The write-back: what happened and what to do next. Targets `payload.session_id` when present, else the envelope `session`. The latest `session_ended` also sets the initiative-level `current.next_action`. |
 | `session_closed` | `reason` (required) | Mechanical close marker (e.g. the process exited). Deliberately carries **no** summary or next_action — see §5.5 for the asymmetry with `session_ended`. |
@@ -211,6 +212,11 @@ does not un-void its original target (v1 behavior — see also §8).
   `blocked_on`; on any non-`blocked` status, forget it.
 - `decision_logged` — append `{ id: event.id, ts: event.ts, chose, over,
   because }` to the decisions list.
+- `decision_linked` — find the decision whose `id` is `decision_id`; if
+  none, skip with a warning. Clear its pending link. With `supersedes_id`,
+  when that names an EARLIER decision and the decision is not a rule named
+  by a plain one, mark it superseded by this decision and set this
+  decision's `supersedes` to its handle; otherwise warn and retire nothing.
 - `session_started` — register a session with id = envelope `session`,
   `tool`, optional `model`, `started = event.ts`. If that session id is
   already registered, skip with a warning.

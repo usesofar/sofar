@@ -38,7 +38,7 @@ import {
 } from '../core/fold'
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, testShapedCommand } from '../core/derived'
-import { retireEnabled } from '../core/retire'
+import { retireEnabled, retiredOrdinals } from '../core/retire'
 import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, isApproved, rulesCanBear, runChecks, stopGate, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
@@ -79,6 +79,7 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
+import { linkAskEnabled, pendingLinkLine, stopLinkLines, withoutNone } from '../core/link-candidates'
 import { briefEntryText, capturePrompt, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
 import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
@@ -1259,6 +1260,10 @@ export function handleStop(
     // runs the tests under its host's permissions — and stop_hook_active above
     // bounds it to one ask per stop. SOFAR_ENFORCE=off restores D10's Stop.
     const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, state, session) : null
+    // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
+    // per stop: a rule it filed naming nothing it replaces. SOFAR_LINK_ASK=off
+    // is its ablation arm.
+    const links = linkAskEnabled() ? stopLinkLines(state, sessionId, retireEnabled() ? retiredOrdinals(state) : new Set<number>()) : []
 
     // Drift gate (drift-signal 1.2): silent exit when THIS session owes
     // nothing — it wrote back, or it never mutated the record. NaN or a
@@ -1272,7 +1277,10 @@ export function handleStop(
         // fall through to the block below
       }
     }
-    if (!owes) return gate?.blocks === true ? { exitCode: 2, stdout: '', stderr: gate.lines.join('\n') } : { ...OK }
+    if (!owes) {
+      const held = [...(gate?.blocks === true ? gate.lines : []), ...links]
+      return held.length > 0 ? { exitCode: 2, stdout: '', stderr: held.join('\n') } : { ...OK }
+    }
 
     // Guard crossings RIDE the block; they never cause one (D3). By the time
     // we are here the gate has already decided to hold this session for its
@@ -1295,7 +1303,7 @@ export function handleStop(
     return {
       exitCode: 2,
       stdout: '',
-      stderr: [host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : STOP_BLOCK_MESSAGE, ...crossings, ...checks].join('\n'),
+      stderr: [host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : STOP_BLOCK_MESSAGE, ...crossings, ...checks, ...links].join('\n'),
     }
   } catch {
     return { ...OK }
@@ -2844,7 +2852,7 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
     // for it. Idempotent, so a hook-registered session costs one cached fold.
     // Only once the payload has passed its type's validation: a refused
     // append writes nothing, and that includes the registration.
-    if (session !== 'cli' && validatePayload(args.type, payload).ok) {
+    if (session !== 'cli' && validatePayload(args.type, withoutNone(payload)).ok) {
       ctx.registerSession(slug, session, { tool: args.source }, { source, actor: args.actor as Actor })
     }
     // appendAndProject validates the payload against its type's schema BEFORE
@@ -2854,7 +2862,16 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
       source,
       actor: args.actor as Actor,
     })
-    const warnings = lagWarnings(ctx, slug, args.type, fidelity !== null ? [fidelity] : [])
+    // A rule filed naming nothing it replaces (r3-fixes 2.5, D15).
+    const link =
+      event.payload.link_candidates !== undefined
+        ? (() => {
+            const after = ctx.foldState(slug)
+            return pendingLinkLine(after, after.decisions.findIndex((d) => d.id === event.id) + 1)
+          })()
+        : null
+    const extra = [...(fidelity !== null ? [fidelity] : []), ...(link !== null ? [link] : [])]
+    const warnings = lagWarnings(ctx, slug, args.type, extra)
     return { exitCode: 0, stdout: `${JSON.stringify({ ok: true, event_id: event.id, ...named, ...warnings })}\n`, stderr: '' }
   } catch (err) {
     const shape =

@@ -1,6 +1,7 @@
 import { RULE_QUOTE_MAX } from '@sofar/schema'
 import type { LogDecisionArgs, LogDecisionResult } from '@sofar/schema/tool-inputs'
 import { resolveJudgeProvider } from '../client/judge'
+import { pendingLinkLine } from '../core/link-candidates'
 import { decisionJudgeWarnings, type DecisionDraft } from '../core/decision-judge'
 import { testShapedCommand } from '../core/derived'
 import { fileMentions } from '../core/file-mentions'
@@ -150,8 +151,12 @@ function logDecisionLogged(
   // What the rule adds to the operator's words (memory-lead 1.2, D2) — after
   // the append, so a warning never reads as a refusal.
   const nudge = bindNudge(ordinal, args)
+  // A rule filed naming nothing it replaces (r3-fixes 2.5, D15): the
+  // candidates the writer stamped, and the one command that answers.
+  const link = event.payload.link_candidates !== undefined ? pendingLinkLine(ctx.foldState(slug), ordinal) : null
   const warnings = [
     ...(fit !== null ? [quoteFitWarning(ordinal, fit)] : []),
+    ...(link !== null ? [link] : []),
     ...(nudge !== null ? [nudge] : []),
     ...(args.rule !== undefined ? [ruleFidelityWarning(ordinal, args.rule, quote)].filter((w): w is string => w !== null) : []),
   ]
