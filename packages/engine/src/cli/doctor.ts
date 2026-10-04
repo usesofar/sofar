@@ -18,9 +18,11 @@ import { clip } from '../projections/templates/shared'
 import { AGENT_LABELS, AGENTS } from './agents'
 import {
   CODEX_CONFIG,
+  CODEX_DIRECT_KEY,
   CODEX_MCP_ADD,
   CODEX_TOOLS_APPROVAL,
   codexConfigRegistersSofar,
+  codexDirectState,
   type CodexMcpState,
   codexMcpState,
   codexSofarToolsApprovalSet,
@@ -366,6 +368,22 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
           level: 'warn',
           text: `${CODEX_CONFIG} sofar tools not pre-approved — codex exec and driven sessions refuse sofar's MCP calls`,
           hint: `add \`${CODEX_TOOLS_APPROVAL}\` under [mcp_servers.sofar] in ${CODEX_CONFIG}`,
+        })
+      }
+      // r3-fixes 2.7: without the direct namespace, Codex's code mode hides
+      // sofar's tools inside its one exec tool, and the agent writes through
+      // the CLI dialect instead.
+      let direct = 'set'
+      try {
+        direct = codexDirectState(readFileSync(configPath, 'utf8'))
+      } catch {
+        // as above
+      }
+      if (direct !== 'set') {
+        findings.push({
+          level: 'warn',
+          text: `${CODEX_CONFIG} Codex reaches sofar's tools only through code mode's exec tool`,
+          hint: `add \`${CODEX_DIRECT_KEY}\` under [features.code_mode] in ${CODEX_CONFIG}`,
         })
       }
     } else if (codexConfigRegistersSofar(codexUserConfigPath(userHome))) {

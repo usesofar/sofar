@@ -9,7 +9,7 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import { commonGitDir } from '../core/git'
-import { CODEX_CONFIG, codexMcpState, withoutSofarServer } from './codex-config'
+import { CODEX_CONFIG, codexMcpState, withoutSofarDirect, withoutSofarServer } from './codex-config'
 import {
   CODEX_SHIM_DIR,
   CODEX_SHIMS,
@@ -298,7 +298,10 @@ function stripCodexMcp(rootDir: string, purge: boolean, report: string[], warnin
   const path = join(rootDir, CODEX_CONFIG)
   if (!existsSync(path)) return false
   const text = readFileSync(path, 'utf8')
-  const stripped = withoutSofarServer(text)
+  // The direct-call table init appends after the server (r3-fixes 2.7) goes
+  // first, so each cut takes its own seam line and the file comes back whole.
+  const direct = withoutSofarDirect(text)
+  const stripped = direct === null ? null : withoutSofarServer(direct)
   if (stripped === null) {
     if (text.includes('sofar')) {
       warnings.push(`warning: ${CODEX_CONFIG} could not be read as TOML — any sofar MCP server in it was left; remove it by hand`)

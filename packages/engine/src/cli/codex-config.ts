@@ -30,6 +30,16 @@ export const CODEX_CONFIG = '.codex/config.toml'
  */
 export const CODEX_TOOLS_APPROVAL = 'default_tools_approval_mode = "approve"'
 
+/**
+ * Lets Codex call sofar's tools directly (r3-fixes 2.7). Under code mode,
+ * gpt-5.6 reaches MCP tools only through its one `exec` tool, by filtering
+ * ALL_TOOLS, so in round 3 Codex wrote through the CLI dialect in 16 of 18
+ * sessions. Live on 0.160.0 (2026-10-04): the namespace is `mcp__` plus the
+ * server id; `"sofar"` matches nothing. The project layer carries it.
+ */
+export const CODEX_DIRECT_KEY = 'direct_only_tool_namespaces = ["mcp__sofar"]'
+export const CODEX_DIRECT_TABLE = `[features.code_mode]\n${CODEX_DIRECT_KEY}\n`
+
 /** The table init appends: the same server `.mcp.json` registers, in TOML. */
 export const CODEX_MCP_TABLE = ((): string => {
   const { command, args } = mcpRegistration().mcpServers.sofar
@@ -370,6 +380,78 @@ export function withoutSofarServer(text: string): string | null {
     let before = out.slice(0, table.start)
     if (before.endsWith('\n\n')) before = before.slice(0, -1)
     out = before + out.slice(end)
+  }
+  return out
+}
+
+// ---------------------------------------------------------------------------
+// Direct tool calls under code mode (r3-fixes 2.7).
+// ---------------------------------------------------------------------------
+
+const CODE_MODE: KeyPath = ['features', 'code_mode']
+const DIRECT: KeyPath = [...CODE_MODE, 'direct_only_tool_namespaces']
+
+/**
+ * - set         a direct_only_tool_namespaces is defined, in any form — the user's, left as it is
+ * - table       a `[features.code_mode]` table without the key: init inserts it under the header
+ * - absent      no code_mode at all, and appending CODEX_DIRECT_TABLE keeps the file valid
+ * - blocked     code_mode is a value (`code_mode = true`), or `features` is an inline
+ *               table or an array, so a `[features.code_mode]` table would clash
+ * - unreadable  the scanner could not follow the file
+ */
+export type CodexDirectState = 'set' | 'table' | 'absent' | 'blocked' | 'unreadable'
+
+export function codexDirectState(text: string): CodexDirectState {
+  const doc = scan(text)
+  if (doc === null) return 'unreadable'
+  const eq = (path: KeyPath, want: KeyPath): boolean => path.length === want.length && under(path, want)
+  if (doc.pairs.some((p) => eq(p.path, DIRECT) || (eq(p.path, CODE_MODE) && p.inlineKeys.includes('direct_only_tool_namespaces')))) {
+    return 'set'
+  }
+  // A code_mode defined by a value or by dotted keys cannot take a
+  // `[features.code_mode]` header: TOML forbids redefining it in table form.
+  const clash =
+    doc.headers.some((h) => h.array && h.path[0] === 'features') ||
+    doc.pairs.some(
+      (p) => eq(p.path, ['features']) || (under(p.path, CODE_MODE) && !(p.header !== null && eq(p.header.path, CODE_MODE))),
+    )
+  if (clash) return 'blocked'
+  return doc.headers.some((h) => !h.array && eq(h.path, CODE_MODE)) ? 'table' : 'absent'
+}
+
+/** The file with the key: inserted under an existing table (`table`), else the table appended (`absent`). */
+export function withSofarDirect(text: string, state: 'table' | 'absent'): string {
+  if (state === 'absent') {
+    const separator = text.length === 0 ? '' : text.endsWith('\n') ? '\n' : '\n\n'
+    return `${text}${separator}${CODEX_DIRECT_TABLE}`
+  }
+  const doc = scan(text)!
+  const header = doc.headers.find((h) => !h.array && h.path.length === 2 && under(h.path, CODE_MODE))!
+  return `${text.slice(0, header.end)}${CODEX_DIRECT_KEY}\n${text.slice(header.end)}`
+}
+
+/**
+ * Remove only what init wrote: a `[features.code_mode]` table whose sole pair
+ * is exactly CODEX_DIRECT_KEY goes whole, with one seam blank line before it;
+ * in any other code_mode table, a line that is exactly CODEX_DIRECT_KEY goes.
+ * A user's own list is never touched. Null when the scanner cannot follow it.
+ */
+export function withoutSofarDirect(text: string): string | null {
+  const doc = scan(text)
+  if (doc === null) return null
+  let out = text
+  for (const table of doc.headers.filter((h) => !h.array && h.path.length === 2 && under(h.path, CODE_MODE)).reverse()) {
+    const pairs = doc.pairs.filter((p) => p.header === table)
+    const end = Math.max(table.end, ...pairs.map((p) => p.end))
+    if (pairs.length === 1 && out.slice(table.start, end) === CODEX_DIRECT_TABLE) {
+      let before = out.slice(0, table.start)
+      if (before.endsWith('\n\n')) before = before.slice(0, -1)
+      out = before + out.slice(end)
+      continue
+    }
+    const body = out.slice(table.end, end)
+    const kept = body.split('\n').filter((line) => line !== CODEX_DIRECT_KEY).join('\n')
+    out = out.slice(0, table.end) + kept + out.slice(end)
   }
   return out
 }

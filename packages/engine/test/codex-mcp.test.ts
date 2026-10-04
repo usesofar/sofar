@@ -4,13 +4,18 @@ import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import {
   CODEX_CONFIG,
+  CODEX_DIRECT_KEY,
+  CODEX_DIRECT_TABLE,
   CODEX_MCP_ADD,
   CODEX_MCP_TABLE,
   CODEX_TOOLS_APPROVAL,
+  codexDirectState,
   codexMcpState,
   codexSofarToolsApprovalSet,
   codexUserConfigPath,
+  withoutSofarDirect,
   withoutSofarServer,
+  withSofarDirect,
   withSofarServer,
 } from '../src/cli/codex-config'
 import { runDoctor } from '../src/cli/doctor'
@@ -188,7 +193,7 @@ describe('sofar init --agents codex and .codex/config.toml', () => {
     expect(result.stdout).toContain('created .codex/config.toml')
     expect(result.stdout).toContain(CODEX_TRUST_HINT)
     expect(result.stdout).not.toContain(CODEX_MCP_USER_STEP_HINT)
-    expect(config(root)).toBe(CODEX_MCP_TABLE)
+    expect(config(root)).toBe(`${CODEX_MCP_TABLE}\n${CODEX_DIRECT_TABLE}`)
 
     const again = init(root)
     expect(again.stdout).toContain('unchanged .codex/config.toml')
@@ -216,7 +221,7 @@ describe('sofar init --agents codex and .codex/config.toml', () => {
     const result = init(root)
     expect(result.stdout).toContain('updated .codex/config.toml')
     expect(result.stdout).toContain(CODEX_TRUST_HINT) // hooks.json is new too, but the note is the same
-    expect(config(root)).toBe(`${mine}\n${CODEX_MCP_TABLE}`)
+    expect(config(root)).toBe(`${mine}\n${CODEX_MCP_TABLE}\n${CODEX_DIRECT_TABLE}`)
 
     expect(runUninit(root, { purge: true }, plain, plain).exitCode).toBe(0)
     expect(config(root)).toBe(mine)
@@ -235,8 +240,10 @@ describe('sofar init --agents codex and .codex/config.toml', () => {
   it('keeps the user’s own sofar server, and uninit removes it as it removes .mcp.json’s', () => {
     const mine = '[mcp_servers.sofar]\ncommand = "npx"\nargs = ["sofar.sh", "mcp"]\n\n[projects."/x"]\ntrust_level = "trusted"\n'
     const root = freshRepo(mine)
-    expect(init(root).stdout).toContain('unchanged .codex/config.toml')
-    expect(config(root)).toBe(mine)
+    const result = init(root)
+    expect(result.stdout).toContain('unchanged .codex/config.toml')
+    expect(result.stdout).toContain("updated .codex/config.toml (Codex calls sofar's tools directly)")
+    expect(config(root)).toBe(`${mine}\n${CODEX_DIRECT_TABLE}`)
     runUninit(root, {}, plain, plain)
     expect(config(root)).toBe('\n[projects."/x"]\ntrust_level = "trusted"\n')
   })
@@ -274,6 +281,48 @@ describe('sofar init --agents codex and .codex/config.toml', () => {
     const root = freshRepo(CODEX_MCP_TABLE)
     expect(wiredAgents(root)).toEqual(['codex'])
     expect(wiredAgents(freshRepo('model = "o3"\n'))).toEqual([])
+  })
+})
+
+describe('direct tool calls under Codex code mode (r3-fixes 2.7)', () => {
+  it('reads every form a direct_only_tool_namespaces or a code_mode can take', () => {
+    expect(codexDirectState('')).toBe('absent')
+    expect(codexDirectState('[features]\nhooks = true\n')).toBe('absent')
+    expect(codexDirectState('features.hooks = true\n')).toBe('absent') // a sub-table of a dotted table is allowed
+    expect(codexDirectState('[features.code_mode]\nenabled = true\n')).toBe('table')
+    expect(codexDirectState(`[features.code_mode]\ndirect_only_tool_namespaces = ["mcp__x"]\n`)).toBe('set') // the user's list wins
+    expect(codexDirectState('features.code_mode.direct_only_tool_namespaces = []\n')).toBe('set')
+    expect(codexDirectState('[features]\ncode_mode = { direct_only_tool_namespaces = [] }\n')).toBe('set')
+    expect(codexDirectState('[features]\ncode_mode = true\n')).toBe('blocked')
+    expect(codexDirectState('features.code_mode.enabled = true\n')).toBe('blocked') // defined by dotted keys
+    expect(codexDirectState('features = { hooks = true }\n')).toBe('blocked')
+    expect(codexDirectState('a = "open\n')).toBe('unreadable')
+  })
+
+  it('inserts the key under the user\'s table, and uninit takes back only that line', () => {
+    const mine = '[features.code_mode]\nenabled = true\n\n[projects."/x"]\ntrust_level = "trusted"\n'
+    const inserted = withSofarDirect(mine, 'table')
+    expect(inserted).toBe(`[features.code_mode]\n${CODEX_DIRECT_KEY}\nenabled = true\n\n[projects."/x"]\ntrust_level = "trusted"\n`)
+    expect(codexDirectState(inserted)).toBe('set')
+    expect(withoutSofarDirect(inserted)).toBe(mine)
+    expect(withoutSofarDirect(`[features.code_mode]\ndirect_only_tool_namespaces = ["mcp__x"]\n`)).toBe(
+      `[features.code_mode]\ndirect_only_tool_namespaces = ["mcp__x"]\n`,
+    )
+  })
+
+  it('adds the key to a registered project on re-init, once; leaves a clashing code_mode and names the line', () => {
+    const root = freshRepo(`${CODEX_MCP_TABLE}`) // an older init's file
+    const result = init(root)
+    expect(result.stdout).toContain("updated .codex/config.toml (Codex calls sofar's tools directly)")
+    expect(config(root)).toBe(`${CODEX_MCP_TABLE}\n${CODEX_DIRECT_TABLE}`)
+    expect(init(root).stdout).not.toContain('directly')
+
+    const clash = freshRepo('[features]\ncode_mode = true\n')
+    const out = init(clash).stdout
+    expect(out).toContain(
+      `skipped direct tool calls in .codex/config.toml (its features.code_mode is not a [features.code_mode] table) — add \`${CODEX_DIRECT_KEY}\` under [features.code_mode] by hand`,
+    )
+    expect(config(clash)).toBe(`[features]\ncode_mode = true\n\n${CODEX_MCP_TABLE}`)
   })
 })
 

@@ -29,11 +29,14 @@ import {
 } from './agents'
 import {
   CODEX_CONFIG,
+  CODEX_DIRECT_KEY,
   CODEX_MCP_ADD,
   CODEX_TOOLS_APPROVAL,
   codexConfigRegistersSofar,
+  codexDirectState,
   codexMcpState,
   codexUserConfigPath,
+  withSofarDirect,
   withSofarServer,
 } from './codex-config'
 import { detectFormatterHazards, hostShapedJSON } from './formatters'
@@ -2670,9 +2673,11 @@ function mergeCodexMcp(
   }
   if (state === 'absent') {
     mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, withSofarServer(text), 'utf8')
+    const { text: next, skipped } = directMerged(withSofarServer(text))
+    writeFileSync(path, next, 'utf8')
     const change = exists ? 'updated' : 'created'
     report.push(`${change} ${CODEX_CONFIG}`)
+    if (skipped !== null) report.push(skipped)
     return { change, userStep: false }
   }
   const why =
@@ -2683,6 +2688,34 @@ function mergeCodexMcp(
   }
   report.push(`skipped ${CODEX_CONFIG} (${why}) — left as it is`)
   return { change: 'unchanged', userStep: true }
+}
+
+/**
+ * Let Codex call sofar's tools directly under code mode (r3-fixes 2.7), in the
+ * project file that registers sofar. The key is appended or inserted, never
+ * re-serialized, and a user's own list wins. A code_mode the table form would
+ * clash with is left as it is, with the line to add by hand.
+ */
+function mergeCodexDirect(rootDir: string, report: string[]): void {
+  const path = join(rootDir, CODEX_CONFIG)
+  if (!existsSync(path)) return
+  const text = readFileSync(path, 'utf8')
+  if (codexMcpState(text) !== 'registered') return
+  const { text: next, skipped } = directMerged(text)
+  if (next !== text) {
+    writeFileSync(path, next, 'utf8')
+    report.push(`updated ${CODEX_CONFIG} (Codex calls sofar's tools directly)`)
+  }
+  if (skipped !== null) report.push(skipped)
+}
+
+/** The file with the direct-call key, or as it was plus the line to add by hand. */
+function directMerged(text: string): { text: string; skipped: string | null } {
+  const state = codexDirectState(text)
+  if (state === 'set') return { text, skipped: null }
+  if (state === 'absent' || state === 'table') return { text: withSofarDirect(text, state), skipped: null }
+  const why = state === 'blocked' ? 'its features.code_mode is not a [features.code_mode] table' : 'sofar could not read it as TOML'
+  return { text, skipped: `skipped direct tool calls in ${CODEX_CONFIG} (${why}) — add \`${CODEX_DIRECT_KEY}\` under [features.code_mode] by hand` }
 }
 
 /**
@@ -2888,6 +2921,7 @@ export function runInit(
       const mcp = mergeCodexMcp(rootDir, options.home, report)
       codexMcp = mcp.change
       codexUserStep = mcp.userStep
+      if (mcp.change === 'unchanged' && !mcp.userStep) mergeCodexDirect(rootDir, report)
     }
     if (claude) {
       appendProtocolBlock(rootDir, 'CLAUDE.md', PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS, report)

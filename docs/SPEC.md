@@ -2883,6 +2883,28 @@ the server `.mcp.json` registers, as a table appended to the project's
   already exists is the user's and is not rewritten; `doctor` warns when it sets
   no approval mode and names the line to add, and the user-level step's note
   names it too.
+- Direct tool calls (r3-fixes 2.7). Under code mode, gpt-5.6 reaches MCP tools
+  only through its one `exec` tool, by filtering ALL_TOOLS. So in round 3,
+  Codex wrote through the CLI dialect in 16 of 18 sessions. Init therefore
+  also writes:
+
+      [features.code_mode]
+      direct_only_tool_namespaces = ["mcp__sofar"]
+
+  The namespace is `mcp__` plus the server id; `"sofar"` matches nothing (live,
+  0.160.0, 2026-10-04). The direct calls succeed through the project layer, and
+  save about 18–22k input tokens a session.
+  - It is appended with the server table in one write, or added on its own
+    when sofar is already registered in the project file, the user's own
+    entry included.
+  - A `[features.code_mode]` table without the key gets the key inserted under
+    its header. A list the user already set wins.
+  - A `code_mode` defined as a value or by dotted keys, or an inline or array
+    `features`, cannot take the table form. Init leaves the file and reports
+    `skipped direct tool calls in .codex/config.toml (<why>) — add
+    \`<key>\` under [features.code_mode] by hand`.
+  - uninit removes only bytes init wrote: the table when it holds exactly
+    that key, else the exact key line. `doctor` warns when the key is missing.
 
 - No TOML dependency. `cli/codex-config.ts` reads only the file's structure:
   table headers, key paths, and where each sits. It knows basic, literal and
