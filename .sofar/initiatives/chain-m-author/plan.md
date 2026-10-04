@@ -2,8 +2,14 @@
 
 # Plan: chain-m-author
 
-Goal: Author Chain M, round 4's held-out workload, blind to fix-building: skeleton, 30 prompts, planted decisions, sealed reference and mutation-validated hidden tests, under handoff-bench analysis/round-4/CHAIN-M-DESIGN.md once its rulings are made. Read only that file and CHAIN-L-DESIGN.md; never r3-fixes, the survey, round-3 reports or transcripts.
+Goal: Author Chain M, round 4's held-out workload, blind to fix-building: skeleton, 30 prompts, planted decisions, sealed reference and mutation-validated hidden tests, under handoff-bench analysis/round-4/CHAIN-M-DESIGN.md (approved 2026-10-04). Read only that file and CHAIN-L-DESIGN.md; never r3-fixes, the survey, round-3 reports or transcripts.
 
-Progress: 0/0 tasks done (0%)
+Progress: 0/5 tasks done (0%)
 
-(no plan recorded yet — call sofar_update_plan)
+## Phase 1 — Author Chain M (CHAIN-M-DESIGN §6) [pending] — 0/5 done
+
+- [ ] 1.1 Skeleton repo and deterministic fixtures for the inventory and fulfilment ledger (bun, Next.js, fixed clock, no network); skeleton builds, fixtures reproduce
+- [ ] 1.2 30 session prompts on Chain L's segment table with 24 planted decisions (8 guarded, 8 superseded once, 4 twice, 4 why-only), ≥6 versioned decisions planted in Codex/Cursor sessions, ≥2 abandoned-branch decisions in 15–17; sealed under ~/IO/bench-sealed/
+- [ ] 1.3 Sealed reference solution: reference 100%, skeleton 0%
+- [ ] 1.4 Hidden tests, mutation-validated per decision version; every guarded and cross-vendor decision named by ≥1 test; every abandoned-branch decision fails ≥1 trunk test
+- [ ] 1.5 Audit: round 1's three defect classes plus the chain-B checklist, 0 severe; publish the pins (hashes) only
