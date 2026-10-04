@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Confirm the Phase 3 session is live and re-homed; await 2.13/2.2 from r3-fixes 2.2 and the Chain M checklist result.
+Next action: Confirm the Phase 3 session is live; await 2.13/2.2; then gate 4.0 and the rc.5 cut.

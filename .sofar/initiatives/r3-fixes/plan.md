@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 21 done, 2 dropped, 17 remaining
+Progress: 23 done, 2 dropped, 15 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -54,15 +54,15 @@ Progress: 21 done, 2 dropped, 17 remaining
 - [ ] 4.2 Publish rc.5 to npm next (operator runs the publish)
 - [ ] 4.0 Rust parity gate before the rc.5 cut. The Rust core must be byte-identical to TS on digest, every hook's stdout and the CLI surfaces that agents read, on every real events.jsonl (this repo and sofar-cloud) plus the round-4 fixture, after all Phase 2 fixes land in both engines. rc.5 ships Rust only when green.
 
-## Phase 5 — Round 4 benchmark [pending] — 0/8 done
+## Phase 5 — Round 4 benchmark [pending] — 2/8 done
 
-- [ ] 5.1 Fresh held-out chain authored blind (D22; chain-l-author pattern)
+- [x] 5.1 Fresh held-out chain authored blind (D22; chain-l-author pattern)
 - [ ] 5.2 PRE-REGISTRATION-R4: claims with predicted margins from Phase 2, frozen in the operator's own words before any scored run
 - [ ] 5.3 Smoke on the round-4 harness
 - [ ] 5.4 Run 3 reps; score-batch and check-rep each
 - [ ] 5.5 Readout per claim; D19 gate ruling; stable publish only if it passes
 - [ ] 5.0 Pin the latest stable agents and beads at the freeze, checked live (D5); re-check the Codex contract fixtures on the new pin
-- [ ] 5.6 R4-B chain content: the blind round-4 author plants ≥2 decisions on branches that are never merged, with hidden tests asserting trunk behaviour, so branch containment is measurable (R3-FIX-SURVEY C §4 B; D9)
+- [x] 5.6 R4-B chain content: the blind round-4 author plants ≥2 decisions on branches that are never merged, with hidden tests asserting trunk behaviour, so branch containment is measurable (R3-FIX-SURVEY C §4 B; D9)
 - [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
 Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
