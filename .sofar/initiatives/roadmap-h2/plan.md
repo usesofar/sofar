@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Await 2.2 and the two agents (Phase 3, 4.0 checker); then the final parity run and the rc.5 cut.
+Next action: Operator removes ~/.beads and ~/.config/bd and confirms the 3.7 analysis choices; then 3.9, 2.2, the final 4.0 parity run, and the rc.5 cut.

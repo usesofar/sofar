@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 24 done, 2 dropped, 14 remaining
+Progress: 27 done, 2 dropped, 12 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -37,16 +37,17 @@ Progress: 24 done, 2 dropped, 14 remaining
 - [x] 2.12 Record root walk-up (D12): hooks serve the record above the agent's cwd. Round 3 lost Claude Write/Edit capture 156 of 156 from subdirectories. PREDICT capture from a subdirectory 0% -> 100%
 - [x] 2.13 2.10's Stop gate is over the D18 budget at i1000-10mb (SOFAR_ENFORCE off→on: Stop +48.9 ms, +37.2%; vs rc.4 +23.9%). Make it cheaper or put it behind a flag defaulted off before the rc.5 cut (4.1).
 
-## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 4/8 done
+## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 7/9 done
 
 - [x] 3.1 Reboot safety: bench plists must not relaunch stale or finished jobs at login (RunAtLoad relaunched smoke-r3-h4/smoke-r3-h on 2026-10-03)
-- [ ] 3.2 score-batch reads the round's own env (BENCH_CHAIN_DIR etc.) from its ledger or plist, so scoring cannot fail on a missing chain
-- [ ] 3.3 Fair agent-lock scheduling: no cell starves behind the others (sofar r3 waited ~4h of its first 6h)
+- [x] 3.2 score-batch reads the round's own env (BENCH_CHAIN_DIR etc.) from its ledger or plist, so scoring cannot fail on a missing chain
+- [x] 3.3 Fair agent-lock scheduling: no cell starves behind the others (sofar r3 waited ~4h of its first 6h)
 - [x] 3.4 Operator hold/resume command for a running round (today: bootout + re-bootstrap by hand)
 - [x] 3.5 Per-agent cost and token readout built into check-rep (today hand-computed from ledgers)
 - [ ] 3.6 Optional local-model smoke profile for runner development only, never a scored arm
-- [ ] 3.7 Freeze the per-claim analysis script with PRE-REGISTRATION-R4 (round 3 had none until after scoring), and assert per-session store growth on every arm (beads r2's issues.jsonl froze at 66 lines S14–S30) (active)
+- [x] 3.7 Freeze the per-claim analysis script with PRE-REGISTRATION-R4 (round 3 had none until after scoring), and assert per-session store growth on every arm (beads r2's issues.jsonl froze at 66 lines S14–S30)
 - [x] 3.8 Codex hooks in every cell (ROUND-3-REPORT H-f): launchCodex passes --dangerously-bypass-hook-trust, and check-rep asserts hook-sourced events per agent on each hook-using arm (round 3: 0 Codex hook events on all 3 sofar reps)
+- [ ] 3.9 Consolidate the round-4 runner on one branch. 3.2 and 3.3 landed on round3-runner-dev (79e7cdc, 813448d); 3.1/3.4/3.5/3.8 and 3.7 are on handoff-bench main. Merge them onto one branch, re-run the full runner suite, and pin that commit and hash for PRE-REGISTRATION-R4.
 
 ## Phase 4 — Release candidate [pending] — 0/3 done
 
