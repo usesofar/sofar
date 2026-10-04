@@ -33,7 +33,7 @@ Progress: 20 done, 2 dropped, 17 remaining
 - [x] 2.8 Write-backs rejected whole: 34-42% of sofar_end_session calls fail on one decision's 300-char quote ('nothing was filed') and the agent resends the whole ~20k-char payload (~$2/chain, about 0.98x on L-C6). PREDICT after 2.0
 - [x] 2.9 Brief growth under full-replace plans: the L36 fix keeps every session's operator words in the brief (46-55k chars by S30), and plan_updated resends it whole each session (1.05-1.34M chars a chain, 50-60% of events.jsonl, quadratic over a chain). Append to the brief without resending the plan. PREDICT after 2.0
 - [x] 2.10 LR1-A: bind guarded rules to tests; Stop blocks on a failed bound check (memory-lead D37). PREDICT guarded violations at S30 0.33x native, claim ≤0.5x
-- [ ] 2.11 LR4: merge block in the digest, memories in edit-time surfacing, merge receipts. PREDICT L-C2 18-20 mean −11.2 → ≥0 (low confidence)
+- [ ] 2.11 LR4: merge block in the digest, memories in edit-time surfacing, merge receipts. PREDICT L-C2 18-20 mean −11.2 → ≥0 (low confidence) (active)
 - [x] 2.12 Record root walk-up (D12): hooks serve the record above the agent's cwd. Round 3 lost Claude Write/Edit capture 156 of 156 from subdirectories. PREDICT capture from a subdirectory 0% -> 100%
 
 ## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 4/8 done
@@ -65,4 +65,4 @@ Progress: 20 done, 2 dropped, 17 remaining
 - [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
 Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
-Next action: Operator starts a fresh blind session for 5.1 + 5.6 (chain-l-author pattern); peers finish Phase 2 and 3.2/3.3/3.7.
+Next action: Operator rules CHAIN-M-DESIGN §7 (domain, segments); then starts a fresh session with "rehome to chain-m-author" to author Chain M blind.
