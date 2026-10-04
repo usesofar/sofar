@@ -4,3 +4,4 @@
 
 - 2026-10-04T16:41:40.282Z — chose **One sealed reference whose rule versions come from a per-checkpoint policy table (BINWISE_REF_CHECKPOINT), with each decision mutated via BINWISE_REF_MUTATE** over A reference snapshot (commit) per session because It validates all 30 checkpoint suites and per-checkpoint mutation detection from one codebase in about 12 s
 - 2026-10-04T16:41:40.283Z — chose **X1/X2 are extra to the 24 plants, on wt/pick-path at s17; s18 merges only wt/case-pack and wt/order-caps** over Counting abandoned-branch decisions inside the 24 because It keeps Chain L's 8/8/4/4 mix identical, so rounds 3 and 4 stay comparable
+- 2026-10-04T16:55:11.173Z — chose **Exclude X* trunk tests from R4-F; X2's trunk test fires only on the 168 h signature** over Counting X tests in R4-F because An X2 leak already fails U6v2's own tests, so counting it in R4-F would charge one miss twice
