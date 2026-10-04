@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator removes ~/.beads and ~/.config/bd and confirms the 3.7 analysis choices; then 3.9, 2.2, the final 4.0 parity run, and the rc.5 cut.
+Next action: Operator rules the PreToolUse read rewrite and confirms the 3.7 choices; 2.2 lands; then the final parity:real:full run, 3.9 runner merge, and the rc.5 cut.
