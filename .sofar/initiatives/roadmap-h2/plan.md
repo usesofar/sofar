@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Await 2.2 (r3-fixes 2.2 session) and 3.9 (agent); then the final parity:real:full run, the marked-Stop measurement, and the rc.5 cut (4.1).
+Next action: Operator removes /Users/Shared/bench-cells/boopada/fake-x; await 2.2; then the final parity run and the rc.5 cut.
