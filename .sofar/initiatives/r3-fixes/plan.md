@@ -50,3 +50,4 @@ Progress: 0/24 tasks done (0%)
 - [ ] 5.5 Readout per claim; D19 gate ruling; stable publish only if it passes
 
 Active phase: Phase 1 — Diagnose round 3
+Next action: 1.1: per-claim readout vs PRE-REGISTRATION-R3; then read the rep-3 transcripts for the stale v2/v3 rule hypothesis.
