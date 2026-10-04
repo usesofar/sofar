@@ -12,7 +12,7 @@ Progress: 0/24 tasks done (0%)
 
 ## Phase 1 — Diagnose round 3 [active] — 0/6 done
 
-- [ ] 1.1 3-rep readout per pre-registered claim (PRE-REGISTRATION-R3, memory-lead 5.4): per-rep values, pooled margins, CIs; list every miss as a loss row with evidence
+- [ ] 1.1 3-rep readout per pre-registered claim (PRE-REGISTRATION-R3, memory-lead 5.4): per-rep values, pooled margins, CIs; list every miss as a loss row with evidence (active)
 - [ ] 1.2 Cost attribution per agent (Claude, Codex, Cursor): split each sofar cell's tokens by source — digest, alwaysLoad block, raw .sofar reads, tool output — against native and beads; find why non-Claude agents cost 1.4–2× tokens
 - [ ] 1.3 Wall-time decomposition: lock-wait vs agent time vs turns per session, per arm; separate queue starvation from real slowness
 - [ ] 1.4 Early-chain variance: is rep 1's S2–S11 dip (~82% vs 84–95%) a signal or noise across 3 reps? Read transcripts of the low sessions if it recurs
