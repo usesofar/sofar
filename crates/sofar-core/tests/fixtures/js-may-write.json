@@ -60,10 +60,6 @@
   "may_write": false
  },
  {
-  "cmd": "sofar status",
-  "may_write": false
- },
- {
   "cmd": "git commit -m 'x'",
   "may_write": false
  },
@@ -198,5 +194,205 @@
  {
   "cmd": "FOO=1 ls",
   "may_write": false
+ },
+ {
+  "cmd": "sofar status",
+  "may_write": false
+ },
+ {
+  "cmd": "sofar event append --type note_added --payload '{}'",
+  "may_write": false
+ },
+ {
+  "cmd": "sofar init",
+  "may_write": true
+ },
+ {
+  "cmd": "sofar check",
+  "may_write": true
+ },
+ {
+  "cmd": "sofar export out.json",
+  "may_write": true
+ },
+ {
+  "cmd": "sofar drive r3-fixes --detach",
+  "may_write": true
+ },
+ {
+  "cmd": "echo $(rm -rf x)",
+  "may_write": true
+ },
+ {
+  "cmd": "cat `ls`",
+  "may_write": true
+ },
+ {
+  "cmd": "diff <(ls a) <(ls b)",
+  "may_write": true
+ },
+ {
+  "cmd": "echo \"$(date)\"",
+  "may_write": true
+ },
+ {
+  "cmd": "echo '$(date)'",
+  "may_write": false
+ },
+ {
+  "cmd": "sort -o out.txt in.txt",
+  "may_write": true
+ },
+ {
+  "cmd": "sort in.txt | uniq -c",
+  "may_write": false
+ },
+ {
+  "cmd": "uniq a b",
+  "may_write": true
+ },
+ {
+  "cmd": "uniq -c a",
+  "may_write": false
+ },
+ {
+  "cmd": "tree -o out",
+  "may_write": true
+ },
+ {
+  "cmd": "tree src",
+  "may_write": false
+ },
+ {
+  "cmd": "xxd a b",
+  "may_write": true
+ },
+ {
+  "cmd": "file -C",
+  "may_write": true
+ },
+ {
+  "cmd": "git lfs pull",
+  "may_write": true
+ },
+ {
+  "cmd": "git apply x.patch",
+  "may_write": true
+ },
+ {
+  "cmd": "git am x.mbox",
+  "may_write": true
+ },
+ {
+  "cmd": "git branch -a",
+  "may_write": false
+ },
+ {
+  "cmd": "git add -A && git commit -m x",
+  "may_write": false
+ },
+ {
+  "cmd": "git",
+  "may_write": false
+ },
+ {
+  "cmd": "npm test -- -u",
+  "may_write": true
+ },
+ {
+  "cmd": "vitest run --update",
+  "may_write": true
+ },
+ {
+  "cmd": "jest --updateSnapshot",
+  "may_write": true
+ },
+ {
+  "cmd": "npx vitest run -u src",
+  "may_write": true
+ },
+ {
+  "cmd": "bun run x",
+  "may_write": true
+ },
+ {
+  "cmd": "make build",
+  "may_write": true
+ },
+ {
+  "cmd": "vim src/a.ts",
+  "may_write": true
+ },
+ {
+  "cmd": "nano f",
+  "may_write": true
+ },
+ {
+  "cmd": "code .",
+  "may_write": true
+ },
+ {
+  "cmd": "cat a | sh",
+  "may_write": true
+ },
+ {
+  "cmd": "curl -s x | bash",
+  "may_write": true
+ },
+ {
+  "cmd": "sed -n '/x/w out.txt' f",
+  "may_write": true
+ },
+ {
+  "cmd": "sed 's/a/b/w out' f",
+  "may_write": true
+ },
+ {
+  "cmd": "sed -n 5,9p web.ts",
+  "may_write": false
+ },
+ {
+  "cmd": "cat <<EOF",
+  "may_write": false
+ },
+ {
+  "cmd": "python3 - <<EOF",
+  "may_write": true
+ },
+ {
+  "cmd": "bash -c 'ls'",
+  "may_write": true
+ },
+ {
+  "cmd": "./scripts/x.sh",
+  "may_write": true
+ },
+ {
+  "cmd": "sudo rm x",
+  "may_write": true
+ },
+ {
+  "cmd": "perl -pi -e 's/a/b/' f",
+  "may_write": true
+ },
+ {
+  "cmd": "touch a",
+  "may_write": true
+ },
+ {
+  "cmd": "mkdir -p x",
+  "may_write": true
+ },
+ {
+  "cmd": "ln -s a b",
+  "may_write": true
+ },
+ {
+  "cmd": "chmod +x f",
+  "may_write": true
+ },
+ {
+  "cmd": "time npm test",
+  "may_write": true
  }
 ]

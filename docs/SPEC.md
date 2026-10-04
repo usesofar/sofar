@@ -686,19 +686,29 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   outside `.sofar/` (one spawn). A shell write never reaches the hooks.
   PostToolUse and PostToolUseFailure classify every shell call
   (`mayWriteCommand`, core/derived.ts) and mark the session in
-  `.sofar/.index/wrote/<session>.json`. A command never marks when every
-  segment is a test run or reads only and nothing redirects output to a file
-  other than `/dev/null`, `/dev/stdout` or `/dev/stderr`. Reads only means:
-  a head from a closed set (`cat`, `grep`, `rg`, `ls`, `wc`, `jq`, `echo`, `cd`,
-  `sofar`, …); `git` with a subcommand that leaves the working tree alone
-  (anything but checkout, switch, restore, reset, merge, pull, rebase,
-  cherry-pick, revert, stash, clean, mv, rm, apply, am, worktree, submodule,
-  sparse-checkout, clone, init); `find` with none of its delete, exec or write
-  actions; `sed` without `-i`. Every other command marks: a false mark costs
-  one spawn, a missed one a missed edit. A self-recording command counts. A
-  session with commands and no mark asks git nothing. A session with no
-  captured file and no command, or a repo whose in-force rules have neither
-  a guard nor a file mention, skips the gate and asks git nothing.
+  `.sofar/.index/wrote/<session>.json`. The classifier FAILS SAFE (D24): a
+  command marks unless it is positively known to write nothing. It marks on any
+  output redirection to a file other than `/dev/null`, `/dev/stdout` or
+  `/dev/stderr`, and on any command or process substitution (`$(…)`,
+  backticks, `<(…)`, `>(…)`) outside single quotes. Otherwise every `&&`,
+  `||`, `;`, `|` segment must be one of these, or it marks:
+  - a test run (the test gate's recognizer) with no update flag (`-u`,
+    `--update`, `--update-snapshot(s)`, `--updateSnapshot`, `--write`);
+  - an allowlisted head that cannot write whatever its arguments (`cat`,
+    `grep`, `rg`, `ls`, `wc`, `jq`, `echo`, `cd`, …);
+  - `git` with a subcommand that leaves working-tree files alone (`status`,
+    `log`, `diff`, `show`, `add`, `commit`, `push`, `fetch`, `branch`, …);
+    any other, `apply` and `lfs` included, marks;
+  - `sofar` with a subcommand that writes only `.sofar/` (`status`,
+    `event`, `find`, …); `init`, `check`, `export` or `drive` marks;
+  - `find` with no delete, exec or write action; `sed` with no `-i` and no `w`
+    or `e` command; `sort` or `tree` with no `-o`/`--output`; `uniq` with at
+    most one operand.
+  A false mark costs one spawn, a missed one a missed edit. A self-recording
+  command counts. A session with commands and no mark asks git nothing. A
+  session with no captured file and no command, or a repo whose in-force rules
+  have neither a guard nor a file mention, skips the gate and asks git
+  nothing.
 - RULES (2.13, D23): the declared index as last written, with no freshness
   pass over every log, and the bound record's own ruled entries rebuilt from
   the fold Stop already holds. Every write path that appends a
@@ -8861,8 +8871,12 @@ stay the underlying derivation's, and exit codes are styling-independent.
   never held for a change git alone sees; its first `echo y > notes.txt`
   marks it and the change bears. A rule's supersession written through
   sofar_log_decision reaches the next Stop with no freshness pass. The
-  classifier's table (crates/sofar-core/tests/fixtures/js-may-write.json) is
-  asserted by both engines.
+  classifier's table (crates/sofar-core/tests/fixtures/js-may-write.json,
+  99 commands) is asserted by both engines: `$(rm x)`, `sort -o`, `uniq a b`,
+  `git apply`, `git lfs pull`, `sofar init`, `npm test -- -u`, `bun run x`,
+  `make`, editors, `cat a | sh`, `python3 - <<EOF` and `sed 's/a/b/w out'`
+  mark; `cat … | grep`, `git status`, `git add -A && git commit`, `sofar
+  event append`, `sed -n 5,9p` and a plain `cat <<EOF` do not.
 - **Binding (r3-fixes 2.10c):** `sofar bind D1 'bun test test/store.test.ts'`
   files D2 with D1's rule, quote and guard plus the check, retires D1, and a
   session that edits the guarded file is then asked to run that test. It

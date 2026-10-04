@@ -453,8 +453,8 @@ mod tests {
     }
 }
 
-/// `READ_ONLY_HEADS` (r3-fixes 2.13, D23): heads that read and never write a
-/// file, whatever their arguments.
+/// `READ_ONLY_HEADS` (r3-fixes 2.13, D23, D24): heads that cannot write a
+/// file whatever their arguments. An allowlist, so it fails safe.
 const READ_ONLY_HEADS: &[&str] = &[
     "cat",
     "head",
@@ -467,16 +467,12 @@ const READ_ONLY_HEADS: &[&str] = &[
     "rg",
     "ag",
     "ls",
-    "tree",
     "wc",
-    "sort",
-    "uniq",
     "cut",
     "tr",
     "diff",
     "cmp",
     "stat",
-    "file",
     "du",
     "df",
     "pwd",
@@ -500,43 +496,132 @@ const READ_ONLY_HEADS: &[&str] = &[
     "readlink",
     "nl",
     "od",
-    "xxd",
     "hexdump",
     "md5",
     "md5sum",
     "shasum",
     "sha256sum",
-    "sofar",
 ];
 
-/// `GIT_TREE_WRITERS`: git subcommands that change working-tree files.
-const GIT_TREE_WRITERS: &[&str] = &[
-    "checkout",
+/// `OUTPUT_OPTION_HEADS`: heads that write only through one option.
+const OUTPUT_OPTION_HEADS: &[&str] = &["sort", "tree"];
+
+/// `GIT_READ_ONLY`: git subcommands that leave working-tree files alone.
+const GIT_READ_ONLY: &[&str] = &[
+    "status",
+    "log",
+    "diff",
+    "show",
+    "rev-parse",
+    "blame",
+    "ls-files",
+    "ls-tree",
+    "grep",
+    "describe",
+    "shortlog",
+    "reflog",
+    "cat-file",
+    "merge-base",
+    "rev-list",
+    "name-rev",
+    "for-each-ref",
+    "show-ref",
+    "show-branch",
+    "range-diff",
+    "whatchanged",
+    "cherry",
+    "check-ignore",
+    "count-objects",
+    "var",
+    "help",
+    "version",
+    "branch",
+    "tag",
+    "remote",
+    "config",
+    "fetch",
+    "add",
+    "commit",
+    "push",
+    "notes",
+];
+
+/// `SOFAR_READ_ONLY`: sofar subcommands that write nothing outside `.sofar/`.
+const SOFAR_READ_ONLY: &[&str] = &[
+    "status",
+    "list",
+    "next",
+    "why",
+    "related",
+    "find",
+    "doctor",
+    "new",
     "switch",
-    "restore",
-    "reset",
-    "merge",
-    "pull",
-    "rebase",
-    "cherry-pick",
-    "revert",
-    "stash",
-    "clean",
-    "mv",
-    "rm",
-    "apply",
-    "am",
-    "worktree",
-    "submodule",
-    "sparse-checkout",
-    "clone",
-    "init",
+    "close",
+    "remember",
+    "bind",
+    "supersedes",
+    "event",
+    "review",
+    "statusline",
 ];
 
 /// `FIND_WRITERS`: find's actions that delete, run or write.
 const FIND_WRITERS: &[&str] = &[
     "-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls",
 ];
+
+/// `TEST_WRITE_FLAG`: a test run that rewrites what it checks.
+fn test_write_flag(token: &str) -> bool {
+    let name = token.split('=').next().unwrap_or("");
+    matches!(
+        name,
+        "-u" | "--update"
+            | "--update-snapshot"
+            | "--update-snapshots"
+            | "--updatesnapshot"
+            | "--updatesnapshots"
+            | "--updateSnapshot"
+            | "--write"
+    )
+}
+
+/// `SED_WRITE`: a `w` or `e` sed command, matched loosely (it only over-marks).
+fn sed_writes(rest: &str) -> bool {
+    let chars: Vec<char> = rest.chars().collect();
+    chars.iter().enumerate().any(|(i, &c)| {
+        (c == 'w' || c == 'e')
+            && (i == 0 || {
+                let p = chars[i - 1];
+                is_js_whitespace(p) || matches!(p, '/' | ';' | '}' | '\'' | '"')
+            })
+            && chars
+                .get(i + 1)
+                .is_none_or(|&n| is_js_whitespace(n) || matches!(n, '\'' | '"'))
+    })
+}
+
+/// `substitutes`: command or process substitution, outside single quotes.
+fn substitutes(cmd: &str) -> bool {
+    let chars: Vec<char> = cmd.chars().collect();
+    let mut single = false;
+    let mut i = 0;
+    while i < chars.len() {
+        let ch = chars[i];
+        if ch == '\'' {
+            single = !single;
+        } else if !single {
+            if ch == '\\' {
+                i += 1;
+            } else if ch == '`' || (matches!(ch, '$' | '<' | '>') && chars.get(i + 1) == Some(&'('))
+            {
+                return true;
+            }
+        }
+        i += 1;
+    }
+    false
+}
 
 /// `redirectsToFile`: output redirection to anything but `/dev/null`,
 /// `/dev/stdout` or `/dev/stderr`, outside quotes; `2>&1` and `>&2` are not.
@@ -595,14 +680,15 @@ fn redirects_to_file(cmd: &str) -> bool {
     false
 }
 
-/// `readOnlySegment`: a known read-only head, or git or find doing nothing
-/// that writes.
+/// `readOnlySegment`: an allowlisted head, or git, sofar, find, sed, sort,
+/// tree or uniq doing nothing that writes.
 fn read_only_segment(seg: &str) -> bool {
     let tokens: Vec<&str> = seg
         .split(is_js_whitespace)
         .filter(|t| !t.is_empty())
         .collect();
     let head = tokens.first().copied().unwrap_or("");
+    let args = tokens.get(1..).unwrap_or(&[]);
     match head {
         "git" => {
             let mut i = 1;
@@ -613,12 +699,21 @@ fn read_only_segment(seg: &str) -> bool {
                     1
                 };
             }
-            i >= tokens.len() || !GIT_TREE_WRITERS.contains(&tokens[i])
+            i >= tokens.len() || GIT_READ_ONLY.contains(&tokens[i])
         }
-        "find" => !tokens.iter().any(|t| FIND_WRITERS.contains(t)),
-        "sed" => !tokens
+        "sofar" => args.first().is_none_or(|a| SOFAR_READ_ONLY.contains(a)),
+        "find" => !args.iter().any(|t| FIND_WRITERS.contains(t)),
+        "sed" => {
+            !args
+                .iter()
+                .any(|t| t.starts_with("-i") || *t == "--in-place" || t.starts_with("--in-place="))
+                && !sed_writes(&seg[3..])
+        }
+        // `uniq in out` writes out: two operands mark.
+        "uniq" => args.iter().filter(|t| !t.starts_with('-')).count() <= 1,
+        _ if OUTPUT_OPTION_HEADS.contains(&head) => !args
             .iter()
-            .any(|t| t.starts_with("-i") || *t == "--in-place" || t.starts_with("--in-place=")),
+            .any(|t| t.starts_with("-o") || t.starts_with("--output")),
         _ => READ_ONLY_HEADS.contains(&head),
     }
 }
@@ -629,7 +724,7 @@ fn read_only_segment(seg: &str) -> bool {
 /// nothing redirects output to a file.
 #[must_use]
 pub fn may_write_command(cmd: &str) -> bool {
-    if redirects_to_file(cmd) {
+    if redirects_to_file(cmd) || substitutes(cmd) {
         return true;
     }
     for raw in split_segments(cmd) {
@@ -641,6 +736,9 @@ pub fn may_write_command(cmd: &str) -> bool {
         if HEADS.contains(&head) {
             let chars = match_window(seg);
             if pkg_test(&chars) || runner(&chars) || tool_test(&chars) {
+                if seg.split(is_js_whitespace).any(test_write_flag) {
+                    return true;
+                }
                 continue;
             }
         }

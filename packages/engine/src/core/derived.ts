@@ -96,25 +96,58 @@ function splitSegments(cmd: string): string[] {
 }
 
 /**
- * Heads that read and never write a file, whatever their arguments (r3-fixes
- * 2.13, D23). Not `awk` (its program can print to a file), not `env`, `xargs`
- * or `time` (they run another command), not `node`/`python` (scripts).
+ * Heads that cannot write a file whatever their arguments (r3-fixes 2.13,
+ * D23, D24). An allowlist, so it fails safe: every head not here marks the
+ * session. Not `awk` (its program can print to a file), not `env`, `xargs`,
+ * `time` or `sudo` (they run another command), not `xxd` or `file` (`xxd in
+ * out`, `file -C`), not `node`/`python` (scripts).
  */
 const READ_ONLY_HEADS = new Set([
-  'cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ls', 'tree', 'wc', 'sort', 'uniq',
-  'cut', 'tr', 'diff', 'cmp', 'stat', 'file', 'du', 'df', 'pwd', 'which', 'type', 'echo', 'printf', 'true', 'false',
-  'date', 'whoami', 'uname', 'jq', 'cd', 'sleep', 'test', '[', 'basename', 'dirname', 'realpath', 'readlink', 'nl',
-  'od', 'xxd', 'hexdump', 'md5', 'md5sum', 'shasum', 'sha256sum', 'sofar',
+  'cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ls', 'wc', 'cut', 'tr', 'diff',
+  'cmp', 'stat', 'du', 'df', 'pwd', 'which', 'type', 'echo', 'printf', 'true', 'false', 'date', 'whoami', 'uname',
+  'jq', 'cd', 'sleep', 'test', '[', 'basename', 'dirname', 'realpath', 'readlink', 'nl', 'od', 'hexdump', 'md5',
+  'md5sum', 'shasum', 'sha256sum',
 ])
 
-/** git subcommands that change working-tree files; every other one leaves them be. */
-const GIT_TREE_WRITERS = new Set([
-  'checkout', 'switch', 'restore', 'reset', 'merge', 'pull', 'rebase', 'cherry-pick', 'revert', 'stash', 'clean',
-  'mv', 'rm', 'apply', 'am', 'worktree', 'submodule', 'sparse-checkout', 'clone', 'init',
+/** Heads that write only through one option, which marks: `sort -o`, `tree -o`. */
+const OUTPUT_OPTION_HEADS = new Set(['sort', 'tree'])
+
+/** git subcommands that leave working-tree files alone; any other one may write (`checkout`, `apply`, `lfs pull`…). */
+const GIT_READ_ONLY = new Set([
+  'status', 'log', 'diff', 'show', 'rev-parse', 'blame', 'ls-files', 'ls-tree', 'grep', 'describe', 'shortlog',
+  'reflog', 'cat-file', 'merge-base', 'rev-list', 'name-rev', 'for-each-ref', 'show-ref', 'show-branch',
+  'range-diff', 'whatchanged', 'cherry', 'check-ignore', 'count-objects', 'var', 'help', 'version', 'branch', 'tag',
+  'remote', 'config', 'fetch', 'add', 'commit', 'push', 'notes',
+])
+
+/** sofar subcommands that write nothing outside `.sofar/`; `init`, `check`, `export`, `drive`… may. */
+const SOFAR_READ_ONLY = new Set([
+  'status', 'list', 'next', 'why', 'related', 'find', 'doctor', 'new', 'switch', 'close', 'remember', 'bind',
+  'supersedes', 'event', 'review', 'statusline',
 ])
 
 /** Find's actions that delete, run or write. */
 const FIND_WRITERS = new Set(['-delete', '-exec', '-execdir', '-ok', '-okdir', '-fprint', '-fprint0', '-fprintf', '-fls'])
+
+/** A test run that rewrites what it checks: `-u`, `--update`, `--update-snapshots`, `--updateSnapshot`, `--write`. */
+const TEST_WRITE_FLAG = /^(?:-u|--update(?:-?snapshots?|Snapshot)?|--write)(?:=.*)?$/
+
+/** `w` and `e` sed commands: they write a file or run one. Matched loosely, which only over-marks. */
+const SED_WRITE = /(?:^|[\s/;}'"])[we](?:\s|['"]|$)/
+
+/** Command or process substitution, outside single quotes: it runs whatever it holds. */
+function substitutes(cmd: string): boolean {
+  let single = false
+  for (let i = 0; i < cmd.length; i += 1) {
+    const ch = cmd[i]!
+    if (ch === "'") single = !single
+    else if (single) continue
+    else if (ch === '\\') i += 1
+    else if (ch === '`') return true
+    else if ((ch === '$' || ch === '<' || ch === '>') && cmd[i + 1] === '(') return true
+  }
+  return false
+}
 
 /** Output redirection to anything but /dev/null, /dev/stdout or /dev/stderr, outside quotes; `2>&1` and `>&2` are not. */
 function redirectsToFile(cmd: string): boolean {
@@ -148,33 +181,42 @@ function redirectsToFile(cmd: string): boolean {
   return false
 }
 
-/** A segment that reads only: a known read-only head, or git or find doing nothing that writes. */
+/** A segment that reads only: an allowlisted head, or git, sofar, find, sed, sort, tree or uniq doing nothing that writes. */
 function readOnlySegment(seg: string): boolean {
   const tokens = seg.split(/\s+/).filter((t) => t.length > 0)
   const head = tokens[0] ?? ''
+  const args = tokens.slice(1)
   if (head === 'git') {
     let i = 1
     while (i < tokens.length && tokens[i]!.startsWith('-')) i += tokens[i] === '-C' || tokens[i] === '-c' ? 2 : 1
-    return i >= tokens.length || !GIT_TREE_WRITERS.has(tokens[i]!)
+    return i >= tokens.length || GIT_READ_ONLY.has(tokens[i]!)
   }
-  if (head === 'find') return !tokens.some((t) => FIND_WRITERS.has(t))
-  if (head === 'sed') return !tokens.some((t) => t.startsWith('-i') || t === '--in-place' || t.startsWith('--in-place='))
+  if (head === 'sofar') return args.length === 0 || SOFAR_READ_ONLY.has(args[0]!)
+  if (head === 'find') return !args.some((t) => FIND_WRITERS.has(t))
+  if (head === 'sed') return !args.some((t) => t.startsWith('-i') || t === '--in-place' || t.startsWith('--in-place=')) && !SED_WRITE.test(seg.slice(3))
+  if (OUTPUT_OPTION_HEADS.has(head)) return !args.some((t) => t.startsWith('-o') || t.startsWith('--output'))
+  // `uniq in out` writes out: two operands mark.
+  if (head === 'uniq') return args.filter((t) => !t.startsWith('-')).length <= 1
   return READ_ONLY_HEADS.has(head)
 }
 
 /**
  * Whether a shell command may write a file the hooks never capture (r3-fixes
- * 2.13, D23): the one reason Stop's test gate asks git. False only when every
- * segment is a test run or reads only, and nothing redirects output to a
- * file. Anything else may write. Conservative by construction: a false
- * positive costs one git spawn at Stop, a false negative a missed edit.
+ * 2.13, D23, D24): the one reason Stop's test gate asks git. FAILS SAFE: false
+ * only when every segment is a test run that updates nothing or an
+ * allowlisted read, nothing redirects output to a file, and nothing
+ * substitutes a command. Any command it does not recognise may write. A false
+ * mark costs one git spawn at Stop; a missed one would skip the gate (R4-A).
  */
 export function mayWriteCommand(cmd: string): boolean {
-  if (redirectsToFile(cmd)) return true
+  if (redirectsToFile(cmd) || substitutes(cmd)) return true
   for (const raw of splitSegments(cmd)) {
     const seg = raw.replace(ENV_ASSIGN, '').trim()
     if (seg.length === 0) continue
-    if (PKG_TEST.test(seg) || RUNNER.test(seg) || TOOL_TEST.test(seg)) continue
+    if (PKG_TEST.test(seg) || RUNNER.test(seg) || TOOL_TEST.test(seg)) {
+      if (seg.split(/\s+/).some((t) => TEST_WRITE_FLAG.test(t))) return true
+      continue
+    }
     if (!readOnlySegment(seg)) return true
   }
   return false
