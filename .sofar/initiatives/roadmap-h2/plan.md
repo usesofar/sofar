@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Relay the Phase 3 agent's commits; await 2.13/2.2 from r3-fixes 2.2; then gate 4.0 and the rc.5 cut.
+Next action: Await 2.2 and the two agents (Phase 3, 4.0 checker); then the final parity run and the rc.5 cut.
