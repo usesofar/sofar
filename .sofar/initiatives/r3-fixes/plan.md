@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 31 done, 2 dropped, 9 remaining
+Progress: 32 done, 2 dropped, 8 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -50,9 +50,9 @@ Progress: 31 done, 2 dropped, 9 remaining
 - [x] 3.8 Codex hooks in every cell (ROUND-3-REPORT H-f): launchCodex passes --dangerously-bypass-hook-trust, and check-rep asserts hook-sourced events per agent on each hook-using arm (round 3: 0 Codex hook events on all 3 sofar reps)
 - [x] 3.9 Consolidate the round-4 runner on one branch. 3.2 and 3.3 landed on round3-runner-dev (79e7cdc, 813448d); 3.1/3.4/3.5/3.8 and 3.7 are on handoff-bench main. Merge them onto one branch, re-run the full runner suite, and pin that commit and hash for PRE-REGISTRATION-R4.
 
-## Phase 4 — Release candidate [pending] — 1/3 done
+## Phase 4 — Release candidate [pending] — 2/3 done
 
-- [ ] 4.1 Cut rc.5 with Phase 2: full suite, SPEC acceptance criteria, D18 read-path gate on both pinned fixtures
+- [x] 4.1 Cut rc.5 with Phase 2: full suite, SPEC acceptance criteria, D18 read-path gate on both pinned fixtures
 - [ ] 4.2 Publish rc.5 to npm next (operator runs the publish)
 - [x] 4.0 Rust parity gate before the rc.5 cut. The Rust core must be byte-identical to TS on digest, every hook's stdout and the CLI surfaces that agents read, on every real events.jsonl (this repo and sofar-cloud) plus the round-4 fixture, after all Phase 2 fixes land in both engines. rc.5 ships Rust only when green.
 
@@ -68,4 +68,4 @@ Progress: 31 done, 2 dropped, 9 remaining
 - [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
 Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
-Next action: Cut rc.5 (4.1) once the orchestrator's parity:real:full on fresh builds reports clean.
+Next action: Operator: publish rc.5 (4.2) from ~/IO/sofar-rc5.
