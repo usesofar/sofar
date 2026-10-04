@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Read the 4.0 full-parity result; when 2.14 lands, cut rc.5 (4.1); then the operator publishes to npm next (4.2).
+Next action: Relay the builder's rc.5 cut results and the exact publish command to the operator (4.2).
