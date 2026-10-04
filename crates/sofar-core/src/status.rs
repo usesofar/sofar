@@ -438,9 +438,56 @@ pub fn link_ask_enabled() -> bool {
     std::env::var_os("SOFAR_LINK_ASK").is_none_or(|v| v != "off")
 }
 
+/// `heldAsk` without the decisions' words (r3-fixes 2.6, D18): why a held
+/// link was held, as of `state`, and the answers to offer. `live` is the
+/// caller's in-force test.
+#[must_use]
+pub fn held_ask(
+    state: &InitiativeState,
+    ordinal: usize,
+    link: &crate::fold::LinkPending,
+    live: &dyn Fn(usize) -> bool,
+) -> (String, Vec<String>) {
+    #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+    let h = link.held.unwrap_or(0) as usize;
+    #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+    let offers: Vec<usize> = link
+        .candidates
+        .iter()
+        .map(|&n| n as usize)
+        .filter(|&n| live(n))
+        .collect();
+    let replaced = state
+        .decisions
+        .get(h.wrapping_sub(1))
+        .and_then(|d| d.superseded_by);
+    let why = if let Some(by) = replaced {
+        format!("D{h} was already replaced by D{by}")
+    } else if !live(h) {
+        format!("D{h} is no longer in force")
+    } else if !offers.is_empty() {
+        let named: Vec<String> = offers.iter().map(|n| format!("D{n}")).collect();
+        format!("its words match {} far more", named.join(" and "))
+    } else {
+        "its words share little with it".to_owned()
+    };
+    let mut answers = Vec::new();
+    if live(h) {
+        answers.push(format!("`sofar supersedes D{ordinal} D{h}` if D{h} is right"));
+    }
+    for n in &offers {
+        answers.push(format!("`sofar supersedes D{ordinal} D{n}` if D{n} is"));
+    }
+    answers.push(format!(
+        "`sofar supersedes D{ordinal} none` if it replaces nothing"
+    ));
+    (why, answers)
+}
+
 /// `pendingLinkLines`: a header naming the answer, then one line per pending
-/// rule still in force — newest first, at most `MAX_PENDING_LINKS` — with the
-/// candidates still in force.
+/// decision still in force — newest first, at most `MAX_PENDING_LINKS` — with
+/// the candidates still in force, or, for a held link (2.6, D18), the target
+/// it named and why it was held.
 fn pending_link_lines(state: &InitiativeState, retired: &[usize]) -> Vec<String> {
     let live = |n: usize| {
         state
@@ -450,11 +497,18 @@ fn pending_link_lines(state: &InitiativeState, retired: &[usize]) -> Vec<String>
             && !retired.contains(&n)
     };
     let mut pending: Vec<String> = Vec::new();
+    let mut held = 0usize;
     for (i, d) in state.decisions.iter().enumerate().rev() {
         let Some(link) = &d.link_pending else {
             continue;
         };
         if !live(i + 1) {
+            continue;
+        }
+        if let Some(h) = link.held {
+            held += 1;
+            let (why, _) = held_ask(state, i + 1, link, &live);
+            pending.push(format!("- D{} names D{h}, held — {why}", i + 1));
             continue;
         }
         #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
@@ -475,8 +529,15 @@ fn pending_link_lines(state: &InitiativeState, retired: &[usize]) -> Vec<String>
         return Vec::new();
     }
     let shown = pending.len().min(MAX_PENDING_LINKS);
+    let what = if held == 0 {
+        "rule(s) filed naming nothing they replace"
+    } else if held == pending.len() {
+        "held link(s), the target still in force"
+    } else {
+        "link(s) unnamed or held"
+    };
     let mut lines = vec![format!(
-        "⚠ Links pending — {} rule(s) filed naming nothing they replace; answer each: `sofar supersedes D<n> <D<m>|none>`",
+        "⚠ Links pending — {} {what}; answer each: `sofar supersedes D<n> <D<m>|none>`",
         pending.len()
     )];
     lines.extend(pending[..shown].iter().cloned());

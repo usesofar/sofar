@@ -79,7 +79,8 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
-import { linkAskEnabled, pendingLinkLine, stopLinkLines, withoutNone } from '../core/link-candidates'
+import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
+import { bareSupersedes } from '../core/handle'
 import { briefEntryText, capturePrompt, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
 import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
@@ -2764,7 +2765,14 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
     // Same refusal as sofar_log_decision (r1-fixes 4.1.2, D31); malformed
     // payloads skip it and fail validation inside appendAndProject as before.
     let fidelity: string | null = null
+    let moved: string | undefined
     if (args.type === 'decision_logged') {
+      // A check-suffixed handle (r3-fixes 2.6, D18) is judged and stored as
+      // the bare one it names here.
+      const bare = bareSupersedes(ctx.foldState(slug).decisions, payload)
+      if (bare.error !== undefined) throw new ToolError('invalid_input', bare.error, [bare.error])
+      if (typeof bare.payload.supersedes === 'string') payload.supersedes = bare.payload.supersedes
+      moved = bare.moved
       const { chose, over, because, supersedes } = payload
       if (typeof chose === 'string' && typeof over === 'string' && typeof because === 'string') {
         const draft = { chose, over, because, ...(typeof supersedes === 'string' ? { supersedes } : {}) }
@@ -2870,9 +2878,23 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
             return pendingLinkLine(after, after.decisions.findIndex((d) => d.id === event.id) + 1)
           })()
         : null
-    const extra = [...(fidelity !== null ? [fidelity] : []), ...(link !== null ? [link] : [])]
+    // What a taken link retired (2.6, D18), or that it retired nothing.
+    const echo =
+      args.type === 'decision_logged' && event.payload.supersedes !== undefined
+        ? (() => {
+            const after = ctx.foldState(slug)
+            return supersessionEcho(after, after.decisions.findIndex((d) => d.id === event.id) + 1)
+          })()
+        : {}
+    const extra = [
+      ...(moved !== undefined ? [moved] : []),
+      ...(echo.warning !== undefined ? [echo.warning] : []),
+      ...(fidelity !== null ? [fidelity] : []),
+      ...(link !== null ? [link] : []),
+    ]
     const warnings = lagWarnings(ctx, slug, args.type, extra)
-    return { exitCode: 0, stdout: `${JSON.stringify({ ok: true, event_id: event.id, ...named, ...warnings })}\n`, stderr: '' }
+    const retires = echo.retires !== undefined ? { retires: echo.retires } : {}
+    return { exitCode: 0, stdout: `${JSON.stringify({ ok: true, event_id: event.id, ...named, ...retires, ...warnings })}\n`, stderr: '' }
   } catch (err) {
     const shape =
       err instanceof ToolError

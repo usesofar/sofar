@@ -389,6 +389,8 @@ export type UpdateTaskResult = WarnedOkResult
  * warning never means the decision was refused.
  */
 export interface LogDecisionResult extends ToolOkResult {
+  /** What its `supersedes` retired, with its words (r3-fixes 2.6, D18): `D<n> "<rule or chose>"`. */
+  retires?: string
   warnings?: string[]
 }
 

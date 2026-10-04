@@ -183,9 +183,11 @@ export interface DecisionState {
    * may replace — resolved from their ids here, in this fold, so a merge that
    * renumbered the record still names the right ones. Cleared by a
    * decision_linked; the digest shows it and that session's Stop asks for it
-   * until then.
+   * until then. A HELD link (r3-fixes 2.6, D18) also carries `held`: the
+   * ordinal of the target the writer was given, which stays in force; its
+   * candidates are then the decisions offered instead.
    */
-  link_pending?: { session: string; candidates: number[] }
+  link_pending?: { session: string; candidates: number[]; held?: number }
 }
 
 /** One performed review (commit-attribution 4.4). */
@@ -1776,10 +1778,13 @@ function applyEvent(
         if (typeof p.supersedes_id === 'string' && at >= 0) state.decisions[ordinal - 1]!.supersedes = `D${at + 1}`
       } else if (p.link_candidates !== undefined) {
         const ordinal = state.decisions.length
-        const candidates = p.link_candidates
-          .map((id) => state.decisions.findIndex((d) => d.id === id) + 1)
-          .filter((n) => n > 0 && n < ordinal)
-        state.decisions[ordinal - 1]!.link_pending = { session: event.session, candidates }
+        const resolve = (ids: readonly string[]): number[] =>
+          ids.map((id) => state.decisions.findIndex((d) => d.id === id) + 1).filter((n) => n > 0 && n < ordinal)
+        // A held link (r3-fixes 2.6, D18): the named target is the first id,
+        // and it stays in force — nothing retires until the link is answered.
+        const held = p.supersedes_held !== undefined ? resolve(p.link_candidates.slice(0, 1))[0] : undefined
+        const candidates = resolve(p.supersedes_held !== undefined ? p.link_candidates.slice(1) : p.link_candidates)
+        state.decisions[ordinal - 1]!.link_pending = { session: event.session, candidates, ...(held !== undefined ? { held } : {}) }
       }
       break
     }

@@ -26,7 +26,8 @@ import { currentBranch } from '../core/git'
 import { refreshLinks, travelEnabled } from '../core/index-links'
 import { ensureIndexDir } from '../core/index-store'
 import { QUICK_LANE } from '../core/lane'
-import { linkCandidates, SUPERSEDES_NONE, withoutNone } from '../core/link-candidates'
+import { linkCandidates, linkHold, linkHoldEnabled, SUPERSEDES_NONE, withoutNone } from '../core/link-candidates'
+import { bareSupersedes } from '../core/handle'
 import { initiativeSlugs } from '../core/listing'
 import { withFileLock } from '../core/lock'
 import { EdgeAccumulator } from '../core/adjacency'
@@ -603,8 +604,14 @@ export function createToolContext(rootDir: string): ToolContext {
     if ((type !== 'decision_logged' && type !== 'memory_promoted') || typeof handle !== 'string') return payload
     let target: string | undefined
     if (type === 'decision_logged') {
-      const m = DECISION_HANDLE_RE.exec(handle)
-      if (m !== null) target = foldState(slug).decisions[Number(m[1]) - 1]?.id
+      // A check-suffixed handle (r3-fixes 2.6, D18) resolves by its suffix
+      // and is stored bare; one whose suffix names nothing is refused.
+      const decisions = foldState(slug).decisions
+      const bare = bareSupersedes(decisions, payload)
+      if (bare.error !== undefined) throw new ToolError('invalid_input', `refusing to append ${type}: ${bare.error}`, [bare.error])
+      payload = bare.payload
+      const m = DECISION_HANDLE_RE.exec(payload.supersedes as string)
+      if (m !== null) target = decisions[Number(m[1]) - 1]?.id
     } else {
       const m = MEMORY_HANDLE_RE.exec(handle)
       if (m !== null) target = foldState(m[1]!).memories[Number(m[2]) - 1]?.id
@@ -642,13 +649,45 @@ export function createToolContext(rootDir: string): ToolContext {
     return ids.length === 0 ? payload : { ...payload, link_candidates: ids }
   }
 
+  /**
+   * The second key (r3-fixes 2.6, D18), after the first is stamped: a
+   * decision whose named target its own words barely match, while an
+   * in-force decision it could retire matches far more — or whose target is
+   * already replaced or no longer in force — is filed with the link HELD.
+   * `supersedes` moves to `supersedes_held`, `link_candidates` carries the
+   * named target's id then the better matches, and nothing retires until
+   * `sofar supersedes` answers. A caller-supplied `supersedes_held` is
+   * refused: it is the writer's. SOFAR_LINK_HOLD=off takes every link as named.
+   */
+  function stampHold(slug: string, type: string, payload: Record<string, unknown>): Record<string, unknown> {
+    if (type !== 'decision_logged') return payload
+    if (payload.supersedes_held !== undefined) {
+      throw new ToolError('invalid_input', 'refusing to append decision_logged: supersedes_held is stamped by the writer — omit it', [
+        'supersedes_held: omit it; name what the decision replaces in supersedes',
+      ])
+    }
+    const id = payload.supersedes_id
+    const { chose, over, because, rule } = payload
+    if (typeof id !== 'string' || !linkHoldEnabled()) return payload
+    if (typeof chose !== 'string' || typeof over !== 'string' || typeof because !== 'string') return payload
+    const state = foldState(slug)
+    const target = state.decisions.findIndex((d) => d.id === id) + 1
+    if (target === 0) return payload
+    const offers = linkHold(state, { chose, over, because, ...(typeof rule === 'string' ? { rule } : {}) }, target)
+    if (offers === null) return payload
+    const held: Record<string, unknown> = { ...payload, supersedes_held: `D${target}`, link_candidates: [id, ...offers.map((n) => state.decisions[n - 1]!.id)] }
+    delete held.supersedes
+    delete held.supersedes_id
+    return held
+  }
+
   function appendAndProject(
     slug: string,
     type: string,
     raw: Record<string, unknown>,
     options?: AppendOptions,
   ): EventEnvelope {
-    const payload = stampSupersession(slug, type, stampLinkCandidates(slug, type, raw))
+    const payload = stampHold(slug, type, stampSupersession(slug, type, stampLinkCandidates(slug, type, raw)))
     // Belt and braces: tool arg validation should make this unreachable, but
     // an invalid payload must never reach the log.
     const check = validatePayload(type, payload)

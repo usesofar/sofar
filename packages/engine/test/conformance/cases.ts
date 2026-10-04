@@ -360,6 +360,28 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r3-fixes 2.6 (D18): supersede-target integrity. A link to a live target
+    // is taken and the result names what it retired; one to a target already
+    // replaced is held (the target stays, its replacement is offered); a
+    // check-suffixed handle resolves by its suffix and is stored bare, one
+    // whose suffix names nothing is refused. Stop asks the held link, the next
+    // digest lists it, `sofar supersedes D4 none` answers it.
+    name: 'repo.link-hold',
+    fixture: REPO,
+    steps: [
+      s('a rule replacing D1: taken, and the result names what it retired', ['event', 'append', '--type', 'decision_logged', '--session', 'hold-sess', '--source', 'cursor', '--payload', JSON.stringify({ chose: 'Hook output is pinned by the conformance goldens on both implementations', over: 'docs/SPEC.md alone', because: 'one suite judges both', rule: 'Hot-path hook output must match the conformance goldens on both implementations', supersedes: 'D1' })]),
+      s('a second rule naming D1, already replaced by D3: held', ['event', 'append', '--type', 'decision_logged', '--session', 'hold-sess', '--source', 'cursor', '--payload', JSON.stringify({ chose: 'Projections are pinned by render-parity goldens too', over: 'hook goldens only', because: 'templates drift', rule: 'Hot-path projections must match the render-parity goldens on both implementations', supersedes: 'D1' })]),
+      s('a suffix naming nothing is refused', ['event', 'append', '--type', 'decision_logged', '--session', 'hold-sess', '--source', 'cursor', '--payload', JSON.stringify({ chose: 'c', over: 'o', because: 'b', rule: 'r', supersedes: 'D2·zzzz' })]),
+      s('a suffixed handle resolves and is stored bare', ['event', 'append', '--type', 'decision_logged', '--session', 'hold-sess', '--source', 'cursor', '--payload', JSON.stringify({ chose: 'Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, now including Intl collation', over: 'Rust-native collation', because: 'sorting differed', rule: 'Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, including collation, never Rust defaults', supersedes: 'D2·ea2q' })]),
+      s('write-back', ['event', 'append', '--type', 'session_ended', '--session', 'hold-sess', '--source', 'cursor', '--payload', '{"summary":"changed two rules","next_action":"answer the held link"}']),
+      s('stop asks the held link', ['event', 'stop'], stop({ session_id: 'hold-sess' })),
+      s('SOFAR_LINK_ASK=off: no ask', ['event', 'stop'], stop({ session_id: 'hold-sess' }), { env: { SOFAR_LINK_ASK: 'off' } }),
+      s('the next session sees it in the digest', ['event', 'session-start'], start({ session_id: 'hold-next' })),
+      s('answer: D4 replaces nothing', ['supersedes', 'D4', 'none']),
+      s('stop passes once answered', ['event', 'stop'], stop({ session_id: 'hold-sess' })),
+    ],
+  },
+  {
     name: 'repo.append',
     fixture: REPO,
     steps: [

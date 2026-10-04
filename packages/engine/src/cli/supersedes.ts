@@ -1,3 +1,4 @@
+import { resolveHandle } from '../core/handle'
 import { retiredOrdinals } from '../core/retire'
 import { createToolContext, ToolError } from '../mcp/context'
 import { errMessage, fail, ok, type CmdResult } from './shared'
@@ -27,27 +28,31 @@ export function runSupersedes(
   errCaps: Caps = stderrCaps(),
 ): CmdResult {
   const say = (message: string): CmdResult => fail(renderFailure(`sofar supersedes: ${message}`, errCaps))
-  const m = /^D([1-9][0-9]*)$/.exec(handle.trim())
-  if (m === null) return say(`"${handle}" is not a decision handle — name one like D12`)
+  if (!/^D[1-9][0-9]*(?:[·.][0-9a-z]{4})?$/i.test(handle.trim())) return say(`"${handle}" is not a decision handle — name one like D12`)
   const none = target.trim() === 'none'
-  const t = none ? null : /^D([1-9][0-9]*)$/.exec(target.trim())
-  if (!none && t === null) return say(`"${target}" is neither a decision handle nor "none"`)
+  if (!none && !/^D[1-9][0-9]*(?:[·.][0-9a-z]{4})?$/i.test(target.trim())) return say(`"${target}" is neither a decision handle nor "none"`)
 
   const ctx = createToolContext(rootDir)
   try {
     const slug = ctx.resolveWriteInitiative(options.initiative)
     const state = ctx.foldState(slug)
-    const n = Number(m[1])
+    // Either handle may carry its check suffix (r3-fixes 2.6, D18): resolved
+    // by it, so one copied before a merge still names what it named.
+    const which = resolveHandle(state.decisions, handle)
+    if (which === null || !which.ok) return say(which === null ? `"${handle}" is not a decision handle — name one like D12` : which.error)
+    const replacing = none ? null : resolveHandle(state.decisions, target)
+    if (replacing !== null && !replacing.ok) return say(replacing.error)
+    const n = which.ordinal
     const decision = state.decisions[n - 1]
     if (decision === undefined) return say(`${slug} has no D${n}`)
     if (decision.supersedes !== undefined) {
       return say(`${slug} D${n} already names ${decision.supersedes} — a link is set once; to change it, log a new decision that supersedes D${n}`)
     }
-    if (t === null) {
+    if (replacing === null) {
       ctx.appendAndProject(slug, 'decision_linked', { decision: `D${n}`, decision_id: decision.id }, { session: 'cli', source: 'cli', actor: 'agent' })
       return ok(`${renderConfirmation([`${slug} D${n} replaces nothing — link answered`], caps)}\n`)
     }
-    const k = Number(t[1])
+    const k = replacing.ordinal
     const replaced = state.decisions[k - 1]
     if (replaced === undefined) return say(`${slug} has no D${k}`)
     if (k >= n) return say(`D${k} is not earlier than D${n} — a decision replaces only one filed before it`)

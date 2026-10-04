@@ -44,13 +44,14 @@ Previous golden sets sit beside `golden/` (`golden-d3fcbfa-pre-session-tag/` (be
 
 ## What a golden holds
 
-Every byte is verbatim except four shapes that a run cannot help minting
+Every byte is verbatim except five shapes that a run cannot help minting
 differently each time (docs/HOTPATH.md §Open decisions, O6, chosen in
 rust-core D4):
 
 | masked | rule |
 | --- | --- |
 | `<ULID>` | a 26-char Crockford ulid whose time part falls inside the run's own window (run start … +24 h) |
+| `<SFX>` | a decision handle's check suffix (`D<n>·xxxx`, r3-fixes 2.6) derived from a ulid the case's run minted |
 | `<TS>` | an ISO millisecond timestamp inside the same window |
 | `<AGO>` | the relative labels `Nm/Nh/Nd ago` and `~Nh/~Nd since` |
 | `<ROOT>` / `<HOME>` | the scratch root and scratch home paths |

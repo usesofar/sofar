@@ -280,6 +280,20 @@ export interface DecisionLoggedPayload {
    */
   link_candidates?: string[]
   /**
+   * `supersedes_held` (r3-fixes 2.6, D18): the `D<n>` the writer was given as
+   * what this decision replaces, HELD instead of taken — stamped by the
+   * writer, agents never pass it. Two keys must agree before a target
+   * retires: the handle typed, and what the decision's own words match. When
+   * the named target shares little with them while an in-force decision it
+   * could retire shares far more, or the target is already replaced or no
+   * longer in force, the handle moves here, `link_candidates` carries the
+   * named target's id first, then the better matches, and the link is pending
+   * like any other: the target stays in force until a decision_linked answers.
+   * Round 3 retired the wrong entry twice in 3 reps, one of them a guarded
+   * rule. Only alongside `link_candidates`, never alongside `supersedes`.
+   */
+  supersedes_held?: string
+  /**
    * `until` (r1-fixes 3.2, D25): the id of a task in this record. The
    * decision is in force until that task RESOLVES (done or dropped, as
    * replayed) and then leaves the digest — validity derives from recorded
@@ -754,7 +768,7 @@ export type KnownEventType = keyof KnownEventPayloads
  * a test pins it to package.json. Part of a fold snapshot's version hash —
  * bump it with any payload-shape change.
  */
-export const SCHEMA_VERSION = '0.13.0'
+export const SCHEMA_VERSION = '0.14.0'
 
 export const EVENT_TYPES = [
   'initiative_created',
@@ -1076,8 +1090,15 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
       if (!(Array.isArray(ids) && ids.length >= 1 && ids.length <= 3 && ids.every(str))) {
         e.push('link_candidates: must be 1 to 3 non-empty event ids when present (stamped by the writer, never passed)')
       }
-      if (!str(p.rule)) e.push('link_candidates: requires `rule` — only a rule is asked for its link')
+      if (!str(p.rule) && p.supersedes_held === undefined) e.push('link_candidates: requires `rule` — only a rule is asked for its link')
       if (p.supersedes !== undefined) e.push('link_candidates: not allowed with `supersedes` — the link is already named')
+    }
+    if (p.supersedes_held !== undefined) {
+      if (!(str(p.supersedes_held) && DECISION_HANDLE_RE.test(p.supersedes_held as string))) {
+        e.push('supersedes_held: must be the bare handle `D<n>` the held link named (stamped by the writer, never passed)')
+      }
+      if (p.link_candidates === undefined) e.push('supersedes_held: requires `link_candidates` — the held target is its first id')
+      if (p.supersedes !== undefined) e.push('supersedes_held: not allowed with `supersedes` — a link is held or taken, not both')
     }
   },
   decision_linked(p, e) {
@@ -1449,7 +1470,7 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   decision_logged: {
     writer: 'agent',
     summary: 'a design decision: what was chosen, over what, and why',
-    fields: 'chose, over, because, rule? (one imperative every later session must obey), quote? (the operator\'s exact words the rule came from; only with rule), guard? (path:<globs> or cmd:<globs>; only with rule), supersedes? (D<n> of the earlier decision this one replaces), supersedes_id? (that decision\'s event id; stamped by the writer, never passed), link_candidates? (ids of the rules it may replace; stamped by the writer, never passed), until? (task id — in force until it resolves; never with rule), check? ({cmd, hint?, timeout_ms?}: a command whose exit 0 means the rule holds; only with rule)',
+    fields: 'chose, over, because, rule? (one imperative every later session must obey), quote? (the operator\'s exact words the rule came from; only with rule), guard? (path:<globs> or cmd:<globs>; only with rule), supersedes? (D<n> of the earlier decision this one replaces), supersedes_id? (that decision\'s event id; stamped by the writer, never passed), link_candidates? (ids of the rules it may replace; stamped by the writer, never passed), supersedes_held? (the D<n> a held link named; stamped by the writer, never passed), until? (task id — in force until it resolves; never with rule), check? ({cmd, hint?, timeout_ms?}: a command whose exit 0 means the rule holds; only with rule)',
     // The condition rides `via` (printed as `note:`), not `fields`: fields is
     // hashed into the schema fingerprint both implementations embed (D22).
     via: 'add rule when the operator states the choice for the whole project — every later session sees it as a standing constraint, whichever record it works in; omit it for a one-off choice. Word the rule as the operator did (no status code, path or value they did not state) and put their exact words in quote. A decision that reverses a standing one in ANY record is refused unless supersedes names it or because cites it (a narrower exception); another record\'s is cited as `<slug> D<n>` and replaced from its own record (--initiative <slug>, supersedes D<n>). A rule that replaces nothing says "supersedes":"none"; one that says neither is filed with its link pending (`sofar link`)',

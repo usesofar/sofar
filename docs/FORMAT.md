@@ -211,7 +211,11 @@ does not un-void its original target (v1 behavior — see also §8).
   else set its status. On `blocked` with a `note`, remember the note for
   `blocked_on`; on any non-`blocked` status, forget it.
 - `decision_logged` — append `{ id: event.id, ts: event.ts, chose, over,
-  because }` to the decisions list.
+  because }` to the decisions list. With `link_candidates` (stamped by the
+  writer), mark its link pending, the ids resolved to ordinals of decisions
+  folded before it; with `supersedes_held` as well, the first id is the
+  target the link named, which is held — it stays in force — and the rest
+  are what is offered instead (r3-fixes 2.6, D18).
 - `decision_linked` — find the decision whose `id` is `decision_id`; if
   none, skip with a warning. Clear its pending link. With `supersedes_id`,
   when that names an EARLIER decision and the decision is not a rule named

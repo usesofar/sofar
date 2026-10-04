@@ -119,7 +119,8 @@ pub struct DecisionState {
     pub superseded_by: Option<u64>,
     /// A rule filed naming nothing it replaces (r3-fixes 2.5, D15): its
     /// session and the ordinals of the rules it may replace, resolved from
-    /// the stamped ids in this fold. Cleared by a `decision_linked`.
+    /// the stamped ids in this fold. Cleared by a `decision_linked`. A held
+    /// link (2.6, D18) also carries `held`, the target it named.
     pub link_pending: Option<LinkPending>,
 }
 
@@ -128,6 +129,9 @@ pub struct DecisionState {
 pub struct LinkPending {
     pub session: String,
     pub candidates: Vec<u64>,
+    /// The ordinal a held link named (r3-fixes 2.6, D18); it stays in force.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -1085,17 +1089,27 @@ fn apply_event(
                 }
             } else if let Some(ids) = p.get("link_candidates").and_then(Json::as_arr) {
                 let ordinal = state.decisions.len();
-                let candidates = ids
-                    .iter()
-                    .filter_map(Json::as_str)
-                    .filter_map(|id| state.decisions.iter().position(|d| d.id == *id))
-                    .map(|i| i + 1)
-                    .filter(|&n| n < ordinal)
-                    .map(|n| n as u64)
-                    .collect();
+                let resolve = |ids: &[Json]| -> Vec<u64> {
+                    ids.iter()
+                        .filter_map(Json::as_str)
+                        .filter_map(|id| state.decisions.iter().position(|d| d.id == *id))
+                        .map(|i| i + 1)
+                        .filter(|&n| n < ordinal)
+                        .map(|n| n as u64)
+                        .collect()
+                };
+                // A held link (r3-fixes 2.6, D18): the named target is the
+                // first id, and it stays in force until the link is answered.
+                let is_held = p.get("supersedes_held").is_some();
+                let (held, candidates) = if is_held {
+                    (resolve(&ids[..ids.len().min(1)]).first().copied(), resolve(ids.get(1..).unwrap_or(&[])))
+                } else {
+                    (None, resolve(ids))
+                };
                 state.decisions[ordinal - 1].link_pending = Some(LinkPending {
                     session: event.session.clone(),
                     candidates,
+                    held,
                 });
             }
         }
@@ -2162,6 +2176,9 @@ impl DecisionState {
                 "candidates",
                 Json::Arr(link.candidates.iter().map(|&n| Json::Num(n as f64)).collect()),
             );
+            if let Some(held) = link.held {
+                put_count(&mut l, "held", held);
+            }
             o.insert("link_pending", Json::Obj(l));
         }
         Json::Obj(o)
@@ -2715,6 +2732,10 @@ impl DecisionState {
                             })
                             .collect::<Option<_>>()?,
                         _ => return None,
+                    },
+                    held: match l.get("held") {
+                        None => None,
+                        Some(_) => Some(count(l, "held")?),
                     },
                 }),
                 Some(_) => return None,

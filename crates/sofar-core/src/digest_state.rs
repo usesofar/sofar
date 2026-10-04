@@ -196,6 +196,7 @@ fn cut_decision(
         link_pending: d.link_pending.as_ref().map(|l| crate::fold::LinkPending {
             session: String::new(),
             candidates: l.candidates.clone(),
+            held: l.held,
         }),
     }
 }

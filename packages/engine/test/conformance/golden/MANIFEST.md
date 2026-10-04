@@ -1,5 +1,21 @@
 # Golden manifest (rust-core D11)
 
+ADDED and RE-RECORDED for **r3-fixes 2.6** (D18, supersede-target
+integrity): one new case, `repo.link-hold`. A rule naming D1 is taken and
+the write result names what it retired (`retires`); a second rule naming D1,
+already replaced by D3, is held (D1 stays in force, D3 is offered); a
+suffixed handle naming nothing is refused; `D2·ea2q` resolves and is stored
+bare. Stop asks the held link, `SOFAR_LINK_ASK=off` silences it, the next
+digest lists it, and `sofar supersedes D4 none` answers it. decisions.md now
+leads every entry with its check-suffixed handle, so every golden whose run
+regenerates projections moved: each decisions.md line in a record delta gains
+`D<n>·xxxx`, and cases whose fixture decisions.md predates the handle now show
+it rewritten in full. The harness masks a suffix derived from a run-minted
+ulid as `<SFX>` (README), collecting the run's ids from every file of the
+delta before rendering it. fold-parity adds FP-23-link-hold with its
+render-parity golden, and every render-parity golden's `decisions` section
+moved the same way. No previous set is kept: nothing else changed.
+
 ADDED for **r3-fixes 2.5** (D15, the link disposition): one new case,
 `repo.link-disposition`. A rule appended naming nothing it replaces is stamped
 with the bound record's two rules (the write result names them), the session

@@ -12,7 +12,7 @@ import {
 import type { GitState } from '../../core/git'
 import type { NeighbourRecord, RepoRule } from '../../core/index-tier1'
 import { LANE_RECENT_SESSIONS, QUICK_LANE } from '../../core/lane'
-import { linkAskEnabled } from '../../core/link-candidates'
+import { heldDigestLine, linkAskEnabled } from '../../core/link-candidates'
 import type { RecordProvenance } from '../../core/record-copies'
 import type { RunLiveness } from '../../core/run-lock'
 import { retireEnabled, retiredOrdinals } from '../../core/retire'
@@ -406,8 +406,9 @@ const TASK_MARKS: Record<string, string> = {
  */
 /**
  * The digest's pending-link block (r3-fixes 2.5, D15): a header naming the
- * answer, then one line per pending rule still in force — newest first, at
- * most MAX_PENDING_LINKS — with the candidates still in force.
+ * answer, then one line per pending decision still in force — newest first,
+ * at most MAX_PENDING_LINKS — with the candidates still in force, or, for a
+ * held link (2.6, D18), the target it named and why it was held.
  */
 function pendingLinkLines(state: InitiativeState, retired: ReadonlySet<number>): string[] {
   const live = (n: number): boolean => {
@@ -415,16 +416,23 @@ function pendingLinkLines(state: InitiativeState, retired: ReadonlySet<number>):
     return d !== undefined && d.superseded_by === undefined && !retired.has(n)
   }
   const pending: string[] = []
+  let held = 0
   for (let i = state.decisions.length - 1; i >= 0; i--) {
     const link = state.decisions[i]!.link_pending
     if (link === undefined || !live(i + 1)) continue
+    if (link.held !== undefined) {
+      held++
+      pending.push(heldDigestLine(state, i + 1, link, live))
+      continue
+    }
     const may = link.candidates.filter(live).map((n) => `D${n}`)
     pending.push(`- D${i + 1}${may.length > 0 ? ` may replace ${may.join(' or ')}` : ''}`)
   }
   if (pending.length === 0) return []
   const shown = pending.slice(0, MAX_PENDING_LINKS)
+  const what = held === 0 ? 'rule(s) filed naming nothing they replace' : held === pending.length ? 'held link(s), the target still in force' : 'link(s) unnamed or held'
   return [
-    `⚠ Links pending — ${pending.length} rule(s) filed naming nothing they replace; answer each: \`sofar supersedes D<n> <D<m>|none>\``,
+    `⚠ Links pending — ${pending.length} ${what}; answer each: \`sofar supersedes D<n> <D<m>|none>\``,
     ...shown,
     ...(pending.length > shown.length ? [`- …and ${pending.length - shown.length} more`] : []),
   ]

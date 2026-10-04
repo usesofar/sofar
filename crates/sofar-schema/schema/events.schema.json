@@ -463,6 +463,10 @@
           },
           "description": "`link_candidates` (r3-fixes 2.5, D15): event ids of up to three earlier, in-force, rule-carrying decisions this one may replace, stamped by the writer when a rule arrives naming no `supersedes` — agents never pass it. Its presence marks the link PENDING until a decision_linked answers it: round 3 left 14 of 48 changed rules unlinked, each old rule still in force beside its replacement, because nothing asked. Only alongside `rule`, never alongside `supersedes`."
         },
+        "supersedes_held": {
+          "type": "string",
+          "description": "`supersedes_held` (r3-fixes 2.6, D18): the `D<n>` the writer was given as what this decision replaces, HELD instead of taken — stamped by the writer, agents never pass it. Two keys must agree before a target retires: the handle typed, and what the decision's own words match. When the named target shares little with them while an in-force decision it could retire shares far more, or the target is already replaced or no longer in force, the handle moves here, `link_candidates` carries the named target's id first, then the better matches, and the link is pending like any other: the target stays in force until a decision_linked answers. Round 3 retired the wrong entry twice in 3 reps, one of them a guarded rule. Only alongside `link_candidates`, never alongside `supersedes`."
+        },
         "until": {
           "type": "string",
           "description": "`until` (r1-fixes 3.2, D25): the id of a task in this record. The decision is in force until that task RESOLVES (done or dropped, as replayed) and then leaves the digest — validity derives from recorded events, never from a clock. REJECTED alongside `rule`: a standing constraint never ages out. An id the plan never names never retires."

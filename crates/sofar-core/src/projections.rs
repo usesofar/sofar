@@ -901,6 +901,26 @@ pub fn render_plan(state: &InitiativeState) -> String {
 // ---------------------------------------------------------------------------
 // decisions.ts
 
+const CROCKFORD: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
+
+/// `handleSuffix` (core/handle.ts, r3-fixes 2.6, D18): 4 Crockford base32
+/// chars of sha256(id), its first 20 bits — a merge never changes it.
+#[must_use]
+pub fn handle_suffix(id: &str) -> String {
+    let h = crate::sha256::digest(id.as_bytes());
+    let v = (u32::from(h[0]) << 12) | (u32::from(h[1]) << 4) | (u32::from(h[2]) >> 4);
+    [15, 10, 5, 0]
+        .iter()
+        .map(|shift| char::from(CROCKFORD[((v >> shift) & 31) as usize]))
+        .collect()
+}
+
+/// `suffixedHandle`: `D<ordinal>·<suffix>`, what decisions.md prints.
+#[must_use]
+pub fn suffixed_handle(ordinal: usize, id: &str) -> String {
+    format!("D{ordinal}·{}", handle_suffix(id))
+}
+
 /// `renderDecisions`.
 #[must_use]
 pub fn render_decisions(state: &InitiativeState) -> String {
@@ -926,6 +946,8 @@ pub fn render_decisions(state: &InitiativeState) -> String {
         }
         if let Some(supersedes) = &d.supersedes {
             marks.push(format!("supersedes {supersedes}"));
+        } else if let Some(held) = d.link_pending.as_ref().and_then(|l| l.held) {
+            marks.push(format!("names D{held}, held"));
         }
         let mark = if marks.is_empty() {
             String::new()
@@ -945,9 +967,14 @@ pub fn render_decisions(state: &InitiativeState) -> String {
                 format!("rule: **{r}** — {source}")
             })
             .unwrap_or_default();
+        // Each entry's own handle, check-suffixed (r3-fixes 2.6, D18).
         lines.push(format!(
-            "- {} — {mark}{rule}chose **{}** over {} because {}",
-            d.ts, d.chose, d.over, d.because
+            "- {} {} — {mark}{rule}chose **{}** over {} because {}",
+            suffixed_handle(ordinal, &d.id),
+            d.ts,
+            d.chose,
+            d.over,
+            d.because
         ));
     }
     doc(&lines)

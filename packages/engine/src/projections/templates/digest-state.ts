@@ -162,7 +162,9 @@ function cutDecision(d: DecisionState, i: number, kept: { window: Set<number>; o
   if (d.until !== undefined) cut.until = d.until
   if (d.superseded_by !== undefined) cut.superseded_by = d.superseded_by
   // The digest names a pending link's candidates (r3-fixes 2.5), never its session.
-  if (d.link_pending !== undefined) cut.link_pending = { session: '', candidates: [...d.link_pending.candidates] }
+  if (d.link_pending !== undefined) {
+    cut.link_pending = { session: '', candidates: [...d.link_pending.candidates], ...(d.link_pending.held !== undefined ? { held: d.link_pending.held } : {}) }
+  }
   return cut
 }
 

@@ -886,8 +886,9 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
 /// At most this many links are asked at one Stop; the rest wait in the digest.
 const STOP_LINKS_MAX: usize = 5;
 
-/// `stopLinkLines` (r3-fixes 2.5, D15): one line per rule THIS session filed
-/// with its link still pending, newest first, while it is in force.
+/// `stopLinkLines` (r3-fixes 2.5, D15): one line per decision THIS session
+/// filed with its link still pending, newest first, while it is in force — a
+/// rule naming nothing, or a held link (2.6, D18).
 fn stop_link_lines(state: &InitiativeState, session_id: &str, retired: &[usize]) -> Vec<String> {
     let live = |n: usize| {
         state
@@ -907,6 +908,16 @@ fn stop_link_lines(state: &InitiativeState, session_id: &str, retired: &[usize])
         }
         if lines.len() == STOP_LINKS_MAX {
             more += 1;
+            continue;
+        }
+        if let Some(h) = link.held {
+            // A held link (r3-fixes 2.6, D18): why, and the answers.
+            let n = i + 1;
+            let (why, answers) = crate::status::held_ask(state, n, link, &live);
+            lines.push(format!(
+                "sofar: D{n}, filed this session, names D{h} as what it replaces, but {why}: the link is held and D{h} stays in force. Answer before stopping: {}.",
+                answers.join(", ")
+            ));
             continue;
         }
         #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]

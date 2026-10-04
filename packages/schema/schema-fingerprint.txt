@@ -1,4 +1,4 @@
-0.13.0
+0.14.0
 initiative_created: slug ([a-z0-9-]+), goal
 initiative_status_changed: status: active|done|dropped|superseded, note? (required for dropped), successor? (required for superseded, else rejected), overrides?: string[]
 plan_updated: plan: {goal?, brief?, phases: [{name, status?: pending|active|done|blocked|dropped, tasks: [{id, title, status?: pending|active|done|blocked|dropped, route?: {agent?, model?, effort?}, verify?: {cmd, cwd?, timeout_ms?}, waits_on?: [qualified handle]}]}]}
@@ -7,7 +7,7 @@ phase_status_changed: phase, status: pending|active|done|blocked|dropped, note? 
 phase_added: phase, status?: pending|active|done|blocked|dropped (default pending), after? (the phase it follows; default last), note?
 task_added: phase, id, title, status?: pending|active|done|blocked|dropped, verify?: {cmd, cwd?, timeout_ms?} (the acceptance command sofar drive runs before accepting the task), waits_on? (qualified handles this task waits on; replaces the set, [] clears)
 task_status_changed: id, status: pending|active|done|blocked|dropped, note? (say why when blocked or dropped), waits_on? (qualified handles `<slug>` or `<slug> D<n>|T<n>|<n>.<n>|M<n>`; absent keeps the set, present replaces it, [] clears)
-decision_logged: chose, over, because, rule? (one imperative every later session must obey), quote? (the operator's exact words the rule came from; only with rule), guard? (path:<globs> or cmd:<globs>; only with rule), supersedes? (D<n> of the earlier decision this one replaces), supersedes_id? (that decision's event id; stamped by the writer, never passed), link_candidates? (ids of the rules it may replace; stamped by the writer, never passed), until? (task id — in force until it resolves; never with rule), check? ({cmd, hint?, timeout_ms?}: a command whose exit 0 means the rule holds; only with rule)
+decision_logged: chose, over, because, rule? (one imperative every later session must obey), quote? (the operator's exact words the rule came from; only with rule), guard? (path:<globs> or cmd:<globs>; only with rule), supersedes? (D<n> of the earlier decision this one replaces), supersedes_id? (that decision's event id; stamped by the writer, never passed), link_candidates? (ids of the rules it may replace; stamped by the writer, never passed), supersedes_held? (the D<n> a held link named; stamped by the writer, never passed), until? (task id — in force until it resolves; never with rule), check? ({cmd, hint?, timeout_ms?}: a command whose exit 0 means the rule holds; only with rule)
 decision_linked: decision (D<n>), decision_id (its event id), supersedes? (D<m> it replaces; absent = none), supersedes_id? (that decision's event id; required with supersedes)
 session_started: tool (your agent name), model?
 session_ended: summary, next_action (the single next step)

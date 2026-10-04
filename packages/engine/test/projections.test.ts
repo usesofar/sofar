@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, u
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { suffixedHandle } from '../src/core/handle'
 import { emptyState, type InitiativeState, type PhaseState } from '../src/core/fold'
 import { regenerateProjections } from '../src/projections/generator'
 import { renderPlan } from '../src/projections/templates/plan'
@@ -825,13 +826,14 @@ describe('standing constraints — verbatim render contract (drift-hardening 2.1
     const state = populatedState()
     state.decisions = [decision(1, 'Never do the thing.')]
     const md = renderDecisions(state)
+    // Each entry leads with its own check-suffixed handle (r3-fixes 2.6, D18).
     expect(md).toContain(
-      '- 2026-08-01T00:00:00.000Z — rule: **Never do the thing.** — chose **choice 1** over alternative 1 because reason 1',
+      `- ${suffixedHandle(1, state.decisions[0]!.id)} 2026-08-01T00:00:00.000Z — rule: **Never do the thing.** — chose **choice 1** over alternative 1 because reason 1`,
     )
-    // rule-less decisions keep their historical byte shape
+    // rule-less decisions keep their historical byte shape after the handle
     state.decisions = [decision(2)]
     expect(renderDecisions(state)).toContain(
-      '- 2026-08-01T00:00:00.000Z — chose **choice 2** over alternative 2 because reason 2',
+      `- ${suffixedHandle(1, state.decisions[0]!.id)} 2026-08-01T00:00:00.000Z — chose **choice 2** over alternative 2 because reason 2`,
     )
   })
 })

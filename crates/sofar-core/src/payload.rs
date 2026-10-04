@@ -882,13 +882,32 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                 );
                 must(
                     e,
-                    str(p.get("rule")),
+                    str(p.get("rule")) || p.contains_key("supersedes_held"),
                     "link_candidates: requires `rule` — only a rule is asked for its link",
                 );
                 must(
                     e,
                     !p.contains_key("supersedes"),
                     "link_candidates: not allowed with `supersedes` — the link is already named",
+                );
+            }
+            // A held link (r3-fixes 2.6, D18), stamped by the writer.
+            if let Some(held) = p.get("supersedes_held") {
+                must(
+                    e,
+                    held.as_str()
+                        .is_some_and(|h| !h.is_empty() && is_decision_handle(h)),
+                    "supersedes_held: must be the bare handle `D<n>` the held link named (stamped by the writer, never passed)",
+                );
+                must(
+                    e,
+                    p.contains_key("link_candidates"),
+                    "supersedes_held: requires `link_candidates` — the held target is its first id",
+                );
+                must(
+                    e,
+                    !p.contains_key("supersedes"),
+                    "supersedes_held: not allowed with `supersedes` — a link is held or taken, not both",
                 );
             }
         }

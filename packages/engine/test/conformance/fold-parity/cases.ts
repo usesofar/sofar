@@ -480,6 +480,26 @@ export function buildCases(): FoldParityCase[] {
     l.ev('decision_linked', { decision: 'D6', decision_id: d6, supersedes: 'D2' }, { session: 'A' }) // invalid: no supersedes_id
     cases.push({ id: 'FP-22-link-disposition', lines: l.lines, sidecar: { tail_at: 5, seeds: [65, 66, 67], order_independence: true, note: 'r3-fixes 2.5 (D15): a rule with link_candidates is link-pending for its session, candidates as ordinals (an unknown id drops out); decision_linked clears it and retires an earlier target, a rule only by a rule, else retires nothing with a warning; one naming an unfolded decision is skipped; a candidate list without a rule, and a supersedes without its id, are invalid lines; never drift. The tail starts at the first pending rule' } })
   }
+  {
+    // r3-fixes 2.6 (D18): a held link. supersedes_held with link_candidates
+    // is pending with `held` = the first id's ordinal and candidates = the
+    // rest; the named target is NOT retired. A plain decision may be held.
+    // decision_linked answers it like any pending link. An unknown first id
+    // leaves no `held`; supersedes_held without candidates, or with
+    // supersedes, is an invalid line. Never drift.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('session_started', { tool: 'cursor' }, { session: 'A' })
+    const d1 = l.ev('decision_logged', { chose: 'retry 3x', over: 'hourly', because: 'rate limits', rule: 'Retry at most three times' }, { session: 'A' })
+    const d2 = l.ev('decision_logged', { chose: 'idempotency key per attempt', over: 'per invoice', because: 'timeouts', rule: 'Every attempt carries its own key' }, { session: 'A' })
+    const d3 = l.ev('decision_logged', { chose: 'retry 5x', over: 'retry 3x', because: 'finance', rule: 'Retry at most five times', supersedes_held: 'D2', link_candidates: [d2, d1] }, { session: 'A' }) // held: D2 stays
+    l.ev('decision_logged', { chose: 'queue retries', over: 'cron', because: 'simpler', supersedes_held: 'D1', link_candidates: [d1] }, { session: 'B' }) // plain, held, no offers: stays pending
+    l.ev('decision_logged', { chose: 'retry 9x', over: 'retry 5x', because: 'again', rule: 'Retry at most nine times', supersedes_held: 'D1', link_candidates: ['01KDVDNZZZZZZZZZZZZZZZZZZZ', d1] }, { session: 'B' }) // unknown first id: no held
+    l.ev('decision_linked', { decision: 'D3', decision_id: d3, supersedes: 'D1', supersedes_id: d1 }, { session: 'A' }) // answered: D1 retired by D3
+    l.ev('decision_logged', { chose: 'c', over: 'o', because: 'b', supersedes_held: 'D1' }, { session: 'A' }) // invalid: no candidates
+    l.ev('decision_logged', { chose: 'c', over: 'o', because: 'b', supersedes: 'D1', supersedes_id: d1, supersedes_held: 'D1', link_candidates: [d1] }, { session: 'A' }) // invalid: both
+    cases.push({ id: 'FP-23-link-hold', lines: l.lines, sidecar: { tail_at: 5, seeds: [68, 69, 70], order_independence: true, note: 'r3-fixes 2.6 (D18): supersedes_held with link_candidates is link-pending with held = the first id\'s ordinal and candidates = the rest, and retires nothing; a plain decision may be held; an unknown first id leaves no held; decision_linked answers it and the answer retires; supersedes_held without candidates, or with supersedes, is an invalid line; never drift. The tail starts at the first held link' } })
+  }
   return cases
 }
 

@@ -181,10 +181,14 @@ replaces — supersedes_id? — that decision's event id, stamped by the writer
 and never passed by an agent, valid ONLY alongside `supersedes`; memory-lead
 2.8, D12 — link_candidates? — 1–3 event ids of in-force rules this one may
 replace, stamped by the writer when a RULE names no `supersedes` and never
-passed (refused); valid ONLY with `rule` and never with `supersedes`; its
-presence makes the link PENDING (§Link disposition); r3-fixes 2.5, D15 —
-until? — a task id this decision is in force until; never with
-`rule`; r1-fixes 3.2, D25) ·
+passed (refused); valid ONLY with `rule` (or with `supersedes_held`) and
+never with `supersedes`; its presence makes the link PENDING
+(§Link disposition); r3-fixes 2.5, D15 — supersedes_held? — the `D<n>` a
+HELD link named, stamped by the writer and never passed (refused); valid
+ONLY with `link_candidates`, whose first id is that target, and never with
+`supersedes` (§Supersede-target integrity); r3-fixes 2.6, D18 — until? —
+a task id this decision is in force until; never with `rule`; r1-fixes
+3.2, D25) ·
 decision_linked (decision — `D<n>`, decision_id — its event id,
 supersedes? — `D<m>` it replaces, absent = "replaces nothing",
 supersedes_id? — that decision's event id, required with `supersedes`; both
@@ -4302,6 +4306,74 @@ rule (D25), and asking every unlinked decision would spend 264 of round 3's
 - ABLATION: `SOFAR_LINK_ASK=off` drops the digest block and the Stop ask;
   the stamp and the write result stay.
 
+## Supersede-target integrity
+r3-fixes 2.6, adopted as D18. Round 3 retired the wrong entry twice in 3
+reps: a Cursor session named a guarded rule beside the one it changed, and a
+Claude session named a D-number it counted in raw events.jsonl, whose file
+order a merge had moved, because decisions.md printed no handle. Two keys
+must agree before a target retires: the handle the writer was given, and
+what the decision's own words match. A disagreement is HELD, never refused.
+
+- HANDLES: decisions.md leads every entry with `D<n>·<sfx>` (both engines):
+  `<sfx>` is 4 Crockford base32 chars (`0-9a-hjkmnp-tv-z`) of the first 20
+  bits of sha256(the decision's event id), so a merge never changes it
+  (core/handle.ts). Every write path — sofar_log_decision, sofar_end_session's
+  `decisions`, `sofar event append`, `sofar supersedes` — accepts `D<n>`,
+  `D<n>·<sfx>` or `D<n>.<sfx>` wherever a decision handle is typed. A suffix
+  that agrees with its ordinal resolves there; one carried by exactly one
+  other decision resolves to it, and the result's `warnings` says `<handle>
+  is D<m> now — the record was renumbered (a merge), so its suffix decided`;
+  otherwise it is refused (`invalid_input`, naming what D<n> is here). The
+  payload stores the bare `D<m>` plus the stamped `supersedes_id`. The digest
+  keeps bare `[D<n>]`.
+- HOLD (writer only, `appendAndProject`, after `supersedes_id` is stamped):
+  with T the target, the decision is HELD when (a) T is already replaced —
+  offered: the live head of T's replacement chain, if this decision could
+  retire it; (b) T is no longer in force (its `until` task resolved) —
+  offered: nothing; or (c) T shares less than 0.16 with the decision's words
+  while in-force decisions it could retire share at least max(2.5 × that,
+  0.16) — offered: the best two, best first. The measure is TF-IDF cosine
+  over every decision folded so far (each one's rule, chose and over;
+  core/lexicon.ts terms; weight (1 + ln tf) · ln(1 + N/df)), queried with the
+  new decision's chose, over, because and rule. Not held: a plain decision
+  naming a rule (inert by D25 already). A held payload carries no
+  `supersedes`/`supersedes_id`; it carries `supersedes_held: "D<T>"` and
+  `link_candidates: [T's id, offered ids…]`. A caller-supplied
+  `supersedes_held` is refused. The write result's `warnings` gains `D<n>
+  names D<T> "<words, 80>" as what it replaces, but <why>. The link is held
+  and D<T> stays in force until it is answered: <answers>. Until then the
+  digest shows it and Stop asks.`, where <why> is `D<T> was already replaced
+  by D<r> "<words>"`, `D<T> is no longer in force`, `its words match D<a>
+  "<words>" and D<b> "<words>" far more`, or `its words share little with
+  it`, and <answers> is `\`sofar supersedes D<n> D<T>\` if D<T> is right`
+  (only while T is in force), one `\`sofar supersedes D<n> D<a>\` if D<a>
+  is` per offer, and `\`sofar supersedes D<n> none\` if it replaces
+  nothing`, comma-joined. `sofar supersedes` answers a held link exactly as
+  a pending one (§Link disposition) and is not itself held.
+- ECHO: a decision whose `supersedes` is taken names what it retired — the
+  result's `retires: "D<T> \"<rule or chose, 80>\""` (sofar_log_decision,
+  `sofar event append`) or `retires: ["D<n> retires D<T> \"…\""]`
+  (sofar_end_session) — or, when the fold left it inert, a warning: `D<n>
+  names D<T>, a rule, but carries none — a rule is replaced only by a rule,
+  so D<T> stays in force. To replace it, log a decision with a rule that
+  supersedes D<T>.` or `D<n> names D<T>, which is not an earlier decision in
+  this record, so it retires nothing.`
+- FOLD (both engines): a decision with `supersedes_held` and
+  `link_candidates` is link-pending with `held` = the first id's ordinal
+  (absent when that id was never folded) and `candidates` = the rest, as
+  ordinals; nothing retires. decisions.md marks it `(names D<T>, held)`.
+- DIGEST and STOP (both engines; not under `SOFAR_LINK_ASK=off`): the pending
+  block's line for a held link is `- D<n> names D<T>, held — <why>`, with
+  <why> naming handles only; its header reads `held link(s), the target
+  still in force` when every pending link is held, `link(s) unnamed or held`
+  when both kinds are, and the §Link disposition wording otherwise. Stop's
+  line is `sofar: D<n>, filed this session, names D<T> as what it replaces,
+  but <why>: the link is held and D<T> stays in force. Answer before
+  stopping: <answers>.`
+- ABLATION: `SOFAR_LINK_HOLD=off` takes every named target as named, as
+  before 2.6. Handles and the echo have no switch: neither changes what
+  retires.
+
 ## MCP tools (server name: sofar)
 
 **Server instructions (r1-fixes 2.1, D10; memory-lead 1.1, D3).** The
@@ -6320,6 +6392,9 @@ subdirectory, against 33 of 33 from the root.
   not earlier than D<n>, a target already replaced (naming its replacement:
   `sofar supersedes D<n> D<k>`), one no longer in force, and a rule named by a
   plain decision. (`sofar link` is the sync client's command, §Sync client.)
+  Either handle may carry its check suffix, `D<n>·<sfx>`, resolved by the
+  suffix and refused when it names nothing (r3-fixes 2.6, D18,
+  §Supersede-target integrity). It answers a held link like any pending one.
 - `sofar remember [text] [--supersedes <handle>] [--initiative <slug>]`
   (repo-memory-capture D1; input forms and supersession r1-fixes 1.5, D8) —
   append memory_promoted and print the `<slug> M<n>` handle repo.md must

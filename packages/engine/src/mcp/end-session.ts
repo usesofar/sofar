@@ -19,7 +19,8 @@ import { homeInitiative, ToolError, type ToolContext } from './context'
 import { bindNudge, fitQuote, judgeOptionsFor, quoteFitWarning } from './log-decision'
 import { planPhaseAdd, resolvePhaseOrThrow } from './update-phase'
 import { briefEntryText, uncapturedWarning } from '../core/prompt-buffer'
-import { pendingLinkLine, withoutNone } from '../core/link-candidates'
+import { bareSupersedes } from '../core/handle'
+import { pendingLinkLine, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 import { citeNudges, homeViewOf } from './waits-on'
 
@@ -68,6 +69,8 @@ export interface EndSessionResult extends ToolOkResult {
   tasks_applied?: number
   /** Handles the batched `decisions` took, in order (`D<n>`) — cite them without a fold. */
   decisions?: string[]
+  /** What each batched decision's `supersedes` retired (r3-fixes 2.6, D18): `D<n> retires D<m> "<rule or chose>"`. */
+  retires?: string[]
   /** Handles the batched `memories` took, in order (`<slug> M<n>`). */
   memories?: string[]
   /**
@@ -183,10 +186,17 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
     const input = validateToolInput('sofar_log_decision', d)
     if (!input.ok) refuse(where, input.errors)
     if ((d as { initiative?: unknown }).initiative !== undefined) refuse(where, ['initiative: not allowed — a write-back files in its session\'s record'])
-    const payload: Record<string, unknown> = { chose: d.chose, over: d.over, because: d.because }
+    let payload: Record<string, unknown> = { chose: d.chose, over: d.over, because: d.because }
     for (const key of ['rule', 'quote', 'guard', 'supersedes', 'until', 'check'] as const) {
       if (d[key] !== undefined) payload[key] = d[key]
     }
+    // A check-suffixed handle (r3-fixes 2.6, D18) is judged and filed as the
+    // bare one it names in the record as read; a batch entry has no suffix yet.
+    const bare = bareSupersedes(state.decisions, payload)
+    if (bare.error !== undefined) refuse(where, [bare.error])
+    if (bare.moved !== undefined) warnings.push(bare.moved)
+    payload = bare.payload
+    if (typeof payload.supersedes === 'string') d = { ...d, supersedes: payload.supersedes }
     // An over-long quote is cut to whole operator sentences (r3-fixes 2.8)
     // rather than refusing the whole write-back over one entry.
     const fit = d.quote !== undefined ? fitQuote(d.quote, d.rule ?? d.chose) : null
@@ -479,9 +489,11 @@ function endSessionFiled(
   // pass at the end instead of one per event.
   const batch = planBatch(ctx, slug, args, sessionId)
   const pending: string[] = []
+  const linked: string[] = []
   for (const { type, payload } of batch.appends) {
     const appended = ctx.appendAndProject(slug, type, payload, { project: false })
     if (appended.payload.link_candidates !== undefined) pending.push(appended.id)
+    else if (type === 'decision_logged' && appended.payload.supersedes !== undefined) linked.push(appended.id)
   }
 
   const event = ctx.appendAndProject(slug, 'session_ended', {
@@ -513,9 +525,18 @@ function endSessionFiled(
     const line = pendingLinkLine(state, state.decisions.findIndex((d) => d.id === id) + 1)
     if (line !== null) batch.warnings.push(line)
   }
+  // What each taken link retired (2.6, D18), or that it retired nothing.
+  const retires: string[] = []
+  for (const id of linked) {
+    const ordinal = state.decisions.findIndex((d) => d.id === id) + 1
+    const echo = supersessionEcho(state, ordinal)
+    if (echo.retires !== undefined) retires.push(`D${ordinal} retires ${echo.retires}`)
+    if (echo.warning !== undefined) batch.warnings.push(echo.warning)
+  }
   const applied = {
     ...(args.tasks !== undefined ? { tasks_applied: args.tasks.length } : {}),
     ...(batch.decisions.length > 0 ? { decisions: batch.decisions } : {}),
+    ...(retires.length > 0 ? { retires } : {}),
     ...(batch.memories.length > 0 ? { memories: batch.memories } : {}),
     ...(batch.warnings.length > 0 ? { warnings: batch.warnings } : {}),
   }

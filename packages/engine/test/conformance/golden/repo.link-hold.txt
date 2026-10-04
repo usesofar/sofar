@@ -1,0 +1,180 @@
+# conformance golden: repo.link-hold
+
+## step 1: a rule replacing D1: taken, and the result names what it retired
+argv: ["event","append","--type","decision_logged","--session","hold-sess","--source","cursor","--payload","{\"chose\":\"Hook output is pinned by the conformance goldens on both implementations\",\"over\":\"docs/SPEC.md alone\",\"because\":\"one suite judges both\",\"rule\":\"Hot-path hook output must match the conformance goldens on both implementations\",\"supersedes\":\"D1\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","retires":"D1 \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the con…\""}
+--- stderr
+(empty)
+
+## step 2: a second rule naming D1, already replaced by D3: held
+argv: ["event","append","--type","decision_logged","--session","hold-sess","--source","cursor","--payload","{\"chose\":\"Projections are pinned by render-parity goldens too\",\"over\":\"hook goldens only\",\"because\":\"templates drift\",\"rule\":\"Hot-path projections must match the render-parity goldens on both implementations\",\"supersedes\":\"D1\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","warnings":["D4 names D1 \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the con…\" as what it replaces, but D1 was already replaced by D3 \"Hot-path hook output must match the conformance goldens on both implementations\". The link is held and D1 stays in force until it is answered: `sofar supersedes D4 D3` if D3 is, `sofar supersedes D4 none` if it replaces nothing. Until then the digest shows it and Stop asks."]}
+--- stderr
+(empty)
+
+## step 3: a suffix naming nothing is refused
+argv: ["event","append","--type","decision_logged","--session","hold-sess","--source","cursor","--payload","{\"chose\":\"c\",\"over\":\"o\",\"because\":\"b\",\"rule\":\"r\",\"supersedes\":\"D2·zzzz\"}"]
+exit: 1
+--- stdout
+(empty)
+--- stderr
+{"code":"invalid_input","message":"supersedes: D2·zzzz names no decision in this record; D2 here is D2·ea2q — copy the handle from decisions.md","errors":["supersedes: D2·zzzz names no decision in this record; D2 here is D2·ea2q — copy the handle from decisions.md"]}
+
+## step 4: a suffixed handle resolves and is stored bare
+argv: ["event","append","--type","decision_logged","--session","hold-sess","--source","cursor","--payload","{\"chose\":\"Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, now including Intl collation\",\"over\":\"Rust-native collation\",\"because\":\"sorting differed\",\"rule\":\"Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, including collation, never Rust defaults\",\"supersedes\":\"D2·ea2q\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>","retires":"D2 \"Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTP…\""}
+--- stderr
+(empty)
+
+## step 5: write-back
+argv: ["event","append","--type","session_ended","--session","hold-sess","--source","cursor","--payload","{\"summary\":\"changed two rules\",\"next_action\":\"answer the held link\"}"]
+exit: 0
+--- stdout
+{"ok":true,"event_id":"<ULID>"}
+--- stderr
+(empty)
+
+## step 6: stop asks the held link
+argv: ["event","stop"]
+stdin: {"session_id":"hold-sess","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+exit: 2
+--- stdout
+(empty)
+--- stderr
+sofar: D4, filed this session, names D1 as what it replaces, but D1 was already replaced by D3: the link is held and D1 stays in force. Answer before stopping: `sofar supersedes D4 D3` if D3 is, `sofar supersedes D4 none` if it replaces nothing.
+
+## step 7: SOFAR_LINK_ASK=off: no ask
+argv: ["event","stop"]
+stdin: {"session_id":"hold-sess","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+env: {"SOFAR_LINK_ASK":"off"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 8: the next session sees it in the digest
+argv: ["event","session-start"]
+stdin: {"session_id":"hold-next","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: rust-core\n\nGoal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.\n\nCurrent task: 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.\n  in Phase 1 — Contract [active] 1/3\n  - 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 1…\n\nNext action: answer the held link\n⚠ Links pending — 1 held link(s), the target still in force; answer each: `sofar supersedes D<n> <D<m>|none>`\n- D4 names D1, held — D1 was already replaced by D3\n\nLast session (cursor, ended <TS>):\n  changed two rules\n\nPhases:\n- Phase 1 — Contract [active] 1/3\n- Phase 2 — Rust core [pending] 0/6\n- Phase 3 — Integration and distribution [pending] 0/3\n- Phase 4 — Prove and switch [pending] 0/3\nProgress: 1/15 tasks done (6%) across 4 phase(s)\n\nRepo memory (.sofar/repo.md):\n# Repo memory — sofar\n\n- Product renamed harness → sofar on 2026-07-07 (BD49-revised, BD50):\n  CLI/bin `sofar`, packages sofar-monorepo + @sofar/schema + sofar, MCP\n  server \"sofar\" with sofar_* tools, record dir `.sofar/`. No back-compat\n  aliases (pre-publish). Historical event/projection text and the archived\n  docs still say harness — that is history, never rewritten.\n- Contracts: docs/SPEC.md is authoritative for envelope, tools, layout,\n  acceptance criteria. If code and SPEC disagree, SPEC wins; log a decision\n…truncated — read .sofar/repo.md for the rest\n\nRecent decisions (3 in force, 2 retired; full text in decisions.md):\n- [D3] <DATE> (rule below; supersedes D1) Hook output is pinned by the conformance goldens on both im… — over docs/SPEC.md alone\n- [D4] <DATE> (rule below) Projections are pinned by render-parity goldens too — over hook goldens only\n- [D5] <DATE> (rule below; supersedes D2) Hot-path Rust code reproduces the JavaScript text semantics… — over Rust-native collation\n\nNext ids: D6 (decision), M1 (memory)\n\nAdjacent records — 5 decisions across 1 other initiative that have worked this one's files, densest first:\n- travel-planner — 1 shared file, 5 decisions\nAdjacency, not aboutness — offered as worth reading, never as a rule.\n\nSession: hold-next — adopted on Claude Code; else pass to sofar_start_session.\nGit: rust-core @ 7535e75 — no origin ref — never pushed\n\nStanding constraints — obey verbatim (3):\n- [D3] Hot-path hook output must match the conformance goldens on both implementations\n- [D5] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, including collation, never Rust defaults\n- [D4] Hot-path projections must match the render-parity goldens on both implementations\nRepo-wide rules from other records (4 of 92, most relevant first):\n- [drift-certification D12] Every built cell must be recovery-proof: verify `git status` is clean and that the governed decision is absent from every commit reachable from the cell branch (git log -S<event_id> over the record path returns nothing) before a session runs in it — never leave cell doctoring as an uncommitted working-tree change.\n- [cross-initiative-conflicts D1] Never gate a hot-path scan on filesystem mtime — git rewrites it. Derive warmth from log content (the tail's newest ts), and keep sofar doctor ungated so the exhaustive answer always exists.\n- [drift-certification D4] A trap must pose NEW work in the governed scope — never work the record already completed — and every built cell must be verified (rule present/absent, decision present/stripped) before a session runs in it.\n- [session-driver D14] `--cost-cap` and `--max-sessions` bound ONE driver, not one run: a resumed run restarts the cap at zero and counts its session budget from recorded handoffs alone. Never describe either as a run-wide guarantee, and keep the resume warnings that say so.\n- …and 88 more in other records (their decisions.md)\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"rust-core 1.2 #hold"}}
+--- stderr
+(empty)
+
+## step 9: answer: D4 replaces nothing
+argv: ["supersedes","D4","none"]
+exit: 0
+--- stdout
+rust-core D4 replaces nothing — link answered
+--- stderr
+(empty)
+
+## step 10: stop passes once answered
+argv: ["event","stop"]
+stdin: {"session_id":"hold-sess","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## record delta
+=== .sofar/initiatives/rust-core/decisions.md (rewritten, 5314 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Decisions: rust-core
+
+- D1·1x01 2026-09-15T15:56:18.112Z — (superseded by D3) rule: **Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.** — chose **Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 ("yes do it").
+SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions:
+- "TypeScript strict mode; Node ≥18; ES modules";
+- "Dependencies: … Nothing else without logging a Decision". Rust crates are limited to serde, serde_json and ulid until another Decision adds one.
+
+Scope of `sofar-core`: hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end), atomic event append, fold, digest/status render, and statusline.
+
+TypeScript keeps: the MCP server, `sofar drive`, init/doctor/review, and cloud commands.
+
+The contract comes first: docs/SPEC.md plus a black-box conformance suite over commands, hook stdin/stdout, env and record bytes. It runs against BOTH implementations.
+
+The schema rail holds: event payload types stay authored ONLY in packages/schema/src. Rust types are GENERATED from them, never hand-written. Projection templates keep one source of truth, and Rust output is verified byte-identical by golden tests.
+
+Parity gate: 100% conformance, perf targets met, and a benchmark arm "sofar-rust-core" vs "sofar-ts" that shrinks no D19 lead margin.
+
+Sequencing: r1-fixes waves 1–2 land in TypeScript now, and the Rust core must reach parity INCLUDING them. After parity, new hot-path code is Rust-only, which stops the TypeScript port surface growing. Distribution: prebuilt per-platform binaries through npm optionalDependencies, with a TypeScript fallback.** over 
+- A big-bang rewrite now: it freezes waves 1–3, leaves round 2 unable to attribute gains, and means porting 27.6k engine lines and 34k test lines before anything is trustworthy.
+- Staying TypeScript-only behind a measure-first gate: the run owner's point is that the port cost grows with every feature, and Codex CLI, Turborepo and Biome show the path is proven. because 
+- Sofar runs on every tool call of every agent session. A native core gives near-zero hook start-up, fast folds over very large records (this repo's own is 9.7 MB), a single binary with no Node dependency for Codex/Cursor/OpenCode users, and headroom for many parallel agents.
+- Measured 0.31 hooks are only ~0.75% of session time today, so the win is future scale and distribution rather than today's tokens. That is why it goes incrementally, and must pass the same benchmark gate as any other change.
+- A conformance-first strangler port means neither implementation can drift from the SPEC.
+- D2·ea2q 2026-09-15T16:11:33.105Z — (superseded by D5) rule: **Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.** — chose **Byte parity is defined against the TypeScript engine's JavaScript text semantics, inventoried in docs/HOTPATH.md §Text-semantics pins: lengths and clips in UTF-16 code units, JS non-unicode regex classes, JS whitespace class, ECMAScript number formatting in canonical JSON, Node path.relative/basename, Math.round half-up, millisecond ISO timestamps. docs/HOTPATH.md is the hand-written contract inventory the conformance suite (1.2) drives; SPEC gaps it lists (G1–G15) are resolved by SPEC edits or Decisions, never by letting the two implementations differ.** over Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. because The 10k injection cap, every clip budget, the redaction and guard regexes and the canonical event bytes all decide observable output; a Rust core that used its own defaults would pass no golden test against the live 9.4 MB record and would fork events.jsonl bytes on identical events (the spurious-diff hazard SPEC §Event envelope exists to prevent). Reproducing JS semantics is cheap and mechanical; tolerating drift would make "same bytes from both implementations" (D1) unprovable.
+- D3·<SFX> <TS> — (supersedes D1) rule: **Hot-path hook output must match the conformance goldens on both implementations** — chose **Hook output is pinned by the conformance goldens on both implementations** over docs/SPEC.md alone because one suite judges both
+- D4·<SFX> <TS> — rule: **Hot-path projections must match the render-parity goldens on both implementations** — chose **Projections are pinned by render-parity goldens too** over hook goldens only because templates drift
+- D5·<SFX> <TS> — (supersedes D2) rule: **Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, including collation, never Rust defaults** — chose **Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, now including Intl collation** over Rust-native collation because sorting differed
+=== .sofar/initiatives/rust-core/events.jsonl (appended 2202 bytes after 28249 unchanged)
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"hold-sess","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"cursor"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"hold-sess","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"decision_logged","payload":{"because":"one suite judges both","chose":"Hook output is pinned by the conformance goldens on both implementations","over":"docs/SPEC.md alone","rule":"Hot-path hook output must match the conformance goldens on both implementations","supersedes":"D1","supersedes_id":"01M2JWH2A0SZXMRPGH4P3HEV05"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"hold-sess","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"decision_logged","payload":{"because":"templates drift","chose":"Projections are pinned by render-parity goldens too","link_candidates":["01M2JWH2A0SZXMRPGH4P3HEV05","<ULID>"],"over":"hook goldens only","rule":"Hot-path projections must match the render-parity goldens on both implementations","supersedes_held":"D1"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"hold-sess","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"decision_logged","payload":{"because":"sorting differed","chose":"Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, now including Intl collation","over":"Rust-native collation","rule":"Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md, including collation, never Rust defaults","supersedes":"D2","supersedes_id":"01M2JXCZVHG875341GTKC59B04"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"hold-sess","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"session_ended","payload":{"next_action":"answer the held link","summary":"changed two rules"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"rust-core","session":"cli","source":"cli","actor":"agent","user":"conformance@example.invalid","type":"decision_linked","payload":{"decision":"D4","decision_id":"<ULID>"}}
+=== .sofar/initiatives/rust-core/plan.md (rewritten, 2890 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Plan: rust-core
+
+Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
+
+Progress: 1/15 tasks done (6%)
+
+## Phase 1 — Contract [active] — 1/3 done
+
+- [x] 1.1 Inventory the hot-path surface from docs/SPEC.md and engine code: every hook's stdin/stdout/exit behaviour, CLI commands in scope (event append, status, statusline), env vars, files written, event envelope and projection outputs. List every SPEC gap found.
+- [ ] 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first. (active)
+- [ ] 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 10, 100 and 1,000 initiatives and 1–10 MB records, TypeScript numbers recorded as the target to beat
+
+## Phase 2 — Rust core [pending] — 0/6 done
+
+- [ ] 2.1 Cargo workspace crates/sofar-core; schema codegen from packages/schema/src (no hand-written payload types); dependency list per D1
+- [ ] 2.2 Event envelope and atomic O_APPEND append; unknown and corrupt lines skipped with a warning, never fatal, never rewritten
+- [ ] 2.3 Fold to initiative state with conformance parity
+- [ ] 2.4 Digest/status render byte-identical to the projection templates (golden tests), including the 10k char cap behaviour
+- [ ] 2.5 Hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end) with conformance parity, including r1-fixes wave 1–2 behaviour
+- [ ] 2.6 Statusline command parity
+
+## Phase 3 — Integration and distribution [pending] — 0/3 done
+
+- [ ] 3.1 TS entry points and hook shims dispatch to sofar-core when present, with TypeScript fallback and an explicit override for debugging
+- [ ] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
+- [ ] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
+
+## Phase 4 — Prove and switch [pending] — 0/3 done
+
+- [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
+- [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
+- [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
+
+Active phase: Phase 1 — Contract
+Next action: answer the held link
+=== .sofar/initiatives/rust-core/sessions/hold-sess.md (added, 238 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session hold-sess
+
+- Initiative: rust-core
+- Tool: cursor
+- Started: <TS>
+- Ended: <TS>
+
+## Summary
+
+changed two rules
+
+## Next action
+
+answer the held link

@@ -1,5 +1,6 @@
 import { buildSync } from 'esbuild'
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   cpSync,
   existsSync,
@@ -374,9 +375,41 @@ function ulidTime(id: string): number {
   return ms
 }
 
+/**
+ * A decision handle's check suffix (r3-fixes 2.6, D18): `D<n>·` and 4
+ * Crockford base32 chars of sha256 of the decision's id, so a decision the
+ * run minted has a suffix that varies with its id. Re-derived here, not
+ * imported: the harness imports nothing from the engine.
+ */
+function handleSuffix(id: string): string {
+  const h = createHash('sha256').update(id, 'utf8').digest()
+  const v = (h[0]! << 12) | (h[1]! << 4) | (h[2]! >> 4)
+  const abc = CROCKFORD.toLowerCase()
+  return abc[(v >> 15) & 31]! + abc[(v >> 10) & 31]! + abc[(v >> 5) & 31]! + abc[v & 31]!
+}
+/** The suffixes of every ulid a case's run has minted so far, by scratch root. */
+const mintedSuffixes = new Map<string, Set<string>>()
+const SUFFIX_RE = /·([0-9a-hjkmnp-tv-z]{4})\b/g
+
+/** Note the suffix of every ulid `text` holds that the run minted. */
+function collectMinted(text: string, m: Materialized): Set<string> {
+  const upper = m.floor + RUN_WINDOW_MS
+  const minted = mintedSuffixes.get(m.root) ?? new Set<string>()
+  mintedSuffixes.set(m.root, minted)
+  for (const id of text.match(ULID_RE) ?? []) {
+    const t = ulidTime(id)
+    if (t >= m.floor && t <= upper) minted.add(handleSuffix(id))
+  }
+  return minted
+}
+
 /** Mask the bytes a run cannot help minting differently each time (see the module doc). */
 export function mask(text: string, m: Materialized): string {
   const upper = m.floor + RUN_WINDOW_MS
+  // A minted id masks as <ULID>; a handle suffix derived from one, as <SFX>.
+  // The id can reach a later text than its suffix (decisions.md sorts before
+  // events.jsonl), so the record delta collects every file first.
+  const minted = collectMinted(text, m)
   // The days a session minted in this run can render as (childEnv pins TZ to
   // UTC); zero-padded YYYY-MM-DD compares lexically in calendar order.
   const firstDay = new Date(m.floor).toISOString().slice(0, 10)
@@ -388,6 +421,7 @@ export function mask(text: string, m: Materialized): string {
       const t = ulidTime(id)
       return t >= m.floor && t <= upper ? '<ULID>' : id
     })
+    .replace(SUFFIX_RE, (all, sfx: string) => (minted.has(sfx) ? '·<SFX>' : all))
     .replace(ISO_RE, (ts) => {
       const t = Date.parse(ts)
       return t >= m.floor && t <= upper ? '<TS>' : ts
@@ -457,6 +491,7 @@ export function recordDelta(m: Materialized): RecordDelta {
   // masks that very path. A wrong count still fails — it just counts what the
   // golden shows.
   const bytes = (text: string): number => Buffer.byteLength(mask(text, m), 'utf8')
+  for (const rel of afterFiles) collectMinted(readFileSync(join(after, rel), 'utf8'), m)
   for (const rel of all) {
     const inBefore = beforeFiles.includes(rel)
     const inAfter = afterFiles.includes(rel)

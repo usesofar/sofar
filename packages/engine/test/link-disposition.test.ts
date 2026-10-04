@@ -12,7 +12,7 @@ import { logDecision } from '../src/mcp/log-decision'
 import { startSession } from '../src/mcp/start-session'
 import { updatePlan } from '../src/mcp/update-plan'
 import { renderStatus } from '../src/projections/templates/status'
-import { PLAIN } from '../src/cli/ui'
+import { PLAIN_CAPS as PLAIN } from '../src/cli/statusline'
 
 /**
  * r3-fixes 2.5 (D15) — a rule filed naming nothing it replaces is asked.

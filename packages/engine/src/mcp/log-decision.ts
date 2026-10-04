@@ -1,7 +1,8 @@
 import { RULE_QUOTE_MAX } from '@sofar/schema'
 import type { LogDecisionArgs, LogDecisionResult } from '@sofar/schema/tool-inputs'
 import { resolveJudgeProvider } from '../client/judge'
-import { pendingLinkLine } from '../core/link-candidates'
+import { bareSupersedes } from '../core/handle'
+import { pendingLinkLine, supersessionEcho } from '../core/link-candidates'
 import { decisionJudgeWarnings, type DecisionDraft } from '../core/decision-judge'
 import { testShapedCommand } from '../core/derived'
 import { fileMentions } from '../core/file-mentions'
@@ -129,6 +130,11 @@ function logDecisionLogged(
 ): { result: LogDecisionResult; before: InitiativeState; draft: DecisionDraft } {
   const slug = ctx.resolveWriteInitiative(args.initiative)
   const state = ctx.foldState(slug)
+  // A check-suffixed handle (r3-fixes 2.6, D18) is judged as the bare one it
+  // names, and stored that way.
+  const bare = bareSupersedes(state.decisions, args)
+  if (bare.error !== undefined) throw new ToolError('invalid_input', bare.error, [bare.error])
+  args = bare.payload
   // A silent reversal of a standing decision — in any record (memory-lead
   // 2.2, D8) — is refused before the append (r1-fixes 4.1.2, D31).
   const refusal = silentReversal(state, args, foreignDecisions(ctx.sofarDir, slug))
@@ -153,15 +159,21 @@ function logDecisionLogged(
   const nudge = bindNudge(ordinal, args)
   // A rule filed naming nothing it replaces (r3-fixes 2.5, D15): the
   // candidates the writer stamped, and the one command that answers.
-  const link = event.payload.link_candidates !== undefined ? pendingLinkLine(ctx.foldState(slug), ordinal) : null
+  // A held link speaks the same way (2.6, D18); a taken one names what it
+  // retired, so a wrong pick shows in this turn.
+  const after = event.payload.link_candidates !== undefined || event.payload.supersedes !== undefined ? ctx.foldState(slug) : null
+  const link = after !== null && event.payload.link_candidates !== undefined ? pendingLinkLine(after, ordinal) : null
+  const echo = after !== null ? supersessionEcho(after, ordinal) : {}
   const warnings = [
+    ...(bare.moved !== undefined ? [bare.moved] : []),
+    ...(echo.warning !== undefined ? [echo.warning] : []),
     ...(fit !== null ? [quoteFitWarning(ordinal, fit)] : []),
     ...(link !== null ? [link] : []),
     ...(nudge !== null ? [nudge] : []),
     ...(args.rule !== undefined ? [ruleFidelityWarning(ordinal, args.rule, quote)].filter((w): w is string => w !== null) : []),
   ]
   return {
-    result: { ok: true, event_id: event.id, ...(warnings.length > 0 ? { warnings } : {}) },
+    result: { ok: true, event_id: event.id, ...(echo.retires !== undefined ? { retires: echo.retires } : {}), ...(warnings.length > 0 ? { warnings } : {}) },
     before: state,
     draft: {
       ordinal,

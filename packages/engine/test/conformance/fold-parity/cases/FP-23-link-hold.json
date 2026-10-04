@@ -1,0 +1,10 @@
+{
+  "tail_at": 5,
+  "seeds": [
+    68,
+    69,
+    70
+  ],
+  "order_independence": true,
+  "note": "r3-fixes 2.6 (D18): supersedes_held with link_candidates is link-pending with held = the first id's ordinal and candidates = the rest, and retires nothing; a plain decision may be held; an unknown first id leaves no held; decision_linked answers it and the answer retires; supersedes_held without candidates, or with supersedes, is an invalid line; never drift. The tail starts at the first held link"
+}
