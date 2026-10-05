@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: When scoring and bindings are both in: run round4_claims.py on rep 1. If sofar is not behind beads on R4-F and R4-A, rm the r2 holds and report; otherwise log the deviation, boot out the queues, and report.
+Next action: Read the validity verdict. If valid, release r2 (rm the r2 holds) but flag that a ceiling makes R4-F/A/C unresolvable. If broken, keep holding, fix scoring, and re-score rep 1.
