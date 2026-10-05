@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: When all three r1 jobs finish: score-batch r1 x3, check-rep, round4_claims.py on rep 1; report; on the operator's go, rm the r2 holds.
+Next action: When scoring and bindings are both in: run round4_claims.py on rep 1. If sofar is not behind beads on R4-F and R4-A, rm the r2 holds and report; otherwise log the deviation, boot out the queues, and report.
