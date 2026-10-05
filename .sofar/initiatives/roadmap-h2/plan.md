@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: When run 37253930789 completes, read test (20)'s failure. If it's a real bug, fix on main and re-cut; if it's a Node-20 timing flake, re-run that job. Then stage the cores and hand over the publish lines.
+Next action: Operator runs the two npm publish lines in ~/IO/sofar-rc5 (cores first, then sofar.sh) and installs the global; then fix the drive-detach test race on main and start round 4 (5.0 pins, 5.2/5.7 freeze).
