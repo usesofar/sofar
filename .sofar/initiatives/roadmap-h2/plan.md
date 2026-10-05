@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Relay the round4_claims.py fix and the re-hashed pre-registration; get the operator's freeze sentence; the operator bootstraps the three reps1-3 queue plists.
+Next action: The operator freezes with "I freeze PRE-REGISTRATION-R4 as committed at 4e8f070; round 4 may start." and bootstraps the three reps1-3 queue plists.
