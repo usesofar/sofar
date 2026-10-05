@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator opens an npm support ticket for sofar-core-win32-x64 (4.3). Orchestrator starts round 4: 5.0 pins (bench installs with --allow-scripts), then 5.2/5.7 freeze.
+Next action: Relay the round-4 prep agent's results; get the operator's freeze of PRE-REGISTRATION-R4 in their own words; then bootstrap rep 1.
