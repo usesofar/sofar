@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Watch the round-4 queues with round4-ctl.sh status; relay progress; after rep 3, score-batch, check-rep and round4_claims.py; apply the D13 extension rule.
+Next action: When all three r1 jobs finish: score-batch r1 x3, check-rep, round4_claims.py on rep 1; report; on the operator's go, rm the r2 holds.
