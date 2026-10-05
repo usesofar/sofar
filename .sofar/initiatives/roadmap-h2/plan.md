@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Read the validity verdict. If valid, release r2 (rm the r2 holds) but flag that a ceiling makes R4-F/A/C unresolvable. If broken, keep holding, fix scoring, and re-score rep 1.
+Next action: Operator rules: is the Chain M ceiling acceptable (round 4 then proves cost only), or stop round 4 for a harder chain; and whether to fix S17 scoring as a deviation. Meanwhile watch rep 2.
