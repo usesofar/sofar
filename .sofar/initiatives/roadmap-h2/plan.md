@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator runs the two npm publish lines in ~/IO/sofar-rc5 (cores first, then sofar.sh) and installs the global; then fix the drive-detach test race on main and start round 4 (5.0 pins, 5.2/5.7 freeze).
+Next action: Operator opens an npm support ticket for sofar-core-win32-x64 (4.3). Orchestrator starts round 4: 5.0 pins (bench installs with --allow-scripts), then 5.2/5.7 freeze.
