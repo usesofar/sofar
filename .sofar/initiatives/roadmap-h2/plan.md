@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator: push the release branch and tag, dispatch CI, stage the 5 cores, publish cores then sofar.sh to npm next (commands in the 4.2 relay); or authorize the orchestrator to run everything up to the npm publish.
+Next action: When CI run 37253930789 passes all 5 core legs: download the artifacts, rename them, run emit.mjs --binaries, then hand the operator the two npm publish lines.
