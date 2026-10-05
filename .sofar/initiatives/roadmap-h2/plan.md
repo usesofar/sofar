@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: When CI run 37253930789 passes all 5 core legs: download the artifacts, rename them, run emit.mjs --binaries, then hand the operator the two npm publish lines.
+Next action: When run 37253930789 completes, read test (20)'s failure. If it's a real bug, fix on main and re-cut; if it's a Node-20 timing flake, re-run that job. Then stage the cores and hand over the publish lines.
