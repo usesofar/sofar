@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Relay the round-4 prep agent's results; get the operator's freeze of PRE-REGISTRATION-R4 in their own words; then bootstrap rep 1.
+Next action: Relay the round4_claims.py fix and the re-hashed pre-registration; get the operator's freeze sentence; the operator bootstraps the three reps1-3 queue plists.
