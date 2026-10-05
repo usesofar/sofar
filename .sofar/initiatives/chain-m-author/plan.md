@@ -6,14 +6,8 @@ Goal: Author Chain M, round 4's held-out workload, blind to fix-building: skelet
 
 Progress: 5/5 tasks done (100%)
 
-## Phase 1 — Author Chain M (CHAIN-M-DESIGN §6) [done] — 5/5 done
+## Phase 1 — Author Chain M (CHAIN-M-DESIGN §6) [done] — 5/5 done — its tasks in phases/P1.md
 
 > accepted at handoff-bench 91701f0
-
-- [x] 1.1 Skeleton repo and deterministic fixtures for the inventory and fulfilment ledger (bun, Next.js, fixed clock, no network); skeleton builds, fixtures reproduce
-- [x] 1.2 30 session prompts on Chain L's segment table with 24 planted decisions (8 guarded, 8 superseded once, 4 twice, 4 why-only), ≥6 versioned decisions planted in Codex/Cursor sessions, ≥2 abandoned-branch decisions in 15–17; sealed under ~/IO/bench-sealed/
-- [x] 1.3 Sealed reference solution: reference 100%, skeleton 0%
-- [x] 1.4 Hidden tests, mutation-validated per decision version; every guarded and cross-vendor decision named by ≥1 test; every abandoned-branch decision fails ≥1 trunk test
-- [x] 1.5 Audit: round 1's three defect classes plus the chain-B checklist, 0 severe; publish the pins (hashes) only
 
 Next action: None in this session; close chain-m-author (`sofar close chain-m-author`)

@@ -4,5 +4,6 @@
 
 Cite these in .sofar/repo.md by qualified handle — `chain-m-author M<n>` —
 which is how `sofar doctor` sees that a promoted fact reached repo memory.
+One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 
-- **M1** (2026-10-04T16:41:40.285Z) — Chain M sealed at ~/IO/bench-sealed/binwise-chain-m (+ binwise-reference-m); re-run gates with `bun harness/validate.ts` and pins with `bun harness/pins.ts` from the chain dir. bun test needs --reporter=junit to list passes when not on a TTY.
+- M1 2026-10-04 — Chain M sealed at ~/IO/bench-sealed/binwise-chain-m (+ binwise-reference-m); re…
