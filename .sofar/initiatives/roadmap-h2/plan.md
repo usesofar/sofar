@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: The operator bootstraps the three round-4 reps1-3 queue plists; the orchestrator watches with round4-ctl.sh status and relays.
+Next action: When the Mac is on AC, the operator bootstraps the three round-4 reps1-3 queue plists; the orchestrator verifies with round4-ctl.sh status.
