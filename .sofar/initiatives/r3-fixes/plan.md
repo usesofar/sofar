@@ -63,7 +63,7 @@ Progress: 37 done, 2 dropped, 6 remaining
 - [x] 5.1 Fresh held-out chain authored blind (D22; chain-l-author pattern)
 - [x] 5.2 PRE-REGISTRATION-R4: claims with predicted margins from Phase 2, frozen in the operator's own words before any scored run
 - [x] 5.3 Smoke on the round-4 harness
-- [ ] 5.4 Run 3 reps; score-batch and check-rep each
+- [ ] 5.4 Run 3 reps; score-batch and check-rep each (active)
 - [ ] 5.5 Readout per claim; D19 gate ruling; stable publish only if it passes
 - [x] 5.0 Pin the latest stable agents and beads at the freeze, checked live (D5); re-check the Codex contract fixtures on the new pin
 - [x] 5.6 R4-B chain content: the blind round-4 author plants ≥2 decisions on branches that are never merged, with hidden tests asserting trunk behaviour, so branch containment is measurable (R3-FIX-SURVEY C §4 B; D9)

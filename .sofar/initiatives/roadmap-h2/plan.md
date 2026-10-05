@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: When the Mac is on AC, the operator bootstraps the three round-4 reps1-3 queue plists; the orchestrator verifies with round4-ctl.sh status.
+Next action: Watch the round-4 queues with round4-ctl.sh status; relay progress; after rep 3, score-batch, check-rep and round4_claims.py; apply the D13 extension rule.
