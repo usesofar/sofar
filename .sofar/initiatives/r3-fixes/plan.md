@@ -20,7 +20,7 @@ Progress: 33 done, 2 dropped, 9 remaining
 - [x] 1.6 Round-2 losses carried forward: chain B's misses C1, C2, C3, C5 against automemory (bench-refresh D74, cause L36). Did rc.4's L36 fix hold on round 3's held-out chain? Every still-open miss becomes a loss row.
 - [x] 1.7 Remaining R3 readings (ROUND-3-REPORT §6): L-C9 (a) via H6 rule-fidelity on every arm; native-side L-C9 (b) and L-C10 (b)(c) counts to tell lead from parity; L-C6 store share and H2 background calls via the round-3 transcripts.py
 
-## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [active] — 13/15 (2 dropped) done
+## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [done] — 13/15 (2 dropped) done
 
 - [x] 2.0 Research survey per loss row (r3-fixes D1). Prior art from papers, products and OSS: context and memory systems, agent context engineering, prompt-cache layouts, retrieval budgets, merge drivers/CRDTs. Per loss, ranked options plus at least one candidate new method of our own, with predicted margin vs native and the best competitor.
 - [x] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
@@ -58,7 +58,7 @@ Progress: 33 done, 2 dropped, 9 remaining
 - [ ] 4.3 Unblock sofar-core-win32-x64 on npm. Its first publish (0.34.0-rc.5) hit E403 "Package name triggered spam detection". Operator: open an npm support ticket for the name, then publish it from ~/IO/sofar-rc5/packaging/npm/sofar-core-win32-x64. Don't rename (rust-core D22) unless support refuses.
 - [ ] 4.4 Scoped core packages for the next release (rust-core D-latest, superseding D22). emit.mjs emits @sofar/core-<platform>-<arch>. sofar.sh optionalDependencies and install.mjs and the shim lookup use the scoped names; packaging tests and the release procedure (repo memory M1, r3-fixes M10) are updated. Publish @sofar/core-win32-x64 first as the spam-filter probe. Deprecate the five rc.5 sofar-core-* names with a pointer after the scoped ones ship. Do not touch rc.5 (round 4's pin).
 
-## Phase 5 — Round 4 benchmark [pending] — 2/8 done
+## Phase 5 — Round 4 benchmark [active] — 2/8 done
 
 - [x] 5.1 Fresh held-out chain authored blind (D22; chain-l-author pattern)
 - [ ] 5.2 PRE-REGISTRATION-R4: claims with predicted margins from Phase 2, frozen in the operator's own words before any scored run
@@ -69,5 +69,5 @@ Progress: 33 done, 2 dropped, 9 remaining
 - [x] 5.6 R4-B chain content: the blind round-4 author plants ≥2 decisions on branches that are never merged, with hidden tests asserting trunk behaviour, so branch containment is measurable (R3-FIX-SURVEY C §4 B; D9)
 - [ ] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
 
-Active phase: Phase 2 — Product fixes (each states PREDICT before build; ablation per D5)
-Next action: Operator: publish rc.5 (4.2) from ~/IO/sofar-rc5.
+Active phase: Phase 5 — Round 4 benchmark
+Next action: Round 4: 5.0 live pins, then 5.2 PRE-REGISTRATION-R4 in the operator's words.
