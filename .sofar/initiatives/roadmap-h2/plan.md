@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator rules: is the Chain M ceiling acceptable (round 4 then proves cost only), or stop round 4 for a harder chain; and whether to fix S17 scoring as a deviation. Meanwhile watch rep 2.
+Next action: Relay the final 3-rep result; apply D13 (reps 4–5 only if R4-F is inconclusive; at the ceiling it reads 0 vs 0); then draft the round-4 readout and the harder-chain plan for round 5.
