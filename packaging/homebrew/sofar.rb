@@ -43,7 +43,7 @@ class Sofar < Formula
 
     # Fold a real record: init must scaffold .sofar/ and status must
     # read it back. Catches a bundle that resolves but cannot run.
-    system bin/"sofar", "init"
+    system bin/"sofar", "init", "--agents", "claude-code"
     assert_predicate testpath/".sofar", :directory?
   end
 end

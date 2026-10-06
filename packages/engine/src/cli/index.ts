@@ -8,7 +8,7 @@ import { registerFoldCommand } from './fold'
 import { registerEventCommand } from './event'
 import { registerReviewCommand } from './review'
 import { runAdopt } from './adopt'
-import { resolveInitAgents, runInit } from './init'
+import { runInitCommand } from './init'
 import { stderrCaps } from './ui'
 import { runDoctor } from './doctor'
 import { runUninit } from './uninit'
@@ -78,7 +78,11 @@ program
   )
   .option(
     '--agents <list>',
-    'agents to set up: claude-code, cursor, codex (comma-separated) or all — default: ask on a terminal, all otherwise',
+    'agents to set up: claude-code, cursor, codex (comma-separated) or all — default: the agents already wired here; on a first init, ask on a terminal and refuse otherwise',
+  )
+  .option(
+    '--refresh',
+    'rewire exactly the agents this repo is already wired for (protocol blocks, hook shims) — never asks, never adds an agent',
   )
   .option(
     '--statusline',
@@ -88,21 +92,21 @@ program
   // neither is passed and a plain re-run changes nothing (r3-fixes 2.9, D6).
   .option('--prompt-capture', 'turn prompt capture back on for this clone')
   .option('--no-prompt-capture', "don't keep this clone's prompts in the private buffer that briefs are kept from by id")
-  .option('--root <dir>', 'repo root (default: current directory)')
-  .action(async (opts: { agents?: string; statusline?: boolean; root?: string; promptCapture?: boolean }) => {
-    const root = rootOf(opts)
-    const caps = stderrCaps()
-    const choice = await resolveInitAgents(root, opts.agents, {
-      input: process.stdin,
-      output: process.stderr,
-      interactive: process.stdin.isTTY === true && caps.animate,
-      caps,
-    })
-    if ('error' in choice) return emit(fail(`sofar init: ${choice.error}`))
-    if ('cancelled' in choice) return emit(fail('sofar init: cancelled — nothing written'))
-    const capture = opts.promptCapture === undefined ? {} : { promptCapture: opts.promptCapture }
-    emit(withUpdateNotice(runInit(root, { statusline: opts.statusline === true, agents: choice.agents, ...capture })))
-  })
+  .option('--root <dir>', 'repo root (default: the git toplevel of the current directory, else the current directory)')
+  .action(
+    async (opts: { agents?: string; refresh?: boolean; statusline?: boolean; root?: string; promptCapture?: boolean }) => {
+      const caps = stderrCaps()
+      const result = await runInitCommand(opts, {
+        cwd: process.cwd(),
+        argv: process.argv.slice(2),
+        input: process.stdin,
+        output: process.stderr,
+        interactive: process.stdin.isTTY === true && caps.animate,
+        caps,
+      })
+      emit(result.exitCode === 0 ? withUpdateNotice(result) : result)
+    },
+  )
 
 program
   .command('uninit')
@@ -859,7 +863,7 @@ program
           ok(
             value === 'on'
               ? 'auto-upgrade on — the daily check will install updates in the background.\n' +
-                  'Each install still asks you to run `sofar init` per repo to refresh its wiring.\n'
+                  'Each install still asks you to run `sofar init --refresh` per repo to refresh its wiring.\n'
               : 'auto-upgrade off — sofar will tell you about updates and let you install them.\n',
           ),
         )

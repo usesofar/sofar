@@ -315,6 +315,54 @@ export function unapprovedLine(checks: readonly InForceCheck[]): string | null {
   return `sofar: ${checks.length} decision check(s) bear on this work but are not approved on this clone, so none ran: ${named}${more} — the operator approves one with \`sofar check --approve "<handle>"\``
 }
 
+/**
+ * `<state>/checks/<key>.notice`, beside the trust file and keyed the same, so
+ * every worktree of one clone shares it: the UTC day the unapproved line last
+ * printed on an automatic surface. Null when the state dir would sit inside
+ * the clone.
+ */
+export function unapprovedNoticePath(rootDir: string, env: StateEnv = process.env): string | null {
+  const trust = trustPath(rootDir, env)
+  return trust === null ? null : trust.replace(/\.json$/, '.notice')
+}
+
+/**
+ * May the unapproved line print now? At most once per clone per UTC day on
+ * the automatic surfaces, pre-commit and Stop (r4-fixes U7): round 4 printed
+ * the same operator-only fix on 52 of 104 Claude commits, and agents relayed
+ * it to the operator each time. The first surface to print it today claims
+ * the day. `sofar check`, `--list` and `sofar doctor` still say it whenever
+ * asked. With no state dir to hold the claim, it prints as before.
+ */
+export function claimUnapprovedNotice(rootDir: string, now: string, env: StateEnv = process.env): boolean {
+  const path = unapprovedNoticePath(rootDir, env)
+  if (path === null) return true
+  const day = now.slice(0, 10)
+  try {
+    if (readFileSync(path, 'utf8').trim() === day) return false
+  } catch {
+    // not printed yet on this clone
+  }
+  try {
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, `${day}\n`, 'utf8')
+  } catch {
+    // cannot hold the claim: print anyway
+  }
+  return true
+}
+
+/** The unapproved line for an automatic surface: `unapprovedLine`, once per clone per day (U7). */
+export function throttledUnapprovedLine(
+  rootDir: string,
+  checks: readonly InForceCheck[],
+  now: string,
+  env: StateEnv = process.env,
+): string | null {
+  const line = unapprovedLine(checks)
+  return line !== null && claimUnapprovedNotice(rootDir, now, env) ? line : null
+}
+
 /** Default per-check bound when the decision sets none (D9). */
 export const DEFAULT_CHECK_TIMEOUT_MS = 120_000
 

@@ -2,7 +2,8 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { version as CURRENT_VERSION } from '../../package.json'
 import { isClosedInitiativeStatus, isResolvedTaskStatus } from '@sofar/schema'
-import { join, relative } from 'node:path'
+import { dirname, join, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   foldLog,
   openSessionFileConflicts,
@@ -57,7 +58,8 @@ import {
   SOURCE_NOT_SINCE,
   type TailwindV4Detection,
 } from './scanners'
-import { CORE_PACKAGE, resolveCore } from './core'
+import { CORE_PACKAGE, resolveCore, type ResolvedCore } from './core'
+import { planUpgrade } from './update-cache'
 import { detectFormatterHazards } from './formatters'
 import { errMessage, fail, ok, type CmdResult } from './shared'
 import {
@@ -73,6 +75,8 @@ import {
   type Style,
 } from './ui'
 import { byCodeUnit } from '../core/order'
+import { checksInForce, isApproved, type InForceCheck } from '../core/checks'
+import { refreshGuards } from '../core/index-tier1'
 
 /**
  * `sofar doctor [--fix]` (tasks 10.2/10.3 + 11.1/11.2/11.3) — audit a host repo:
@@ -127,9 +131,9 @@ export interface DoctorProgress {
   stream?: SpinnerStream
 }
 
-type Level = 'ok' | 'warn' | 'fail'
+export type Level = 'ok' | 'warn' | 'fail'
 
-interface Finding {
+export interface Finding {
   level: Level
   text: string
   /** Optional indented follow-up line (a fix suggestion or detail). */
@@ -248,12 +252,10 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
   // wired for, and each agent it is not wired for is named with the command
   // that adds it — a Cursor-only repo is not missing Claude Code's files.
   const wired = new Set(wiredAgents(rootDir))
-  // A partial install is repaired for its own agents only; a bare `sofar init`
-  // with no terminal would add the rest.
-  const repair =
-    wired.size === 0 || wired.size === AGENTS.length
-      ? 'run `sofar init` to (re)install it'
-      : `run \`sofar init --agents ${[...wired].join(',')}\` to (re)install it`
+  // A wired repo is repaired by rewiring exactly its wired set (r4-fixes
+  // R12): `--refresh` never asks and never adds an agent, so the hint is safe
+  // for an agent's shell to run as it stands.
+  const repair = wired.size === 0 ? 'run `sofar init` to (re)install it' : 'run `sofar init --refresh` to (re)install it'
 
   const bindings = join(rootDir, '.sofar', 'bindings.json')
   findings.push(
@@ -420,7 +422,7 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
         findings.push({
           level: 'warn',
           text: `${file} protocol block is from an older sofar`,
-          hint: 'run `sofar init` to refresh it',
+          hint: 'run `sofar init --refresh` to refresh it',
         })
         break
       case 'customized':
@@ -507,15 +509,51 @@ export function auditGitattributes(rootDir: string, findings: Finding[]): void {
   })
 }
 
+/** npm 12 skips install scripts unless allowed (r4-fixes U9); this lets sofar.sh's run, for every later install. */
+export const ALLOW_SCRIPTS_CONFIG = 'npm config set allow-scripts=sofar.sh --location=user'
+export const ALLOW_SCRIPTS_INSTALL = 'npm install -g sofar.sh --allow-scripts=sofar.sh'
+
+export interface CoreProbe {
+  /** Environment for SOFAR_CORE — tests only. */
+  env?: Record<string, string | undefined>
+  platform?: string
+  /** The running cli.js — tests only. */
+  selfPath?: string
+  /** The resolved core — tests only. */
+  core?: ResolvedCore
+}
+
+/**
+ * Did sofar.sh's install script leave the JavaScript stub as its
+ * bin/sofar-core (r4-fixes U9)? npm links that file onto PATH for the hook
+ * shims, and postinstall swaps it for the platform binary (install.mjs). npm
+ * 12 skips install scripts unless allowed, so the stub stays and node boots in
+ * front of every hook. Null when this is not a global npm install — a source
+ * checkout or a local dependency, where the advice does not apply.
+ */
+export function installedCoreIsStub(selfPath: string): boolean | null {
+  if (planUpgrade(selfPath).kind !== 'global-npm') return null
+  try {
+    const shim = join(dirname(dirname(selfPath)), 'bin', 'sofar-core')
+    return readFileSync(shim).subarray(0, 2).toString('latin1') === '#!'
+  } catch {
+    return null
+  }
+}
+
 /**
  * Which implementation the hot path runs on (rust-core 3.2). Never a fault:
  * a source checkout or an unsupported platform has no core and every hook
- * still runs, on TypeScript. The one warning is a version mismatch — a core
- * that is not this release's — which only an override or a hand install can
- * produce, since sofar.sh pins each platform package at its own version.
+ * still runs, on TypeScript. Two warnings: a version mismatch — a core that
+ * is not this release's, which only an override or a hand install can
+ * produce, since sofar.sh pins each platform package at its own version — and
+ * a global install whose install script did not run, so node still boots in
+ * front of the core on every hook (r4-fixes U9).
  */
-function auditCore(findings: Finding[]): void {
-  const core = resolveCore(process.env.SOFAR_CORE, import.meta.url)
+export function auditCore(findings: Finding[], probe: CoreProbe = {}): void {
+  const env = probe.env ?? process.env
+  const platform = probe.platform ?? process.platform
+  const core = probe.core ?? resolveCore(env.SOFAR_CORE, import.meta.url)
   switch (core.kind) {
     case 'override':
       findings.push({ level: 'ok', text: `hot path: native core named by SOFAR_CORE (${core.path})` })
@@ -526,6 +564,14 @@ function auditCore(findings: Finding[]): void {
           level: 'warn',
           text: `hot path: native core ${core.version} does not match sofar ${CURRENT_VERSION}`,
           hint: 'run `sofar upgrade` — the core ships pinned to each release',
+        })
+      } else if (platform !== 'win32' && installedCoreIsStub(probe.selfPath ?? fileURLToPath(import.meta.url)) === true) {
+        // Windows keeps the stub by design: npm's .cmd wrapper runs it with
+        // node, and the stub finds the .exe itself (install.mjs).
+        findings.push({
+          level: 'warn',
+          text: `hot path: node boots before the native core on every hook — sofar.sh's install script did not run, so its \`sofar-core\` is still the JavaScript stub`,
+          hint: `npm 12 skips install scripts unless allowed: run \`${ALLOW_SCRIPTS_CONFIG}\`, then reinstall with \`${ALLOW_SCRIPTS_INSTALL}\``,
         })
       } else {
         findings.push({ level: 'ok', text: `hot path: native core ${CORE_PACKAGE}${core.version === null ? '' : ` ${core.version}`}` })
@@ -903,7 +949,32 @@ function auditGuards(rootDir: string, folded: Folded[]): Section {
           : `no work crosses any of the ${guarded} guarded rule(s)`,
     })
   }
+  const unapproved = unapprovedChecks(rootDir)
+  if (unapproved.length > 0) findings.push(unapprovedFinding(unapproved))
   return { title: 'Decision guards', findings }
+}
+
+/** Checks in force that nothing approved on this clone; empty when the record cannot say. */
+function unapprovedChecks(rootDir: string): InForceCheck[] {
+  try {
+    return checksInForce(refreshGuards(join(rootDir, '.sofar'))).filter((c) => !isApproved(rootDir, c.check.cmd))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Pre-commit and Stop name unapproved checks once per clone per day (r4-fixes
+ * U7); doctor names them every time, since it is where the operator asks.
+ */
+function unapprovedFinding(checks: readonly InForceCheck[]): Finding {
+  const named = checks.slice(0, 3).map((c) => `[${c.handle}] \`${c.check.cmd}\``).join(', ')
+  const more = checks.length > 3 ? `, +${checks.length - 3} more` : ''
+  return {
+    level: 'warn',
+    text: `${checks.length} decision check(s) not approved on this clone, so none of them runs at Stop or pre-commit: ${named}${more}`,
+    hint: 'the operator approves one with `sofar check --approve "<handle>"`; `sofar check --list` shows them all',
+  }
 }
 
 function auditConcurrency(folded: Folded[]): Section {

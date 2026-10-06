@@ -37,17 +37,21 @@ agent's usage is yours — `--cost-cap` bounds one run of it.
 ## Install
 
 ```
-npm install -g sofar.sh
+npm install -g sofar.sh --allow-scripts=sofar.sh
 ```
 
-Needs Node 18 or newer. To try it without installing, use
+Needs Node 18 or newer. `--allow-scripts=sofar.sh` lets sofar's install
+script put the native core in place; npm 12 skips install scripts without it,
+and every hook then starts node first. To allow it for every later install,
+run `npm config set allow-scripts=sofar.sh --location=user` once. To try it without installing, use
 `npx sofar.sh status`. Update later with `sofar upgrade`.
 
 On macOS (arm64, x64), Linux (x64, arm64) and Windows (x64) the install also
 brings a native core, `sofar-core`, that runs the hooks, the statusline and
 `sofar status` with no node in front; everywhere else, and with
 `SOFAR_CORE=0`, the same commands run in TypeScript with identical output.
-`sofar doctor` says which one you are on.
+`sofar doctor` says which one you are on, and names the npm setting when the
+install script was skipped.
 
 To build from a clone of this repo instead:
 
@@ -66,11 +70,15 @@ sofar new password-reset --goal "Let users reset a forgotten password"
 sofar status
 ```
 
-`sofar init` sets up the record and connects your tools. It asks which
-agents to set up (Claude Code, Cursor, Codex), with the ones it finds on your
-machine already ticked, and writes files only for those. Scripts can pass
-`--agents cursor,codex` or `--agents all`. It is safe to run twice and only
-adds what is missing; run it again with another agent to add that one.
+`sofar init` sets up the record and connects your tools. It works on the
+repo you are in (its git top level, or `--root`). The first time, it asks
+which agents to set up (Claude Code, Cursor, Codex), with the ones it finds on
+your machine already ticked, and writes files only for those. Without a
+terminal it does not guess: it refuses and prints the command to run, so
+scripts pass `--agents cursor,codex` or `--agents all`. Run again, it rewires
+exactly the agents the repo already has and never adds one you did not pick;
+`sofar init --refresh` does that without asking, and `--agents` adds another
+agent.
 
 After that, work as usual. In Claude Code the assistant keeps the record
 current on its own. Other tools follow a short instruction block that `init`
@@ -116,7 +124,7 @@ git add .sofar .gitattributes .claude .mcp.json CLAUDE.md AGENTS.md
 git commit -m "adopt sofar"
 
 # everyone else
-npm install -g sofar.sh
+npm install -g sofar.sh --allow-scripts=sofar.sh
 git pull
 sofar status
 ```
@@ -140,7 +148,7 @@ and the result still reads correctly.
 
 | Command | What it does |
 | --- | --- |
-| `sofar init` | Set up the record here and connect your tools — asks which agents, or `--agents claude-code,cursor,codex` / `all` |
+| `sofar init` | Set up the record here and connect your tools — asks which agents the first time, or `--agents claude-code,cursor,codex` / `all`; `--refresh` rewires the agents already set up |
 | `sofar new <name>` | Start a piece of work and tie it to the current branch — `--supersedes <a>,<b>` when it takes over earlier initiatives, which are closed pointing here |
 | `sofar switch <name>` | Point the current branch at a different initiative (reopens it if it was closed) |
 | `sofar close [name]` | Mark work finished — `--drop --reason <why>` if it was abandoned, `--superseded-by <name>` if it continues in another initiative — and take every branch off it |
@@ -265,7 +273,7 @@ sofar's is never removed, so this can only undo what sofar did.
 **Staying current.** sofar tells you when a new release exists — a line
 after `sofar status`, `init` or `doctor`, and an `↑0.18.0` on the status
 bar — and leaves installing it to you, since an upgrade also wants a
-`sofar init` in each repo to refresh its wiring. It never blocks: the
+`sofar init --refresh` in each repo to refresh its wiring. It never blocks: the
 version lookup happens once a day in a background process, and every
 command only reads the cached answer. If you would rather it just did the
 upgrade, `sofar upgrade --auto on`. If you would rather it did nothing at

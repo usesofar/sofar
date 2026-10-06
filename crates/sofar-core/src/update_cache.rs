@@ -200,7 +200,7 @@ pub fn notice_from(cache: Option<&UpdateCache>, current: &str) -> Option<UpdateN
 pub fn notice_line(notice: &UpdateNotice) -> String {
     if notice.installed {
         format!(
-            "sofar auto-upgraded to {} (you are running {}). Restart your agent, and run `sofar init` in each repo to refresh its wiring.",
+            "sofar auto-upgraded to {} (you are running {}). Restart your agent, and run `sofar init --refresh` in each repo to refresh its wiring.",
             notice.latest, notice.current
         )
     } else {
@@ -232,7 +232,7 @@ mod tests {
         };
         assert_eq!(
             notice_line(&installed),
-            "sofar auto-upgraded to 99.0.0 (you are running 0.33.0-rc.1). Restart your agent, and run `sofar init` in each repo to refresh its wiring."
+            "sofar auto-upgraded to 99.0.0 (you are running 0.33.0-rc.1). Restart your agent, and run `sofar init --refresh` in each repo to refresh its wiring."
         );
     }
 
