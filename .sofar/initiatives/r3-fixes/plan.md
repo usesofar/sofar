@@ -4,73 +4,18 @@
 
 Goal: Learn from round 3: diagnose every loss, fix each with a predicted gain stated before it is built, upgrade the benchmark harness where it failed us, then prove the fixes on round 4 — a fresh held-out chain, 3 reps — and ship stable only if the D19 lead-margin gate passes.
 
-Brief (the operator's words, verbatim):
+Brief: the operator's words, 281 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
+Progress: 42 done, 5 dropped, 0 remaining
 
-Progress: 41 done, 3 dropped, 3 remaining
+## Phase 1 — Diagnose round 3 [done] — 7/7 done — its tasks in phases/P1.md
 
-## Phase 1 — Diagnose round 3 [done] — 7/7 done
+## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [done] — 13/16 (3 dropped) done — its tasks in phases/P2.md
 
-- [x] 1.1 3-rep readout per pre-registered claim (PRE-REGISTRATION-R3, memory-lead 5.4): per-rep values, pooled margins, CIs; list every miss as a loss row with evidence
-- [x] 1.2 Cost attribution per agent (Claude, Codex, Cursor): split each sofar cell's tokens by source — digest, alwaysLoad block, raw .sofar reads, tool output — against native and beads; find why non-Claude agents cost 1.4–2× tokens
-- [x] 1.3 Wall-time decomposition: lock-wait vs agent time vs turns per session, per arm; separate queue starvation from real slowness
-- [x] 1.4 Early-chain variance: is rep 1's S2–S11 dip (~82% vs 84–95%) a signal or noise across 3 reps? Read transcripts of the low sessions if it recurs
-- [x] 1.5 S18 merge post-mortem across all arms and reps: which files conflict, how each agent resolved them, why rep 1 sofar broke the app (D36)
-- [x] 1.6 Round-2 losses carried forward: chain B's misses C1, C2, C3, C5 against automemory (bench-refresh D74, cause L36). Did rc.4's L36 fix hold on round 3's held-out chain? Every still-open miss becomes a loss row.
-- [x] 1.7 Remaining R3 readings (ROUND-3-REPORT §6): L-C9 (a) via H6 rule-fidelity on every arm; native-side L-C9 (b) and L-C10 (b)(c) counts to tell lead from parity; L-C6 store share and H2 background calls via the round-3 transcripts.py
+## Phase 3 — Benchmark harness upgrades (what we lacked) [done] — 8/9 (1 dropped) done — its tasks in phases/P3.md
 
-## Phase 2 — Product fixes (each states PREDICT before build; ablation per D5) [done] — 13/16 (2 dropped) done
+## Phase 4 — Release candidate [done] — 5/6 (1 dropped) done — its tasks in phases/P4.md
 
-- [x] 2.0 Research survey per loss row (r3-fixes D1). Prior art from papers, products and OSS: context and memory systems, agent context engineering, prompt-cache layouts, retrieval budgets, merge drivers/CRDTs. Per loss, ranked options plus at least one candidate new method of our own, with predicted margin vs native and the best competitor.
-- [x] 2.1 Generated projections never conflict on merge (plan.md, decisions.md, memory.md, sessions/*.md): events.jsonl union-merges, projections regenerate from it. PREDICT: 0 conflicted .sofar files at a Chain-L-style merge (rep-1 sofar had 3 extra, 8 vs 4)
-- [x] 2.2 Land memory-lead 4.3 (L35: ≤1 raw .sofar read per session) and 4.4 (L34: cap the alwaysLoad per-turn cost) — owned there; this task tracks them into the rc
-- [-] 2.3 Non-Claude context diet: whatever 1.2 finds for Codex and Cursor. PREDICT stated from 1.2's numbers before build (dropped)
-- [-] 2.4 Fixes from 1.3–1.6 findings, one task per finding, each with its PREDICT (dropped)
-- [x] 2.5 Cross-agent supersession links (LR2): Codex/Cursor sessions logged 13 of 18 changed decisions with no supersedes and 1 against the wrong target (Claude: 1 of 30), so the old rule stays live beside the new. PREDICT after 2.0's survey
-- [x] 2.6 Supersede-target integrity (LR3): r1 Cursor retired guarded L03 via an unrelated supersede; r2 Claude superseded the wrong entry from file-order D-numbers off a raw events.jsonl read (fold order differs after a merge). Check the target is related; print each entry's own id in decisions.md. PREDICT after 2.0
-- [x] 2.7 Non-Claude write path (LR2's cause): Codex writes every event through raw `sofar event append`, as the AGENTS.md protocol block teaches; its decision_logged template has no supersedes, and the append skips supersede resolution, the reversal guard and quote validation. plan_updated as a full replace forces raw events.jsonl reads. PREDICT after 2.0
-- [x] 2.8 Write-backs rejected whole: 34-42% of sofar_end_session calls fail on one decision's 300-char quote ('nothing was filed') and the agent resends the whole ~20k-char payload (~$2/chain, about 0.98x on L-C6). PREDICT after 2.0
-- [x] 2.9 Brief growth under full-replace plans: the L36 fix keeps every session's operator words in the brief (46-55k chars by S30), and plan_updated resends it whole each session (1.05-1.34M chars a chain, 50-60% of events.jsonl, quadratic over a chain). Append to the brief without resending the plan. PREDICT after 2.0
-- [x] 2.10 LR1-A: bind guarded rules to tests; Stop blocks on a failed bound check (memory-lead D37). PREDICT guarded violations at S30 0.33x native, claim ≤0.5x
-- [x] 2.11 LR4: merge block in the digest, memories in edit-time surfacing, merge receipts. PREDICT L-C2 18-20 mean −11.2 → ≥0 (low confidence)
-- [x] 2.12 Record root walk-up (D12): hooks serve the record above the agent's cwd. Round 3 lost Claude Write/Edit capture 156 of 156 from subdirectories. PREDICT capture from a subdirectory 0% -> 100%
-- [x] 2.13 2.10's Stop gate is over the D18 budget at i1000-10mb (SOFAR_ENFORCE off→on: Stop +48.9 ms, +37.2%; vs rc.4 +23.9%). Make it cheaper or put it behind a flag defaulted off before the rc.5 cut (4.1).
-- [x] 2.14 `sofar doctor` gitattributes check: every projection and shard path (2.1's lines plus brief.md, decisions/*.md, memory/*.md, phases/*.md) carries merge=union and linguist-generated; it prints the exact fix and warns, never errors. Apply the lines to this repo's .gitattributes.
-- [ ] 2.15 Bug against r1-fixes D35 ("install only the agents the operator selects"): on 2026-10-05 18:42:51 IST, with no recorded `sofar init`/`upgrade` command, this repo gained .cursor/hooks.json and .cursor/mcp.json (plus the Claude PreToolUse hook and an AGENTS.md rewrite) right after rc.5 was installed. The operator never selected Cursor here and dropped .cursor on 2026-10-06. Find the trigger (an auto-upgrade on session start? another session's init?), make re-wiring respect the selected-agents set, and add a test that an unselected host is never written.
+## Phase 5 — Round 4 benchmark [done] — 9/9 done — its tasks in phases/P5.md
 
-## Phase 3 — Benchmark harness upgrades (what we lacked) [pending] — 8/9 done
-
-- [x] 3.1 Reboot safety: bench plists must not relaunch stale or finished jobs at login (RunAtLoad relaunched smoke-r3-h4/smoke-r3-h on 2026-10-03)
-- [x] 3.2 score-batch reads the round's own env (BENCH_CHAIN_DIR etc.) from its ledger or plist, so scoring cannot fail on a missing chain
-- [x] 3.3 Fair agent-lock scheduling: no cell starves behind the others (sofar r3 waited ~4h of its first 6h)
-- [x] 3.4 Operator hold/resume command for a running round (today: bootout + re-bootstrap by hand)
-- [x] 3.5 Per-agent cost and token readout built into check-rep (today hand-computed from ledgers)
-- [ ] 3.6 Optional local-model smoke profile for runner development only, never a scored arm
-- [x] 3.7 Freeze the per-claim analysis script with PRE-REGISTRATION-R4 (round 3 had none until after scoring), and assert per-session store growth on every arm (beads r2's issues.jsonl froze at 66 lines S14–S30)
-- [x] 3.8 Codex hooks in every cell (ROUND-3-REPORT H-f): launchCodex passes --dangerously-bypass-hook-trust, and check-rep asserts hook-sourced events per agent on each hook-using arm (round 3: 0 Codex hook events on all 3 sofar reps)
-- [x] 3.9 Consolidate the round-4 runner on one branch. 3.2 and 3.3 landed on round3-runner-dev (79e7cdc, 813448d); 3.1/3.4/3.5/3.8 and 3.7 are on handoff-bench main. Merge them onto one branch, re-run the full runner suite, and pin that commit and hash for PRE-REGISTRATION-R4.
-
-## Phase 4 — Release candidate [pending] — 5/6 (1 dropped) done
-
-- [x] 4.1 Cut rc.5 with Phase 2: full suite, SPEC acceptance criteria, D18 read-path gate on both pinned fixtures
-- [x] 4.2 Publish rc.5 to npm next (operator runs the publish)
-- [x] 4.0 Rust parity gate before the rc.5 cut. The Rust core must be byte-identical to TS on digest, every hook's stdout and the CLI surfaces that agents read, on every real events.jsonl (this repo and sofar-cloud) plus the round-4 fixture, after all Phase 2 fixes land in both engines. rc.5 ships Rust only when green.
-- [-] 4.3 Unblock sofar-core-win32-x64 on npm. Its first publish (0.34.0-rc.5) hit E403 "Package name triggered spam detection". Operator: open an npm support ticket for the name, then publish it from ~/IO/sofar-rc5/packaging/npm/sofar-core-win32-x64. Don't rename (rust-core D22) unless support refuses. (dropped)
-- [x] 4.4 Scoped core packages for the next release (rust-core D-latest, superseding D22). emit.mjs emits @sofar/core-<platform>-<arch>. sofar.sh optionalDependencies and install.mjs and the shim lookup use the scoped names; packaging tests and the release procedure (repo memory M1, r3-fixes M10) are updated. Publish @sofar/core-win32-x64 first as the spam-filter probe. Deprecate the five rc.5 sofar-core-* names with a pointer after the scoped ones ship. Do not touch rc.5 (round 4's pin).
-- [x] 4.5 Cut stable 0.34.0 from v0.34.0-rc.5's tested code plus 4.4 (scoped @sofar.sh/core-* packages). Run the full suite, cargo, conformance, parity:real, D18 vs rc.4 and the packaging tests. Tag v0.34.0 locally; CI builds the 5 cores; stage. The operator publishes the cores first (@sofar.sh/core-win32-x64 first as the spam probe), then sofar.sh with dist-tag latest. Deprecate the 5 unscoped rc.5 sofar-core-* names with a pointer.
-
-## Phase 5 — Round 4 benchmark [active] — 8/9 done
-
-- [x] 5.1 Fresh held-out chain authored blind (D22; chain-l-author pattern)
-- [x] 5.2 PRE-REGISTRATION-R4: claims with predicted margins from Phase 2, frozen in the operator's own words before any scored run
-- [x] 5.3 Smoke on the round-4 harness
-- [x] 5.4 Run 3 reps; score-batch and check-rep each
-- [x] 5.5 Readout per claim; D19 gate ruling; stable publish only if it passes
-- [x] 5.0 Pin the latest stable agents and beads at the freeze, checked live (D5); re-check the Codex contract fixtures on the new pin
-- [x] 5.6 R4-B chain content: the blind round-4 author plants ≥2 decisions on branches that are never merged, with hidden tests asserting trunk behaviour, so branch containment is measurable (R3-FIX-SURVEY C §4 B; D9)
-- [x] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
-- [ ] 5.8 Runner test hygiene, found 2026-10-05. The pause/resume and fake-agent e2e tests leave their round.sh/run.ts children running when they time out: three fake-hold, fake-kill and fake-killbuild rounds outlived their test by 30 min, polling scratch dirs. Under load (one suite took 1,442 s with 8 timeouts, against ~90 s and 135/135 on the same commit) the 60 s and 240 s caps trip. Fix: kill the process group in afterEach/finally, and scale or relax the timeouts. Test-only, so not a deviation from PRE-REGISTRATION-R4 (the runner code is unchanged).
-
-Active phase: Phase 5 — Round 4 benchmark
-Next action: Round 4: 5.0 live pins, then 5.2 PRE-REGISTRATION-R4 in the operator's words.
+Next action: None here: work continues in r4-fixes.
