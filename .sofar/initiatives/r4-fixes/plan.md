@@ -4,19 +4,79 @@
 
 Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), research best-in-class techniques across all areas (context and cost, knowledge correctness, team and multi-agent, competitors, benchmark science, engineering and product), invent where the field has nothing good enough, then build, release and prove a ≥50% lead over native memory and the best competitor on a harder held-out chain.
 
-Brief: the operator's words, 303 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief (the operator's words, verbatim):
 
-Progress: 9/10 tasks done (90%)
+Operator, 2026-10-06: "First send agents to analyse where we loss and research on techniques and methods to improve our system end to end in all areas. We can also plan engineering / innovate in all the areas. First do a through research technique and methods which can help improve sofar in all areas."
 
-## Phase 1 — Loss analysis and research [done] — 9/10 done — its tasks in phases/P1.md
+Progress: 9/51 tasks done (17%)
 
-## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 0/0 done
+## Phase 1 — Loss analysis and research [done] — 9/10 done
 
+- [x] 1.1 Loss forensics, rounds 3–4: where sofar loses, ties or nearly loses, per agent, segment and mechanism (live reads, recall hits, gate firings, write-backs, Codex overhead, S18–S20, compaction)
+- [x] 1.2 Research: context engineering and cost for Claude Code, Codex and Cursor (Oct 2026). Target ≤0.7x native on all three
+- [x] 1.3 Research: knowledge correctness — decision currency, supersession, enforcement, temporal knowledge, conflict detection without model calls
+- [x] 1.4 Research: team and multi-agent — branches, merges, worktrees, concurrent and cross-vendor agents, orchestration
+- [x] 1.5 Research: competitor and market teardown (Oct 2026), and the claims sofar can win
+- [x] 1.6 Research: benchmark science — a harder held-out chain without a ceiling, power, public benchmarks, faster runs, credible claims
+- [x] 1.7 Research: engineering and product — hot path and Rust, install and upgrade, reliability, DX, observability, the self-improvement loop
+- [x] 1.8 Synthesis: one ranked improvement plan (R4-RESEARCH.md) with a PREDICT per item, an ablation per item (D5), and invariant conflicts flagged, for the operator's ruling
+- [ ] 0.1 Release hygiene: merge release/0.34.0 (v0.34.0: version 0.34.0, scoped @sofar.sh/core-* packaging) back into main, so the next cut from main keeps the scoped cores; reconcile main's 0.33.0-rc.2+trunk version convention. Do it in a scratch worktree, run the full suite, then fast-forward main. (active)
+- [x] 0.2 HOTFIX 0.34.1 for the shipped Stop-gate false positive. core/checks.ts testSpec/ARG_TOKEN misreads a bare test path (`bun test tests`) as part of the runner, so a passing broader run never covers a narrower bound-test ask, and vice versa. Every round-4 gate firing was false (Codex 18/18, Claude 10/63). Fix in TS and Rust with coverage tests (directory covers file, bare runner covers any), keep parity, and check D18. Ship from release/0.34.0 as 0.34.1 together with the merge-back (0.1).
 
-## Phase 3 — Release candidate [pending] — 0/0 done
+## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 0/14 done
 
+- [ ] A1 A1 In-band write-back: a fenced `sofar` block in the final reply is filed by the Stop handler (SOFAR_WRITEBACK). PREDICT Codex −0.15 to −0.20, Cursor −0.08 to −0.15, Claude −0.03 to −0.05 (active)
+- [ ] A2 A2 Host-compiled payloads: AGENTS.md block ≤1.5k chars, CLI grammar moved to a skill, per-host budgets (SOFAR_PAYLOAD). PREDICT Codex −0.05 to −0.07, Cursor −0.05 to −0.10 (active)
+- [ ] A3 A3 Session adoption on every host: MCP adopts the single live hook-registered session (SOFAR_ADOPT). PREDICT Codex −0.04 to −0.06, Cursor −0.03 to −0.06 (inside A1) (active)
+- [ ] A4 A4 Read side: told set seeded from digest and recall, hook-line epochs, recall cap 2.5k chars / 8 entries (SOFAR_TOLD_LINES, SOFAR_RECALL). PREDICT Claude and Codex −0.02 to −0.04; repeated notices 38% → ≤5% (active)
+- [ ] A5 A5 Current-only agent views: retired rules render as "retired by D9" in read/show/get_state/find (SOFAR_RETIRE). PREDICT SR −2 to −4 pts (active)
+- [ ] A6 A6 Supersession sweep: git grep for old-version-only tokens within the rule's scope at link time; `sofar migrated` answers it (SOFAR_SWEEP). PREDICT SR −8 to −12 pts (active)
+- [ ] A7 A7 Rejected- and retired-token tripwire at PostToolUse edits, warn only, scope-aware (SOFAR_TRIPWIRE). PREDICT GV −1.2 to −1.5, SR −4 to −8 pts (active)
+- [ ] A8 A8 Supersession integrity: a `check_bound` event replaces bind re-logs; slot-diff ranking of link candidates (SOFAR_SLOTDIFF). PREDICT re-logs → 0, unlinked versions ≤1–2/48, wrong targets → 0 (active)
+- [ ] A9 A9 Cursor without Stop: sessionEnd debt note, postToolUse rule text on bound paths; guarded rules ranked above recency on every host (SOFAR_CURSOR_DEBT, SOFAR_RANK). Includes the R18 headless Cursor hook probe (active)
+- [ ] A10 A10 Session identity and binding stability: lineage carriers, a per-worktree untracked last home, write-backs never rebind the committed bindings.json (SOFAR_LINEAGE, SOFAR_LASTHOME). PREDICT misfiled sessions 25% → ≤8% (active)
+- [ ] A11 A11 Wiring journal and consent set: init/uninit/doctor --fix/upgrade journalled; a host rewritten only on a recorded choice; `sofar uninit --agent` reverses exactly what was written (active)
+- [ ] A12 A12 Self-activating native core: copied into a per-user versioned store, sha-checked, shims try it first; works when npm, pnpm or bun skip install scripts (SOFAR_CORE=0 escape) (active)
+- [ ] A13 A13 Hermetic tests and bench: redirect HOME/USERPROFILE/XDG/CODEX_HOME, a HOME canary, process-group kill with parent-death pipe, an orphan sweep, timeouts scaled to the machine, no long suites on battery. Required before round 5 (active)
+- [ ] A14 A14 Doctor triage and an "abandoned" disposition: act-now vs history, --json, --explain, abandoned sessions and branches (SOFAR_ABANDON). PREDICT 467 WARN → ≤10 act-now lines (active)
 
-## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/0 done
+## Phase 3 — Release candidate [pending] — 0/2 done
 
+- [ ] 3.1 Cut rc 0.35.0 (Wave A): integrate the wave-a/* branches onto release/0.35.0, full gates (TS, cargo, conformance, parity:real, D18 two legs vs 0.34.1, every item's replay), CI, stage cores, operator publishes to next
+- [ ] 3.2 Cut rc 0.36.0 (Wave B items whose replay passed) as round 5's frozen build; merge back to main after each cut
 
-Next action: Relay the U2 merge-back result; then the operator rules on R1–R3, R10, R11, R14, R15, R18 and R22 to start Wave A (0.35).
+## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/6 done
+
+- [ ] 4.1 CHAIN-N-DESIGN.md (from 1.6 §4 and 1.3 §6 stressors; claims C1–C6 from 1.5 §8) for the operator's approval; then a fresh blind author session in a new chain-n-author record
+- [ ] 4.2 Round-5 harness: decision-application (DA) scoring, hierarchical bootstrap analysis, cost in dollars from pinned price vectors (R3), Codex model pinned, Bonferroni and ceiling stop (R6), two-lane option (R8), hermetic runner (A13)
+- [ ] 4.3 Calibration: a sealed bounds pilot (~50 short sessions; amnesia ≤25% DA pass, oracle ≥90%) plus a naive-notes rehearsal (~26 sessions), on non-scored arms only (R5)
+- [ ] 4.4 PRE-REGISTRATION-R5: claims (R5-F primary, R5-F+ reported, R5-A/C/B, R5-$ parity), units, stopping rules; public signed tag (R9); frozen in the operator's own words
+- [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
+- [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
+
+## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 0/11 done
+
+- [ ] B1 B1 Work maps: ≤1.5k-char focus-task map (files, last test cmd+exit, entry points) ranked by PageRank+BM25F, stamped verified-at-sha (SOFAR_WORKMAP). PREDICT Claude −0.05 to −0.10
+- [ ] B2 B2 Rules compiled to checks: opt-in forbid, PreToolUse deny + check --staged + Stop gate (SOFAR_FORBID; R13 Decision vs drift-hardening D3 first). PREDICT GV −0.5 to −1
+- [ ] B3 B3 Rule-test integrity: bound tests guarded (ask once), fail-then-pass proof, quote-verified supersession of guarded rules (R14, R15). PREDICT GV −1 to −1.5
+- [ ] B4 B4 Claims and a ready frontier: derived claims, kernel-flock liveness, fencing epoch, sofar next --ready (R16, R22). PREDICT duplicate work −80%
+- [ ] B5 B5 Here-vs-elsewhere digest: in-force rules from this checkout's ancestry only, plus a ≤400-char elsewhere block (SOFAR_ELSEWHERE)
+- [ ] B6 B6 Merge-time currency: decision forks in the merge block, rule-set ETag re-tells moved rules. PREDICT T-FORK ≤10%, SR −2 to −5 pts in merge segments
+- [ ] B7 B7 sofar diff base..head for PRs: decision/rule/guard/fork diff as Markdown; flags bidi and zero-width chars
+- [ ] B8 B8 Deterministic staleness: flag rules and memories whose cited files or guard paths are missing (never delete)
+- [ ] B9 B9 Price-aware placement and demand paging of context fragments
+- [ ] B10 B10 Blackboard orchestration (notify peers, messages point into the record) and monotonic HLC event ids
+- [ ] B11 B11 Engine hygiene: spawn-free TS hot path, union-merge fold idempotence, read-only sofar fsck, local SOFAR_TRACE and sofar explain
+
+## Phase 2c — Wave C: distribution and ecosystem [pending] — 0/8 done
+
+- [ ] E1 E1 Host plugins as the primary install (Claude Code, Codex, Cursor); doctor detects double wiring (after A12; R21)
+- [ ] E2 E2 Release pipeline: release.yml builds 5 cores, OIDC trusted publishing, staged publish, provenance, attestations, automatic merge-back (bypass-2FA tokens end Jan 2027)
+- [ ] E3 E3 Interop: sofar export/import --amr (Agent Memory Repo), import --beads, spec-kit extension
+- [ ] E4 E4 GitHub Action example: sofar check + sofar diff in the user's own CI (after B7)
+- [ ] E5 E5 Docs and site: per-host quickstarts, llms.txt, How-we-measure page, behaviour-diff changelog, published byte budget
+- [ ] E6 E6 Homebrew formula (stuck at 0.11.0) with the native core, bumped from release.yml (after E2)
+- [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
+- [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
+
+Next action: New session: rehome to r4-fixes, read the 2026-10-06 handoff note, check the U2 merge-back and the 8 wave-a/* branches, then integrate Wave A onto release/0.35.0.
