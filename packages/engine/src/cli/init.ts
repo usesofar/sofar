@@ -1897,8 +1897,9 @@ branch's binding (\`.sofar/bindings.json\`) picks the record.
   later session needs), \`notes\`, \`brief_append\` and \`decisions\`, each
   {chose, over, because} plus, when it binds every later session, a \`rule\`
   in the operator's words with their \`quote\`, \`supersedes\` ("D<n>" or
-  "none"), and a \`guard\`, \`check\` or \`until\`. Prose is WHY. The Stop
-  hook blocks a session that skips this.
+  "none"), and a \`guard\`, \`check\` or \`until\`. Prose is WHY. It is
+  MANDATORY: where sofar's Stop hook runs it blocks a session without it,
+  and where it cannot (headless Cursor) the next session starts blind.
 - No \`sofar_*\` tools? \`sofar help write\` (the \`sofar-write\` skill) is
   the same loop on the CLI.
 - Never hand-edit \`.sofar/\` files: corrections are new events.
