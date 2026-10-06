@@ -2,4 +2,7 @@
 
 # Decisions: r4-fixes
 
-(no decisions logged yet)
+One line per decision, in log order. Its full text — chose, over, because, the operator's words — is in decisions/D<n>.md, or `sofar show D<n>`.
+
+- D1·1t8y 2026-10-06 — chose R12 (init selection, ships in 0.34.1 as U3). A rerun of `sofar init` rewires ex…
+- D2·vs1d 2026-10-06 — chose Hotfix 0.34.1 scope: U1 (Stop-gate false positive), U3 (init selection), U4 (re…
