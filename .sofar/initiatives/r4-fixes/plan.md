@@ -79,4 +79,4 @@ Progress: 17/51 tasks done (33%)
 - [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
 - [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
 
-Next action: Relay the remaining 5 Wave A reports (A2+A4, A6+A7, A5+A8, A9, A10+A3) to the r4-fixes orchestrator.
+Next action: Relay the remaining 4 Wave A reports (A2+A4, A6+A7, A9, A10+A3) to "r4-fixes A2 #c9e3"; raise the A5 shard ruling with the operator.
