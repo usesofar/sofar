@@ -200,9 +200,9 @@ a commit.
 | `cli/commit-trailer.ts` | `sofar commit-trailer` — the prepare-commit-msg worker that stamps `Sofar-Initiative:` from the session that made the commit (D5). Session-only resolution; never fails a commit. |
 | `cli/init.ts` | `sofar init` — for the agents picked, hooks (`.claude/settings.json`, `.cursor/hooks.json`, `.codex/hooks.json`), MCP wiring (`.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml`) and protocol blocks; `.gitattributes` for all. Decides where the shims live and which agents a repo is already wired for (r1-fixes 7.1, D36). Owns the protocol-block ledger. |
 | `cli/codex-config.ts` | sofar's MCP server in Codex's config.toml (agents-parity 2.2, D7): a structure-only TOML scanner (no dependency) that tells whether a `[mcp_servers.sofar]` table is there or may be appended, appends it and cuts it out byte-exactly, plus the user-level `codex mcp add` step and config path. |
-| `cli/wiring-journal.ts` | The wiring journal (r4-fixes R12): one line per `sofar init` run that wrote anything — argv, cwd, terminal or not, how the agents were chosen, every file written or removed with its hash — in the per-user state dir, never the repo. An audit trail, not a selection store. |
+| `cli/wiring-journal.ts` | The wiring journal (r4-fixes R12, A11): one line per `sofar init`, `uninit`, `doctor --fix` or `upgrade` run that changed anything — argv, cwd, terminal or not, how the agents were chosen, every file written or removed with its hash — in the per-user state dir, never the repo. Folded, it is the consent set (which wired agents this clone chose) and the ledger `sofar uninit --agent` reverses. |
 | `cli/agents.ts` | The agents `sofar init` can set up (Claude Code, Cursor, Codex): the `--agents` grammar, which agents this machine has, and the terminal multi-select picker (r1-fixes 7.1, D36). Writes no file. |
-| `cli/uninit.ts` | `sofar uninit` — removes what init wrote. |
+| `cli/uninit.ts` | `sofar uninit` — removes what init wrote; `--agent <id>` reverses exactly what the wiring journal says sofar wrote for one agent (r4-fixes A11). |
 | `cli/new.ts` | `sofar new` — create an initiative, bind the branch. |
 | `cli/close.ts` | `sofar close` — close an initiative, unbind its branches. |
 | `cli/status.ts` | `sofar status` — the digest. |

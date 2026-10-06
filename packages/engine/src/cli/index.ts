@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { Command } from 'commander'
 import { version } from '../../package.json'
 import { createSofarServer } from '../mcp/server'
@@ -11,6 +11,7 @@ import { runAdopt } from './adopt'
 import { runInitCommand } from './init'
 import { stderrCaps } from './ui'
 import { runDoctor } from './doctor'
+import { parseAgents } from './agents'
 import { runUninit } from './uninit'
 import { runNew, runSwitch } from './new'
 import { runClose } from './close'
@@ -82,7 +83,7 @@ program
   )
   .option(
     '--refresh',
-    'rewire exactly the agents this repo is already wired for (protocol blocks, hook shims) — never asks, never adds an agent',
+    'rewire the agents this repo is already wired for and this clone chose (protocol blocks, hook shims) — never asks, never adds an agent; a wired agent no choice was recorded for is left and named',
   )
   .option(
     '--statusline',
@@ -108,15 +109,38 @@ program
     },
   )
 
+/** Who ran a wiring command, for the wiring journal (r4-fixes A11). */
+function journalContext(): { argv: string[]; cwd: string; tty: boolean } {
+  return { argv: process.argv.slice(2), cwd: process.cwd(), tty: process.stdin.isTTY === true && process.stdout.isTTY === true }
+}
+
 program
   .command('uninit')
   .description(
     'exact inverse of init: remove hook shims, settings hook entries, the .mcp.json server entry, and the protocol blocks; .sofar/ is kept unless --purge',
   )
   .option('--purge', 'also delete the .sofar/ record (irreversible)')
+  .option(
+    '--agent <id>',
+    "remove one agent's wiring (claude-code, cursor or codex): exactly what this clone's wiring journal says sofar wrote for it, and nothing else",
+  )
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action((opts: { purge?: boolean; root?: string }) => {
-    emit(runUninit(rootOf(opts), { purge: opts.purge === true }))
+  .action((opts: { purge?: boolean; agent?: string; root?: string }) => {
+    let agent: ReturnType<typeof parseAgents> | undefined
+    if (opts.agent !== undefined) {
+      agent = parseAgents(opts.agent)
+      if ('error' in agent || agent.agents.length !== 1) {
+        emit(fail(`sofar uninit: --agent takes one agent — claude-code, cursor or codex${'error' in agent ? ` (${agent.error.replace(/^--agents /, '')})` : ''}`))
+        return
+      }
+    }
+    emit(
+      runUninit(rootOf(opts), {
+        purge: opts.purge === true,
+        ...(agent !== undefined && 'agents' in agent ? { agent: agent.agents[0]! } : {}),
+        journal: journalContext(),
+      }),
+    )
   })
 
 program
@@ -132,7 +156,7 @@ program
   .action((opts: { fix?: boolean; root?: string }) => {
     // withUpdateNotice touches stderr only — doctor's exit code is its verdict
     // on the RECORD, and a new release must never be able to change it (D1).
-    emit(withUpdateNotice(runDoctor(rootOf(opts), { fix: opts.fix === true })))
+    emit(withUpdateNotice(runDoctor(rootOf(opts), { fix: opts.fix === true, journal: journalContext() })))
   })
 
 program
@@ -869,13 +893,18 @@ program
         )
         return
       }
+      // The clone this was run from, if any, journals the upgrade (r4-fixes A11).
+      const clone = recordRoot(process.cwd())
       emit(
-        await runUpgrade({
-          ...(version !== undefined ? { version } : {}),
-          check: opts.check === true,
-          dryRun: opts.dryRun === true,
-          force: opts.force === true,
-        }),
+        await runUpgrade(
+          {
+            ...(version !== undefined ? { version } : {}),
+            check: opts.check === true,
+            dryRun: opts.dryRun === true,
+            force: opts.force === true,
+          },
+          { journal: { ...journalContext(), root: existsSync(join(clone, '.sofar')) ? resolve(clone) : null } },
+        ),
       )
     },
   )
