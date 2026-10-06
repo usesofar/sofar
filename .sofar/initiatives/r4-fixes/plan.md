@@ -32,4 +32,4 @@ Progress: 8/10 tasks done (80%)
 ## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/0 done
 
 
-Next action: Integrate the hotfix/u1, u3, u4, u5 and u8 branches on release/0.34.1; run the full gates (TS, cargo, conformance, parity:real, D18 like-for-like, the 28-block replay); cut and tag 0.34.1; CI; stage; operator publishes; then U2 merge-back into main.
+Next action: Collect U1, U3 and U5; integrate all branches on release/0.34.1 (fix the packaging test, the lockfile for npm ≥11, the SPEC read-path paragraph and the commit trailers); run the gates; cut 0.34.1.
