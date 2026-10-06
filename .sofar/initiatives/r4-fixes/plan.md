@@ -4,13 +4,11 @@
 
 Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), research best-in-class techniques across all areas (context and cost, knowledge correctness, team and multi-agent, competitors, benchmark science, engineering and product), invent where the field has nothing good enough, then build, release and prove a ≥50% lead over native memory and the best competitor on a harder held-out chain.
 
-Brief (the operator's words, verbatim):
+Brief: the operator's words, 303 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Operator, 2026-10-06: "First send agents to analyse where we loss and research on techniques and methods to improve our system end to end in all areas. We can also plan engineering / innovate in all the areas. First do a through research technique and methods which can help improve sofar in all areas."
+Progress: 3/9 tasks done (33%)
 
-Progress: 2/8 tasks done (25%)
-
-## Phase 1 — Loss analysis and research [active] — 2/8 done
+## Phase 1 — Loss analysis and research [active] — 3/9 done
 
 - [ ] 1.1 Loss forensics, rounds 3–4: where sofar loses, ties or nearly loses, per agent, segment and mechanism (live reads, recall hits, gate firings, write-backs, Codex overhead, S18–S20, compaction) (active)
 - [ ] 1.2 Research: context engineering and cost for Claude Code, Codex and Cursor (Oct 2026). Target ≤0.7x native on all three (active)
@@ -18,8 +16,9 @@ Progress: 2/8 tasks done (25%)
 - [x] 1.4 Research: team and multi-agent — branches, merges, worktrees, concurrent and cross-vendor agents, orchestration
 - [ ] 1.5 Research: competitor and market teardown (Oct 2026), and the claims sofar can win (active)
 - [ ] 1.6 Research: benchmark science — a harder held-out chain without a ceiling, power, public benchmarks, faster runs, credible claims (active)
-- [ ] 1.7 Research: engineering and product — hot path and Rust, install and upgrade, reliability, DX, observability, the self-improvement loop (active)
+- [x] 1.7 Research: engineering and product — hot path and Rust, install and upgrade, reliability, DX, observability, the self-improvement loop
 - [ ] 1.8 Synthesis: one ranked improvement plan (R4-RESEARCH.md) with a PREDICT per item, an ablation per item (D5), and invariant conflicts flagged, for the operator's ruling
+- [ ] 0.1 Release hygiene: merge release/0.34.0 (v0.34.0: version 0.34.0, scoped @sofar.sh/core-* packaging) back into main, so the next cut from main keeps the scoped cores; reconcile main's 0.33.0-rc.2+trunk version convention. Do it in a scratch worktree, run the full suite, then fast-forward main.
 
 ## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 0/0 done
 
@@ -31,4 +30,4 @@ Progress: 2/8 tasks done (25%)
 
 
 Active phase: Phase 1 — Loss analysis and research
-Next action: Collect the remaining six lane reports, then synthesise R4-RESEARCH.md (1.8).
+Next action: Collect lanes 1.1, 1.2, 1.5 and 1.6; ask the operator about the merge-back (0.1); then synthesise R4-RESEARCH.md (1.8).
