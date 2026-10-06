@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-06: "First send agents to analyse where we loss and research on techniques and methods to improve our system end to end in all areas. We can also plan engineering / innovate in all the areas. First do a through research technique and methods which can help improve sofar in all areas."
 
-Progress: 15/51 tasks done (29%)
+Progress: 17/51 tasks done (33%)
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done
 
@@ -23,16 +23,16 @@ Progress: 15/51 tasks done (29%)
 - [x] 0.1 Release hygiene: merge release/0.34.0 (v0.34.0: version 0.34.0, scoped @sofar.sh/core-* packaging) back into main, so the next cut from main keeps the scoped cores; reconcile main's 0.33.0-rc.2+trunk version convention. Do it in a scratch worktree, run the full suite, then fast-forward main.
 - [x] 0.2 HOTFIX 0.34.1 for the shipped Stop-gate false positive. core/checks.ts testSpec/ARG_TOKEN misreads a bare test path (`bun test tests`) as part of the runner, so a passing broader run never covers a narrower bound-test ask, and vice versa. Every round-4 gate firing was false (Codex 18/18, Claude 10/63). Fix in TS and Rust with coverage tests (directory covers file, bare runner covers any), keep parity, and check D18. Ship from release/0.34.0 as 0.34.1 together with the merge-back (0.1).
 
-## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 5/14 done
+## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 7/14 done
 
 - [x] A1 A1 In-band write-back: a fenced `sofar` block in the final reply is filed by the Stop handler (SOFAR_WRITEBACK). PREDICT Codex −0.15 to −0.20, Cursor −0.08 to −0.15, Claude −0.03 to −0.05
 - [ ] A2 A2 Host-compiled payloads: AGENTS.md block ≤1.5k chars, CLI grammar moved to a skill, per-host budgets (SOFAR_PAYLOAD). PREDICT Codex −0.05 to −0.07, Cursor −0.05 to −0.10 (active)
 - [ ] A3 A3 Session adoption on every host: MCP adopts the single live hook-registered session (SOFAR_ADOPT). PREDICT Codex −0.04 to −0.06, Cursor −0.03 to −0.06 (inside A1) (active)
 - [ ] A4 A4 Read side: told set seeded from digest and recall, hook-line epochs, recall cap 2.5k chars / 8 entries (SOFAR_TOLD_LINES, SOFAR_RECALL). PREDICT Claude and Codex −0.02 to −0.04; repeated notices 38% → ≤5% (active)
-- [ ] A5 A5 Current-only agent views: retired rules render as "retired by D9" in read/show/get_state/find (SOFAR_RETIRE). PREDICT SR −2 to −4 pts (active)
+- [x] A5 A5 Current-only agent views: retired rules render as "retired by D9" in read/show/get_state/find (SOFAR_RETIRE). PREDICT SR −2 to −4 pts
 - [ ] A6 A6 Supersession sweep: git grep for old-version-only tokens within the rule's scope at link time; `sofar migrated` answers it (SOFAR_SWEEP). PREDICT SR −8 to −12 pts (active)
 - [ ] A7 A7 Rejected- and retired-token tripwire at PostToolUse edits, warn only, scope-aware (SOFAR_TRIPWIRE). PREDICT GV −1.2 to −1.5, SR −4 to −8 pts (active)
-- [ ] A8 A8 Supersession integrity: a `check_bound` event replaces bind re-logs; slot-diff ranking of link candidates (SOFAR_SLOTDIFF). PREDICT re-logs → 0, unlinked versions ≤1–2/48, wrong targets → 0 (active)
+- [x] A8 A8 Supersession integrity: a `check_bound` event replaces bind re-logs; slot-diff ranking of link candidates (SOFAR_SLOTDIFF). PREDICT re-logs → 0, unlinked versions ≤1–2/48, wrong targets → 0
 - [ ] A9 A9 Cursor without Stop: sessionEnd debt note, postToolUse rule text on bound paths; guarded rules ranked above recency on every host (SOFAR_CURSOR_DEBT, SOFAR_RANK). Includes the R18 headless Cursor hook probe (active)
 - [ ] A10 A10 Session identity and binding stability: lineage carriers, a per-worktree untracked last home, write-backs never rebind the committed bindings.json (SOFAR_LINEAGE, SOFAR_LASTHOME). PREDICT misfiled sessions 25% → ≤8% (active)
 - [x] A11 A11 Wiring journal and consent set: init/uninit/doctor --fix/upgrade journalled; a host rewritten only on a recorded choice; `sofar uninit --agent` reverses exactly what was written
