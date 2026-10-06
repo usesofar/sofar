@@ -31,6 +31,18 @@
  * `--legs` picks them; by default `ts`, plus `native` when both sides have a
  * core (the skip is printed). A leg named explicitly that a side cannot run
  * exits 2.
+ *   installed  (r4-fixes A12; named only, never a default) SOFAR_CORE UNSET,
+ *           each side as its install left it: its shims route by themselves,
+ *           on a PATH holding that install's own bin dir (`sofar-core`
+ *           included — the binary when an install script ran, else the
+ *           JavaScript stub). `--<side>-bin` names the dir; an npm global
+ *           prefix's `bin/` is found from the cli.js. Each side gets its own
+ *           XDG_DATA_HOME under the run's scratch dir, where a self-activating
+ *           build puts its per-user core on its first hook — that hook is
+ *           timed once on its own and printed, and the timed rows are every
+ *           hook after it. The engines are printed, not compared: an install
+ *           that runs the core without node in front is the point of the
+ *           leg, so a differing engine is not refused.
  *
  * ENTRY. `--entry shim` (the default) times what a host spawns: the side's
  * OWN hook shim (session-start.sh, user-prompt-submit.sh, stop.sh — the
@@ -110,7 +122,8 @@ const args = Object.fromEntries(
 )
 const USAGE =
   'usage: read-paths.mjs --baseline <cli.js> --candidate <cli.js> [--arm NAME=<a>,<b>] [--root <repo>] [--session <id>] [--n 25] [--budget 0.10]\n' +
-  '                      [--legs ts,native] [--baseline-core <bin>] [--candidate-core <bin>] [--entry shim|cli] [--record <file.json>] [--isolate on|off]'
+  '                      [--legs ts,native,installed] [--baseline-core <bin>] [--candidate-core <bin>] [--baseline-bin <dir>] [--candidate-bin <dir>]\n' +
+  '                      [--entry shim|cli] [--record <file.json>] [--isolate on|off]'
 
 /** Temp dirs this run made; removed on every exit after setup. */
 const made = []
@@ -170,8 +183,15 @@ function isNative(file) {
   }
 }
 
+/** The bin dir an install put `sofar` and `sofar-core` in: `--<side>-bin`, else an npm global prefix's `bin/`. */
+function installBinOf(cli, flag) {
+  if (flag !== undefined) return existsSync(join(flag, 'sofar-core')) ? realpathSync(flag) : null
+  const prefixBin = join(dirname(dirname(cli)), '..', '..', '..', 'bin')
+  return existsSync(join(prefixBin, 'sofar-core')) ? realpathSync(prefixBin) : null
+}
+
 function describeSide(label, bin, coreFlag) {
-  const s = { label, cli: null, version: null, core: null, coreSource: null, noCore: null }
+  const s = { label, cli: null, version: null, core: null, coreSource: null, noCore: null, installBin: null }
   if (!bin.endsWith('.js')) {
     if (!isNative(bin)) fail(`--${label} ${bin}: neither a cli.js nor a native core`)
     s.core = realpathSync(bin)
@@ -179,6 +199,7 @@ function describeSide(label, bin, coreFlag) {
     return s
   }
   s.cli = realpathSync(bin)
+  s.installBin = installBinOf(resolve(bin), at(args[`${label}-bin`]))
   const pkgRoot = dirname(dirname(s.cli))
   try {
     s.version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8')).version ?? null
@@ -241,7 +262,7 @@ if ((side.baseline.cli === null) !== (side.candidate.cli === null)) {
 let legs
 if (args.legs !== undefined) {
   legs = [...new Set(args.legs.split(',').map((x) => x.trim()).filter(Boolean))]
-  for (const leg of legs) if (leg !== 'ts' && leg !== 'native') fail(`--legs ${args.legs}: legs are ts and native`)
+  for (const leg of legs) if (!['ts', 'native', 'installed'].includes(leg)) fail(`--legs ${args.legs}: legs are ts, native and installed`)
 } else {
   legs = []
   if (both((s) => s.cli !== null)) legs.push('ts')
@@ -253,10 +274,12 @@ for (const leg of legs) {
   for (const l of SIDES) {
     if (leg === 'ts' && side[l].cli === null) fail(`--legs ts: the ${l} is a bare core (${side[l].core}); the TypeScript leg needs its cli.js`)
     if (leg === 'native' && side[l].core === null) fail(`--legs native — the ${l}: ${side[l].noCore}`)
+    if (leg === 'installed' && side[l].installBin === null) fail(`--legs installed: no install bin dir holding sofar-core for the ${l} — name it with --${l}-bin`)
   }
 }
 const entry = args.entry ?? (side.baseline.cli === null ? 'cli' : 'shim')
 if (entry !== 'shim' && entry !== 'cli') fail(`--entry ${entry}: shim | cli`)
+if (legs.includes('installed') && entry !== 'shim') fail('--legs installed times what a host spawns: --entry shim only')
 if (entry === 'shim' && side.baseline.cli === null) {
   fail('--entry shim needs a cli.js on both sides: the shim falls back to `sofar`, and the statusline is `sofar statusline`')
 }
@@ -399,7 +422,16 @@ function command(s, leg, hook, witness) {
   const [cmd, sub] = cases[hook]
   const argv = sub ? [cmd, sub] : [cmd]
   const core = leg === 'native' ? (witness ? s.coreWitness : s.core) : null
-  const env = { ...envOf[s.label], PATH: [witness ? witnessBin : null, s.bin, hostPath].filter(Boolean).join(delimiter), SOFAR_CORE: core ?? '0' }
+  const installed = leg === 'installed'
+  const env = {
+    ...envOf[s.label],
+    PATH: [witness ? witnessBin : null, s.bin, installed ? s.installBin : null, hostPath].filter(Boolean).join(delimiter),
+    SOFAR_CORE: core ?? '0',
+  }
+  if (installed) {
+    delete env.SOFAR_CORE
+    env.XDG_DATA_HOME = join(scratch, s.label, 'data')
+  }
   delete env.SOFAR_CORE_DISPATCHED
   if (witness) env.SOFAR_BENCH_WITNESS = witness
   if (s.cli === null) return { file: core, args: argv, env }
@@ -444,6 +476,11 @@ function engineOf(s, leg, hook) {
       return kind === 'load' && nodes.has(pid) && hot.has(url)
     })
   }
+  if (leg === 'installed') {
+    // No pinned core to wrap: what booted says which engine answered.
+    if (nodes.size === 0) return 'native'
+    return tsRan ? 'ts' : 'native-via-node'
+  }
   if (coreAnswered) return tsRan ? 'both' : 'native'
   return tsRan ? 'ts' : 'none'
 }
@@ -467,11 +504,29 @@ console.log(`baseline  ${describe(side.baseline)}${arm ? ` (${arm[1]}=${arm[2]})
 // costs seconds, not a timed leg.
 for (const leg of legs) {
   const engines = { baseline: {}, candidate: {} }
+  const first = {}
+  if (leg === 'installed') {
+    // The install's first hook: where a self-activating build copies its core.
+    for (const l of SIDES) first[l] = Number(run(side[l], leg, 'session-start', null).toFixed(1))
+  }
   for (const hook of HOOKS) for (const l of SIDES) engines[l][hook] = engineOf(side[l], leg, hook)
-  console.log(`leg ${leg} (SOFAR_CORE ${leg === 'ts' ? '0 on both sides' : 'pinned to each side’s core'}):`)
+  console.log(
+    `leg ${leg} (SOFAR_CORE ${leg === 'ts' ? '0 on both sides' : leg === 'installed' ? 'unset, each install as it routes itself' : 'pinned to each side’s core'}):`,
+  )
+  if (leg === 'installed') {
+    for (const l of SIDES) console.log(`  ${l.padEnd(9)} first hook ${first[l]} ms; bin ${side[l].installBin}`)
+  }
   for (const l of SIDES) console.log(`  ${l.padEnd(9)} ran ${summarize(engines[l])}`)
-  const record = { leg, sofar_core: Object.fromEntries(SIDES.map((l) => [l, leg === 'ts' ? '0' : side[l].core])), engines, verdict: null, results: [] }
+  const record = {
+    leg,
+    sofar_core: Object.fromEntries(SIDES.map((l) => [l, leg === 'ts' ? '0' : leg === 'installed' ? null : side[l].core])),
+    engines,
+    ...(leg === 'installed' ? { first_hook_ms: first, install_bin: Object.fromEntries(SIDES.map((l) => [l, side[l].installBin])) } : {}),
+    verdict: null,
+    results: [],
+  }
   legRecords.push(record)
+  if (leg === 'installed') continue
   const wrong = HOOKS.filter((h) => engines.baseline[h] !== engines.candidate[h] || engines.baseline[h] !== leg)
   if (wrong.length === 0) continue
   refused = true

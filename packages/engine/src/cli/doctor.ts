@@ -59,6 +59,7 @@ import {
   type TailwindV4Detection,
 } from './scanners'
 import { CORE_PACKAGE, resolveCore, type ResolvedCore } from './core'
+import { activateCore, type Activation } from './core-store'
 import { planUpgrade } from './update-cache'
 import { detectFormatterHazards } from './formatters'
 import { errMessage, fail, ok, type CmdResult } from './shared'
@@ -245,6 +246,34 @@ function auditAttribution(rootDir: string, findings: Finding[]): void {
   })
 }
 
+/**
+ * Every shim present: are they this release's bytes? A shim from an older
+ * sofar still routes every hook, but misses what this one routes to — since
+ * r4-fixes A12, the native core activated for this user, without which a
+ * hook keeps paying node's boot on an install whose scripts did not run.
+ */
+function shimsCurrent(
+  rootDir: string,
+  dir: string,
+  expected: readonly { file: string; text: string }[],
+  label: string,
+  repair: string,
+): Finding {
+  const stale = expected.filter((shim) => {
+    try {
+      return readFileSync(join(rootDir, dir, shim.file), 'utf8') !== shim.text
+    } catch {
+      return false
+    }
+  })
+  if (stale.length === 0) return { level: 'ok', text: `${label} installed (${expected.length}/${expected.length})` }
+  return {
+    level: 'warn',
+    text: `${label} installed, but ${stale.length} of ${expected.length} are from another sofar: ${stale.map((shim) => shim.file).join(', ')}`,
+    hint: repair.replace('(re)install it', 'refresh them'),
+  }
+}
+
 function auditWiring(rootDir: string, userHome: string | undefined): Section {
   const findings: Finding[] = []
 
@@ -284,7 +313,7 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     )
     findings.push(
       missingShims.length === 0
-        ? { level: 'ok', text: `hook shims installed (${expected.length}/${expected.length})` }
+        ? shimsCurrent(rootDir, dir, expected, 'hook shims', repair)
         : { level: 'fail', text: `hook shims missing: ${missingShims.join(', ')}`, hint: repair },
     )
   }
@@ -335,7 +364,7 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     ).map((shim) => shim.file)
     findings.push(
       missingCodexShims.length === 0
-        ? { level: 'ok', text: `Codex hook shims installed (${CODEX_SHIMS.length}/${CODEX_SHIMS.length})` }
+        ? shimsCurrent(rootDir, CODEX_SHIM_DIR, CODEX_SHIMS, 'Codex hook shims', repair)
         : { level: 'fail', text: `Codex hook shims missing: ${missingCodexShims.join(', ')}`, hint: repair },
     )
     const codexHooksPath = join(rootDir, '.codex', 'hooks.json')
@@ -521,6 +550,26 @@ export interface CoreProbe {
   selfPath?: string
   /** The resolved core — tests only. */
   core?: ResolvedCore
+  /** The self-activation outcome (r4-fixes A12) — tests only; doctor otherwise asks the store itself. */
+  activation?: Activation
+}
+
+/** Why the per-user core is not active, in doctor's words (r4-fixes A12). */
+function activationGap(a: Activation): string {
+  if (a.status === 'failed') {
+    return a.reason === 'mismatch'
+      ? `the per-user copy was refused: ${a.detail}`
+      : `the per-user copy could not be written (${a.detail}) — a read-only home or data dir keeps the stub`
+  }
+  if (a.status !== 'skipped') return ''
+  switch (a.reason) {
+    case 'no-digest':
+      return 'this build carries no core digest, so it cannot activate one per user'
+    case 'no-store':
+      return 'no XDG_DATA_HOME or HOME to keep a per-user core in'
+    default:
+      return ''
+  }
 }
 
 /**
@@ -541,6 +590,43 @@ export function installedCoreIsStub(selfPath: string): boolean | null {
   }
 }
 
+/** The hot-path line for a platform-package core: version skew, then where hooks find it. */
+function packageCoreFinding(
+  core: Extract<ResolvedCore, { kind: 'package' }>,
+  env: Record<string, string | undefined>,
+  platform: string,
+  probe: CoreProbe,
+): Finding {
+  const named = `${CORE_PACKAGE}${core.version === null ? '' : ` ${core.version}`}`
+  if (core.version !== null && core.version !== CURRENT_VERSION) {
+    return {
+      level: 'warn',
+      text: `hot path: native core ${core.version} does not match sofar ${CURRENT_VERSION}`,
+      hint: 'run `sofar upgrade` — the core ships pinned to each release',
+    }
+  }
+  // Self-activation (r4-fixes A12): the boot stub already tried before this
+  // ran; asking again is idempotent and names the outcome.
+  const selfPath = probe.selfPath ?? fileURLToPath(import.meta.url)
+  const activation =
+    probe.activation ??
+    activateCore({ version: CURRENT_VERSION, env, platform, from: import.meta.url, shim: join(dirname(dirname(selfPath)), 'bin', 'sofar-core') })
+  if (activation.status === 'active' || activation.status === 'activated') {
+    return { level: 'ok', text: `hot path: native core ${named}, activated for this user at ${activation.path}` }
+  }
+  // Windows keeps the stub by design: npm's .cmd wrapper runs it with node,
+  // and the stub finds the .exe itself (install.mjs).
+  if (platform !== 'win32' && installedCoreIsStub(selfPath) === true) {
+    const gap = activationGap(activation)
+    return {
+      level: 'warn',
+      text: `hot path: node boots before the native core on every hook — sofar.sh's install script did not run, so its \`sofar-core\` is still the JavaScript stub${gap === '' ? '' : `, and ${gap}`}`,
+      hint: `npm 12 skips install scripts unless allowed: run \`${ALLOW_SCRIPTS_CONFIG}\`, then reinstall with \`${ALLOW_SCRIPTS_INSTALL}\``,
+    }
+  }
+  return { level: 'ok', text: `hot path: native core ${named}` }
+}
+
 /**
  * Which implementation the hot path runs on (rust-core 3.2). Never a fault:
  * a source checkout or an unsupported platform has no core and every hook
@@ -548,7 +634,8 @@ export function installedCoreIsStub(selfPath: string): boolean | null {
  * is not this release's, which only an override or a hand install can
  * produce, since sofar.sh pins each platform package at its own version — and
  * a global install whose install script did not run, so node still boots in
- * front of the core on every hook (r4-fixes U9).
+ * front of the core on every hook (r4-fixes U9) — unless the core was
+ * activated for this user (r4-fixes A12), which the line then names.
  */
 export function auditCore(findings: Finding[], probe: CoreProbe = {}): void {
   const env = probe.env ?? process.env
@@ -559,23 +646,7 @@ export function auditCore(findings: Finding[], probe: CoreProbe = {}): void {
       findings.push({ level: 'ok', text: `hot path: native core named by SOFAR_CORE (${core.path})` })
       break
     case 'package':
-      if (core.version !== null && core.version !== CURRENT_VERSION) {
-        findings.push({
-          level: 'warn',
-          text: `hot path: native core ${core.version} does not match sofar ${CURRENT_VERSION}`,
-          hint: 'run `sofar upgrade` — the core ships pinned to each release',
-        })
-      } else if (platform !== 'win32' && installedCoreIsStub(probe.selfPath ?? fileURLToPath(import.meta.url)) === true) {
-        // Windows keeps the stub by design: npm's .cmd wrapper runs it with
-        // node, and the stub finds the .exe itself (install.mjs).
-        findings.push({
-          level: 'warn',
-          text: `hot path: node boots before the native core on every hook — sofar.sh's install script did not run, so its \`sofar-core\` is still the JavaScript stub`,
-          hint: `npm 12 skips install scripts unless allowed: run \`${ALLOW_SCRIPTS_CONFIG}\`, then reinstall with \`${ALLOW_SCRIPTS_INSTALL}\``,
-        })
-      } else {
-        findings.push({ level: 'ok', text: `hot path: native core ${CORE_PACKAGE}${core.version === null ? '' : ` ${core.version}`}` })
-      }
+      findings.push(packageCoreFinding(core, env, platform, probe))
       break
     default:
       findings.push({

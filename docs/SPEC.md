@@ -5404,6 +5404,23 @@ a headless Cursor session. Codex runs its own six copies from .codex/hooks.json,
 context carriers). Codex runs them only in a project it trusts, and only
 after the operator trusts each entry in `/hooks`; anywhere else nothing below
 fires, and a Codex session is Tier 3 (§Host tiers).
+
+Every shim routes before it execs, and only routes (BD4): to the native core
+activated for this user when `SOFAR_CORE` is unset (r4-fixes A12:
+`$XDG_DATA_HOME/sofar/core/current/sofar-core`, `~/.local/share` when
+XDG_DATA_HOME is unset or relative; Git Bash on Windows reads the path from
+`%LOCALAPPDATA%\sofar\core\current.txt`), else to `sofar-core` on PATH, else
+to `sofar event <hook>` (the order and the activation in detail:
+docs/HOTPATH.md §Entry points and dispatch). Any TypeScript boot of sofar with `SOFAR_CORE` unset
+activates that core when the install left `bin/sofar-core` as the JavaScript
+stub (npm 12, pnpm, bun skip install scripts) or the store names another
+version: it copies the binary out of the installed
+`@sofar.sh/core-<platform>-<arch>` package, verifies the copy's sha256 and
+size against the digests embedded at build, renames it into place and
+re-points `current` atomically. No network, no new dependency. A Codex shim
+runs the activated core with `SOFAR_CORE_DISPATCHED=1` and hands its exit 64
+to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
+(agents-parity D5).
 - PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, Cursor
   `preToolUse` matcher `Shell`, Codex `PreToolUse` matcher `Bash`, its entry
   added under D39, which supersedes agents-parity D5 for it alone) → `sofar
@@ -6301,12 +6318,17 @@ subdirectory, against 33 of 33 from the root.
   `sofar init --agents <id>`, a wired repo's repair hint (and the stale
   protocol block's) names `sofar init --refresh`, which rewires exactly the
   wired set (r4-fixes R12), and a record with no agent wired at all FAILs.
-  The HOT PATH line names the implementation hooks run on; when this is a
-  global npm install whose own `bin/sofar-core` is still the JavaScript stub
-  — its install script did not run, npm 12's default — it WARNs that node
-  boots before the native core on every hook and names `npm config set
+  The HOT PATH line names the implementation hooks run on, and the per-user
+  path when the core was activated for this user (r4-fixes A12, §Hooks); when
+  this is a global npm install whose own `bin/sofar-core` is still the
+  JavaScript stub — its install script did not run, npm 12's default — and no
+  core could be activated, it WARNs that node boots before the native core on
+  every hook, says why activation did not happen (no digest in this build, a
+  refused copy, an unwritable store), and names `npm config set
   allow-scripts=sofar.sh --location=user` and `npm install -g sofar.sh
-  --allow-scripts=sofar.sh` (r4-fixes U9; Windows keeps the stub by design). A passing Codex
+  --allow-scripts=sofar.sh` (r4-fixes U9; Windows keeps the stub by design).
+  Shims present but not this release's bytes WARN, naming them, with
+  `sofar init --refresh` as the repair. A passing Codex
   check means wired, not running: doctor cannot see whether Codex trusts the
   project or sofar's hooks, because the file holding that state is
   unverified (§Codex host). Plus the MERGE-RULES check (r3-fixes 2.14):
@@ -7402,7 +7424,12 @@ stay the underlying derivation's, and exit codes are styling-independent.
   baseline's installed `@sofar.sh/core-<platform>-<arch>` package, a
   checkout's own `target/release/sofar-core` and never the published
   package its node_modules may hold; `--baseline-core` /
-  `--candidate-core` name one). Before a leg is timed an engine witness
+  `--candidate-core` name one). A third leg, `installed` (r4-fixes A12),
+  is named only: `SOFAR_CORE` unset, each side's shims routing by themselves
+  on a PATH holding that install's own bin dir (`--baseline-bin` /
+  `--candidate-bin`, else an npm prefix's `bin/`), each side with its own
+  XDG_DATA_HOME; the install's first hook is timed apart and printed, and
+  the engines are printed, not compared. Before a leg is timed an engine witness
   runs every hook once per side and records which engine answered; when a
   hook ran different engines on the two sides, or not the leg's, the
   script refuses to compare and exits 4 — a delta between two engines is
@@ -8922,6 +8949,25 @@ stay the underlying derivation's, and exit codes are styling-independent.
   when a global install's `bin/sofar-core` is still the JavaScript stub, and
   not for the binary, a source checkout or Windows; the README installs with
   `--allow-scripts=sofar.sh`.
+- **Self-activating core (r4-fixes A12):** with a fake core, a TypeScript boot
+  built with its digest copies it into `$XDG_DATA_HOME/sofar/core/<version>/`
+  (mode 755, no staging debris), points `current` at it by a relative symlink,
+  and the next boot only looks; `SOFAR_CORE` set to anything, a build with no
+  digest for the platform, no platform package, or a size or sha256 mismatch
+  (remembered, not re-hashed) activates nothing; an install whose
+  `bin/sofar-core` is the binary needs no store unless a `current` on another
+  version would shadow it, which is refreshed; an upgrade keeps only the
+  version it replaced; an unwritable store keeps the old `current`; Windows
+  writes `%LOCALAPPDATA%\sofar\core\<version>\sofar-core.exe` and
+  `current.txt`. On a PATH with neither node nor sofar, every Claude Code and
+  Cursor shim execs the activated core with stdin whole after one boot, and
+  `SOFAR_CORE=0` still forces the CLI; the Codex shim's exit-64 hand-off
+  reaches `sofar` with `SOFAR_CORE=0` and stdin whole. Through the real
+  channel: `npm install -g --ignore-scripts` of a sofar.sh built with the
+  local core's digest plus its platform package leaves the stub, one `sofar
+  init` activates the core, the stop shim answers on `PATH=/usr/bin:/bin`, and
+  doctor names the activated path. Tests: test/core-store.test.ts,
+  test/packaging.test.ts.
 - **Codex hooks (agents-parity 2.1):** `.codex/hooks.json` uses only keys and
   events codex 0.154.0 parses (contract fixture `config_shape`). On the 0.154.0
   payload fixtures dispatched with `--host codex`:

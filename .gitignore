@@ -13,3 +13,6 @@ dist/
 
 # Rust workspace build output
 target/
+
+# staged core digests (r4-fixes A12): a release artefact like the binaries
+/packaging/npm/core-digests.json

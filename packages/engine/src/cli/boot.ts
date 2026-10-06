@@ -2,7 +2,7 @@
  * The `sofar` bin entry (speed-2 T1/T3, rust-core 3.1) — a stub, deliberately
  * tiny.
  *
- * Three jobs, each of which only works from a module that loads BEFORE the
+ * Four jobs, each of which only works from a module that loads BEFORE the
  * bulk of the code:
  *
  * 1. Enable the on-disk V8 compile cache. `module.enableCompileCache()` caches
@@ -33,16 +33,26 @@
  *    bundles — the hook path never parses the MCP SDK, chokidar, commander,
  *    cloud, doctor or upgrade.
  *
+ * 4. Self-activate the native core (r4-fixes A12, cli/core-store.ts): when no
+ *    install script swapped bin/sofar-core for the binary, copy it out of the
+ *    platform package into the per-user store the hook shims try first. Any
+ *    TypeScript boot does it — a hook through the stub, the MCP server at
+ *    session start, a human command — so the hook after it runs native.
+ *
  * The stub must stay dependency-free: anything imported here is paid for by
- * BOTH paths. core.ts and update-cache.ts are node builtins only — the latter is
+ * BOTH paths. core.ts, core-store.ts and update-cache.ts are node builtins
+ * only (core-store loads node:crypto only when it verifies a copy) — the last is
  * here because the native core never spawns the update refresh (rust-core O2 ruling), so after
  * the core has rendered a statusline or a status the stub makes the claim the
  * TypeScript surface would have made.
  */
 
 import { spawnSync } from 'node:child_process'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { version } from '../../package.json'
 import { resolveCore } from './core'
+import { activateCore } from './core-store'
 import { claimRefresh } from './update-cache'
 
 // Marked external in build.mjs so esbuild emits these as runtime imports of
@@ -93,6 +103,12 @@ function runCore(core: { path: string; explicit: boolean }, argv: readonly strin
   process.exitCode = result.status
   return true
 }
+
+// Self-activation (r4-fixes A12): when no install script put the core on PATH
+// (npm 12, pnpm, bun), copy it out of the platform package into the per-user
+// store the hook shims try first, so the next hook runs it without node. Once
+// per version; the steady state is a readlink and a stat. Never throws.
+activateCore({ version, from: import.meta.url, shim: join(dirname(dirname(fileURLToPath(import.meta.url))), 'bin', 'sofar-core') })
 
 const argv = process.argv.slice(2)
 const command = argv[0]

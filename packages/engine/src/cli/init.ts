@@ -2208,12 +2208,32 @@ export const CODEX_HOOKS: Readonly<
  * repo root three directories above the shim itself.
  */
 function codexShim(shim: ShimSpec): string {
+  const argv = `event ${shim.hook} --host codex --root "$root"`
   return [
     '#!/bin/sh',
     `# sofar ${shim.event} shim for Codex — no logic here (BD4); the CLI owns behavior.`,
     '# Codex names no host on stdin and runs hooks in the session cwd, so this',
     '# names both: the host, and the repo root above .codex/hooks/sofar/ (agents-parity D5).',
-    `exec sofar event ${shim.hook} --host codex --root "$(dirname "$0")/../../.."`,
+    '# The native core this user activated goes first (r4-fixes A12); its exit 64,',
+    '# "not a shape I own", leaves stdin unread for the CLI, told not to try it again.',
+    'root="$(dirname "$0")/../../.."',
+    'core=',
+    'if [ -z "${SOFAR_CORE+set}" ]; then',
+    '  if [ "${OS-}" = Windows_NT ]; then',
+    '    read -r core 2>/dev/null <"${LOCALAPPDATA-}/sofar/core/current.txt"',
+    '  else',
+    '    case "${XDG_DATA_HOME-}" in /*) core="$XDG_DATA_HOME" ;; *) core="${HOME-}/.local/share" ;; esac',
+    '    core="$core/sofar/core/current/sofar-core"',
+    '  fi',
+    '  [ -x "$core" ] || core=',
+    'fi',
+    'if [ -n "$core" ]; then',
+    `  SOFAR_CORE_DISPATCHED=1 "$core" ${argv}`,
+    '  rc=$?',
+    '  [ "$rc" = 64 ] || exit "$rc"',
+    `  SOFAR_CORE=0 exec sofar ${argv}`,
+    'fi',
+    `exec sofar ${argv}`,
     '',
   ].join('\n')
 }
@@ -2506,15 +2526,18 @@ function installOneGitHook(rootDir: string, hook: GitHookSpec, report: string[])
   report.push(`created .git/hooks/${hook.name}`)
 }
 
-function installShims(rootDir: string, dir: string, shims: readonly ShimSpec[], report: string[]): void {
+function installShims(rootDir: string, dir: string, shims: readonly ShimSpec[], report: string[]): Change[] {
   const hooksDir = join(rootDir, dir)
   mkdirSync(hooksDir, { recursive: true })
+  const changes: Change[] = []
   for (const shim of shims) {
     const path = join(hooksDir, shim.file)
     const change = writeIfChanged(path, shim.text) // shims are sofar-owned: kept current
     if ((statSync(path).mode & 0o777) !== 0o755) chmodSync(path, 0o755)
     report.push(`${change} ${dir}/${shim.file}`)
+    changes.push(change)
   }
+  return changes
 }
 
 /**
@@ -2891,6 +2914,18 @@ export const CODEX_TRUST_HINT = [
 ].join('\n')
 
 /**
+ * Printed on a run that rewrote existing Codex shims but no hook entry
+ * (r4-fixes A12): agents-parity D5 keeps .codex/hooks.json byte-stable so the
+ * operator's trust holds, and the change lives in the shim. Should Codex hash
+ * the script a hook runs as well, it asks once more; this says why.
+ */
+export const CODEX_SHIM_CHANGE_HINT = [
+  "note: sofar's Codex hook shims changed (they now try the native core activated",
+  '  for this user first); .codex/hooks.json is unchanged. If Codex asks you to',
+  "  review sofar's hooks in /hooks again, this is why: trust them once more.",
+].join('\n')
+
+/**
  * Printed when .codex/config.toml could not take sofar's table (D7) and the
  * user's config does not register sofar either: the one step left, which
  * writes the user-level config.toml.
@@ -3055,6 +3090,7 @@ export function runInit(
   let codexHooks: Change = 'unchanged'
   let codexMcp: Change = 'unchanged'
   let codexUserStep = false
+  let codexShimsUpdated = false
   runWrites = []
   let aborted = false
   try {
@@ -3067,7 +3103,7 @@ export function runInit(
     const cursorOnOwnShims =
       home === 'claude' && runsShimFrom(readText(join(rootDir, '.cursor', 'hooks.json')), 'cursor')
     if (claude || cursor || cursorOnOwnShims) installShims(rootDir, SHIM_HOMES[home].dir, shimsFor(home), report)
-    if (codex) installShims(rootDir, CODEX_SHIM_DIR, CODEX_SHIMS, report)
+    if (codex) codexShimsUpdated = installShims(rootDir, CODEX_SHIM_DIR, CODEX_SHIMS, report).includes('updated')
     installGitHook(rootDir, report)
     if (claude) {
       statuslineAbsent = mergeSettings(rootDir, statusline, report).statuslineAbsent
@@ -3154,6 +3190,7 @@ export function runInit(
   // run that wrote the entries, since only a changed entry needs reviewing
   // again. The user-level step (D7) is said on every run that still needs it.
   if (codexHooks !== 'unchanged' || codexMcp !== 'unchanged') lines.push('', CODEX_TRUST_HINT)
+  else if (codexShimsUpdated) lines.push('', CODEX_SHIM_CHANGE_HINT)
   if (codexUserStep) lines.push('', CODEX_MCP_USER_STEP_HINT)
   // Formatter defence (r1-fixes 1.4, D7): a formatter or linter that will
   // process .sofar/ gets the same treatment as the scanner below — init only
