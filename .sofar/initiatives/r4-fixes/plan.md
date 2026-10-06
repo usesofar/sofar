@@ -8,14 +8,14 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-06: "First send agents to analyse where we loss and research on techniques and methods to improve our system end to end in all areas. We can also plan engineering / innovate in all the areas. First do a through research technique and methods which can help improve sofar in all areas."
 
-Progress: 0/8 tasks done (0%)
+Progress: 1/8 tasks done (12%)
 
-## Phase 1 — Loss analysis and research [active] — 0/8 done
+## Phase 1 — Loss analysis and research [active] — 1/8 done
 
 - [ ] 1.1 Loss forensics, rounds 3–4: where sofar loses, ties or nearly loses, per agent, segment and mechanism (live reads, recall hits, gate firings, write-backs, Codex overhead, S18–S20, compaction) (active)
 - [ ] 1.2 Research: context engineering and cost for Claude Code, Codex and Cursor (Oct 2026). Target ≤0.7x native on all three (active)
 - [ ] 1.3 Research: knowledge correctness — decision currency, supersession, enforcement, temporal knowledge, conflict detection without model calls (active)
-- [ ] 1.4 Research: team and multi-agent — branches, merges, worktrees, concurrent and cross-vendor agents, orchestration (active)
+- [x] 1.4 Research: team and multi-agent — branches, merges, worktrees, concurrent and cross-vendor agents, orchestration
 - [ ] 1.5 Research: competitor and market teardown (Oct 2026), and the claims sofar can win (active)
 - [ ] 1.6 Research: benchmark science — a harder held-out chain without a ceiling, power, public benchmarks, faster runs, credible claims (active)
 - [ ] 1.7 Research: engineering and product — hot path and Rust, install and upgrade, reliability, DX, observability, the self-improvement loop (active)
@@ -31,4 +31,4 @@ Progress: 0/8 tasks done (0%)
 
 
 Active phase: Phase 1 — Loss analysis and research
-Next action: Collect the 7 lane reports; synthesise R4-RESEARCH.md (1.8): a ranked plan with PREDICTs, ablations and invariant flags; then present it for the operator's ruling.
+Next action: Collect the remaining six lane reports, then synthesise R4-RESEARCH.md (1.8).
