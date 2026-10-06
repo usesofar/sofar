@@ -11,8 +11,10 @@ import { patchedFiles, toCodex, type HookName } from '../src/cli/host'
 import {
   AGENTS_PROTOCOL_BLOCK,
   CODEX_HOOKS,
+  CODEX_SHIM_CHANGE_HINT,
   CODEX_SHIM_DIR,
   CODEX_SHIMS,
+  CODEX_TRUST_HINT,
   codexHookCommand,
   PROTOCOL_BLOCK,
   runInit,
@@ -398,9 +400,29 @@ describe('the .codex/hooks.json init writes', () => {
     for (const shim of CODEX_SHIMS) {
       const text = readFileSync(join(root, CODEX_SHIM_DIR, shim.file), 'utf8')
       expect(text.startsWith('#!/bin/sh\n')).toBe(true)
-      expect(text).toContain(`exec sofar event ${shim.hook} --host codex --root "$(dirname "$0")/../../.."\n`)
+      expect(text).toContain('root="$(dirname "$0")/../../.."\n')
+      expect(text).toContain(`exec sofar event ${shim.hook} --host codex --root "$root"\n`)
+      // r4-fixes A12: the activated core first, its exit 64 handed to the CLI.
+      expect(text).toContain(`SOFAR_CORE_DISPATCHED=1 "$core" event ${shim.hook} --host codex --root "$root"\n`)
+      expect(text).toContain(`SOFAR_CORE=0 exec sofar event ${shim.hook} --host codex --root "$root"\n`)
     }
     expect(CODEX_SHIMS.map((shim) => shim.hook)).not.toContain('post-tool-failure')
+  })
+
+  it('a refresh that rewrites older Codex shims keeps hooks.json byte-stable and says why Codex may ask for trust once (r4-fixes A12)', () => {
+    const root = freshRepo()
+    runInit(root, { agents: ['codex'] }, plain, plain)
+    const hooksBefore = readFileSync(join(root, '.codex', 'hooks.json'), 'utf8')
+    // A 0.34.1 shim: exec sofar, no activated core.
+    const stop = join(root, CODEX_SHIM_DIR, 'stop.sh')
+    writeFileSync(stop, '#!/bin/sh\nexec sofar event stop --host codex --root "$(dirname "$0")/../../.."\n')
+    const out = runInit(root, { agents: ['codex'] }, plain, plain).stdout
+    expect(out).toContain(`updated ${CODEX_SHIM_DIR}/stop.sh`)
+    expect(out).toContain(CODEX_SHIM_CHANGE_HINT)
+    expect(out).not.toContain(CODEX_TRUST_HINT)
+    expect(readFileSync(join(root, '.codex', 'hooks.json'), 'utf8')).toBe(hooksBefore)
+    // A run that changes nothing says nothing about trust.
+    expect(runInit(root, { agents: ['codex'] }, plain, plain).stdout).not.toContain(CODEX_SHIM_CHANGE_HINT)
   })
 
   it('merges beside the user’s own hooks and shims, and uninit removes only sofar’s', () => {

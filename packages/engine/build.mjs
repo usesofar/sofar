@@ -30,7 +30,26 @@ const fingerprint = createHash('sha256')
 for (const name of readdirSync(TEMPLATES).filter((n) => n.endsWith('.ts')).sort()) {
   fingerprint.update(`${name}\0`).update(readFileSync(join(TEMPLATES, name))).update('\0')
 }
-const define = { __SOFAR_PROJECTION_FINGERPRINT__: JSON.stringify(fingerprint.digest('hex')) }
+// The native cores' digests (r4-fixes A12): what packaging/npm/emit.mjs
+// recorded when this version's binaries were staged. Self-activation copies a
+// core into the per-user store only when the copy hashes to one of these, so
+// a build without them never activates — fine for a checkout, a silent loss
+// for a release, which is why `npm publish` refuses to build without all five.
+const { version } = JSON.parse(readFileSync('package.json', 'utf8'))
+const { coreDigests, PLATFORMS } = await import('../../packaging/npm/emit.mjs')
+const digests = coreDigests(version)
+const missing = PLATFORMS.map((p) => `${p.platform}-${p.arch}`).filter((key) => digests[key] === undefined)
+if (process.env.npm_command === 'publish' && missing.length > 0) {
+  throw new Error(
+    `no staged core digest for ${missing.join(', ')} at ${version} — stage the release binaries first (node packaging/npm/emit.mjs --binaries DIR), or self-activation ships disabled`,
+  )
+}
+if (missing.length < PLATFORMS.length) console.log(`build: core digests embedded for ${Object.keys(digests).sort().join(', ')}`)
+
+const define = {
+  __SOFAR_PROJECTION_FINGERPRINT__: JSON.stringify(fingerprint.digest('hex')),
+  __SOFAR_CORE_DIGESTS__: JSON.stringify(digests),
+}
 
 const cliShared = {
   define,

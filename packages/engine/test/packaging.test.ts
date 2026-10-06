@@ -47,11 +47,11 @@ function cleanEnv(): NodeJS.ProcessEnv {
   return env
 }
 
-function npm(args: string[], cwd: string): SpawnSyncReturns<string> {
+function npm(args: string[], cwd: string, extra: NodeJS.ProcessEnv = {}): SpawnSyncReturns<string> {
   return spawnSync('npm', [...args, '--no-audit', '--no-fund', '--loglevel=error'], {
     cwd,
     encoding: 'utf8',
-    env: cleanEnv(),
+    env: { ...cleanEnv(), ...extra },
     timeout: 120_000,
   })
 }
@@ -388,14 +388,16 @@ const platformPkgDir = join(repoRoot, 'packaging', 'npm', packageDir(thisPlatfor
 
 describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native core E2E (rust-core 3.2) — platform package → postinstall → sofar-core on PATH', () => {
   const corePrefix = join(scratch, 'core-prefix')
+  // npm pack names a scoped package's tarball <scope>-<name>-<version>.tgz
+  const coreTarball = join(packDest, `${packageName(thisPlatform).replace(/^@/, '').replace('/', '-')}-${manifest.version}.tgz`)
+  // The staged digest goes to scratch (r4-fixes A12): only the build this suite packs embeds it.
+  const digests = { SOFAR_CORE_DIGESTS_FILE: join(scratch, 'core-digests.json') }
 
   it('the platform package installs alongside sofar.sh and postinstall puts the binary on PATH', () => {
-    const staged = spawnSync(process.execPath, [join(repoRoot, 'packaging', 'npm', 'emit.mjs'), '--local'], { encoding: 'utf8', cwd: repoRoot })
+    const staged = spawnSync(process.execPath, [join(repoRoot, 'packaging', 'npm', 'emit.mjs'), '--local'], { encoding: 'utf8', cwd: repoRoot, env: { ...process.env, ...digests } })
     expect(staged.status, staged.stderr).toBe(0)
     const packedCore = npm(['pack', '--pack-destination', packDest], platformPkgDir)
     expect(packedCore.status, packedCore.stderr).toBe(0)
-    // npm pack names a scoped package's tarball <scope>-<name>-<version>.tgz
-    const coreTarball = join(packDest, `${packageName(thisPlatform).replace(/^@/, '').replace('/', '-')}-${manifest.version}.tgz`)
     expect(existsSync(coreTarball)).toBe(true)
 
     mkdirSync(corePrefix, { recursive: true })
@@ -434,4 +436,38 @@ describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native 
     const viaTs = spawnSync(process.execPath, [join(bin, 'sofar'), 'status', '--no-color', '--root', root], { encoding: 'utf8', env: { ...env, SOFAR_CORE: '0' } })
     expect(viaTs.stdout).toBe(direct.stdout)
   }, 60_000)
+
+  it('install scripts skipped (npm 12, --ignore-scripts): one sofar run activates the core, and the shims exec it with no node (r4-fixes A12)', () => {
+    // `emit.mjs --local` above recorded the local core's digest; a pack now
+    // embeds it, and the checkout's dist is rebuilt without it straight after.
+    const dest = join(scratch, 'a12-tarballs')
+    mkdirSync(dest, { recursive: true })
+    const packed = npm(['pack', '--pack-destination', dest], engineDir, digests)
+    const rebuilt = spawnSync(process.execPath, ['build.mjs'], { cwd: engineDir, encoding: 'utf8', env: cleanEnv() })
+    expect(packed.status, packed.stderr).toBe(0)
+    expect(rebuilt.status, rebuilt.stderr).toBe(0)
+    const a12Prefix = join(scratch, 'a12-prefix')
+    mkdirSync(a12Prefix, { recursive: true })
+    const installed = npm(['install', '-g', '--prefix', a12Prefix, '--ignore-scripts', join(dest, tarballName()), coreTarball], scratch)
+    expect(installed.status, installed.stderr).toBe(0)
+    const pkgDir = join(a12Prefix, 'lib', 'node_modules', 'sofar.sh')
+    expect(readFileSync(join(pkgDir, 'bin', 'sofar-core')).subarray(0, 2).toString()).toBe('#!') // still the stub
+
+    const data = join(scratch, 'a12-data')
+    const bin = join(a12Prefix, 'bin')
+    const env: NodeJS.ProcessEnv = { ...cleanEnv(), PATH: `${bin}:${process.env.PATH ?? ''}`, XDG_DATA_HOME: data, SOFAR_NO_UPDATE_CHECK: '1', TERM: 'dumb' }
+    delete env.SOFAR_CORE
+    const root = freshRepo()
+    const init = spawnSync(process.execPath, [join(bin, 'sofar'), 'init', '--agents', 'claude-code', '--root', root], { encoding: 'utf8', env })
+    expect(init.status, init.stderr).toBe(0)
+    const activated = join(data, 'sofar', 'core', manifest.version, 'sofar-core')
+    expect(readFileSync(activated).equals(readFileSync(localCore))).toBe(true)
+
+    // A PATH with neither node nor sofar: only the activated core can answer.
+    const bare = { ...env, PATH: '/usr/bin:/bin' }
+    const shim = spawnSync('sh', [join(root, '.claude', 'hooks', 'stop.sh')], { cwd: root, encoding: 'utf8', env: bare, input: '{"session_id":"a12","stop_hook_active":false}' })
+    expect(shim.status, shim.stderr).toBe(0)
+    const doctor = spawnSync(process.execPath, [join(bin, 'sofar'), 'doctor', '--root', root], { encoding: 'utf8', env })
+    expect(doctor.stdout).toContain(`activated for this user at ${activated}`)
+  }, 180_000)
 })

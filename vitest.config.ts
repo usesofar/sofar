@@ -12,9 +12,14 @@ import { defineConfig, type Plugin } from 'vitest/config'
 // XDG_CONFIG_HOME for the same reason, the other way round: a driver reads
 // the developer's real ~/.config/sofar/config.json (drive.keep_awake, D5),
 // so a test run would start caffeinate or not depending on whose Mac ran it.
+//
+// XDG_DATA_HOME too (r4-fixes A12): a TypeScript boot built with core
+// digests copies the native core into $XDG_DATA_HOME/sofar/core, and a test
+// must never activate one into the developer's own store.
 const testState = {
   XDG_STATE_HOME: mkdtempSync(join(tmpdir(), 'sofar-vitest-state-')),
   XDG_CONFIG_HOME: mkdtempSync(join(tmpdir(), 'sofar-vitest-config-')),
+  XDG_DATA_HOME: mkdtempSync(join(tmpdir(), 'sofar-vitest-data-')),
 }
 
 // Mirror of esbuild's `loader: { '.sh': 'text' }` (packages/engine/
@@ -71,6 +76,7 @@ export default defineConfig({
           env: {
             XDG_STATE_HOME: mkdtempSync(join(tmpdir(), 'sofar-vitest-latency-state-')),
             XDG_CONFIG_HOME: testState.XDG_CONFIG_HOME,
+            XDG_DATA_HOME: testState.XDG_DATA_HOME,
           },
           sequence: { groupOrder: 1 },
           include: ['packages/engine/test/shim-latency.test.ts'],

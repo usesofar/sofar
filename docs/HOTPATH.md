@@ -80,15 +80,45 @@ appended if absent, and sets `process.exitCode` (never `process.exit`).
 stdin: read to EOF as UTF-8; if stdin is a TTY, treated as empty string.
 
 The hook shims (`src/hooks/*.sh`) route before they exec (rust-core 3.2,
-D32): `sofar-core event <hook>` when `command -v sofar-core` finds one —
+D32): first the core activated for this user (r4-fixes A12, below), then
+`sofar-core event <hook>` when `command -v sofar-core` finds one —
 sofar.sh's own `bin/sofar-core`, which its postinstall (`install.mjs`)
 replaces with the platform package's binary, so the hook is one exec of
 native code with no node in front — else `sofar event <hook>`, the stub.
-`SOFAR_CORE=0` sends the shim to the CLI, `SOFAR_CORE=<path>` names the core;
+`SOFAR_CORE=0` sends the shim to the CLI, `SOFAR_CORE=<path>` names the core,
+and either (or an empty `SOFAR_CORE`) skips the activated core;
 where postinstall could not run (`--ignore-scripts`, no platform package,
 Windows) `bin/sofar-core` stays a JavaScript shim that IS `sofar`, so the
 bytes are the same and only node's boot is paid. `sofar doctor` reports which
-implementation the hot path runs on under "Wiring integrity". `fold` is
+implementation the hot path runs on under "Wiring integrity".
+
+Self-activation (r4-fixes A12, `cli/core-store.ts`). npm 12, pnpm, bun and
+Claude Code plugin installs skip install scripts, so postinstall never runs;
+the platform package is still installed. Every TypeScript boot (the stub
+before it dispatches: a hook on the stub, the MCP server, any command) with
+`SOFAR_CORE` unset copies that package's binary to
+`$XDG_DATA_HOME/sofar/core/<version>/sofar-core` (`~/.local/share` when
+XDG_DATA_HOME is unset or relative; Windows
+`%LOCALAPPDATA%\sofar\core\<version>\sofar-core.exe`), hashes the COPY
+against the sha256 and size embedded at build (`__SOFAR_CORE_DIGESTS__`, from
+`packaging/npm/emit.mjs`'s staging), renames it into place, and re-points
+`current` by renaming a staged relative symlink over it (Windows: a staged
+`current.txt` holding the path in forward slashes). The shims test
+`current/sofar-core` with `[ -x ]` (Windows/Git Bash: `read` of
+`current.txt`) — shell builtins, no fork — and exec it. It activates only when
+`bin/sofar-core` is still the stub or an existing `current` names another
+version (the skew guard: a stale store must not shadow a newer core on PATH);
+a build with no digest for the platform, no platform package, a size or
+sha256 mismatch (remembered in `<version>/.refused` so it is not re-hashed per
+boot) or an unwritable store leaves the previous `current` and the stub in
+place. Steady state: a readlink and a stat per boot. Nothing is fetched; the
+version directory it replaced is kept (a hook may be running it) and older
+ones are pruned. The Codex shim tries the activated core too, with
+`SOFAR_CORE_DISPATCHED=1`: the core's exit 64 (it owns no `--host` shape yet)
+hands the unread stdin to `SOFAR_CORE=0 sofar`, so the stub does not spawn it
+a second time; .codex/hooks.json stays byte-stable (agents-parity D5), and
+init prints a note on the run that rewrites existing Codex shims in case Codex
+asks for hook trust again. `fold` is
 reached only by invoking the binary itself
 (`SOFAR_CONFORMANCE_BIN=target/release/sofar-core npx vitest run fold-parity`).
 The unfiltered proof of the mixed install is the reference suite with the
