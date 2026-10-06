@@ -172,8 +172,11 @@ function run(command, args, { cwd, env, input = '' }) {
 }
 
 /** The child's environment from nothing but PATH (the conformance harness's childEnv). */
-function childEnv(home, core) {
+function childEnv(home, core, cli) {
   return {
+    // The core hands an in-band write-back to TypeScript (r4-fixes A1): the
+    // reference under test, as the stub names itself when it dispatches.
+    ...(cli !== undefined ? { SOFAR_CLI: cli } : {}),
     PATH: process.env.PATH,
     HOME: home,
     XDG_CONFIG_HOME: join(home, '.config'),
@@ -192,6 +195,9 @@ function childEnv(home, core) {
 // ---------------------------------------------------------------------------
 // Steps: the surfaces, in the order a session meets them.
 // ---------------------------------------------------------------------------
+
+/** A final reply ending with an in-band write-back block (r4-fixes A1, SPEC §In-band write-back). */
+const INLINE_REPLY = `Done.\n\n\`\`\`sofar\n${JSON.stringify({ summary: 'parity: filed from the reply', next_action: 'compare the legs', notes: ['parity note'] })}\n\`\`\`\n`
 
 function hook(root, name, fields) {
   return JSON.stringify({ session_id: SESSION, transcript_path: join(root, 'transcript.jsonl'), cwd: root, hook_event_name: name, ...fields })
@@ -254,6 +260,8 @@ function stepsFor(slug, root, logText, lines) {
     s('post-tool-failure', 'Bash failure', ['event', 'post-tool-failure'], hook(root, 'PostToolUseFailure', { tool_name: 'Bash', tool_input: { command: 'npm test', description: 'x' }, error: 'Exit code 1', is_interrupt: false })),
     s('user-prompt', 'long prompt after drift', ['event', 'user-prompt'], hook(root, 'UserPromptSubmit', { prompt: LONG_PROMPT })),
     s('stop', 'stop on the unwritten session', ['event', 'stop'], hook(root, 'Stop', { stop_hook_active: false })),
+    // r4-fixes A1: the core hands an in-band write-back to TypeScript; both legs file it alike.
+    s('stop', 'stop with an in-band write-back', ['event', 'stop'], hook(root, 'Stop', { stop_hook_active: false, last_assistant_message: INLINE_REPLY })),
     s('stop', 'stop_hook_active', ['event', 'stop'], hook(root, 'Stop', { stop_hook_active: true })),
     s('session-end', 'session-end', ['event', 'session-end'], hook(root, 'SessionEnd', { reason: 'exit' })),
     s('session-start', 'resume the registered session', ['event', 'session-start'], hook(root, 'SessionStart', { source: 'resume' })),
@@ -366,7 +374,7 @@ async function runLeg(leg, o, base, snapshot, slug, logText, lines) {
   const from = Date.now()
   const results = []
   for (const step of steps) {
-    const env = childEnv(home, leg === 'ts' ? '0' : o.core)
+    const env = leg === 'ts' ? childEnv(home, '0') : childEnv(home, o.core, o.ts)
     const r =
       leg === 'ts'
         ? await run(process.execPath, [o.ts, ...step.argv], { cwd: root, env, input: step.stdin })

@@ -920,7 +920,12 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
             stderr: held.join("\n"),
         };
     }
-    let mut lines = vec![STOP_BLOCK_MESSAGE.to_owned()];
+    // The in-band write-back (r4-fixes A1) asks for the block first; SOFAR_WRITEBACK=tool is 0.34's line.
+    let mut lines = vec![if crate::inline::writeback_inline() {
+        crate::inline::STOP_BLOCK_MESSAGE_INLINE.to_owned()
+    } else {
+        STOP_BLOCK_MESSAGE.to_owned()
+    }];
     lines.extend(guard_violation_lines(
         &session_guard_violations(&state, session_id, session.ended.as_deref()),
         root,

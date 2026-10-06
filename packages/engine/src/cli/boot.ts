@@ -33,6 +33,11 @@
  *    bundles — the hook path never parses the MCP SDK, chokidar, commander,
  *    cloud, doctor or upgrade.
  *
+ * 4. Name itself to the core (`SOFAR_CLI`): a hook the core must hand back
+ *    after reading stdin — a Stop or SessionEnd carrying an in-band
+ *    write-back (r4-fixes A1) — is re-run on THIS build, never whichever
+ *    `sofar` PATH holds.
+ *
  * The stub must stay dependency-free: anything imported here is paid for by
  * BOTH paths. core.ts and update-cache.ts are node builtins only — the latter is
  * here because the native core never spawns the update refresh (rust-core O2 ruling), so after
@@ -73,7 +78,10 @@ try {
 function runCore(core: { path: string; explicit: boolean }, argv: readonly string[]): boolean {
   const result = spawnSync(core.path, argv, {
     stdio: 'inherit',
-    env: { ...process.env, SOFAR_CORE_DISPATCHED: '1' },
+    // SOFAR_CLI: this build, for the hooks the core hands back to TypeScript
+    // after reading stdin (r4-fixes A1: a Stop or SessionEnd carrying an
+    // in-band write-back), so the hand-back runs the same version.
+    env: { ...process.env, SOFAR_CORE_DISPATCHED: '1', SOFAR_CLI: fileURLToPath(import.meta.url) },
   })
   if (result.error !== undefined) {
     // A named binary that cannot run is a debugging mistake worth one line; a
