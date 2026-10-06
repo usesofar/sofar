@@ -4,11 +4,24 @@
 
 Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), research best-in-class techniques across all areas (context and cost, knowledge correctness, team and multi-agent, competitors, benchmark science, engineering and product), invent where the field has nothing good enough, then build, release and prove a ≥50% lead over native memory and the best competitor on a harder held-out chain.
 
-Brief: the operator's words, 632 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief (the operator's words, verbatim):
+
+Operator, 2026-10-06: "First send agents to analyse where we loss and research on techniques and methods to improve our system end to end in all areas. We can also plan engineering / innovate in all the areas. First do a through research technique and methods which can help improve sofar in all areas."
 
 Progress: 18/51 tasks done (35%)
 
-## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
+## Phase 1 — Loss analysis and research [done] — 10/10 done
+
+- [x] 1.1 Loss forensics, rounds 3–4: where sofar loses, ties or nearly loses, per agent, segment and mechanism (live reads, recall hits, gate firings, write-backs, Codex overhead, S18–S20, compaction)
+- [x] 1.2 Research: context engineering and cost for Claude Code, Codex and Cursor (Oct 2026). Target ≤0.7x native on all three
+- [x] 1.3 Research: knowledge correctness — decision currency, supersession, enforcement, temporal knowledge, conflict detection without model calls
+- [x] 1.4 Research: team and multi-agent — branches, merges, worktrees, concurrent and cross-vendor agents, orchestration
+- [x] 1.5 Research: competitor and market teardown (Oct 2026), and the claims sofar can win
+- [x] 1.6 Research: benchmark science — a harder held-out chain without a ceiling, power, public benchmarks, faster runs, credible claims
+- [x] 1.7 Research: engineering and product — hot path and Rust, install and upgrade, reliability, DX, observability, the self-improvement loop
+- [x] 1.8 Synthesis: one ranked improvement plan (R4-RESEARCH.md) with a PREDICT per item, an ablation per item (D5), and invariant conflicts flagged, for the operator's ruling
+- [x] 0.1 Release hygiene: merge release/0.34.0 (v0.34.0: version 0.34.0, scoped @sofar.sh/core-* packaging) back into main, so the next cut from main keeps the scoped cores; reconcile main's 0.33.0-rc.2+trunk version convention. Do it in a scratch worktree, run the full suite, then fast-forward main.
+- [x] 0.2 HOTFIX 0.34.1 for the shipped Stop-gate false positive. core/checks.ts testSpec/ARG_TOKEN misreads a bare test path (`bun test tests`) as part of the runner, so a passing broader run never covers a narrower bound-test ask, and vice versa. Every round-4 gate firing was false (Codex 18/18, Claude 10/63). Fix in TS and Rust with coverage tests (directory covers file, bare runner covers any), keep parity, and check D18. Ship from release/0.34.0 as 0.34.1 together with the merge-back (0.1).
 
 ## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 8/14 done
 
@@ -17,8 +30,8 @@ Progress: 18/51 tasks done (35%)
 - [ ] A3 A3 Session adoption on every host: MCP adopts the single live hook-registered session (SOFAR_ADOPT). PREDICT Codex −0.04 to −0.06, Cursor −0.03 to −0.06 (inside A1) (active)
 - [ ] A4 A4 Read side: told set seeded from digest and recall, hook-line epochs, recall cap 2.5k chars / 8 entries (SOFAR_TOLD_LINES, SOFAR_RECALL). PREDICT Claude and Codex −0.02 to −0.04; repeated notices 38% → ≤5% (active)
 - [x] A5 A5 Current-only agent views: retired rules render as "retired by D9" in read/show/get_state/find (SOFAR_RETIRE). PREDICT SR −2 to −4 pts
-- [ ] A6 A6 Supersession sweep: git grep for old-version-only tokens within the rule's scope at link time; `sofar migrated` answers it (SOFAR_SWEEP). PREDICT SR −8 to −12 pts (active)
-- [ ] A7 A7 Rejected- and retired-token tripwire at PostToolUse edits, warn only, scope-aware (SOFAR_TRIPWIRE). PREDICT GV −1.2 to −1.5, SR −4 to −8 pts (active)
+- [ ] A6 A6 Supersession sweep: git grep for old-version-only tokens within the rule's scope at link time; `sofar migrated` answers it (SOFAR_SWEEP). PREDICT SR −8 to −12 pts (blocked)
+- [ ] A7 A7 Rejected- and retired-token tripwire at PostToolUse edits, warn only, scope-aware (SOFAR_TRIPWIRE). PREDICT GV −1.2 to −1.5, SR −4 to −8 pts (blocked)
 - [x] A8 A8 Supersession integrity: a `check_bound` event replaces bind re-logs; slot-diff ranking of link candidates (SOFAR_SLOTDIFF). PREDICT re-logs → 0, unlinked versions ≤1–2/48, wrong targets → 0
 - [x] A9 A9 Cursor without Stop: sessionEnd debt note, postToolUse rule text on bound paths; guarded rules ranked above recency on every host (SOFAR_CURSOR_DEBT, SOFAR_RANK). Includes the R18 headless Cursor hook probe
 - [ ] A10 A10 Session identity and binding stability: lineage carriers, a per-worktree untracked last home, write-backs never rebind the committed bindings.json (SOFAR_LINEAGE, SOFAR_LASTHOME). PREDICT misfiled sessions 25% → ≤8% (active)
@@ -26,6 +39,20 @@ Progress: 18/51 tasks done (35%)
 - [x] A12 A12 Self-activating native core: copied into a per-user versioned store, sha-checked, shims try it first; works when npm, pnpm or bun skip install scripts (SOFAR_CORE=0 escape)
 - [x] A13 A13 Hermetic tests and bench: redirect HOME/USERPROFILE/XDG/CODEX_HOME, a HOME canary, process-group kill with parent-death pipe, an orphan sweep, timeouts scaled to the machine, no long suites on battery. Required before round 5
 - [x] A14 A14 Doctor triage and an "abandoned" disposition: act-now vs history, --json, --explain, abandoned sessions and branches (SOFAR_ABANDON). PREDICT 467 WARN → ≤10 act-now lines
+
+## Phase 3 — Release candidate [pending] — 0/2 done
+
+- [ ] 3.1 Cut rc 0.35.0 (Wave A): integrate the wave-a/* branches onto release/0.35.0, full gates (TS, cargo, conformance, parity:real, D18 two legs vs 0.34.1, every item's replay), CI, stage cores, operator publishes to next
+- [ ] 3.2 Cut rc 0.36.0 (Wave B items whose replay passed) as round 5's frozen build; merge back to main after each cut
+
+## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/6 done
+
+- [ ] 4.1 CHAIN-N-DESIGN.md (from 1.6 §4 and 1.3 §6 stressors; claims C1–C6 from 1.5 §8) for the operator's approval; then a fresh blind author session in a new chain-n-author record
+- [ ] 4.2 Round-5 harness: decision-application (DA) scoring, hierarchical bootstrap analysis, cost in dollars from pinned price vectors (R3), Codex model pinned, Bonferroni and ceiling stop (R6), two-lane option (R8), hermetic runner (A13)
+- [ ] 4.3 Calibration: a sealed bounds pilot (~50 short sessions; amnesia ≤25% DA pass, oracle ≥90%) plus a naive-notes rehearsal (~26 sessions), on non-scored arms only (R5)
+- [ ] 4.4 PRE-REGISTRATION-R5: claims (R5-F primary, R5-F+ reported, R5-A/C/B, R5-$ parity), units, stopping rules; public signed tag (R9); frozen in the operator's own words
+- [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
+- [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
 ## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 0/11 done
 
@@ -52,18 +79,5 @@ Progress: 18/51 tasks done (35%)
 - [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
 - [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
 
-## Phase 3 — Release candidate [pending] — 0/2 done
-
-- [ ] 3.1 Cut rc 0.35.0 (Wave A): integrate the wave-a/* branches onto release/0.35.0, full gates (TS, cargo, conformance, parity:real, D18 two legs vs 0.34.1, every item's replay), CI, stage cores, operator publishes to next
-- [ ] 3.2 Cut rc 0.36.0 (Wave B items whose replay passed) as round 5's frozen build; merge back to main after each cut
-
-## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/6 done
-
-- [ ] 4.1 CHAIN-N-DESIGN.md (from 1.6 §4 and 1.3 §6 stressors; claims C1–C6 from 1.5 §8) for the operator's approval; then a fresh blind author session in a new chain-n-author record
-- [ ] 4.2 Round-5 harness: decision-application (DA) scoring, hierarchical bootstrap analysis, cost in dollars from pinned price vectors (R3), Codex model pinned, Bonferroni and ceiling stop (R6), two-lane option (R8), hermetic runner (A13)
-- [ ] 4.3 Calibration: a sealed bounds pilot (~50 short sessions; amnesia ≤25% DA pass, oracle ≥90%) plus a naive-notes rehearsal (~26 sessions), on non-scored arms only (R5)
-- [ ] 4.4 PRE-REGISTRATION-R5: claims (R5-F primary, R5-F+ reported, R5-A/C/B, R5-$ parity), units, stopping rules; public signed tag (R9); frozen in the operator's own words
-- [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
-- [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
-
 Next action: Relay the remaining 4 Wave A reports (A2+A4, A6+A7, A9, A10+A3) to "r4-fixes A2 #c9e3"; raise the A5 shard ruling with the operator.
+Blocked on: task A6: Built (bc2f6464) but the replay misses (precision 0.46–0.50, recall ~0.5, median 6 sites). Awaiting the operator ruling: default-off plus redesign.; task A7: Built (b826be0b) but the replay misses (precision 0.13, recall 0/27). Awaiting the operator ruling: default-off plus redesign.
