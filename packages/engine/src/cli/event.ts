@@ -1688,9 +1688,11 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
  * mechanical events since the last write-back, stdout (exit 0 =
  * additionalContext for this hook) carries ONE line nudging an in-flow
  * sofar_end_session — a write-back while context is warm makes the Stop
- * gate a fallback instead of a forced extra turn. Stateless: it re-fires
- * on every prompt until the write-back resets drift (staleness-line
- * precedent). Best-effort per BD22 — every failure path is silence.
+ * gate a fallback instead of a forced extra turn. Told once per debt band
+ * (5, 10, 20, 40 … — r4-fixes A4), re-armed when a write-back takes the debt
+ * under the floor or a compaction clears the told set; `SOFAR_TOLD_LINES=off`
+ * re-fires it on every prompt. Best-effort per BD22 — every failure path is
+ * silence.
  */
 export const NUDGE_DRIFT_MIN = 5
 
@@ -1794,10 +1796,12 @@ function clipTo(text: string, max: number): string {
  * which is exactly the hand-reasoning 4.2 set out to abolish.
  *
  * Unbinding it is nearly free. The state is refs-only (no subprocess, no
- * commit-graph walk), the line is bounded by construction, and it re-fires
- * statelessly like the drift nudge beside it — repeating a true fact stays
- * cheaper than storing one, and D5 already rejected an "already told you"
- * marker for this family of lines.
+ * commit-graph walk) and the line is bounded by construction. It once
+ * re-fired statelessly on every prompt (D5 rejected an "already told you"
+ * marker for this family); since r4-fixes A4 it is a fragment told once per
+ * push epoch — branch, HEAD and origin tip — because a repeat carried for
+ * the rest of the session costs more than one small told-set key, and a
+ * moved epoch still tells it at once. `SOFAR_TOLD_LINES=off` re-fires it.
  *
  * Repo-level by design: it reports HEAD against origin, never "your
  * commits". Attributing commits to sessions needs the graph walk core/git.ts
