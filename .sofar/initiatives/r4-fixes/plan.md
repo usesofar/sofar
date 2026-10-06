@@ -6,11 +6,11 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 632 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 12/51 tasks done (23%)
+Progress: 14/51 tasks done (27%)
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
-## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 2/14 done
+## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 4/14 done
 
 - [ ] A1 A1 In-band write-back: a fenced `sofar` block in the final reply is filed by the Stop handler (SOFAR_WRITEBACK). PREDICT Codex −0.15 to −0.20, Cursor −0.08 to −0.15, Claude −0.03 to −0.05 (active)
 - [ ] A2 A2 Host-compiled payloads: AGENTS.md block ≤1.5k chars, CLI grammar moved to a skill, per-host budgets (SOFAR_PAYLOAD). PREDICT Codex −0.05 to −0.07, Cursor −0.05 to −0.10 (active)
@@ -22,8 +22,8 @@ Progress: 12/51 tasks done (23%)
 - [ ] A8 A8 Supersession integrity: a `check_bound` event replaces bind re-logs; slot-diff ranking of link candidates (SOFAR_SLOTDIFF). PREDICT re-logs → 0, unlinked versions ≤1–2/48, wrong targets → 0 (active)
 - [ ] A9 A9 Cursor without Stop: sessionEnd debt note, postToolUse rule text on bound paths; guarded rules ranked above recency on every host (SOFAR_CURSOR_DEBT, SOFAR_RANK). Includes the R18 headless Cursor hook probe (active)
 - [ ] A10 A10 Session identity and binding stability: lineage carriers, a per-worktree untracked last home, write-backs never rebind the committed bindings.json (SOFAR_LINEAGE, SOFAR_LASTHOME). PREDICT misfiled sessions 25% → ≤8% (active)
-- [ ] A11 A11 Wiring journal and consent set: init/uninit/doctor --fix/upgrade journalled; a host rewritten only on a recorded choice; `sofar uninit --agent` reverses exactly what was written (active)
-- [ ] A12 A12 Self-activating native core: copied into a per-user versioned store, sha-checked, shims try it first; works when npm, pnpm or bun skip install scripts (SOFAR_CORE=0 escape) (active)
+- [x] A11 A11 Wiring journal and consent set: init/uninit/doctor --fix/upgrade journalled; a host rewritten only on a recorded choice; `sofar uninit --agent` reverses exactly what was written
+- [x] A12 A12 Self-activating native core: copied into a per-user versioned store, sha-checked, shims try it first; works when npm, pnpm or bun skip install scripts (SOFAR_CORE=0 escape)
 - [x] A13 A13 Hermetic tests and bench: redirect HOME/USERPROFILE/XDG/CODEX_HOME, a HOME canary, process-group kill with parent-death pipe, an orphan sweep, timeouts scaled to the machine, no long suites on battery. Required before round 5
 - [x] A14 A14 Doctor triage and an "abandoned" disposition: act-now vs history, --json, --explain, abandoned sessions and branches (SOFAR_ABANDON). PREDICT 467 WARN → ≤10 act-now lines
 
