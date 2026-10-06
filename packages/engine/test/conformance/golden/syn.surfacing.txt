@@ -161,8 +161,7 @@ exit: 2
 --- stdout
 (empty)
 --- stderr
-sofar: [surf D1] "Never edit files under src/legacy/." bear on files you edited, and no covering test passed since your last edit — run `bun test` and fix any failure before stopping (fix: restore src/legacy from git)
-sofar: [surf D9] "Keep the legacy tree frozen." bear on files you edited, and no covering test passed since your last edit — run `bun test test/legacy.test.ts` and fix any failure before stopping (fix: restore src/legacy/old.ts)
+sofar: [surf D1] "Never edit files under src/legacy/."; [surf D9] "Keep the legacy tree frozen." bear on files you edited, and no covering test passed since your last edit — run `bun test` and fix any failure before stopping (fix: restore src/legacy from git)
 
 ## step 19: unbound: a read still surfaces, every handle qualified
 argv: ["event","post-tool"]

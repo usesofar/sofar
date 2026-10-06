@@ -57,6 +57,25 @@ names. The live run settles two points the illustrative file left unverified:
   …\nOutput:\nSuccess. Updated the following files:\nA <path>\n"`).
 - A held Stop fires again in the SAME turn with `stop_hook_active: true`.
 
+## hook-payloads.codex-0.160.0.mock.json — read-from-binary-run (r4-fixes U1b)
+
+PostToolUse stdin from codex-cli 0.160.0 (`~/.bench/codex-0.160.0`, the round-4
+binary), captured on 2026-10-06 with NO model: `codex exec` ran against a local
+stand-in for the Responses API that answered each turn with a scripted
+`exec_command` call, and a hook dumped its stdin. Nothing left the machine and
+no inference ran. The flags were the bench's: `--dangerously-bypass-hook-trust`,
+`--dangerously-bypass-approvals-and-sandbox`. The same three payloads came back
+with `--enable code_mode`, the round-4 model's nested `tools.exec_command`. Each
+entry keeps `exit`, the status Codex itself printed ("succeeded" / "exited N").
+The project path is changed to `/tmp/repo` and the Codex home to
+`/home/user/.codex`; every other value is real. It settles what U1b needs:
+- `tool_response` for Bash is the command's output text, and nothing else:
+  `"boom\n"` for a command that exited 3, `"\n"` for a test run that exited 1.
+  No exit status, no "exited with code" marker, no metadata.
+- 0.160.0 embeds no PostToolUseFailure schema, so no other hook reports it.
+So a Codex test run's outcome is unknown to sofar (`ok` stays off), and Stop's
+test gate treats an ask it cannot verify as unverifiable, never as unpassed.
+
 ## contract.codex-0.154.0.json — mark per section
 
 Facts other than hook schemas, each section tagged with its `provenance`:

@@ -767,22 +767,71 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   scopeHitsForSubject). A rule that names no edited path bears on nothing.
 - REQUIREMENT: a rule whose check is test-shaped needs that check's test
   segment. Any other rule needs the record's known suite: the runner head of
-  the session's own `last_test`, else the newest session's, run with no
-  arguments. With no known suite, such a rule asks nothing.
-- COVERING: a run covers a requirement when its runner head (the tokens before
-  the first path, file, flag, assignment or quoted argument; shell redirections
-  such as `2>&1` or `> out.log` dropped) is the same and it has no arguments,
-  or it names every argument the requirement names. A requirement with no
-  arguments is covered only by an argless run. A run counts only when its
-  event's ts is after the newest mtime among the edited files that exist.
-- VERDICT, per requirement: the newest covering run since the last edit passed
-  → satisfied; it failed → `sofar: \`<run>\` failed (exit N) after your last
-  edit, and it covers [<slug> D<n>] "<rule>"… — fix: <hint>`; none → `sofar:
-  [<slug> D<n>] "<rule>"… bear on files you edited, and no covering test passed
-  since your last edit — run \`<cmd>\` and fix any failure before stopping
-  (fix: <hint>)`, where <cmd> is the check's own command or the suite's head.
-  At most 5 lines, then a count line. Any line blocks: exit 2 with the lines on
-  stderr, which each host adapter delivers (§Cursor host, §Codex host).
+  the session's own `last_test`, else the newest session's, run on the
+  directories that command named and nothing else (r4-fixes U1): its files
+  and narrowing flags drop, and a root operand (`.`) leaves it argless. With
+  no known suite, such a rule asks nothing.
+- RUNNER HEAD AND OPERANDS (r4-fixes U1): shell redirections such as `2>&1` or
+  `> out.log` drop. The head is the tokens before the first path, file, flag,
+  assignment or quoted argument, or before the first bare word, not the
+  first token, that names a path that exists under the root. A runner word
+  never ends it: `vitest`, `jest`, `mocha`, `ava`, `tap`, `pytest`, `py.test`,
+  `rspec`, `phpunit`, `cypress`, `playwright`, `node`, and a subcommand right
+  after the word that takes it (`bun test`, `npm run`, `run test`, `uv run`,
+  `vitest run`, `cargo test`, `go test` and the other TOOL_TEST runners). So
+  `bun test tests` is `bun test` on `tests`, `bun test` stays a runner in a repo
+  with a `test/` directory, and `pytest test` runs that directory. An
+  argument is an OPERAND when it names a path that exists, or looks like one
+  (holds `/` or `.`). A directory operand includes everything under it, and
+  go's `./...` is the directory before it. Any other non-flag word NARROWS the
+  run, such as a positional name filter or a flag's value. So does a
+  NARROWING FLAG, given bare (its value is the next word) or as `flag=value`:
+  `-t`, `--testNamePattern`, `--test-name-pattern`, `-k`, `-m`, `--grep`,
+  `-g`, `--grep-invert`, `--filter`, `-run`, `-skip`, `--testPathPattern`,
+  `--testPathPatterns`, `--testPathIgnorePatterns`, `--shard`, `--project`,
+  `--deselect`, `--ignore`, `--ignore-glob` and `--exclude`. These take no
+  value: `--only`, `--onlyChanged`, `-o`, `--changed`, `--related`,
+  `--findRelatedTests`, `--lf`, `--last-failed`, `--only-changed` and
+  `-short`. The tree is read only here, at Stop. `suiteOf`, which projections
+  call, reads none: there a bare word stays in the head.
+- COVERING: a run covers a requirement when the heads are the same and one of
+  these holds. (1) The run has no arguments: the bare runner covers every ask
+  on it. (2) The run names every argument the requirement names, and if a
+  narrowing flag is among the run's, the run is exactly that command. (3) The
+  run carries neither a narrowing flag nor a narrowing word, and has
+  operands. Then each of the requirement's operands lies under one of the
+  run's directories, or equals one of its files. A requirement with no
+  operand, such as the suite, is covered by a run with a directory. A sibling
+  directory never covers. A run counts only when its event's ts is after the
+  newest mtime among the edited files that exist. A failed run never covers,
+  nor does one from before the last edit.
+- VERDICT: the newest covering run since the last edit decides each
+  requirement. If it passed, the requirement is satisfied. If it failed, the
+  line is `sofar: \`<run>\` failed (exit N) after your last edit, and it covers
+  [<slug> D<n>] "<rule>"… — fix: <hint>`. Every requirement that run covers
+  shares this one line. If no covering run exists, the line is `sofar:
+  [<slug> D<n>] "<rule>"… bear on files you edited, and no covering test
+  passed since your last edit — run \`<cmd>\` and fix any failure before
+  stopping (fix: <hint>)`, one line per runner. For a lone ask, <cmd> is the
+  check's own command or the suite's. For several asks it is the runner on
+  the directory that holds every path they name, or the bare runner when one
+  of them names no path or the paths share no directory. At most 5 lines,
+  then a count line. Any line blocks: exit 2 with the lines on stderr, which
+  each host adapter delivers (§Cursor host, §Codex host).
+- UNKNOWN OUTCOME (r4-fixes U1b; memory-lead D37 blocks only on a FAILED
+  bound check): a host whose PostToolUse proves nothing reports no test
+  outcome. That is Codex: codex 0.160.0 sends the command's output text and no
+  exit status, has no failure hook, and sofar records its runs without `ok`.
+  There a missing pass is UNVERIFIABLE, not unpassed. Every ask on such a host
+  folds into one line, where the first ask would have stood: `sofar:
+  [<slug> D<n>] "<rule>"… bear on files you edited, but this host reports no
+  test exit status, so sofar cannot verify their tests and does not hold the
+  stop — check them yourself: \`<cmd>\`, \`<cmd>\``. That line never holds
+  the stop. Only a known failure does, such as an interrupted run. The line
+  rides any block that fires anyway: the write-back block, a failure line, the
+  merge ask or the link ask. Alone, it exits 0 with
+  `{"systemMessage":"<line>"}` on stdout, which goes to the operator, once per
+  stop.
 - BOUNDS: `stop_hook_active` exits 0 first, so the gate asks once per stop. An
   unreadable index makes it say nothing (it is never the write-back gate).
 - BINDING (2.10c). A rule that guards or names a file but has no test-shaped

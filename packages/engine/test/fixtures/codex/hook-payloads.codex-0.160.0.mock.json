@@ -1,0 +1,56 @@
+{
+ "post-tool-use.bash.exit-0": {
+  "exit": 0,
+  "payload": {
+   "session_id": "01a111f5-4ca1-7f42-b3c5-5f0e4b6ca385",
+   "turn_id": "01a111f5-4cd9-7640-8cf0-2269fa5ab486",
+   "transcript_path": "/home/user/.codex/sessions/2026/10/06/rollout-2026-10-06T21-34-11-01a111f5-4ca1-7f42-b3c5-5f0e4b6ca385.jsonl",
+   "cwd": "/tmp/repo",
+   "hook_event_name": "PostToolUse",
+   "model": "gpt-5",
+   "permission_mode": "bypassPermissions",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "echo hello"
+   },
+   "tool_response": "hello\n",
+   "tool_use_id": "exec-69f13726-e676-4aea-be54-8f9e327e6961"
+  }
+ },
+ "post-tool-use.bash.exit-3": {
+  "exit": 3,
+  "payload": {
+   "session_id": "01a111f5-4ca1-7f42-b3c5-5f0e4b6ca385",
+   "turn_id": "01a111f5-4cd9-7640-8cf0-2269fa5ab486",
+   "transcript_path": "/home/user/.codex/sessions/2026/10/06/rollout-2026-10-06T21-34-11-01a111f5-4ca1-7f42-b3c5-5f0e4b6ca385.jsonl",
+   "cwd": "/tmp/repo",
+   "hook_event_name": "PostToolUse",
+   "model": "gpt-5",
+   "permission_mode": "bypassPermissions",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "echo boom >&2; exit 3"
+   },
+   "tool_response": "boom\n",
+   "tool_use_id": "exec-fc4e2036-a012-4602-833e-e9bed490ecf1"
+  }
+ },
+ "post-tool-use.bash.test-exit-1": {
+  "exit": 1,
+  "payload": {
+   "session_id": "01a111f5-4ca1-7f42-b3c5-5f0e4b6ca385",
+   "turn_id": "01a111f5-4cd9-7640-8cf0-2269fa5ab486",
+   "transcript_path": "/home/user/.codex/sessions/2026/10/06/rollout-2026-10-06T21-34-11-01a111f5-4ca1-7f42-b3c5-5f0e4b6ca385.jsonl",
+   "cwd": "/tmp/repo",
+   "hook_event_name": "PostToolUse",
+   "model": "gpt-5",
+   "permission_mode": "bypassPermissions",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "bun test tests 2>&1 | tail -1; exit 1"
+   },
+   "tool_response": "\n",
+   "tool_use_id": "exec-edae21c6-da17-432a-b5f6-002752ba425d"
+  }
+ }
+}

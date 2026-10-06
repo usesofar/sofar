@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, isAbsolute, join } from 'node:path'
 import { guardMatches, parseGuard, type DecisionCheck } from '@sofar/schema'
 import type { TestOutcome, TimedTestOutcome } from './adjacency'
 import { testShapedCommand } from './derived'
@@ -367,10 +367,52 @@ export function enforceEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
 /** At most this many gate lines ride one Stop; the rest are counted. */
 export const STOP_GATE_LINES = 5
 
-/** A test segment split into its runner head and its arguments. */
+/** What a path names on disk: a directory or a file. */
+export type PathKind = 'dir' | 'file'
+
+/**
+ * What a repo-relative (or absolute) path names on disk, or null for
+ * nothing: the gate's one window on the tree (r4-fixes 0.2, U1).
+ */
+export type PathProbe = (path: string) => PathKind | null
+
+/** No tree: every bare word reads as part of the runner, as for `suiteOf`, which projections call. */
+const NO_TREE: PathProbe = () => null
+
+/** The tree under `rootDir`, each path asked once. */
+export function rootProbe(rootDir: string): PathProbe {
+  const seen = new Map<string, PathKind | null>()
+  return (path) => {
+    let kind = seen.get(path)
+    if (kind === undefined) {
+      try {
+        kind = statSync(isAbsolute(path) ? path : join(rootDir, path)).isDirectory() ? 'dir' : 'file'
+      } catch {
+        kind = null
+      }
+      seen.set(path, kind)
+    }
+    return kind
+  }
+}
+
+/** A path a test command names: as written, normalized, and whether it is a directory. */
+interface Operand {
+  token: string
+  path: string
+  dir: boolean
+}
+
+/** A test segment split into its runner head and its arguments, and what the arguments select. */
 interface TestSpec {
   head: string
   args: string[]
+  /** The files and directories the arguments name; a directory selects everything under it. */
+  operands: Operand[]
+  /** A word that names no path (a positional filter, a flag's value, a quoted word): the run may select less than its paths. */
+  narrowed: boolean
+  /** A narrowing flag: the run selects some of its tests by name, marker, pattern, shard or change set. */
+  filtered: boolean
 }
 
 const ARG_TOKEN = /[/.=]|^-|^['"]/
@@ -378,13 +420,84 @@ const ARG_TOKEN = /[/.=]|^-|^['"]/
 const REDIRECT = /^(?:\d*|&)(?:>>?|<)(?:&\d+|.*)$/
 
 /**
+ * Words that stay in the runner even when a path of that name exists: every
+ * runner, and a subcommand right after the word that takes it. So `bun test`
+ * is a runner in a repo with a `test/` directory, while `pytest test` runs
+ * that directory.
+ */
+const RUNNER_WORDS = new Set(['vitest', 'jest', 'mocha', 'ava', 'tap', 'pytest', 'py.test', 'rspec', 'phpunit', 'cypress', 'playwright', 'node'])
+const SUBCOMMANDS = new Set([
+  'npm test', 'npm t', 'npm run', 'pnpm test', 'pnpm t', 'pnpm run', 'yarn test', 'yarn t', 'yarn run', 'bun test', 'bun t', 'bun run',
+  'run test', 'run t', 'poetry run', 'uv run', 'bundle exec', 'vitest run', 'cypress run', 'playwright test',
+  'cargo test', 'go test', 'dotnet test', 'swift test', 'mix test', 'gradle test', 'gradlew test', 'mvn test', 'make test', 'deno test', 'zig test',
+])
+const keepsHead = (prev: string, word: string): boolean => RUNNER_WORDS.has(word) || SUBCOMMANDS.has(`${prev} ${word}`)
+
+/**
+ * Flags that narrow a run to some of its tests — by name (go's `-run` among
+ * them), marker, path pattern, shard, project or change set: such a run
+ * covers only its own command (r4-fixes U1, U1b). Those in the first list
+ * take a value, as the next word or after `=`.
+ */
+const NARROWING_WITH_VALUE = [
+  '-t', '--testNamePattern', '--test-name-pattern', '-k', '-m', '--grep', '-g', '--grep-invert', '--filter', '-run', '-skip',
+  '--testPathPattern', '--testPathPatterns', '--testPathIgnorePatterns', '--shard', '--project', '--deselect', '--ignore', '--ignore-glob', '--exclude',
+]
+const NARROWING_SWITCHES = ['--only', '--onlyChanged', '-o', '--changed', '--related', '--findRelatedTests', '--lf', '--last-failed', '--only-changed', '-short']
+/** A narrowing flag: `value` when its value is the next word, `switch` when it carries none there. */
+function narrowingFlag(token: string): 'value' | 'switch' | null {
+  for (const f of NARROWING_WITH_VALUE) {
+    if (token === f) return 'value'
+    if (token.startsWith(`${f}=`)) return 'switch'
+  }
+  return NARROWING_SWITCHES.some((f) => token === f || token.startsWith(`${f}=`)) ? 'switch' : null
+}
+
+const quoted = (token: string): boolean => token.startsWith("'") || token.startsWith('"')
+
+/** Just past the quoted word starting at `i`: the whitespace split cuts a quoted filter into tokens. */
+function pastQuote(args: readonly string[], i: number): number {
+  const q = args[i]![0]!
+  if (args[i]!.length > 1 && args[i]!.endsWith(q)) return i + 1
+  let j = i + 1
+  while (j < args.length && !args[j]!.endsWith(q)) j += 1
+  return Math.min(j + 1, args.length)
+}
+
+/** A path with `.` and empty segments dropped and `..` folded: `./tests/` is `tests`, and `''` is the root. */
+function normalPath(token: string): string {
+  const out: string[] = []
+  for (const seg of token.split('/')) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..' && out.length > 0 && out[out.length - 1] !== '..') out.pop()
+    else out.push(seg)
+  }
+  return `${token.startsWith('/') ? '/' : ''}${out.join('/')}`
+}
+
+/**
+ * The path an argument names: one that exists, or a path-shaped one taken as
+ * a file; go's `./...` is the directory before it. Null for a word that names
+ * no path.
+ */
+function operandOf(token: string, probe: PathProbe): Operand | null {
+  const recursive = token === '...' || token.endsWith('/...')
+  const path = normalPath(recursive ? token.slice(0, -3) : token)
+  const kind = path === '' ? 'dir' : probe(path)
+  if (kind === 'dir' || (kind === 'file' && !recursive)) return { token, path, dir: kind === 'dir' }
+  return /[/.]/.test(token) ? { token, path: normalPath(token), dir: false } : null
+}
+
+/**
  * The runner and its arguments: the head is every token up to the first that
  * reads as an argument — a path, a file, a flag, an assignment or a quoted
- * filter — so `bun test test/a.test.ts` is `bun test` plus one argument and
- * `npx vitest run src/db` is `npx vitest run` plus one (a bare word such as `src` reads as part of the runner). Redirections are not
- * part of what runs: `bun run test 2>&1` is `bun run test` (round-3 replay).
+ * filter, or a bare word naming a path that exists (r4-fixes U1; not a runner
+ * word, see `keepsHead`) — so `bun test test/a.test.ts` and `bun test tests`
+ * are both `bun test` plus one argument. Redirections are not part of what
+ * runs: `bun run test 2>&1` is `bun run test` (round-3 replay). Without a
+ * tree (`NO_TREE`) a bare word stays in the head.
  */
-function testSpec(segment: string): TestSpec {
+function testSpec(segment: string, probe: PathProbe = NO_TREE): TestSpec {
   const raw = segment.trim().split(/\s+/).filter((t) => t.length > 0)
   const tokens: string[] = []
   for (let i = 0; i < raw.length; i += 1) {
@@ -392,24 +505,71 @@ function testSpec(segment: string): TestSpec {
     if (!REDIRECT.test(t)) tokens.push(t)
     else if (/^(?:\d*|&)(?:>>?|<)$/.test(t)) i += 1 // `> file`: the target goes too
   }
-  const at = tokens.findIndex((t) => ARG_TOKEN.test(t))
-  return at === -1 ? { head: tokens.join(' '), args: [] } : { head: tokens.slice(0, at).join(' '), args: tokens.slice(at) }
+  const at = tokens.findIndex((t, i) => ARG_TOKEN.test(t) || (i > 0 && !keepsHead(tokens[i - 1]!, t) && probe(t) !== null))
+  const spec: TestSpec = {
+    head: (at === -1 ? tokens : tokens.slice(0, at)).join(' '),
+    args: at === -1 ? [] : tokens.slice(at),
+    operands: [],
+    narrowed: false,
+    filtered: false,
+  }
+  const args = spec.args
+  for (let i = 0; i < args.length; ) {
+    const t = args[i]!
+    if (quoted(t)) {
+      spec.narrowed = true
+      i = pastQuote(args, i)
+      continue
+    }
+    const narrowing = narrowingFlag(t)
+    i += 1
+    if (narrowing !== null) {
+      spec.filtered = true
+      if (narrowing === 'value' && i < args.length) i = quoted(args[i]!) ? pastQuote(args, i) : i + 1 // its value
+      continue
+    }
+    if (t.startsWith('-')) continue // a flag
+    const operand = t.includes('=') ? null : operandOf(t, probe)
+    if (operand === null) spec.narrowed = true
+    else spec.operands.push(operand)
+  }
+  return spec
 }
 
-/** The runner a test command names, its arguments dropped: the suite an ask names (r3-fixes D10, D19). */
+/** The runner a test command names, its arguments dropped: the suite an ask names (r3-fixes D10, D19). Reads no tree. */
 export function suiteOf(cmd: string): string {
   return testSpec(cmd).head
 }
 
+const under = (path: string, dir: string): boolean => dir === '' || path === dir || path.startsWith(`${dir}/`)
+
 /**
- * Whether a run covers a requirement: the same runner, and either the whole
- * suite (no arguments) or every argument the requirement names. A requirement
- * with no arguments is the whole suite, which only an argless run covers.
+ * Whether a run covers a requirement (r3-fixes D10; r4-fixes U1). The same
+ * runner, and:
+ * - an argless run covers every ask on its runner;
+ * - a run naming every argument the requirement names covers it;
+ * - a narrowing flag voids the rest: such a run covers only its own command;
+ * - otherwise a run's directories cover the paths under them and its files
+ *   themselves, and a run with a directory covers an ask that names no path
+ *   (the suite). A sibling path never covers, nor a run narrowed by a word
+ *   that names no path.
+ * Whether it PASSED, and after the last edit, is the gate's to ask.
  */
 function covers(run: TestSpec, req: TestSpec): boolean {
   if (run.head !== req.head) return false
   if (run.args.length === 0) return true
-  return req.args.length > 0 && req.args.every((a) => run.args.includes(a))
+  const named = req.args.length > 0 && req.args.every((a) => run.args.includes(a))
+  if (run.filtered) return named && run.args.every((a) => req.args.includes(a))
+  if (named) return true
+  if (run.narrowed || run.operands.length === 0) return false
+  if (req.operands.length === 0) return run.operands.some((o) => o.dir)
+  return req.operands.every((t) => run.operands.some((o) => (o.dir ? under(t.path, o.path) : t.path === o.path)))
+}
+
+interface GateRule {
+  handle: string
+  rule: string
+  hint?: string
 }
 
 /** One requirement the gate checks, and the rules that hang on it. */
@@ -417,13 +577,13 @@ interface Requirement {
   spec: TestSpec
   /** What the ask line tells the agent to run. */
   cmd: string
-  rules: Array<{ handle: string; rule: string; hint?: string }>
+  rules: GateRule[]
 }
 
 export interface StopGate {
   /** Ask and failure lines, at most STOP_GATE_LINES plus a count line. */
   lines: string[]
-  /** Whether Stop holds the session for them. */
+  /** Whether Stop holds the session for them: false when the only line is the unverifiable one (U1b). */
   blocks: boolean
 }
 
@@ -432,9 +592,34 @@ const flatClip = (text: string, max: number): string => {
   return f.length > max ? `${f.slice(0, max - 1)}…` : f
 }
 
-function namedRules(req: Requirement): string {
-  const shown = req.rules.slice(0, 3).map((r) => `[${r.handle}] "${flatClip(r.rule, 140)}"`)
-  return `${shown.join('; ')}${req.rules.length > 3 ? `; +${req.rules.length - 3} more` : ''}`
+function namedRules(rules: readonly GateRule[]): string {
+  const shown = rules.slice(0, 3).map((r) => `[${r.handle}] "${flatClip(r.rule, 140)}"`)
+  return `${shown.join('; ')}${rules.length > 3 ? `; +${rules.length - 3} more` : ''}`
+}
+
+/**
+ * One command for every ask on one runner (r4-fixes U1): a lone ask's own;
+ * else the runner on the directory holding every path the asks name, or the
+ * bare runner when one asks for the suite or the paths share no directory.
+ */
+function askCommand(head: string, reqs: readonly Requirement[], probe: PathProbe): string {
+  if (reqs.length === 1) return reqs[0]!.cmd
+  let common: string[] | null = null
+  for (const req of reqs) {
+    if (req.spec.operands.length === 0) return head
+    for (const o of req.spec.operands) {
+      const segs = o.path.split('/')
+      const dir = o.dir ? segs : segs.slice(0, -1)
+      if (common === null) common = dir
+      else {
+        let n = 0
+        while (n < common.length && n < dir.length && common[n] === dir[n]) n += 1
+        common = common.slice(0, n)
+      }
+    }
+  }
+  const dir = (common ?? []).join('/')
+  return dir.length > 0 && probe(dir) === 'dir' ? `${head} ${dir}` : head
 }
 
 /**
@@ -442,10 +627,16 @@ function namedRules(req: Requirement): string {
  * this session edited needs a covering test that passed AFTER the session's
  * last edit — its check's test segment, or for a rule without a test-shaped
  * check the repo's suite (the runner of `knownTest`, the record's newest test
- * command). A failed latest covering run is a failure line; no covering run
- * is an ask. With no known suite, an unchecked rule asks nothing: sofar never
- * demands tests a repo does not have. Pure: the caller hands it the index, the
- * session's files and its tests since the last edit.
+ * command, on the directories it ran). A failed latest covering run is a
+ * failure line, one per run; no covering run is an ask, one line per runner
+ * (r4-fixes U1). With no known suite, an unchecked rule asks nothing: sofar
+ * never demands tests a repo does not have. On a host that reports no test
+ * outcome (`outcomesKnown` false: Codex, whose PostToolUse carries output
+ * only), a missing pass is unverifiable, not unpassed: every ask folds into one
+ * line that never holds the stop, and only a known failure does (U1b,
+ * memory-lead D37). Pure but for `probe`: the caller hands it the index, the
+ * session's files, its tests since the last edit, and the tree the commands'
+ * paths name.
  */
 export function stopGate(
   index: GuardIndex,
@@ -453,6 +644,8 @@ export function stopGate(
   testsSinceEdit: readonly TimedTestOutcome[],
   knownTest: string | null,
   editedAtMs: number | null = null,
+  probe: PathProbe = NO_TREE,
+  outcomesKnown = true,
 ): StopGate {
   // A run counts only if it finished after the newest edit on disk: edits the
   // hooks never saw (Bash writes, lost captures) void earlier runs too.
@@ -468,7 +661,9 @@ export function stopGate(
   }
   if (bearing.size === 0) return { lines: [], blocks: false }
 
-  const suite = knownTest === null ? null : testSpec(knownTest).head
+  // The suite: the known command's runner on the directories it ran, never its files or filters.
+  const known = knownTest === null ? null : testSpec(knownTest, probe)
+  const suiteDirs = known === null || known.operands.some((o) => o.dir && o.path === '') ? [] : known.operands.filter((o) => o.dir)
   const reqs = new Map<string, Requirement>()
   const ordered = [...bearing.values()].sort((a, b) =>
     a.initiative === b.initiative ? a.ordinal - b.ordinal : byCodeUnit(a.initiative, b.initiative),
@@ -478,11 +673,12 @@ export function stopGate(
     let spec: TestSpec
     let cmd: string
     if (own !== null) {
-      spec = testSpec(own)
+      spec = testSpec(own, probe)
       cmd = d.check!.cmd
-    } else if (suite !== null && suite.length > 0) {
-      spec = { head: suite, args: [] }
-      cmd = suite
+    } else if (known !== null && known.head.length > 0) {
+      const args = suiteDirs.map((o) => o.token)
+      spec = { head: known.head, args, operands: suiteDirs, narrowed: false, filtered: false }
+      cmd = [known.head, ...args].join(' ')
     } else continue
     const key = `${spec.head}\0${[...spec.args].sort(byCodeUnit).join('\0')}`
     const req = reqs.get(key) ?? { spec, cmd, rules: [] }
@@ -494,26 +690,48 @@ export function stopGate(
     reqs.set(key, req)
   }
 
-  const lines: string[] = []
-  for (const req of reqs.values()) {
-    let latest: TestOutcome | undefined
-    for (let i = runs.length - 1; i >= 0; i -= 1) {
-      const run = runs[i]!
-      if (covers(testSpec(run.cmd), req.spec)) {
-        latest = run
-        break
-      }
-    }
+  // Asks on one runner fold into one line with one command; requirements a
+  // failed run covers, into that run's line.
+  const ran = runs.map((run) => ({ run, spec: testSpec(run.cmd, probe) }))
+  const groups = new Map<string, { head: string; failed?: TestOutcome; reqs: Requirement[] }>()
+  for (const [key, req] of reqs) {
+    let at = ran.length - 1
+    while (at >= 0 && !covers(ran[at]!.spec, req.spec)) at -= 1
+    const latest = at >= 0 ? ran[at]!.run : undefined
     if (latest?.ok === true) continue
-    const hint = req.rules.find((r) => r.hint !== undefined)?.hint
+    const group = latest !== undefined ? `failed\0${at}` : req.spec.head.length > 0 ? `ask\0${req.spec.head}` : `ask\0\0${key}`
+    const into = groups.get(group) ?? { head: req.spec.head, ...(latest !== undefined ? { failed: latest } : {}), reqs: [] }
+    into.reqs.push(req)
+    groups.set(group, into)
+  }
+  const lines: string[] = []
+  // Asks this host cannot verify: one line, where the first would have stood.
+  let unverified: { at: number; rules: GateRule[]; cmds: string[] } | null = null
+  for (const group of groups.values()) {
+    const rules = group.reqs.flatMap((r) => r.rules)
+    const failed = group.failed
+    if (failed === undefined && !outcomesKnown) {
+      if (unverified === null) {
+        unverified = { at: lines.length, rules: [], cmds: [] }
+        lines.push('')
+      }
+      unverified.rules.push(...rules)
+      unverified.cmds.push(askCommand(group.head, group.reqs, probe))
+      continue
+    }
+    const hint = rules.find((r) => r.hint !== undefined)?.hint
     const fix = hint !== undefined ? flat(hint) : 'make the work hold the rule, or log a decision that supersedes it'
     lines.push(
-      latest === undefined
-        ? `sofar: ${namedRules(req)} bear on files you edited, and no covering test passed since your last edit — run \`${req.cmd}\` and fix any failure before stopping (fix: ${fix})`
-        : `sofar: \`${latest.cmd}\` failed${latest.exit !== undefined ? ` (exit ${latest.exit})` : ''} after your last edit, and it covers ${namedRules(req)} — fix: ${fix}`,
+      failed === undefined
+        ? `sofar: ${namedRules(rules)} bear on files you edited, and no covering test passed since your last edit — run \`${askCommand(group.head, group.reqs, probe)}\` and fix any failure before stopping (fix: ${fix})`
+        : `sofar: \`${failed.cmd}\` failed${failed.exit !== undefined ? ` (exit ${failed.exit})` : ''} after your last edit, and it covers ${namedRules(rules)} — fix: ${fix}`,
     )
+  }
+  if (unverified !== null) {
+    lines[unverified.at] =
+      `sofar: ${namedRules(unverified.rules)} bear on files you edited, but this host reports no test exit status, so sofar cannot verify their tests and does not hold the stop — check them yourself: ${unverified.cmds.map((c) => `\`${c}\``).join(', ')}`
   }
   const shown = lines.slice(0, STOP_GATE_LINES)
   if (lines.length > STOP_GATE_LINES) shown.push(`sofar: +${lines.length - STOP_GATE_LINES} more test requirement(s) bear on this session's edits — \`sofar check\` lists the rules`)
-  return { lines: shown, blocks: lines.length > 0 }
+  return { lines: shown, blocks: lines.length > (unverified === null ? 0 : 1) }
 }

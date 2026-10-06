@@ -39,7 +39,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
+import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -1344,7 +1344,11 @@ export function handleStop(
     // test that passed after the last one. sofar runs nothing here — the agent
     // runs the tests under its host's permissions — and stop_hook_active above
     // bounds it to one ask per stop. SOFAR_ENFORCE=off restores D10's Stop.
-    const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, slug, state, session) : null
+    // A host whose PostToolUse proves nothing (Codex: output text only, no
+    // exit status, read from codex 0.160.0) cannot show a pass: the gate's asks
+    // there are unverifiable and never hold (r4-fixes U1b).
+    const outcomesKnown = postToolProvesSuccess(host ?? hookHost(hook))
+    const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, slug, state, session, outcomesKnown) : null
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop: a rule it filed naming nothing it replaces. SOFAR_LINK_ASK=off
     // is its ablation arm.
@@ -1366,8 +1370,11 @@ export function handleStop(
       }
     }
     if (!owes) {
-      const held = [...(gate?.blocks === true ? gate.lines : []), ...merge, ...links]
-      return held.length > 0 ? { exitCode: 2, stdout: '', stderr: held.join('\n') } : { ...OK }
+      const held = [...merge, ...links]
+      if (gate?.blocks === true || held.length > 0) return { exitCode: 2, stdout: '', stderr: [...(gate?.lines ?? []), ...held].join('\n') }
+      // A line the gate does not hold for (an unverifiable ask, U1b) holds
+      // nothing on its own: it reaches the operator, and rides any block.
+      return gate !== null && gate.lines.length > 0 ? { exitCode: 0, stdout: JSON.stringify({ systemMessage: gate.lines.join('\n') }), stderr: '' } : { ...OK }
     }
 
     // Guard crossings RIDE the block; they never cause one (D3). By the time
@@ -1407,7 +1414,7 @@ export function handleStop(
  * the session's own newest test command, else the record's. Fails open: a gate
  * that cannot read the index says nothing, since it is never the write-back gate.
  */
-function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState): StopGate {
+function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState, outcomesKnown: boolean): StopGate {
   const none: StopGate = { lines: [], blocks: false }
   try {
     const captured = (session.activity?.files ?? []).filter((f) => !f.startsWith('+'))
@@ -1432,7 +1439,7 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     }
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
-    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt)
+    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, rootProbe(rootDir), outcomesKnown)
   } catch {
     return none
   }
