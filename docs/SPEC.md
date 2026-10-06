@@ -7387,12 +7387,30 @@ stay the underlying derivation's, and exit codes are styling-independent.
   with no verify command records nothing and renders as before.
 - **Read-path latency budget (r1-fixes D18):** `npm run bench:read-paths --
   --baseline <previous release cli.js> --candidate <RC cli.js> --fixture
-  repo|i1000-10mb` times session-start, user-prompt, stop and statusline
-  end to end, baseline and candidate interleaved ABAB, n≥25, and exits 1
-  when any candidate p50 exceeds the baseline's by more than 10%. TWO
+  repo|i1000-10mb [--legs ts,native]` times session-start, user-prompt, stop
+  and statusline end to end AS HOSTS RUN THEM, baseline and candidate
+  interleaved ABAB, n≥25, and exits 1 when any candidate p50 exceeds the
+  baseline's by more than 10% on any leg. ENTRY: each side's OWN hook shim
+  (the `session-start.sh`, `user-prompt-submit.sh` and `stop.sh` bytes its
+  `sofar init` writes) and `sofar statusline` through its bin, on a PATH
+  whose `sofar` and `node` are that side's and which holds no other sofar
+  install (`--entry shim`, the default; `--entry cli` times `node cli.js
+  <hook>`, to split a shim delta from an engine one). LEGS (r4-fixes U8):
+  `SOFAR_CORE` is pinned on each side and the gate runs per engine, each
+  leg comparing one engine with itself — `ts` (`SOFAR_CORE=0` on both
+  sides, the TypeScript hot path) and `native` (each side's own core: the
+  baseline's installed `@sofar.sh/core-<platform>-<arch>` package, a
+  checkout's own `target/release/sofar-core` and never the published
+  package its node_modules may hold; `--baseline-core` /
+  `--candidate-core` name one). Before a leg is timed an engine witness
+  runs every hook once per side and records which engine answered; when a
+  hook ran different engines on the two sides, or not the leg's, the
+  script refuses to compare and exits 4 — a delta between two engines is
+  not a regression (the 0.34.0 cut timed an npm baseline's native core
+  against a checkout's TypeScript and read +70–79%). TWO
   fixtures are pinned, named as rust-core's conformance perf cells are
   (`SOFAR_PERF_CELLS=repo,i1000-10mb` there), and the gate must pass on
-  BOTH: `repo` — this repository's own record (55 initiatives, 0.6 MB
+  BOTH, on BOTH legs: `repo` — this repository's own record (55 initiatives, 0.6 MB
   bound log on main, a registered session id passed with `--session`), and
   `i1000-10mb` — 1,000 initiatives sharing the `.sofar/` with a ≥10 MB
   bound log (36–41k events: a plan, ten decisions with five guarded,
@@ -7400,21 +7418,26 @@ stay the underlying derivation's, and exit codes are styling-independent.
   sibling leaving a session open on a path the bound record also edits),
   which the script generates deterministically so a scale-only regression
   cannot hide behind a small-record pass. PROCEDURE: interleaved, n ≥ 25,
-  the same record and session id for both binaries, against the pinned
-  0.32.0 as-shipped baseline (`~/.bench/sofar-0.32.0`); the 1-minute load
+  the same record and session id for both sides, against the PREVIOUS
+  RELEASE installed from npm under a scratch prefix (`npm install --prefix
+  ~/.bench/sofar-<previous> sofar.sh@<previous>`, never the operator's
+  global install; its platform package is the native leg's baseline core);
+  the 1-minute load
   average is recorded at start and end (the script prints it and writes it
   with `--record <file.json>`) — a loaded machine is fine, since
   interleaving hits both binaries with the same load, but a load average
   that changes by more than 50% during the run is a repeat (exit 3), never
   a verdict. An RC CHECKLIST ITEM (4.2): hosted runners' noise exceeds the
   ±10% budget, so the budget gate runs by hand and both tables (`--record`
-  JSON) go in the RC's task note as evidence, together with the ablation
+  JSON, which names each leg and the engines it witnessed) go in the RC's
+  task note as evidence, together with the ablation
   switch the round-2 addendum needs (`SOFAR_LESSONS=off`; D20: priced
   separately, never summed). TRIPWIRE: the same script with `--budget 0.5
   --record` is the loose CI check — hosted noise cannot hide a 2×
   regression, and a manual-only gate is one forgotten step from silence.
-  This repository has no CI today; until the operator adds one, the
-  tripwire runs as the first step of the RC checklist.
+  It is the `read-paths` job of `.github/workflows/ci.yml`, run on
+  dispatch with the previous release as its baseline input: macOS runs
+  both legs (it cargo-builds the candidate's core), Linux the `ts` leg.
   Attribution per lever is by ablation (D5, D20): a lever's latency cost is
   stated beside its predicted gain, and one over budget gets cheaper or a
   flag defaulted off. Measured for the r1-fixes RC against 0.32.0 on
