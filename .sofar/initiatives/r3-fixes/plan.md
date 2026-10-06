@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 37 done, 2 dropped, 6 remaining
+Progress: 38 done, 2 dropped, 5 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -58,13 +58,13 @@ Progress: 37 done, 2 dropped, 6 remaining
 - [ ] 4.3 Unblock sofar-core-win32-x64 on npm. Its first publish (0.34.0-rc.5) hit E403 "Package name triggered spam detection". Operator: open an npm support ticket for the name, then publish it from ~/IO/sofar-rc5/packaging/npm/sofar-core-win32-x64. Don't rename (rust-core D22) unless support refuses.
 - [ ] 4.4 Scoped core packages for the next release (rust-core D-latest, superseding D22). emit.mjs emits @sofar/core-<platform>-<arch>. sofar.sh optionalDependencies and install.mjs and the shim lookup use the scoped names; packaging tests and the release procedure (repo memory M1, r3-fixes M10) are updated. Publish @sofar/core-win32-x64 first as the spam-filter probe. Deprecate the five rc.5 sofar-core-* names with a pointer after the scoped ones ship. Do not touch rc.5 (round 4's pin).
 
-## Phase 5 — Round 4 benchmark [active] — 6/9 done
+## Phase 5 — Round 4 benchmark [active] — 7/9 done
 
 - [x] 5.1 Fresh held-out chain authored blind (D22; chain-l-author pattern)
 - [x] 5.2 PRE-REGISTRATION-R4: claims with predicted margins from Phase 2, frozen in the operator's own words before any scored run
 - [x] 5.3 Smoke on the round-4 harness
-- [ ] 5.4 Run 3 reps; score-batch and check-rep each (active)
-- [ ] 5.5 Readout per claim; D19 gate ruling; stable publish only if it passes
+- [x] 5.4 Run 3 reps; score-batch and check-rep each
+- [ ] 5.5 Readout per claim; D19 gate ruling; stable publish only if it passes (active)
 - [x] 5.0 Pin the latest stable agents and beads at the freeze, checked live (D5); re-check the Codex contract fixtures on the new pin
 - [x] 5.6 R4-B chain content: the blind round-4 author plants ≥2 decisions on branches that are never merged, with hidden tests asserting trunk behaviour, so branch containment is measurable (R3-FIX-SURVEY C §4 B; D9)
 - [x] 5.7 Pre-register D9's ≥50% claims vs beads and the best competitor in PRE-REGISTRATION-R4: S30 failures ≤0.5× beads; guarded violations ≤0.5× (R4-A); cross-vendor currency error ≤0.5× (R4-C); branch-leak margin (R4-B); cost ≤ native as a parity claim. Rule on the rep count (3 vs 5) for the power to resolve them.
