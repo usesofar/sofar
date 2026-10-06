@@ -1,6 +1,6 @@
 {
   "name": "@sofar.sh/core-darwin-x64",
-  "version": "0.34.0",
+  "version": "0.34.1",
   "description": "sofar's native hot-path core (sofar-core) for darwin-x64. Installed by sofar.sh as an optional dependency; never depend on it directly.",
   "repository": {
     "type": "git",

@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.34.1** (the hotfix cut, r4-fixes 0.2) from the
+TypeScript reference. The version bump is the whole diff: two goldens
+changed, each by one string. `argv.fast-path` (`--version` is now
+`0.34.1`) and `open.O2-update-segment` (the update notice's "you have
+0.34.1"). No previous set is kept.
+
 RE-RECORDED on **release/0.34.1** (the hotfix integration, r4-fixes 0.2) at
 the merge of hotfix/u5 into hotfix/u1+u3+u4+u8, from the TypeScript reference.
 Two goldens moved, each because U1 and U5 both touch the same Stop-gate line
