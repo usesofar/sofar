@@ -853,8 +853,11 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     let Some(session) = state.sessions.iter().find(|s| s.id == session_id) else {
         return silent();
     };
+    // A host whose PostToolUse proves nothing cannot show a pass: the gate's
+    // asks there are unverifiable and never hold (r4-fixes U1b).
+    let outcomes_known = crate::post_tool::post_tool_proves_success(hook_host(&hook).tool);
     let gate = crate::checks::enforce_enabled()
-        .then(|| stop_gate_for(root, &layout, &slug, &state, session));
+        .then(|| stop_gate_for(root, &layout, &slug, &state, session, outcomes_known));
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop; SOFAR_LINK_ASK=off is its ablation arm.
     let asks = if link_ask_enabled() {
@@ -877,20 +880,28 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     // back or never mutated the record.
     let owes = session.summary.is_none() && session_debt(&state, session) != 0;
     if !owes {
-        let mut held: Vec<String> = match gate {
-            Some(g) if g.blocks => g.lines,
-            _ => Vec::new(),
-        };
+        let gate = gate.unwrap_or_default();
+        if !gate.blocks && merge.is_empty() && asks.is_empty() {
+            // A line the gate does not hold for (an unverifiable ask, U1b)
+            // holds nothing on its own: it reaches the operator.
+            if gate.lines.is_empty() {
+                return silent();
+            }
+            let mut o = crate::json::Object::new();
+            o.insert("systemMessage", Json::Str(gate.lines.join("\n")));
+            return CmdResult {
+                exit_code: 0,
+                stdout: crate::json::stringify(&Json::Obj(o)),
+                stderr: String::new(),
+            };
+        }
+        let mut held = gate.lines;
         held.extend(merge);
         held.extend(asks);
-        return if held.is_empty() {
-            silent()
-        } else {
-            CmdResult {
-                exit_code: 2,
-                stdout: String::new(),
-                stderr: held.join("\n"),
-            }
+        return CmdResult {
+            exit_code: 2,
+            stdout: String::new(),
+            stderr: held.join("\n"),
         };
     }
     let mut lines = vec![STOP_BLOCK_MESSAGE.to_owned()];
@@ -1079,6 +1090,7 @@ fn stop_gate_for(
     slug: &str,
     state: &InitiativeState,
     session: &SessionState,
+    outcomes_known: bool,
 ) -> crate::checks::StopGate {
     let none = crate::checks::StopGate::default();
     let activity = session.activity.as_ref();
@@ -1132,7 +1144,15 @@ fn stop_gate_for(
         .map(|t| t.cmd.as_str());
     let tests = activity.map_or(&[][..], |a| a.tests_since_edit.as_slice());
     let probe = crate::checks::root_probe(root);
-    crate::checks::stop_gate(&index, &files, tests, known, edited_at, &probe)
+    crate::checks::stop_gate(
+        &index,
+        &files,
+        tests,
+        known,
+        edited_at,
+        &probe,
+        outcomes_known,
+    )
 }
 
 /// `handleSessionEnd`: append `session_closed` once.

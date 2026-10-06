@@ -781,6 +781,12 @@ export const CASES: ConformanceCase[] = [
       s('stop: a red run after the edit holds, once for both rules', ['event', 'stop'], stop({ session_id: 'sess-g' })),
       s('the bare runner passes', ['event', 'post-tool'], bash('bun test', { session_id: 'sess-g' })),
       s('stop: the bare runner covers every ask, test/ notwithstanding', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      // r4-fixes U1b: Codex hands PostToolUse the output text and no exit
+      // status (codex 0.160.0), so its asks are unverifiable and never hold.
+      s('Codex: an apply_patch edit of the guarded file', ['event', 'post-tool', '--host', 'codex'], hook('PostToolUse', { session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions', tool_name: 'apply_patch', tool_input: { command: '*** Begin Patch\n*** Update File: src/stock.ts\n@@\n-export {}\n+export const x = 1\n*** End Patch' }, tool_response: 'Exit code: 0\nWall time: 0.1 seconds\nOutput:\nSuccess. Updated the following files:\nM src/stock.ts\n', tool_use_id: 'exec-x1' })),
+      s('sess-x writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-x', '--source', 'codex', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('Codex: the directory run, its output text only', ['event', 'post-tool', '--host', 'codex'], hook('PostToolUse', { session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions', tool_name: 'Bash', tool_input: { command: 'bun test tests/rules' }, tool_response: '\n', tool_use_id: 'exec-x2' })),
+      s('stop under Codex: unverifiable, not held, told to the operator', ['event', 'stop', '--host', 'codex'], stop({ session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions' })),
     ],
   },
   {

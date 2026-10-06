@@ -411,7 +411,7 @@ interface TestSpec {
   operands: Operand[]
   /** A word that names no path (a positional filter, a flag's value, a quoted word): the run may select less than its paths. */
   narrowed: boolean
-  /** A test-name filter flag: the run selects tests by name. */
+  /** A narrowing flag: the run selects some of its tests by name, marker, pattern, shard or change set. */
   filtered: boolean
 }
 
@@ -433,9 +433,25 @@ const SUBCOMMANDS = new Set([
 ])
 const keepsHead = (prev: string, word: string): boolean => RUNNER_WORDS.has(word) || SUBCOMMANDS.has(`${prev} ${word}`)
 
-/** Test-name filters (go's `-run` among them): a run that selects tests by name covers only its own command. */
-const FILTER_FLAGS = ['-t', '--testNamePattern', '--test-name-pattern', '-k', '--grep', '-g', '--filter', '-run']
-const filterFlag = (token: string): string | undefined => FILTER_FLAGS.find((f) => token === f || token.startsWith(`${f}=`))
+/**
+ * Flags that narrow a run to some of its tests — by name (go's `-run` among
+ * them), marker, path pattern, shard, project or change set: such a run
+ * covers only its own command (r4-fixes U1, U1b). Those in the first list
+ * take a value, as the next word or after `=`.
+ */
+const NARROWING_WITH_VALUE = [
+  '-t', '--testNamePattern', '--test-name-pattern', '-k', '-m', '--grep', '-g', '--grep-invert', '--filter', '-run', '-skip',
+  '--testPathPattern', '--testPathPatterns', '--testPathIgnorePatterns', '--shard', '--project', '--deselect', '--ignore', '--ignore-glob', '--exclude',
+]
+const NARROWING_SWITCHES = ['--only', '--onlyChanged', '-o', '--changed', '--related', '--findRelatedTests', '--lf', '--last-failed', '--only-changed', '-short']
+/** A narrowing flag: `value` when its value is the next word, `switch` when it carries none there. */
+function narrowingFlag(token: string): 'value' | 'switch' | null {
+  for (const f of NARROWING_WITH_VALUE) {
+    if (token === f) return 'value'
+    if (token.startsWith(`${f}=`)) return 'switch'
+  }
+  return NARROWING_SWITCHES.some((f) => token === f || token.startsWith(`${f}=`)) ? 'switch' : null
+}
 
 const quoted = (token: string): boolean => token.startsWith("'") || token.startsWith('"')
 
@@ -505,11 +521,11 @@ function testSpec(segment: string, probe: PathProbe = NO_TREE): TestSpec {
       i = pastQuote(args, i)
       continue
     }
-    const filter = filterFlag(t)
+    const narrowing = narrowingFlag(t)
     i += 1
-    if (filter !== undefined) {
+    if (narrowing !== null) {
       spec.filtered = true
-      if (t === filter && i < args.length) i = quoted(args[i]!) ? pastQuote(args, i) : i + 1 // its pattern
+      if (narrowing === 'value' && i < args.length) i = quoted(args[i]!) ? pastQuote(args, i) : i + 1 // its value
       continue
     }
     if (t.startsWith('-')) continue // a flag
@@ -532,7 +548,7 @@ const under = (path: string, dir: string): boolean => dir === '' || path === dir
  * runner, and:
  * - an argless run covers every ask on its runner;
  * - a run naming every argument the requirement names covers it;
- * - a test-name filter voids the rest: such a run covers only its own command;
+ * - a narrowing flag voids the rest: such a run covers only its own command;
  * - otherwise a run's directories cover the paths under them and its files
  *   themselves, and a run with a directory covers an ask that names no path
  *   (the suite). A sibling path never covers, nor a run narrowed by a word
@@ -567,7 +583,7 @@ interface Requirement {
 export interface StopGate {
   /** Ask and failure lines, at most STOP_GATE_LINES plus a count line. */
   lines: string[]
-  /** Whether Stop holds the session for them. */
+  /** Whether Stop holds the session for them: false when the only line is the unverifiable one (U1b). */
   blocks: boolean
 }
 
@@ -614,9 +630,13 @@ function askCommand(head: string, reqs: readonly Requirement[], probe: PathProbe
  * command, on the directories it ran). A failed latest covering run is a
  * failure line, one per run; no covering run is an ask, one line per runner
  * (r4-fixes U1). With no known suite, an unchecked rule asks nothing: sofar
- * never demands tests a repo does not have. Pure but for `probe`: the caller
- * hands it the index, the session's files, its tests since the last edit, and
- * the tree the commands' paths name.
+ * never demands tests a repo does not have. On a host that reports no test
+ * outcome (`outcomesKnown` false: Codex, whose PostToolUse carries output
+ * only), a missing pass is unverifiable, not unpassed: every ask folds into one
+ * line that never holds the stop, and only a known failure does (U1b,
+ * memory-lead D37). Pure but for `probe`: the caller hands it the index, the
+ * session's files, its tests since the last edit, and the tree the commands'
+ * paths name.
  */
 export function stopGate(
   index: GuardIndex,
@@ -625,6 +645,7 @@ export function stopGate(
   knownTest: string | null,
   editedAtMs: number | null = null,
   probe: PathProbe = NO_TREE,
+  outcomesKnown = true,
 ): StopGate {
   // A run counts only if it finished after the newest edit on disk: edits the
   // hooks never saw (Bash writes, lost captures) void earlier runs too.
@@ -684,18 +705,33 @@ export function stopGate(
     groups.set(group, into)
   }
   const lines: string[] = []
+  // Asks this host cannot verify: one line, where the first would have stood.
+  let unverified: { at: number; rules: GateRule[]; cmds: string[] } | null = null
   for (const group of groups.values()) {
     const rules = group.reqs.flatMap((r) => r.rules)
+    const failed = group.failed
+    if (failed === undefined && !outcomesKnown) {
+      if (unverified === null) {
+        unverified = { at: lines.length, rules: [], cmds: [] }
+        lines.push('')
+      }
+      unverified.rules.push(...rules)
+      unverified.cmds.push(askCommand(group.head, group.reqs, probe))
+      continue
+    }
     const hint = rules.find((r) => r.hint !== undefined)?.hint
     const fix = hint !== undefined ? flat(hint) : 'make the work hold the rule, or log a decision that supersedes it'
-    const failed = group.failed
     lines.push(
       failed === undefined
         ? `sofar: ${namedRules(rules)} bear on files you edited, and no covering test passed since your last edit — run \`${askCommand(group.head, group.reqs, probe)}\` and fix any failure before stopping (fix: ${fix})`
         : `sofar: \`${failed.cmd}\` failed${failed.exit !== undefined ? ` (exit ${failed.exit})` : ''} after your last edit, and it covers ${namedRules(rules)} — fix: ${fix}`,
     )
   }
+  if (unverified !== null) {
+    lines[unverified.at] =
+      `sofar: ${namedRules(unverified.rules)} bear on files you edited, but this host reports no test exit status, so sofar cannot verify their tests and does not hold the stop — check them yourself: ${unverified.cmds.map((c) => `\`${c}\``).join(', ')}`
+  }
   const shown = lines.slice(0, STOP_GATE_LINES)
   if (lines.length > STOP_GATE_LINES) shown.push(`sofar: +${lines.length - STOP_GATE_LINES} more test requirement(s) bear on this session's edits — \`sofar check\` lists the rules`)
-  return { lines: shown, blocks: lines.length > 0 }
+  return { lines: shown, blocks: lines.length > (unverified === null ? 0 : 1) }
 }

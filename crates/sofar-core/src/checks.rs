@@ -768,7 +768,7 @@ struct TestSpec {
     operands: Vec<Operand>,
     /// A word that names no path: the run may select less than its paths.
     narrowed: bool,
-    /// A test-name filter flag: the run selects tests by name.
+    /// A narrowing flag: the run selects some of its tests.
     filtered: bool,
 }
 
@@ -857,26 +857,75 @@ fn keeps_head(prev: &str, word: &str) -> bool {
     RUNNER_WORDS.contains(&word) || SUBCOMMANDS.iter().any(|(p, w)| *p == prev && *w == word)
 }
 
-/// `FILTER_FLAGS`: test-name filters (go's `-run` among them).
-const FILTER_FLAGS: &[&str] = &[
+/// `NARROWING_WITH_VALUE`: flags that narrow a run to some of its tests — by
+/// name (go's `-run` among them), marker, path pattern, shard, project or
+/// change set — and take a value, as the next word or after `=`.
+const NARROWING_WITH_VALUE: &[&str] = &[
     "-t",
     "--testNamePattern",
     "--test-name-pattern",
     "-k",
+    "-m",
     "--grep",
     "-g",
+    "--grep-invert",
     "--filter",
     "-run",
+    "-skip",
+    "--testPathPattern",
+    "--testPathPatterns",
+    "--testPathIgnorePatterns",
+    "--shard",
+    "--project",
+    "--deselect",
+    "--ignore",
+    "--ignore-glob",
+    "--exclude",
 ];
 
-/// `filterFlag`: the filter flag a token is, bare or `flag=pattern`.
-fn filter_flag(token: &str) -> Option<&'static str> {
-    FILTER_FLAGS.iter().copied().find(|f| {
-        token == *f
-            || token
-                .strip_prefix(f)
-                .is_some_and(|rest| rest.starts_with('='))
-    })
+/// `NARROWING_SWITCHES`: narrowing flags that carry no value in the next word.
+const NARROWING_SWITCHES: &[&str] = &[
+    "--only",
+    "--onlyChanged",
+    "-o",
+    "--changed",
+    "--related",
+    "--findRelatedTests",
+    "--lf",
+    "--last-failed",
+    "--only-changed",
+    "-short",
+];
+
+/// How a token narrows a run (`narrowingFlag`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Narrowing {
+    /// Its value is the next word.
+    Value,
+    /// It carries none there.
+    Switch,
+}
+
+fn flag_with_value(token: &str, flag: &str) -> bool {
+    token
+        .strip_prefix(flag)
+        .is_some_and(|rest| rest.starts_with('='))
+}
+
+/// `narrowingFlag`.
+fn narrowing_flag(token: &str) -> Option<Narrowing> {
+    for f in NARROWING_WITH_VALUE {
+        if token == *f {
+            return Some(Narrowing::Value);
+        }
+        if flag_with_value(token, f) {
+            return Some(Narrowing::Switch);
+        }
+    }
+    NARROWING_SWITCHES
+        .iter()
+        .any(|f| token == *f || flag_with_value(token, f))
+        .then_some(Narrowing::Switch)
 }
 
 fn quoted(token: &str) -> bool {
@@ -1000,16 +1049,16 @@ fn test_spec(segment: &str, probe: PathProbe<'_>) -> TestSpec {
             i = past_quote(args, i);
             continue;
         }
-        let filter = filter_flag(t);
+        let narrowing = narrowing_flag(t);
         i += 1;
-        if let Some(filter) = filter {
+        if let Some(narrowing) = narrowing {
             filtered = true;
-            if t == filter && i < args.len() {
+            if narrowing == Narrowing::Value && i < args.len() {
                 i = if quoted(&args[i]) {
                     past_quote(args, i)
                 } else {
                     i + 1
-                }; // its pattern
+                }; // its value
             }
             continue;
         }
@@ -1042,7 +1091,7 @@ fn under(path: &str, dir: &str) -> bool {
 }
 
 /// `covers` (r3-fixes D10; r4-fixes U1): the same runner, and an argless run;
-/// or a run naming every argument the requirement names; a test-name filter
+/// or a run naming every argument the requirement names; a narrowing flag
 /// voids the rest; otherwise a run's directories cover the paths under them
 /// and its files themselves, and a run with a directory covers an ask that
 /// names no path. A sibling never covers, nor a run narrowed by a word that
@@ -1244,12 +1293,69 @@ struct Group<'a> {
     reqs: Vec<&'a Requirement>,
 }
 
+/// The gate's lines, one per group (`stopGate`'s rendering), and whether one
+/// of them is the unverifiable line, which holds nothing (U1b).
+fn group_lines(
+    groups: &[Group<'_>],
+    outcomes_known: bool,
+    probe: PathProbe<'_>,
+) -> (Vec<String>, bool) {
+    let mut lines: Vec<String> = Vec::new();
+    // Asks this host cannot verify: one line, where the first would have stood.
+    let mut unverified: Option<(usize, Vec<&GateRule>, Vec<String>)> = None;
+    for group in groups {
+        let rules: Vec<&GateRule> = group.reqs.iter().flat_map(|r| r.rules.iter()).collect();
+        if group.failed.is_none() && !outcomes_known {
+            let (_, all, cmds) = unverified.get_or_insert_with(|| {
+                lines.push(String::new());
+                (lines.len() - 1, Vec::new(), Vec::new())
+            });
+            all.extend(rules);
+            cmds.push(ask_command(&group.head, &group.reqs, probe));
+            continue;
+        }
+        let fix = rules.iter().find_map(|r| r.hint.as_deref()).map_or_else(
+            || "make the work hold the rule, or log a decision that supersedes it".to_owned(),
+            one_line,
+        );
+        lines.push(match group.failed {
+            None => format!(
+                "sofar: {} bear on files you edited, and no covering test passed since your last edit — run `{}` and fix any failure before stopping (fix: {fix})",
+                named_rules(&rules),
+                ask_command(&group.head, &group.reqs, probe)
+            ),
+            Some(run) => format!(
+                "sofar: `{}` failed{} after your last edit, and it covers {} — fix: {fix}",
+                run.outcome.cmd,
+                run.outcome
+                    .exit
+                    .map(|e| format!(" (exit {})", json::number_to_string(e)))
+                    .unwrap_or_default(),
+                named_rules(&rules)
+            ),
+        });
+    }
+    if let Some((at, rules, cmds)) = &unverified {
+        let cmds: Vec<String> = cmds.iter().map(|c| format!("`{c}`")).collect();
+        lines[*at] = format!(
+            "sofar: {} bear on files you edited, but this host reports no test exit status, so sofar cannot verify their tests and does not hold the stop — check them yourself: {}",
+            named_rules(rules),
+            cmds.join(", ")
+        );
+    }
+    let unverified = unverified.is_some();
+    (lines, unverified)
+}
+
 /// `stopGate`: every in-force rule, repo-wide, that guards or names a path
 /// this session edited needs a covering test that passed after its last edit
 /// — its check's test segment, or the repo's suite (the runner of
 /// `known_test` on the directories it ran). A run counts only if it finished
 /// after `edited_at_ms`. A failed latest covering run is a failure line, one
-/// per run; no covering run is an ask, one line per runner (r4-fixes U1).
+/// per run; no covering run is an ask, one line per runner (r4-fixes U1). On a
+/// host that reports no test outcome (`outcomes_known` false), every ask folds
+/// into one unverifiable line that never holds the stop; only a known failure
+/// does (U1b, memory-lead D37).
 #[must_use]
 pub fn stop_gate(
     index: &GuardIndex,
@@ -1258,6 +1364,7 @@ pub fn stop_gate(
     known_test: Option<&str>,
     edited_at_ms: Option<f64>,
     probe: PathProbe<'_>,
+    outcomes_known: bool,
 ) -> StopGate {
     let runs: Vec<&TimedTestOutcome> = match edited_at_ms {
         None => tests_since_edit.iter().collect(),
@@ -1318,31 +1425,8 @@ pub fn stop_gate(
             }),
         }
     }
-    let mut lines: Vec<String> = Vec::new();
-    for group in &groups {
-        let rules: Vec<&GateRule> = group.reqs.iter().flat_map(|r| r.rules.iter()).collect();
-        let fix = rules.iter().find_map(|r| r.hint.as_deref()).map_or_else(
-            || "make the work hold the rule, or log a decision that supersedes it".to_owned(),
-            one_line,
-        );
-        lines.push(match group.failed {
-            None => format!(
-                "sofar: {} bear on files you edited, and no covering test passed since your last edit — run `{}` and fix any failure before stopping (fix: {fix})",
-                named_rules(&rules),
-                ask_command(&group.head, &group.reqs, probe)
-            ),
-            Some(run) => format!(
-                "sofar: `{}` failed{} after your last edit, and it covers {} — fix: {fix}",
-                run.outcome.cmd,
-                run.outcome
-                    .exit
-                    .map(|e| format!(" (exit {})", json::number_to_string(e)))
-                    .unwrap_or_default(),
-                named_rules(&rules)
-            ),
-        });
-    }
-    let blocks = !lines.is_empty();
+    let (mut lines, unverified) = group_lines(&groups, outcomes_known, probe);
+    let blocks = lines.len() > usize::from(unverified);
     let more = lines.len().saturating_sub(STOP_GATE_LINES);
     lines.truncate(STOP_GATE_LINES);
     if more > 0 {
@@ -1542,6 +1626,7 @@ mod gate_tests {
             let no_tree = c.get("no_tree").is_some_and(Json::is_true);
             let probe = tree_of(if no_tree { None } else { tree });
             let known = c.get("known").and_then(Json::as_str);
+            let outcomes_known = c.get("outcomes_known") != Some(&Json::Bool(false));
             let gate = stop_gate(
                 &index(scoped),
                 &files,
@@ -1549,6 +1634,7 @@ mod gate_tests {
                 known,
                 edited_at,
                 &probe,
+                outcomes_known,
             );
             assert_eq!(
                 gate.blocks,
@@ -1559,8 +1645,9 @@ mod gate_tests {
         }
     }
 
-    /// Round 4's 28 Stop holds, replayed: the lines TypeScript renders, and a
-    /// seeded red run after the last edit holding every session U1 clears.
+    /// Round 4's 28 Stop holds, replayed: the lines TypeScript renders, a
+    /// seeded red run after the last edit holding every session U1 clears, and
+    /// no Codex hold (its outcomes are unverifiable, U1b).
     #[test]
     fn round_four_replays_as_typescript_does() {
         let holds = fixture("js-stop-gate-round4.json");
@@ -1582,7 +1669,9 @@ mod gate_tests {
             let probe = tree_of(h.get("tree").and_then(Json::as_obj));
             let known = h.get("known_test").and_then(Json::as_str);
             let tests = runs(h.get("tests_since_edit"), None);
-            let gate = stop_gate(&index, &files, &tests, known, None, &probe);
+            // Codex reports no test outcome (U1b).
+            let outcomes_known = text(h, "host") != "codex";
+            let gate = stop_gate(&index, &files, &tests, known, None, &probe, outcomes_known);
             let u1 = h.get("u1").and_then(Json::as_obj).unwrap();
             assert_eq!(
                 gate.blocks,
@@ -1598,18 +1687,16 @@ mod gate_tests {
                 red.ts = "2099-01-01T00:00:00.000Z".to_owned();
                 let mut seeded = tests.clone();
                 seeded.push(red);
-                let held = stop_gate(&index, &files, &seeded, known, None, &probe);
+                let held = stop_gate(&index, &files, &seeded, known, None, &probe, true);
                 assert!(held.blocks, "{block}");
                 assert!(
                     held.lines[0].contains("failed (exit 1) after your last edit"),
                     "{block}"
                 );
             }
-            // Codex records no outcome; were its runs known to pass, 16 of 18 clear.
-            if let Some(unknown) = h.get("unknown_outcome_runs") {
-                let passed = runs(Some(unknown), Some(true));
-                let gate = stop_gate(&index, &files, &passed, known, None, &probe);
-                assert_eq!(gate.blocks, passed.is_empty(), "{block}");
+            if !outcomes_known {
+                assert!(!gate.blocks, "{block}");
+                assert_eq!(gate.lines.len(), 1, "{block}");
             }
         }
         assert_eq!(cleared, 9);

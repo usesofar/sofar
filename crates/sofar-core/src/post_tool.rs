@@ -767,7 +767,7 @@ fn bound_or_lane(layout: &Layout, session: &str) -> Option<String> {
 /// `PostToolUse` only for a call that succeeded; Codex also fires it after a
 /// failing command (and reaches the core only with `--host codex`, which the
 /// core hands back to TypeScript).
-fn post_tool_proves_success(host_tool: &str) -> bool {
+pub(crate) fn post_tool_proves_success(host_tool: &str) -> bool {
     host_tool != "codex"
 }
 

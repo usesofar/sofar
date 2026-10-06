@@ -1,5 +1,15 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED on **hotfix/u1** for **r4-fixes 0.2** (U1b, Codex outcomes):
+`syn.gate-coverage` gains four Codex steps (`--host codex`). An apply_patch
+edit of the guarded file and a write-back come first. Then a `bun test
+tests/rules` run arrives whose PostToolUse carries its output text and no exit
+status, as codex 0.160.0 sends it. Last, a Stop that exits 0 with one
+`systemMessage` line: the two asks cannot be verified on this host, and the
+stop is not held. Codex hooks are TypeScript's in both legs (the core hands
+`--host codex` back), so the Rust core reproduces it unchanged. No other golden
+moved.
+
 ADDED and RE-RECORDED on **hotfix/u1** (from v0.34.0) for **r4-fixes 0.2**
 (U1, the Stop gate's coverage): one new case, `syn.gate-coverage`. A bare
 word in a test command that names a path on disk is an argument, so a green
