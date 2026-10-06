@@ -8,6 +8,7 @@ export interface Platform {
 export const PACKAGE_PREFIX: string
 export const PLATFORMS: readonly Required<Platform>[]
 export function packageName(p: Platform): string
+export function packageDir(p: Platform): string
 export function binaryName(p: Platform): string
 export function optionalDependencies(version: string): Record<string, string>
 export function render(version: string): Array<{ dir: string; files: Record<string, string> }>

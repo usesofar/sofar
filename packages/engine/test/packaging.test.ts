@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
-import { PACKAGE_PREFIX, binaryName, optionalDependencies, packageName } from '../../../packaging/npm/emit.mjs'
+import { PACKAGE_PREFIX, PLATFORMS, binaryName, optionalDependencies, packageDir, packageName } from '../../../packaging/npm/emit.mjs'
 
 /**
  * Task 6.2 (BD41) — the distribution channel is npm (BD1), so the tarball
@@ -102,7 +102,11 @@ const tarball = join(packDest, tarballBase)
     expect(spec.optionalDependencies).toEqual(optionalDependencies(manifest.version))
     for (const name of Object.keys(spec.optionalDependencies as Record<string, string>)) {
       expect(name.startsWith(PACKAGE_PREFIX)).toBe(true)
-      const platformSpec = JSON.parse(readFileSync(join(engineDir, '..', '..', 'packaging', 'npm', name, 'package.json'), 'utf8')) as Record<string, unknown>
+      expect(name.startsWith('@sofar.sh/core-')).toBe(true) // scoped (rust-core D47); never a new unscoped sofar-core-*
+      const p = PLATFORMS.find((x) => packageName(x) === name)
+      expect(p).toBeDefined()
+      const platformSpec = JSON.parse(readFileSync(join(engineDir, '..', '..', 'packaging', 'npm', packageDir(p!), 'package.json'), 'utf8')) as Record<string, unknown>
+      expect(platformSpec.name).toBe(name)
       expect(platformSpec.version).toBe(manifest.version)
       expect(platformSpec.os).toHaveLength(1)
       expect(platformSpec.cpu).toHaveLength(1)
@@ -372,7 +376,7 @@ function tarballName(): string {
 const repoRoot = join(here, '..', '..', '..')
 const localCore = join(repoRoot, 'target', 'release', 'sofar-core')
 const thisPlatform = { platform: process.platform, arch: process.arch }
-const platformPkgDir = join(repoRoot, 'packaging', 'npm', packageName(thisPlatform))
+const platformPkgDir = join(repoRoot, 'packaging', 'npm', packageDir(thisPlatform))
 
 describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native core E2E (rust-core 3.2) — platform package → postinstall → sofar-core on PATH', () => {
   const corePrefix = join(scratch, 'core-prefix')
@@ -382,7 +386,8 @@ describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native 
     expect(staged.status, staged.stderr).toBe(0)
     const packedCore = npm(['pack', '--pack-destination', packDest], platformPkgDir)
     expect(packedCore.status, packedCore.stderr).toBe(0)
-    const coreTarball = join(packDest, `${packageName(thisPlatform)}-${manifest.version}.tgz`)
+    // npm pack names a scoped package's tarball <scope>-<name>-<version>.tgz
+    const coreTarball = join(packDest, `${packageName(thisPlatform).replace(/^@/, '').replace('/', '-')}-${manifest.version}.tgz`)
     expect(existsSync(coreTarball)).toBe(true)
 
     mkdirSync(corePrefix, { recursive: true })

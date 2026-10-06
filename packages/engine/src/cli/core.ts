@@ -8,13 +8,13 @@ import { dirname, join } from 'node:path'
  *
  * Resolution order is the contract docs/HOTPATH.md §Entry points and dispatch
  * states: `SOFAR_CORE=<path>` names a core, `SOFAR_CORE=0` (or empty) forbids
- * one, otherwise the platform package `sofar-core-<platform>-<arch>` that
+ * one, otherwise the platform package `@sofar.sh/core-<platform>-<arch>` that
  * sofar.sh installs as an optionalDependency (packaging/npm/emit.mjs) — its
  * binary sits at the package root. Absent means TypeScript, silently.
  */
 
 /** The platform package for this machine; the binary sits at its root. */
-export const CORE_PACKAGE = `sofar-core-${process.platform}-${process.arch}`
+export const CORE_PACKAGE = `@sofar.sh/core-${process.platform}-${process.arch}`
 export const CORE_BINARY = process.platform === 'win32' ? 'sofar-core.exe' : 'sofar-core'
 
 export type ResolvedCore =

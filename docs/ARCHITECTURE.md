@@ -230,7 +230,7 @@ a commit.
 | `cli/scanners.ts` | Host-config scanners (e.g. emitted stylesheet directives). |
 | `cli/formatters.ts` | Host formatter defence: the JSON shape init writes (Biome/Prettier/.editorconfig), and the Biome/Prettier/markdownlint `.sofar` exclusions doctor audits and `--fix` writes. |
 | `cli/upgrade.ts`, `cli/update-check.ts`, `cli/update-cache.ts` | Version checks and self-upgrade; the cache, refresh gate and claim split out so the boot stub can make the claim after the native core has rendered (rust-core 3.1). |
-| `cli/core.ts` | Where the native core is: `SOFAR_CORE` override, else the `sofar-core-<platform>-<arch>` platform package (rust-core 3.2); shared by the boot stub and `sofar doctor`. |
+| `cli/core.ts` | Where the native core is: `SOFAR_CORE` override, else the `@sofar.sh/core-<platform>-<arch>` platform package (rust-core 3.2); shared by the boot stub and `sofar doctor`. |
 | `cli/boot.ts`, `cli/fast.ts`, `cli/shared.ts` | Startup path — dispatch to `sofar-core` when present, exit 64 falling back to TypeScript (rust-core 3.1) — fast path, shared helpers. |
 | `cli/user-config.ts` | User-level config. |
 | `cli/ui/*` | Terminal rendering: `caps`, `style`, `symbols`, `text`, `frames`, `spinner`, `layout`, `index`. Semantic ANSI-16 only; agent-facing surfaces stay byte-plain. |

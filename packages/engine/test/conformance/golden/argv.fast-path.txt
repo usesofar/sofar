@@ -152,7 +152,7 @@ exit: 1
 argv: ["--version"]
 exit: 0
 --- stdout
-0.34.0-rc.5
+0.34.0
 --- stderr
 (empty)
 

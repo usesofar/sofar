@@ -1,11 +1,11 @@
 {
-  "name": "sofar-core-linux-x64",
-  "version": "0.34.0-rc.5",
-  "description": "sofar's native hot-path core (sofar-core) for linux-x64. Installed by sofar.sh as an optional dependency; never depend on it directly.",
+  "name": "@sofar.sh/core-linux-arm64",
+  "version": "0.34.0",
+  "description": "sofar's native hot-path core (sofar-core) for linux-arm64. Installed by sofar.sh as an optional dependency; never depend on it directly.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jithinio/sofar.git",
-    "directory": "packaging/npm/sofar-core-linux-x64"
+    "directory": "packaging/npm/core-linux-arm64"
   },
   "homepage": "https://sofar.sh",
   "license": "MIT",
@@ -13,7 +13,7 @@
     "linux"
   ],
   "cpu": [
-    "x64"
+    "arm64"
   ],
   "files": [
     "sofar-core"

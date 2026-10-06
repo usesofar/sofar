@@ -40,7 +40,7 @@ append`, a styled `status`, `--help`, an unknown flag; the core reads no
 stdin before deciding, and says nothing on stderr when dispatched) means the
 TypeScript CLI runs the same argv instead, and every other exit code is
 mirrored. The core is `SOFAR_CORE=<path>` when set (`0` or empty: no core),
-otherwise the platform package `sofar-core-<platform>-<arch>`
+otherwise the platform package `@sofar.sh/core-<platform>-<arch>`
 (an optionalDependency of sofar.sh, one per target, pinned at sofar.sh's own
 version — `packaging/npm/emit.mjs`, rust-core 3.2) resolved from the stub
 (`cli/core.ts`); neither present means TypeScript, silently. A named core that cannot be spawned
