@@ -1,4 +1,4 @@
-== options (41410 bytes) ==
+== options (41850 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -13,18 +13,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -32,12 +35,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -80,18 +85,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -99,12 +107,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -188,7 +198,7 @@ Files touched (25):
 - /Users/jins/IO/sofar/README.md
 - /private/tmp/claude-501/-Users-jins-IO-sofar/a701ede2-e63c-4247-8ae0-59a8959d2613/scratchpad/poc/poc.mjs
 
-== digest:plain (2961 bytes) ==
+== digest:plain (2985 bytes) ==
 # Sofar status: initiative-lifecycle
 
 Goal: Let an initiative be closed. Closing records a terminal status (done or dropped, with a reason) and unbinds every branch pointing at it — and session-first resolution across the statusline and hooks is what makes that safe: the session that closed it keeps its record until it ends, while a new session on the unbound branch is told to start or switch instead of landing on finished work.
@@ -210,10 +220,10 @@ Memory (2; full text in memory/M<n>.md):
 - [M1] Back-compat probes run against a PUBLISHED build, not the working tree: `npm init -y && npm install sofar.sh@<version>` in a scratch dir, then `sofar init && sofar new` a throwaway git repo and drive `./node_modules/.bin/sofar` against it. The MCP surface is drivable the same wa…
 
 Recent decisions (4; full text in decisions/D<n>.md):
-- [D1] 2026-08-05 Closing an initiative UNBINDS every branch pointing at it — over (a) Warn but never touch the binding
-- [D2] 2026-08-05 Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiat… — over Persisting the pin to a second store
-- [D3] 2026-08-05 When neither a session pin nor a branch binding resolves, hooks keep dropping the event s… — over (i) lazily binding the branch at hook time
-- [D4] 2026-08-05 `sofar switch <closed-slug>` reopens the initiative — over Refusing a closed slug outright, or requiring an explicit --reopen fl…
+- [D1·ms4y] 2026-08-05 Closing an initiative UNBINDS every branch pointing at it — over (a) Warn but never touch the binding
+- [D2·r7d4] 2026-08-05 Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiat… — over Persisting the pin to a second store
+- [D3·7gy7] 2026-08-05 When neither a session pin nor a branch binding resolves, hooks keep dropping the event s… — over (i) lazily binding the branch at hook time
+- [D4·0t0w] 2026-08-05 `sofar switch <closed-slug>` reopens the initiative — over Refusing a closed slug outright, or requiring an explicit --reopen fl…
 
 Next ids: D5 (decision), M3 (memory)
 
@@ -221,7 +231,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (4274 bytes) ==
+== digest:hook (4322 bytes) ==
 # Sofar status: initiative-lifecycle
 
 Goal: Let an initiative be closed. Closing records a terminal status (done or dropped, with a reason) and unbinds every branch pointing at it — and session-first resolution across the statusline and hooks is what makes that safe: the session that closed it keeps its record until it ends, while a new session on the unbound branch is told to start or switch instead of landing on finished work.
@@ -255,10 +265,10 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (4; full text in decisions/D<n>.md):
-- [D1] 2026-08-05 Closing an initiative UNBINDS every branch pointing at it — over (a) Warn but never touch the binding
-- [D2] 2026-08-05 Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiat… — over Persisting the pin to a second store
-- [D3] 2026-08-05 When neither a session pin nor a branch binding resolves, hooks keep dropping the event s… — over (i) lazily binding the branch at hook time
-- [D4] 2026-08-05 `sofar switch <closed-slug>` reopens the initiative — over Refusing a closed slug outright, or requiring an explicit --reopen fl…
+- [D1·ms4y] 2026-08-05 Closing an initiative UNBINDS every branch pointing at it — over (a) Warn but never touch the binding
+- [D2·r7d4] 2026-08-05 Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiat… — over Persisting the pin to a second store
+- [D3·7gy7] 2026-08-05 When neither a session pin nor a branch binding resolves, hooks keep dropping the event s… — over (i) lazily binding the branch at hook time
+- [D4·0t0w] 2026-08-05 `sofar switch <closed-slug>` reopens the initiative — over Refusing a closed slug outright, or requiring an explicit --reopen fl…
 
 Next ids: D5 (decision), M3 (memory)
 
@@ -270,16 +280,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the initiative-lifecycle record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the initiative-lifecycle record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (3625 bytes) ==
+== digest:lane (3649 bytes) ==
 # Sofar: quick-work lane (initiative-lifecycle)
 
 Goal: Let an initiative be closed. Closing records a terminal status (done or dropped, with a reason) and unbinds every branch pointing at it — and session-first resolution across the statusline and hooks is what makes that safe: the session that closed it keeps its record until it ends, while a new session on the unbound branch is told to start or switch instead of landing on finished work.
@@ -304,10 +314,10 @@ Memory (2; full text in memory/M<n>.md):
 - [M1] Back-compat probes run against a PUBLISHED build, not the working tree: `npm in…
 
 Recent decisions (4; full text in decisions/D<n>.md):
-- [D1] 2026-08-05 Closing an initiative UNBINDS every branch pointing at it — over (a) Warn but never touch the binding
-- [D2] 2026-08-05 Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiat… — over Persisting the pin to a second store
-- [D3] 2026-08-05 When neither a session pin nor a branch binding resolves, hooks keep dropping the event s… — over (i) lazily binding the branch at hook time
-- [D4] 2026-08-05 `sofar switch <closed-slug>` reopens the initiative — over Refusing a closed slug outright, or requiring an explicit --reopen fl…
+- [D1·ms4y] 2026-08-05 Closing an initiative UNBINDS every branch pointing at it — over (a) Warn but never touch the binding
+- [D2·r7d4] 2026-08-05 Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiat… — over Persisting the pin to a second store
+- [D3·7gy7] 2026-08-05 When neither a session pin nor a branch binding resolves, hooks keep dropping the event s… — over (i) lazily binding the branch at hook time
+- [D4·0t0w] 2026-08-05 `sofar switch <closed-slug>` reopens the initiative — over Refusing a closed slug outright, or requiring an explicit --reopen fl…
 
 Next ids: D5 (decision), M3 (memory)
 
@@ -316,7 +326,7 @@ Git: feature/initiative-lifecycle @ a1b2c3d — in sync with origin/feature/init
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (3047 bytes) ==
+== digest:quiet (3071 bytes) ==
 # Sofar status: initiative-lifecycle
 
 Goal: Let an initiative be closed. Closing records a terminal status (done or dropped, with a reason) and unbinds every branch pointing at it — and session-first resolution across the statusline and hooks is what makes that safe: the session that closed it keeps its record until it ends, while a new session on the unbound branch is told to start or switch instead of landing on finished work.
@@ -338,10 +348,10 @@ Memory (2; full text in memory/M<n>.md):
 - [M1] Back-compat probes run against a PUBLISHED build, not the working tree: `npm init -y && npm install sofar.sh@<version>` in a scratch dir, then `sofar init && sofar new` a throwaway git repo and drive `./node_modules/.bin/sofar` against it. The MCP surface is drivable the same wa…
 
 Recent decisions (4; full text in decisions/D<n>.md):
-- [D1] 2026-08-05 Closing an initiative UNBINDS every branch pointing at it — over (a) Warn but never touch the binding
-- [D2] 2026-08-05 Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiat… — over Persisting the pin to a second store
-- [D3] 2026-08-05 When neither a session pin nor a branch binding resolves, hooks keep dropping the event s… — over (i) lazily binding the branch at hook time
-- [D4] 2026-08-05 `sofar switch <closed-slug>` reopens the initiative — over Refusing a closed slug outright, or requiring an explicit --reopen fl…
+- [D1·ms4y] 2026-08-05 Closing an initiative UNBINDS every branch pointing at it — over (a) Warn but never touch the binding
+- [D2·r7d4] 2026-08-05 Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiat… — over Persisting the pin to a second store
+- [D3·7gy7] 2026-08-05 When neither a session pin nor a branch binding resolves, hooks keep dropping the event s… — over (i) lazily binding the branch at hook time
+- [D4·0t0w] 2026-08-05 `sofar switch <closed-slug>` reopens the initiative — over Refusing a closed slug outright, or requiring an explicit --reopen fl…
 
 Next ids: D5 (decision), M3 (memory)
 
@@ -351,7 +361,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6024 bytes) ==
+== digest:cap (6028 bytes) ==
 # Sofar status: initiative-lifecycle
 
 Goal: Let an initiative be closed. Closing records a terminal status (done or dropped, with a reason) and unbinds every branch pointing at it — and session-first resolution across the statusline and hooks is what makes that safe: the session that closed it keeps its record until it ends, while a new session on the unbound branch is told to start or switch instead of landing on finished work.
@@ -375,13 +385,13 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the initiative-lifecycle record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the initiative-lifecycle record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -443,34 +453,34 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 - M1 2026-08-05 — Back-compat probes run against a PUBLISHED build, not the working tree: `npm in…
 - M2 2026-08-05 — Upgrading this repo's global sofar after a publish: `sofar upgrade` is the comm…
 
-== shard decisions/D1.md (1660 bytes) ==
+== shard decisions/D1.md (1666 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-05
+D1·ms4y — 2026-08-05
 chose: Closing an initiative UNBINDS every branch pointing at it (user ruling, 2026-08-05). Reopening happens by binding again, which is a new-session act. The current session is not disrupted: its statusline keeps showing the closed record and its hooks keep routing, because every surface resolves SESSION FIRST and branch binding second.
 over: (a) Warn but never touch the binding — closing stays a record fact and the branch keeps pointing at finished work, so a fresh session still lands on it and must switch by hand. (b) Infer closure from all-phases-resolved and add no state — cannot tell "finished" from "abandoned at 3/10", cannot express "closed, but 4.1 was never built", and records no when or why.
 because: A binding that outlives the work it points at is how a fresh session ends up oriented on something already finished — the concrete symptom the user hit: a new session's statusline reading `auto-update 11/11`. Unbinding makes the branch honestly say "nothing here" instead. Session-first resolution is what makes unbinding safe rather than destructive: verified that with the branch unbound today, the statusline's record segment vanishes entirely and the PostToolUse hook exits 0 while silently dropping the event, so the rest of the session would go dark. The write path already resolves session-before-branch (context.ts:285) — extending that precedence to the read surfaces makes closing a clean boundary at the SESSION edge rather than a mid-session cliff, and is strictly better behavior even for records that are never closed.
 
-== shard decisions/D2.md (1234 bytes) ==
+== shard decisions/D2.md (1240 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-08-05
+D2·r7d4 — 2026-08-05
 chose: Reuse the existing log-derived homeInitiative() scan as the cross-process session→initiative mechanism, and share event.ts's resolveBound precedence (branch computed as the PREFERRED candidate, session home wins, branch as fallback) across statusline and hooks
 over: Persisting the pin to a second store (e.g. .sofar/sessions/<id>) for a single cheap read
 because: Measured on the real 22-initiative, 2.8 MB record: the statusline costs ~55 ms end-to-end today (node startup + fold dominate), and homeInitiative adds 0.07 ms on the hit path (+0.1%, invisible) and 2.9 ms on a full-scan miss (+5%) — and the miss only occurs on the unbound/re-homed path that closing creates. The cost that worried this task is not there. A persisted pin would be a second store that can desync from the truth log, which record-integrity D1 already ruled against, and would need stale-pin cleanup the scan does not. Decisive: the mechanism is already proven in production — hooks route correctly on a fully unbound branch today (measured against published 0.18.0), so this reuses a shipped, tested path instead of introducing a parallel one.
 
-== shard decisions/D3.md (1647 bytes) ==
+== shard decisions/D3.md (1653 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-08-05
+D3·7gy7 — 2026-08-05
 chose: When neither a session pin nor a branch binding resolves, hooks keep dropping the event silently (exit 0, never lazily bind) — but the CONDITION becomes observable once per session at the two orienting surfaces that already run: SessionStart injects an unbound notice naming `sofar new` / `sofar switch` (4.1), and the statusline renders an explicit unbound marker instead of merely omitting the record segment (3.2)
 over: (i) lazily binding the branch at hook time; (ii) warning on stderr per dropped event; (iii) recording drops to a sidecar file outside the event log
 because: The drop is per-event but the condition is per-session — "this session is registered nowhere and the branch is unbound" is ONE fact, so it belongs once where the agent reads, not N times where nothing does. (i) is disqualified twice over: it recreates the misrouting record-integrity 1.2/D1 fixed, and it would let a hook silently undo a close — 1.1 measured that no engine path re-creates a binding today (only new/switch write bindings.json), and that property is what makes close-unbinds safe. (ii) fires on every tool use, so the noise scales with work, and BD22 says never break the session. (iii) is a second store outside the truth log, which record-integrity D1 rules against — the same reason 1.2 rejected a persisted pin. Measured today: on an unbound branch with an unregistered session, SessionStart injects 0 bytes and the statusline renders `repo · main` — both silently indistinguishable from a healthy repo, which is the actual defect.
 
-== shard decisions/D4.md (1178 bytes) ==
+== shard decisions/D4.md (1184 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-08-05
+D4·0t0w — 2026-08-05
 chose: `sofar switch <closed-slug>` reopens the initiative — it appends initiative_status_changed{status:'active'} and binds the branch, with no flag required — but never silently: the reopen is announced in the confirmation and recorded as an event, exactly as the close was
 over: Refusing a closed slug outright, or requiring an explicit --reopen flag
 because: The user's rule is that working on it again is what revives it, and `switch` IS that act — it means "this branch works on this now", which a closed record cannot honour while staying closed. Refusing makes closing a dead end, which the rule forbids. A --reopen flag only adds a step to a decision the user already expressed by typing switch; the flag would be discoverable solely by hitting the refusal it exists to bypass. Reading a closed record needs no binding (`sofar status <slug>` already does that), so switch is never the accidental path. The event keeps the revival auditable — the log shows closed-then-reopened rather than an unexplained return to active, which is what append-only history is for.

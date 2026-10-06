@@ -11,6 +11,7 @@ import { decisionEntry } from '../src/projections/templates/shards'
 import { renderReviewPacket } from '../src/projections/templates/review'
 import { renderFullStatus, renderStatus } from '../src/projections/templates/status'
 import { callTool, callToolExpectError, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * memory-lead 1.2 (D2) — rule fidelity.
@@ -96,7 +97,7 @@ describe('schema', () => {
 
 describe('render', () => {
   it('the digest renders the quote and the addition beside the rule, under a header that ranks the quote', () => {
-    const text = renderStatus(stateWith(decision({ rule: R1_RULE, quote: R1_QUOTE })))
+    const text = bare(renderStatus(stateWith(decision({ rule: R1_RULE, quote: R1_QUOTE }))))
     expect(text).toContain('Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (1):')
     expect(text).toContain(`- [D1] ${R1_RULE} — operator: "${R1_QUOTE}" (not in the operator's words: 4xx)`)
     expect(renderFullStatus(stateWith(decision({ rule: R1_RULE, quote: R1_QUOTE })))).toContain(
@@ -109,7 +110,7 @@ describe('render', () => {
   })
 
   it('a record with no quote renders byte-identically to before', () => {
-    const text = renderStatus(stateWith(decision({ rule: R1_RULE })))
+    const text = bare(renderStatus(stateWith(decision({ rule: R1_RULE }))))
     expect(text).toContain('Standing constraints — obey verbatim (1):')
     expect(text).toContain(`- [D1] ${R1_RULE}\n`)
     expect(text).not.toContain('operator:')
@@ -126,19 +127,19 @@ describe('render', () => {
     // The index carries the rule; the shard carries the operator's words, flagged (memory-lead D45).
     expect(renderDecisions(state)).toContain(`rule: ${R1_RULE}`)
     expect(decisionEntry(state, 1)).toContain(`rule: ${R1_RULE}\noperator: "${R1_QUOTE}" (not in the operator's words: 4xx)\nchose:`)
-    expect(renderReviewPacket(state, { scope: 'final', commits: [], watermark: null })).toContain(
+    expect(bare(renderReviewPacket(state, { scope: 'final', commits: [], watermark: null }))).toContain(
       `- [D1] ${R1_RULE} — operator: "${R1_QUOTE}" (not in the operator's words: 4xx)`,
     )
   })
 })
 
 describe('both agent-facing writers warn, never refuse', () => {
-  it('ruleFidelityWarning names the ordinal and the addition', () => {
-    expect(ruleFidelityWarning(2, R1_RULE, R1_QUOTE)).toBe(
-      "D2's rule states 4xx, which the operator's quote does not. Every digest flags it; if the operator did not say it, log the rule as they worded it with supersedes D2.",
+  it('ruleFidelityWarning names the handle and the addition', () => {
+    expect(ruleFidelityWarning('D2·k3fz', R1_RULE, R1_QUOTE)).toBe(
+      "D2·k3fz's rule states 4xx, which the operator's quote does not. Every digest flags it; if the operator did not say it, log the rule as they worded it with supersedes D2·k3fz.",
     )
-    expect(ruleFidelityWarning(2, R1_RULE, undefined)).toBeNull()
-    expect(ruleFidelityWarning(2, 'Reject anything else', R1_QUOTE)).toBeNull()
+    expect(ruleFidelityWarning('D2·k3fz', R1_RULE, undefined)).toBeNull()
+    expect(ruleFidelityWarning('D2·k3fz', 'Reject anything else', R1_QUOTE)).toBeNull()
   })
 
   it('sofar_log_decision appends, folds the quote, and returns the warning', async () => {
@@ -149,7 +150,7 @@ describe('both agent-facing writers warn, never refuse', () => {
 
     const warned = await callTool(client, 'sofar_log_decision', { ...base, rule: R1_RULE, quote: R1_QUOTE })
     expect(warned.isError).toBe(false)
-    expect(warned.body).toMatchObject({ ok: true, warnings: [expect.stringContaining("D1's rule states 4xx")] })
+    expect(warned.body).toMatchObject({ ok: true, warnings: [expect.stringMatching(/^D1·[0-9a-z]{4}'s rule states 4xx/)] })
     expect(foldLog(f.eventsPath).state.decisions[0]).toMatchObject({ rule: R1_RULE, quote: R1_QUOTE })
 
     const clean = await callTool(client, 'sofar_log_decision', { chose: 'Keep SQLite', over: 'Postgres', because: 'b', rule: 'Use SQLite only', quote: 'SQLite only' })
@@ -190,7 +191,7 @@ describe('both agent-facing writers warn, never refuse', () => {
     const base = { chose: 'Cancel cardless trials', over: 'invoicing them', because: 'the operator said so', rule: TRIAL_RULE, quote: LONG }
     const logged = await callTool(client, 'sofar_log_decision', base)
     expect(logged.isError).toBe(false)
-    expect(logged.body).toMatchObject({ ok: true, warnings: [expect.stringContaining("D1's quote was over 300 chars, so it was cut to the operator's 2 of 6 sentences")] })
+    expect(logged.body).toMatchObject({ ok: true, warnings: [expect.stringMatching(/^D1·[0-9a-z]{4}'s quote was over 300 chars, so it was cut to the operator's 2 of 6 sentences/)] })
     expect(foldLog(f.eventsPath).state.decisions[0]!.quote).toBe(fitQuote(LONG, TRIAL_RULE)!.quote)
 
     const session_id = (started.body as { session_id: string }).session_id
@@ -201,7 +202,10 @@ describe('both agent-facing writers warn, never refuse', () => {
       next_action: 'n',
     })
     expect(back.isError).toBe(false)
-    expect(back.body).toMatchObject({ ok: true, decisions: ['D2'], warnings: expect.arrayContaining([expect.stringContaining("D2's quote was over 300 chars")]) })
+    // The filed handle, check-suffixed once appended, names it in the warning too (r4-fixes U5).
+    const handle = (back.body as { decisions: string[] }).decisions[0]!
+    expect(handle).toMatch(/^D2·[0-9a-z]{4}$/)
+    expect(back.body).toMatchObject({ ok: true, warnings: expect.arrayContaining([expect.stringContaining(`${handle}'s quote was over 300 chars`)]) })
     expect(foldLog(f.eventsPath).state.decisions[1]!.quote).toBe(fitQuote(LONG, TRIAL_RULE)!.quote)
   })
 
@@ -215,7 +219,7 @@ describe('both agent-facing writers warn, never refuse', () => {
       actor: 'agent',
     })
     expect(out.exitCode).toBe(0)
-    expect(JSON.parse(out.stdout)).toMatchObject({ ok: true, warnings: [expect.stringContaining("D1's rule states 4xx")] })
+    expect(JSON.parse(out.stdout)).toMatchObject({ ok: true, warnings: [expect.stringMatching(/^D1·[0-9a-z]{4}'s rule states 4xx/)] })
     expect(readFileSync(f.eventsPath, 'utf8')).toContain('"quote":"Reject anything else"')
   })
 })

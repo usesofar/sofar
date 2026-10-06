@@ -7,6 +7,7 @@ import { REPO_MD_STUB } from '../src/cli/init'
 import { emptyState, type InitiativeState } from '../src/core/fold'
 import { dropMemoryCopies, minutiaeHead, renderStatus, STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
 import { hookContext } from './helpers/hook-output'
+import { bare } from './helpers/handles'
 
 /**
  * memory-lead 1.3 (D4) — digest composition.
@@ -99,7 +100,7 @@ describe('the standing constraints come last, the relevant one first', () => {
   it('ranks D4 (offer, advisor) above the newer rules and renders the block just before the read-back', () => {
     const text = renderStatus(s9Shape())
     const block = text.slice(text.indexOf('Standing constraints'), text.indexOf('Read-back:'))
-    const handles = block.split('\n').filter((l) => l.startsWith('- [D')).map((l) => /\[D(\d+)\]/.exec(l)![1])
+    const handles = block.split('\n').filter((l) => l.startsWith('- [D')).map((l) => /\[D(\d+)·[0-9a-z]{4}\]/.exec(l)![1])
     expect(handles[0]).toBe('4')
     expect(handles.slice(1)).toEqual([...handles.slice(1)].sort((a, b) => Number(b) - Number(a)))
     expect(text.indexOf('Standing constraints')).toBeGreaterThan(text.indexOf('Next ids:'))
@@ -118,7 +119,7 @@ describe('minutiae', () => {
 
   it('window and ledger lines carry heads, never the tail of a clause', () => {
     const text = renderStatus(s9Shape())
-    expect(text).toContain('- [D12] 2026-09-15 Choice 12: the store layer — over Option 12 rejected')
+    expect(bare(text)).toContain('- [D12] 2026-09-15 Choice 12: the store layer — over Option 12 rejected')
     expect(text).not.toContain('details ddd')
   })
 })

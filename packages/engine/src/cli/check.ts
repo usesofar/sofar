@@ -59,18 +59,34 @@ export interface CheckIo {
   env?: NodeJS.ProcessEnv
 }
 
+/**
+ * The in-force check a handle names: `<slug> D<n>`, or a bare `D<n>` in the
+ * current record, either with its check suffix (`D12·k3fz`, r4-fixes U5 — what
+ * every line prints) or without. A suffix decides when a merge moved the
+ * ordinal, as on every write path (r3-fixes 2.6).
+ */
 function findCheck(rootDir: string, checks: readonly InForceCheck[], handle: string): InForceCheck | string {
   const trimmed = handle.trim()
-  let qualified = trimmed
-  if (!QUALIFIED_DECISION_HANDLE_RE.test(trimmed)) {
-    if (!/^D[1-9][0-9]*$/.test(trimmed)) return `"${handle}" is not a decision handle — pass "<slug> D<n>"`
+  const m = /^(?:([a-z0-9-]+) )?(D[1-9][0-9]*)(?:[·.]([0-9a-z]{4}))?$/i.exec(trimmed)
+  if (m === null) return `"${handle}" is not a decision handle — pass "<slug> D<n>"`
+  let slug = m[1]
+  if (slug === undefined) {
     try {
-      qualified = `${createToolContext(rootDir).resolveInitiative()} ${trimmed}`
+      slug = createToolContext(rootDir).resolveInitiative()
     } catch (err) {
       return `${errMessage(err)} — pass the qualified "<slug> ${trimmed}"`
     }
   }
-  return checks.find((c) => c.handle === qualified) ?? `${qualified} carries no check in force`
+  const bare = `${slug} ${m[2]!}`
+  if (!QUALIFIED_DECISION_HANDLE_RE.test(bare)) return `"${handle}" is not a decision handle — pass "<slug> D<n>"`
+  const suffix = m[3]?.toLowerCase()
+  const found = checks.find((c) => (suffix === undefined ? c.handle === bare : c.shown === `${bare}·${suffix}`))
+  if (found !== undefined) return found
+  if (suffix !== undefined) {
+    const moved = checks.find((c) => c.initiative === slug && c.shown.endsWith(`·${suffix}`))
+    if (moved !== undefined) return moved
+  }
+  return `${suffix === undefined ? bare : `${bare}·${suffix}`} carries no check in force`
 }
 
 export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: CheckIo = {}): Promise<CmdResult> {
@@ -96,7 +112,7 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
     if (opts.approve !== undefined) {
       const found = findCheck(rootDir, checks, opts.approve)
       if (typeof found === 'string') return fail(`sofar check: ${found}`)
-      if (isApproved(rootDir, found.check.cmd, env)) return ok(`sofar check: [${found.handle}] is already approved on this clone\n`)
+      if (isApproved(rootDir, found.check.cmd, env)) return ok(`sofar check: [${found.shown}] is already approved on this clone\n`)
       // The operator's act, never the agent's (D9): an approval run from an
       // agent's shell would be the agent approving its own command.
       if (io.confirm === undefined || io.confirm === null) {
@@ -104,7 +120,7 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
       }
       const yes = await io.confirm(
         [
-          `[${found.handle}] rule: "${found.rule}"`,
+          `[${found.shown}] rule: "${found.rule}"`,
           `  command: ${found.check.cmd}`,
           '  It runs from the repo root whenever this check applies: at Stop, at pre-commit, under sofar check and sofar drive.',
           'Approve this exact command on this clone? [y/N] ',
@@ -112,14 +128,14 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
       )
       if (!yes) return ok('sofar check: not approved\n')
       approveCheck(rootDir, found, (io.now ?? (() => new Date().toISOString()))(), env)
-      return ok(`sofar check: approved [${found.handle}] on this clone — a changed command needs approving again\n`)
+      return ok(`sofar check: approved [${found.shown}] on this clone — a changed command needs approving again\n`)
     }
 
     if (opts.list === true) {
       if (checks.length === 0) return ok('sofar check: no decision carries a check\n')
       const lines = checks.map(
         (c) =>
-          `[${c.handle}] ${isApproved(rootDir, c.check.cmd, env) ? 'approved' : 'NOT approved'} — \`${c.check.cmd}\` — ${c.guard !== undefined && c.guard.startsWith('path:') ? `applies to ${c.guard}` : 'applies to any change'}`,
+          `[${c.shown}] ${isApproved(rootDir, c.check.cmd, env) ? 'approved' : 'NOT approved'} — \`${c.check.cmd}\` — ${c.guard !== undefined && c.guard.startsWith('path:') ? `applies to ${c.guard}` : 'applies to any change'}`,
       )
       return ok(`${lines.join('\n')}\n${blocksCommits(rootDir, env) ? 'pre-commit: blocks on a failure\n' : 'pre-commit: warns only\n'}`)
     }

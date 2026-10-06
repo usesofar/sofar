@@ -37,12 +37,16 @@ import { hasRealAlternative, MAX_DECISIONS, UNWRITTEN_SIBLING_CAP } from './stat
  * merge_facts (r3-fixes D19) is added from the full sessions: the session
  * start reads it beside renderStatus, never through it.
  *
- * Decisions: rule, quote, supersedes, until and superseded_by are kept (the
- * standing rules and retirement), and a pending link's candidates (its
- * session becomes `''`). ts and chose are kept for the recent window
- * and over for the window and the rejected ledger's head, under SOFAR_RETIRE
- * on AND off (read at render time). Every other `over` keeps only whether it
- * is a real alternative. id, because, guard and check are never rendered.
+ * Decisions: id (every handle is check-suffixed, r4-fixes U5), rule, quote,
+ * supersedes, until and superseded_by are kept (the standing rules and
+ * retirement), and a pending link's candidates (its session becomes `''`).
+ * ts and chose are kept for the recent window and over for the window and the
+ * rejected ledger's head, under SOFAR_RETIRE on AND off (read at render time).
+ * Every other `over` keeps only whether it is a real alternative. Both halves
+ * of a supersession that keeps its rule, quote and until keep chose, over,
+ * because and guard whole, so the re-log test (core/handle relogAliases)
+ * answers on the cut as on the state. because, guard and check are otherwise
+ * never rendered.
  *
  * renderStatus(digestState(s), o) === renderStatus(s, o) is a CONTRACT, pinned
  * by test/digest-state.test.ts over this repo's real logs, team-shaped records
@@ -153,16 +157,39 @@ function decisionTextKept(state: InitiativeState): { window: Set<number>; over: 
   return { window, over }
 }
 
-function cutDecision(d: DecisionState, i: number, kept: { window: Set<number>; over: Set<number> }): DecisionState {
+/**
+ * Indices whose words a re-log test can compare (r4-fixes U5): both halves of
+ * every supersession whose rule, quote and until already agree. Those are the
+ * pairs sameDecisionText could answer differently on a cut, so they keep
+ * chose, over, because and guard whole; any other pair already differs in a
+ * field the cut keeps.
+ */
+function relogTextKept(state: InitiativeState): Set<number> {
+  const kept = new Set<number>()
+  state.decisions.forEach((d, i) => {
+    const by = d.superseded_by
+    if (by === undefined) return
+    const r = state.decisions[by - 1]
+    if (r === undefined || r.rule !== d.rule || r.quote !== d.quote || r.until !== d.until) return
+    kept.add(i)
+    kept.add(by - 1)
+  })
+  return kept
+}
+
+function cutDecision(d: DecisionState, i: number, kept: { window: Set<number>; over: Set<number>; relog: Set<number> }): DecisionState {
+  const whole = kept.relog.has(i)
   const cut: DecisionState = {
-    id: '',
+    // Every handle the digest prints is check-suffixed (r4-fixes U5).
+    id: d.id,
     ts: kept.window.has(i) ? d.ts : '',
-    chose: kept.window.has(i) ? d.chose : '',
-    over: kept.over.has(i) ? d.over : hasRealAlternative(d.over) ? REAL_OVER : '',
-    because: '',
+    chose: whole || kept.window.has(i) ? d.chose : '',
+    over: whole || kept.over.has(i) ? d.over : hasRealAlternative(d.over) ? REAL_OVER : '',
+    because: whole ? d.because : '',
   }
   if (d.rule !== undefined) cut.rule = d.rule
   if (d.quote !== undefined) cut.quote = d.quote
+  if (whole && d.guard !== undefined) cut.guard = d.guard
   if (d.supersedes !== undefined) cut.supersedes = d.supersedes
   if (d.until !== undefined) cut.until = d.until
   if (d.superseded_by !== undefined) cut.superseded_by = d.superseded_by
@@ -194,7 +221,7 @@ export function digestState(state: InitiativeState): InitiativeState {
   const keepNext = nextActionKept(sessions)
   const laneCount = newest(sessions, LANE_RECENT_SESSIONS + 1, (s) => s.activity !== undefined)
   const unwrittenIds = newest(sessions, UNWRITTEN_SIBLING_CAP + 1, (s) => s.summary === undefined && s.activity !== undefined)
-  const decisions = decisionTextKept(state)
+  const decisions = { ...decisionTextKept(state), relog: relogTextKept(state) }
   // The merge block's record side (r3-fixes D19), from the sessions before the
   // cut drops their fields; renderStatus never reads it.
   const facts = mergeFacts(sessions, suiteOf)

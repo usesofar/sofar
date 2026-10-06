@@ -1,0 +1,176 @@
+{
+  "state": {
+    "brief": "",
+    "current": {
+      "active_phase": null,
+      "next_action": null
+    },
+    "cursor": "01KDVDNQNGNGF2S4KPXRQA1CVY",
+    "decisions": [
+      {
+        "because": "undo",
+        "chose": "soft delete",
+        "guard": "path:src/db/**",
+        "id": "01KDVDNCXRPXRQA1CVY50ZJ9M3",
+        "over": "hard delete",
+        "quote": "never hard-delete",
+        "rule": "Never hard-delete anything the traveller made.",
+        "superseded_by": 2,
+        "ts": "2026-01-01T00:00:03.000Z"
+      },
+      {
+        "because": "undo",
+        "check": {
+          "cmd": "bun test test/store.test.ts"
+        },
+        "chose": "soft delete",
+        "guard": "path:src/db/**",
+        "id": "01KDVDNDX0KPXRQA1CVY50ZJ9M",
+        "over": "hard delete",
+        "quote": "never hard-delete",
+        "rule": "Never hard-delete anything the traveller made.",
+        "supersedes": "D1",
+        "ts": "2026-01-01T00:00:04.000Z"
+      },
+      {
+        "because": "rounding",
+        "chose": "integer cents",
+        "id": "01KDVDNEW8GF2S4KPXRQA1CVY5",
+        "over": "floats",
+        "rule": "Store money as integer cents.",
+        "superseded_by": 4,
+        "ts": "2026-01-01T00:00:05.000Z"
+      },
+      {
+        "because": "rounding",
+        "check": {
+          "cmd": "bun test test/money.test.ts"
+        },
+        "chose": "integer cents",
+        "id": "01KDVDNFVGD87THWBENGF2S4KP",
+        "over": "floats",
+        "rule": "Store money as integer cents.",
+        "superseded_by": 5,
+        "supersedes": "D3",
+        "ts": "2026-01-01T00:00:06.000Z"
+      },
+      {
+        "because": "rounding",
+        "check": {
+          "cmd": "bun test test/money.test.ts -t cents",
+          "hint": "use cents"
+        },
+        "chose": "integer cents",
+        "id": "01KDVDNGTRA1CVY50ZJ9M36D87",
+        "over": "floats",
+        "rule": "Store money as integer cents.",
+        "supersedes": "D4",
+        "ts": "2026-01-01T00:00:07.000Z"
+      },
+      {
+        "because": "travellers",
+        "chose": "IANA zones",
+        "id": "01KDVDNHT07THWBENGF2S4KPXR",
+        "over": "UTC",
+        "rule": "Decide today in the city zone.",
+        "superseded_by": 7,
+        "ts": "2026-01-01T00:00:08.000Z"
+      },
+      {
+        "because": "the operator said so",
+        "chose": "IANA zones",
+        "id": "01KDVDNJS84KPXRQA1CVY50ZJ9",
+        "over": "UTC",
+        "rule": "Decide today in the city zone.",
+        "supersedes": "D6",
+        "ts": "2026-01-01T00:00:09.000Z"
+      },
+      {
+        "because": "simpler",
+        "chose": "queue retries",
+        "id": "01KDVDNKRG1CVY50ZJ9M36D87T",
+        "over": "cron",
+        "superseded_by": 9,
+        "ts": "2026-01-01T00:00:10.000Z"
+      },
+      {
+        "because": "simpler",
+        "chose": "queue retries",
+        "id": "01KDVDNMQRY50ZJ9M36D87THWB",
+        "over": "cron",
+        "supersedes": "D8",
+        "ts": "2026-01-01T00:00:11.000Z"
+      },
+      {
+        "because": "timeouts",
+        "chose": "one key per attempt",
+        "id": "01KDVDNNQ0VY50ZJ9M36D87THW",
+        "over": "per invoice",
+        "rule": "Every attempt carries its own key.",
+        "superseded_by": 11,
+        "ts": "2026-01-01T00:00:12.000Z"
+      },
+      {
+        "because": "timeouts",
+        "check": {
+          "cmd": "bun test test/keys.test.ts"
+        },
+        "chose": "one key per attempt",
+        "id": "01KDVDNPP8RQA1CVY50ZJ9M36D",
+        "over": "per invoice",
+        "rule": "Every attempt carries its own key.",
+        "superseded_by": 12,
+        "supersedes": "D10",
+        "ts": "2026-01-01T00:00:13.000Z"
+      },
+      {
+        "because": "the provider dedupes",
+        "chose": "one key per invoice",
+        "id": "01KDVDNQNGNGF2S4KPXRQA1CVY",
+        "over": "per attempt",
+        "rule": "Every invoice carries one key.",
+        "supersedes": "D11",
+        "ts": "2026-01-01T00:00:14.000Z"
+      }
+    ],
+    "drop_notes": {},
+    "files_touched": [],
+    "freshness": {
+      "events_since_writeback": {
+        "commands": 0,
+        "decisions": 12,
+        "files": 0,
+        "memories": 0,
+        "notes": 0,
+        "phases": 0,
+        "reviews": 0,
+        "tasks": 0
+      },
+      "last_writeback_ts": null,
+      "notes": [],
+      "unattributed_mutations": 4
+    },
+    "goal": "g",
+    "guard_violations": [],
+    "memories": [],
+    "phases": [],
+    "reviews": [],
+    "runs": [],
+    "sessions": [
+      {
+        "id": "A",
+        "started": "2026-01-01T00:00:02.000Z",
+        "tool": "claude-code",
+        "unwritten": 8
+      }
+    ],
+    "slug": "demo",
+    "status": "active",
+    "status_note": null,
+    "status_overrides": [],
+    "status_ts": null,
+    "successor": null,
+    "task_files": {}
+  },
+  "warnings": []
+}

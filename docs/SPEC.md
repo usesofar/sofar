@@ -99,14 +99,19 @@ S30), and their greps returned whole thousand-char entries.
   Its full text … is in decisions/D<n>.md, or \`sofar show D<n>\`.`), then
   per decision `- D<n>·<sfx> <date> — (<marks>) rule: <rule>` with the rule
   whole and whitespace collapsed, or `… chose <head of 80>`. Marks are `until
-  <task>`, `supersedes D<m>`, `names D<m>, held`. A replaced decision is
-  `- D<n>·<sfx> — superseded by D<m>`, a retired one `- D<n>·<sfx> —
-  retired: <task> resolved`. Every decision stays listed; ordinals never
+  <task>`, `alias D<m>·<sfx>[, …]`, `supersedes D<m>·<sfx>`, `names
+  D<m>·<sfx>, held`. A replaced decision is `- D<n>·<sfx> — superseded by
+  D<m>·<sfx>`, a retired one `- D<n>·<sfx> — retired: <task> resolved`, each
+  followed by ` (alias …)` when it has aliases. A re-log is not listed on
+  its own line: its replacer's line carries it as an alias (see
+  §Merge-stable handles). Every other decision stays listed; ordinals never
   renumber.
 - decisions/D<n>.md: the generated header, then the decision a field a line
-  — `D<n> — <date>[ — replaced by D<m> | — retired: <task> resolved]`, then
-  `rule:`, `quote:`, `chose:`, `over:`, `because:`, `guard:`, `check:`,
-  `supersedes:`, `until:` as present. `sofar show D<n>` prints the same text.
+  — `D<n>·<sfx> — <date>[ — re-logged as D<m>·<sfx>, the same decision | —
+  replaced by D<m>·<sfx> | — retired: <task> resolved]`, then `rule:`,
+  `quote:`, `chose:`, `over:`, `because:`, `guard:`, `check:`, `alias:` (its
+  aliases) or `supersedes:`, `until:` as present. `sofar show D<n>` prints the
+  same text.
 - memory.md: its citation note and `One line per memory; its full text is in
   memory/M<n>.md, or \`sofar show M<n>\`.`, then `- M<n> <date> —
   [(supersedes M<m>) ][native mark]<head of 80>`, or `- M<n> — superseded by
@@ -4562,8 +4567,9 @@ what the decision's own words match. A disagreement is HELD, never refused.
   other decision resolves to it, and the result's `warnings` says `<handle>
   is D<m> now — the record was renumbered (a merge), so its suffix decided`;
   otherwise it is refused (`invalid_input`, naming what D<n> is here). The
-  payload stores the bare `D<m>` plus the stamped `supersedes_id`. The digest
-  keeps bare `[D<n>]`.
+  payload stores the bare `D<m>` plus the stamped `supersedes_id`. Since
+  r4-fixes U5 every agent-facing line prints the suffixed handle too (see
+  §Merge-stable handles).
 - HOLD (writer only, `appendAndProject`, after `supersedes_id` is stamped):
   with T the target, the decision is HELD when (a) T is already replaced —
   offered: the live head of T's replacement chain, if this decision could
@@ -4611,6 +4617,52 @@ what the decision's own words match. A disagreement is HELD, never refused.
 - ABLATION: `SOFAR_LINK_HOLD=off` takes every named target as named, as
   before 2.6. Handles and the echo have no switch: neither changes what
   retires.
+
+## Merge-stable handles
+r4-fixes U5, the 0.34.1 render fix (the event-level fix is A8). Round 4 found
+two failures of the bare ordinal. `sofar bind` attaches a check by re-filing a
+rule word for word with `supersedes`, so 13–24% of a rep's decisions were such
+copies, and agents told the operator "D73 into D76". In r1 two worktrees both
+minted D62, and after the S18 merge the Stop gate's "[binwise D62]" named a
+different rule on main. Render only: no event, payload or fold change.
+
+- EVERY LINE (both engines): an agent-facing line names a decision by
+  `D<n>·<sfx>` (`<slug> D<n>·<sfx>` where it names its record), never the bare
+  ordinal: the Stop gate's asks and failure lines, the decision-check failure
+  and approval lines (`sofar check`, Stop, pre-commit, drive), the Stop link
+  asks, PostToolUse read and edit notices, the guard-crossed line, the lessons
+  and recall lines, the SessionStart digest (window, rejected ledger, standing
+  constraints, other records' rules, pending links) and its merge block,
+  decisions.md and the shards, the review packet, `sofar close`, `sofar
+  find`, and every write result (sofar_log_decision, sofar_end_session's
+  `decisions`, `retires` and `warnings`, `sofar event append`, `sofar bind`,
+  `sofar supersedes`). A write-back's decision has no id until appended, so
+  its handle is filled in after the append. Bare stays: what is stored (a
+  payload's `supersedes`, a verification's `decision`, the per-clone trust
+  file), the `Next ids: D<n>` line (no id yet), shard file names
+  (`decisions/D<n>.md`), another record's decision in a reversal refusal (the
+  labels tier carries no id), and a travel line's link target (as cited).
+  Where this SPEC writes a rendered line with `[D<n>]`, `[<slug> D<n>]` or
+  `[<handle>]` for a decision, the line prints the suffixed form.
+- READ BACK: `sofar check --approve` takes `D<n>`, `D<n>·<sfx>`, `<slug>
+  D<n>` or `<slug> D<n>·<sfx>`; `sofar bind`, `sofar show` and every write
+  path take `D<n>` or `D<n>·<sfx>`; a suffix decides when a merge moved the
+  ordinal. A prompt that names `D<n>·<sfx>`
+  recalls the decision that suffix names, not whatever `D<n>` is now.
+- RE-LOGS: a decision whose replacer (`superseded_by`) carries the same chose,
+  over, because, rule, quote, guard and until — only the check may differ —
+  is that replacer's ALIAS (core/handle.ts `relogAliases`; a chain folds
+  whole). decisions.md lists the pair as one line, the replacer's handle with
+  `alias <old>` as its mark; the digest window marks the replacer `alias
+  <old>` where it said `supersedes <old>`, and its `retired` count leaves
+  aliases out; the alias's shard says `re-logged as <new>, the same
+  decision`. `sofar bind` says `bound <slug> <old>: check \`<cmd>\` — the
+  same rule, now listed as <new> (alias <old>)`.
+- BUDGET: the digest's decision window is 1,025 chars (MAX_DECISIONS × the
+  5-char suffix over 1,000), so it holds the same lines it held with bare
+  handles; the other budgets are unchanged. The digest cache's cut keeps every
+  decision's id and both halves of a supersession whose rule, quote and until
+  agree whole (DIGEST_CACHE_VERSION 5).
 
 ## MCP tools (server name: sofar)
 
@@ -4785,7 +4837,8 @@ sofar_start_session.`
   write-back`, since a batch entry takes no `initiative`. A `quote` with no
   `rule` (r4-fixes U6) files the decision without it, appends the quote as
   note_added `The operator's words behind D<n> (filed as a quote with no
-  rule): <quote>` right after it, and adds a `warnings` line naming the
+  rule): <quote>` right after it (stored, so the bare ordinal), and adds a
+  `warnings` line naming, by its `D<n>·<sfx>` handle (r4-fixes U5), the
   supersession that would make it a rule. `memories`
   and `notes` — non-empty strings, appended as memory_promoted {text} and
   note_added {text}. `brief_append` (r3-fixes 2.9, D6) — non-empty strings,
@@ -4802,7 +4855,7 @@ sofar_start_session.`
   is read by already counts them (task_done needs both halves,
   session-driver D5). `tasks_applied`, present iff `tasks` was passed, counts
   the entries that filed;
-  `decisions` lists the `D<n>` handles and `memories` the `<slug> M<n>`
+  `decisions` lists the `D<n>·<sfx>` handles (r4-fixes U5) and `memories` the `<slug> M<n>`
   handles the batch took, and `warnings` carries the declared-waits_on
   lines and cite nudges (see "Declared waits_on on the write surfaces"
   below), then §Rule fidelity's warning for each batched rule, then the write-time judge's lines for the batched

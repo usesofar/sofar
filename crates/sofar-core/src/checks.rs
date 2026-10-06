@@ -32,8 +32,10 @@ const DIAGNOSTICS_MAX: usize = 1_024;
 /// One in-force check, repo-wide (`InForceCheck`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct InForceCheck {
-    /// `<slug> D<n>`.
+    /// `<slug> D<n>`: what the trust file and a verification store.
     pub handle: String,
+    /// `<slug> D<n>·<sfx>` (r4-fixes U5): what every line prints.
+    pub shown: String,
     pub initiative: String,
     pub ordinal: f64,
     pub rule: String,
@@ -42,6 +44,16 @@ pub struct InForceCheck {
     pub cmd: String,
     pub hint: Option<String>,
     pub timeout_ms: Option<f64>,
+}
+
+/// `<slug> D<n>·<sfx>` (r4-fixes U5): the check suffix a merge cannot move onto another rule.
+fn scoped_handle(d: &ScopedDecision) -> String {
+    format!(
+        "{} D{}·{}",
+        d.initiative,
+        json::number_to_string(d.ordinal),
+        crate::projections::handle_suffix(&d.id)
+    )
 }
 
 /// `checksInForce`: ruled scope-tier entries carrying `check` that no later
@@ -57,6 +69,7 @@ pub fn checks_in_force(index: &GuardIndex) -> Vec<InForceCheck> {
             let rule = d.rule.clone()?;
             Some(InForceCheck {
                 handle: format!("{} D{}", d.initiative, json::number_to_string(d.ordinal)),
+                shown: scoped_handle(d),
                 initiative: d.initiative.clone(),
                 ordinal: d.ordinal,
                 rule,
@@ -200,12 +213,12 @@ pub fn check_failure_line(check: &InForceCheck, outcome: &CheckOutcome) -> Strin
                 .as_deref()
                 .map(|q| format!(" (the operator: \"{}\")", one_line(q)))
                 .unwrap_or_default(),
-            check.handle
+            check.shown
         ),
     };
     format!(
         "sofar: check for [{}] failed ({}){} — rule: \"{}\" — fix: {fix}",
-        check.handle,
+        check.shown,
         describe_outcome(outcome),
         last.map(|l| format!(": {l}")).unwrap_or_default(),
         one_line(&check.rule)
@@ -221,7 +234,7 @@ pub fn unapproved_line(checks: &[&InForceCheck]) -> Option<String> {
     let named: Vec<String> = checks
         .iter()
         .take(3)
-        .map(|c| format!("[{}] `{}`", c.handle, c.cmd))
+        .map(|c| format!("[{}] `{}`", c.shown, c.cmd))
         .collect();
     let more = if checks.len() > 3 {
         format!(", +{} more", checks.len() - 3)
@@ -1277,7 +1290,7 @@ fn gate_requirements(
         sorted.sort_by(|a, b| cmp_utf16(a, b));
         let key = format!("{}\0{}", spec.head, sorted.join("\0"));
         let rule = GateRule {
-            handle: format!("{} D{}", d.initiative, json::number_to_string(d.ordinal)),
+            handle: scoped_handle(d),
             rule: d.rule.clone().unwrap_or_default(),
             hint: check_field(d, "hint"),
         };

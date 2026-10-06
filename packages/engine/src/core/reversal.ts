@@ -1,4 +1,5 @@
 import type { DecisionState, InitiativeState } from './fold'
+import { suffixedHandle } from './handle'
 import { lexicalCounts } from './lexicon'
 import { retiredOrdinals } from './retire'
 
@@ -184,11 +185,15 @@ export function silentReversal(
   const cited = (d: ForeignDecision): boolean => new RegExp(`(^|[^a-z0-9-])${d.initiative} D${d.ordinal}\\b`).test(draft.because)
   const elsewhere = foreign === undefined ? [] : reversedForeign(foreign.decisions, foreign.home, draft).filter((d) => !cited(d))
   if (unsaid.length === 0 && elsewhere.length === 0) return null
-  const handles = [...unsaid.map(({ ordinal }) => `D${ordinal}`), ...elsewhere.map((d) => `${d.initiative} D${d.ordinal}`)]
+  // This record's decisions check-suffixed (r4-fixes U5) — bare for one a
+  // write-back batch has not filed yet (no id) — and another record's as the
+  // labels tier holds them, by ordinal.
+  const own = (ordinal: number, decision: DecisionState): string => (decision.id === '' ? `D${ordinal}` : suffixedHandle(ordinal, decision.id))
+  const handles = [...unsaid.map(({ ordinal, decision }) => own(ordinal, decision)), ...elsewhere.map((d) => `${d.initiative} D${d.ordinal}`)]
   const them = handles.length > 1 ? 'them' : handles[0]!
   const ways: string[] = []
   if (unsaid.length > 0) {
-    const first = `D${unsaid[0]!.ordinal}`
+    const first = own(unsaid[0]!.ordinal, unsaid[0]!.decision)
     const rule = unsaid.some(({ decision }) => decision.rule !== undefined)
     ways.push(
       `if the operator changed it, log this again with "supersedes":"${first}"${rule ? ' and a "rule" (a rule is replaced only by a rule)' : ''}; ` +
@@ -206,7 +211,7 @@ export function silentReversal(
   return {
     message: `this decision reverses standing ${handles.join(', ')} — nothing was logged. Follow ${them}; ${ways.join('. ')}.`,
     errors: [
-      ...unsaid.map(({ ordinal, decision }) => `D${ordinal} (${decision.ts.slice(0, 10)}): chose "${clip(decision.chose)}" over "${clip(decision.over)}"`),
+      ...unsaid.map(({ ordinal, decision }) => `${own(ordinal, decision)} (${decision.ts.slice(0, 10)}): chose "${clip(decision.chose)}" over "${clip(decision.over)}"`),
       ...elsewhere.map((d) => `${d.initiative} D${d.ordinal} (${d.ts.slice(0, 10)}): chose "${clip(d.chose)}" over "${clip(d.over)}"`),
     ],
     elsewhere: elsewhere.map((d) => `${d.initiative} D${d.ordinal}`),

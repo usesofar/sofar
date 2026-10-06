@@ -14,9 +14,10 @@ use std::cell::RefCell;
 
 use crate::lexicon::lexical_counts;
 use crate::projections::{
-    RunLiveness, clip, clip_block_detect, clip_detect, describe_activity, describe_freshness,
-    describe_run, phase_fraction, plural, progress_text, rank_by_relevance, relevance_score,
-    repo_rule_lines, retired_ordinals, run_detail_lines, standing_constraint_lines, task_progress,
+    RunLiveness, alias_mark, aliases_of, clip, clip_block_detect, clip_detect, describe_activity,
+    describe_freshness, describe_run, handle_at, phase_fraction, plural, progress_text,
+    rank_by_relevance, relevance_score, relog_aliases, repo_rule_lines, retired_ordinals,
+    run_detail_lines, standing_constraint_lines, suffixed_handle, supersedes_handle, task_progress,
     test_outcome_line,
 };
 use crate::text::{
@@ -48,7 +49,8 @@ const MEMORY_WHOLE_MAX: usize = 2;
 const MEMORY_WHOLE_BUDGET: usize = 280;
 const MEMORY_HEAD_BUDGET: usize = 80;
 const MIN_REPO_MEMORY_ROOM: usize = 300;
-const DECISION_WINDOW_BUDGET: usize = 1_000;
+// 1,000 + MAX_DECISIONS × the 5 chars of a handle's check suffix (r4-fixes U5).
+const DECISION_WINDOW_BUDGET: usize = 1_025;
 const OVERFLOW_RESERVE: usize = 40;
 const YIELD_SAFETY: usize = 2;
 const MINUTIAE_MIN: usize = 24;
@@ -465,27 +467,31 @@ pub fn held_ask(
         .decisions
         .get(h.wrapping_sub(1))
         .and_then(|d| d.superseded_by);
+    // Every handle check-suffixed (r4-fixes U5).
+    let handle = |n: usize| handle_at(&state.decisions, n);
+    let (me, held) = (handle(ordinal), handle(h));
     let why = if let Some(by) = replaced {
-        format!("D{h} was already replaced by D{by}")
+        #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+        let by = handle(by as usize);
+        format!("{held} was already replaced by {by}")
     } else if !live(h) {
-        format!("D{h} is no longer in force")
+        format!("{held} is no longer in force")
     } else if !offers.is_empty() {
-        let named: Vec<String> = offers.iter().map(|n| format!("D{n}")).collect();
+        let named: Vec<String> = offers.iter().map(|&n| handle(n)).collect();
         format!("its words match {} far more", named.join(" and "))
     } else {
         "its words share little with it".to_owned()
     };
     let mut answers = Vec::new();
     if live(h) {
-        answers.push(format!(
-            "`sofar supersedes D{ordinal} D{h}` if D{h} is right"
-        ));
+        answers.push(format!("`sofar supersedes {me} {held}` if {held} is right"));
     }
-    for n in &offers {
-        answers.push(format!("`sofar supersedes D{ordinal} D{n}` if D{n} is"));
+    for &n in &offers {
+        let offer = handle(n);
+        answers.push(format!("`sofar supersedes {me} {offer}` if {offer} is"));
     }
     answers.push(format!(
-        "`sofar supersedes D{ordinal} none` if it replaces nothing"
+        "`sofar supersedes {me} none` if it replaces nothing"
     ));
     (why, answers)
 }
@@ -511,10 +517,13 @@ fn pending_link_lines(state: &InitiativeState, retired: &[usize]) -> Vec<String>
         if !live(i + 1) {
             continue;
         }
+        let me = handle_at(&state.decisions, i + 1);
         if let Some(h) = link.held {
             held += 1;
             let (why, _) = held_ask(state, i + 1, link, &live);
-            pending.push(format!("- D{} names D{h}, held — {why}", i + 1));
+            #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+            let h = handle_at(&state.decisions, h as usize);
+            pending.push(format!("- {me} names {h}, held — {why}"));
             continue;
         }
         #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
@@ -523,12 +532,12 @@ fn pending_link_lines(state: &InitiativeState, retired: &[usize]) -> Vec<String>
             .iter()
             .map(|&n| n as usize)
             .filter(|&n| live(n))
-            .map(|n| format!("D{n}"))
+            .map(|n| handle_at(&state.decisions, n))
             .collect();
         pending.push(if may.is_empty() {
-            format!("- D{}", i + 1)
+            format!("- {me}")
         } else {
-            format!("- D{} may replace {}", i + 1, may.join(" or "))
+            format!("- {me} may replace {}", may.join(" or "))
         });
     }
     if pending.is_empty() {
@@ -896,6 +905,29 @@ pub fn drop_memory_copies(text: &str, slug: &str, rendered: &[usize]) -> String 
 }
 
 /// `- [D<n>]` / `- [M<n>]` prefix → n.
+/// `/^- \[D(\d+)(?:·[0-9a-z]{4})?\]/` on a standing-constraint line: its ordinal.
+fn suffixed_handle_ordinal(line: &str) -> Option<usize> {
+    let rest = line.strip_prefix("- [D")?;
+    let end = rest.find(']')?;
+    let inner = &rest[..end];
+    let digits = match inner.split_once('·') {
+        Some((digits, suffix))
+            if suffix.chars().count() == 4
+                && suffix
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase()) =>
+        {
+            digits
+        }
+        Some(_) => return None,
+        None => inner,
+    };
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
+}
+
 fn handle_ordinal(line: &str, letter: char) -> Option<usize> {
     let rest = line.strip_prefix("- [")?.strip_prefix(letter)?;
     let end = rest.find(']')?;
@@ -1504,8 +1536,15 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     );
     let shown_rules: Vec<usize> = rules
         .iter()
-        .filter_map(|line| handle_ordinal(line, 'D'))
+        .filter_map(|line| suffixed_handle_ordinal(line))
         .collect();
+    // A re-log (r4-fixes U5) names the handles it replaced as its aliases, not
+    // as a supersession, and an alias is no retired decision of its own.
+    let (absorbed, aliases) = relog_aliases(&state.decisions);
+    let retired_count = retired
+        .iter()
+        .filter(|&&n| absorbed.get(n.wrapping_sub(1)).is_none_or(|&a| a == 0))
+        .count();
     if !state.decisions.is_empty() {
         let in_force: Vec<(usize, &DecisionState)> = state
             .decisions
@@ -1523,10 +1562,10 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         };
         let window_header = format!(
             "Recent decisions ({}; full text in decisions/D<n>.md):",
-            if retired.is_empty() {
+            if retired_count == 0 {
                 count
             } else {
-                format!("{count} in force, {} retired", retired.len())
+                format!("{count} in force, {retired_count} retired")
             }
         );
         let window_entries: Vec<String> = recent
@@ -1555,14 +1594,24 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
                     marks.push("rule below".to_owned());
                 }
                 if retire && let Some(supersedes) = &d.supersedes {
-                    marks.push(format!("supersedes {supersedes}"));
+                    marks.push(match aliases_of(&aliases, ordinal) {
+                        Some(alias) => alias_mark(&state.decisions, alias),
+                        None => format!(
+                            "supersedes {}",
+                            supersedes_handle(&state.decisions, supersedes, ordinal)
+                        ),
+                    });
                 }
                 let mark = if marks.is_empty() {
                     String::new()
                 } else {
                     format!(" ({})", marks.join("; "))
                 };
-                format!("- [D{ordinal}] {}{mark} {chose}{over}", date_part(&d.ts))
+                format!(
+                    "- [{}] {}{mark} {chose}{over}",
+                    suffixed_handle(ordinal, &d.id),
+                    date_part(&d.ts)
+                )
             })
             .collect();
         let rejected: Vec<(usize, &DecisionState)> = in_force[..older_count]
@@ -1618,7 +1667,8 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
                 let mut shown = 0;
                 for (ordinal, d) in &rejected {
                     let entry = format!(
-                        "- [D{ordinal}] {}",
+                        "- [{}] {}",
+                        suffixed_handle(*ordinal, &d.id),
                         minutiae_head(&d.over, REJECTED_OVER_LINE_BUDGET)
                     );
                     if ledger_used + utf16_len(&entry) as i64 + 1 + OVERFLOW_RESERVE as i64

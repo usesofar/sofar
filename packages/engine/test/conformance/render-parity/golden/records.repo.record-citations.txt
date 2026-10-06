@@ -110,15 +110,15 @@
     ]
   }
 }
-== status (4969 bytes) ==
+== status (4981 bytes) ==
 # record-citations
 
 Status: done 2026-08-09T10:37:53.432Z — 5/5 across both phases. One § grammar written into CLAUDE.md — § cites a HAND-WRITTEN document only (SPEC.md, FORMAT.md, CLAUDE.md), names a heading or **Bold label** verbatim and whole, stays on one line, and closes with a comma or parens when the next word could extend it; tasks, phases and decisions are cited by id, never §. Generated projections are excluded because a plan.md heading renders from events.jsonl and templates can change it, while the id underneath is truth. 61 broken refs fixed: 15 in hand-written docs, 46 in source comments across 37 files. Enforcement is packages/engine/test/citations.test.ts — NOT a sofar doctor detector. D2 rejected the doctor axis deliberately: doctor ships to every repo that installs sofar, so a check bound to this repo's own docs does not generalise; architecture-doc.test.ts is the precedent. The resolver refuses a capitalised leftover after a prefix match, which is what makes a heading rename fail the suite; mutation-verified on rename, split citation and nickname. PR #1 merged; origin/main carries it at 8408594. Build, typecheck and 1447 tests green. This reason SUPERSEDES an earlier closure summary that credited a sofar doctor detector resolving §Name with a nearest-heading hint — no such detector exists, doctor still has its original eight axes, and the count was 1443 not 1447. See note 01KZJZY4N35CN7VS45686MN8W0.
 Goal: One citation grammar for the record: § points only into hand-written documents (SPEC.md, FORMAT.md, CLAUDE.md), named verbatim, on one line, closed when the next word could extend the heading. Tasks, phases and decisions are cited by id, never §. Generated projections are never § targets because their headings render from events.jsonl and templates can change them, while the id underneath is truth. Fixes the existing broken refs in hand-written docs and source comments; append-only history is left alone.
 
 Standing constraints — obey verbatim (2):
-- [D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
-- [D2] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
+- [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 Progress: 5/5 tasks done (100%) across 2 phase(s)
 
 Phases:
@@ -145,7 +145,7 @@ Files touched (8):
 - /private/tmp/claude-501/-Users-jins-IO-sofar/58a146b7-2fee-4c20-a4ac-0155dd2b4ea7/scratchpad/msg.txt
 - /private/tmp/claude-501/-Users-jins-IO-sofar/58a146b7-2fee-4c20-a4ac-0155dd2b4ea7/scratchpad/msg2.txt
 
-== digest:plain (2571 bytes) ==
+== digest:plain (2595 bytes) ==
 # Sofar status: record-citations
 
 Goal: One citation grammar for the record: § points only into hand-written documents (SPEC.md, FORMAT.md, CLAUDE.md), named verbatim, on one line, closed when the next word could extend the heading. Tasks, phases and decisions are cited by id, never §. Generated projections are never § targets because their headings render from events.jsonl and templates can change them, while the id underneath is trut…
@@ -163,20 +163,20 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Starting on an UNBOUND branch orphans a session and the Stop hook blocks on it. When no binding resolves, SessionStart injects no "Session: <id>" line, so there is no id to adopt and sofar_start_session mints a fresh one. But the moment you run `sofar new`/`sofar switch`, the ho…
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-08-09 (rule below) ONE citation grammar, fixed by convention rather than tooli… — over Banning § from the record entirely in favour of `SPEC > Derived index`
-- [D2] 2026-08-09 (rule below) Enforce the § grammar with a repo test — over A ninth `sofar doctor` axis
+- [D1·64pm] 2026-08-09 (rule below) ONE citation grammar, fixed by convention rather than tooli… — over Banning § from the record entirely in favour of `SPEC > Derived index`
+- [D2·z5zv] 2026-08-09 (rule below) Enforce the § grammar with a repo test — over A ninth `sofar doctor` axis
 
 Next ids: D3 (decision), M2 (memory)
 
 Standing constraints — obey verbatim (2):
-- [D2] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
-- [D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
+- [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (3847 bytes) ==
+== digest:hook (3871 bytes) ==
 # Sofar status: record-citations
 
 Goal: One citation grammar for the record: § points only into hand-written documents (SPEC.md, FORMAT.md, CLAUDE.md), named verbatim, on one line, closed when the next word could extend the heading. Tasks, phases and decisions are cited by id, never §. Generated projections are never § targets because their headings render from events.jsonl and templates can change them, while the id underneath is trut…
@@ -206,8 +206,8 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-08-09 (rule below) ONE citation grammar, fixed by convention rather than tooli… — over Banning § from the record entirely in favour of `SPEC > Derived index`
-- [D2] 2026-08-09 (rule below) Enforce the § grammar with a repo test — over A ninth `sofar doctor` axis
+- [D1·64pm] 2026-08-09 (rule below) ONE citation grammar, fixed by convention rather than tooli… — over Banning § from the record entirely in favour of `SPEC > Derived index`
+- [D2·z5zv] 2026-08-09 (rule below) Enforce the § grammar with a repo test — over A ninth `sofar doctor` axis
 
 Next ids: D3 (decision), M2 (memory)
 
@@ -225,14 +225,14 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (2):
-- [D2] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
-- [D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
+- [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (3269 bytes) ==
+== digest:lane (3293 bytes) ==
 # Sofar: quick-work lane (record-citations)
 
 Goal: One citation grammar for the record: § points only into hand-written documents (SPEC.md, FORMAT.md, CLAUDE.md), named verbatim, on one line, closed when the next word could extend the heading. Tasks, phases and decisions are cited by id, never §. Generated projections are never § targets because their headings render from events.jsonl and templates can change them, while the id underneath is trut…
@@ -252,8 +252,8 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Starting on an UNBOUND branch orphans a session and the Stop hook blocks on it.…
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-08-09 (rule below) ONE citation grammar, fixed by convention rather than tooli… — over Banning § from the record entirely in favour of `SPEC > Derived index`
-- [D2] 2026-08-09 (rule below) Enforce the § grammar with a repo test — over A ninth `sofar doctor` axis
+- [D1·64pm] 2026-08-09 (rule below) ONE citation grammar, fixed by convention rather than tooli… — over Banning § from the record entirely in favour of `SPEC > Derived index`
+- [D2·z5zv] 2026-08-09 (rule below) Enforce the § grammar with a repo test — over A ninth `sofar doctor` axis
 
 Next ids: D3 (decision), M2 (memory)
 
@@ -261,12 +261,12 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: record-citations @ a1b2c3d — differs from origin/record-citations (fedcba9) — unpushed work
 
 Standing constraints — obey verbatim (2):
-- [D2] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
-- [D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
+- [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (2657 bytes) ==
+== digest:quiet (2681 bytes) ==
 # Sofar status: record-citations
 
 Goal: One citation grammar for the record: § points only into hand-written documents (SPEC.md, FORMAT.md, CLAUDE.md), named verbatim, on one line, closed when the next word could extend the heading. Tasks, phases and decisions are cited by id, never §. Generated projections are never § targets because their headings render from events.jsonl and templates can change them, while the id underneath is trut…
@@ -284,22 +284,22 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Starting on an UNBOUND branch orphans a session and the Stop hook blocks on it. When no binding resolves, SessionStart injects no "Session: <id>" line, so there is no id to adopt and sofar_start_session mints a fresh one. But the moment you run `sofar new`/`sofar switch`, the ho…
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-08-09 (rule below) ONE citation grammar, fixed by convention rather than tooli… — over Banning § from the record entirely in favour of `SPEC > Derived index`
-- [D2] 2026-08-09 (rule below) Enforce the § grammar with a repo test — over A ninth `sofar doctor` axis
+- [D1·64pm] 2026-08-09 (rule below) ONE citation grammar, fixed by convention rather than tooli… — over Banning § from the record entirely in favour of `SPEC > Derived index`
+- [D2·z5zv] 2026-08-09 (rule below) Enforce the § grammar with a repo test — over A ninth `sofar doctor` axis
 
 Next ids: D3 (decision), M2 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (2):
-- [D2] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
-- [D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
+- [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6039 bytes) ==
+== digest:cap (6041 bytes) ==
 # Sofar status: record-citations
 
 Goal: One citation grammar for the record: § points only into hand-written documents (SPEC.md, FORMAT.md, CLAUDE.md), named verbatim, on one line, closed when the next word could extend the heading. Tasks, phases and decisions are cited by id, never §. Generated projections are never § targets because their headings render from events.jsonl and templates can change them, while the id underneath is trut…
@@ -326,12 +326,12 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (2):
-- [D2] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
-- [D1] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
+- [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -375,20 +375,20 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 
 - M1 2026-08-09 — Starting on an UNBOUND branch orphans a session and the Stop hook blocks on it.…
 
-== shard decisions/D1.md (3633 bytes) ==
+== shard decisions/D1.md (3639 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-09
+D1·64pm — 2026-08-09
 rule: § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
 chose: ONE citation grammar, fixed by convention rather than tooling. § points only into hand-written documents and names a `##`/`###` heading or a `**Bold label**` sub-section VERBATIM AND WHOLE; sub-parts are locators AFTER a comma (`§Acceptance criteria, Phase 4`, `§State, task_files`, `§CLI UI, color law`), never part of the § name; the citation never straddles a line break. Tasks, phases and decisions carry their own ids and are cited bare: `record-index 4.2`, `cross-initiative-conflicts 2.2`, `speed T2`, `Phase 3 — Contract + proof`, `D17`, `felt-cost D3`. Written into CLAUDE.md as `### Citing things (the § rule)`; all 15 broken refs in hand-written docs and all 46 in source comments fixed in the same change.
 over: Banning § from the record entirely in favour of `SPEC > Derived index`; allowing § to point at plan.md/decisions.md headings on the grounds that those ARE real markdown headings; and shipping a `sofar doctor` detector to enforce resolution mechanically instead of by convention.
 because: Measured first: 244 § refs in .sofar/, 386 repo-wide, and NO code anywhere parses the symbol (zero hits for the literal in packages/) — so this is a legibility contract with zero format risk, and history needed no migration. The symbol was never the problem. § is the standard section mark (RFCs, W3C, ISO) and 164 of the 244 record refs already resolved correctly, so BANNING it would have discarded the working majority to fix the broken minority. The damage was three mechanical classes, all of which defeat search while reading fine to a human: UNTERMINATED names (`§CLI and acceptance extended` — § opens a heading and nothing closes it, so extraction yields garbage like `§Envelope + decision + tests (stamps when config exists`); NICKNAMES that name no heading (`§Acceptance` where the heading is `## Acceptance criteria`, `§Envelope` for `## Event envelope` — CLAUDE.md itself committed this); and LINE-WRAPPED citations (`§Sync` / `client`, 5 of them) which are invisible even to a correct grep. GENERATED PROJECTIONS are excluded despite the strongest counter-argument: plan.md really does render phases as `## Phase 1 — Incremental core`, a genuine markdown heading. It is still wrong, because that file's first line reads "generated by sofar — do not hand-edit; truth lives in events.jsonl" — citing a projection's heading binds the reference to a rendering that projections/templates/ can change at any time, while the id in the event payload is truth and cannot. So the test is not "does the target have a heading" but "is the target hand-written". A DOCTOR DETECTOR was rejected for now on sequencing, not merit: it is the only thing that catches rename drift (rename `## CLI` in SPEC and ~30 citations go stale silently, exactly the failure this decision cannot prevent), but the convention has to exist before anything can enforce it, and it is new surface on a repo whose guard-rails say detection-only, never rewrite. Left untouched deliberately: docs/harness.md (21 broken refs) is marked "SUPERSEDED — do not update", and events.jsonl history is append-only by law, so its stale refs are historical fact rather than debt.
 guard: path:docs/SPEC.md,docs/FORMAT.md,CLAUDE.md
 
-== shard decisions/D2.md (3057 bytes) ==
+== shard decisions/D2.md (3063 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-08-09
+D2·z5zv — 2026-08-09
 rule: Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 chose: Enforce the § grammar with a repo test — packages/engine/test/citations.test.ts — instead of the `sofar doctor` detector task 2.1 planned. Two mechanical checks: every §Name resolves to a real heading or **Bold label** in the document its handle names, and no citation is left open by a line break. Resolution accepts a proper-prefix match ONLY when the leftover starts lowercase (prose); a capitalised leftover is refused.
 over: A ninth `sofar doctor` axis (the planned 2.1); and the naive longest-prefix resolver I wrote first, which accepted any prefix match regardless of what followed.

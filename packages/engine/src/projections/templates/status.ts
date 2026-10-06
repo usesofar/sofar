@@ -10,6 +10,7 @@ import {
   type TaskState,
 } from '../../core/fold'
 import type { GitState } from '../../core/git'
+import { aliasMark, handleAt, relogAliases, supersedesHandle } from '../../core/handle'
 import type { NeighbourRecord, RepoRule } from '../../core/index-tier1'
 import { LANE_RECENT_SESSIONS, QUICK_LANE } from '../../core/lane'
 import { heldDigestLine, linkAskEnabled } from '../../core/link-candidates'
@@ -93,7 +94,9 @@ const MEMORY_WHOLE_MAX = 2
 const MEMORY_WHOLE_BUDGET = 280
 const MEMORY_HEAD_BUDGET = 80
 const MIN_REPO_MEMORY_ROOM = 300
-const DECISION_WINDOW_BUDGET = 1_000
+// 1,000 + MAX_DECISIONS × the 5 chars of a handle's check suffix (r4-fixes U5),
+// so the window holds the same five lines it held with bare handles.
+const DECISION_WINDOW_BUDGET = 1_025
 const OVERFLOW_RESERVE = 40
 const YIELD_SAFETY = 2
 // A decision field's head ends at its first clause boundary past this many
@@ -425,8 +428,8 @@ function pendingLinkLines(state: InitiativeState, retired: ReadonlySet<number>):
       pending.push(heldDigestLine(state, i + 1, link, live))
       continue
     }
-    const may = link.candidates.filter(live).map((n) => `D${n}`)
-    pending.push(`- D${i + 1}${may.length > 0 ? ` may replace ${may.join(' or ')}` : ''}`)
+    const may = link.candidates.filter(live).map((n) => handleAt(state.decisions, n))
+    pending.push(`- ${handleAt(state.decisions, i + 1)}${may.length > 0 ? ` may replace ${may.join(' or ')}` : ''}`)
   }
   if (pending.length === 0) return []
   const shown = pending.slice(0, MAX_PENDING_LINKS)
@@ -847,19 +850,30 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   // The standing constraints (10) are built now so the window can mark the
   // decisions whose rule renders below.
   const rules = standingConstraintLines(state.decisions, STANDING_LEDGER_BUDGET, retire, focusTerms)
-  const shownRules = new Set(rules.map((line) => /^- \[D(\d+)\]/.exec(line)?.[1]).filter((n): n is string => n !== undefined))
+  const shownRules = new Set(rules.map((line) => /^- \[D(\d+)(?:·[0-9a-z]{4})?\]/.exec(line)?.[1]).filter((n): n is string => n !== undefined))
   if (state.decisions.length > 0) {
     const inForce = state.decisions.map((d, i) => ({ d, ordinal: i + 1 })).filter((x) => !retired.has(x.ordinal))
+    // A re-log (r4-fixes U5) names the handles it replaced as its aliases, not
+    // as a supersession, and an alias is no retired decision of its own.
+    const { absorbed, aliases } = relogAliases(state.decisions)
+    const retiredCount = [...retired].filter((n) => !absorbed.has(n)).length
     const recent = inForce.slice(-MAX_DECISIONS)
     const olderCount = inForce.length - recent.length
     const count = olderCount > 0 ? `last ${recent.length} of ${inForce.length}` : `${inForce.length}`
-    const windowHeader = `Recent decisions (${retired.size > 0 ? `${count} in force, ${retired.size} retired` : count}; full text in decisions/D<n>.md):`
+    const windowHeader = `Recent decisions (${retiredCount > 0 ? `${count} in force, ${retiredCount} retired` : count}; full text in decisions/D<n>.md):`
     const windowEntries = recent.map(({ d, ordinal }) => {
       const ruled = d.rule !== undefined && shownRules.has(String(ordinal))
       const chose = minutiaeHead(d.chose, ruled ? DECISION_RULED_CHOSE_BUDGET : DECISION_CHOSE_BUDGET)
       const over = hasRealAlternative(d.over) ? ` — over ${minutiaeHead(d.over, REJECTED_OVER_LINE_BUDGET)}` : ''
-      const marks = [...(ruled ? ['rule below'] : []), ...(retire && d.supersedes !== undefined ? [`supersedes ${d.supersedes}`] : [])]
-      return `- [D${ordinal}] ${d.ts.slice(0, 10)}${marks.length > 0 ? ` (${marks.join('; ')})` : ''} ${chose}${over}`
+      const alias = aliases.get(ordinal)
+      const replaced =
+        !retire || d.supersedes === undefined
+          ? []
+          : alias !== undefined
+            ? [aliasMark(state.decisions, alias)]
+            : [`supersedes ${supersedesHandle(state.decisions, d.supersedes, ordinal)}`]
+      const marks = [...(ruled ? ['rule below'] : []), ...replaced]
+      return `- [${handleAt(state.decisions, ordinal)}] ${d.ts.slice(0, 10)}${marks.length > 0 ? ` (${marks.join('; ')})` : ''} ${chose}${over}`
     })
     // Older rejected approaches (D-ledger; D11): the `over` of every in-force
     // decision OUTSIDE the window that recorded a real alternative.
@@ -889,7 +903,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
         const ledgerRoom = Math.min(REJECTED_LEDGER_BUDGET, budget - used)
         let shown = 0
         for (const { d, ordinal } of rejected) {
-          const line = `- [D${ordinal}] ${minutiaeHead(d.over, REJECTED_OVER_LINE_BUDGET)}`
+          const line = `- [${handleAt(state.decisions, ordinal)}] ${minutiaeHead(d.over, REJECTED_OVER_LINE_BUDGET)}`
           if (ledgerUsed + line.length + 1 + OVERFLOW_RESERVE > ledgerRoom) break
           ledger.push(line)
           ledgerUsed += line.length + 1

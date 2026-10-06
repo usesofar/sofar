@@ -45,7 +45,7 @@ exit: 0
 Goal: a small healthy record for the hook lifecycle
 
 Standing constraints — obey verbatim (1):
-- [D2] Never rewrite events.jsonl; unknown lines are skipped with a warning.
+- [D2·41jn] Never rewrite events.jsonl; unknown lines are skipped with a warning.
 Progress: 1/4 tasks done (25%) across 2 phase(s)
 
 Phases:

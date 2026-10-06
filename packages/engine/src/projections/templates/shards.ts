@@ -1,4 +1,5 @@
 import type { InitiativeState } from '../../core/fold'
+import { handleAt, relogAliases, suffixedHandle, supersedesHandle } from '../../core/handle'
 import { retiredOrdinals } from '../../core/retire'
 import { quoteClause } from '../../core/rule-fidelity'
 import { isClosedPhase, phaseBody, phaseHead, phaseShard } from './plan'
@@ -24,10 +25,18 @@ export const decisionShard = (ordinal: number): string => `decisions/D${ordinal}
 export const memoryShard = (ordinal: number): string => `memory/M${ordinal}.md`
 
 /** One decision whole, a field a line: decisions/D<n>.md's body and `sofar show D<n>`. */
-export function decisionEntry(state: InitiativeState, ordinal: number, retired: ReadonlySet<number> = retiredOrdinals(state)): string {
+export function decisionEntry(
+  state: InitiativeState,
+  ordinal: number,
+  retired: ReadonlySet<number> = retiredOrdinals(state),
+  relogs: ReturnType<typeof relogAliases> = relogAliases(state.decisions),
+): string {
   const d = state.decisions[ordinal - 1]!
-  let head = `D${ordinal} — ${d.ts.slice(0, 10)}`
-  if (d.superseded_by !== undefined) head += ` — replaced by D${d.superseded_by}`
+  // Handles suffixed (r4-fixes U5); a re-log names the entry it is an alias of.
+  const into = relogs.absorbed.get(ordinal)
+  let head = `${suffixedHandle(ordinal, d.id)} — ${d.ts.slice(0, 10)}`
+  if (into !== undefined) head += ` — re-logged as ${handleAt(state.decisions, into)}, the same decision`
+  else if (d.superseded_by !== undefined) head += ` — replaced by ${handleAt(state.decisions, d.superseded_by)}`
   else if (d.until !== undefined && retired.has(ordinal)) head += ` — retired: ${d.until} resolved`
   const lines = [head]
   if (d.rule !== undefined) lines.push(`rule: ${d.rule}`)
@@ -37,7 +46,9 @@ export function decisionEntry(state: InitiativeState, ordinal: number, retired: 
   lines.push(`chose: ${d.chose}`, `over: ${d.over}`, `because: ${d.because}`)
   if (d.guard !== undefined) lines.push(`guard: ${d.guard}`)
   if (d.check !== undefined) lines.push(`check: ${d.check.cmd}`)
-  if (d.supersedes !== undefined) lines.push(`supersedes: ${d.supersedes}`)
+  const alias = relogs.aliases.get(ordinal)
+  if (alias !== undefined) lines.push(`alias: ${alias.map((n) => handleAt(state.decisions, n)).join(', ')}`)
+  else if (d.supersedes !== undefined) lines.push(`supersedes: ${supersedesHandle(state.decisions, d.supersedes, ordinal)}`)
   if (d.until !== undefined) lines.push(`until: ${d.until}`)
   return lines.join('\n')
 }
@@ -51,8 +62,13 @@ export function memoryEntry(state: InitiativeState, ordinal: number): string {
   return `${head}\n${nativeOriginMark(m.origin)}${m.text}`
 }
 
-export function renderDecisionShard(state: InitiativeState, ordinal: number, retired: ReadonlySet<number>): string {
-  return doc([GENERATED_HEADER, '', decisionEntry(state, ordinal, retired)])
+export function renderDecisionShard(
+  state: InitiativeState,
+  ordinal: number,
+  retired: ReadonlySet<number>,
+  relogs: ReturnType<typeof relogAliases> = relogAliases(state.decisions),
+): string {
+  return doc([GENERATED_HEADER, '', decisionEntry(state, ordinal, retired, relogs)])
 }
 
 export function renderMemoryShard(state: InitiativeState, ordinal: number): string {
@@ -75,8 +91,9 @@ export function renderBrief(state: InitiativeState): string {
 /** Every shard this state renders, path relative to the initiative directory, in a fixed order. */
 export function renderShards(state: InitiativeState): Array<{ name: string; content: string }> {
   const retired = retiredOrdinals(state)
+  const relogs = relogAliases(state.decisions)
   const out: Array<{ name: string; content: string }> = []
-  for (let n = 1; n <= state.decisions.length; n++) out.push({ name: decisionShard(n), content: renderDecisionShard(state, n, retired) })
+  for (let n = 1; n <= state.decisions.length; n++) out.push({ name: decisionShard(n), content: renderDecisionShard(state, n, retired, relogs) })
   for (let n = 1; n <= state.memories.length; n++) out.push({ name: memoryShard(n), content: renderMemoryShard(state, n) })
   // Only a closed phase has a shard: an open one is whole in plan.md.
   state.phases.forEach((phase, k) => {

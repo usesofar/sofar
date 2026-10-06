@@ -122,13 +122,14 @@ export function quoteClause(rule: string, quote: string): string {
  * The write-time warning (D2): the capturing session learns what its rule
  * adds while the operator's message is still in its context — the one moment
  * a correction costs nothing but the next call. Null when nothing is added.
+ * `handle` is the decision's check-suffixed handle (r4-fixes U5).
  */
-export function ruleFidelityWarning(ordinal: number, rule: string, quote: string | undefined): string | null {
+export function ruleFidelityWarning(handle: string, rule: string, quote: string | undefined): string | null {
   if (quote === undefined) return null
   const added = unquotedSpecifics(rule, quote)
   if (added.length === 0) return null
   return (
-    `D${ordinal}'s rule states ${added.join(', ')}, which the operator's quote does not. ` +
-    `Every digest flags it; if the operator did not say it, log the rule as they worded it with supersedes D${ordinal}.`
+    `${handle}'s rule states ${added.join(', ')}, which the operator's quote does not. ` +
+    `Every digest flags it; if the operator did not say it, log the rule as they worded it with supersedes ${handle}.`
   )
 }

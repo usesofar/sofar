@@ -1,4 +1,4 @@
-== options (45214 bytes) ==
+== options (45742 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -17,18 +17,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -36,18 +39,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -86,18 +92,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -105,18 +114,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -134,14 +146,14 @@
     ]
   }
 }
-== status (3401 bytes) ==
+== status (3407 bytes) ==
 # stale-session-signals
 
 Status: done 2026-08-13T15:10:09.261Z
 Goal: No session should work from a stale picture, and today three kinds of staleness are silent. (1) A session whose commits land inside a peer's push learns it only on its own next prompt — commit-attribution D13 accepted an optional ping over that ref-gated read, a note named it task 3.5, the plan was rewritten twice without it, and the initiative closed over it. (2) A session keeps the sofar tool surface it started with: after a publish and upgrade it silently holds the old MCP tools, which cost this repo two wrong conclusions in one day (commit-attribution M5). (3) The close audit cannot see work a decision promised but no task implements — the exact gap that let D13 through — and it cannot be a mechanical check, because reading intent out of prose is the inference staleness-detection D3/D12 bans.
 
 Standing constraints — obey verbatim (1):
-- [D1] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
+- [D1·z3gg] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
 Progress: 5/5 tasks done (100%) across 4 phase(s)
 
 Phases:
@@ -166,7 +178,7 @@ Notes since write-back (1):
 Last session (claude-code, ended 2026-09-14T17:32:04.014Z):
   Diagnosed the silent push ping in splen: 3 causes, none from Claude Code. See note 01M2GFKGJ0BB9CJWFE73F69ZDJ.
 
-== digest:plain (2206 bytes) ==
+== digest:plain (2218 bytes) ==
 # Sofar status: stale-session-signals
 
 Goal: No session should work from a stale picture, and today three kinds of staleness are silent. (1) A session whose commits land inside a peer's push learns it only on its own next prompt — commit-attribution D13 accepted an optional ping over that ref-gated read, a note named it task 3.5, the plan was rewritten twice without it, and the initiative closed over it. (2) A session keeps the sofar tool s…
@@ -187,18 +199,18 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] A repo moved or renamed with an ABSOLUTE core.hooksPath silently loses all hooks, because git skips a hooksPath that doesn't exist. The Sofar-Initiative trailer stops, and with it the landed and push-ping lines. Diagnose: `git config --show-origin core.hooksPath` plus `git log -…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Three host tiers, stated in SPEC §Host tiers and binding on… — over Rendering a degraded address-less line on hosts with no registry
+- [D1·z3gg] 2026-08-13 (rule below) Three host tiers, stated in SPEC §Host tiers and binding on… — over Rendering a degraded address-less line on hosts with no registry
 
 Next ids: D2 (decision), M2 (memory)
 
 Standing constraints — obey verbatim (1):
-- [D1] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
+- [D1·z3gg] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (3673 bytes) ==
+== digest:hook (3715 bytes) ==
 # Sofar status: stale-session-signals
 
 Goal: No session should work from a stale picture, and today three kinds of staleness are silent. (1) A session whose commits land inside a peer's push learns it only on its own next prompt — commit-attribution D13 accepted an optional ping over that ref-gated read, a note named it task 3.5, the plan was rewritten twice without it, and the initiative closed over it. (2) A session keeps the sofar tool s…
@@ -231,7 +243,7 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Three host tiers, stated in SPEC §Host tiers and binding on… — over Rendering a degraded address-less line on hosts with no registry
+- [D1·z3gg] 2026-08-13 (rule below) Three host tiers, stated in SPEC §Host tiers and binding on… — over Rendering a degraded address-less line on hosts with no registry
 
 Next ids: D2 (decision), M2 (memory)
 
@@ -247,18 +259,18 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (1):
-- [D1] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
+- [D1·z3gg] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the stale-session-signals record's goal before its tasks.
-- [delta D2] Keep the digest under its cap.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the stale-session-signals record's goal before its tasks.
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (2267 bytes) ==
+== digest:lane (2279 bytes) ==
 # Sofar: quick-work lane (stale-session-signals)
 
 Goal: No session should work from a stale picture, and today three kinds of staleness are silent. (1) A session whose commits land inside a peer's push learns it only on its own next prompt — commit-attribution D13 accepted an optional ping over that ref-gated read, a note named it task 3.5, the plan was rewritten twice without it, and the initiative closed over it. (2) A session keeps the sofar tool s…
@@ -281,18 +293,18 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] A repo moved or renamed with an ABSOLUTE core.hooksPath silently loses all hook…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Three host tiers, stated in SPEC §Host tiers and binding on… — over Rendering a degraded address-less line on hosts with no registry
+- [D1·z3gg] 2026-08-13 (rule below) Three host tiers, stated in SPEC §Host tiers and binding on… — over Rendering a degraded address-less line on hosts with no registry
 
 Next ids: D2 (decision), M2 (memory)
 
 Session: lane-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (1):
-- [D1] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
+- [D1·z3gg] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (2292 bytes) ==
+== digest:quiet (2304 bytes) ==
 # Sofar status: stale-session-signals
 
 Goal: No session should work from a stale picture, and today three kinds of staleness are silent. (1) A session whose commits land inside a peer's push learns it only on its own next prompt — commit-attribution D13 accepted an optional ping over that ref-gated read, a note named it task 3.5, the plan was rewritten twice without it, and the initiative closed over it. (2) A session keeps the sofar tool s…
@@ -313,20 +325,20 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] A repo moved or renamed with an ABSOLUTE core.hooksPath silently loses all hooks, because git skips a hooksPath that doesn't exist. The Sofar-Initiative trailer stops, and with it the landed and push-ping lines. Diagnose: `git config --show-origin core.hooksPath` plus `git log -…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Three host tiers, stated in SPEC §Host tiers and binding on… — over Rendering a degraded address-less line on hosts with no registry
+- [D1·z3gg] 2026-08-13 (rule below) Three host tiers, stated in SPEC §Host tiers and binding on… — over Rendering a degraded address-less line on hosts with no registry
 
 Next ids: D2 (decision), M2 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (1):
-- [D1] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
+- [D1·z3gg] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6034 bytes) ==
+== digest:cap (6040 bytes) ==
 # Sofar status: stale-session-signals
 
 Goal: No session should work from a stale picture, and today three kinds of staleness are silent. (1) A session whose commits land inside a peer's push learns it only on its own next prompt — commit-attribution D13 accepted an optional ping over that ref-gated read, a note named it task 3.5, the plan was rewritten twice without it, and the initiative closed over it. (2) A session keeps the sofar tool s…
@@ -354,16 +366,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (1):
-- [D1] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
+- [D1·z3gg] No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the stale-session-signals record's goal before its tasks.
-- [delta D2] Keep the digest under its cap.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the stale-session-signals record's goal before its tasks.
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -408,10 +420,10 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 
 - M1 2026-09-14 — A repo moved or renamed with an ABSOLUTE core.hooksPath silently loses all hook…
 
-== shard decisions/D1.md (1752 bytes) ==
+== shard decisions/D1.md (1758 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-13
+D1·z3gg — 2026-08-13
 rule: No signal may be the only way a session can learn something — anything a hook line reports must stay derivable by a session that simply runs `sofar status` or `sofar review`.
 chose: Three host tiers, stated in SPEC §Host tiers and binding on every future surface. Tier 1 (hooks + a live-session registry — Claude Code) gets everything including the lines whose content is an ADDRESS. Tier 2 (hooks, no registry) gets every signal except those, rendering silence rather than a name-less variant. Tier 3 (no hooks — Codex, Grok, OpenCode, the AGENTS.md dialect) gets nothing automatically, and reaches the same facts by asking: `sofar status` and `sofar review`. The invariant: no signal may be the ONLY way to learn something.
 over: Rendering a degraded address-less line on hosts with no registry ("another record's work landed" with nobody named), and the opposite error of treating the ping as the mechanism and leaving non-Claude hosts with no shipping signal at all — which is what D13 was written to prevent by sequencing the ping after the ref-gated read.

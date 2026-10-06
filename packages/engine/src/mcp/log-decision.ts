@@ -1,7 +1,7 @@
 import { RULE_QUOTE_MAX } from '@sofar/schema'
 import type { LogDecisionArgs, LogDecisionResult } from '@sofar/schema/tool-inputs'
 import { resolveJudgeProvider } from '../client/judge'
-import { bareSupersedes } from '../core/handle'
+import { bareSupersedes, suffixedHandle } from '../core/handle'
 import { pendingLinkLine, supersessionEcho } from '../core/link-candidates'
 import { decisionJudgeWarnings, type DecisionDraft } from '../core/decision-judge'
 import { testShapedCommand } from '../core/derived'
@@ -43,7 +43,7 @@ export async function logDecisionJudged(
   const opts = judgeOpts ?? judgeOptionsFor(ctx)
   const [decided, filed] = await Promise.all([
     decisionJudgeWarnings(before, [draft], opts),
-    filingWarnings([{ kind: 'decision', label: `D${draft.ordinal}`, text: { chose: args.chose, over: args.over, because: args.because } }], opts),
+    filingWarnings([{ kind: 'decision', label: draft.handle ?? `D${draft.ordinal}`, text: { chose: args.chose, over: args.over, because: args.because } }], opts),
   ])
   const judged = [...decided, ...filed]
   if (judged.length === 0) return result
@@ -99,9 +99,9 @@ export function fitQuote(quote: string, rule: string): { quote: string; kept: nu
   return kept.length === 0 ? null : { quote: render(kept), kept: kept.length, of: spans.length }
 }
 
-/** The write result's line for a quote fitQuote cut, naming what was filed. */
-export function quoteFitWarning(ordinal: number, fit: { quote: string; kept: number; of: number }): string {
-  return `D${ordinal}'s quote was over ${RULE_QUOTE_MAX} chars, so it was cut to the operator's ${fit.kept} of ${fit.of} sentences closest to the rule, verbatim: "${fit.quote}". If a different sentence is the one the rule came from, log it again with supersedes D${ordinal}.`
+/** The write result's line for a quote fitQuote cut, naming what was filed by its handle (`D<n>·<sfx>`, r4-fixes U5). */
+export function quoteFitWarning(handle: string, fit: { quote: string; kept: number; of: number }): string {
+  return `${handle}'s quote was over ${RULE_QUOTE_MAX} chars, so it was cut to the operator's ${fit.kept} of ${fit.of} sentences closest to the rule, verbatim: "${fit.quote}". If a different sentence is the one the rule came from, log it again with supersedes ${handle}.`
 }
 
 /**
@@ -110,12 +110,12 @@ export function quoteFitWarning(ordinal: number, fit: { quote: string; kept: num
  * Asked once, at the moment the rule is written and the agent knows which
  * test would prove it. Null otherwise.
  */
-export function bindNudge(ordinal: number, d: { chose: string; over: string; rule?: string; guard?: string; check?: { cmd: string } }): string | null {
+export function bindNudge(handle: string, d: { chose: string; over: string; rule?: string; guard?: string; check?: { cmd: string } }): string | null {
   if (d.rule === undefined) return null
   if (d.check !== undefined && testShapedCommand(d.check.cmd) !== null) return null
   const subject = d.guard !== undefined ? d.guard : fileMentions(`${d.chose} ${d.over} ${d.rule}`)[0]
   if (subject === undefined) return null
-  return `D${ordinal} names ${subject} but no test is bound to it, so Stop can hold edits there only to the whole suite. If a test can prove the rule, write it now and run \`sofar bind D${ordinal} "<the command that runs it>"\`.`
+  return `${handle} names ${subject} but no test is bound to it, so Stop can hold edits there only to the whole suite. If a test can prove the rule, write it now and run \`sofar bind ${handle} "<the command that runs it>"\`.`
 }
 
 /** The configured provider for this repo, or deterministic only. Never throws. */
@@ -156,7 +156,9 @@ function logDecisionLogged(
   })
   // What the rule adds to the operator's words (memory-lead 1.2, D2) — after
   // the append, so a warning never reads as a refusal.
-  const nudge = bindNudge(ordinal, args)
+  // Every line names it check-suffixed (r4-fixes U5), now that it has an id.
+  const handle = suffixedHandle(ordinal, event.id)
+  const nudge = bindNudge(handle, args)
   // A rule filed naming nothing it replaces (r3-fixes 2.5, D15): the
   // candidates the writer stamped, and the one command that answers.
   // A held link speaks the same way (2.6, D18); a taken one names what it
@@ -167,16 +169,17 @@ function logDecisionLogged(
   const warnings = [
     ...(bare.moved !== undefined ? [bare.moved] : []),
     ...(echo.warning !== undefined ? [echo.warning] : []),
-    ...(fit !== null ? [quoteFitWarning(ordinal, fit)] : []),
+    ...(fit !== null ? [quoteFitWarning(handle, fit)] : []),
     ...(link !== null ? [link] : []),
     ...(nudge !== null ? [nudge] : []),
-    ...(args.rule !== undefined ? [ruleFidelityWarning(ordinal, args.rule, quote)].filter((w): w is string => w !== null) : []),
+    ...(args.rule !== undefined ? [ruleFidelityWarning(handle, args.rule, quote)].filter((w): w is string => w !== null) : []),
   ]
   return {
     result: { ok: true, event_id: event.id, ...(echo.retires !== undefined ? { retires: echo.retires } : {}), ...(warnings.length > 0 ? { warnings } : {}) },
     before: state,
     draft: {
       ordinal,
+      handle,
       chose: args.chose,
       over: args.over,
       because: args.because,

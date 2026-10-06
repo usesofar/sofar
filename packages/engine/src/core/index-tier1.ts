@@ -643,6 +643,8 @@ export function foreignDecisions(sofarDir: string, home: string): { home: string
 
 /** One other record's standing rule, as the digest renders it (memory-lead 2.2, D8). */
 export interface RepoRule {
+  /** Envelope id — the rule's handle suffix (r4-fixes U5). */
+  id: string
   initiative: string
   ordinal: number
   ts: string
@@ -662,7 +664,7 @@ export function repoRules(index: GuardIndex, slug: string, retire = true): RepoR
   for (const d of index.scoped) {
     if (d.rule === undefined || d.initiative === slug) continue
     if (retire && d.superseded_by !== undefined) continue
-    out.push({ initiative: d.initiative, ordinal: d.ordinal, ts: d.ts, rule: d.rule, ...(d.quote !== undefined ? { quote: d.quote } : {}) })
+    out.push({ id: d.id, initiative: d.initiative, ordinal: d.ordinal, ts: d.ts, rule: d.rule, ...(d.quote !== undefined ? { quote: d.quote } : {}) })
   }
   return out
 }

@@ -157,7 +157,7 @@ describe('what the digest rendered', () => {
   it('renderStatus places the block after the state lines, dedupes against its own rules block, and adds zero bytes without links', () => {
     const state = home()
     const travel = input([link('1.1', 'waits_on', 'alpha D3', 1), link('1.1', 'cites', 'beta 1.1', 1)])
-    const repoRules = [{ initiative: 'alpha', ordinal: 3, ts: '2026-09-01T00:00:00.000Z', rule: 'Never do the thing.' }]
+    const repoRules = [{ id: '01K00000000000000000000001', initiative: 'alpha', ordinal: 3, ts: '2026-09-01T00:00:00.000Z', rule: 'Never do the thing.' }]
     const text = renderStatus(state, { travel, repoRules })
     expect(text).toContain('Travel — linked targets in other records (2 of 2):\n- 1.1 waits on alpha D3 — open — (rule above)\n- 1.1 cites beta 1.1')
     expect(text.indexOf('Travel —')).toBeLessThan(text.indexOf('Phases:'))

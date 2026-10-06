@@ -9,6 +9,7 @@ import { appendEvent } from '../src/core/log'
 import { handleUserPrompt } from '../src/cli/event'
 import { hookContext } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * memory-lead 3.1 (D15) — the lexicon tier and the prompt line it feeds.
@@ -128,7 +129,7 @@ describe('indexedLessons — what the tier reaches that the fold cannot (D15)', 
     }, 'storage')
     const state = foldLog(f.eventsPath).state
     const hits = indexedLessons(refreshLexicon(sofar(f)), state, f.slug, 'migrate the datastore to Postgres behind pgbouncer')
-    expect(hits[0]).toMatchObject({ kind: 'rejected', handle: 'storage D11', initiative: 'storage' })
+    expect(hits[0]).toMatchObject({ kind: 'rejected', handle: expect.stringMatching(/^storage D11·[0-9a-z]{4}$/), initiative: 'storage' })
     expect(hits[0]!.text).toContain('Postgres')
   })
 
@@ -142,7 +143,7 @@ describe('indexedLessons — what the tier reaches that the fold cannot (D15)', 
     })
     const state = foldLog(f.eventsPath).state
     const hits = indexedLessons(refreshLexicon(sofar(f)), state, f.slug, 'tune the embedded better-sqlite3 datastore')
-    expect(hits[0]).toMatchObject({ kind: 'decided', handle: 'D11' })
+    expect(hits[0]).toMatchObject({ kind: 'decided', handle: expect.stringMatching(/^D11·[0-9a-z]{4}$/) })
     expect(hits[0]!.text).toContain('SQLite')
   })
 
@@ -165,11 +166,11 @@ describe('indexedLessons — what the tier reaches that the fold cannot (D15)', 
     append(f, 'decision_logged', { chose: 'freeze the kiwi schema', over: 'evolving the kiwi schema per release', because: 'z', until: '9.9' }, 'storage')
     const state = foldLog(f.eventsPath).state
     const index = refreshLexicon(sofar(f))
-    const handles = (q: string): string[] => indexedLessons(index, state, f.slug, q).map((l) => l.handle)
+    const handles = (q: string): string[] => indexedLessons(index, state, f.slug, q).map((l) => bare(l.handle))
     expect(handles('migrate the datastore to MongoDB replicas')).not.toContain('storage D11')
     expect(handles('evolve the kiwi schema each release')).not.toContain('storage D13')
     // With retirement off (SOFAR_RETIRE's ablation arm) the superseded one is back.
-    expect(indexedLessons(index, state, f.slug, 'migrate the datastore to MongoDB replicas', new Set(), false).map((l) => l.handle)).toContain('storage D11')
+    expect(indexedLessons(index, state, f.slug, 'migrate the datastore to MongoDB replicas', new Set(), false).map((l) => bare(l.handle))).toContain('storage D11')
   })
 
   it('a prompt of common words renders nothing on a repo-sized corpus', () => {
@@ -200,7 +201,7 @@ describe('sofar event user-prompt — the indexed line (D15)', () => {
   it('names the other record and where its full text is', () => {
     const f = seeded()
     const [line] = lessonLinesOf(handleUserPrompt(f.root, prompt(text)).stdout)
-    expect(line).toMatch(/^sofar: ruled out before — \[storage D11\] migrating the datastore to Postgres/)
+    expect(line).toMatch(/^sofar: ruled out before — \[storage D11·[0-9a-z]{4}\] migrating the datastore to Postgres/)
     expect(line).toContain('full text in storage/decisions/D11.md')
   })
 
@@ -231,6 +232,6 @@ describe('sofar event user-prompt — the indexed line (D15)', () => {
     refreshLexicon(sofar(f))
     for (let b = 0; b < LEXICON_BUCKETS; b++) writeFileSync(join(sofar(f), '.index', `lexicon-p${b.toString().padStart(2, '0')}.json`), '{not json')
     const lines = lessonLinesOf(handleUserPrompt(f.root, prompt('rewrite the committed log to scrub the credential')).stdout)
-    expect(lines[0]).toMatch(/^sofar: ruled out before — \[D11\]/)
+    expect(lines[0]).toMatch(/^sofar: ruled out before — \[D11·[0-9a-z]{4}\]/)
   })
 })

@@ -1,5 +1,50 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED on **release/0.34.1** (the hotfix integration, r4-fixes 0.2) at
+the merge of hotfix/u5 into hotfix/u1+u3+u4+u8, from the TypeScript reference.
+Two goldens moved, each because U1 and U5 both touch the same Stop-gate line
+and neither branch's golden holds the other's change:
+- `syn.surfacing` step 18: U1's fold (the two asks on `bun test` in one line,
+  one command) with U5's suffixed handles (`[surf D1·984a]`, `[surf D9·<SFX>]`).
+- `syn.gate-coverage` (U1's case): every handle U5 suffixes — the digest's
+  decisions and standing constraints, the PostToolUse guard notices, the gate
+  asks and failure line, and the decision shards' heads (D1–D4, +6 or +7
+  bytes each). No coverage verdict moved.
+U4's `syn.read-gate` and every U5 golden pass unchanged on the integrated
+tree. No previous set is kept.
+
+RE-RECORDED and ADDED for **r4-fixes U5** (0.34.1, branch hotfix/u5; docs/SPEC.md
+§Merge-stable handles), from the TypeScript reference; the Rust core
+reproduces every one (`SOFAR_CORE=… vitest run test/conformance`: 290 passed,
+the 10 perf and real-log skips as before). One new case, `syn.merge-handles`:
+round 4's r1 merge in miniature. A branch files its guarded, checked rule as
+D3; Stop's gate names `[baseline D3·q58n]`; main's own D3 arrives by union
+merge, earlier by id; the gate then names `[baseline D4·q58n]`, the same rule
+by the same suffix; the next digest lists main's `D3·n13m` and the branch's
+`D4·q58n` apart; and a prompt citing the pre-merge `D3·q58n` recalls the
+branch's rule, not main's D3. 29 goldens moved, for these reasons and no
+other:
+- (a) every agent-facing decision handle is check-suffixed: the SessionStart
+  digest (window, ledger, standing constraints, other records' rules, pending
+  links, merge block), PostToolUse notices, the guard-crossed, lesson and
+  recall lines, Stop's gate, check and link lines, `sofar status`'s
+  constraints, and the record bytes a run writes (decisions.md's
+  `superseded by`/`supersedes`, the shard heads `D<n>·<sfx> — <date>` and
+  their `supersedes:` lines);
+- (b) the longer handles cost room under fixed budgets: a capped digest keeps
+  fewer ledger or window lines or clips its tail earlier (cell.round-1-sofar,
+  repo.branch-elsewhere, syn.budget), and a lesson line clipped at its budget
+  keeps 5 fewer chars of text (repo.lessons).
+
+argv.fast-path, cell.calib-1, cell.round-1-sofar, cell.smoke-4-drive,
+cell.smoke-4-sofar, open.O2-update-segment, open.O4-styled-status,
+repo.append, repo.branch-elsewhere, repo.drive-nudge, repo.drive-reach,
+repo.hook-lifecycle, repo.lessons, repo.link-disposition, repo.link-hold,
+repo.peers, repo.prompt-capture, repo.session-start, repo.status,
+syn.baseline, syn.budget, syn.copies, syn.guards, syn.lessons-cut, syn.merge,
+syn.no-git, syn.recall, syn.surfacing, syn.unicode. Every other golden is
+byte-identical. No previous set is kept.
+
 RE-RECORDED on **hotfix/u1** for **r4-fixes 0.2** (U1b, Codex outcomes):
 `syn.gate-coverage` gains four Codex steps (`--host codex`). An apply_patch
 edit of the guarded file and a write-back come first. Then a `bun test

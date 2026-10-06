@@ -102,7 +102,8 @@ fn recall_docs(state: &InitiativeState, retire: bool) -> Vec<RecallDoc> {
             &d.because,
         ]
         .join("\n");
-        let line = decision_line(&handle, d);
+        // Matched by the bare ordinal, printed check-suffixed (r4-fixes U5).
+        let line = decision_line(&crate::projections::suffixed_handle(ordinal, &d.id), d);
         docs.push(recall_doc(
             format!("decision:{ordinal}"),
             &d.ts,
@@ -132,7 +133,14 @@ fn is_word(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
 }
 
-/// `namedHandles`: `/\b([DM][1-9][0-9]{0,5})\b/g`, each once, in order.
+/// A Crockford suffix char as the prompt regex takes it: `[0-9a-hjkmnp-tv-z]`.
+fn is_suffix_char(c: char) -> bool {
+    c.is_ascii_digit() || (c.is_ascii_lowercase() && !matches!(c, 'i' | 'l' | 'o' | 'u'))
+}
+
+/// `namedHandles`: `/\b([DM][1-9][0-9]{0,5})\b(?:·([0-9a-hjkmnp-tv-z]{4})(?![0-9A-Za-z_]))?/g`,
+/// each once, in order — a decision's with its check suffix when the prompt
+/// gives one (r4-fixes U5).
 #[must_use]
 pub fn named_handles(prompt: &str) -> Vec<String> {
     let chars: Vec<char> = prompt.chars().collect();
@@ -151,12 +159,45 @@ pub fn named_handles(prompt: &str) -> Vec<String> {
         if j - (i + 1) > 6 || chars.get(j).is_some_and(|&c| is_word(c)) {
             continue;
         }
-        let handle: String = chars[i..j].iter().collect();
+        let mut handle: String = chars[i..j].iter().collect();
+        let suffixed = chars.get(j) == Some(&'·')
+            && (j + 1..j + 5).all(|k| chars.get(k).is_some_and(|&c| is_suffix_char(c)))
+            && !chars.get(j + 5).is_some_and(|&c| is_word(c));
+        if suffixed && chars[i] == 'D' {
+            handle.push('·');
+            handle.extend(&chars[j + 1..j + 5]);
+        }
         if !out.contains(&handle) {
             out.push(handle);
         }
     }
     out
+}
+
+/// `bareNamed`: a named handle as the bare ordinal it names here — a suffixed
+/// one by its suffix (`resolveHandle`), `None` when that names nothing.
+fn bare_named(state: &InitiativeState, handle: &str) -> Option<String> {
+    let Some((head, suffix)) = handle.split_once('·') else {
+        return Some(handle.to_owned());
+    };
+    let ordinal: usize = head.strip_prefix('D')?.parse().ok()?;
+    let sfx = |d: &crate::fold::DecisionState| crate::projections::handle_suffix(&d.id);
+    if ordinal
+        .checked_sub(1)
+        .and_then(|i| state.decisions.get(i))
+        .is_some_and(|d| sfx(d) == suffix)
+    {
+        return Some(format!("D{ordinal}"));
+    }
+    let mut matches = state
+        .decisions
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| sfx(d) == suffix);
+    match (matches.next(), matches.next()) {
+        (Some((i, _)), None) => Some(format!("D{}", i + 1)),
+        _ => None,
+    }
 }
 
 /// `recallBlock`: the block for a prompt, or `None` when the record holds
@@ -172,8 +213,13 @@ pub fn recall_block(state: &InitiativeState, prompt: &str, retire: bool) -> Opti
         return None;
     }
     let mut chosen: Vec<usize> = Vec::new();
-    for handle in named_handles(&query) {
-        if let Some(i) = docs.iter().position(|d| d.handle == handle) {
+    for named in named_handles(&query) {
+        let Some(handle) = bare_named(state, &named) else {
+            continue;
+        };
+        if let Some(i) = docs.iter().position(|d| d.handle == handle)
+            && !chosen.contains(&i)
+        {
             chosen.push(i);
         }
     }
@@ -261,6 +307,22 @@ mod tests {
         assert_eq!(
             named_handles("see D12 and M3, not AD12 or D0 or M3x; D12 again, D1234567"),
             vec!["D12".to_owned(), "M3".to_owned()]
+        );
+    }
+
+    /// r4-fixes U5: a decision's check suffix rides along when the prompt
+    /// gives one; a memory's never does, and a malformed one is not a suffix.
+    #[test]
+    fn a_suffixed_decision_handle_keeps_its_suffix() {
+        assert_eq!(
+            named_handles("is D3·q58n still it? M2·abcd too; D4·q5 and D5·abcde and D6·ilou"),
+            vec![
+                "D3·q58n".to_owned(),
+                "M2".to_owned(),
+                "D4".to_owned(),
+                "D5".to_owned(),
+                "D6".to_owned()
+            ]
         );
     }
 }

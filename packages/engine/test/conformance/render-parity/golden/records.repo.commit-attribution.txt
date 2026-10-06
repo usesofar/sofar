@@ -1,4 +1,4 @@
-== options (41936 bytes) ==
+== options (42464 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -13,18 +13,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -32,18 +35,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Never record push, merge, or PR state as an event — derive it from git at read time. Only commit-to-initiative attribution is recorded."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -86,18 +92,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -105,18 +114,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Never record push, merge, or PR state as an event — derive it from git at read time. Only commit-to-initiative attribution is recorded."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -134,7 +146,7 @@
     ]
   }
 }
-== status (14094 bytes) ==
+== status (14214 bytes) ==
 # commit-attribution
 
 Status: done 2026-08-13T13:44:19.990Z
@@ -145,26 +157,26 @@ Closed over 3 finding(s):
 Goal: Bind every commit to the initiative that produced it, exactly and at commit time, and spend that primitive on two gaps that share it. Gap 1 (staleness): several initiatives share one worktree and one branch, so any session's push carries other initiatives' commits and their records never learn their work shipped. Gap 2 (review): closing an initiative is today an unconditional append — nothing rechecks that the execution was right, and a reviewer with no diff can only re-read the record's own prose and confirm it. SETTLED: the binding is a `Sofar-Initiative:` COMMIT TRAILER read from git, never an event (D4); a prepare-commit-msg hook injects it by resolving the session, never the branch binding (D5); reads are bounded and kept off the hot path on measurement (D6); init installs without clobbering (D7); shipping is derived locally from refs, never from a forge API (D8); reviews fire at phase boundaries for 3+ phase initiatives with a final cross-cutting pass at close (D9, D10); a live session re-reads refs rather than being messaged (D11).
 
 Standing constraints — obey verbatim (20):
-- [D1] Never record push, merge, or PR state as an event — derive it from git at read time. Only commit-to-initiative attribution is recorded.
-- [D3] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
-- [D4] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
-- [D5] Never attribute a commit from the branch binding. When no session resolves, leave it unattributed and visible — a wrong attribution is worse than a missing one.
-- [D6] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
-- [D7] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
-- [D8] Shipping state is derived locally from git refs only — never by querying GitHub or any forge API.
-- [D9] A review covers watermark..HEAD filtered to this initiative's attributed commits — never a range derived from task or phase timestamps.
-- [D10] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
-- [D11] A live session learns shipping state by re-reading refs, never by being sent a message — no surface may notify a peer of a push.
-- [D12] Never name a host-specific command as the instruction — state the work, and offer a named skill only as a shortcut where a host has one.
-- [D13] Any push notification is an optional layer over the ref-gated read — never the only way a session can learn its work shipped.
-- [D14] Never auto-write a decision from observed behaviour — observation may only suggest a repo-memory promotion, which a human or agent confirms.
-- [D15] The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.
-- [D16] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
-- [D17] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
-- [D18] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
-- [D19] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
-- [D20] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
-- [D21] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
+- [D1·v41h] Never record push, merge, or PR state as an event — derive it from git at read time. Only commit-to-initiative attribution is recorded.
+- [D3·22te] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
+- [D4·ez8e] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
+- [D5·pv8p] Never attribute a commit from the branch binding. When no session resolves, leave it unattributed and visible — a wrong attribution is worse than a missing one.
+- [D6·fpnk] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
+- [D7·dgyg] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
+- [D8·r51h] Shipping state is derived locally from git refs only — never by querying GitHub or any forge API.
+- [D9·qjhy] A review covers watermark..HEAD filtered to this initiative's attributed commits — never a range derived from task or phase timestamps.
+- [D10·12gh] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
+- [D11·dymn] A live session learns shipping state by re-reading refs, never by being sent a message — no surface may notify a peer of a push.
+- [D12·55hv] Never name a host-specific command as the instruction — state the work, and offer a named skill only as a shortcut where a host has one.
+- [D13·1ee8] Any push notification is an optional layer over the ref-gated read — never the only way a session can learn its work shipped.
+- [D14·hf0q] Never auto-write a decision from observed behaviour — observation may only suggest a repo-memory promotion, which a human or agent confirms.
+- [D15·186a] The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.
+- [D16·rqez] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
+- [D17·k0ac] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
+- [D18·fa3a] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
+- [D19·stxg] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
+- [D20·7yv4] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
+- [D21·jxnw] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
 Progress: 22 done, 2 dropped, 0 remaining across 5 phase(s)
 
 Phases:
@@ -242,7 +254,7 @@ Files touched (34):
 - /private/tmp/claude-501/-Users-jins-IO-sofar/7bfc9c05-d59f-4704-9d19-258fb95451a7/scratchpad/msg-audit.txt
 - /private/tmp/claude-501/-Users-jins-IO-sofar/7bfc9c05-d59f-4704-9d19-258fb95451a7/scratchpad/msg-record2.txt
 
-== digest:plain (5894 bytes) ==
+== digest:plain (6020 bytes) ==
 # Sofar status: commit-attribution
 
 Goal: Bind every commit to the initiative that produced it, exactly and at commit time, and spend that primitive on two gaps that share it. Gap 1 (staleness): several initiatives share one worktree and one branch, so any session's push carries other initiatives' commits and their records never learn their work shipped. Gap 2 (review): closing an initiative is today an unconditional append — nothing rec…
@@ -267,40 +279,40 @@ Memory (9; full text in memory/M<n>.md):
 - …and 2 more in memory.md
 
 Recent decisions (last 5 of 22; full text in decisions/D<n>.md):
-- [D18] 2026-08-13 (rule below) review_recorded is COUNTED as a mutation — over Leaving reviews uncounted
-- [D19] 2026-08-13 (rule below) The close audit (core/closeout.ts) is seven mechanical find… — over Reading the next_action's prose to judge whether it dangles
-- [D20] 2026-08-13 (rule below) Hooks and refs resolve through the COMMON git dir — over Leaving gitDir() as the single resolver, which is correct for HEAD an…
-- [D21] 2026-08-13 (rule below) A git read that FAILED is rendered as a failure naming its … — over The shipped behaviour, which collapsed null into an empty commit list
-- [D22] 2026-08-13 The close audit's guards_crossed finding reports only crossings NO REVIEW HAS LOOKED AT — over Keeping it as "every crossing on record", which fires on every mature…
+- [D18·fa3a] 2026-08-13 (rule below) review_recorded is COUNTED as a mutation — over Leaving reviews uncounted
+- [D19·stxg] 2026-08-13 (rule below) The close audit (core/closeout.ts) is seven mechanical find… — over Reading the next_action's prose to judge whether it dangles
+- [D20·7yv4] 2026-08-13 (rule below) Hooks and refs resolve through the COMMON git dir — over Leaving gitDir() as the single resolver, which is correct for HEAD an…
+- [D21·jxnw] 2026-08-13 (rule below) A git read that FAILED is rendered as a failure naming its … — over The shipped behaviour, which collapsed null into an empty commit list
+- [D22·pnrn] 2026-08-13 The close audit's guards_crossed finding reports only crossings NO REVIEW HAS LOOKED AT — over Keeping it as "every crossing on record", which fires on every mature…
 Earlier rejected approaches — do NOT re-propose (17 older):
-- [D1] Recording push/merge/PR state as events alongside the attribution
-- [D2] Deriving a phase's commits from session-boundary HEAD shas
-- [D3] Building bug-hunting, edge-case and code-quality analysis into sofar …
-- [D4] A PostToolUse hook on `git commit`
-- [D5] Instructing the agent to type the trailer
+- [D1·v41h] Recording push/merge/PR state as events alongside the attribution
+- [D2·j9ts] Deriving a phase's commits from session-boundary HEAD shas
+- [D3·22te] Building bug-hunting, edge-case and code-quality analysis into sofar …
+- [D4·ez8e] A PostToolUse hook on `git commit`
+- [D5·pv8p] Instructing the agent to type the trailer
 - …and 12 more (see decisions.md)
 
 Next ids: D23 (decision), M10 (memory)
 
 Standing constraints — obey verbatim (20):
-- [D6] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
-- [D19] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
-- [D18] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
-- [D10] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
-- [D7] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
-- [D4] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
-- [D3] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
-- [D21] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
-- [D20] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
-- [D17] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
-- [D16] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
+- [D6·fpnk] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
+- [D19·stxg] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
+- [D18·fa3a] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
+- [D10·12gh] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
+- [D7·dgyg] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
+- [D4·ez8e] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
+- [D3·22te] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
+- [D21·jxnw] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
+- [D20·7yv4] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
+- [D17·k0ac] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
+- [D16·rqez] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
 - …and 9 more (see decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (6025 bytes) ==
+== digest:hook (6096 bytes) ==
 # Sofar status: commit-attribution
 
 Goal: Bind every commit to the initiative that produced it, exactly and at commit time, and spend that primitive on two gaps that share it. Gap 1 (staleness): several initiatives share one worktree and one branch, so any session's push carries other initiatives' commits and their records never learn their work shipped. Gap 2 (review): closing an initiative is today an unconditional append — nothing rec…
@@ -334,12 +346,13 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (last 5 of 22; full text in decisions/D<n>.md):
-- [D19] 2026-08-13 (rule below) The close audit (core/closeout.ts) is seven mechanical find… — over Reading the next_action's prose to judge whether it dangles
-- [D20] 2026-08-13 (rule below) Hooks and refs resolve through the COMMON git dir — over Leaving gitDir() as the single resolver, which is correct for HEAD an…
-- [D21] 2026-08-13 (rule below) A git read that FAILED is rendered as a failure naming its … — over The shipped behaviour, which collapsed null into an empty commit list
-- [D22] 2026-08-13 The close audit's guards_crossed finding reports only crossings NO REVIEW HAS LOOKED AT — over Keeping it as "every crossing on record", which fires on every mature…
+- [D20·7yv4] 2026-08-13 (rule below) Hooks and refs resolve through the COMMON git dir — over Leaving gitDir() as the single resolver, which is correct for HEAD an…
+- [D21·jxnw] 2026-08-13 (rule below) A git read that FAILED is rendered as a failure naming its … — over The shipped behaviour, which collapsed null into an empty commit list
+- [D22·pnrn] 2026-08-13 The close audit's guards_crossed finding reports only crossings NO REVIEW HAS LOOKED AT — over Keeping it as "every crossing on record", which fires on every mature…
 Earlier rejected approaches — do NOT re-propose (17 older):
-- …and 17 more (see decisions.md)
+- [D1·v41h] Recording push/merge/PR state as events alongside the attribution
+- [D2·j9ts] Deriving a phase's commits from session-boundary HEAD shas
+- …and 15 more (see decisions.md)
 
 Next ids: D23 (decision), M10 (memory)
 
@@ -351,17 +364,17 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (20):
-- [D6] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
-- [D19] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
-- [D18] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
-- [D10] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
-- [D7] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
-- [D4] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
-- [D3] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
-- [D21] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
-- [D20] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
-- [D17] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
-- [D16] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
+- [D6·fpnk] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
+- [D19·stxg] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
+- [D18·fa3a] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
+- [D10·12gh] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
+- [D7·dgyg] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
+- [D4·ez8e] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
+- [D3·22te] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
+- [D21·jxnw] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
+- [D20·7yv4] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
+- [D17·k0ac] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
+- [D16·rqez] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
 - …and 9 more (see decisions.md)
 - …and 4 more from other records (their decisions.md)
 
@@ -369,7 +382,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (6081 bytes) ==
+== digest:lane (6084 bytes) ==
 # Sofar: quick-work lane (commit-attribution)
 
 Goal: Bind every commit to the initiative that produced it, exactly and at commit time, and spend that primitive on two gaps that share it. Gap 1 (staleness): several initiatives share one worktree and one branch, so any session's push carries other initiatives' commits and their records never learn their work shipped. Gap 2 (review): closing an initiative is today an unconditional append — nothing rec…
@@ -394,11 +407,11 @@ Memory (9; full text in memory/M<n>.md):
 - [M2] Trailer probe results, git 2.50.1 (Apple Git-155), run 2026-08-13 before D4 was…
 - [M1] `sofar new <slug>` binds the current branch by default, silently replacing what…
 
+Recent decisions (last 5 of 22; full text in decisions/D<n>.md):
+- [D22·pnrn] 2026-08-13 The close audit's guards_crossed finding reports only crossings NO REVIEW HAS LOOKED AT — over Keeping it as "every crossing on record", which fires on every mature…
 Earlier rejected approaches — do NOT re-propose (17 older):
-- [D1] Recording push/merge/PR state as events alongside the attribution
-- [D2] Deriving a phase's commits from session-boundary HEAD shas
-- [D3] Building bug-hunting, edge-case and code-quality analysis into sofar …
-- …and 14 more (see decisions.md)
+- [D1·v41h] Recording push/merge/PR state as events alongside the attribution
+- …and 16 more (see decisions.md)
 
 Next ids: D23 (decision), M10 (memory)
 
@@ -406,23 +419,22 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: feature/commit-attribution @ a1b2c3d — in sync with origin/feature/commit-attribution
 
 Standing constraints — obey verbatim (20):
-- [D21] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
-- [D20] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
-- [D19] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
-- [D18] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
-- [D17] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
-- [D16] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
-- [D15] The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.
-- [D14] Never auto-write a decision from observed behaviour — observation may only suggest a repo-memory promotion, which a human or agent confirms.
-- [D13] Any push notification is an optional layer over the ref-gated read — never the only way a session can learn its work shipped.
-- [D12] Never name a host-specific command as the instruction — state the work, and offer a named skill only as a shortcut where a host has one.
-- [D11] A live session learns shipping state by re-reading refs, never by being sent a message — no surface may notify a peer of a push.
-- [D10] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
-- …and 8 more (see decisions.md)
+- [D21·jxnw] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
+- [D20·7yv4] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
+- [D19·stxg] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
+- [D18·fa3a] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
+- [D17·k0ac] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
+- [D16·rqez] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
+- [D15·186a] The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.
+- [D14·hf0q] Never auto-write a decision from observed behaviour — observation may only suggest a repo-memory promotion, which a human or agent confirms.
+- [D13·1ee8] Any push notification is an optional layer over the ref-gated read — never the only way a session can learn its work shipped.
+- [D12·55hv] Never name a host-specific command as the instruction — state the work, and offer a named skill only as a shortcut where a host has one.
+- [D11·dymn] A live session learns shipping state by re-reading refs, never by being sent a message — no surface may notify a peer of a push.
+- …and 9 more (see decisions.md)
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (5980 bytes) ==
+== digest:quiet (6106 bytes) ==
 # Sofar status: commit-attribution
 
 Goal: Bind every commit to the initiative that produced it, exactly and at commit time, and spend that primitive on two gaps that share it. Gap 1 (staleness): several initiatives share one worktree and one branch, so any session's push carries other initiatives' commits and their records never learn their work shipped. Gap 2 (review): closing an initiative is today an unconditional append — nothing rec…
@@ -447,17 +459,17 @@ Memory (9; full text in memory/M<n>.md):
 - …and 2 more in memory.md
 
 Recent decisions (last 5 of 22; full text in decisions/D<n>.md):
-- [D18] 2026-08-13 (rule below) review_recorded is COUNTED as a mutation — over Leaving reviews uncounted
-- [D19] 2026-08-13 (rule below) The close audit (core/closeout.ts) is seven mechanical find… — over Reading the next_action's prose to judge whether it dangles
-- [D20] 2026-08-13 (rule below) Hooks and refs resolve through the COMMON git dir — over Leaving gitDir() as the single resolver, which is correct for HEAD an…
-- [D21] 2026-08-13 (rule below) A git read that FAILED is rendered as a failure naming its … — over The shipped behaviour, which collapsed null into an empty commit list
-- [D22] 2026-08-13 The close audit's guards_crossed finding reports only crossings NO REVIEW HAS LOOKED AT — over Keeping it as "every crossing on record", which fires on every mature…
+- [D18·fa3a] 2026-08-13 (rule below) review_recorded is COUNTED as a mutation — over Leaving reviews uncounted
+- [D19·stxg] 2026-08-13 (rule below) The close audit (core/closeout.ts) is seven mechanical find… — over Reading the next_action's prose to judge whether it dangles
+- [D20·7yv4] 2026-08-13 (rule below) Hooks and refs resolve through the COMMON git dir — over Leaving gitDir() as the single resolver, which is correct for HEAD an…
+- [D21·jxnw] 2026-08-13 (rule below) A git read that FAILED is rendered as a failure naming its … — over The shipped behaviour, which collapsed null into an empty commit list
+- [D22·pnrn] 2026-08-13 The close audit's guards_crossed finding reports only crossings NO REVIEW HAS LOOKED AT — over Keeping it as "every crossing on record", which fires on every mature…
 Earlier rejected approaches — do NOT re-propose (17 older):
-- [D1] Recording push/merge/PR state as events alongside the attribution
-- [D2] Deriving a phase's commits from session-boundary HEAD shas
-- [D3] Building bug-hunting, edge-case and code-quality analysis into sofar …
-- [D4] A PostToolUse hook on `git commit`
-- [D5] Instructing the agent to type the trailer
+- [D1·v41h] Recording push/merge/PR state as events alongside the attribution
+- [D2·j9ts] Deriving a phase's commits from session-boundary HEAD shas
+- [D3·22te] Building bug-hunting, edge-case and code-quality analysis into sofar …
+- [D4·ez8e] A PostToolUse hook on `git commit`
+- [D5·pv8p] Instructing the agent to type the trailer
 - …and 12 more (see decisions.md)
 
 Next ids: D23 (decision), M10 (memory)
@@ -465,24 +477,24 @@ Next ids: D23 (decision), M10 (memory)
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (20):
-- [D6] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
-- [D19] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
-- [D18] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
-- [D10] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
-- [D7] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
-- [D4] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
-- [D3] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
-- [D21] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
-- [D20] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
-- [D17] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
-- [D16] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
+- [D6·fpnk] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
+- [D19·stxg] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
+- [D18·fa3a] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
+- [D10·12gh] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
+- [D7·dgyg] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
+- [D4·ez8e] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
+- [D3·22te] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
+- [D21·jxnw] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
+- [D20·7yv4] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
+- [D17·k0ac] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
+- [D16·rqez] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
 - …and 9 more (see decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6046 bytes) ==
+== digest:cap (6057 bytes) ==
 # Sofar status: commit-attribution
 
 Goal: Bind every commit to the initiative that produced it, exactly and at commit time, and spend that primitive on two gaps that share it. Gap 1 (staleness): several initiatives share one worktree and one branch, so any session's push carries other initiatives' commits and their records never learn their work shipped. Gap 2 (review): closing an initiative is today an unconditional append — nothing rec…
@@ -503,21 +515,21 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (20):
-- [D6] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
-- [D19] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
-- [D18] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
-- [D10] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
-- [D7] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
-- [D4] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
-- [D3] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
-- [D21] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
-- [D20] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
-- [D17] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
-- [D16] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
+- [D6·fpnk] Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
+- [D19·stxg] The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
+- [D18·fa3a] Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
+- [D10·12gh] The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
+- [D7·dgyg] Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
+- [D4·ez8e] The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
+- [D3·22te] The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
+- [D21·jxnw] Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
+- [D20·7yv4] Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
+- [D17·k0ac] On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
+- [D16·rqez] Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
 - …and 9 more (see decisions.md)
 - …and 4 more from other records (their decisions.md)
 
@@ -601,204 +613,204 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 - M8 2026-08-13 — SUPERSEDES the squash caveat in the 2026-08-13 trailer-probe memory: `git merge…
 - M9 2026-08-13 — MCP VERSION SKEW, the second face of the skew memory above, learned by tripping…
 
-== shard decisions/D1.md (1219 bytes) ==
+== shard decisions/D1.md (1225 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-13
+D1·v41h — 2026-08-13
 rule: Never record push, merge, or PR state as an event — derive it from git at read time. Only commit-to-initiative attribution is recorded.
 chose: Split the model: RECORD commit-to-initiative attribution in the log, DERIVE pushed/merged from git at read time. A commit's initiative never changes, so the recorded half can never go stale; push state changes constantly (force-push, rebase, branch deletion), so recording it would strand a false fact in an append-only log the moment anyone rewrites history.
 over: Recording push/merge/PR state as events alongside the attribution — the obvious symmetric design, and the one that silently rots. Also over deriving BOTH halves from git at read time, which cannot work: git has no idea which initiative a commit belongs to, and that is precisely the fact only sofar holds.
 because: git is truth for git state; the log is truth for intent. Duplicating the first into the second is how a record starts lying. The whole point of this initiative is a staleness signal a session can trust — a signal built on recorded push state would itself be the next thing to go stale.
 
-== shard decisions/D2.md (1218 bytes) ==
+== shard decisions/D2.md (1224 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-08-13
+D2·j9ts — 2026-08-13
 chose: Attribute each commit individually, at commit time, when the session pin already names the initiative. Exact by construction.
 over: Deriving a phase's commits from session-boundary HEAD shas (record HEAD at session start; the range is startHEAD(N)..startHEAD(N+1)) and filtering that range by the initiative's file_touched set. Proposed and rejected inside the same design conversation on 2026-08-13.
 because: The range design is a heuristic, and its two failure modes are fatal to gap 1. Concurrent sessions share this worktree, so any range contains peers' commits and the file-set filter is a guess that mis-attributes whenever two initiatives touch the same file — which the adjacency data says is the normal case here, not the edge case. And a claim like "this initiative's work is all pushed" cannot rest on a guess: a wrong "your work shipped" is worse than no signal, because it retires a next action that was never done. Separately, closing the range at session end is an off-by-one that would eat the most important commit of every session, since CLAUDE.md mandates write-back BEFORE the final commit.
 
-== shard decisions/D3.md (1291 bytes) ==
+== shard decisions/D3.md (1297 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-08-13
+D3·22te — 2026-08-13
 rule: The review step names existing skills for code-quality checks and never reimplements them; sofar emits the prompt and records the verdict, never analyses code and never calls a model.
 chose: The review step is instruction text plus a record-derived evidence packet. sofar renders what to review, against which decisions, over which diff — and names the existing skills (/code-review, /simplify) for the code-quality half. The model reaches for those skills; sofar ships no analysis code and makes no model call.
 over: Building bug-hunting, edge-case and code-quality analysis into sofar itself — which would duplicate mature tools badly and drag a record-keeper into being a code analyzer, against CLAUDE.md's guard-rails.
 because: Same pattern as the SessionStart digest: sofar injects text, the model acts. It keeps SPEC §Architectural invariants intact (zero model API calls) while still buying a real review. The one check with NO substitute is conformance to the record — whether the shipped code honoured the standing constraints and stayed out of the rejected approaches — because sofar is the only thing that holds them; /code-review cannot know a given decision exists.
 
-== shard decisions/D4.md (2055 bytes) ==
+== shard decisions/D4.md (2061 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-08-13
+D4·ez8e — 2026-08-13
 rule: The commit-to-initiative binding lives in a `Sofar-Initiative:` commit trailer and is READ from git — never recorded as an event, and never inferred from timestamps or file overlap.
 chose: 1.1 capture mechanism: the commit-to-initiative binding lives in a `Sofar-Initiative: <slug>` COMMIT TRAILER, written by the agent at commit time and read back from git with `git log --format='%(trailers:key=Sofar-Initiative,valueonly,separator=%x2C)'`. sofar appends NO event about commits and stores no sha. Ruled by the user 2026-08-13.
 over: A PostToolUse hook on `git commit` (the originally planned option, now dead on arrival); a git post-commit hook installed by sofar; git notes; and dropping exact attribution to keep only the branch-level pushed signal record-integrity 4.4 already ships.
 because: PostToolUse capture would reintroduce the exact defect record-hygiene D1 exists to prevent: logging git makes the record un-settleable, since the commit OF the record appends an event about committing the record — confirmed empirically in repo.md M2 ("write back, commit, and the tree is dirty again with command_run"). And record-integrity D6 already rejected per-commit attribution outright, because it "needs state the record deliberately does not keep" and time-window attribution misreads interleaved parallel sessions. A trailer is neither: it is not recorded state and not a time-window guess, so it clears both objections while keeping the established principle — read git, never log it. Git notes were rejected as fragile where it matters most: they need their own push refspec, are dropped by most tooling, and a normal clone sees nothing, which defeats the cross-session sharing that is the entire point. Probed on git 2.50.1 before deciding: cherry-pick preserves the trailer, rebase preserves it, and an untrailered commit reads back as empty rather than as a guess — which hands task 1.3 its visible-never-guessed surface for free.
 
-== shard decisions/D5.md (2066 bytes) ==
+== shard decisions/D5.md (2072 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-08-13
+D5·pv8p — 2026-08-13
 rule: Never attribute a commit from the branch binding. When no session resolves, leave it unattributed and visible — a wrong attribution is worse than a missing one.
 chose: 2.1: a `prepare-commit-msg` git hook injects the trailer automatically. It reads CLAUDE_CODE_SESSION_ID from the inherited environment, resolves it to the initiative with the EXISTING homeInitiative (mcp/context.ts:174, already imported by cli/event.ts), and appends `Sofar-Initiative: <slug>` if not already present. It must be idempotent for amend, and must exit 0 unconditionally — a hook that can fail a commit is worse than no attribution.
 over: Instructing the agent to type the trailer (the plan's original assumption); a git commit template; a `sofar commit` wrapper subcommand; and a prepare-commit-msg hook that resolves the initiative from bindings.json instead of the session.
 because: Proven empirically this session, not assumed: CLAUDE_CODE_SESSION_ID is present in the agent's shell, matches the real session id exactly, and IS INHERITED by a git hook — a probe hook wrote the live session id into a commit message. That makes attribution automatic rather than remembered, which is the only thing that closes the leak: an instruction is forgettable, and a forgotten trailer is a silent unattributed commit that quietly degrades the 3.2 staleness signal. A commit template was rejected because it is inert for `-m` and `-F`, which is exactly how agents commit. A wrapper was rejected for fighting muscle memory and owning a git surface forever. The bindings.json variant was rejected by live counter-example: main is bound to drift-certification while this session works in commit-attribution, so it would have stamped the WRONG slug on both of this initiative's commits — and homeInitiative is the resolver record-integrity D13 already fixed for this precise failure. Consistent with record-integrity D2: the home is derived from the logs, never from a duplicated index.
 
-== shard decisions/D6.md (2154 bytes) ==
+== shard decisions/D6.md (2160 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-08-13
+D6·fpnk — 2026-08-13
 rule: Never run a git subprocess unconditionally on the hot hook path, and never walk full history — bound every walk, and gate it on a ref actually having moved.
 chose: 2.2: the trailer read is a BOUNDED `git log` subprocess that never runs unconditionally on the hot hook path. The hot path keeps doing what readGitState already does — read refs from FILES, no subprocess — and that ref identity is the cache key. The walk is paid only when a ref actually moved (a commit or a push), or on demand from a CLI command. Every walk is bounded (`origin/<branch>..HEAD`, or `-n <k>`), never a full-history walk.
 over: Putting a `git log` walk directly on the PostToolUse/UserPromptSubmit path the way record-integrity 4.4 put push state there; doing a full-history walk and accepting the cost; and parsing commit objects in-process to avoid the subprocess entirely.
 because: Measured on this repo (454 commits, 20 iterations, median): `git rev-parse HEAD` — a trivial command doing no work — costs 8.35ms, which is essentially pure process spawn. A bounded 20-commit trailer walk is 10.35ms, last-100 is 15.55ms, and the full walk is 21.21ms with a 45.25ms tail. The shim budget is 100ms and record-integrity D13 measured 63-67ms already spent, leaving ~33ms — so the full walk's tail alone would blow it, and even the cheapest possible git subprocess eats a quarter of the headroom before doing anything useful. That is precisely why core/git.ts is subprocess-free, and the rule holds. The saving grace is that the expensive answer only changes when a ref moves, and detecting THAT is free by the existing file-based ref read: cheap check on the hot path, expensive walk only on actual change, which is rare. Bounding every walk is what makes it scale — spawn cost is fixed, but a full walk is O(history) and would grow without limit on a large repo, while `origin..HEAD` and `-n k` stay flat. In-process object parsing was rejected: loose objects are inflatable but packed history is not, so it would solve the small case and fail the real one.
 
-== shard decisions/D7.md (1866 bytes) ==
+== shard decisions/D7.md (1872 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D7 — 2026-08-13
+D7·dgyg — 2026-08-13
 rule: Never overwrite or delete a `.git/hooks` file sofar did not write, and never set core.hooksPath — report the skip instead.
 chose: 2.5(a): `sofar init` installs the hook into `.git/hooks/prepare-commit-msg` and NEVER clobbers. A file we did not write is left byte-identical and reported as skipped; our own older one is kept current; `core.hooksPath` is detected first and reported as a skip, because setting it makes `.git/hooks` inert and installing there would look like success while doing nothing. `sofar uninit` mirrors it exactly: it deletes the hook only when our marker is present, never a hand-written one.
 over: A committed hooks directory wired via core.hooksPath (shared across clones, so attribution would survive a fresh clone); and treating the git hook like the .claude shims, which are sofar-owned and overwritten to stay current.
 because: core.hooksPath is repo-global and would DISABLE every hook already in .git/hooks — buying clone-survival by silently breaking a user's existing tooling is not a trade sofar gets to make on their behalf. And .git/hooks is not version-controlled, so unlike a .claude shim an overwrite there is unrecoverable; that puts it under the .gitattributes law (never clobber, report instead) rather than the shim law. The cost is accepted and real: a fresh clone has NO attribution until someone runs `sofar init`, which is exactly the exposure 2.4's doctor check has to surface. Proven end to end against the local build before being recorded: init installed an executable hook, a commit with no hand-typed trailer came out carrying `Sofar-Initiative: demo-initiative`, two successive amends left exactly one trailer, and a commit made with no session in the environment stayed unattributed rather than guessed.
 
-== shard decisions/D8.md (1916 bytes) ==
+== shard decisions/D8.md (1922 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D8 — 2026-08-13
+D8·r51h — 2026-08-13
 rule: Shipping state is derived locally from git refs only — never by querying GitHub or any forge API.
 chose: 3.3: PR state is OUT of scope. Shipping is answered locally and only locally — trailer attribution plus `git rev-list` against the fetched remote ref. sofar makes no network call to GitHub or any forge for this.
 over: Shelling to `gh pr list` / the GitHub API to report whether an initiative's commits sit in an open or merged PR — which the user explicitly named as part of the original problem ("when push or PR happen…").
 because: Not on egress grounds, and it matters that a future session knows why: SPEC §Architectural invariants carves out egress that carries no USER CONTENT (the `npm view sofar.sh version` precedent at docs/SPEC.md line 1809), and asking GitHub about a repo GitHub already hosts sends it nothing it does not have. It fails on three other counts instead. First, cost and reliability: a forge round trip is hundreds of milliseconds, varies wildly, and fails offline — it could never sit on the SessionStart path where 3.2's signal lives, so it would have to be a separate on-demand command, a different surface for a strictly weaker fact. Second, it needs `gh` installed and authenticated, a hard external dependency for a marginal increment. Third and decisive: the increment IS marginal. "Merged" is already answered locally by rev-list against the remote ref, so the only genuinely new state is "an open PR exists carrying your work" — the case where the work has NOT landed, which is the least urgent thing a session needs told. Note it would also not rescue the squash-merge gap (2.3), whose fix is reading the commit body. Revisit only if merged-ness stops being answerable locally, e.g. a workflow where initiative work never reaches the local remote ref at all.
 
-== shard decisions/D9.md (1861 bytes) ==
+== shard decisions/D9.md (1867 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D9 — 2026-08-13
+D9·qjhy — 2026-08-13
 rule: A review covers watermark..HEAD filtered to this initiative's attributed commits — never a range derived from task or phase timestamps.
 chose: 4.1: reviews fire at PHASE BOUNDARIES, and only for initiatives with 3 or more phases. Close performs a roll-up (were all phases reviewed, what is still open), not a fresh audit. The range for each review is a WATERMARK: the review event records the sha it reviewed through, and the next review covers watermark..HEAD filtered to this initiative's trailer-attributed commits. Ruled by the user 2026-08-13.
 over: A single review at close (one session instead of N, but it audits every task at maximum surface with the coldest memory, which is where a review is least reliable); phase reviews PLUS a full re-audit at close (N+1 sessions, and the close pass largely re-treads ground — a rubber stamp is worse than no review); reviewing every initiative regardless of size; and opt-in per initiative.
 because: A phase is 3-5 tasks, which fits one session with warm memory and a small diff, so findings arrive while they are still cheap to fix. The cost is real and accepted: one session per phase, so drift-certification would pay 6. The 3-phase floor exists because a 1-phase initiative reviewed by ceremony is how the whole mechanism gets ignored, and an ignored gate is worse than no gate. Opt-in was rejected on the sharper argument: the initiative that drifts is the one where nobody predicted it would, so the flag would be absent precisely when it mattered. The watermark falls out of choosing phase boundaries and is what makes the range tractable — phases have no commit boundaries of their own, and deriving them from task timestamps would be the time-window guess record-integrity D6 already rejected.
 
-== shard decisions/D10.md (1835 bytes) ==
+== shard decisions/D10.md (1841 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D10 — 2026-08-13
+D10·12gh — 2026-08-13
 rule: The close review asks only what a phase review cannot — goal conformance, cross-phase drift, integration, unresolved findings — and never re-audits per-phase correctness.
 chose: AMENDS D9: close gets a genuine FINAL REVIEW PASS, not merely a roll-up. It is scoped to the four questions a per-phase review structurally cannot answer — goal conformance (does the finished thing achieve the initiative's stated goal), cross-phase drift (did a later phase violate a decision taken in an earlier one), integration (each phase passed alone; do they compose), and unresolved findings carried forward. It must NOT re-audit per-phase correctness. Ruled by the user 2026-08-13.
 over: D9's original close behaviour, a roll-up that only reports whether every phase was reviewed and what is still open; and a full re-audit of everything at close, which was rejected in D9 and stays rejected.
 because: The user asked for a final whole pass, and the objection D9 raised against one was specific rather than general: a close review that asks the SAME question again is a rubber stamp, and re-treading ground trains everyone to skim. That objection does not touch a pass asking DIFFERENT questions. Goal conformance in particular has no other home — a phase review sees one slice and cannot judge whether the initiative achieved what it set out to do, which is the single most important thing to ask before declaring work done, and the exact question "once its done its done" was raised to fix. Cost is N+1 sessions and is accepted. The scoping is what keeps it honest: the final pass reads the phase reviews' verdicts as INPUT rather than redoing them, so its range is the whole initiative but its questions are ones nobody has asked yet.
 
-== shard decisions/D11.md (1618 bytes) ==
+== shard decisions/D11.md (1624 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D11 — 2026-08-13
+D11·dymn — 2026-08-13
 rule: A live session learns shipping state by re-reading refs, never by being sent a message — no surface may notify a peer of a push.
 chose: A live session learns its work shipped through a UserPromptSubmit line gated on ref MOVEMENT: the hot path reads refs from files (free, no subprocess, what readGitState already does) and pays for the trailer walk ONLY when origin/&lt;branch&gt; has actually moved since it last looked. Not through a peer message. Raised by the user 2026-08-13.
 over: Sending a SendMessage peer notification when a session pushes; and leaving the signal at SessionStart only, where 3.2 put it.
 because: 3.2's notice fires once per session, so a session already RUNNING when a sibling pushes learns nothing until it restarts — which is the user's original complaint still open in exactly the case they described. Peer messaging was rejected on two grounds: the pushing session would have to know which peers to tell and which initiatives their commits belonged to, reintroducing coordination the derived design removed; and a message is transport, never storage, so the fact would live in a chat rather than in the record that already holds it. The ref-gate is what D6 anticipated when it forbade unconditional subprocesses on the hot path — it is not an exception to that rule, it is the escape the rule was written with. It also stays honest under concurrency: refs are shared across sessions in one worktree, so a peer's push updates them for everyone at once with nothing to broadcast.
 
-== shard decisions/D12.md (1758 bytes) ==
+== shard decisions/D12.md (1764 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D12 — 2026-08-13
+D12·55hv — 2026-08-13
 rule: Never name a host-specific command as the instruction — state the work, and offer a named skill only as a shortcut where a host has one.
 chose: AMENDS D3: the review packet states the code-quality work HOST-AGNOSTICALLY. It spells out what to look for — correctness bugs, unhandled edge cases, error paths, resource leaks, simpler constructions, each with file and line — and offers a named skill only as a shortcut where the host happens to have one ("in Claude Code that is /code-review then /simplify; other hosts have their own"). The write half names the MCP tool AND the `sofar event append` fallback. Raised by the user 2026-08-13.
 over: D3's original wording, which had the packet NAME `/code-review` and `/simplify` outright as the instruction — shipped in 4.2 and 4.3 and wrong the moment sofar runs anywhere but Claude Code.
 because: sofar is host-agnostic by construction — `sofar init` writes an AGENTS.md convention dialect specifically for tools with no MCP (BD31), and the CLI surface exists so the whole loop works without Claude Code at all. A packet instructing a Cursor or Aider session to run `/code-review` renders an instruction that session cannot follow, and the likely outcome is not a manual review but a skipped one. D3's substance survives untouched: sofar still never reimplements bug-hunting and never analyses code. What changes is that the delegation is now expressed as a capability the host may or may not have, rather than as a command every host is assumed to expose. Being strict about the WORK rather than vague about it is what keeps this from degrading into "review it please" on hosts without a skill.
 
-== shard decisions/D13.md (1845 bytes) ==
+== shard decisions/D13.md (1851 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D13 — 2026-08-13
+D13·1ee8 — 2026-08-13
 rule: Any push notification is an optional layer over the ref-gated read — never the only way a session can learn its work shipped.
 chose: Pinging a live session when its commits land is ACCEPTED as an optional layer on top of D11's ref-gated line, never as a replacement for it — and it needs NO session trailer. The targets are already derivable: initiative attribution says whose commits just landed, the fold already holds the OPEN sessions of each initiative, and core/peers.ts already resolves a session id to the name SendMessage addresses. Sequenced after 3.4, not before. Raised by the user 2026-08-13.
 over: Adding a second `Sofar-Session:` commit trailer to associate commits with sessions (the form the user proposed); and making the ping the PRIMARY mechanism in place of the ref-gated UserPromptSubmit line.
 because: The session trailer is unnecessary: attribution already narrows a landed commit to an initiative, and open sessions per initiative are already folded state, so the extra trailer would add a line of noise to every commit to recover a fact the record can already derive. Making the ping primary would repeat the mistake D12 was just logged to fix — peer messaging rides Claude Code's own session registry, so a ping-only design would leave every other host with no signal at all, which is the exact universality failure the user identified in the same breath. The ref-gated line is transport-free and works under any host, so it stays the floor. The ping's real increment is LATENCY: the ref-gated line fires on the session's next prompt, while a message can arrive mid-turn. That is worth having where the transport exists and worth nothing where it does not, which is precisely the shape of an optional layer.
 
-== shard decisions/D14.md (2311 bytes) ==
+== shard decisions/D14.md (2317 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D14 — 2026-08-13
+D14·hf0q — 2026-08-13
 rule: Never auto-write a decision from observed behaviour — observation may only suggest a repo-memory promotion, which a human or agent confirms.
 chose: sofar learns the user's tool stack by OBSERVATION and promotes it to REPO MEMORY — never by auto-writing a decision. A command recurring across N sessions (the fold already holds every command_run) raises a suggestion; the agent or user confirms it with sofar_remember; and because repo memory is already injected into every SessionStart digest, the fact then reaches every review and every task with NO change to the review packet. Advisory throughout: the model may ignore it when the situation calls for something else, and the user can delete or override the entry. Raised by the user 2026-08-13.
 over: Auto-appending an observed tool to the initiative's DECISIONS (the form the user proposed); hardcoding a capability list into the review packet; and asking the user to declare their stack up front at init.
 because: This is the proper fix for the gap D12 exposed: rather than guessing which commands a host exposes, sofar names the tools THIS repo demonstrably uses. Repo memory is already the right home by SPEC's own definition — operational knowledge that is not a design decision, exactly the category sofar_remember exists for — and it already carries a ratification step, since `.sofar/repo.md` is hand-written and doctor nags until it names the promoted handle. Auto-writing DECISIONS was rejected firmly: a decision here carries chose/over/because and is something a person or agent RULED, and manufacturing them from statistics would put inferred claims in the one log whose trustworthiness this codebase runs a whole certification initiative to defend. A wrong inferred decision would then render verbatim in every digest forever. Suggest-and-confirm keeps the inference out of the record until something ratifies it. Scope limit worth stating plainly: only Bash commands are observable, because the PostToolUse matcher is Edit|Write|MultiEdit|Bash and every other tool name appends nothing — so a CLI linter is learnable today and a slash-command skill is not, and closing that needs a hook-surface change judged on its own merits.
 
-== shard decisions/D15.md (2425 bytes) ==
+== shard decisions/D15.md (2431 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D15 — 2026-08-13
+D15·186a — 2026-08-13
 rule: The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.
 chose: 3.4's live line is EDGE-TRIGGERED and keeps state — a per-session mark of origin/&lt;branch&gt; in the derived index (core/shipwatch.ts), written on every look and compared on the next. And the absent-upstream state is WATCHED, not skipped: a mark whose upstream is null is legitimate, so the ref appearing (a branch's first push) reports like any other movement, walking reachability from the new tip instead of a delta.
 over: Making it stateless and re-firing like every other line on that path (the drift nudge, the conflict lines, gitStateLine — the documented culture there); and the first implementation, which treated "no upstream ref" as nothing to watch and returned early.
 because: The stateless convention is right for those lines and wrong for this one, and the difference is what the line SAYS. They restate a condition that is still true — you still have 5 unwritten events, a sibling is still in this file — so repeating it costs nothing and storing an "already told you" bit would be the more expensive design (D5's reasoning). This line reports a TRANSITION, and "just landed" repeated ten prompts later is simply false. The mark is therefore not bookkeeping bolted on: it is simultaneously the D6 gate that makes the walk affordable and the thing that stops the announcement repeating, one piece of state doing both jobs. Skipping the absent-upstream state was a real defect caught by its own test rather than by review: it made the most unambiguous shipping event of all — work leaving the machine for the first time — the one event that could never be reported, because before the first push there is no ref to have moved. Measured live: steady state 35.7ms end-to-end on a 100ms budget with no subprocess at all (the mark is one small JSON read), and the walk fires only on actual movement. Dogfooded against this repo's real history — of four commits that arrived on origin it named the one attributed to this record and ignored three belonging to session-orientation, then went silent on the next prompt.
 guard: path:packages/engine/src/core/shipwatch.ts,packages/engine/src/cli/event.ts
 
-== shard decisions/D16.md (2398 bytes) ==
+== shard decisions/D16.md (2404 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D16 — 2026-08-13
+D16·rqez — 2026-08-13
 rule: Recover a squashed slug only from an INDENTED body trailer and only when git's trailer block is empty — never let body text override a real trailer, and never invent attribution the commit object does not carry.
 chose: 2.3: recover a squash-merged slug by scanning the commit BODY for an INDENTED `Sofar-Initiative:` line, gated twice — the fallback runs only when git's own trailer block yielded nothing, and it matches only indented occurrences. The `%B` body rides along on the existing walk, so the fallback costs output bytes and never a second spawn.
 over: Leaving the false negative in place as a documented caveat (its characterisation test had PINNED the loss); scanning the body for the key anywhere, indented or not; and normalising SQUASH_MSG at write time in the prepare-commit-msg hook so the trailer never gets indented in the first place.
 because: The caveat was survivable only because this repo commits straight to main — it becomes the normal case the first time work lands through a squashed PR, and it fails in the direction that matters: shipped work reads as un-shipped, so 3.2 and 3.4 would keep telling a session to push work that had already landed. Recovering the slug is still READING git, which is the line D4 draws, because the text is present verbatim in the object; nothing is inferred from timestamps or file overlap. The two gates are what keep it from degrading into a guess: running only on an empty trailer block means a properly attributed commit can never be re-labelled by its own prose (this very repo commits messages that quote the trailer key), and requiring indentation means it reads the shape a squash actually produces rather than every mention of the key — an unindented one at the end of a message is already a trailer and git has parsed it. Rewriting SQUASH_MSG at write time was rejected as the wrong layer: it would only help squashes performed on a machine with the hook installed, while the read side has to work on any clone, and D7 already refuses to own more of the user's git surface than it must. The `-m` case stays honestly unattributed and that is not a gap to close later — committing a squash with `-m` discards SQUASH_MSG entirely, so the slug is not in the object at all and inventing one is exactly what D5 forbids.
 
-== shard decisions/D17.md (2442 bytes) ==
+== shard decisions/D17.md (2448 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D17 — 2026-08-13
+D17·k0ac — 2026-08-13
 rule: On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.
 chose: AMENDS D15: on the first appearance of origin/&lt;branch&gt; the walk subtracts every OTHER origin ref (`&lt;tip&gt; --not --exclude=origin/&lt;branch&gt; --remotes=origin`), so the count is what THIS push put on the remote. D15's own wording — "walking reachability from the new tip instead of a delta" — was the defect, not a paraphrase of it.
 over: Reachability from the new tip, which is what D15 specified and what shipped in 3eefa2d; and reverting to the pre-D15 behaviour of staying silent on a first push, which would trade a false positive for a guaranteed false negative.
 because: Measured, not theorised: a feature branch cut from an already-pushed base reported 4 commits "just landed" when 1 had arrived — the other 3 shipped on the base days earlier. Inflation is bounded only by history depth and LANDED_WINDOW, and it fires on the single most ordinary git workflow there is, so the shipped behaviour was worse than the gap D15 set out to close. D2 already ranks this class: a wrong "your work shipped" beats no signal only in the sense of being louder, because it retires a next action nobody performed. Silence was rejected because the first push IS a real shipping event and D15's premise stands — only its range was wrong. The exclusion is one spawn with three extra args, and it degrades correctly at both ends: a branch that is the only ref on the remote subtracts nothing and reports everything, which is the honest answer for a genuine first push. Worth recording for whoever touches this next: `--exclude` is matched RELATIVE to refs/remotes/, so `origin/&lt;branch&gt;` is the only form git honours — the bare branch name and the full refname both silently exclude NOTHING and hand back an empty walk, which reads as "no news" rather than as an error (verified on git 2.50.1). Found by the delegated code-review pass this initiative's own packet prescribes, against code that had already shipped to main and been reviewed `findings` by a human-equivalent pass that missed it — which is the strongest argument yet for the delegation half of D3.
 guard: path:packages/engine/src/core/attribution.ts,packages/engine/src/cli/event.ts
 
-== shard decisions/D18.md (1584 bytes) ==
+== shard decisions/D18.md (1590 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D18 — 2026-08-13
+D18·fa3a — 2026-08-13
 rule: Every new event type must have its drift class DECIDED in the same change that adds it — counted by recordFreshness, or deliberately excluded with the reason stated where command_run's is.
 chose: review_recorded is COUNTED as a mutation: it accrues repo drift (freshness.reviews, summed into freshnessTotal, itemized by describeFreshness) and the reviewing session's own `unwritten` debt, so the Stop gate blocks a review-only session that never wrote back. Found by this initiative's first review round at fold.ts recordFreshness, where the type fell through the switch entirely.
 over: Leaving reviews uncounted (the shipped behaviour), or counting them for the record but not for the session — which would have warned about drift while still letting the reviewing session walk out silently.
 because: A review is exactly the event that makes a recorded next_action wrong: it settles findings the next action has to absorb. And a session whose WHOLE job is the review is the one whose conclusions are least recoverable from the diff — nobody can reconstruct "we checked this and it held" from the code. Uncounted, that session owed the record nothing and the gate that exists to stop unwritten work let it through. The reason the type was missed is structural rather than careless: recordFreshness enumerates types, so a new one is silent by default, and silence is indistinguishable from a deliberate exclusion like command_run's.
 guard: path:packages/schema/src/events.ts
 
-== shard decisions/D19.md (1566 bytes) ==
+== shard decisions/D19.md (1572 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D19 — 2026-08-13
+D19·stxg — 2026-08-13
 rule: The close audit never refuses a close and never grows a --force: it records what was outstanding as `overrides` on the close event and renders them forever.
 chose: The close audit (core/closeout.ts) is seven mechanical findings computed from the state BEFORE the close event, recorded on that event as `overrides` and returned by both surfaces. "A next action left dangling" is answered as DRIFT SINCE THE LAST WRITE-BACK, and the done-with-no-file-evidence check is asked only of records that touched files at all.
 over: Reading the next_action's prose to judge whether it dangles (which would be the content-semantic staleness inference staleness-detection D3/D12 bans outright), and flagging every evidence-free done task regardless of whether the record ever touched a file — which would fire on every task of a pure decision record.
 because: A finding that fires on every member of a class says nothing about any of them, and a check that reads prose is the exact inference the record has already refused twice. Drift since the write-back is mechanical, is already folded, and asks the right question anyway: the closer is walking out over work nobody described. The evidence check gains its meaning from the contrast — some tasks in this record have files and these do not — so a record with no contrast has nothing to say.
 guard: path:packages/engine/src/core/closeout.ts,packages/engine/src/mcp/close-initiative.ts,packages/engine/src/cli/close.ts
 
-== shard decisions/D20.md (1426 bytes) ==
+== shard decisions/D20.md (1432 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D20 — 2026-08-13
+D20·7yv4 — 2026-08-13
 rule: Never resolve hooks or refs through a linked worktree's own gitdir — use commonGitDir; only HEAD is per-worktree.
 chose: Hooks and refs resolve through the COMMON git dir (core/git.ts commonGitDir, from the `commondir` pointer), never through a linked worktree's own gitdir. HEAD stays per-worktree, since that is the one thing a worktree genuinely owns.
 over: Leaving gitDir() as the single resolver, which is correct for HEAD and wrong for everything else — and whose failure is silent in both directions: init reports "created .git/hooks/prepare-commit-msg" for a hook git will never run, and readGitState finds no refs at all, so push state, the shipping notice and the landed line all go quiet with no error anywhere.
 because: Verified live on git 2.50.1 rather than assumed: a prepare-commit-msg in `<main>/.git/worktrees/<name>/hooks` never fired, while the identical hook in the common dir fired for commits made inside that worktree. Silent no-op is the exact outcome installGitHook's own core.hooksPath check exists to prevent, reached by a different route — and this repo runs worktrees routinely (drift-certification cells, EnterWorktree), so it is the ordinary case rather than an exotic one.
 guard: path:packages/engine/src/core/git.ts,packages/engine/src/cli/init.ts,packages/engine/src/cli/uninit.ts
 
-== shard decisions/D21.md (1470 bytes) ==
+== shard decisions/D21.md (1476 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D21 — 2026-08-13
+D21·jxnw — 2026-08-13
 rule: Never render a failed git read as an empty result — say the read failed, name the likely cause, and report a capped count as a floor rather than a fact.
 chose: A git read that FAILED is rendered as a failure naming its likely cause, never as an empty result. `sofar review` passes `unreadable` to the packet when readAttribution returns null, and the packet names the unreachable watermark; a walk that hits its ceiling reports the truncation; the landed line reports a capped count as "at least N".
 over: The shipped behaviour, which collapsed null into an empty commit list — so an unresolvable range rendered as "no attributed commits in range", whose own text tells the reviewer attribution is silently off.
 because: The two states carry opposite instructions and the conflation inverts them. An unreachable watermark is the ORDINARY state after history is rewritten — a rebase, an amend, or the squash-merge this design explicitly supports (D16) — so the failure is common, and it renders as an accusation that sends the reviewer to audit a bug that does not exist while properly trailered commits sit in plain sight. Same class as D2's rule about false shipping signals: a confident wrong answer is worse than no answer.
 guard: path:packages/engine/src/cli/review.ts,packages/engine/src/projections/templates/review.ts,packages/engine/src/cli/event.ts
 
-== shard decisions/D22.md (1182 bytes) ==
+== shard decisions/D22.md (1188 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D22 — 2026-08-13
+D22·pnrn — 2026-08-13
 chose: The close audit's guards_crossed finding reports only crossings NO REVIEW HAS LOOKED AT — those whose event id sorts above the last review's, of any scope. With no review ever recorded, every crossing counts. Ordered by ulid, never by ts.
 over: Keeping it as "every crossing on record", which fires on every mature record; and dropping the check entirely, leaving crossings to doctor.
 because: A path guard fires on any EDIT to the guarded path, not on a violation of its rule — this session crossed four of its own rules while violating none — so the unfiltered finding fires on every member of the class and therefore says nothing about any of them, the same test the evidence check already has to pass. A review IS the act of looking, so it is the honest cutoff, and it uses machinery that already exists. Ulid order rather than ts because ts has millisecond granularity: a crossing and the review that read it land in the same millisecond routinely, and a ts comparison then reports the crossing unread forever — caught by a test written before the ruling shipped.

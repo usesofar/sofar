@@ -38,6 +38,107 @@ export function suffixedHandle(ordinal: number, id: string): string {
   return `D${ordinal}${SUFFIX_SEPARATOR}${handleSuffix(id)}`
 }
 
+/**
+ * The handle every agent-facing line prints for a decision of its own record
+ * (r4-fixes U5): `D<n>·<sfx>`, never the bare ordinal a merge can move. In
+ * round 4 two worktrees both minted D62, and after the merge the Stop gate's
+ * "[binwise D62]" named a different rule on main. Bare `D<n>` only when the
+ * record holds no decision at that ordinal.
+ */
+export function handleAt(decisions: ReadonlyArray<{ id: string }>, ordinal: number): string {
+  const d = decisions[ordinal - 1]
+  return d === undefined ? `D${ordinal}` : suffixedHandle(ordinal, d.id)
+}
+
+/** `<slug> D<n>·<sfx>`: a decision named with its record (scope tier, checks, other records' rules). */
+export function qualifiedHandle(initiative: string, ordinal: number, id: string): string {
+  return `${initiative} ${suffixedHandle(ordinal, id)}`
+}
+
+/** A reach node's decision (`decision:<event id>`) as `<slug> D<n>·<sfx>`; `D?` when it carries no ordinal. */
+export function reachDecisionHandle(initiative: string, ordinal: number | undefined, nodeId: string): string {
+  if (ordinal === undefined) return `${initiative} D?`
+  return qualifiedHandle(initiative, ordinal, nodeId.startsWith('decision:') ? nodeId.slice('decision:'.length) : nodeId)
+}
+
+/**
+ * A recorded `supersedes` (always the bare `D<n>` the fold resolved) as the
+ * suffixed handle of the decision it names, when that is an earlier decision
+ * of this record; as recorded otherwise.
+ */
+export function supersedesHandle(decisions: ReadonlyArray<{ id: string }>, raw: string, ordinal: number): string {
+  const m = /^D([1-9][0-9]*)$/.exec(raw)
+  const n = m === null ? 0 : Number(m[1])
+  return n > 0 && n < ordinal ? handleAt(decisions, n) : raw
+}
+
+/** What a re-log keeps word for word: everything but the check (r4-fixes U5). */
+interface DecisionText {
+  id: string
+  chose: string
+  over: string
+  because: string
+  rule?: string
+  quote?: string
+  guard?: string
+  until?: string
+  superseded_by?: number
+}
+
+/** Same words, field for field: a re-log, not a change. The check is not compared. */
+export function sameDecisionText(a: DecisionText, b: DecisionText): boolean {
+  return (
+    a.chose === b.chose &&
+    a.over === b.over &&
+    a.because === b.because &&
+    a.rule === b.rule &&
+    a.quote === b.quote &&
+    a.guard === b.guard &&
+    a.until === b.until
+  )
+}
+
+/**
+ * Re-logs folded into the entry that replaced them (r4-fixes U5). `sofar bind`
+ * attaches a check by re-filing a rule word for word with `supersedes` (a check
+ * changes only through a ruled superseder), and in round 4 13–24% of a rep's
+ * decisions were such copies: agents told the operator "D73 into D76". A
+ * decision whose replacer carries the same words (sameDecisionText) is that
+ * replacer's ALIAS: every listing renders the pair as one entry, the newer
+ * handle first and the older as its alias. Chains fold whole (A re-logged as
+ * B, B as C: C carries A and B).
+ *
+ * `absorbed`: alias ordinal → the ordinal of the entry that renders it.
+ * `aliases`: entry ordinal → its alias ordinals, oldest first.
+ * Derived from the fold's own supersession marks, never the payload, so a
+ * merge that renumbers the record moves both halves together.
+ */
+export function relogAliases(decisions: ReadonlyArray<DecisionText>): { absorbed: Map<number, number>; aliases: Map<number, number[]> } {
+  const next = new Map<number, number>()
+  decisions.forEach((d, i) => {
+    const by = d.superseded_by
+    if (by === undefined || by <= i + 1) return
+    const replacer = decisions[by - 1]
+    if (replacer !== undefined && sameDecisionText(d, replacer)) next.set(i + 1, by)
+  })
+  const absorbed = new Map<number, number>()
+  const aliases = new Map<number, number[]>()
+  for (const from of next.keys()) {
+    let to = next.get(from)!
+    while (next.has(to)) to = next.get(to)!
+    absorbed.set(from, to)
+    const list = aliases.get(to) ?? []
+    list.push(from)
+    aliases.set(to, list)
+  }
+  return { absorbed, aliases }
+}
+
+/** `alias D73·abcd, D76·wxyz` — an entry's aliases as its mark (r4-fixes U5). */
+export function aliasMark(decisions: ReadonlyArray<{ id: string }>, ordinals: readonly number[]): string {
+  return `alias ${ordinals.map((n) => handleAt(decisions, n)).join(', ')}`
+}
+
 export type HandleResolution =
   | { ok: true; ordinal: number; moved?: string }
   | { ok: false; error: string }
@@ -65,7 +166,7 @@ export function resolveHandle(decisions: ReadonlyArray<{ id: string }>, raw: str
   })
   if (matches.length === 1) {
     const n = matches[0]!
-    return { ok: true, ordinal: n, moved: `${raw.trim()} is D${n} now — the record was renumbered (a merge), so its suffix decided` }
+    return { ok: true, ordinal: n, moved: `${raw.trim()} is ${handleAt(decisions, n)} now — the record was renumbered (a merge), so its suffix decided` }
   }
   const here = at !== undefined ? `; D${ordinal} here is ${suffixedHandle(ordinal, at.id)}` : ''
   return {

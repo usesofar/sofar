@@ -134,9 +134,9 @@ describe('sofar read (D42, D45)', () => {
     expect(r.exitCode).toBe(0)
     // Joined as cat joins them (r4-fixes U4): byte for byte what the agent asked for.
     expect(r.stdout).toBe(['decisions.md', 'plan.md', 'memory.md'].map((f) => file(root, f)).join(''))
-    expect(r.stdout).toMatch(/^- D1·\w{4} — superseded by D3$/m)
+    expect(r.stdout).toMatch(/^- D1·\w{4} — superseded by D3·\w{4}$/m)
     expect(r.stdout).toMatch(/— rule: Percent coupons come off before fixed coupons\.$/m)
-    expect(r.stdout).toMatch(/— \(supersedes D1\) chose store money as decimal strings$/m)
+    expect(r.stdout).toMatch(/— \(supersedes D1·\w{4}\) chose store money as decimal strings$/m)
     expect(r.stdout).toMatch(/^Brief: the operator's words, \d+ chars, verbatim in brief\.md;/m)
     expect(r.stdout).not.toContain('stacked by the provider flag')
     expect(r.stdout).toMatch(/^- M1 \S+ — Run the suite with bun test from apps\/web\.$/m)

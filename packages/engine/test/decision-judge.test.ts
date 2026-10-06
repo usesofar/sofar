@@ -14,6 +14,7 @@ import { foldLines, type DecisionState, type InitiativeState } from '../src/core
 import type { JudgeProvider, WireRequest } from '../src/core/judge'
 import { serializeEvent } from '../src/core/log'
 import { callTool, connectServer, makeRepoFixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * typed-judge 3.1 — the write-time decision judge (catalogue A2/A3, SPEC
@@ -126,9 +127,9 @@ describe('answers become warnings', () => {
   it('free path: a near-verbatim re-proposal warns, citing the target; a paraphrase is silent', async () => {
     const hit = await decisionJudgeWarnings(base(), [draft('write a pid file beside the events log', 'a listening unix socket')])
     expect(hit).toHaveLength(1)
-    expect(hit[0]).toContain('D3 may re-propose what D1 rejected: "a pid file written beside the events log"')
+    expect(bare(hit[0]!)).toContain('D3 may re-propose what D1 rejected: "a pid file written beside the events log"')
     expect(hit[0]).toContain('near-verbatim match')
-    expect(hit[0]).toContain('"supersedes":"D1"')
+    expect(hit[0]).toMatch(/"supersedes":"D1·[0-9a-z]{4}"/) // check-suffixed (r4-fixes U5)
     expect(await decisionJudgeWarnings(base(), [draft('record the driver process id in a file next to the log', 'sockets')])).toEqual([])
   })
 
@@ -141,7 +142,7 @@ describe('answers become warnings', () => {
     )
     expect(Object.keys(seen[0]!.questions).sort()).toEqual(['contradiction_D1', 'reproposal_D2']) // reproposal_D1 was the rule's
     // Contradiction and re-proposal of the same D1 are one problem: the rule line wins.
-    expect(out).toEqual([
+    expect(out.map(bare)).toEqual([
       'D3 may contradict standing D1: "Never write a pid into a lock file." (judged p 0.95 by jev-1.13.0). Follow D1; if the operator changed it, log a decision with "supersedes":"D1" and a new rule.',
     ])
   })
@@ -178,7 +179,7 @@ describe('the tools append first and only add lines', () => {
       because: 'easy to read',
     })
     expect(res.isError).toBe(false)
-    expect(res.body.warnings).toEqual([expect.stringContaining('D2 may re-propose what D1 rejected')])
+    expect(res.body.warnings?.map(bare)).toEqual([expect.stringContaining('D2 may re-propose what D1 rejected')])
     const types = readFileSync(fixture.eventsPath, 'utf8').trim().split('\n').map((l) => JSON.parse(l).type)
     expect(types.filter((t) => t === 'decision_logged')).toHaveLength(2)
   })
@@ -202,7 +203,8 @@ describe('the tools append first and only add lines', () => {
       ],
     })
     expect(ended.isError).toBe(false)
-    expect(ended.body.decisions).toEqual(['D2', 'D3'])
-    expect(ended.body.warnings).toEqual([expect.stringContaining('D2 may re-propose what D1 rejected')])
+    expect(ended.body.decisions).toEqual([expect.stringMatching(/^D2·[0-9a-z]{4}$/), expect.stringMatching(/^D3·[0-9a-z]{4}$/)])
+    expect(ended.body.warnings?.map(bare)).toEqual([expect.stringContaining('D2 may re-propose what D1 rejected')])
+    expect(ended.body.warnings?.[0]).toContain(`${ended.body.decisions![0]} may re-propose`)
   })
 })

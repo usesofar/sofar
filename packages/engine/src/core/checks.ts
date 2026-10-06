@@ -6,6 +6,7 @@ import { guardMatches, parseGuard, type DecisionCheck } from '@sofar/schema'
 import type { TestOutcome, TimedTestOutcome } from './adjacency'
 import { testShapedCommand } from './derived'
 import { commonGitDir } from './git'
+import { qualifiedHandle } from './handle'
 import { scopeHitsForSubject, type GuardIndex } from './index-tier1'
 import { byCodeUnit } from './order'
 import { cloneKey, resolvesInside, stateBase, type StateEnv } from './state-dir'
@@ -41,8 +42,10 @@ import { cloneKey, resolvesInside, stateBase, type StateEnv } from './state-dir'
 
 /** One in-force check, repo-wide, as the scope tier holds it. */
 export interface InForceCheck {
-  /** `<slug> D<n>`. */
+  /** `<slug> D<n>`: what a verification_recorded and the trust file store. */
   handle: string
+  /** `<slug> D<n>·<sfx>` (r4-fixes U5): what every line prints — the check suffix a merge cannot move onto another rule. */
+  shown: string
   initiative: string
   ordinal: number
   rule: string
@@ -62,6 +65,7 @@ export function checksInForce(index: GuardIndex): InForceCheck[] {
     if (d.check === undefined || d.rule === undefined || d.superseded_by !== undefined) continue
     out.push({
       handle: `${d.initiative} D${d.ordinal}`,
+      shown: qualifiedHandle(d.initiative, d.ordinal, d.id),
       initiative: d.initiative,
       ordinal: d.ordinal,
       rule: d.rule,
@@ -303,14 +307,14 @@ export function checkFailureLine(check: InForceCheck, outcome: CheckOutcome): st
   const last = lastLine(outcome.diagnostics)
   const fix = check.check.hint !== undefined
     ? flat(check.check.hint)
-    : `make the work hold the rule${check.quote !== undefined ? ` (the operator: "${flat(check.quote)}")` : ''}, or log a decision that supersedes ${check.handle}`
-  return `sofar: check for [${check.handle}] failed (${describeOutcome(outcome)})${last !== undefined ? `: ${last}` : ''} — rule: "${flat(check.rule)}" — fix: ${fix}`
+    : `make the work hold the rule${check.quote !== undefined ? ` (the operator: "${flat(check.quote)}")` : ''}, or log a decision that supersedes ${check.shown}`
+  return `sofar: check for [${check.shown}] failed (${describeOutcome(outcome)})${last !== undefined ? `: ${last}` : ''} — rule: "${flat(check.rule)}" — fix: ${fix}`
 }
 
 /** The line naming checks that bear on the work but that nothing approved (D9). */
 export function unapprovedLine(checks: readonly InForceCheck[]): string | null {
   if (checks.length === 0) return null
-  const named = checks.slice(0, 3).map((c) => `[${c.handle}] \`${c.check.cmd}\``).join(', ')
+  const named = checks.slice(0, 3).map((c) => `[${c.shown}] \`${c.check.cmd}\``).join(', ')
   const more = checks.length > 3 ? `, +${checks.length - 3} more` : ''
   return `sofar: ${checks.length} decision check(s) bear on this work but are not approved on this clone, so none ran: ${named}${more} — the operator approves one with \`sofar check --approve "<handle>"\``
 }
@@ -731,7 +735,7 @@ export function stopGate(
     const key = `${spec.head}\0${[...spec.args].sort(byCodeUnit).join('\0')}`
     const req = reqs.get(key) ?? { spec, cmd, rules: [] }
     req.rules.push({
-      handle: `${d.initiative} D${d.ordinal}`,
+      handle: qualifiedHandle(d.initiative, d.ordinal, d.id),
       rule: d.rule!,
       ...(d.check?.hint !== undefined ? { hint: d.check.hint } : {}),
     })

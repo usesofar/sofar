@@ -1,4 +1,4 @@
-== options (41569 bytes) ==
+== options (42009 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -25,18 +25,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -44,12 +47,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -104,18 +109,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -123,12 +131,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -200,7 +210,7 @@ Files touched (34):
 - /Users/jins/IO/sofar/packaging/homebrew/sofar.rb
 - /Users/jins/IO/sofar/packaging/homebrew/update-formula.sh
 
-== digest:plain (2175 bytes) ==
+== digest:plain (2217 bytes) ==
 # Sofar status: speed
 
 Goal: Cut the fresh-session pattern's felt latency: no empty write-back waits, pinned-fast shims, no per-session spawn, and orientation that names its files.
@@ -217,14 +227,14 @@ Phases:
 Progress: 4/4 tasks done (100%) across 1 phase(s)
 
 Recent decisions (last 5 of 7; full text in decisions/D<n>.md):
-- [D3] 2026-07-20 T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sof… — over (a) One shared Server/ToolContext for all HTTP clients
-- [D4] 2026-07-28 D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segme… — over Logging every Bash command as today
-- [D5] 2026-07-28 D2 record-hygiene: SessionStart appends nothing — over Eager registration in the SessionStart hook
-- [D6] 2026-07-30 npm package renamed @alignlabs/sofar → sofar.sh — over bare `sofar` (held by npm internally
-- [D7] 2026-07-30 Homebrew formula sources the immutable npm registry tarball — over a GitHub release tarball source, or a from-source build
+- [D3·b3n4] 2026-07-20 T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sof… — over (a) One shared Server/ToolContext for all HTTP clients
+- [D4·n3b4] 2026-07-28 D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segme… — over Logging every Bash command as today
+- [D5·ztmb] 2026-07-28 D2 record-hygiene: SessionStart appends nothing — over Eager registration in the SessionStart hook
+- [D6·4d4k] 2026-07-30 npm package renamed @alignlabs/sofar → sofar.sh — over bare `sofar` (held by npm internally
+- [D7·qgae] 2026-07-30 Homebrew formula sources the immutable npm registry tarball — over a GitHub release tarball source, or a from-source build
 Earlier rejected approaches — do NOT re-propose (2 older):
-- [D1] Option A, any event since last write-back
-- [D2] The pure initiative-scoped counter alone
+- [D1·bnjy] Option A, any event since last write-back
+- [D2·x12z] The pure initiative-scoped counter alone
 
 Next ids: D8 (decision), M1 (memory)
 
@@ -232,7 +242,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (3677 bytes) ==
+== digest:hook (3743 bytes) ==
 # Sofar status: speed
 
 Goal: Cut the fresh-session pattern's felt latency: no empty write-back waits, pinned-fast shims, no per-session spawn, and orientation that names its files.
@@ -261,14 +271,14 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (last 5 of 7; full text in decisions/D<n>.md):
-- [D3] 2026-07-20 T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sof… — over (a) One shared Server/ToolContext for all HTTP clients
-- [D4] 2026-07-28 D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segme… — over Logging every Bash command as today
-- [D5] 2026-07-28 D2 record-hygiene: SessionStart appends nothing — over Eager registration in the SessionStart hook
-- [D6] 2026-07-30 npm package renamed @alignlabs/sofar → sofar.sh — over bare `sofar` (held by npm internally
-- [D7] 2026-07-30 Homebrew formula sources the immutable npm registry tarball — over a GitHub release tarball source, or a from-source build
+- [D3·b3n4] 2026-07-20 T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sof… — over (a) One shared Server/ToolContext for all HTTP clients
+- [D4·n3b4] 2026-07-28 D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segme… — over Logging every Bash command as today
+- [D5·ztmb] 2026-07-28 D2 record-hygiene: SessionStart appends nothing — over Eager registration in the SessionStart hook
+- [D6·4d4k] 2026-07-30 npm package renamed @alignlabs/sofar → sofar.sh — over bare `sofar` (held by npm internally
+- [D7·qgae] 2026-07-30 Homebrew formula sources the immutable npm registry tarball — over a GitHub release tarball source, or a from-source build
 Earlier rejected approaches — do NOT re-propose (2 older):
-- [D1] Option A, any event since last write-back
-- [D2] The pure initiative-scoped counter alone
+- [D1·bnjy] Option A, any event since last write-back
+- [D2·x12z] The pure initiative-scoped counter alone
 
 Next ids: D8 (decision), M1 (memory)
 
@@ -285,16 +295,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the speed record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the speed record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (3234 bytes) ==
+== digest:lane (3276 bytes) ==
 # Sofar: quick-work lane (speed)
 
 Goal: Cut the fresh-session pattern's felt latency: no empty write-back waits, pinned-fast shims, no per-session spawn, and orientation that names its files.
@@ -314,14 +324,14 @@ Recent quick work (10 sessions, 7 decisions since 2026-07-20; last 5):
 - 2026-07-27 claude-code — 4 commands
 
 Recent decisions (last 5 of 7; full text in decisions/D<n>.md):
-- [D3] 2026-07-20 T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sof… — over (a) One shared Server/ToolContext for all HTTP clients
-- [D4] 2026-07-28 D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segme… — over Logging every Bash command as today
-- [D5] 2026-07-28 D2 record-hygiene: SessionStart appends nothing — over Eager registration in the SessionStart hook
-- [D6] 2026-07-30 npm package renamed @alignlabs/sofar → sofar.sh — over bare `sofar` (held by npm internally
-- [D7] 2026-07-30 Homebrew formula sources the immutable npm registry tarball — over a GitHub release tarball source, or a from-source build
+- [D3·b3n4] 2026-07-20 T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sof… — over (a) One shared Server/ToolContext for all HTTP clients
+- [D4·n3b4] 2026-07-28 D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segme… — over Logging every Bash command as today
+- [D5·ztmb] 2026-07-28 D2 record-hygiene: SessionStart appends nothing — over Eager registration in the SessionStart hook
+- [D6·4d4k] 2026-07-30 npm package renamed @alignlabs/sofar → sofar.sh — over bare `sofar` (held by npm internally
+- [D7·qgae] 2026-07-30 Homebrew formula sources the immutable npm registry tarball — over a GitHub release tarball source, or a from-source build
 Earlier rejected approaches — do NOT re-propose (2 older):
-- [D1] Option A, any event since last write-back
-- [D2] The pure initiative-scoped counter alone
+- [D1·bnjy] Option A, any event since last write-back
+- [D2·x12z] The pure initiative-scoped counter alone
 
 Next ids: D8 (decision), M1 (memory)
 
@@ -330,7 +340,7 @@ Git: speed @ a1b2c3d — no origin ref — never pushed
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (2261 bytes) ==
+== digest:quiet (2303 bytes) ==
 # Sofar status: speed
 
 Goal: Cut the fresh-session pattern's felt latency: no empty write-back waits, pinned-fast shims, no per-session spawn, and orientation that names its files.
@@ -347,14 +357,14 @@ Phases:
 Progress: 4/4 tasks done (100%) across 1 phase(s)
 
 Recent decisions (last 5 of 7; full text in decisions/D<n>.md):
-- [D3] 2026-07-20 T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sof… — over (a) One shared Server/ToolContext for all HTTP clients
-- [D4] 2026-07-28 D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segme… — over Logging every Bash command as today
-- [D5] 2026-07-28 D2 record-hygiene: SessionStart appends nothing — over Eager registration in the SessionStart hook
-- [D6] 2026-07-30 npm package renamed @alignlabs/sofar → sofar.sh — over bare `sofar` (held by npm internally
-- [D7] 2026-07-30 Homebrew formula sources the immutable npm registry tarball — over a GitHub release tarball source, or a from-source build
+- [D3·b3n4] 2026-07-20 T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sof… — over (a) One shared Server/ToolContext for all HTTP clients
+- [D4·n3b4] 2026-07-28 D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segme… — over Logging every Bash command as today
+- [D5·ztmb] 2026-07-28 D2 record-hygiene: SessionStart appends nothing — over Eager registration in the SessionStart hook
+- [D6·4d4k] 2026-07-30 npm package renamed @alignlabs/sofar → sofar.sh — over bare `sofar` (held by npm internally
+- [D7·qgae] 2026-07-30 Homebrew formula sources the immutable npm registry tarball — over a GitHub release tarball source, or a from-source build
 Earlier rejected approaches — do NOT re-propose (2 older):
-- [D1] Option A, any event since last write-back
-- [D2] The pure initiative-scoped counter alone
+- [D1·bnjy] Option A, any event since last write-back
+- [D2·x12z] The pure initiative-scoped counter alone
 
 Next ids: D8 (decision), M1 (memory)
 
@@ -364,7 +374,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6030 bytes) ==
+== digest:cap (6034 bytes) ==
 # Sofar status: speed
 
 Goal: Cut the fresh-session pattern's felt latency: no empty write-back waits, pinned-fast shims, no per-session spawn, and orientation that names its files.
@@ -392,13 +402,13 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the speed record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the speed record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -433,58 +443,58 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D6·4d4k 2026-07-30 — chose npm package renamed @alignlabs/sofar → sofar.sh (unscoped, matches the sofar.sh…
 - D7·qgae 2026-07-30 — chose Homebrew formula sources the immutable npm registry tarball (registry.npmjs.org…
 
-== shard decisions/D1.md (1908 bytes) ==
+== shard decisions/D1.md (1914 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-07-20
+D1·bnjy — 2026-07-20
 chose: T1 gate-relevant drift = Option B, mutation-class only: the existing staleness/nudge counter total (freshnessTotal over freshness.events_since_writeback — file_touched + command_run + task_status_changed + note_added + decision_logged), initiative-scoped, read-side, computed at Stop; zero drift exits 0 silently even without a session_ended, nonzero or ANY drift-computation error enforces exactly today's block (fail closed). Gate only ever converts an exit-2 into an exit-0 — every today-exit-0 path (loop guard first, unreadable stdin, unbound repo, unregistered session, written-back session) is untouched.
 over: Option A, any event since last write-back — rejected because the SessionStart hook's own session_started event makes drift nonzero for every session, so the silent exit would never fire (dead code); also considered widening B to count plan_updated/phase_status_changed, rejected for this task.
 because: B reuses the ONE existing drift definition shared by the UserPromptSubmit nudge and the staleness line, so gate/nudge/staleness can never disagree, and pure reads emit no events so they naturally never gate. Accepted gaps, stated: (1) plan_updated/phase_status_changed stay uncounted, matching the staleness counter today — a plan-only session ends ungated since the plan event is already durable in the record; widening the counter later must widen all three surfaces together via a new decision. (2) Drift is initiative-scoped, so a read-only session on a record left drifted by an earlier writer still gates — it becomes the write-back of record for that drift; no regression, that session is blocked today too. Existing zero-drift Stop tests (hooks.test.ts) are amended to seed drift; SPEC §Hooks + §Acceptance Phase 3 wording updated to drift-qualified enforcement.
 
-== shard decisions/D2.md (1358 bytes) ==
+== shard decisions/D2.md (1364 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-07-20
+D2·x12z — 2026-07-20
 chose: T1 refinement: the Stop gate's silent exit requires BOTH zero initiative-wide freshness drift AND no derived mechanical activity (BD44 session.activity) on the stopping session itself — gate-relevant drift = counter total OR own-session activity.
 over: The pure initiative-scoped counter alone (the first T1 decision as originally scoped), which the Phase 7 acceptance disproved: concurrent session A's write-back resets the shared counter, so unwritten session B — with real task/file work — would exit silently and its summary/next_action would never land, breaking the Phase 7 "independent Stop gates" law.
 because: session.activity is an existing read-side derivation (zero new event types) that attributes file_touched/command_run/task_status_changed by envelope.session, so an unwritten session that did mechanical work stays gated regardless of who reset the shared counter. Known asymmetry accepted and documented: activity excludes note_added/decision_logged (BD44 scope), so a session whose ONLY act was a decision/note, absorbed by a later concurrent write-back, ends ungated — the event is durable in the record and a postdating write-back acknowledged it. All five commissioned T1 behaviors unchanged; phase-7 tests pass unmodified.
 
-== shard decisions/D3.md (1733 bytes) ==
+== shard decisions/D3.md (1739 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-07-20
+D3·b3n4 — 2026-07-20
 chose: T3: serve the frozen 7-tool MCP surface over streamable HTTP at /mcp on the EXISTING `sofar serve` daemon (SDK StreamableHTTPServerTransport, sessions keyed by mcp-session-id), with a FRESH SofarServerHandle — own ToolContext and active-session pin — created per MCP session, and all transports closed on daemon close. stdio (`sofar mcp`) stays the default and the only transport `sofar init` registers; HTTP is opt-in via a documented .mcp.json entry {type:"http", url:"http://127.0.0.1:4173/mcp"}. Zero new dependencies (SDK 1.29.0 already ships both transports).
 over: (a) One shared Server/ToolContext for all HTTP clients — rejected: the BD58 active-session pin would be shared across concurrent Claude sessions, recreating exactly the Phase 11 misroute that Phase 12 hardened against. (b) A separate `sofar mcp --http` daemon — rejected: a second long-lived process to manage defeats the no-per-session-spawn goal; serve is already the resident localhost process. (c) Making HTTP the default — rejected: zero-config users must lose nothing.
 because: Sessions connect to a running server instead of paying a per-session `sofar mcp` spawn. Guard-rail reading: "the state server serves JSON on localhost — nothing more" holds — /mcp is JSON-RPC bound to 127.0.0.1, no UI/sync/telemetry, and the 7-tool surface is byte-frozen (transport change only, parity-tested stdio vs HTTP). Daemon-absent fallback is fail-fast connection refusal (never a hang, pinned by test); documented remedy: start `sofar serve` or keep the stdio config. Serve banner wording gains "/mcp MCP" — the cli-ui banner pins update with it.
 
-== shard decisions/D4.md (1045 bytes) ==
+== shard decisions/D4.md (1051 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-07-28
+D4·n3b4 — 2026-07-28
 chose: D1 record-hygiene: PostToolUse appends nothing for a Bash command whose every shell segment leads with `git` or `sofar` (quote-unaware split; any ambiguity resolves toward logging)
 over: Logging every Bash command as today; or sweeping the dirty record with an auto-commit at SessionEnd
 because: The record could never settle: committing it is itself a Bash call, so PostToolUse appended an event about committing the record — dirty the instant it was clean. A clean tree requires some record-committing action that appends zero events. Auto-commit only converts dirty-tree into unpushed-commit, so it does not break the loop. Nothing is lost: the fold counts command_run and never reads `cmd` (bare tally in recordActivity, explicit no-op in applyEvent), and git/sofar each keep their own ledger. Counting a commit as drift was backwards — drift means the record moved since the last write-back, and committing is the act of recording.
 
-== shard decisions/D5.md (936 bytes) ==
+== shard decisions/D5.md (942 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-07-28
+D5·ztmb — 2026-07-28
 chose: D2 record-hygiene: SessionStart appends nothing; sessions register lazily on their first real event (start_session unknown-id branch, or PostToolUse registering before its append)
 over: Eager registration in the SessionStart hook (the prior behavior)
 because: Opening a session dirtied the record before any work existed, and a session that only read and exited still minted session_started + session_closed + a permanent tracked sessions/<id>.md for having done nothing (3 of 4 untracked files in the observed dirty tree were exactly this). Safe because the adopt-by-id line comes from the hook payload not the log, and fold attachActivity merges activity by session id after the full pass, so registration order is irrelevant. The Stop gate already exits 0 for unregistered sessions, so a do-nothing session is correctly ungated.
 
-== shard decisions/D6.md (928 bytes) ==
+== shard decisions/D6.md (934 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-07-30
+D6·4d4k — 2026-07-30
 chose: npm package renamed @alignlabs/sofar → sofar.sh (unscoped, matches the sofar.sh domain, socket.io precedent); bin stays `sofar`; @alignlabs/sofar to be deprecated with a pointer after first publish
 over: bare `sofar` (held by npm internally — never published, no moniker collision, publish still blocked); sofar-cli/getsofar variants; a new org scope like @sofarhq; petitioning npm support and waiting
 because: sofar.sh is the strongest brand match available: identical to the domain, unscoped, and its whole moniker-collision class (sofarsh/sofar-sh/sofar_sh) is empty so npm's typosquat rule cannot block it. Historical record text and the canonical-serialize fixture keep the old name (history, never rewritten); existing @alignlabs installs have PACKAGE_NAME baked in, so migration relies on the deprecation notice.
 
-== shard decisions/D7.md (725 bytes) ==
+== shard decisions/D7.md (731 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D7 — 2026-07-30
+D7·qgae — 2026-07-30
 chose: Homebrew formula sources the immutable npm registry tarball (registry.npmjs.org/sofar.sh/-/sofar.sh-VERSION.tgz) + npm std_npm_args install
 over: a GitHub release tarball source, or a from-source build
 because: the repo cuts no GitHub releases at all, and the registry tarball is already the exact artifact npm/bun/pnpm users receive — one artifact behind every install path, so brew can never drift from npm. dist/cli.js is fully bundled with zero runtime deps, so the formula needs only depends_on node. Verified end-to-end: installs, brew test passes (--version + init scaffolds .sofar/), brew audit --strict clean.

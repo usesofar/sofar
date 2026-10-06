@@ -1,4 +1,4 @@
-== options (42492 bytes) ==
+== options (43020 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -25,18 +25,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -44,18 +47,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -110,18 +116,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -129,18 +138,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -158,13 +170,13 @@
     ]
   }
 }
-== status (5755 bytes) ==
+== status (5761 bytes) ==
 # record-integrity
 
 Goal: Stop cross-initiative event misroutes: pin writes to a session's home initiative, detect split sessions, and give parallel sessions awareness of each other.
 
 Standing constraints — obey verbatim (1):
-- [D9] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
+- [D9·v5te] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
 Progress: 11/11 tasks done (100%) across 4 phase(s)
 
 Phases:
@@ -228,7 +240,7 @@ Files touched (29):
 - /Users/jins/IO/sofar/packages/engine/src/cli/upgrade.ts
 - /Users/jins/IO/sofar/.sofar/repo.md
 
-== digest:plain (3449 bytes) ==
+== digest:plain (3509 bytes) ==
 # Sofar status: record-integrity
 
 Goal: Stop cross-initiative event misroutes: pin writes to a session's home initiative, detect split sessions, and give parallel sessions awareness of each other.
@@ -251,27 +263,27 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] CLI `sofar event append` routes by BRANCH only — it never consults the session's on-disk home, so it is the one write path with no pin protection. runAppend (packages/engine/src/cli/event.ts:1332) calls ctx.resolveInitiative(slug) = explicit arg, else branch, else bindings.json.…
 
 Recent decisions (last 5 of 9; full text in decisions/D<n>.md):
-- [D5] 2026-08-02 Bound the parallel-wrap window by this session's own liveness — over Adding a "already told you" marker to suppress repeats, or widening t…
-- [D6] 2026-08-03 start_session adopts an ENDED session — over Reopening an ended session at fold level by clearing ended/summary, o…
-- [D7] 2026-08-03 Unbind push state from the parallel-wrap line — over Leaving push state as a rider on the wrap line
-- [D8] 2026-08-03 end_session keeps the pin after the write-back, and a write-back naming a non-active sess… — over Keeping the clear and fixing only end_session's fallback
-- [D9] 2026-08-08 (rule below) homeInitiative resolves a session's home by the LATEST sess… — over Keeping the preferred-first short-circuit
+- [D5·31xn] 2026-08-02 Bound the parallel-wrap window by this session's own liveness — over Adding a "already told you" marker to suppress repeats, or widening t…
+- [D6·yxb3] 2026-08-03 start_session adopts an ENDED session — over Reopening an ended session at fold level by clearing ended/summary, o…
+- [D7·qxxy] 2026-08-03 Unbind push state from the parallel-wrap line — over Leaving push state as a rider on the wrap line
+- [D8·9yq0] 2026-08-03 end_session keeps the pin after the write-back, and a write-back naming a non-active sess… — over Keeping the clear and fixing only end_session's fallback
+- [D9·v5te] 2026-08-08 (rule below) homeInitiative resolves a session's home by the LATEST sess… — over Keeping the preferred-first short-circuit
 Earlier rejected approaches — do NOT re-propose (4 older):
-- [D1] A new .sofar/sessions.json index mapping session_id to slug, written …
-- [D2] Pinning hooks alone (the original Phase 1 scope), or using envelope.s…
-- [D3] Repairing the splits with correction events, or leaving every split a…
-- [D4] Voiding leaked events in their wrong initiative and re-appending them…
+- [D1·8gyv] A new .sofar/sessions.json index mapping session_id to slug, written …
+- [D2·cwj5] Pinning hooks alone (the original Phase 1 scope), or using envelope.s…
+- [D3·gzne] Repairing the splits with correction events, or leaving every split a…
+- [D4·5h0z] Voiding leaked events in their wrong initiative and re-appending them…
 
 Next ids: D10 (decision), M2 (memory)
 
 Standing constraints — obey verbatim (1):
-- [D9] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
+- [D9·v5te] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (5005 bytes) ==
+== digest:hook (5089 bytes) ==
 # Sofar status: record-integrity
 
 Goal: Stop cross-initiative event misroutes: pin writes to a session's home initiative, detect split sessions, and give parallel sessions awareness of each other.
@@ -306,16 +318,16 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (last 5 of 9; full text in decisions/D<n>.md):
-- [D5] 2026-08-02 Bound the parallel-wrap window by this session's own liveness — over Adding a "already told you" marker to suppress repeats, or widening t…
-- [D6] 2026-08-03 start_session adopts an ENDED session — over Reopening an ended session at fold level by clearing ended/summary, o…
-- [D7] 2026-08-03 Unbind push state from the parallel-wrap line — over Leaving push state as a rider on the wrap line
-- [D8] 2026-08-03 end_session keeps the pin after the write-back, and a write-back naming a non-active sess… — over Keeping the clear and fixing only end_session's fallback
-- [D9] 2026-08-08 (rule below) homeInitiative resolves a session's home by the LATEST sess… — over Keeping the preferred-first short-circuit
+- [D5·31xn] 2026-08-02 Bound the parallel-wrap window by this session's own liveness — over Adding a "already told you" marker to suppress repeats, or widening t…
+- [D6·yxb3] 2026-08-03 start_session adopts an ENDED session — over Reopening an ended session at fold level by clearing ended/summary, o…
+- [D7·qxxy] 2026-08-03 Unbind push state from the parallel-wrap line — over Leaving push state as a rider on the wrap line
+- [D8·9yq0] 2026-08-03 end_session keeps the pin after the write-back, and a write-back naming a non-active sess… — over Keeping the clear and fixing only end_session's fallback
+- [D9·v5te] 2026-08-08 (rule below) homeInitiative resolves a session's home by the LATEST sess… — over Keeping the preferred-first short-circuit
 Earlier rejected approaches — do NOT re-propose (4 older):
-- [D1] A new .sofar/sessions.json index mapping session_id to slug, written …
-- [D2] Pinning hooks alone (the original Phase 1 scope), or using envelope.s…
-- [D3] Repairing the splits with correction events, or leaving every split a…
-- [D4] Voiding leaked events in their wrong initiative and re-appending them…
+- [D1·8gyv] A new .sofar/sessions.json index mapping session_id to slug, written …
+- [D2·cwj5] Pinning hooks alone (the original Phase 1 scope), or using envelope.s…
+- [D3·gzne] Repairing the splits with correction events, or leaving every split a…
+- [D4·5h0z] Voiding leaked events in their wrong initiative and re-appending them…
 
 Next ids: D10 (decision), M2 (memory)
 
@@ -332,18 +344,18 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (1):
-- [D9] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
+- [D9·v5te] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the record-integrity record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the record-integrity record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (5076 bytes) ==
+== digest:lane (5136 bytes) ==
 # Sofar: quick-work lane (record-integrity)
 
 Goal: Stop cross-initiative event misroutes: pin writes to a session's home initiative, detect split sessions, and give parallel sessions awareness of each other.
@@ -368,16 +380,16 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] CLI `sofar event append` routes by BRANCH only — it never consults the session'…
 
 Recent decisions (last 5 of 9; full text in decisions/D<n>.md):
-- [D5] 2026-08-02 Bound the parallel-wrap window by this session's own liveness — over Adding a "already told you" marker to suppress repeats, or widening t…
-- [D6] 2026-08-03 start_session adopts an ENDED session — over Reopening an ended session at fold level by clearing ended/summary, o…
-- [D7] 2026-08-03 Unbind push state from the parallel-wrap line — over Leaving push state as a rider on the wrap line
-- [D8] 2026-08-03 end_session keeps the pin after the write-back, and a write-back naming a non-active sess… — over Keeping the clear and fixing only end_session's fallback
-- [D9] 2026-08-08 (rule below) homeInitiative resolves a session's home by the LATEST sess… — over Keeping the preferred-first short-circuit
+- [D5·31xn] 2026-08-02 Bound the parallel-wrap window by this session's own liveness — over Adding a "already told you" marker to suppress repeats, or widening t…
+- [D6·yxb3] 2026-08-03 start_session adopts an ENDED session — over Reopening an ended session at fold level by clearing ended/summary, o…
+- [D7·qxxy] 2026-08-03 Unbind push state from the parallel-wrap line — over Leaving push state as a rider on the wrap line
+- [D8·9yq0] 2026-08-03 end_session keeps the pin after the write-back, and a write-back naming a non-active sess… — over Keeping the clear and fixing only end_session's fallback
+- [D9·v5te] 2026-08-08 (rule below) homeInitiative resolves a session's home by the LATEST sess… — over Keeping the preferred-first short-circuit
 Earlier rejected approaches — do NOT re-propose (4 older):
-- [D1] A new .sofar/sessions.json index mapping session_id to slug, written …
-- [D2] Pinning hooks alone (the original Phase 1 scope), or using envelope.s…
-- [D3] Repairing the splits with correction events, or leaving every split a…
-- [D4] Voiding leaked events in their wrong initiative and re-appending them…
+- [D1·8gyv] A new .sofar/sessions.json index mapping session_id to slug, written …
+- [D2·cwj5] Pinning hooks alone (the original Phase 1 scope), or using envelope.s…
+- [D3·gzne] Repairing the splits with correction events, or leaving every split a…
+- [D4·5h0z] Voiding leaked events in their wrong initiative and re-appending them…
 
 Next ids: D10 (decision), M2 (memory)
 
@@ -385,11 +397,11 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: feature/record-integrity @ a1b2c3d — in sync with origin/feature/record-integrity
 
 Standing constraints — obey verbatim (1):
-- [D9] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
+- [D9·v5te] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (3535 bytes) ==
+== digest:quiet (3595 bytes) ==
 # Sofar status: record-integrity
 
 Goal: Stop cross-initiative event misroutes: pin writes to a session's home initiative, detect split sessions, and give parallel sessions awareness of each other.
@@ -412,29 +424,29 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] CLI `sofar event append` routes by BRANCH only — it never consults the session's on-disk home, so it is the one write path with no pin protection. runAppend (packages/engine/src/cli/event.ts:1332) calls ctx.resolveInitiative(slug) = explicit arg, else branch, else bindings.json.…
 
 Recent decisions (last 5 of 9; full text in decisions/D<n>.md):
-- [D5] 2026-08-02 Bound the parallel-wrap window by this session's own liveness — over Adding a "already told you" marker to suppress repeats, or widening t…
-- [D6] 2026-08-03 start_session adopts an ENDED session — over Reopening an ended session at fold level by clearing ended/summary, o…
-- [D7] 2026-08-03 Unbind push state from the parallel-wrap line — over Leaving push state as a rider on the wrap line
-- [D8] 2026-08-03 end_session keeps the pin after the write-back, and a write-back naming a non-active sess… — over Keeping the clear and fixing only end_session's fallback
-- [D9] 2026-08-08 (rule below) homeInitiative resolves a session's home by the LATEST sess… — over Keeping the preferred-first short-circuit
+- [D5·31xn] 2026-08-02 Bound the parallel-wrap window by this session's own liveness — over Adding a "already told you" marker to suppress repeats, or widening t…
+- [D6·yxb3] 2026-08-03 start_session adopts an ENDED session — over Reopening an ended session at fold level by clearing ended/summary, o…
+- [D7·qxxy] 2026-08-03 Unbind push state from the parallel-wrap line — over Leaving push state as a rider on the wrap line
+- [D8·9yq0] 2026-08-03 end_session keeps the pin after the write-back, and a write-back naming a non-active sess… — over Keeping the clear and fixing only end_session's fallback
+- [D9·v5te] 2026-08-08 (rule below) homeInitiative resolves a session's home by the LATEST sess… — over Keeping the preferred-first short-circuit
 Earlier rejected approaches — do NOT re-propose (4 older):
-- [D1] A new .sofar/sessions.json index mapping session_id to slug, written …
-- [D2] Pinning hooks alone (the original Phase 1 scope), or using envelope.s…
-- [D3] Repairing the splits with correction events, or leaving every split a…
-- [D4] Voiding leaked events in their wrong initiative and re-appending them…
+- [D1·8gyv] A new .sofar/sessions.json index mapping session_id to slug, written …
+- [D2·cwj5] Pinning hooks alone (the original Phase 1 scope), or using envelope.s…
+- [D3·gzne] Repairing the splits with correction events, or leaving every split a…
+- [D4·5h0z] Voiding leaked events in their wrong initiative and re-appending them…
 
 Next ids: D10 (decision), M2 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (1):
-- [D9] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
+- [D9·v5te] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6040 bytes) ==
+== digest:cap (6045 bytes) ==
 # Sofar status: record-integrity
 
 Goal: Stop cross-initiative event misroutes: pin writes to a session's home initiative, detect split sessions, and give parallel sessions awareness of each other.
@@ -465,15 +477,15 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (1):
-- [D9] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
+- [D9·v5te] A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the record-integrity record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the record-integrity record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -527,74 +539,74 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 
 - M1 2026-08-10 — CLI `sofar event append` routes by BRANCH only — it never consults the session'…
 
-== shard decisions/D1.md (1198 bytes) ==
+== shard decisions/D1.md (1204 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-01
+D1·8gyv — 2026-08-01
 chose: Derive a session's home initiative from the event logs themselves — scan for the session's earliest session_started, checking the branch-bound initiative first and only falling through to siblings on a miss
 over: A new .sofar/sessions.json index mapping session_id to slug, written at registration and read by hooks
 because: The home is ALREADY in the truth log — session_started names it uniquely — so an index file would be duplicated state that can desync, needs pruning (99 sessions and counting), and forces a SPEC Record-layout change plus a gitignore decision (routing is a local runtime fact, but .sofar/ is committed wholesale). Deriving costs one file read on the common path (branch is correct → hit on the first log checked) and only pays the sibling scan in exactly the case where a misroute would otherwise have happened; total log volume is ~350KB. It is also self-healing: sessions registered before this fix get pinned correctly with no migration. Same philosophy as reading git state rather than logging it — a fact with an authoritative home is read, never copied.
 
-== shard decisions/D2.md (982 bytes) ==
+== shard decisions/D2.md (988 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-08-01
+D2·cwj5 — 2026-08-01
 chose: Pin start_session to the session home as well as the hooks — branch resolution now applies only when `initiative` is explicit or the session has no home
 over: Pinning hooks alone (the original Phase 1 scope), or using envelope.source to tell a deliberate re-home from a misroute
 because: Measuring the 14 double-registrations in this repo inverted the hypothesis: 11 are hook-then-claude-code across two initiatives, i.e. the tear is NOT mostly a mid-session branch switch but lazy registration racing start_session — the hook registers in the branch's initiative, the binding moves, and start_session registers the SAME id again elsewhere. Hook pinning alone would have left those 11 intact. The source-based heuristic was rejected by the same data: the second registration is usually claude-code, so treating claude-code as deliberate would suppress 11 of 14 real splits.
 
-== shard decisions/D3.md (983 bytes) ==
+== shard decisions/D3.md (989 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-08-01
+D3·gzne — 2026-08-01
 chose: Accept the 21 pre-existing splits as history — no correction-event repair — and grade doctor's session-routing findings by LIVENESS: FAIL only when a split involves a session still open, WARN when every session in it has ended
 over: Repairing the splits with correction events, or leaving every split at FAIL
 because: User ruling: the pin handles everything going forward, so retro-repair buys nothing. But a permanently red doctor trains people to ignore it, and 0/3450 events carry any self-evident misplacement marker (envelope.initiative always matches its directory), so repair would be inferential anyway — asserting a guess as a correction event is worse than leaving accurate history. Liveness is the honest severity axis: an ended split is settled and unfixable by construction, while an open one is a pre-fix session still actively tearing and worth blocking on.
 
-== shard decisions/D4.md (1097 bytes) ==
+== shard decisions/D4.md (1103 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-08-01
+D4·5h0z — 2026-08-01
 chose: Repair scope = close the one abandoned session (40742c6d in harness-build) and nothing else; reattributing the 780 leaked events is rejected as unsound
 over: Voiding leaked events in their wrong initiative and re-appending them into the right one
 because: Reattribution is not expressible in this log's semantics. correction events VOID by ref (fold.ts pass 1) — they delete, they cannot move — and replay order is normatively ulid order (task 13.1, D-sync-1) so replicas converge. A re-appended event therefore carries a fresh ulid encoding now and sorts to the END of the target log, folding after that session's session_ended and after every task that was active at the real time. That fabricates a timeline that never happened, which is strictly worse than accurate history filed in the wrong place. Closing 40742c6d is different in kind: the session genuinely ended without a write-back in July, so session_closed asserts only what is true, and it takes doctor from 1 FAIL to exit 0.
 
-== shard decisions/D5.md (1016 bytes) ==
+== shard decisions/D5.md (1022 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-08-02
+D5·31xn — 2026-08-02
 chose: Bound the parallel-wrap window by this session's own liveness (skip entirely when me.ended is set), and compose next_action + push state before the summary so the summary absorbs the leftover budget
 over: Adding a "already told you" marker to suppress repeats, or widening the 420-char budget
 because: The defect was not repetition, it was the window: checking only s.ended >= me.started bounds below and not above, so an ENDED session kept reporting siblings that wrapped after it closed, forever, on every prompt. An ended session is not working and has no window for anything to have wrapped inside — one guard removes the whole class. Keeping it stateless preserves the design property that made the line cheap. Budget order is the same kind of fix: the summary is the least actionable field and was rendering first, so it clipped away the next action; reserving the tail costs nothing and cannot regress.
 
-== shard decisions/D6.md (1161 bytes) ==
+== shard decisions/D6.md (1167 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-08-03
+D6·yxb3 — 2026-08-03
 chose: start_session adopts an ENDED session (pin-only, no append, history untouched), and the parallel-wrap window anchors on this session's last write-back rather than its liveness
 over: Reopening an ended session at fold level by clearing ended/summary, or keeping the 0.12.1 rule that suppressed the line for any ended session
 because: Tracing a real parallel session (3c1146f3 rewrote README.md and wrapped at 09:00:38 while 01KZ3DKC63 was live, with nothing reported) showed the 0.12.1 guard was treating a symptom. Defects 1 and 2 were one bug: the phantom sibling was the agent's OWN replacement identity, minted only because start_session refused an ended id. Fixing the identity removes the phantom, and the window then needs a real bound — the last write-back, which is the same "since I absorbed the record" frame the drift counter uses, and unlike `started` it actually closes. Fold-level reopen was rejected because clearing summary to re-arm the Stop gate erases the prior write-back from sessions/<id>.md while its event still stands in the log.
 
-== shard decisions/D7.md (1798 bytes) ==
+== shard decisions/D7.md (1804 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D7 — 2026-08-03
+D7·qxxy — 2026-08-03
 chose: Unbind push state from the parallel-wrap line: render it as its own unconditional UserPromptSubmit line (record-integrity 4.4), ordered news → state → nudge, with the 420-char budget now bounding the wrap line alone rather than the whole hook payload
 over: Leaving push state as a rider on the wrap line (the 4.2 shape); gating a standalone line on "not synced" only, so the pushed case stays invisible; or walking the commit graph to name which commits are unpushed and attribute them to sessions
 because: The 4.2 coupling meant a session learned push state ONLY when a sibling happened to end with a write-back inside its window — so a long-lived window saw it once at SessionStart and thereafter by luck. That lost the initiative's own motivating case a second time: a window committed the README rewrite, a sibling pushed it with the 0.13.0 release, and the window had to reconstruct the answer from git log. (The immediate silence was 0.12.1's me.ended suppression, already fixed in 0.13.0 — but the coupling is the standing defect underneath.) Unbinding is nearly free: refs-only state, no subprocess, a line bounded by construction, and the same stateless re-fire as the drift nudge — consistent with D5 rejecting an "already told you" marker, since repeating a true fact costs less than storing one. Gating on "not synced" was rejected because the pushed case is exactly what the user asked about. The graph walk was rejected because per-session commit attribution needs state the record deliberately does not keep (git exempt under D1) and time-window attribution misreads interleaved parallel sessions; "is the tip I can see on origin" is the question refs answer honestly.
 
-== shard decisions/D8.md (1351 bytes) ==
+== shard decisions/D8.md (1357 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D8 — 2026-08-03
+D8·9yq0 — 2026-08-03
 chose: end_session keeps the pin after the write-back, and a write-back naming a non-active session resolves home → branch (record-integrity 4.5)
 over: Keeping the clear and fixing only end_session's fallback; or teaching resolveWriteInitiative a home fallback (impossible — once the pin is cleared the context holds no session id at all); or keeping a cleared-but-remembered "last session" purely for routing
 because: Clearing the pin was the last place still assuming a write-back ends the session — a premise 0.13.0 already disproved twice (start_session adopts an ENDED session; the parallel-wrap window explicitly handles write-back-then-keep-working). It misrouted live: after the first write-back every later write fell through to branch resolution, and a sibling running `sofar new speed-2` rebound main mid-flight, so this session's second write-back landed in speed-2 while record-integrity showed no wrap-up. Fixing only end_session leaves the same hole for log_decision/update_task/add_note, which share resolveWriteInitiative and are equally stranded once the pin is gone. A pin is a routing key, not a liveness flag; liveness lives in the fold (ended/summary), which is untouched. Both regression tests fail against the pre-fix code.
 
-== shard decisions/D9.md (2819 bytes) ==
+== shard decisions/D9.md (2825 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D9 — 2026-08-08
+D9·v5te — 2026-08-08
 rule: A session's home is the LATEST session_started carrying its id, across every log. Never let the branch binding outrank a later registration — it may seed the candidate and break ties, never short-circuit the scan.
 chose: homeInitiative resolves a session's home by the LATEST session_started across EVERY log, including the branch-bound one: `preferred` is read first, seeds the candidate and breaks ties, but no longer short-circuits the scan. The scan is kept cheap by pruning any log whose mtime predates the standing candidate — mtime is a sound upper bound on the timestamps a log can hold, and every failure mode (bad stat, unparseable ts, checkout that bumped mtime) falls back to reading. Measured on a 40-log, 9.7 MB record: 8.95ms unpruned to 0.50ms, 2 logs read.
 over: Keeping the preferred-first short-circuit (one file read, but structurally unable to see a later deliberate re-home); an unpruned full scan on every hook (8.95ms per PostToolUse against a 100ms shim budget already spending 63-67ms); or ranking registrations by envelope source, so a `hook` session_started counts as weaker than a `claude-code` one.

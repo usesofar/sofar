@@ -1,4 +1,5 @@
 import type { DecisionState, InitiativeState } from './fold'
+import { suffixedHandle } from './handle'
 import { judge, type JudgeOptions, type JudgeState, type NoulAnswer, type Question } from './judge'
 import { lexicalCounts, rankLexical, type LexicalDoc } from './lexicon'
 import { retiredOrdinals } from './retire'
@@ -32,6 +33,8 @@ import { sides } from './reversal'
 /** A just-logged decision, with the `D<n>` it took. */
 export interface DecisionDraft {
   ordinal: number
+  /** `D<n>·<sfx>` once appended (r4-fixes U5): what a warning names it by. */
+  handle?: string
   chose: string
   over: string
   because: string
@@ -230,13 +233,14 @@ async function warningsFor(state: InitiativeState, draft: DecisionDraft, opts: J
     .filter((h) => h.asked.kind === 'contradiction' || !contradicted.has(h.asked.target.ordinal))
     .sort((a, b) => b.p - a.p || a.asked.target.ordinal - b.asked.target.ordinal)
     .slice(0, JUDGE_WARN_MAX)
-    .map(({ asked, how }) => line(draft.ordinal, asked, how))
+    .map(({ asked, how }) => line(draft.handle ?? `D${draft.ordinal}`, asked, how))
 }
 
-function line(ordinal: number, { kind, target }: Asked, how: string): string {
-  const k = `D${target.ordinal}`
+function line(handle: string, { kind, target }: Asked, how: string): string {
+  // Check-suffixed (r4-fixes U5): the target a merge cannot move.
+  const k = suffixedHandle(target.ordinal, target.decision.id)
   if (kind === 'contradiction') {
-    return `D${ordinal} may contradict standing ${k}: "${target.decision.rule}" (${how}). Follow ${k}; if the operator changed it, log a decision with "supersedes":"${k}" and a new rule.`
+    return `${handle} may contradict standing ${k}: "${target.decision.rule}" (${how}). Follow ${k}; if the operator changed it, log a decision with "supersedes":"${k}" and a new rule.`
   }
-  return `D${ordinal} may re-propose what ${k} rejected: "${clip(target.decision.over, 160)}" (${how}). Follow ${k}; if the operator changed it, log a decision with "supersedes":"${k}".`
+  return `${handle} may re-propose what ${k} rejected: "${clip(target.decision.over, 160)}" (${how}). Follow ${k}; if the operator changed it, log a decision with "supersedes":"${k}".`
 }

@@ -176,10 +176,10 @@ describe('batched write-back', () => {
     expect(ended.body).toMatchObject({
       ok: true,
       tasks_applied: 4,
-      decisions: ['D1', 'D2'],
+      decisions: [expect.stringMatching(/^D1·[0-9a-z]{4}$/), expect.stringMatching(/^D2·[0-9a-z]{4}$/)],
       memories: ['demo M1'],
       // Rule fidelity first, then the evidence judge (typed-judge 3.3): three note-less dones, one line.
-      warnings: [expect.stringContaining("D1's rule states 4xx"), expect.stringContaining('1.1, 1.2 and 1.3 marked done without cited evidence (no note)')],
+      warnings: [expect.stringMatching(/^D1·[0-9a-z]{4}'s rule states 4xx/), expect.stringContaining('1.1, 1.2 and 1.3 marked done without cited evidence (no note)')],
     })
 
     const filed = lines(f.eventsPath).slice(before)

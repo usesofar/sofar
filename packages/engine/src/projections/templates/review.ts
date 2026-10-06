@@ -1,4 +1,5 @@
 import { standingRules, type DecisionState, type InitiativeState, type PhaseState } from '../../core/fold'
+import { handleAt, suffixedHandle } from '../../core/handle'
 import { renderRule } from '../../core/rule-fidelity'
 import { doc } from './shared'
 
@@ -77,7 +78,7 @@ function constraintLines(decisions: readonly DecisionState[]): string[] {
   if (standing.length === 0) return ['- (none)']
   // The operator's words ride beside the rule (memory-lead D2): conformance
   // is checked against what was said, and the packet names what the rule adds.
-  return standing.map((entry) => `- [D${entry.ordinal}] ${entry.quote === undefined ? entry.rule : renderRule(entry.rule, entry.quote)}`)
+  return standing.map((entry) => `- [${handleAt(decisions, entry.ordinal)}] ${entry.quote === undefined ? entry.rule : renderRule(entry.rule, entry.quote)}`)
 }
 
 /**
@@ -87,7 +88,7 @@ function constraintLines(decisions: readonly DecisionState[]): string[] {
  */
 function rejectedLines(decisions: readonly DecisionState[]): string[] {
   if (decisions.length === 0) return ['- (none)']
-  return decisions.map((decision, i) => `- [D${i + 1}] ${decision.over}`)
+  return decisions.map((decision, i) => `- [${suffixedHandle(i + 1, decision.id)}] ${decision.over}`)
 }
 
 function taskLines(phase: PhaseState | undefined, state: InitiativeState): string[] {
@@ -253,7 +254,7 @@ export function renderReviewPacket(state: InitiativeState, input: ReviewPacketIn
       ? [
           '',
           '## Guarded rules this record already crossed',
-          ...state.guard_violations.map((v) => `- [D${v.decision}] ${v.guard} — ${v.subject}`),
+          ...state.guard_violations.map((v) => `- [${handleAt(state.decisions, v.decision)}] ${v.guard} — ${v.subject}`),
         ]
       : []),
     ...(openFindings.length > 0

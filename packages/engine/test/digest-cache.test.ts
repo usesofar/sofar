@@ -109,7 +109,7 @@ describe('session-start digest cache (rust-core 4.4)', () => {
     const want = ts()
     const tsBytes = readFileSync(file, 'utf8')
     expect(JSON.parse(tsBytes).v).toBe(DIGEST_CACHE_VERSION)
-    expect(DIGEST_CACHE_VERSION).toBe(4)
+    expect(DIGEST_CACHE_VERSION).toBe(5)
     expect(rust(), 'rust warm on the TypeScript file').toBe(want)
     rmSync(file)
     expect(rust(), 'rust cold').toBe(want)

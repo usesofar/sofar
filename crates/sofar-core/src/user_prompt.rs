@@ -87,7 +87,11 @@ fn session_guard_violations<'a>(
 
 /// `guardViolationLines`: ≤2 rules by ordinal, ≤3 subjects each.
 #[must_use]
-pub fn guard_violation_lines(violations: &[&GuardViolation], root: &Path) -> Vec<String> {
+pub fn guard_violation_lines(
+    violations: &[&GuardViolation],
+    root: &Path,
+    decisions: &[crate::fold::DecisionState],
+) -> Vec<String> {
     if violations.is_empty() {
         return Vec::new();
     }
@@ -118,8 +122,10 @@ pub fn guard_violation_lines(violations: &[&GuardViolation], root: &Path) -> Vec
         } else {
             String::new()
         };
+        #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+        let handle = crate::projections::handle_at(decisions, *ordinal as usize);
         lines.push(format!(
-            "sofar: [D{ordinal}] guard crossed — \"{}\" — {} event(s): {}{more} (guard: {}).",
+            "sofar: [{handle}] guard crossed — \"{}\" — {} event(s): {}{more} (guard: {}).",
             head.rule,
             group.len(),
             named.join(", "),
@@ -135,8 +141,20 @@ pub fn guard_violation_lines(violations: &[&GuardViolation], root: &Path) -> Vec
     lines
 }
 
-/// `/D(\d+)$/` on a lesson handle → `decisions/D<n>.md`.
+/// `/D(\d+)(?:·[0-9a-z]{4})?$/` on a lesson handle → `decisions/D<n>.md`.
 fn shard_of(handle: &str) -> Option<String> {
+    // The check suffix (r4-fixes U5) is not part of the shard's name.
+    let handle = match handle.rsplit_once('·') {
+        Some((head, suffix))
+            if suffix.chars().count() == 4
+                && suffix
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase()) =>
+        {
+            head
+        }
+        _ => handle,
+    };
     let digits = handle.len() - handle.trim_end_matches(|c: char| c.is_ascii_digit()).len();
     let head = &handle[..handle.len() - digits];
     (digits > 0 && head.ends_with('D')).then(|| format!("decisions/D{}.md", &handle[head.len()..]))
@@ -753,10 +771,8 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     if let Some(line) = reachable_peer_line(&siblings) {
         lines.push(line);
     }
-    let mut head: Vec<String> = guard_violation_lines(
-        &session_guard_violations(&state, session_id, me.ended.as_deref()),
-        root,
-    );
+    let crossed = session_guard_violations(&state, session_id, me.ended.as_deref());
+    let mut head: Vec<String> = guard_violation_lines(&crossed, root, &state.decisions);
     if let Some(prompt) = prompt
         && lessons_enabled()
     {
@@ -908,6 +924,7 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     lines.extend(guard_violation_lines(
         &session_guard_violations(&state, session_id, session.ended.as_deref()),
         root,
+        &state.decisions,
     ));
     // Decision checks ride the same block (D9/D10): they run only here, where
     // the write-back gate already holds the session. Under the test gate, only
@@ -1000,12 +1017,16 @@ fn stop_link_lines(state: &InitiativeState, session_id: &str, retired: &[usize])
             more += 1;
             continue;
         }
+        // Every handle check-suffixed (r4-fixes U5).
+        let handle = |n: usize| crate::projections::handle_at(&state.decisions, n);
         if let Some(h) = link.held {
             // A held link (r3-fixes 2.6, D18): why, and the answers.
-            let n = i + 1;
-            let (why, answers) = crate::status::held_ask(state, n, link, &live);
+            let n = handle(i + 1);
+            let (why, answers) = crate::status::held_ask(state, i + 1, link, &live);
+            #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+            let h = handle(h as usize);
             lines.push(format!(
-                "sofar: D{n}, filed this session, names D{h} as what it replaces, but {why}: the link is held and D{h} stays in force. Answer before stopping: {}.",
+                "sofar: {n}, filed this session, names {h} as what it replaces, but {why}: the link is held and {h} stays in force. Answer before stopping: {}.",
                 answers.join(", ")
             ));
             continue;
@@ -1019,16 +1040,16 @@ fn stop_link_lines(state: &InitiativeState, session_id: &str, retired: &[usize])
             .collect();
         let target = may
             .first()
-            .map_or_else(|| "D<n>".to_owned(), |n| format!("D{n}"));
+            .map_or_else(|| "D<n>".to_owned(), |&n| handle(n));
         let what = if may.is_empty() {
             String::new()
         } else {
-            let named: Vec<String> = may.iter().map(|n| format!("D{n}")).collect();
+            let named: Vec<String> = may.iter().map(|&n| handle(n)).collect();
             format!(" — it may replace {}", named.join(" or "))
         };
-        let n = i + 1;
+        let n = handle(i + 1);
         lines.push(format!(
-            "sofar: D{n} is a rule this session filed naming nothing it replaces{what}. Answer before stopping: `sofar supersedes D{n} {target}` if it does, `sofar supersedes D{n} none` if not."
+            "sofar: {n} is a rule this session filed naming nothing it replaces{what}. Answer before stopping: `sofar supersedes {n} {target}` if it does, `sofar supersedes {n} none` if not."
         ));
     }
     if more > 0 {

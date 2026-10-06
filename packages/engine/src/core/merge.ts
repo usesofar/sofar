@@ -3,6 +3,7 @@ import { closeSync, fstatSync, openSync, readFileSync, readSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SessionState } from './fold'
 import { gitDir } from './git'
+import { qualifiedHandle, suffixedHandle } from './handle'
 import { MEMORY_NOTICE_MAX, memoryHitsForSubject, scopeHitsForSubject, type GuardIndex } from './index-tier1'
 import { byCodeUnit } from './order'
 
@@ -361,7 +362,8 @@ export function mergeEntries(
     const abs = join(rootDir, file)
     for (const { decision: d, guarded, depth } of scopeHitsForSubject(index, 'path', abs)) {
       if (d.rule === undefined || d.until !== undefined || (retire && d.superseded_by !== undefined)) continue
-      const handle = d.initiative === slug ? `D${d.ordinal}` : `${d.initiative} D${d.ordinal}`
+      // Check-suffixed (r4-fixes U5): this block exists because a merge renumbers.
+      const handle = d.initiative === slug ? suffixedHandle(d.ordinal, d.id) : qualifiedHandle(d.initiative, d.ordinal, d.id)
       const line = `- [${handle}] ${guarded ? 'governs' : 'names'} ${file}: "${flatText(d.rule)}"`
       keep({ line, file, tier: guarded ? 0 : 1, at, depth, ts: d.ts, id: d.id })
     }

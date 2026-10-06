@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { decodeTime } from 'ulid'
+import { reachDecisionHandle } from '../core/handle'
 import { refreshLinks, type Link } from '../core/index-links'
 import { findWith, REACH_MAX_HOPS, resolveSeed, type ReachHit, type ReachIndex, type ReachResult } from '../core/index-reach'
 import { byCodeUnit } from '../core/order'
@@ -92,7 +93,7 @@ function lastWriteBack(rootDir: string): { ms: number; slug: string } | null {
 function hitHandle(rootDir: string, result: ReachResult, hit: ReachHit): string {
   switch (hit.kind) {
     case 'decision':
-      return `${hit.initiative} D${hit.ordinal ?? '?'}`
+      return reachDecisionHandle(hit.initiative, hit.ordinal, hit.id)
     case 'memory':
       return `${hit.initiative} M${hit.ordinal ?? '?'}`
     case 'task':
@@ -210,7 +211,7 @@ function gather(rootDir: string, index: ReachIndex, result: ReachResult): Atom[]
       hops: 0,
       time: Date.parse(match.ts) || 0,
       id: match.id,
-      handle: match.kind === 'decision' ? `${match.initiative} D${match.ordinal ?? '?'}` : `${match.initiative} note`,
+      handle: match.kind === 'decision' ? reachDecisionHandle(match.initiative, match.ordinal, match.id) : `${match.initiative} note`,
       relation: `matched ${match.terms.join(', ')}`,
       event: match.event_id,
       label: match.label,

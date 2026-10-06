@@ -1,0 +1,10 @@
+{
+  "tail_at": 6,
+  "seeds": [
+    71,
+    72,
+    73
+  ],
+  "order_independence": true,
+  "note": "r4-fixes U5: bind re-logs — a decision re-filed word for word but its check supersedes the one it copies (stamped), a chain of two, a plain re-log, a changed because (a real supersession), and an aliased entry a real change replaced. The fold marks each as any supersession; the render folds a re-log into its replacer as an alias. The tail starts at the second re-log"
+}

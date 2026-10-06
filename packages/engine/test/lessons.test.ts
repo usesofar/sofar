@@ -7,6 +7,7 @@ import { LESSON_MAX, LESSON_RUNNER_UP_RATIO, relevantLessons } from '../src/core
 import { handlePostTool, handleUserPrompt, LESSON_LINE_BUDGET } from '../src/cli/event'
 import { hookContext } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * r1-fixes 3.3 (D16) — relevant lessons at the prompt.
@@ -70,7 +71,7 @@ describe('relevantLessons — the ranking (D16)', () => {
     decided(f)
     const state = foldLog(f.eventsPath).state
     const hits = relevantLessons(state, 'we could just rewrite the committed log to scrub the credential out')
-    expect(hits[0]).toMatchObject({ handle: 'D2', text: 'scrubbing the committed log afterwards with a rewrite' })
+    expect(hits[0]).toMatchObject({ handle: expect.stringMatching(/^D2·[0-9a-z]{4}$/), text: 'scrubbing the committed log afterwards with a rewrite' })
     // The words are the asker's own, strongest first — the reason the line can be argued with.
     expect(hits[0]!.terms).toContain('rewrite')
     expect(hits[0]!.terms.length).toBeGreaterThanOrEqual(2)
@@ -93,7 +94,7 @@ describe('relevantLessons — the ranking (D16)', () => {
     decided(f)
     const state = foldLog(f.eventsPath).state
     const hits = relevantLessons(state, 'widen the SOURCES enum for cursor agent names and also rewrite the log')
-    expect(hits[0]!.handle).toBe('D1')
+    expect(bare(hits[0]!.handle)).toBe('D1')
     for (const h of hits.slice(1)) expect(h.score).toBeGreaterThanOrEqual(hits[0]!.score * LESSON_RUNNER_UP_RATIO)
   })
 
@@ -142,7 +143,7 @@ describe('sofar event user-prompt — the lessons line (r1-fixes 3.3, D16)', () 
     expect(out.exitCode).toBe(0)
     const line = out.stdout.split('\n').find((l) => l.includes('ruled out before'))
     expect(line).toBeDefined()
-    expect(line).toContain('[D2] scrubbing the committed log afterwards with a rewrite')
+    expect(line).toMatch(/\[D2·[0-9a-z]{4}\] scrubbing the committed log afterwards with a rewrite/)
     expect(line).toMatch(/\(matched: [^)]*rewrite/)
     expect(line).toContain('full text in decisions/D2.md')
     expect(line!.length).toBeLessThanOrEqual(LESSON_LINE_BUDGET)
@@ -239,6 +240,6 @@ describe('bounded and switchable (r1-fixes D18)', () => {
     for (let i = 0; i < 59; i++) {
       append(g, 'decision_logged', { chose: `choice ${i}`, over: `alternative ${i}`, because: `reason ${i}` })
     }
-    expect(relevantLessons(foldLog(g.eventsPath).state, 'split the zebra migration into quokka sized steps')[0]?.handle).toBe('D1')
+    expect(relevantLessons(foldLog(g.eventsPath).state, 'split the zebra migration into quokka sized steps')[0]?.handle).toMatch(/^D1·[0-9a-z]{4}$/)
   })
 })
