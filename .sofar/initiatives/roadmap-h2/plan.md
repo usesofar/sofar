@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: Operator rules on the D19 gate: stable on round 4's supported claims (quality parity, ~16% cheaper than native) or round 5 on a harder chain first. Then plan accordingly.
+Next action: The operator runs the 0.34.0 publish sequence from ~/IO/sofar-stable (win32 probe first; stop on 403); then the orchestrator verifies the registry and dist-tags, and the global install.
