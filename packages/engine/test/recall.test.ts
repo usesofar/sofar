@@ -8,6 +8,7 @@ import { makeEvent } from '../src/core/envelope'
 import { foldLog } from '../src/core/fold'
 import { appendEvent } from '../src/core/log'
 import { namedHandles, RECALL_BUDGET, recallBlock } from '../src/core/recall'
+import { bare } from './helpers/handles'
 
 /**
  * memory-lead 4.3 part B and D (D25): recall at the first prompt, and `sofar
@@ -63,7 +64,8 @@ describe('the recall block (D25)', () => {
     seed(root)
     const state = foldLog(logOf(root)).state
     const block = recallBlock(state, 'Percent coupons before fixed ones: how do coupons stack when the provider marks them stackable? Check D4 too.')!
-    const lines = block.split('\n')
+    const lines = bare(block).split('\n')
+    expect(block.split('\n')[1]).toMatch(/^- \[D4·[0-9a-z]{4}\] /) // printed check-suffixed (r4-fixes U5)
     expect(lines[0]).toBe('sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):')
     expect(lines[1]).toBe('- [D4] chose audit log is append only; over mutable audit rows; because compliance')
     expect(lines.some((l) => l.startsWith('- [D1] rule: "Percent coupons come off before fixed coupons."; chose percent coupons'))).toBe(true)
@@ -93,7 +95,7 @@ describe('recall at the prompt hook (D25)', () => {
     const root = repo()
     seed(root)
     const ask = 'How do percent coupons stack with fixed ones when the provider marks them stackable?'
-    expect(prompt(root, 's1', ask)).toContain('- [D1] rule: "Percent coupons come off before fixed coupons."')
+    expect(bare(prompt(root, 's1', ask))).toContain('- [D1] rule: "Percent coupons come off before fixed coupons."')
     expect(prompt(root, 's1', ask)).not.toContain('sofar: what this record holds')
     handleSessionStart(root, JSON.stringify({ session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'compact' }))
     expect(prompt(root, 's1', ask)).toContain('sofar: what this record holds')
@@ -124,7 +126,7 @@ describe('sofar show (D25)', () => {
     seed(root)
     const r = runShow(root, ['D1', 'M1', 'brief¶1'])
     expect(r.exitCode).toBe(0)
-    expect(r.stdout).toContain('D1 — ')
+    expect(r.stdout).toMatch(/^D1·[0-9a-z]{4} — /m)
     expect(r.stdout).toContain('rule: Percent coupons come off before fixed coupons.')
     expect(r.stdout).toContain('because: the operator said so')
     expect(r.stdout).toContain('M1 — ')

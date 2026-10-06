@@ -1,4 +1,4 @@
-== options (42423 bytes) ==
+== options (42951 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -25,18 +25,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -44,18 +47,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -110,18 +116,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -129,18 +138,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -158,13 +170,13 @@
     ]
   }
 }
-== status (3986 bytes) ==
+== status (3992 bytes) ==
 # hookspath-attribution
 
 Goal: sofar init refuses to install the prepare-commit-msg hook whenever core.hooksPath is set, even when it points at .git/hooks itself — which is what it points at in brillo, so attribution is silently unavailable there for no reason. Resolve the configured path and install into it when it IS the effective hooks dir; when it is genuinely elsewhere (husky, lefthook), keep skipping but name the real directory and the exact line to add, because 'install it there by hand' names no path and the current wording claims .git/hooks is inert when it is not.
 
 Standing constraints — obey verbatim (1):
-- [D1] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
+- [D1·vy9k] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
 Progress: 5/5 tasks done (100%) across 1 phase(s)
 
 Phases:
@@ -191,7 +203,7 @@ Files touched (2):
 - /Users/jins/IO/sofar/packages/engine/src/cli/init.ts
 - /Users/jins/IO/sofar/docs/SPEC.md
 
-== digest:plain (2539 bytes) ==
+== digest:plain (2551 bytes) ==
 # Sofar status: hookspath-attribution
 
 Goal: sofar init refuses to install the prepare-commit-msg hook whenever core.hooksPath is set, even when it points at .git/hooks itself — which is what it points at in brillo, so attribution is silently unavailable there for no reason. Resolve the configured path and install into it when it IS the effective hooks dir; when it is genuinely elsewhere (husky, lefthook), keep skipping but name the real di…
@@ -212,18 +224,18 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] VERIFYING A PACKED BUILD: put the tarball's bin FIRST on PATH, or you are testing the installed engine and not the artifact. The prepare-commit-msg shim resolves `sofar` from PATH by design (D5: no absolute path, so it survives any install layout), so `npm install -g --prefix <t…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Resolve `core.hooksPath` and compare it against `<common>/h… — over Treating any `core.hooksPath` as a skip
+- [D1·vy9k] 2026-08-13 (rule below) Resolve `core.hooksPath` and compare it against `<common>/h… — over Treating any `core.hooksPath` as a skip
 
 Next ids: D2 (decision), M2 (memory)
 
 Standing constraints — obey verbatim (1):
-- [D1] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
+- [D1·vy9k] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (4115 bytes) ==
+== digest:hook (4151 bytes) ==
 # Sofar status: hookspath-attribution
 
 Goal: sofar init refuses to install the prepare-commit-msg hook whenever core.hooksPath is set, even when it points at .git/hooks itself — which is what it points at in brillo, so attribution is silently unavailable there for no reason. Resolve the configured path and install into it when it IS the effective hooks dir; when it is genuinely elsewhere (husky, lefthook), keep skipping but name the real di…
@@ -256,7 +268,7 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Resolve `core.hooksPath` and compare it against `<common>/h… — over Treating any `core.hooksPath` as a skip
+- [D1·vy9k] 2026-08-13 (rule below) Resolve `core.hooksPath` and compare it against `<common>/h… — over Treating any `core.hooksPath` as a skip
 
 Next ids: D2 (decision), M2 (memory)
 
@@ -273,18 +285,18 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (1):
-- [D1] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
+- [D1·vy9k] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the hookspath-attribution record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the hookspath-attribution record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (2585 bytes) ==
+== digest:lane (2597 bytes) ==
 # Sofar: quick-work lane (hookspath-attribution)
 
 Goal: sofar init refuses to install the prepare-commit-msg hook whenever core.hooksPath is set, even when it points at .git/hooks itself — which is what it points at in brillo, so attribution is silently unavailable there for no reason. Resolve the configured path and install into it when it IS the effective hooks dir; when it is genuinely elsewhere (husky, lefthook), keep skipping but name the real di…
@@ -306,7 +318,7 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] VERIFYING A PACKED BUILD: put the tarball's bin FIRST on PATH, or you are testi…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Resolve `core.hooksPath` and compare it against `<common>/h… — over Treating any `core.hooksPath` as a skip
+- [D1·vy9k] 2026-08-13 (rule below) Resolve `core.hooksPath` and compare it against `<common>/h… — over Treating any `core.hooksPath` as a skip
 
 Next ids: D2 (decision), M2 (memory)
 
@@ -314,11 +326,11 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: feature/hookspath-attribution @ a1b2c3d — in sync with origin/feature/hookspath-attribution
 
 Standing constraints — obey verbatim (1):
-- [D1] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
+- [D1·vy9k] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (2625 bytes) ==
+== digest:quiet (2637 bytes) ==
 # Sofar status: hookspath-attribution
 
 Goal: sofar init refuses to install the prepare-commit-msg hook whenever core.hooksPath is set, even when it points at .git/hooks itself — which is what it points at in brillo, so attribution is silently unavailable there for no reason. Resolve the configured path and install into it when it IS the effective hooks dir; when it is genuinely elsewhere (husky, lefthook), keep skipping but name the real di…
@@ -339,20 +351,20 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] VERIFYING A PACKED BUILD: put the tarball's bin FIRST on PATH, or you are testing the installed engine and not the artifact. The prepare-commit-msg shim resolves `sofar` from PATH by design (D5: no absolute path, so it survives any install layout), so `npm install -g --prefix <t…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Resolve `core.hooksPath` and compare it against `<common>/h… — over Treating any `core.hooksPath` as a skip
+- [D1·vy9k] 2026-08-13 (rule below) Resolve `core.hooksPath` and compare it against `<common>/h… — over Treating any `core.hooksPath` as a skip
 
 Next ids: D2 (decision), M2 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (1):
-- [D1] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
+- [D1·vy9k] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6042 bytes) ==
+== digest:cap (6047 bytes) ==
 # Sofar status: hookspath-attribution
 
 Goal: sofar init refuses to install the prepare-commit-msg hook whenever core.hooksPath is set, even when it points at .git/hooks itself — which is what it points at in brillo, so attribution is silently unavailable there for no reason. Resolve the configured path and install into it when it IS the effective hooks dir; when it is genuinely elsewhere (husky, lefthook), keep skipping but name the real di…
@@ -381,15 +393,15 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (1):
-- [D1] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
+- [D1·vy9k] Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the hookspath-attribution record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the hookspath-attribution record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -429,10 +441,10 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 
 - M1 2026-08-13 — VERIFYING A PACKED BUILD: put the tarball's bin FIRST on PATH, or you are testi…
 
-== shard decisions/D1.md (1807 bytes) ==
+== shard decisions/D1.md (1813 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-13
+D1·vy9k — 2026-08-13
 rule: Ask git where hooks actually live (effectiveHooksDir) — never assume `<common>/hooks`, and never write into a hooks directory that is tracked in the user's repo.
 chose: Resolve `core.hooksPath` and compare it against `<common>/hooks` by realpath: when it names that same directory — absolutely or relatively — install normally; when it names another, keep skipping but print that directory's `prepare-commit-msg` and the exact line to add. One resolver, core/attribution.ts effectiveHooksDir, used by both `sofar init` and doctor.
 over: Treating any `core.hooksPath` as a skip (the 0.26.0 behaviour), and the opposite extreme of installing into whatever directory it names — including a husky or lefthook directory, which is tracked in the repo, so sofar would be adding a COMMITTED file to the user's project rather than an untracked one under .git.

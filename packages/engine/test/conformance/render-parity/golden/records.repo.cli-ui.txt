@@ -1,4 +1,4 @@
-== options (41312 bytes) ==
+== options (41752 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -13,18 +13,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -32,12 +35,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -80,18 +85,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -99,12 +107,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -198,7 +208,7 @@ Files touched (41):
 - /Users/jins/IO/sofar/.claude/worktrees/cli-ui/packages/engine/src/mcp/_probe_guard.ts
 - /private/tmp/claude-501/-Users-jins-IO-sofar/39e49fe8-6f91-44be-ae8f-98246524c005/scratchpad/esc-spotcheck.mjs
 
-== digest:plain (1807 bytes) ==
+== digest:plain (1819 bytes) ==
 # Sofar status: cli-ui
 
 Goal: Build a CLI UI layer for the sofar engine: every command today (status, doctor, new/switch, adopt) prints flat plain text — boring, noisy, and hard to scan. Give CLI output structured terminal rendering: visual hierarchy, color and severity cues, alignment, progress display, animated per-use-case symbols, less noise so the signal (goal, next action, warnings) stands out. The layout must render th…
@@ -213,8 +223,8 @@ Phases:
 Progress: 16/16 tasks done (100%) across 4 phase(s)
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-07-11 Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 … — over (a) a TUI framework (Ink/OpenTUI/ratatui class
-- [D2] 2026-07-11 Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/ — over Adding picocolors as a dependency
+- [D1·7xvh] 2026-07-11 Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 … — over (a) a TUI framework (Ink/OpenTUI/ratatui class
+- [D2·9a27] 2026-07-11 Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/ — over Adding picocolors as a dependency
 
 Next ids: D3 (decision), M1 (memory)
 
@@ -222,7 +232,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (3064 bytes) ==
+== digest:hook (3100 bytes) ==
 # Sofar status: cli-ui
 
 Goal: Build a CLI UI layer for the sofar engine: every command today (status, doctor, new/switch, adopt) prints flat plain text — boring, noisy, and hard to scan. Give CLI output structured terminal rendering: visual hierarchy, color and severity cues, alignment, progress display, animated per-use-case symbols, less noise so the signal (goal, next action, warnings) stands out. The layout must render th…
@@ -249,8 +259,8 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-07-11 Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 … — over (a) a TUI framework (Ink/OpenTUI/ratatui class
-- [D2] 2026-07-11 Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/ — over Adding picocolors as a dependency
+- [D1·7xvh] 2026-07-11 Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 … — over (a) a TUI framework (Ink/OpenTUI/ratatui class
+- [D2·9a27] 2026-07-11 Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/ — over Adding picocolors as a dependency
 
 Next ids: D3 (decision), M1 (memory)
 
@@ -262,16 +272,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the cli-ui record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the cli-ui record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (2435 bytes) ==
+== digest:lane (2447 bytes) ==
 # Sofar: quick-work lane (cli-ui)
 
 Goal: Build a CLI UI layer for the sofar engine: every command today (status, doctor, new/switch, adopt) prints flat plain text — boring, noisy, and hard to scan. Give CLI output structured terminal rendering: visual hierarchy, color and severity cues, alignment, progress display, animated per-use-case symbols, less noise so the signal (goal, next action, warnings) stands out. The layout must render th…
@@ -290,8 +300,8 @@ Recent quick work (12 sessions, 2 decisions since 2026-07-11):
 - 2026-07-11 claude-code — task changes: 1.1 → done, 1.2 → active, 1.2 → done, 1.3 → active, 1.3 → done, 1.4 → active, 1.4 → done
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-07-11 Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 … — over (a) a TUI framework (Ink/OpenTUI/ratatui class
-- [D2] 2026-07-11 Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/ — over Adding picocolors as a dependency
+- [D1·7xvh] 2026-07-11 Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 … — over (a) a TUI framework (Ink/OpenTUI/ratatui class
+- [D2·9a27] 2026-07-11 Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/ — over Adding picocolors as a dependency
 
 Next ids: D3 (decision), M1 (memory)
 
@@ -300,7 +310,7 @@ Git: feature/cli-ui @ a1b2c3d — in sync with origin/feature/cli-ui
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (1893 bytes) ==
+== digest:quiet (1905 bytes) ==
 # Sofar status: cli-ui
 
 Goal: Build a CLI UI layer for the sofar engine: every command today (status, doctor, new/switch, adopt) prints flat plain text — boring, noisy, and hard to scan. Give CLI output structured terminal rendering: visual hierarchy, color and severity cues, alignment, progress display, animated per-use-case symbols, less noise so the signal (goal, next action, warnings) stands out. The layout must render th…
@@ -315,8 +325,8 @@ Phases:
 Progress: 16/16 tasks done (100%) across 4 phase(s)
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-07-11 Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 … — over (a) a TUI framework (Ink/OpenTUI/ratatui class
-- [D2] 2026-07-11 Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/ — over Adding picocolors as a dependency
+- [D1·7xvh] 2026-07-11 Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 … — over (a) a TUI framework (Ink/OpenTUI/ratatui class
+- [D2·9a27] 2026-07-11 Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/ — over Adding picocolors as a dependency
 
 Next ids: D3 (decision), M1 (memory)
 
@@ -326,7 +336,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6024 bytes) ==
+== digest:cap (6028 bytes) ==
 # Sofar status: cli-ui
 
 Goal: Build a CLI UI layer for the sofar engine: every command today (status, doctor, new/switch, adopt) prints flat plain text — boring, noisy, and hard to scan. Give CLI output structured terminal rendering: visual hierarchy, color and severity cues, alignment, progress display, animated per-use-case symbols, less noise so the signal (goal, next action, warnings) stands out. The layout must render th…
@@ -347,13 +357,13 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the cli-ui record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the cli-ui record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -391,18 +401,18 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D1·7xvh 2026-07-11 — chose Styled static output + stderr spinners at the emit()/renderer boundary, semanti…
 - D2·9a27 2026-07-11 — chose Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/: vendor pi…
 
-== shard decisions/D1.md (1445 bytes) ==
+== shard decisions/D1.md (1451 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-07-11
+D1·7xvh — 2026-07-11
 chose: Styled static output + stderr spinners at the emit()/renderer boundary, semantic ANSI-16 color law (Codex styles.md model: green=success, red=error, cyan=identifiers, dim=secondary; no hex for text, no bg detection), vendored cli-spinners frame sets per use case, degradation ladder NO_COLOR > --no-color > FORCE_COLOR > TTY, animation only when isTTY && !CI; agent-facing surfaces (renderStatus digest, hook stdout, NDJSON, mcp stdio) guaranteed byte-plain.
 over: (a) a TUI framework (Ink/OpenTUI/ratatui class — React+Yoga event loop for one-shot print-and-exit commands, heavy dep-law violation); (b) truecolor themes with terminal background detection (OSC queries are flaky in print-and-exit processes: pipes, CI, tmux); (c) chalk/ora comfort stack (chalk lacks NO_COLOR support entirely; ora is 17 packages for a spinner).
 because: Research across Claude Code, Gemini CLI, opencode, Codex CLI, Kiro + Node ecosystem (2026-07-11, three-agent sweep): every fancy animation (Claude's eased ✳ pulse, Codex shimmer, opencode Knight Rider) requires a persistent render loop — wrong shape for sofar's one-shot commands; Codex's own non-interactive mode and the Vite/Astro/Vitest precedent (picocolors or vendored forks) converge on exactly this design; ANSI-16 semantic colors survive every terminal theme without dark/light detection.
 
-== shard decisions/D2.md (1075 bytes) ==
+== shard decisions/D2.md (1081 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-07-11
+D2·9a27 — 2026-07-11
 chose: Zero-dependency hand-rolled UI kernel in packages/engine/src/cli/ui/: vendor picocolors' color-detection + formatter-nesting logic (~40 lines), cli-spinners frame data as typed constants, and the is-unicode-supported gate (~15 lines) — all MIT, attributed in source comments.
 over: Adding picocolors as a dependency (1 pkg, 32 KB, zero transitive — the Vite/Next.js route); chalk/ora comfort stack (already rejected in D1: chalk lacks NO_COLOR, ora is 17 packages); Node's util.styleText (needs >=20.12, repo floor is Node 18).
 because: Keeps the dependency ledger untouched entirely (repo law treats every new dep as a Decision-worthy event; zero-dep needs no ongoing supply-chain trust); Vitest (tinyrainbow) and Astro (piccolore) set the precedent of vendoring picocolors-class logic; ~130 lines total sits comfortably inside this repo's test discipline; and we control NO_COLOR > FORCE_COLOR precedence spec-compliantly, which ansis and util.styleText get wrong.

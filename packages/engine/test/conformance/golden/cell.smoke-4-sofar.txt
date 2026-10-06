@@ -9,10 +9,10 @@ exit: 0
 Goal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.
 
 Standing constraints — obey verbatim (4):
-- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
-- [D2] Interests are only provider activity categories; reject any other value.
-- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
-- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
+- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
+- [D2·fxww] Interests are only provider activity categories; reject any other value.
+- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 Progress: 5/12 tasks done (41%) across 9 phase(s)
 
 Phases:
@@ -66,7 +66,7 @@ argv: ["event","session-start"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: boopada\n\nGoal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.\n\nNext task: p3-trips Trip creation from legs + draft plan\n  in 3. Trips (legs of cities + nights, draft day-by-day plan) [active] 0/1\n\nNext action: Start phase 3, trips (p3-trips). Once the operator OKs it, commit the uncommitted piece-2 work on main first. Then append migration v3 with tables for trips and legs (city_id and nights per leg) and draft days, each with deleted_at/deletion_id columns registered in SOFT_DELETE_TABLES (D6). Trip DELETE should soft-delete the trip and its legs and days under one softDelete target so a single undo restores them. Add /api/trips CRUD with handle<IdContext> and a /trips page, following the patterns i…\n\nLast session (claude-code, ended 2026-09-15T13:17:30.307Z):\n  Built piece 2, the bucket list, plus the app-wide rule that deletes are soft and can be undone (D6). Migration v2 appends a `deletions` journal and a `bucket_items` table with deleted_at and deletion_id columns. lib/server/deletions.ts has softDelete(target), which journals the delete and stamps rows (it handle… (clipped — full text in sessions/a1b0e2cd-3b39-442f-aae0-6fe2d7b70683.md)\n\nPhases:\n- 3. Trips (legs of cities + nights, draft day-by-day plan) [active] 0/1\n- 4. Itinerary editing (add/move/remove activities and days) [pending] 0/1\n- 5. Itinerary view (day by day, daily + trip totals) [pending] 0/1\n- 6. Location to-dos (per day, surfaced on arrival) [pending] 0/1\n- 7. Activity suggestions + local transport costs [pending] 0/1\n- 8. Curation advisor (suggestions + auto-fix) [pending] 0/1\n- 9. Chat command box (POST /api/chat {trip_id,message} -> {reply,changed,suggestions?}; commands: ad… [pending] 0/1\n- done: 1. Traveller profile, 2. Bucket list (places and experiences saved for later) (5/5 tasks)\nProgress: 5/12 tasks done (41%) across 9 phase(s)\n\nMemory (3; full text in memory/M<n>.md):\n- [M3] Next.js 16 route-type validation (`.next/types/validator.ts`, checked by `bun run typecheck` after a build and during `next build`) requires route exports to accept `(request, context: { params: Promise<...> })`. Wrap handlers with `handle<C>()` from apps/web/lib/server/api.ts (…\n- [M2] Smoke-testing the prod app: this machine runs other bench servers, so fixed ports (e.g. 3917) may already be taken and silently answer with someone else's app. Pick a free port (bun -e 'const s=Bun.listen({hostname:\"127.0.0.1\",port:0,socket:{data(){}}});console.log(s.port);s.sto…\n- [M1] `bun run lint` (biome check .) covers repo-root JSON too: the sofar-generated .…\n\nRecent decisions (last 5 of 8; full text in decisions/D<n>.md):\n- [D4] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation\n- [D5] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page\n- [D6] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs\n- [D7] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list\n- [D8] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page\nEarlier rejected approaches — do NOT re-propose (3 older):\n- [D1] Decimal strings or floats\n- [D2] Free-text interests\n- [D3] better-sqlite3 (native build step) or bun:sqlite only\n\nNext ids: D9 (decision), M4 (memory)\n\nSession: conf-session — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ ce11ce1 — no origin ref — never pushed\n\nStanding constraints — obey verbatim (4):\n- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.\n- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.\n- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.\n- [D2] Interests are only provider activity categories; reject any other value.\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"boopada p3-trips #conf"}}
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: boopada\n\nGoal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.\n\nNext task: p3-trips Trip creation from legs + draft plan\n  in 3. Trips (legs of cities + nights, draft day-by-day plan) [active] 0/1\n\nNext action: Start phase 3, trips (p3-trips). Once the operator OKs it, commit the uncommitted piece-2 work on main first. Then append migration v3 with tables for trips and legs (city_id and nights per leg) and draft days, each with deleted_at/deletion_id columns registered in SOFT_DELETE_TABLES (D6). Trip DELETE should soft-delete the trip and its legs and days under one softDelete target so a single undo restores them. Add /api/trips CRUD with handle<IdContext> and a /trips page, following the patterns i…\n\nLast session (claude-code, ended 2026-09-15T13:17:30.307Z):\n  Built piece 2, the bucket list, plus the app-wide rule that deletes are soft and can be undone (D6). Migration v2 appends a `deletions` journal and a `bucket_items` table with deleted_at and deletion_id columns. lib/server/deletions.ts has softDelete(target), which journals the delete and stamps rows (it handle… (clipped — full text in sessions/a1b0e2cd-3b39-442f-aae0-6fe2d7b70683.md)\n\nPhases:\n- 3. Trips (legs of cities + nights, draft day-by-day plan) [active] 0/1\n- 4. Itinerary editing (add/move/remove activities and days) [pending] 0/1\n- 5. Itinerary view (day by day, daily + trip totals) [pending] 0/1\n- 6. Location to-dos (per day, surfaced on arrival) [pending] 0/1\n- 7. Activity suggestions + local transport costs [pending] 0/1\n- 8. Curation advisor (suggestions + auto-fix) [pending] 0/1\n- 9. Chat command box (POST /api/chat {trip_id,message} -> {reply,changed,suggestions?}; commands: ad… [pending] 0/1\n- done: 1. Traveller profile, 2. Bucket list (places and experiences saved for later) (5/5 tasks)\nProgress: 5/12 tasks done (41%) across 9 phase(s)\n\nMemory (3; full text in memory/M<n>.md):\n- [M3] Next.js 16 route-type validation (`.next/types/validator.ts`, checked by `bun run typecheck` after a build and during `next build`) requires route exports to accept `(request, context: { params: Promise<...> })`. Wrap handlers with `handle<C>()` from apps/web/lib/server/api.ts (…\n- [M2] Smoke-testing the prod app: this machine runs other bench servers, so fixed ports (e.g. 3917) may already be taken and silently answer with someone else's app. Pick a free port (bun -e 'const s=Bun.listen({hostname:\"127.0.0.1\",port:0,socket:{data(){}}});console.log(s.port);s.sto…\n- [M1] `bun run lint` (biome check .) covers repo-root JSON too: the sofar-generated .…\n\nRecent decisions (last 5 of 8; full text in decisions/D<n>.md):\n- [D4·b8et] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation\n- [D5·5fxx] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page\n- [D6·4q3v] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs\n- [D7·rbx8] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list\n- [D8·j7qv] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page\nEarlier rejected approaches — do NOT re-propose (3 older):\n- [D1·v5bq] Decimal strings or floats\n- [D2·fxww] Free-text interests\n- [D3·jb2a] better-sqlite3 (native build step) or bun:sqlite only\n\nNext ids: D9 (decision), M4 (memory)\n\nSession: conf-session — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ ce11ce1 — no origin ref — never pushed\n\nStanding constraints — obey verbatim (4):\n- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.\n- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.\n- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.\n- [D2·fxww] Interests are only provider activity categories; reject any other value.\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"boopada p3-trips #conf"}}
 --- stderr
 (empty)
 
@@ -142,10 +142,10 @@ exit: 0
 Goal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.
 
 Standing constraints — obey verbatim (4):
-- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
-- [D2] Interests are only provider activity categories; reject any other value.
-- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
-- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
+- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
+- [D2·fxww] Interests are only provider activity categories; reject any other value.
+- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 Progress: 5/12 tasks done (41%) across 9 phase(s)
 
 Phases:
@@ -212,64 +212,64 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D6·4q3v 2026-09-15 — rule: Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - D7·rbx8 2026-09-15 — chose Bucket list API at /api/bucket and page at /bucket (per operator brief); item =…
 - D8·j7qv 2026-09-15 — chose Extras beyond the brief for piece 2 (operator allowed, recorded): GET /api/buck…
-=== .sofar/initiatives/boopada/decisions/D1.md (added, 675 bytes)
+=== .sofar/initiatives/boopada/decisions/D1.md (added, 681 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-09-15
+D1·v5bq — 2026-09-15
 rule: Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
 chose: Money everywhere in the API (in and out) is { amount_minor: integer, currency: ISO code } in the currency's minor units (JPY/VND 0, JOD 3, others 2); provider decimal strings are converted at the boundary via apps/web/lib/money.ts
 over: Decimal strings or floats (the prototype's approach)
 because: Operator decision: prototype used decimal strings and totals drifted. Integer minor units sum exactly.
-=== .sofar/initiatives/boopada/decisions/D2.md (added, 549 bytes)
+=== .sofar/initiatives/boopada/decisions/D2.md (added, 555 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-09-15
+D2·fxww — 2026-09-15
 rule: Interests are only provider activity categories; reject any other value.
 chose: Interests are a closed set = the providers' Activity.category values: culture, food, nature, adventure, nightlife, wellness, tour (exported as ACTIVITY_CATEGORIES in apps/web/lib/domain.ts); anything else is rejected with 400
 over: Free-text interests
 because: Operator decision: interests must map onto activity categories so suggestions/advisor/chat can use them.
-=== .sofar/initiatives/boopada/decisions/D3.md (added, 893 bytes)
+=== .sofar/initiatives/boopada/decisions/D3.md (added, 899 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-09-15
+D3·jb2a — 2026-09-15
 rule: Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
 chose: SQLite via a thin adapter (apps/web/lib/server/db.ts) that loads bun:sqlite under Bun (bun test) and node:sqlite under Node (next start), through process.getBuiltinModule; schema versioned by PRAGMA user_version with append-only MIGRATIONS in lib/server/migrations.ts; DB opened at startup in instrumentation.ts
 over: better-sqlite3 (native build step) or bun:sqlite only (next start runs on Node); createRequire (Turbopack rewrites it and fails with 'Cannot find module node:sqlite')
 because: No native deps, works in both runtimes the repo uses; verified with bun test and a real build+start on Node 24.
 guard: path:apps/web/lib/server/migrations.ts
-=== .sofar/initiatives/boopada/decisions/D4.md (added, 1053 bytes)
+=== .sofar/initiatives/boopada/decisions/D4.md (added, 1059 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-09-15
+D4·b8et — 2026-09-15
 chose: PUT /api/profile is a partial update (omitted fields keep value, daily_activity_budget:null clears), validated all-or-nothing; codes are strict (no case normalisation); known currencies = FX provider's USD rate table, known airports = airports of provider cities; budget may be in any known currency (not forced to home_currency), amount_minor non-negative safe integer; interests deduped; errors 400 validation_error with extra error.details[{field,message}]; invalid JSON 400 invalid_json; unknown /api paths 404 not_found via app/api/[...path]; wrong method 405 method_not_allowed. Profile response adds updated_at (null until first save, from BOOPADA_NOW clock).
 over: Full-replace PUT; lenient case normalisation; forcing budget currency to equal home currency
 because: Partial PUT is friendlier for later callers (chat 'interest add' can PUT just interests); strict codes match the ISO/IATA contract; details let the UI show per-field errors.
-=== .sofar/initiatives/boopada/decisions/D5.md (added, 869 bytes)
+=== .sofar/initiatives/boopada/decisions/D5.md (added, 875 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-09-15
+D5·5fxx — 2026-09-15
 chose: Extras beyond the brief (operator allowed, must be recorded): GET /api/reference (currencies, airports w/ city, cabin classes, interests) feeding the form; lib/money.ts helpers (decimalToMinor exact string conversion, minorToDecimal, addMoney currency-checked, formatMoney) ready for trip totals; JSON 404 catch-all and 405s under /api; per-field error details; updated_at on profile; README env/API section; biome now ignores .sofar/ (sofar index JSON broke `bun run lint`)
 over: Shipping only the two profile endpoints and page
 because: Reference endpoint avoids hardcoding provider vocab in UI and will serve trips/bucket list; money helpers are needed by pieces 3,5,7 and are cheapest to get right once with tests; consistent JSON errors everywhere under /api.
-=== .sofar/initiatives/boopada/decisions/D6.md (added, 1563 bytes)
+=== .sofar/initiatives/boopada/decisions/D6.md (added, 1569 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-09-15
+D6·4q3v — 2026-09-15
 rule: Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 chose: App-wide soft delete + undo: every traveller-made table gets `deleted_at TEXT` and `deletion_id INTEGER` columns; a DELETE writes one row to a `deletions` journal (id AUTOINCREMENT, kind, entity_id, label, deleted_at, undone_at) and stamps every affected row (including future cascades) with that deletion_id. POST /api/undo restores the most recent not-yet-undone deletion (a stack: repeated undo walks back further) by clearing deleted_at/deletion_id in every table registered in SOFT_DELETE_TABLES (apps/web/lib/server/deletions.ts), returns 200 { restored: { kind, id, label } }; 409 nothing_to_undo when the journal has nothing left. All reads filter `deleted_at IS NULL`. No confirmation dialogs in the UI; an Undo button is offered after deleting instead.
 over: Hard DELETE; confirm dialogs; per-entity undo endpoints; a single deleted flag without a journal (cannot order undo or group cascades)
 because: Operator decision for the whole app: never hard-delete traveller-made data, never ask "are you sure?", POST /api/undo restores the latest deletion, deleted things never appear in any list, total or suggestion. A journal with deletion_id groups cascades (e.g. deleting a trip with its days) so one undo restores them together.
-=== .sofar/initiatives/boopada/decisions/D7.md (added, 992 bytes)
+=== .sofar/initiatives/boopada/decisions/D7.md (added, 998 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D7 — 2026-09-15
+D7·rbx8 — 2026-09-15
 chose: Bucket list API at /api/bucket and page at /bucket (per operator brief); item = { id (UUID), title (trimmed, 1–200 chars), city_id (provider city id or null), notes (string ≤2000 or null), estimated_daily_spend (Money {amount_minor, currency} or null, non-negative, known currency), created_at, updated_at }; POST requires title; PATCH is partial (null clears optional fields); unknown city_id → 400 validation_error with details; unknown/deleted id → 404 not_found; list ordered created_at DESC. GET /api/reference gains `cities` [{id,name,country}] for the page.
 over: /api/bucket-list + /bucket-list (the previous next-action guess); estimated_daily_spend as a decimal number (conflicts with D1)
 because: Operator brief names /api/bucket and /bucket explicitly; D1 forces Money in minor units; partial PATCH and details mirror the profile API so clients handle errors one way.
-=== .sofar/initiatives/boopada/decisions/D8.md (added, 1028 bytes)
+=== .sofar/initiatives/boopada/decisions/D8.md (added, 1034 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D8 — 2026-09-15
+D8·j7qv — 2026-09-15
 chose: Extras beyond the brief for piece 2 (operator allowed, recorded): GET /api/bucket/{id}; Undo button on /bucket after a delete (data-testid bucket-undo) instead of any confirm; bucket-title/-city/-notes/-spend-amount/-spend-currency/-form/-list/-empty/-status testids; `cities` in GET /api/reference; spend currency defaults to profile home_currency; 405s on wrong methods; shared lib/server/validate.ts (isObject, parseMoneyField) now used by profile too; parseAmountInput moved to lib/money.ts; transaction() helper in db.ts; handle<C>() in api.ts supports dynamic-route context (IdContext); home page links /bucket.
 over: Shipping only the four endpoints and a bare list page
 because: No-confirm deletes need a visible way back or undo is undiscoverable; the page needs city names; shared Money validation keeps D1 enforced one way across endpoints; later pieces (trips, itinerary) reuse transaction/softDelete/IdContext.

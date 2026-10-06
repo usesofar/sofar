@@ -113,6 +113,7 @@ fn options_from(value: &Json) -> StatusOptions {
                 .map(|r| {
                     let r = r.as_obj().expect("repo rule");
                     RepoRule {
+                        id: opt_str(r, "id").unwrap_or_default(),
                         initiative: opt_str(r, "initiative").unwrap_or_default(),
                         ordinal: r.get("ordinal").and_then(Json::as_f64).unwrap_or(0.0),
                         ts: opt_str(r, "ts").unwrap_or_default(),

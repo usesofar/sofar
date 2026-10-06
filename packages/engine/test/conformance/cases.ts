@@ -118,6 +118,51 @@ function recallSeed(m: Materialized): void {
 }
 
 /**
+ * syn.merge-handles (r4-fixes U5): round 4's r1 merge in miniature. Both
+ * branches minted the same ordinal: wt/order-caps filed its rule as D3, and
+ * main its own D3. The branch's side goes in first: the rule, with its check,
+ * and the file it guards.
+ */
+const CAPS_RULE_ID = '01M2Z2B0000000000000000031'
+const MAIN_RULE_ID = '01M2Z2A0000000000000000032'
+/** CAPS_RULE_ID's check suffix: 4 Crockford chars of its sha256 (core/handle.ts), computed here so the catalogue imports no engine code. */
+const CAPS_SFX = ((): string => {
+  const h = createHash('sha256').update(CAPS_RULE_ID).digest()
+  const v = (h[0]! << 12) | (h[1]! << 4) | (h[2]! >> 4)
+  const c = '0123456789abcdefghjkmnpqrstvwxyz'
+  return c[(v >> 15) & 31]! + c[(v >> 10) & 31]! + c[(v >> 5) & 31]! + c[v & 31]!
+})()
+function handleLine(id: string, ts: string, session: string, payload: Record<string, unknown>): string {
+  return JSON.stringify({ v: 1, id, ts, initiative: 'baseline', session, source: 'claude-code', actor: 'agent', user: 'fixture@example.invalid', type: 'decision_logged', payload })
+}
+function capsBranch(m: Materialized): void {
+  mkdirSync(join(m.root, 'src', 'order'), { recursive: true })
+  writeFileSync(join(m.root, 'src', 'order', 'caps.ts'), 'export const CAP = 12\n')
+  const log = join(m.root, '.sofar', 'initiatives', 'baseline', 'events.jsonl')
+  const rule = handleLine(CAPS_RULE_ID, '2026-09-20T10:01:00.000Z', 'wt-caps', {
+    chose: 'cap an order at 12 cases',
+    over: 'no cap',
+    because: 'the warehouse said so',
+    rule: 'Cap an order at 12 cases.',
+    guard: 'path:src/order/**',
+    check: { cmd: 'bun test tests/caps.test.ts' },
+  })
+  writeFileSync(log, `${readFileSync(log, 'utf8')}${rule}\n`)
+}
+/** The merge: main's D3 arrives by union merge, appended in file order but earlier by id, so it folds first. */
+function mainMerged(m: Materialized): void {
+  const log = join(m.root, '.sofar', 'initiatives', 'baseline', 'events.jsonl')
+  const rule = handleLine(MAIN_RULE_ID, '2026-09-20T10:00:00.000Z', 'main-pick', {
+    chose: 'pick newest first',
+    over: 'FEFO',
+    because: 'the operator said so',
+    rule: 'Pick non-perishables newest first.',
+    guard: 'path:src/pick/**',
+  })
+  writeFileSync(log, `${readFileSync(log, 'utf8')}${rule}\n`)
+}
+
+/**
  * syn.merge's repo (r3-fixes 2.11): the skeleton .git gives way to a real one
  * holding the S18 merge, every date pinned so every sha is too, and the
  * baseline record gains what the merge block reads — a session that ran
@@ -768,6 +813,25 @@ export const CASES: ConformanceCase[] = [
       s('Read under SOFAR_SURFACE_MEMORIES=off: the rule alone', ['event', 'post-tool'], read('<ROOT>/src/db.ts', { session_id: 'sess-19' }), { env: { SOFAR_SURFACE_MEMORIES: 'off' } }),
       s('sess-19 runs the suite green', ['event', 'post-tool'], bash('bun test', { session_id: 'sess-19' })),
       s('session-start: verified, nothing to say', ['event', 'session-start'], start({ session_id: 'sess-20' })),
+    ],
+  },
+  {
+    // r4-fixes U5: a merge that renumbers. Before the merge the branch's rule
+    // is D3; main's D3 arrives by union merge, earlier by id, and the rule is
+    // D4 after it. Every line names it check-suffixed, so the gate's ask names
+    // the same rule by the same suffix before and after, the digest lists both
+    // D3s apart, and a prompt citing the pre-merge `D3·<sfx>` recalls the
+    // branch's rule, not main's D3.
+    name: 'syn.merge-handles',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('Edit the guarded file on the branch', ['event', 'post-tool'], edit('<ROOT>/src/order/caps.ts', { session_id: 'sess-caps' }), { before: capsBranch }),
+      s('the branch session writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-caps', '--source', 'claude-code', '--payload', '{"summary":"capped orders","next_action":"n"}']),
+      s('stop before the merge: the gate names D3 by its suffix', ['event', 'stop'], stop({ session_id: 'sess-caps' })),
+      s('stop after the merge: the same rule, the same suffix, now D4', ['event', 'stop'], stop({ session_id: 'sess-caps' }), { before: mainMerged }),
+      s('the next digest lists both, apart', ['event', 'session-start'], start({ session_id: 'sess-next' })),
+      // The handle the gate printed before the merge, as an agent would copy it.
+      s('a prompt citing the pre-merge handle recalls the branch rule', ['event', 'user-prompt'], prompt({ session_id: 'sess-cite', prompt: `Is D3·${CAPS_SFX} still the cap we agreed on for orders?` })),
     ],
   },
   {

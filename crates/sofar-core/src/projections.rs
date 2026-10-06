@@ -452,6 +452,16 @@ pub fn retired_ordinals(state: &InitiativeState) -> Vec<usize> {
         .collect()
 }
 
+/// Another record's rule as `<slug> D<n>·<sfx>` (r4-fixes U5).
+fn repo_rule_handle(r: &crate::index_tier1::RepoRule) -> String {
+    format!(
+        "{} D{}·{}",
+        r.initiative,
+        number_to_string(r.ordinal),
+        handle_suffix(&r.id)
+    )
+}
+
 /// `standingConstraintLines`: rules VERBATIM (whitespace normalised, never
 /// `repoRuleLines` (memory-lead 2.2, D8): other records' standing rules,
 /// rendered after this record's own inside the constraints block. The same
@@ -477,7 +487,8 @@ pub fn repo_rule_lines(
         .iter()
         .filter_map(|d| d.rule.as_deref().map(|rule| key(rule, d.quote.as_deref())))
         .collect();
-    // Each handle formatted once, not per comparison.
+    // Each handle formatted once, not per comparison: ordered by the bare
+    // `<slug> D<n>` as before, rendered suffixed (r4-fixes U5).
     let mut sorted: Vec<(&crate::index_tier1::RepoRule, String)> =
         rules.iter().map(|r| (r, handle_of(r))).collect();
     sorted.sort_by(|(a, ha), (b, hb)| {
@@ -490,33 +501,39 @@ pub fn repo_rule_lines(
         }
     });
     // A Map in insertion order, as the TypeScript `Map` iterates.
-    let mut merged: Vec<(&crate::index_tier1::RepoRule, Vec<String>)> = Vec::new();
+    #[allow(
+        clippy::type_complexity,
+        reason = "a TypeScript Map entry, field for field"
+    )]
+    let mut merged: Vec<(&crate::index_tier1::RepoRule, Vec<String>, Vec<String>)> = Vec::new();
     let mut at: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for (r, handle) in sorted {
         let k = key(&r.rule, r.quote.as_deref());
         if mine.contains(&k) {
             continue;
         }
+        let shown = repo_rule_handle(r);
         if let Some(&i) = at.get(&k) {
-            let (newest, handles) = &mut merged[i];
+            let (newest, handles, shown_handles) = &mut merged[i];
             handles.push(handle);
+            shown_handles.push(shown);
             *newest = r; // the newest restatement dates the rule
         } else {
             at.insert(k, merged.len());
-            merged.push((r, vec![handle]));
+            merged.push((r, vec![handle], vec![shown]));
         }
     }
     if merged.is_empty() {
         return Vec::new();
     }
-    let mut ranked: Vec<(&crate::index_tier1::RepoRule, String, usize)> = merged
+    let mut ranked: Vec<(&crate::index_tier1::RepoRule, String, usize, String)> = merged
         .into_iter()
-        .map(|(r, handles)| {
+        .map(|(r, handles, shown)| {
             let score = relevance_score(
                 &format!("{} {}", r.rule, r.quote.as_deref().unwrap_or("")),
                 focus,
             );
-            (r, handles.join(", "), score)
+            (r, handles.join(", "), score, shown.join(", "))
         })
         .collect();
     ranked.sort_by(|a, b| {
@@ -532,8 +549,8 @@ pub fn repo_rule_lines(
     });
     let mut entries: Vec<String> = Vec::new();
     let mut used: i64 = 0;
-    for (r, handle, _) in &ranked {
-        let line = format!("- [{handle}] {}", render_rule(&r.rule, r.quote.as_deref()));
+    for (r, _, _, shown) in &ranked {
+        let line = format!("- [{shown}] {}", render_rule(&r.rule, r.quote.as_deref()));
         #[allow(clippy::cast_possible_wrap, reason = "line lengths are small")]
         let len = utf16_len(&line) as i64;
         if used + len + 1 > budget {
@@ -601,8 +618,10 @@ pub fn standing_constraint_lines(
     let mut used = 0;
     let mut shown = 0;
     for (ordinal, d) in &standing {
+        // Check-suffixed (r4-fixes U5): the handle a merge cannot move onto another rule.
         let line = format!(
-            "- [D{ordinal}] {}",
+            "- [{}] {}",
+            suffixed_handle(*ordinal, &d.id),
             render_rule(d.rule.as_deref().unwrap_or(""), d.quote.as_deref())
         );
         let len = utf16_len(&line);
@@ -969,6 +988,108 @@ pub fn suffixed_handle(ordinal: usize, id: &str) -> String {
     format!("D{ordinal}·{}", handle_suffix(id))
 }
 
+/// `handleAt` (r4-fixes U5): the handle every agent-facing line prints for a
+/// decision of its own record, `D<n>·<sfx>`; bare `D<n>` only when the record
+/// holds no decision at that ordinal.
+#[must_use]
+pub fn handle_at(decisions: &[DecisionState], ordinal: usize) -> String {
+    match ordinal.checked_sub(1).and_then(|i| decisions.get(i)) {
+        Some(d) => suffixed_handle(ordinal, &d.id),
+        None => format!("D{ordinal}"),
+    }
+}
+
+/// `qualifiedHandle`: `<slug> D<n>·<sfx>`.
+#[must_use]
+pub fn qualified_handle(initiative: &str, ordinal: usize, id: &str) -> String {
+    format!("{initiative} {}", suffixed_handle(ordinal, id))
+}
+
+/// `supersedesHandle`: a recorded `supersedes` (the bare `D<n>` the fold
+/// resolved) as the suffixed handle of the earlier decision it names; as
+/// recorded otherwise.
+#[must_use]
+pub fn supersedes_handle(decisions: &[DecisionState], raw: &str, ordinal: usize) -> String {
+    let n = raw
+        .strip_prefix('D')
+        .filter(|d| !d.is_empty() && !d.starts_with('0') && d.bytes().all(|b| b.is_ascii_digit()))
+        .and_then(|d| d.parse::<usize>().ok())
+        .unwrap_or(0);
+    if n > 0 && n < ordinal {
+        handle_at(decisions, n)
+    } else {
+        raw.to_owned()
+    }
+}
+
+/// `sameDecisionText`: a re-log, not a change — every field but the check.
+#[must_use]
+pub fn same_decision_text(a: &DecisionState, b: &DecisionState) -> bool {
+    a.chose == b.chose
+        && a.over == b.over
+        && a.because == b.because
+        && a.rule == b.rule
+        && a.quote == b.quote
+        && a.guard == b.guard
+        && a.until == b.until
+}
+
+/// `relogAliases` (r4-fixes U5): re-logs folded into the entry that replaced
+/// them. `absorbed[i]` is the ordinal that renders ordinal `i + 1` (0 when it
+/// renders itself); `aliases` maps an entry's ordinal to its alias ordinals,
+/// oldest first, in ascending entry order.
+#[must_use]
+pub fn relog_aliases(decisions: &[DecisionState]) -> (Vec<usize>, Vec<(usize, Vec<usize>)>) {
+    let next: Vec<usize> = decisions
+        .iter()
+        .enumerate()
+        .map(|(i, d)| {
+            #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+            let by = d.superseded_by.map_or(0, |b| b as usize);
+            if by <= i + 1 {
+                return 0;
+            }
+            match decisions.get(by - 1) {
+                Some(r) if same_decision_text(d, r) => by,
+                _ => 0,
+            }
+        })
+        .collect();
+    let mut absorbed = vec![0usize; decisions.len()];
+    let mut aliases: Vec<(usize, Vec<usize>)> = Vec::new();
+    for (i, &first) in next.iter().enumerate() {
+        if first == 0 {
+            continue;
+        }
+        let mut to = first;
+        while next.get(to - 1).is_some_and(|&n| n != 0) {
+            to = next[to - 1];
+        }
+        absorbed[i] = to;
+        match aliases.iter_mut().find(|(e, _)| *e == to) {
+            Some((_, list)) => list.push(i + 1),
+            None => aliases.push((to, vec![i + 1])),
+        }
+    }
+    (absorbed, aliases)
+}
+
+/// The aliases `relog_aliases` lists for `ordinal`, if any.
+#[must_use]
+pub fn aliases_of(aliases: &[(usize, Vec<usize>)], ordinal: usize) -> Option<&[usize]> {
+    aliases
+        .iter()
+        .find(|(e, _)| *e == ordinal)
+        .map(|(_, list)| list.as_slice())
+}
+
+/// `aliasMark`: `alias D73·abcd, D76·wxyz`.
+#[must_use]
+pub fn alias_mark(decisions: &[DecisionState], ordinals: &[usize]) -> String {
+    let named: Vec<String> = ordinals.iter().map(|&n| handle_at(decisions, n)).collect();
+    format!("alias {}", named.join(", "))
+}
+
 /// `INDEX_HEAD_MAX`: how much of a decision's `chose` an index line carries.
 pub const INDEX_HEAD_MAX: usize = 80;
 
@@ -986,26 +1107,47 @@ pub fn render_decisions(state: &InitiativeState) -> String {
         lines.push(String::new());
     }
     let retired = retired_ordinals(state);
+    // A re-log (r4-fixes U5) is one entry: the newer handle, the older as its alias.
+    let (absorbed, aliases) = relog_aliases(&state.decisions);
     for (i, d) in state.decisions.iter().enumerate() {
         let ordinal = i + 1;
-        // Each entry's own handle, check-suffixed (r3-fixes 2.6, D18).
+        if absorbed[i] != 0 {
+            continue;
+        }
+        // Each entry's own handle, check-suffixed (r3-fixes 2.6, D18), and
+        // every handle a line names (r4-fixes U5).
         let handle = suffixed_handle(ordinal, &d.id);
+        let alias = aliases_of(&aliases, ordinal);
+        let alias_note = alias.map_or_else(String::new, |a| {
+            format!(" ({})", alias_mark(&state.decisions, a))
+        });
         if let Some(by) = d.superseded_by {
-            lines.push(format!("- {handle} — superseded by D{by}"));
+            #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+            let by = handle_at(&state.decisions, by as usize);
+            lines.push(format!("- {handle} — superseded by {by}{alias_note}"));
             continue;
         }
         if let Some(until) = d.until.as_ref().filter(|_| retired.contains(&ordinal)) {
-            lines.push(format!("- {handle} — retired: {until} resolved"));
+            lines.push(format!(
+                "- {handle} — retired: {until} resolved{alias_note}"
+            ));
             continue;
         }
         let mut marks: Vec<String> = Vec::new();
         if let Some(until) = &d.until {
             marks.push(format!("until {until}"));
         }
-        if let Some(supersedes) = &d.supersedes {
-            marks.push(format!("supersedes {supersedes}"));
+        if let Some(a) = alias {
+            marks.push(alias_mark(&state.decisions, a));
+        } else if let Some(supersedes) = &d.supersedes {
+            marks.push(format!(
+                "supersedes {}",
+                supersedes_handle(&state.decisions, supersedes, ordinal)
+            ));
         } else if let Some(held) = d.link_pending.as_ref().and_then(|l| l.held) {
-            marks.push(format!("names D{held}, held"));
+            #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+            let held = handle_at(&state.decisions, held as usize);
+            marks.push(format!("names {held}, held"));
         }
         let mark = if marks.is_empty() {
             String::new()
@@ -1089,18 +1231,37 @@ pub fn memory_shard(ordinal: usize) -> String {
     format!("memory/M{ordinal}.md")
 }
 
-/// `decisionEntry`: one decision whole, a field a line.
+/// `decisionEntry`: one decision whole, a field a line; handles suffixed, a
+/// re-log naming the entry it is an alias of (r4-fixes U5). `relogs` is
+/// `relog_aliases` of the state's decisions.
 #[must_use]
-pub fn decision_entry(state: &InitiativeState, ordinal: usize, retired: &[usize]) -> String {
+pub fn decision_entry(
+    state: &InitiativeState,
+    ordinal: usize,
+    retired: &[usize],
+    relogs: &(Vec<usize>, Vec<(usize, Vec<usize>)>),
+) -> String {
     let d = &state.decisions[ordinal - 1];
-    let why = if let Some(by) = d.superseded_by {
-        format!(" — replaced by D{by}")
+    let into = relogs.0.get(ordinal - 1).copied().unwrap_or(0);
+    let why = if into != 0 {
+        format!(
+            " — re-logged as {}, the same decision",
+            handle_at(&state.decisions, into)
+        )
+    } else if let Some(by) = d.superseded_by {
+        #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+        let by = handle_at(&state.decisions, by as usize);
+        format!(" — replaced by {by}")
     } else if let Some(until) = d.until.as_ref().filter(|_| retired.contains(&ordinal)) {
         format!(" — retired: {until} resolved")
     } else {
         String::new()
     };
-    let mut lines = vec![format!("D{ordinal} — {}{why}", date_part(&d.ts))];
+    let mut lines = vec![format!(
+        "{} — {}{why}",
+        suffixed_handle(ordinal, &d.id),
+        date_part(&d.ts)
+    )];
     if let Some(rule) = &d.rule {
         lines.push(format!("rule: {rule}"));
     }
@@ -1124,8 +1285,17 @@ pub fn decision_entry(state: &InitiativeState, ordinal: usize, retired: &[usize]
             .map_or_else(|| "undefined".to_owned(), crate::json::js_to_string);
         lines.push(format!("check: {cmd}"));
     }
-    if let Some(supersedes) = &d.supersedes {
-        lines.push(format!("supersedes: {supersedes}"));
+    if let Some(alias) = aliases_of(&relogs.1, ordinal) {
+        let named: Vec<String> = alias
+            .iter()
+            .map(|&n| handle_at(&state.decisions, n))
+            .collect();
+        lines.push(format!("alias: {}", named.join(", ")));
+    } else if let Some(supersedes) = &d.supersedes {
+        lines.push(format!(
+            "supersedes: {}",
+            supersedes_handle(&state.decisions, supersedes, ordinal)
+        ));
     }
     if let Some(until) = &d.until {
         lines.push(format!("until: {until}"));
@@ -1175,9 +1345,10 @@ pub fn render_brief(state: &InitiativeState) -> String {
 #[must_use]
 pub fn render_shards(state: &InitiativeState) -> Vec<(String, String)> {
     let retired = retired_ordinals(state);
+    let relogs = relog_aliases(&state.decisions);
     let mut out = Vec::with_capacity(state.decisions.len() + state.memories.len());
     for n in 1..=state.decisions.len() {
-        let body = decision_entry(state, n, &retired);
+        let body = decision_entry(state, n, &retired, &relogs);
         out.push((
             decision_shard(n),
             doc(&[GENERATED_HEADER.to_owned(), String::new(), body]),
@@ -1530,6 +1701,56 @@ fn regenerate_dirty(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// r4-fixes U5, the fixture of `test/handle-render.test.ts`: a chain of
+    /// re-logs folds whole into its last entry, a plain re-log is an alias
+    /// too, and a changed field is a real supersession.
+    #[test]
+    fn relog_aliases_fold_chains_and_only_word_for_word_copies() {
+        let d = |n: usize, rule: Option<&str>, because: &str, by: Option<u64>| DecisionState {
+            id: format!("01K00000000000000000000{n:03}"),
+            ts: "2026-10-01T00:00:00.000Z".into(),
+            chose: "c".into(),
+            over: "o".into(),
+            because: because.into(),
+            rule: rule.map(str::to_owned),
+            quote: None,
+            guard: None,
+            supersedes: None,
+            until: None,
+            check: None,
+            superseded_by: by,
+            link_pending: None,
+        };
+        let decisions = vec![
+            d(1, Some("R"), "b", Some(2)),
+            d(2, Some("R"), "b", Some(3)),
+            d(3, Some("R"), "b", None),
+            d(4, Some("S"), "b", Some(5)),
+            d(5, Some("S"), "changed", None),
+            d(6, None, "b", Some(7)),
+            d(7, None, "b", None),
+        ];
+        let (absorbed, aliases) = relog_aliases(&decisions);
+        assert_eq!(absorbed, vec![3, 3, 0, 0, 0, 7, 0]);
+        assert_eq!(aliases_of(&aliases, 3), Some(&[1, 2][..]));
+        assert_eq!(aliases_of(&aliases, 7), Some(&[6][..]));
+        assert_eq!(aliases_of(&aliases, 5), None);
+        assert_eq!(
+            alias_mark(&decisions, &[1, 2]),
+            format!(
+                "alias {}, {}",
+                suffixed_handle(1, &decisions[0].id),
+                suffixed_handle(2, &decisions[1].id)
+            )
+        );
+        assert_eq!(handle_at(&decisions, 9), "D9");
+        assert_eq!(
+            supersedes_handle(&decisions, "D1", 2),
+            handle_at(&decisions, 1)
+        );
+        assert_eq!(supersedes_handle(&decisions, "D2", 2), "D2");
+    }
 
     /// L4 (rust-core 4.4): the scorer that skips the counts equals the
     /// `lexicalCounts` formula it replaced, on every real-log line.

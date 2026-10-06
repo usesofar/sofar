@@ -16,6 +16,7 @@ import { startSession } from '../src/mcp/start-session'
 import { updatePlan } from '../src/mcp/update-plan'
 import { renderDecisions } from '../src/projections/templates/decisions'
 import { renderStatus } from '../src/projections/templates/status'
+import { bare } from './helpers/handles'
 
 /**
  * r3-fixes 2.6 (D18) — supersede-target integrity.
@@ -106,7 +107,7 @@ describe('check-suffixed handles', () => {
     const merged = [ds[0]!, { id: '01ABABABABABABABABABABABAB' }, ds[1]!, ds[2]!]
     const moved = resolveHandle(merged, suffixedHandle(2, ds[1]!.id))
     expect(moved).toMatchObject({ ok: true, ordinal: 3 })
-    expect(moved?.ok === true && moved.moved).toContain('is D3 now')
+    expect(moved?.ok === true && bare(moved.moved ?? '')).toContain('is D3 now')
     const wrong = resolveHandle(ds, 'D2·zzzz')
     expect(wrong).toMatchObject({ ok: false })
     expect(wrong?.ok === false && wrong.error).toContain(`D2 here is ${suffixedHandle(2, ds[1]!.id)}`)
@@ -125,13 +126,13 @@ describe('check-suffixed handles', () => {
     logDecision(f.ctx, RETRY)
     const d1 = fold(f).decisions[0]!
     const res = logDecision(f.ctx, { ...RETRY_V2, supersedes: suffixedHandle(1, d1.id) })
-    expect(res.retires).toBe(`D1 "${RETRY.rule}"`)
+    expect(res.retires).toBe(`${suffixedHandle(1, d1.id)} "${RETRY.rule}"`)
     expect(lastPayload(f)).toMatchObject({ supersedes: 'D1', supersedes_id: d1.id })
     expect(fold(f).decisions[0]!.superseded_by).toBe(2)
     expect(() => logDecision(f.ctx, { ...RETRY_V3, supersedes: 'D2·zzzz' })).toThrow(/names no decision/)
     const cli = runAppend(f.root, { type: 'decision_logged', payload: JSON.stringify({ ...RETRY_V3, supersedes: suffixedHandle(2, fold(f).decisions[1]!.id) }), actor: 'agent', source: 'codex' })
     expect(cli.exitCode).toBe(0)
-    expect(JSON.parse(cli.stdout)).toMatchObject({ ok: true, retires: `D2 "${RETRY_V2.rule}"` })
+    expect(JSON.parse(cli.stdout)).toMatchObject({ ok: true, retires: `${suffixedHandle(2, fold(f).decisions[1]!.id)} "${RETRY_V2.rule}"` })
     expect(lastPayload(f)).toMatchObject({ supersedes: 'D2' })
   })
 })
@@ -149,8 +150,8 @@ describe('the two-key hold', () => {
 
     const res = logDecision(f.ctx, { ...RETRY_V2, supersedes: 'D2' })
     expect(res.retires).toBeUndefined()
-    expect(res.warnings?.join('\n')).toContain(`D3 names D2 "${TAX.rule}" as what it replaces, but its words match D1 "${RETRY.rule}" far more. The link is held and D2 stays in force`)
-    expect(res.warnings?.join('\n')).toContain('`sofar supersedes D3 D2` if D2 is right, `sofar supersedes D3 D1` if D1 is, `sofar supersedes D3 none` if it replaces nothing')
+    expect(bare(res.warnings?.join('\n') ?? '')).toContain(`D3 names D2 "${TAX.rule}" as what it replaces, but its words match D1 "${RETRY.rule}" far more. The link is held and D2 stays in force`)
+    expect(bare(res.warnings?.join('\n') ?? '')).toContain('`sofar supersedes D3 D2` if D2 is right, `sofar supersedes D3 D1` if D1 is, `sofar supersedes D3 none` if it replaces nothing')
     const p = lastPayload(f)
     expect(p.supersedes).toBeUndefined()
     expect(p.supersedes_id).toBeUndefined()
@@ -161,8 +162,8 @@ describe('the two-key hold', () => {
     expect(state.decisions[1]!.superseded_by).toBeUndefined()
     expect(state.decisions[0]!.superseded_by).toBeUndefined()
     expect(state.decisions[2]!.link_pending).toMatchObject({ candidates: [1], held: 2 })
-    expect(renderDecisions(state)).toContain('(names D2, held) rule:')
-    const digest = renderStatus(state)
+    expect(bare(renderDecisions(state))).toContain('(names D2, held) rule:')
+    const digest = bare(renderStatus(state))
     expect(digest).toContain('⚠ Links pending — 1 held link(s), the target still in force; answer each: `sofar supersedes D<n> <D<m>|none>`')
     expect(digest).toContain('- D3 names D2, held — its words match D1 far more')
   })
@@ -174,7 +175,7 @@ describe('the two-key hold', () => {
     logDecision(f.ctx, TAX)
     logDecision(f.ctx, { ...RETRY_V2, supersedes: 'D2' })
     const res = stop(f, 'sess-a')
-    expect(res.stderr).toContain(
+    expect(bare(res.stderr)).toContain(
       'sofar: D3, filed this session, names D2 as what it replaces, but its words match D1 far more: the link is held and D2 stays in force. Answer before stopping: `sofar supersedes D3 D2` if D2 is right, `sofar supersedes D3 D1` if D1 is, `sofar supersedes D3 none` if it replaces nothing.',
     )
     const answered = runSupersedes(f.root, 'D3', 'D1', {}, PLAIN, PLAIN)
@@ -201,12 +202,12 @@ describe('the two-key hold', () => {
     logDecision(f.ctx, RETRY)
     logDecision(f.ctx, { ...RETRY_V2, supersedes: 'D1' })
     const res = logDecision(f.ctx, { ...RETRY_V3, supersedes: 'D1' })
-    expect(res.warnings?.join('\n')).toContain(`D3 names D1 "${RETRY.rule}" as what it replaces, but D1 was already replaced by D2 "${RETRY_V2.rule}". The link is held and D1 stays in force until it is answered: \`sofar supersedes D3 D2\` if D2 is`)
+    expect(bare(res.warnings?.join('\n') ?? '')).toContain(`D3 names D1 "${RETRY.rule}" as what it replaces, but D1 was already replaced by D2 "${RETRY_V2.rule}". The link is held and D1 stays in force until it is answered: \`sofar supersedes D3 D2\` if D2 is`)
     const state = fold(f)
     // Not re-pointed: D2 still holds the replacement.
     expect(state.decisions[0]!.superseded_by).toBe(2)
     expect(state.decisions[2]!.link_pending).toMatchObject({ candidates: [2], held: 1 })
-    expect(renderStatus(state)).toContain('- D3 names D1, held — D1 was already replaced by D2')
+    expect(bare(renderStatus(state))).toContain('- D3 names D1, held — D1 was already replaced by D2')
   })
 
   it('takes a target its words match, and echoes what it retired', () => {
@@ -214,7 +215,7 @@ describe('the two-key hold', () => {
     logDecision(f.ctx, RETRY)
     logDecision(f.ctx, TAX)
     const res = logDecision(f.ctx, { ...RETRY_V2, supersedes: 'D1' })
-    expect(res.retires).toBe(`D1 "${RETRY.rule}"`)
+    expect(bare(res.retires ?? '')).toBe(`D1 "${RETRY.rule}"`)
     expect(res.warnings ?? []).toEqual([])
     expect(fold(f).decisions[0]!.superseded_by).toBe(3)
   })
@@ -225,7 +226,7 @@ describe('the two-key hold', () => {
     const { rule: _, ...plain } = RETRY_V2
     const res = logDecision(f.ctx, { ...plain, supersedes: 'D1' })
     expect(res.retires).toBeUndefined()
-    expect(res.warnings?.join('\n')).toContain('D2 names D1, a rule, but carries none — a rule is replaced only by a rule, so D1 stays in force.')
+    expect(bare(res.warnings?.join('\n') ?? '')).toContain('D2 names D1, a rule, but carries none — a rule is replaced only by a rule, so D1 stays in force.')
   })
 
   it('SOFAR_LINK_HOLD=off takes every link as named (the ablation arm)', () => {
@@ -234,7 +235,7 @@ describe('the two-key hold', () => {
     logDecision(f.ctx, RETRY)
     logDecision(f.ctx, TAX)
     const res = logDecision(f.ctx, { ...RETRY_V2, supersedes: 'D2' })
-    expect(res.retires).toBe(`D2 "${TAX.rule}"`)
+    expect(bare(res.retires ?? '')).toBe(`D2 "${TAX.rule}"`)
     expect(fold(f).decisions[1]!.superseded_by).toBe(3)
   })
 
@@ -267,9 +268,9 @@ describe('the two-key hold', () => {
         { ...RETRY_V3, supersedes: 'D1' },
       ],
     })
-    expect(res.decisions).toEqual(['D3', 'D4'])
-    expect(res.retires).toEqual([`D4 retires D1 "${RETRY.rule}"`])
-    expect(res.warnings?.join('\n')).toContain('D3 names D2')
+    expect(res.decisions?.map(bare)).toEqual(['D3', 'D4'])
+    expect(res.retires?.map(bare)).toEqual([`D4 retires D1 "${RETRY.rule}"`])
+    expect(bare(res.warnings?.join('\n') ?? '')).toContain('D3 names D2')
     const state = fold(f)
     expect(state.decisions[1]!.superseded_by).toBeUndefined()
     expect(state.decisions[0]!.superseded_by).toBe(4)

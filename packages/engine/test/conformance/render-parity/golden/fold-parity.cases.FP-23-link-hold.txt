@@ -1,4 +1,4 @@
-== options (24131 bytes) ==
+== options (24659 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -13,18 +13,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -32,18 +35,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Retry at most three times"
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -85,18 +91,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -104,18 +113,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Retry at most three times"
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -132,59 +144,59 @@
     ]
   }
 }
-== status (244 bytes) ==
+== status (262 bytes) ==
 # demo
 
 Goal: g
 
 Standing constraints — obey verbatim (3):
-- [D2] Every attempt carries its own key
-- [D3] Retry at most five times
-- [D5] Retry at most nine times
+- [D2·196w] Every attempt carries its own key
+- [D3·s0wp] Retry at most five times
+- [D5·qt30] Retry at most nine times
 Progress: 0/0 tasks done (0%) across 0 phase(s)
 
 Next action: (none recorded)
 
-== digest:plain (961 bytes) ==
+== digest:plain (1039 bytes) ==
 # Sofar status: demo
 
 Goal: g
 
 ⚠ Links pending — 2 link(s) unnamed or held; answer each: `sofar supersedes D<n> <D<m>|none>`
-- D5
-- D4 names D1, held — D1 was already replaced by D3
+- D5·qt30
+- D4·adpw names D1·8vt3, held — D1·8vt3 was already replaced by D3·s0wp
 
 Recent decisions (4 in force, 1 retired; full text in decisions/D<n>.md):
-- [D2] 2026-01-01 (rule below) idempotency key per attempt — over per invoice
-- [D3] 2026-01-01 (rule below; supersedes D1) retry 5x — over retry 3x
-- [D4] 2026-01-01 queue retries — over cron
-- [D5] 2026-01-01 (rule below) retry 9x — over retry 5x
+- [D2·196w] 2026-01-01 (rule below) idempotency key per attempt — over per invoice
+- [D3·s0wp] 2026-01-01 (rule below; supersedes D1·8vt3) retry 5x — over retry 3x
+- [D4·adpw] 2026-01-01 queue retries — over cron
+- [D5·qt30] 2026-01-01 (rule below) retry 9x — over retry 5x
 
 Next ids: D6 (decision), M1 (memory)
 
 Standing constraints — obey verbatim (3):
-- [D5] Retry at most nine times
-- [D3] Retry at most five times
-- [D2] Every attempt carries its own key
+- [D5·qt30] Retry at most nine times
+- [D3·s0wp] Retry at most five times
+- [D2·196w] Every attempt carries its own key
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (1686 bytes) ==
+== digest:hook (1794 bytes) ==
 # Sofar status: demo
 
 Goal: g
 
 ⚠ Links pending — 2 link(s) unnamed or held; answer each: `sofar supersedes D<n> <D<m>|none>`
-- D5
-- D4 names D1, held — D1 was already replaced by D3
+- D5·qt30
+- D4·adpw names D1·8vt3, held — D1·8vt3 was already replaced by D3·s0wp
 
 Recent decisions (4 in force, 1 retired; full text in decisions/D<n>.md):
-- [D2] 2026-01-01 (rule below) idempotency key per attempt — over per invoice
-- [D3] 2026-01-01 (rule below; supersedes D1) retry 5x — over retry 3x
-- [D4] 2026-01-01 queue retries — over cron
-- [D5] 2026-01-01 (rule below) retry 9x — over retry 5x
+- [D2·196w] 2026-01-01 (rule below) idempotency key per attempt — over per invoice
+- [D3·s0wp] 2026-01-01 (rule below; supersedes D1·8vt3) retry 5x — over retry 3x
+- [D4·adpw] 2026-01-01 queue retries — over cron
+- [D5·qt30] 2026-01-01 (rule below) retry 9x — over retry 5x
 
 Next ids: D6 (decision), M1 (memory)
 
@@ -196,21 +208,21 @@ Recent work elsewhere: cases touched 2 files 3h ago (see sofar status cases).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (3):
-- [D5] Retry at most nine times
-- [D3] Retry at most five times
-- [D2] Every attempt carries its own key
+- [D5·qt30] Retry at most nine times
+- [D3·s0wp] Retry at most five times
+- [D2·196w] Every attempt carries its own key
 Repo-wide rules from other records (4 of 5, most relevant first):
-- [epsilon D4] Retry at most three times
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the FP-23-link-hold record's goal before its tasks.
+- [epsilon D4·dt6s] Retry at most three times
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the FP-23-link-hold record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (1261 bytes) ==
+== digest:lane (1309 bytes) ==
 # Sofar: quick-work lane (demo)
 
 Goal: g
@@ -222,10 +234,10 @@ This branch is bound to no initiative, so the hooks capture edits and commands h
 Recent quick work (1 session, 5 decisions since 2026-01-01):
 
 Recent decisions (4 in force, 1 retired; full text in decisions/D<n>.md):
-- [D2] 2026-01-01 (rule below) idempotency key per attempt — over per invoice
-- [D3] 2026-01-01 (rule below; supersedes D1) retry 5x — over retry 3x
-- [D4] 2026-01-01 queue retries — over cron
-- [D5] 2026-01-01 (rule below) retry 9x — over retry 5x
+- [D2·196w] 2026-01-01 (rule below) idempotency key per attempt — over per invoice
+- [D3·s0wp] 2026-01-01 (rule below; supersedes D1·8vt3) retry 5x — over retry 3x
+- [D4·adpw] 2026-01-01 queue retries — over cron
+- [D5·qt30] 2026-01-01 (rule below) retry 9x — over retry 5x
 
 Next ids: D6 (decision), M1 (memory)
 
@@ -233,48 +245,48 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: feature/FP-23-link-hold @ a1b2c3d — in sync with origin/feature/FP-23-link-hold
 
 Standing constraints — obey verbatim (3):
-- [D5] Retry at most nine times
-- [D3] Retry at most five times
-- [D2] Every attempt carries its own key
+- [D5·qt30] Retry at most nine times
+- [D3·s0wp] Retry at most five times
+- [D2·196w] Every attempt carries its own key
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (1047 bytes) ==
+== digest:quiet (1125 bytes) ==
 # Sofar status: demo
 
 Goal: g
 
 ⚠ Links pending — 2 link(s) unnamed or held; answer each: `sofar supersedes D<n> <D<m>|none>`
-- D5
-- D4 names D1, held — D1 was already replaced by D3
+- D5·qt30
+- D4·adpw names D1·8vt3, held — D1·8vt3 was already replaced by D3·s0wp
 
 Recent decisions (4 in force, 1 retired; full text in decisions/D<n>.md):
-- [D2] 2026-01-01 (rule below) idempotency key per attempt — over per invoice
-- [D3] 2026-01-01 (rule below; supersedes D1) retry 5x — over retry 3x
-- [D4] 2026-01-01 queue retries — over cron
-- [D5] 2026-01-01 (rule below) retry 9x — over retry 5x
+- [D2·196w] 2026-01-01 (rule below) idempotency key per attempt — over per invoice
+- [D3·s0wp] 2026-01-01 (rule below; supersedes D1·8vt3) retry 5x — over retry 3x
+- [D4·adpw] 2026-01-01 queue retries — over cron
+- [D5·qt30] 2026-01-01 (rule below) retry 9x — over retry 5x
 
 Next ids: D6 (decision), M1 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (3):
-- [D5] Retry at most nine times
-- [D3] Retry at most five times
-- [D2] Every attempt carries its own key
+- [D5·qt30] Retry at most nine times
+- [D3·s0wp] Retry at most five times
+- [D2·196w] Every attempt carries its own key
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6026 bytes) ==
+== digest:cap (6039 bytes) ==
 # Sofar status: demo
 
 Goal: g
 
 ⚠ Links pending — 2 link(s) unnamed or held; answer each: `sofar supersedes D<n> <D<m>|none>`
-- D5
-- D4 names D1, held — D1 was already replaced by D3
+- D5·qt30
+- D4·adpw names D1·8vt3, held — D1·8vt3 was already replaced by D3·s0wp
 
 
 Next ids: D6 (decision), M1 (memory)
@@ -286,18 +298,18 @@ Recent work elsewhere: cases touched 2 files 3h ago (see sofar status cases).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (3):
-- [D5] Retry at most nine times
-- [D3] Retry at most five times
-- [D2] Every attempt carries its own key
+- [D5·qt30] Retry at most nine times
+- [D3·s0wp] Retry at most five times
+- [D2·196w] Every attempt carries its own key
 Repo-wide rules from other records (4 of 5, most relevant first):
-- [epsilon D4] Retry at most three times
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the FP-23-link-hold record's goal before its tasks.
+- [epsilon D4·dt6s] Retry at most three times
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the FP-23-link-hold record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -315,59 +327,59 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-== decisions (539 bytes) ==
+== decisions (557 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
 # Decisions: demo
 
 One line per decision, in log order. Its full text — chose, over, because, the operator's words — is in decisions/D<n>.md, or `sofar show D<n>`.
 
-- D1·8vt3 — superseded by D3
+- D1·8vt3 — superseded by D3·s0wp
 - D2·196w 2026-01-01 — rule: Every attempt carries its own key
-- D3·s0wp 2026-01-01 — (supersedes D1) rule: Retry at most five times
-- D4·adpw 2026-01-01 — (names D1, held) chose queue retries
+- D3·s0wp 2026-01-01 — (supersedes D1·8vt3) rule: Retry at most five times
+- D4·adpw 2026-01-01 — (names D1·8vt3, held) chose queue retries
 - D5·qt30 2026-01-01 — rule: Retry at most nine times
 
-== shard decisions/D1.md (198 bytes) ==
+== shard decisions/D1.md (210 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-01-01 — replaced by D3
+D1·8vt3 — 2026-01-01 — replaced by D3·s0wp
 rule: Retry at most three times
 chose: retry 3x
 over: hourly
 because: rate limits
 
-== shard decisions/D2.md (208 bytes) ==
+== shard decisions/D2.md (214 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-01-01
+D2·196w — 2026-01-01
 rule: Every attempt carries its own key
 chose: idempotency key per attempt
 over: per invoice
 because: timeouts
 
-== shard decisions/D3.md (191 bytes) ==
+== shard decisions/D3.md (203 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-01-01
+D3·s0wp — 2026-01-01
 rule: Retry at most five times
 chose: retry 5x
 over: retry 3x
 because: finance
-supersedes: D1
+supersedes: D1·8vt3
 
-== shard decisions/D4.md (146 bytes) ==
+== shard decisions/D4.md (152 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-01-01
+D4·adpw — 2026-01-01
 chose: queue retries
 over: cron
 because: simpler
 
-== shard decisions/D5.md (174 bytes) ==
+== shard decisions/D5.md (180 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-01-01
+D5·qt30 — 2026-01-01
 rule: Retry at most nine times
 chose: retry 9x
 over: retry 5x

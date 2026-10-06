@@ -1,9 +1,11 @@
 import { readFileSync, rmSync } from 'node:fs'
 import { afterAll, describe, expect, it } from 'vitest'
 import { emptyState, foldLog, type DecisionState, type InitiativeState } from '../src/core/fold'
+import { suffixedHandle } from '../src/core/handle'
 import { REVERSAL_MAX_TERMS, reversedDecisions, silentReversal } from '../src/core/reversal'
 import { runAppend } from '../src/cli/event'
 import { callTool, callToolExpectError, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * r1-fixes 4.1.2 (L08, D31) — a decision that silently reverses a standing
@@ -95,10 +97,10 @@ describe('the refusal and its two ways through', () => {
 
   it('names the standing decision, what it chose, and the three ways forward', () => {
     const refusal = silentReversal(state, draft(...REVERSAL))!
-    expect(refusal.message).toContain('reverses standing D1 — nothing was logged')
-    expect(refusal.message).toContain('"supersedes":"D1" and a "rule"')
-    expect(refusal.message).toContain('cite D1 in "because"')
-    expect(refusal.errors).toEqual([`D1 (2026-09-15): chose "${APP_WIDE[0]}" over "${APP_WIDE[1]}"`])
+    expect(bare(refusal.message)).toContain('reverses standing D1 — nothing was logged')
+    expect(bare(refusal.message)).toContain('"supersedes":"D1" and a "rule"')
+    expect(bare(refusal.message)).toContain('cite D1 in "because"')
+    expect(refusal.errors).toEqual([`${suffixedHandle(1, state.decisions[0]!.id)} (2026-09-15): chose "${APP_WIDE[0]}" over "${APP_WIDE[1]}"`])
   })
 
   it('passes when supersedes names it, or because cites it as a word', () => {
@@ -134,7 +136,7 @@ describe('both agent-facing writers refuse before appending', () => {
 
     const refused = append({ chose: REVERSAL[0], over: REVERSAL[1], because: 'b' })
     expect(refused.exitCode).toBe(1)
-    expect(JSON.parse(refused.stderr)).toMatchObject({ code: 'invalid_input', errors: [expect.stringContaining('D1 (')] })
+    expect(JSON.parse(refused.stderr)).toMatchObject({ code: 'invalid_input', errors: [expect.stringMatching(/^D1·[0-9a-z]{4} \(/)] })
     // Two lines, not one: the first append registered session `s` before its
     // decision (agents-parity D14). The refusal added nothing to them.
     expect(readFileSync(f.eventsPath, 'utf8').trim().split('\n')).toHaveLength(2)

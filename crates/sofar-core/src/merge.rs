@@ -558,11 +558,13 @@ pub fn merge_entries(
             if d.until.is_some() || (retire && d.superseded_by.is_some()) {
                 continue;
             }
+            // Check-suffixed (r4-fixes U5): this block exists because a merge renumbers.
             let ordinal = crate::json::number_to_string(d.ordinal);
+            let suffix = crate::projections::handle_suffix(&d.id);
             let handle = if d.initiative == slug {
-                format!("D{ordinal}")
+                format!("D{ordinal}·{suffix}")
             } else {
-                format!("{} D{ordinal}", d.initiative)
+                format!("{} D{ordinal}·{suffix}", d.initiative)
             };
             let verb = if h.guarded { "governs" } else { "names" };
             keep(Ranked {

@@ -25,7 +25,8 @@ import { currentVersion, sortKeysDeep } from './snapshot'
  */
 
 const DIGEST_DIR = 'digest'
-export const DIGEST_CACHE_VERSION = 4
+// 5: the cut keeps decision ids and re-log pairs whole (r4-fixes U5).
+export const DIGEST_CACHE_VERSION = 5
 
 interface DigestFile {
   v: number

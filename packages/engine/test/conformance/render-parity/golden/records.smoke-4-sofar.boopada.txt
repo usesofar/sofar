@@ -1,4 +1,4 @@
-== options (28529 bytes) ==
+== options (29057 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -13,18 +13,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -32,18 +35,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -86,18 +92,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -105,18 +114,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -134,16 +146,16 @@
     ]
   }
 }
-== status (6299 bytes) ==
+== status (6323 bytes) ==
 # boopada
 
 Goal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.
 
 Standing constraints — obey verbatim (4):
-- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
-- [D2] Interests are only provider activity categories; reject any other value.
-- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
-- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
+- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
+- [D2·fxww] Interests are only provider activity categories; reject any other value.
+- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 Progress: 5/12 tasks done (41%) across 9 phase(s)
 
 Phases:
@@ -190,7 +202,7 @@ Files touched (11):
 - /Users/jins/IO/bench-cells/boopada/smoke-4-032/claude-sofar/r1/repo/apps/web/lib/server/deletions.ts
 - /Users/jins/IO/bench-cells/boopada/smoke-4-032/claude-sofar/r1/repo/apps/web/lib/server/validate.ts
 
-== digest:plain (4415 bytes) ==
+== digest:plain (4487 bytes) ==
 # Sofar status: boopada
 
 Goal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.
@@ -220,29 +232,29 @@ Memory (3; full text in memory/M<n>.md):
 - [M1] `bun run lint` (biome check .) covers repo-root JSON too: the sofar-generated .…
 
 Recent decisions (last 5 of 8; full text in decisions/D<n>.md):
-- [D4] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation
-- [D5] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page
-- [D6] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs
-- [D7] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list
-- [D8] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page
+- [D4·b8et] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation
+- [D5·5fxx] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page
+- [D6·4q3v] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs
+- [D7·rbx8] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list
+- [D8·j7qv] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page
 Earlier rejected approaches — do NOT re-propose (3 older):
-- [D1] Decimal strings or floats
-- [D2] Free-text interests
-- [D3] better-sqlite3 (native build step) or bun:sqlite only
+- [D1·v5bq] Decimal strings or floats
+- [D2·fxww] Free-text interests
+- [D3·jb2a] better-sqlite3 (native build step) or bun:sqlite only
 
 Next ids: D9 (decision), M4 (memory)
 
 Standing constraints — obey verbatim (4):
-- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
-- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
-- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
-- [D2] Interests are only provider activity categories; reject any other value.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
+- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
+- [D2·fxww] Interests are only provider activity categories; reject any other value.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (5382 bytes) ==
+== digest:hook (5484 bytes) ==
 # Sofar status: boopada
 
 Goal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.
@@ -280,15 +292,15 @@ Sofar never generates or overwrites this file; initiative state lives in
 .sofar/initiatives/<slug>/ instead.
 
 Recent decisions (last 5 of 8; full text in decisions/D<n>.md):
-- [D4] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation
-- [D5] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page
-- [D6] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs
-- [D7] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list
-- [D8] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page
+- [D4·b8et] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation
+- [D5·5fxx] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page
+- [D6·4q3v] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs
+- [D7·rbx8] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list
+- [D8·j7qv] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page
 Earlier rejected approaches — do NOT re-propose (3 older):
-- [D1] Decimal strings or floats
-- [D2] Free-text interests
-- [D3] better-sqlite3 (native build step) or bun:sqlite only
+- [D1·v5bq] Decimal strings or floats
+- [D2·fxww] Free-text interests
+- [D3·jb2a] better-sqlite3 (native build step) or bun:sqlite only
 
 Next ids: D9 (decision), M4 (memory)
 
@@ -300,21 +312,21 @@ Recent work elsewhere: smoke-4-sofar touched 2 files 3h ago (see sofar status sm
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (4):
-- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
-- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
-- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
-- [D2] Interests are only provider activity categories; reject any other value.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
+- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
+- [D2·fxww] Interests are only provider activity categories; reject any other value.
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the boopada record's goal before its tasks.
-- [delta D2] Keep the digest under its cap.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the boopada record's goal before its tasks.
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (4449 bytes) ==
+== digest:lane (4521 bytes) ==
 # Sofar: quick-work lane (boopada)
 
 Goal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.
@@ -337,15 +349,15 @@ Memory (3; full text in memory/M<n>.md):
 - [M1] `bun run lint` (biome check .) covers repo-root JSON too: the sofar-generated .…
 
 Recent decisions (last 5 of 8; full text in decisions/D<n>.md):
-- [D4] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation
-- [D5] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page
-- [D6] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs
-- [D7] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list
-- [D8] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page
+- [D4·b8et] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation
+- [D5·5fxx] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page
+- [D6·4q3v] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs
+- [D7·rbx8] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list
+- [D8·j7qv] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page
 Earlier rejected approaches — do NOT re-propose (3 older):
-- [D1] Decimal strings or floats
-- [D2] Free-text interests
-- [D3] better-sqlite3 (native build step) or bun:sqlite only
+- [D1·v5bq] Decimal strings or floats
+- [D2·fxww] Free-text interests
+- [D3·jb2a] better-sqlite3 (native build step) or bun:sqlite only
 
 Next ids: D9 (decision), M4 (memory)
 
@@ -353,14 +365,14 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: boopada @ a1b2c3d — differs from origin/boopada (fedcba9) — unpushed work
 
 Standing constraints — obey verbatim (4):
-- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
-- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
-- [D2] Interests are only provider activity categories; reject any other value.
-- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
+- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D2·fxww] Interests are only provider activity categories; reject any other value.
+- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (4501 bytes) ==
+== digest:quiet (4573 bytes) ==
 # Sofar status: boopada
 
 Goal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.
@@ -390,31 +402,31 @@ Memory (3; full text in memory/M<n>.md):
 - [M1] `bun run lint` (biome check .) covers repo-root JSON too: the sofar-generated .…
 
 Recent decisions (last 5 of 8; full text in decisions/D<n>.md):
-- [D4] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation
-- [D5] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page
-- [D6] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs
-- [D7] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list
-- [D8] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page
+- [D4·b8et] 2026-09-15 PUT /api/profile is a partial update — over Full-replace PUT; lenient case normalisation
+- [D5·5fxx] 2026-09-15 Extras beyond the brief (operator allowed, must be recorded) — over Shipping only the two profile endpoints and page
+- [D6·4q3v] 2026-09-15 (rule below) App-wide soft delete + undo — over Hard DELETE; confirm dialogs
+- [D7·rbx8] 2026-09-15 Bucket list API at /api/bucket and page at /bucket — over /api/bucket-list + /bucket-list
+- [D8·j7qv] 2026-09-15 Extras beyond the brief for piece 2 — over Shipping only the four endpoints and a bare list page
 Earlier rejected approaches — do NOT re-propose (3 older):
-- [D1] Decimal strings or floats
-- [D2] Free-text interests
-- [D3] better-sqlite3 (native build step) or bun:sqlite only
+- [D1·v5bq] Decimal strings or floats
+- [D2·fxww] Free-text interests
+- [D3·jb2a] better-sqlite3 (native build step) or bun:sqlite only
 
 Next ids: D9 (decision), M4 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (4):
-- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
-- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
-- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
-- [D2] Interests are only provider activity categories; reject any other value.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
+- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
+- [D2·fxww] Interests are only provider activity categories; reject any other value.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6024 bytes) ==
+== digest:cap (6033 bytes) ==
 # Sofar status: boopada
 
 Goal: Build Boopada trip planner (apps/web Next.js + SQLite, bun monorepo) through the 9-piece roadmap, one piece per session.
@@ -445,19 +457,19 @@ Recent work elsewhere: smoke-4-sofar touched 2 files 3h ago (see sofar status sm
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (4):
-- [D6] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
-- [D3] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
-- [D1] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
-- [D2] Interests are only provider activity categories; reject any other value.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
+- [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
+- [D2·fxww] Interests are only provider activity categories; reject any other value.
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the boopada record's goal before its tasks.
-- [delta D2] Keep the digest under its cap.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the boopada record's goal before its tasks.
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -540,71 +552,71 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 - M2 2026-09-15 — Smoke-testing the prod app: this machine runs other bench servers, so fixed por…
 - M3 2026-09-15 — Next.js 16 route-type validation (`.next/types/validator.ts`, checked by `bun r…
 
-== shard decisions/D1.md (675 bytes) ==
+== shard decisions/D1.md (681 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-09-15
+D1·v5bq — 2026-09-15
 rule: Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
 chose: Money everywhere in the API (in and out) is { amount_minor: integer, currency: ISO code } in the currency's minor units (JPY/VND 0, JOD 3, others 2); provider decimal strings are converted at the boundary via apps/web/lib/money.ts
 over: Decimal strings or floats (the prototype's approach)
 because: Operator decision: prototype used decimal strings and totals drifted. Integer minor units sum exactly.
 
-== shard decisions/D2.md (549 bytes) ==
+== shard decisions/D2.md (555 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-09-15
+D2·fxww — 2026-09-15
 rule: Interests are only provider activity categories; reject any other value.
 chose: Interests are a closed set = the providers' Activity.category values: culture, food, nature, adventure, nightlife, wellness, tour (exported as ACTIVITY_CATEGORIES in apps/web/lib/domain.ts); anything else is rejected with 400
 over: Free-text interests
 because: Operator decision: interests must map onto activity categories so suggestions/advisor/chat can use them.
 
-== shard decisions/D3.md (893 bytes) ==
+== shard decisions/D3.md (899 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-09-15
+D3·jb2a — 2026-09-15
 rule: Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
 chose: SQLite via a thin adapter (apps/web/lib/server/db.ts) that loads bun:sqlite under Bun (bun test) and node:sqlite under Node (next start), through process.getBuiltinModule; schema versioned by PRAGMA user_version with append-only MIGRATIONS in lib/server/migrations.ts; DB opened at startup in instrumentation.ts
 over: better-sqlite3 (native build step) or bun:sqlite only (next start runs on Node); createRequire (Turbopack rewrites it and fails with 'Cannot find module node:sqlite')
 because: No native deps, works in both runtimes the repo uses; verified with bun test and a real build+start on Node 24.
 guard: path:apps/web/lib/server/migrations.ts
 
-== shard decisions/D4.md (1053 bytes) ==
+== shard decisions/D4.md (1059 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-09-15
+D4·b8et — 2026-09-15
 chose: PUT /api/profile is a partial update (omitted fields keep value, daily_activity_budget:null clears), validated all-or-nothing; codes are strict (no case normalisation); known currencies = FX provider's USD rate table, known airports = airports of provider cities; budget may be in any known currency (not forced to home_currency), amount_minor non-negative safe integer; interests deduped; errors 400 validation_error with extra error.details[{field,message}]; invalid JSON 400 invalid_json; unknown /api paths 404 not_found via app/api/[...path]; wrong method 405 method_not_allowed. Profile response adds updated_at (null until first save, from BOOPADA_NOW clock).
 over: Full-replace PUT; lenient case normalisation; forcing budget currency to equal home currency
 because: Partial PUT is friendlier for later callers (chat 'interest add' can PUT just interests); strict codes match the ISO/IATA contract; details let the UI show per-field errors.
 
-== shard decisions/D5.md (869 bytes) ==
+== shard decisions/D5.md (875 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-09-15
+D5·5fxx — 2026-09-15
 chose: Extras beyond the brief (operator allowed, must be recorded): GET /api/reference (currencies, airports w/ city, cabin classes, interests) feeding the form; lib/money.ts helpers (decimalToMinor exact string conversion, minorToDecimal, addMoney currency-checked, formatMoney) ready for trip totals; JSON 404 catch-all and 405s under /api; per-field error details; updated_at on profile; README env/API section; biome now ignores .sofar/ (sofar index JSON broke `bun run lint`)
 over: Shipping only the two profile endpoints and page
 because: Reference endpoint avoids hardcoding provider vocab in UI and will serve trips/bucket list; money helpers are needed by pieces 3,5,7 and are cheapest to get right once with tests; consistent JSON errors everywhere under /api.
 
-== shard decisions/D6.md (1563 bytes) ==
+== shard decisions/D6.md (1569 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-09-15
+D6·4q3v — 2026-09-15
 rule: Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 chose: App-wide soft delete + undo: every traveller-made table gets `deleted_at TEXT` and `deletion_id INTEGER` columns; a DELETE writes one row to a `deletions` journal (id AUTOINCREMENT, kind, entity_id, label, deleted_at, undone_at) and stamps every affected row (including future cascades) with that deletion_id. POST /api/undo restores the most recent not-yet-undone deletion (a stack: repeated undo walks back further) by clearing deleted_at/deletion_id in every table registered in SOFT_DELETE_TABLES (apps/web/lib/server/deletions.ts), returns 200 { restored: { kind, id, label } }; 409 nothing_to_undo when the journal has nothing left. All reads filter `deleted_at IS NULL`. No confirmation dialogs in the UI; an Undo button is offered after deleting instead.
 over: Hard DELETE; confirm dialogs; per-entity undo endpoints; a single deleted flag without a journal (cannot order undo or group cascades)
 because: Operator decision for the whole app: never hard-delete traveller-made data, never ask "are you sure?", POST /api/undo restores the latest deletion, deleted things never appear in any list, total or suggestion. A journal with deletion_id groups cascades (e.g. deleting a trip with its days) so one undo restores them together.
 
-== shard decisions/D7.md (992 bytes) ==
+== shard decisions/D7.md (998 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D7 — 2026-09-15
+D7·rbx8 — 2026-09-15
 chose: Bucket list API at /api/bucket and page at /bucket (per operator brief); item = { id (UUID), title (trimmed, 1–200 chars), city_id (provider city id or null), notes (string ≤2000 or null), estimated_daily_spend (Money {amount_minor, currency} or null, non-negative, known currency), created_at, updated_at }; POST requires title; PATCH is partial (null clears optional fields); unknown city_id → 400 validation_error with details; unknown/deleted id → 404 not_found; list ordered created_at DESC. GET /api/reference gains `cities` [{id,name,country}] for the page.
 over: /api/bucket-list + /bucket-list (the previous next-action guess); estimated_daily_spend as a decimal number (conflicts with D1)
 because: Operator brief names /api/bucket and /bucket explicitly; D1 forces Money in minor units; partial PATCH and details mirror the profile API so clients handle errors one way.
 
-== shard decisions/D8.md (1028 bytes) ==
+== shard decisions/D8.md (1034 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D8 — 2026-09-15
+D8·j7qv — 2026-09-15
 chose: Extras beyond the brief for piece 2 (operator allowed, recorded): GET /api/bucket/{id}; Undo button on /bucket after a delete (data-testid bucket-undo) instead of any confirm; bucket-title/-city/-notes/-spend-amount/-spend-currency/-form/-list/-empty/-status testids; `cities` in GET /api/reference; spend currency defaults to profile home_currency; 405s on wrong methods; shared lib/server/validate.ts (isObject, parseMoneyField) now used by profile too; parseAmountInput moved to lib/money.ts; transaction() helper in db.ts; handle<C>() in api.ts supports dynamic-route context (IdContext); home page links /bucket.
 over: Shipping only the four endpoints and a bare list page
 because: No-confirm deletes need a visible way back or undo is undiscoverable; the page needs city names; shared Money validation keeps D1 enforced one way across endpoints; later pieces (trips, itinerary) reuse transaction/softDelete/IdContext.

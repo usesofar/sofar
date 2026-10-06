@@ -1,4 +1,4 @@
-== options (41789 bytes) ==
+== options (42229 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -25,18 +25,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -44,12 +47,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -104,18 +109,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -123,12 +131,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -202,7 +212,7 @@ Files touched (18):
 - /Users/jins/IO/sofar/packages/engine/test/statusline.test.ts
 - /Users/jins/IO/sofar/packages/engine/package.json
 
-== digest:plain (1979 bytes) ==
+== digest:plain (1997 bytes) ==
 # Sofar status: task-drop-state
 
 Goal: Give the record a terminal 'won't do' outcome: a `dropped` status for tasks and phases that is recorded with a mandatory reason but stops counting as remaining work — so a task nobody will ever build reads as decided rather than queued, and progress reflects what is actually outstanding instead of sitting at 90% forever.
@@ -220,9 +230,9 @@ Phases:
 Progress: 12/12 tasks done (100%) across 5 phase(s)
 
 Recent decisions (3; full text in decisions/D<n>.md):
-- [D1] 2026-08-05 Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_ST… — over (a) Adding two or three states
-- [D2] 2026-08-05 `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that publis… — over Encoding the drop as a sidecar field
-- [D3] 2026-08-05 A drop must carry a reason, enforced by REJECTING the tool call — over Warning instead of rejecting, and requiring nothing at all
+- [D1·gsty] 2026-08-05 Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_ST… — over (a) Adding two or three states
+- [D2·8frv] 2026-08-05 `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that publis… — over Encoding the drop as a sidecar field
+- [D3·cm7x] 2026-08-05 A drop must carry a reason, enforced by REJECTING the tool call — over Warning instead of rejecting, and requiring nothing at all
 
 Next ids: D4 (decision), M1 (memory)
 
@@ -230,7 +240,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (3532 bytes) ==
+== digest:hook (3574 bytes) ==
 # Sofar status: task-drop-state
 
 Goal: Give the record a terminal 'won't do' outcome: a `dropped` status for tasks and phases that is recorded with a mandatory reason but stops counting as remaining work — so a task nobody will ever build reads as decided rather than queued, and progress reflects what is actually outstanding instead of sitting at 90% forever.
@@ -260,9 +270,9 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (3; full text in decisions/D<n>.md):
-- [D1] 2026-08-05 Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_ST… — over (a) Adding two or three states
-- [D2] 2026-08-05 `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that publis… — over Encoding the drop as a sidecar field
-- [D3] 2026-08-05 A drop must carry a reason, enforced by REJECTING the tool call — over Warning instead of rejecting, and requiring nothing at all
+- [D1·gsty] 2026-08-05 Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_ST… — over (a) Adding two or three states
+- [D2·8frv] 2026-08-05 `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that publis… — over Encoding the drop as a sidecar field
+- [D3·cm7x] 2026-08-05 A drop must carry a reason, enforced by REJECTING the tool call — over Warning instead of rejecting, and requiring nothing at all
 
 Next ids: D4 (decision), M1 (memory)
 
@@ -279,16 +289,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the task-drop-state record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the task-drop-state record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (2739 bytes) ==
+== digest:lane (2757 bytes) ==
 # Sofar: quick-work lane (task-drop-state)
 
 Goal: Give the record a terminal 'won't do' outcome: a `dropped` status for tasks and phases that is recorded with a mandatory reason but stops counting as remaining work — so a task nobody will ever build reads as decided rather than queued, and progress reflects what is actually outstanding instead of sitting at 90% forever.
@@ -305,9 +315,9 @@ Recent quick work (2 sessions, 3 decisions since 2026-08-05):
 - 2026-08-05 claude-code — 17 files (/private/tmp/claude-501/-Users-jins-IO-sofar/6cbbd5e0-2127-401f-914e-9acaead00414/scratchpad/msg.txt, /Users/jins/IO/sofar/packages/schema/src/events.ts, /Users/jins/IO/sofar/packages/schema/src/tool-inputs.ts, /Users/jins/IO/sofar/packages/engine/src/core/fold.ts, /Users/jins/IO/sofar/packages/engine/src/cli/ui/symbols.ts, /Users/jins/IO/sofar/packages/engine/src/projections/templates/shared.ts, /Users/jins/IO/sofar/packages/engine/src/projections/templates/plan.ts, /Users/jins/IO/sofar/packages/engine/src/projections/templates/status.ts, /Users/jins/IO/sof…
 
 Recent decisions (3; full text in decisions/D<n>.md):
-- [D1] 2026-08-05 Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_ST… — over (a) Adding two or three states
-- [D2] 2026-08-05 `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that publis… — over Encoding the drop as a sidecar field
-- [D3] 2026-08-05 A drop must carry a reason, enforced by REJECTING the tool call — over Warning instead of rejecting, and requiring nothing at all
+- [D1·gsty] 2026-08-05 Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_ST… — over (a) Adding two or three states
+- [D2·8frv] 2026-08-05 `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that publis… — over Encoding the drop as a sidecar field
+- [D3·cm7x] 2026-08-05 A drop must carry a reason, enforced by REJECTING the tool call — over Warning instead of rejecting, and requiring nothing at all
 
 Next ids: D4 (decision), M1 (memory)
 
@@ -316,7 +326,7 @@ Git: feature/task-drop-state @ a1b2c3d — in sync with origin/feature/task-drop
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (2065 bytes) ==
+== digest:quiet (2083 bytes) ==
 # Sofar status: task-drop-state
 
 Goal: Give the record a terminal 'won't do' outcome: a `dropped` status for tasks and phases that is recorded with a mandatory reason but stops counting as remaining work — so a task nobody will ever build reads as decided rather than queued, and progress reflects what is actually outstanding instead of sitting at 90% forever.
@@ -334,9 +344,9 @@ Phases:
 Progress: 12/12 tasks done (100%) across 5 phase(s)
 
 Recent decisions (3; full text in decisions/D<n>.md):
-- [D1] 2026-08-05 Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_ST… — over (a) Adding two or three states
-- [D2] 2026-08-05 `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that publis… — over Encoding the drop as a sidecar field
-- [D3] 2026-08-05 A drop must carry a reason, enforced by REJECTING the tool call — over Warning instead of rejecting, and requiring nothing at all
+- [D1·gsty] 2026-08-05 Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_ST… — over (a) Adding two or three states
+- [D2·8frv] 2026-08-05 `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that publis… — over Encoding the drop as a sidecar field
+- [D3·cm7x] 2026-08-05 A drop must carry a reason, enforced by REJECTING the tool call — over Warning instead of rejecting, and requiring nothing at all
 
 Next ids: D4 (decision), M1 (memory)
 
@@ -346,7 +356,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6034 bytes) ==
+== digest:cap (6038 bytes) ==
 # Sofar status: task-drop-state
 
 Goal: Give the record a terminal 'won't do' outcome: a `dropped` status for tasks and phases that is recorded with a mandatory reason but stops counting as remaining work — so a task nobody will ever build reads as decided rather than queued, and progress reflects what is actually outstanding instead of sitting at 90% forever.
@@ -375,13 +385,13 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the task-drop-state record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the task-drop-state record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -420,26 +430,26 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D2·8frv 2026-08-05 — chose `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting t…
 - D3·cm7x 2026-08-05 — chose A drop must carry a reason, enforced by REJECTING the tool call (`sofar_update_…
 
-== shard decisions/D1.md (1799 bytes) ==
+== shard decisions/D1.md (1805 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-05
+D1·gsty — 2026-08-05
 chose: Exactly ONE new terminal status named `dropped`, added to both TASK_STATUSES and PHASE_STATUSES. It requires a reason note, and progress renders it as a visible third term — `9 done, 1 dropped, 0 remaining` — only when drops exist, leaving `9/10 tasks done (90%)` untouched otherwise.
 over: (a) Adding two or three states (skipped / abandoned / no-longer-needed) — `blocked` already covers "wants to happen, can't yet" and should keep nagging; only the terminal "decided not to happen" is missing, and near-synonyms are a choice an agent gets wrong at 2am. (b) Counting drops as done (10/10) — inflates the numerator and lies about what was built. (c) Silently subtracting drops from the denominator (9/9, 100%) — dropping the hard half of an initiative would quietly read as complete; scope would vanish untraceably. (d) Expressing drops without a new state: deleting the task loses the history of having considered it, and marking it done is dishonest.
 because: `blocked` is doing two incompatible jobs, and the render is wrong info: repo-memory-capture 4.1 is a deliberate scope call that shows as `[pending] 0/1` with progress frozen at 90%. Splitting off a terminal outcome fixes the signal while keeping the vocabulary small enough to use without thinking. The three-term render is the honest middle: `done` keeps meaning delivered, the denominator never shrinks silently, and "0 remaining" is the completion signal — with the extra term staying quiet in the common case, which the injected digest's token budget cares about. Name: `skipped` reads temporary and invites revisiting; `abandoned` makes a deliberate call sound like neglect; `dropped` is what people actually say.
 
-== shard decisions/D2.md (1620 bytes) ==
+== shard decisions/D2.md (1626 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-08-05
+D2·8frv — 2026-08-05
 chose: `dropped` ships as a real TASK_STATUSES/PHASE_STATUSES enum member, accepting that published 0.17.2 skips such events. Paired with a mandatory companion fix: fold must tolerate an unknown TASK STATUS inside plan_updated by keeping the rest of the plan (warn + coerce that one task) instead of rejecting the whole event.
 over: Encoding the drop as a sidecar field (`status:"blocked", dropped:true`), which was verified to degrade perfectly on 0.17.2 — old engines render today's exact semantics with no warnings and no plan loss, because payload validation is permissive about unknown extra fields.
 because: The sidecar buys a clean degrade with a permanent lie: the raw log would say `blocked` for a task that is dropped, and this record's whole value is that it does not flatter or misstate. Two fields encoding one concept must then be threaded through every consumer forever, and the NEXT enum addition faces the identical choice under the identical pressure. The enum's cost is bounded instead: no data is ever lost (the log stays intact — only a stale reader's render is wrong), it self-heals the moment the reader upgrades, and repo memory already carries the rule that the global install must be upgraded after each publish. The plan_updated cliff found in 1.1 is the only genuinely harmful part, and it is a GENERAL forward-compatibility defect rather than anything specific to `dropped` — fixing it once at the fold boundary retires that whole class, which the sidecar hack would merely route around.
 
-== shard decisions/D3.md (1378 bytes) ==
+== shard decisions/D3.md (1384 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-08-05
+D3·cm7x — 2026-08-05
 chose: A drop must carry a reason, enforced by REJECTING the tool call (`sofar_update_task` fails validation when status is `dropped` and note is empty), with doctor additionally warning when a drop's reason cites no decision. State keeps `drop_notes` so the reason stays addressable after the fold.
 over: Warning instead of rejecting, and requiring nothing at all (matching how `blocked` currently works, where the note is optional).
 because: `dropped` is the one status that closes a task without delivering it, so the stated reason IS the entire record that a decision was made rather than that the work was quietly forgotten — and unlike a wrong `pending`, nothing downstream will ever nag anyone into supplying it later, because a drop is terminal and stops appearing in remaining work. Rejecting is safe here: the worst case is that an agent leaves the task `pending` or `blocked`, which is exactly today's status quo rather than a regression, and the error message names what to supply. The cite-check is a warning rather than a rejection because a reason may legitimately predate its decision, or be self-contained — but a drop whose "why" points nowhere loses its justification the moment the author's context ends, which is the failure this record exists to prevent.

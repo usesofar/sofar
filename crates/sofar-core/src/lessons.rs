@@ -139,7 +139,7 @@ fn lesson_docs(state: &InitiativeState, retire: bool) -> Vec<LessonDoc> {
             &d.ts,
             &format!("{} {} {}", d.chose, d.over, d.because),
             LessonKind::Rejected,
-            format!("D{ordinal}"),
+            crate::projections::suffixed_handle(*ordinal, &d.id),
             d.over.clone(),
         ));
     }
@@ -239,7 +239,11 @@ fn lesson_of(
                 } else {
                     LessonKind::Decided
                 },
-                format!("{prefix}D{n}"),
+                // Check-suffixed (r4-fixes U5).
+                format!(
+                    "{prefix}D{n}·{}",
+                    crate::projections::handle_suffix(&doc.id)
+                ),
                 scope,
                 text.unwrap_or_default(),
             )

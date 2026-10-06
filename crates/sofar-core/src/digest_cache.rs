@@ -17,7 +17,8 @@ use crate::layout::Layout;
 use crate::snapshot::current_version;
 
 const DIGEST_DIR: &str = "digest";
-const DIGEST_CACHE_VERSION: f64 = 4.0;
+// 5: the cut keeps decision ids and re-log pairs whole (r4-fixes U5).
+const DIGEST_CACHE_VERSION: f64 = 5.0;
 
 fn digest_file(layout: &Layout, slug: &str) -> PathBuf {
     layout
@@ -151,7 +152,7 @@ mod tests {
         assert_eq!(cached_digest_state(&layout, "x"), want, "hit");
         for bad in [
             "nope".to_owned(),
-            good.replace("\"v\":4", "\"v\":5"),
+            good.replace("\"v\":5", "\"v\":6"),
             good.replace("\"sessions\":[", "\"sessions\":7,\"x\":["),
         ] {
             assert_ne!(bad, good);

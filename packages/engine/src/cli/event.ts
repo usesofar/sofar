@@ -90,7 +90,7 @@ import { readGateEnabled, rewriteRawRead } from '../core/read-rewrite'
 import { RECALL_TOLD_KEY, recallBlock, recallEnabled } from '../core/recall'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
-import { bareSupersedes } from '../core/handle'
+import { bareSupersedes, handleAt, qualifiedHandle, suffixedHandle } from '../core/handle'
 import { briefEntryText, capturePrompt, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
 import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
@@ -1379,6 +1379,7 @@ export function handleStop(
     const crossings = guardViolationLines(
       sessionGuardViolations(state, sessionId, session.ended),
       rootDir,
+      state.decisions,
     )
     // Decision checks ride the same block (D9/D10): they run only here, where
     // the write-back gate already holds the session, so an approved check costs
@@ -1609,7 +1610,7 @@ export function lessonLines(lessons: readonly Lesson[]): string[] {
     const matched = `matched: ${l.terms.join(', ')}`
     // Where the full text is: the decision's own shard (memory-lead D43), in
     // this record or another's (D15).
-    const ordinal = /D(\d+)$/.exec(l.handle)?.[1]
+    const ordinal = /D(\d+)(?:·[0-9a-z]{4})?$/.exec(l.handle)?.[1]
     const file = ordinal === undefined ? 'decisions.md' : `decisions/D${ordinal}.md`
     const where = l.initiative === undefined ? file : `${l.initiative}/${file}`
     const line =
@@ -2080,6 +2081,7 @@ function guardSubject(v: GuardViolation, rootDir: string): string {
 export function guardViolationLines(
   violations: readonly GuardViolation[],
   rootDir: string,
+  decisions: ReadonlyArray<{ id: string }>,
 ): string[] {
   if (violations.length === 0) return []
   const byRule = new Map<number, GuardViolation[]>()
@@ -2097,7 +2099,7 @@ export function guardViolationLines(
     const named = group.slice(0, GUARD_SUBJECTS_MAX).map((v) => guardSubject(v, rootDir))
     const more = group.length > named.length ? ` (+${group.length - named.length} more)` : ''
     lines.push(
-      `sofar: [D${ordinal}] guard crossed — "${head.rule}" — ${group.length} event(s): ` +
+      `sofar: [${handleAt(decisions, ordinal)}] guard crossed — "${head.rule}" — ${group.length} event(s): ` +
         `${named.join(', ')}${more} (guard: ${head.guard}).`,
     )
   }
@@ -2171,8 +2173,9 @@ type ScopeNotice = {
 const noticeEntry = (n: ScopeNotice): ScopedDecision | ScopedMemory => n.decision ?? n.memory
 
 function scopeHandle(d: ScopedDecision, slug: string): string {
-  // `D<n>` is initiative-scoped, so a handle from elsewhere carries its record.
-  return d.initiative === slug ? `D${d.ordinal}` : `${d.initiative} D${d.ordinal}`
+  // `D<n>` is initiative-scoped, so a handle from elsewhere carries its record;
+  // check-suffixed either way (r4-fixes U5).
+  return d.initiative === slug ? suffixedHandle(d.ordinal, d.id) : qualifiedHandle(d.initiative, d.ordinal, d.id)
 }
 
 function memoryHandle(m: ScopedMemory, slug: string): string {
@@ -2842,7 +2845,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // `SOFAR_LESSONS=off` is the ablation switch (D18): round 2 prices the
     // line's tokens on their own, and a lever must be separable to be priced.
     if (prompt !== null && lessonsEnabled()) lines.unshift(...lessonLines(promptLessons(ctx.sofarDir, state, slug, sessionId, prompt)))
-    lines.unshift(...guardViolationLines(sessionGuardViolations(state, sessionId, me.ended), rootDir))
+    lines.unshift(...guardViolationLines(sessionGuardViolations(state, sessionId, me.ended), rootDir, state.decisions))
 
     const wrap = parallelWrapLine(state, sessionId)
     if (wrap !== null) lines.push(wrap)
@@ -2974,7 +2977,7 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
     const slug = ctx.resolveInitiative(args.slug)
     // Same refusal as sofar_log_decision (r1-fixes 4.1.2, D31); malformed
     // payloads skip it and fail validation inside appendAndProject as before.
-    let fidelity: string | null = null
+    let fidelity: number | null = null
     let moved: string | undefined
     if (args.type === 'decision_logged') {
       // A check-suffixed handle (r3-fixes 2.6, D18) is judged and stored as
@@ -2991,8 +2994,9 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
       }
       // What the rule adds to the operator's words (memory-lead 1.2, D2), the
       // warning sofar_log_decision returns; reported only once the append lands.
+      // Named check-suffixed (r4-fixes U5), so worded once the append has an id.
       if (typeof payload.rule === 'string' && typeof payload.quote === 'string') {
-        fidelity = ruleFidelityWarning(ctx.foldState(slug).decisions.length + 1, payload.rule, payload.quote)
+        fidelity = ctx.foldState(slug).decisions.length + 1
       }
     }
     // A phase by number or in any case records the plan's own name, and a miss
@@ -3096,10 +3100,11 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
             return supersessionEcho(after, after.decisions.findIndex((d) => d.id === event.id) + 1)
           })()
         : {}
+    const fidelityLine = fidelity === null ? null : ruleFidelityWarning(suffixedHandle(fidelity, event.id), payload.rule as string, payload.quote as string)
     const extra = [
       ...(moved !== undefined ? [moved] : []),
       ...(echo.warning !== undefined ? [echo.warning] : []),
-      ...(fidelity !== null ? [fidelity] : []),
+      ...(fidelityLine !== null ? [fidelityLine] : []),
       ...(link !== null ? [link] : []),
     ]
     const warnings = lagWarnings(ctx, slug, args.type, extra)

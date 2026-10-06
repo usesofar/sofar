@@ -257,7 +257,7 @@ describe('no ceremony in the lane (D14 C)', () => {
       because: 'the failure is a reset, not slowness',
     })
     const out = hookContext(handleSessionStart(f.root, hook({ session_id: 'claude-quick-2' })))
-    expect(out).toContain('[D1]')
+    expect(out).toMatch(/\[D1·[0-9a-z]{4}\]/)
     expect(out).toContain('retry the flaky upload once')
     expect(out).toMatch(/^Recent quick work \(1 session, 1 decision since/m)
     expect(out).toContain('Next ids: D2 (decision), M1 (memory)')

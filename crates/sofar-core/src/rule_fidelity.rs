@@ -253,16 +253,17 @@ pub fn render_rule(rule: &str, quote: Option<&str>) -> String {
     }
 }
 
-/// `ruleFidelityWarning`: the write-time warning, or None when nothing is added.
+/// `ruleFidelityWarning`: the write-time warning, or None when nothing is
+/// added. `handle` is the decision's check-suffixed handle (r4-fixes U5).
 #[must_use]
-pub fn rule_fidelity_warning(ordinal: usize, rule: &str, quote: Option<&str>) -> Option<String> {
+pub fn rule_fidelity_warning(handle: &str, rule: &str, quote: Option<&str>) -> Option<String> {
     let quote = quote?;
     let added = unquoted_specifics(rule, quote);
     if added.is_empty() {
         return None;
     }
     Some(format!(
-        "D{ordinal}'s rule states {}, which the operator's quote does not. Every digest flags it; if the operator did not say it, log the rule as they worded it with supersedes D{ordinal}.",
+        "{handle}'s rule states {}, which the operator's quote does not. Every digest flags it; if the operator did not say it, log the rule as they worded it with supersedes {handle}.",
         added.join(", ")
     ))
 }
@@ -357,14 +358,14 @@ mod tests {
         );
         assert_eq!(render_rule("  two   spaces ", None), "two spaces");
         assert_eq!(
-            rule_fidelity_warning(2, R1_RULE, Some(R1_QUOTE)).as_deref(),
+            rule_fidelity_warning("D2·k3fz", R1_RULE, Some(R1_QUOTE)).as_deref(),
             Some(
-                "D2's rule states 4xx, which the operator's quote does not. Every digest flags it; if the operator did not say it, log the rule as they worded it with supersedes D2."
+                "D2·k3fz's rule states 4xx, which the operator's quote does not. Every digest flags it; if the operator did not say it, log the rule as they worded it with supersedes D2·k3fz."
             )
         );
-        assert_eq!(rule_fidelity_warning(2, R1_RULE, None), None);
+        assert_eq!(rule_fidelity_warning("D2·k3fz", R1_RULE, None), None);
         assert_eq!(
-            rule_fidelity_warning(2, "Reject anything else", Some(R1_QUOTE)),
+            rule_fidelity_warning("D2·k3fz", "Reject anything else", Some(R1_QUOTE)),
             None
         );
     }

@@ -934,7 +934,7 @@ async function driveHolding(
       attempt += 1
       const approved = isApproved(rootDir, c.check.cmd) || commandAllowed(c.check.cmd, surface)
       const timeoutMs = c.check.timeout_ms ?? verifyTimeoutMs
-      progress(`  checking ${task.id} against [${c.handle}]: ${c.check.cmd}${approved ? '' : ' — refused, neither approved on this clone nor inside the run\'s permission surface'}`)
+      progress(`  checking ${task.id} against [${c.shown}]: ${c.check.cmd}${approved ? '' : ' — refused, neither approved on this clone nor inside the run\'s permission surface'}`)
       const outcome: VerificationOutcome = approved
         ? runVerification(c.check.cmd, cwd, timeoutMs)
         : { result: 'refused', duration_ms: 0, diagnostics: 'decision check is neither approved on this clone nor covered by the run\'s allow rules; nothing was run' }

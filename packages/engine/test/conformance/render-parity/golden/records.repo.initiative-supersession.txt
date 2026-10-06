@@ -1,4 +1,4 @@
-== options (45657 bytes) ==
+== options (46185 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -13,18 +13,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -32,18 +35,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -86,18 +92,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -105,18 +114,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -134,7 +146,7 @@
     ]
   }
 }
-== status (5574 bytes) ==
+== status (5580 bytes) ==
 # initiative-supersession
 
 Status: done 2026-09-11T11:48:34.330Z — sofar.sh 0.31.0 published and verified on the registry (dist-tag latest 0.31.0, 2026-09-11). Supersession shipped: superseded status + successor edge across close/new/MCP, status/list/banner/doctor, graph and reach.
@@ -145,7 +157,7 @@ Closed over 3 finding(s):
 Goal: Let one initiative supersede others as a recorded edge, not prose: a `superseded` close status carrying a `successor` slug, set by `sofar close --superseded-by` and `sofar new --supersedes`, folded on the old record and derived everywhere else (status, list, banner, doctor, graph, find).
 
 Standing constraints — obey verbatim (1):
-- [D1] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
+- [D1·8vv7] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
 Progress: 11/11 tasks done (100%) across 4 phase(s)
 
 Phases:
@@ -195,7 +207,7 @@ Files touched (23):
 - /private/tmp/claude-501/-Users-jins-IO-sofar/9fc2846b-e542-4081-8f0e-f8495df6df12/scratchpad/release-msg.txt
 - /private/tmp/claude-501/-Users-jins-IO-sofar/9fc2846b-e542-4081-8f0e-f8495df6df12/scratchpad/close-msg.txt
 
-== digest:plain (2386 bytes) ==
+== digest:plain (2398 bytes) ==
 # Sofar status: initiative-supersession
 
 Goal: Let one initiative supersede others as a recorded edge, not prose: a `superseded` close status carrying a `successor` slug, set by `sofar close --superseded-by` and `sofar new --supersedes`, folded on the old record and derived everywhere else (status, list, banner, doctor, graph, find).
@@ -214,18 +226,18 @@ Memory (2; full text in memory/M<n>.md):
 - [M1] npm publish can land in the registry's STAGE QUEUE instead of going live (npm staged publishing, GA 2026-08): the run prints the tarball and "Publishing to https://registry.npmjs.org/", then the version is NOT in `npm view <pkg> versions`, and a retry fails E409 "Cannot publish …
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-09-11 (rule below) Supersession is a THIRD closed status, `superseded`, on the… — over (1) A merge command that copies events into a third record via the cu…
+- [D1·8vv7] 2026-09-11 (rule below) Supersession is a THIRD closed status, `superseded`, on the… — over (1) A merge command that copies events into a third record via the cu…
 
 Next ids: D2 (decision), M3 (memory)
 
 Standing constraints — obey verbatim (1):
-- [D1] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
+- [D1·8vv7] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (3712 bytes) ==
+== digest:hook (3754 bytes) ==
 # Sofar status: initiative-supersession
 
 Goal: Let one initiative supersede others as a recorded edge, not prose: a `superseded` close status carrying a `successor` slug, set by `sofar close --superseded-by` and `sofar new --supersedes`, folded on the old record and derived everywhere else (status, list, banner, doctor, graph, find).
@@ -256,7 +268,7 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-09-11 (rule below) Supersession is a THIRD closed status, `superseded`, on the… — over (1) A merge command that copies events into a third record via the cu…
+- [D1·8vv7] 2026-09-11 (rule below) Supersession is a THIRD closed status, `superseded`, on the… — over (1) A merge command that copies events into a third record via the cu…
 
 Next ids: D2 (decision), M3 (memory)
 
@@ -268,18 +280,18 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (1):
-- [D1] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
+- [D1·8vv7] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [zeta D9] Name the initiative-supersession record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [delta D2] Keep the digest under its cap.
+- [zeta D9·yytw] Name the initiative-supersession record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (2813 bytes) ==
+== digest:lane (2825 bytes) ==
 # Sofar: quick-work lane (initiative-supersession)
 
 Goal: Let one initiative supersede others as a recorded edge, not prose: a `superseded` close status carrying a `successor` slug, set by `sofar close --superseded-by` and `sofar new --supersedes`, folded on the old record and derived everywhere else (status, list, banner, doctor, graph, find).
@@ -299,7 +311,7 @@ Memory (2; full text in memory/M<n>.md):
 - [M1] npm publish can land in the registry's STAGE QUEUE instead of going live (npm s…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-09-11 (rule below) Supersession is a THIRD closed status, `superseded`, on the… — over (1) A merge command that copies events into a third record via the cu…
+- [D1·8vv7] 2026-09-11 (rule below) Supersession is a THIRD closed status, `superseded`, on the… — over (1) A merge command that copies events into a third record via the cu…
 
 Next ids: D2 (decision), M3 (memory)
 
@@ -307,11 +319,11 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: initiative-supersession @ a1b2c3d — differs from origin/initiative-supersession (fedcba9) — unpushed work
 
 Standing constraints — obey verbatim (1):
-- [D1] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
+- [D1·8vv7] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (2472 bytes) ==
+== digest:quiet (2484 bytes) ==
 # Sofar status: initiative-supersession
 
 Goal: Let one initiative supersede others as a recorded edge, not prose: a `superseded` close status carrying a `successor` slug, set by `sofar close --superseded-by` and `sofar new --supersedes`, folded on the old record and derived everywhere else (status, list, banner, doctor, graph, find).
@@ -330,20 +342,20 @@ Memory (2; full text in memory/M<n>.md):
 - [M1] npm publish can land in the registry's STAGE QUEUE instead of going live (npm staged publishing, GA 2026-08): the run prints the tarball and "Publishing to https://registry.npmjs.org/", then the version is NOT in `npm view <pkg> versions`, and a retry fails E409 "Cannot publish …
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-09-11 (rule below) Supersession is a THIRD closed status, `superseded`, on the… — over (1) A merge command that copies events into a third record via the cu…
+- [D1·8vv7] 2026-09-11 (rule below) Supersession is a THIRD closed status, `superseded`, on the… — over (1) A merge command that copies events into a third record via the cu…
 
 Next ids: D2 (decision), M3 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (1):
-- [D1] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
+- [D1·8vv7] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6022 bytes) ==
+== digest:cap (6028 bytes) ==
 # Sofar status: initiative-supersession
 
 Goal: Let one initiative supersede others as a recorded edge, not prose: a `superseded` close status carrying a `successor` slug, set by `sofar close --superseded-by` and `sofar new --supersedes`, folded on the old record and derived everywhere else (status, list, banner, doctor, graph, find).
@@ -364,16 +376,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (1):
-- [D1] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
+- [D1·8vv7] Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [zeta D9] Name the initiative-supersession record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [delta D2] Keep the digest under its cap.
+- [zeta D9·yytw] Name the initiative-supersession record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -419,10 +431,10 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 - M1 2026-09-11 — npm publish can land in the registry's STAGE QUEUE instead of going live (npm s…
 - M2 2026-09-11 — CORRECTION to the staged-publish note above (same day, 2026-09-11): the E409 "p…
 
-== shard decisions/D1.md (2393 bytes) ==
+== shard decisions/D1.md (2399 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-09-11
+D1·8vv7 — 2026-09-11
 rule: Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.
 chose: Supersession is a THIRD closed status, `superseded`, on the existing initiative_status_changed event, carrying `successor: <slug>` — recorded ONCE on the old record and derived everywhere else. The successor's side (`supersedes: a, b` in the listing, the reverse edge in the graph and reach index) is computed at read time from the predecessors' status events; nothing is written on the new record. `sofar new --supersedes` is sugar: create, bind, then one ordinary superseded close per predecessor.
 over: (1) A merge command that copies events into a third record via the cursor primitive — rejected: envelope.initiative inside every copied line would name the old slug (the misroute signature fold.ts and record-integrity 2.1 warn about), task ids collide across records, plan_updated is whole-plan so the ulid-newest wins, and renumbering to fix any of that is a rewrite the append-only log forbids. (2) A new event type `initiative_superseded` — rejected: superseded IS a closed status, and every reader that already asks isClosedInitiativeStatus (list, next, doctor, banner, statusline, end-session) gets it for free, where a new type would need each of them taught separately. (3) Writing `supersedes: [a, b]` on the successor's initiative_created too — rejected: two records asserting one edge can disagree, and the record already derives the reverse of a fact rather than storing both halves (commit-attribution D1).

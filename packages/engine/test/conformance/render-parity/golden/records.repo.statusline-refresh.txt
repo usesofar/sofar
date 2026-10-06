@@ -1,22 +1,25 @@
-== options (44804 bytes) ==
+== options (45332 bytes) ==
 {
   "plain": {},
   "hook": {
     "sessionId": "statusline-refresh-session",
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -24,18 +27,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -62,18 +68,21 @@
     "sessionId": "statusline-refresh-session",
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -81,18 +90,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -110,13 +122,13 @@
     ]
   }
 }
-== status (2027 bytes) ==
+== status (2033 bytes) ==
 # statusline-refresh
 
 Goal: Stop sofar disowning its own statusline: refreshInterval is the documented fix for a frozen idle line (Claude Code re-runs the command only on session start / new message / compact / mode toggle), but adding it makes isSofarStatusline's exact-2-key test fail, so install reports 'kept' and uninstall reports 'foreign' on sofar's own entry. Ship refreshInterval in the installed entry and widen the identity test to tolerate that one tunable key, keeping the theirs-wins law for genuinely foreign lines and keeping legacy 2-key installs removable.
 
 Standing constraints — obey verbatim (1):
-- [D1] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
+- [D1·t77e] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
 Progress: 4/4 tasks done (100%) across 1 phase(s)
 
 Phases:
@@ -131,7 +143,7 @@ Next action: Decide whether to mark home != branch-binding disagreement on the s
 Last session (claude-code, ended 2026-08-13T14:59:03.196Z):
   Phase-close repair from phase-lifecycle 4.3 (D5). No work on statusline-refresh itself: read plan.md, judged Phase 1 genuinely finished (4/4 tasks, 0.24.0 released), appended phase_status_changed done. Its next action asks a NEW question rather than naming unfinished Phase 1 work, which is part of why the phase reads finished. Carried forward verbatim.
 
-== digest:plain (2198 bytes) ==
+== digest:plain (2210 bytes) ==
 # Sofar status: statusline-refresh
 
 Goal: Stop sofar disowning its own statusline: refreshInterval is the documented fix for a frozen idle line (Claude Code re-runs the command only on session start / new message / compact / mode toggle), but adding it makes isSofarStatusline's exact-2-key test fail, so install reports 'kept' and uninstall reports 'foreign' on sofar's own entry. Ship refreshInterval in the installed entry and widen the i…
@@ -149,18 +161,18 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Writing to another initiative with an explicit `initiative` argument TEARS the calling session. sofar_add_note/log_decision/update_task all accept `initiative`, and using one from a session pinned elsewhere lands events where that session is not registered — doctor reports it as…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-07 (rule below) D1: statusline identity is type + command, tolerating exact… — over Keeping byte-for-byte identity
+- [D1·t77e] 2026-08-07 (rule below) D1: statusline identity is type + command, tolerating exact… — over Keeping byte-for-byte identity
 
 Next ids: D2 (decision), M2 (memory)
 
 Standing constraints — obey verbatim (1):
-- [D1] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
+- [D1·t77e] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (3399 bytes) ==
+== digest:hook (3441 bytes) ==
 # Sofar status: statusline-refresh
 
 Goal: Stop sofar disowning its own statusline: refreshInterval is the documented fix for a frozen idle line (Claude Code re-runs the command only on session start / new message / compact / mode toggle), but adding it makes isSofarStatusline's exact-2-key test fail, so install reports 'kept' and uninstall reports 'foreign' on sofar's own entry. Ship refreshInterval in the installed entry and widen the i…
@@ -190,7 +202,7 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-07 (rule below) D1: statusline identity is type + command, tolerating exact… — over Keeping byte-for-byte identity
+- [D1·t77e] 2026-08-07 (rule below) D1: statusline identity is type + command, tolerating exact… — over Keeping byte-for-byte identity
 
 Next ids: D2 (decision), M2 (memory)
 
@@ -201,18 +213,18 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (1):
-- [D1] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
+- [D1·t77e] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the statusline-refresh record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [delta D2] Keep the digest under its cap.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the statusline-refresh record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (2083 bytes) ==
+== digest:lane (2095 bytes) ==
 # Sofar: quick-work lane (statusline-refresh)
 
 Goal: Stop sofar disowning its own statusline: refreshInterval is the documented fix for a frozen idle line (Claude Code re-runs the command only on session start / new message / compact / mode toggle), but adding it makes isSofarStatusline's exact-2-key test fail, so install reports 'kept' and uninstall reports 'foreign' on sofar's own entry. Ship refreshInterval in the installed entry and widen the i…
@@ -230,18 +242,18 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Writing to another initiative with an explicit `initiative` argument TEARS the …
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-07 (rule below) D1: statusline identity is type + command, tolerating exact… — over Keeping byte-for-byte identity
+- [D1·t77e] 2026-08-07 (rule below) D1: statusline identity is type + command, tolerating exact… — over Keeping byte-for-byte identity
 
 Next ids: D2 (decision), M2 (memory)
 
 Session: lane-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (1):
-- [D1] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
+- [D1·t77e] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (2284 bytes) ==
+== digest:quiet (2296 bytes) ==
 # Sofar status: statusline-refresh
 
 Goal: Stop sofar disowning its own statusline: refreshInterval is the documented fix for a frozen idle line (Claude Code re-runs the command only on session start / new message / compact / mode toggle), but adding it makes isSofarStatusline's exact-2-key test fail, so install reports 'kept' and uninstall reports 'foreign' on sofar's own entry. Ship refreshInterval in the installed entry and widen the i…
@@ -259,20 +271,20 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Writing to another initiative with an explicit `initiative` argument TEARS the calling session. sofar_add_note/log_decision/update_task all accept `initiative`, and using one from a session pinned elsewhere lands events where that session is not registered — doctor reports it as…
 
 Recent decisions (1; full text in decisions/D<n>.md):
-- [D1] 2026-08-07 (rule below) D1: statusline identity is type + command, tolerating exact… — over Keeping byte-for-byte identity
+- [D1·t77e] 2026-08-07 (rule below) D1: statusline identity is type + command, tolerating exact… — over Keeping byte-for-byte identity
 
 Next ids: D2 (decision), M2 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (1):
-- [D1] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
+- [D1·t77e] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6022 bytes) ==
+== digest:cap (6028 bytes) ==
 # Sofar status: statusline-refresh
 
 Goal: Stop sofar disowning its own statusline: refreshInterval is the documented fix for a frozen idle line (Claude Code re-runs the command only on session start / new message / compact / mode toggle), but adding it makes isSofarStatusline's exact-2-key test fail, so install reports 'kept' and uninstall reports 'foreign' on sofar's own entry. Ship refreshInterval in the installed entry and widen the i…
@@ -292,16 +304,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (1):
-- [D1] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
+- [D1·t77e] statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the statusline-refresh record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [delta D2] Keep the digest under its cap.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the statusline-refresh record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -342,10 +354,10 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 
 - M1 2026-08-08 — Writing to another initiative with an explicit `initiative` argument TEARS the …
 
-== shard decisions/D1.md (1857 bytes) ==
+== shard decisions/D1.md (1863 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-07
+D1·t77e — 2026-08-07
 rule: statusLine identity is type + command plus the owned-key allowlist — never reintroduce an exact key-count test, and add a key to STATUSLINE_OWN_KEYS only when sofar itself writes it.
 chose: D1: statusline identity is type + command, tolerating exactly one tunable key (refreshInterval), and the installed entry ships refreshInterval: 10. isSofarStatusline matches on type + command and requires every remaining key to be in an owned set {type, command, refreshInterval}; any other extra key (e.g. padding) is still foreign. This recognizes both the legacy two-key entry installed before the key shipped and a user-retuned interval.
 over: Keeping byte-for-byte identity (Object.keys(v).length === 2) and documenting refreshInterval as a manual edit users make at their own risk; or accepting any object whose command is ours regardless of extra keys.

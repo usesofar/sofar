@@ -306,11 +306,13 @@ pub(crate) fn memory_handle(m: &ScopedMemory, slug: &str) -> String {
 }
 
 fn scope_handle(d: &ScopedDecision, slug: &str) -> String {
+    // Check-suffixed either way (r4-fixes U5).
     let ordinal = json::number_to_string(d.ordinal);
+    let suffix = crate::projections::handle_suffix(&d.id);
     if d.initiative == slug {
-        format!("D{ordinal}")
+        format!("D{ordinal}·{suffix}")
     } else {
-        format!("{} D{ordinal}", d.initiative)
+        format!("{} D{ordinal}·{suffix}", d.initiative)
     }
 }
 

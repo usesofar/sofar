@@ -812,6 +812,8 @@ pub fn refresh_guards(layout: &Layout) -> GuardIndex {
 /// 2.2, D8).
 #[derive(Debug, Clone, PartialEq)]
 pub struct RepoRule {
+    /// Envelope id — the rule's handle suffix (r4-fixes U5).
+    pub id: String,
     pub initiative: String,
     pub ordinal: f64,
     pub ts: String,
@@ -830,6 +832,7 @@ pub fn repo_rules(index: &GuardIndex, slug: &str, retire: bool) -> Vec<RepoRule>
         .filter(|d| d.initiative != slug && !(retire && d.superseded_by.is_some()))
         .filter_map(|d| {
             Some(RepoRule {
+                id: d.id.clone(),
                 initiative: d.initiative.clone(),
                 ordinal: d.ordinal,
                 ts: d.ts.clone(),

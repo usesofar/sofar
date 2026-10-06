@@ -9,6 +9,7 @@ import { reversedDecisions, reversedForeign, silentReversal, type ForeignDecisio
 import { handleSessionStart, runAppend } from '../src/cli/event'
 import { renderStatus } from '../src/projections/templates/status'
 import { callTool, callToolExpectError, callToolText, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * memory-lead 2.2 (D8) — repo-wide rules and cross-record reversal.
@@ -124,8 +125,8 @@ describe('the refusal across records', () => {
 
   it('reports own and foreign reversals together, own first', () => {
     const refusal = silentReversal(stateWith(APP_WIDE), draft(REVERSAL), elsewhere)!
-    expect(refusal.message).toContain('reverses standing D1, bucket-list D1')
-    expect(refusal.errors.map((e) => e.split(' (')[0])).toEqual(['D1', 'bucket-list D1'])
+    expect(bare(refusal.message)).toContain('reverses standing D1, bucket-list D1')
+    expect(refusal.errors.map((e) => bare(e).split(' (')[0])).toEqual(['D1', 'bucket-list D1'])
   })
 })
 
@@ -174,7 +175,7 @@ describe('the scope tier keeps every rule', () => {
 })
 
 describe('the digest', () => {
-  const rule = (initiative: string, ordinal: number, text: string, ts = '2026-09-15T00:00:00.000Z'): RepoRule => ({ initiative, ordinal, ts, rule: text })
+  const rule = (initiative: string, ordinal: number, text: string, ts = '2026-09-15T00:00:00.000Z'): RepoRule => ({ id: `${initiative}-${ordinal}`, initiative, ordinal, ts, rule: text })
   const planned = (): InitiativeState => ({
     ...emptyState(),
     slug: 'trips',
@@ -200,7 +201,7 @@ describe('the digest', () => {
         { ...rule('bucket-list', 1, 'Never hard-delete anything the traveller made.'), quote: 'we never hard-delete anything' },
       ],
     })
-    const tail = section(text)
+    const tail = bare(section(text))
     expect(tail).toContain(
       [
         'Standing constraints — obey verbatim (1):',
@@ -217,7 +218,7 @@ describe('the digest', () => {
     const text = renderStatus({ ...emptyState(), slug: 'trips' }, {
       repoRules: [rule('a', 1, 'Alpha rule.', '2026-09-01T00:00:00.000Z'), rule('b', 7, 'Beta rule.', '2026-09-02T00:00:00.000Z')],
     })
-    expect(text.indexOf('[b D7]')).toBeLessThan(text.indexOf('[a D1]'))
+    expect(bare(text).indexOf('[b D7]')).toBeLessThan(bare(text).indexOf('[a D1]'))
     // Only other records' rules: the block and the read-back still render.
     expect(text).toContain('Repo-wide rules from other records (2 of 2')
     expect(text).toContain('Read-back:')
@@ -235,7 +236,7 @@ describe('the digest', () => {
     const full = section(renderStatus(withOwn(planned(), 11), { repoRules: many }))
     expect(full).not.toContain('Repo-wide rules from other records (')
     expect(full).toContain('- …and 30 more from other records (their decisions.md)')
-    expect(full).toContain('- [D11] Own rule 11')
+    expect(bare(full)).toContain('- [D11] Own rule 11')
   })
 
   it('the same words are one rule: restatements merge under every handle, and own rules are not repeated', () => {
@@ -247,7 +248,7 @@ describe('the digest', () => {
       ],
     })
     expect(text).toContain('Repo-wide rules from other records (1 of 1, most relevant first):')
-    expect(text).toContain('- [agents-parity D2, r1-fixes D35] Ship every host integration for each agent.')
+    expect(bare(text)).toContain('- [agents-parity D2, r1-fixes D35] Ship every host integration for each agent.')
     expect(text).not.toContain('[other D4]')
   })
 
@@ -324,11 +325,11 @@ describe('SessionStart and get_state carry other records\' rules', () => {
     decide(f.root, 'trips', { chose: 'IANA zones', over: 'UTC' })
     const out = handleSessionStart(f.root, JSON.stringify({ session_id: 'sess-1', hook_event_name: 'SessionStart', source: 'startup', cwd: f.root })).stdout
     expect(out).toContain('Repo-wide rules from other records (1 of 1, most relevant first):')
-    expect(out).toContain(`- [bucket-list D1] ${RULE}`)
+    expect(bare(out)).toContain(`- [bucket-list D1] ${RULE}`)
 
     const { client } = await connectServer(f.root)
     const digest = await callToolText(client, 'sofar_get_state', { initiative: 'trips' })
-    expect(digest.text).toContain(`- [bucket-list D1] ${RULE}`)
+    expect(bare(digest.text)).toContain(`- [bucket-list D1] ${RULE}`)
     await client.close()
   })
 
@@ -336,7 +337,7 @@ describe('SessionStart and get_state carry other records\' rules', () => {
     const f = fx()
     decide(f.root, 'trips', { chose: 'IANA zones', over: 'UTC', rule: 'Decide today in the city zone.' })
     const out = handleSessionStart(f.root, JSON.stringify({ session_id: 'sess-1', hook_event_name: 'SessionStart', source: 'startup', cwd: f.root })).stdout
-    expect(out).toContain('- [D1] Decide today in the city zone.')
+    expect(bare(out)).toContain('- [D1] Decide today in the city zone.')
     expect(out).not.toContain('other records')
   })
 })

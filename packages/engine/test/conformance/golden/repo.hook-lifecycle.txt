@@ -32,7 +32,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/packages/engine/src/core/fold.ts","old_string":"a","new_string":"b"},"tool_response":{}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/core/fold.ts is governed by [architecture-map D1], a standing rule: \"Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.\" (guard: path:packages/engine/src/**,packages/schema/src/**). Work against it needs a decision that supersedes architecture-map D1.\nsofar: packages/engine/src/core/fold.ts is governed by [phase-lifecycle D2], a standing rule: \"Never derive phase status from task status — not in the fold, not as a side effect of a task write. Doctor's stale-phase axis and closeout's phases_unresolved finding both exist to say \"tasks done, phase not finished\", and derivation deletes that sentence.\" (guard: path:**/core/fold.ts,**/core/closeout.ts). Work against it needs a decision that supersedes phase-lifecycle D2.\nsofar: [initiative-supersession D1] names packages/engine/src/core/fold.ts. Its standing rule: \"Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.\".\nsofar: …and 3 more decision(s) and 4 more memories on packages/engine/src/core/fold.ts (in commit-attribution, digest-signal, record-index, peer-messaging, record-graph, harness-build) — sofar find packages/engine/src/core/fold.ts."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/core/fold.ts is governed by [architecture-map D1·msya], a standing rule: \"Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.\" (guard: path:packages/engine/src/**,packages/schema/src/**). Work against it needs a decision that supersedes architecture-map D1·msya.\nsofar: packages/engine/src/core/fold.ts is governed by [phase-lifecycle D2·bjk5], a standing rule: \"Never derive phase status from task status — not in the fold, not as a side effect of a task write. Doctor's stale-phase axis and closeout's phases_unresolved finding both exist to say \"tasks done, phase not finished\", and derivation deletes that sentence.\" (guard: path:**/core/fold.ts,**/core/closeout.ts). Work against it needs a decision that supersedes phase-lifecycle D2·bjk5.\nsofar: [initiative-supersession D1·8vv7] names packages/engine/src/core/fold.ts. Its standing rule: \"Supersession is recorded ONLY as `successor` on the predecessor's superseded status event — never written on the successor, never inferred from prose; every reverse view derives from that one field.\".\nsofar: …and 3 more decision(s) and 4 more memories on packages/engine/src/core/fold.ts (in commit-attribution, digest-signal, record-index, peer-messaging, record-graph, harness-build) — sofar find packages/engine/src/core/fold.ts."}}
 --- stderr
 (empty)
 
@@ -50,7 +50,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"MultiEdit","tool_input":{"file_path":"<ROOT>/packages/engine/src/cli/event.ts","edits":[]}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/cli/event.ts is governed by [architecture-map D1], a standing rule: \"Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.\" (guard: path:packages/engine/src/**,packages/schema/src/**). Work against it needs a decision that supersedes architecture-map D1.\nsofar: packages/engine/src/cli/event.ts is governed by [commit-attribution D15], a standing rule: \"The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.\" (guard: path:packages/engine/src/core/shipwatch.ts,packages/engine/src/cli/event.ts). Work against it needs a decision that supersedes commit-attribution D15.\nsofar: …and 5 more decision(s) and 5 more memories on packages/engine/src/cli/event.ts (in commit-attribution, record-integrity, repo-memory-capture, session-orientation, record-index, record-graph, initiative-lifecycle) — sofar find packages/engine/src/cli/event.ts."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/cli/event.ts is governed by [architecture-map D1·msya], a standing rule: \"Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.\" (guard: path:packages/engine/src/**,packages/schema/src/**). Work against it needs a decision that supersedes architecture-map D1·msya.\nsofar: packages/engine/src/cli/event.ts is governed by [commit-attribution D15·186a], a standing rule: \"The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.\" (guard: path:packages/engine/src/core/shipwatch.ts,packages/engine/src/cli/event.ts). Work against it needs a decision that supersedes commit-attribution D15·186a.\nsofar: …and 5 more decision(s) and 5 more memories on packages/engine/src/cli/event.ts (in commit-attribution, record-integrity, repo-memory-capture, session-orientation, record-index, record-graph, initiative-lifecycle) — sofar find packages/engine/src/cli/event.ts."}}
 --- stderr
 (empty)
 
@@ -59,7 +59,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"export OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz0123456789 && curl -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghijklmnop\" https://user:hunter2@example.com/x --token=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -p AKIAIOSFODNN7EXAMPLE","description":"x"},"tool_response":{}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: export OPENAI_API_KEY=[redacted] && curl -H \"Authorization:… is governed by [bench-refresh D14], a standing rule: \"Never let any benchmark process use an API key or roll into paid overage; on the first sign of paid billing stop everything and tell the user.\" (guard: cmd:*ANTHROPIC_API_KEY=*,*OPENAI_API_KEY=*,*XAI_API_KEY=*,*CURSOR_API_KEY=*,*opencode run*,*--api-key*). Work against it needs a decision that supersedes bench-refresh D14."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: export OPENAI_API_KEY=[redacted] && curl -H \"Authorization:… is governed by [bench-refresh D14·7xwt], a standing rule: \"Never let any benchmark process use an API key or roll into paid overage; on the first sign of paid billing stop everything and tell the user.\" (guard: cmd:*ANTHROPIC_API_KEY=*,*OPENAI_API_KEY=*,*XAI_API_KEY=*,*CURSOR_API_KEY=*,*opencode run*,*--api-key*). Work against it needs a decision that supersedes bench-refresh D14·7xwt."}}
 --- stderr
 (empty)
 
@@ -95,7 +95,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"<ROOT>/README.md"}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: [harness-build D42] 2026-07-07 names README.md: chose BD42: README.md at repo root over a hand-maintained packages/engine/README.md."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: [harness-build D42·xzcw] 2026-07-07 names README.md: chose BD42: README.md at repo root over a hand-maintained packages/engine/README.md."}}
 --- stderr
 (empty)
 
@@ -188,8 +188,8 @@ exit: 0
 Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
 
 Standing constraints — obey verbatim (2):
-- [D1] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
-- [D2] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
+- [D1·1x01] Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
+- [D2·ea2q] Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
 Progress: 1/15 tasks done (6%) across 4 phase(s)
 
 Phases:
@@ -246,10 +246,10 @@ One line per decision, in log order. Its full text — chose, over, because, the
 
 - D1·1x01 2026-09-15 — rule: Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
 - D2·ea2q 2026-09-15 — rule: Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
-=== .sofar/initiatives/rust-core/decisions/D1.md (added, 2844 bytes)
+=== .sofar/initiatives/rust-core/decisions/D1.md (added, 2850 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-09-15
+D1·1x01 — 2026-09-15
 rule: Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.
 chose: Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 ("yes do it").
 SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions:
@@ -274,10 +274,10 @@ because:
 - Sofar runs on every tool call of every agent session. A native core gives near-zero hook start-up, fast folds over very large records (this repo's own is 9.7 MB), a single binary with no Node dependency for Codex/Cursor/OpenCode users, and headroom for many parallel agents.
 - Measured 0.31 hooks are only ~0.75% of session time today, so the win is future scale and distribution rather than today's tokens. That is why it goes incrementally, and must pass the same benchmark gate as any other change.
 - A conformance-first strangler port means neither implementation can drift from the SPEC.
-=== .sofar/initiatives/rust-core/decisions/D2.md (added, 1574 bytes)
+=== .sofar/initiatives/rust-core/decisions/D2.md (added, 1580 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-09-15
+D2·ea2q — 2026-09-15
 rule: Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTPATH.md §Text-semantics pins, never Rust defaults; a parity difference is fixed in Rust or ruled by a Decision, never absorbed by loosening the conformance suite.
 chose: Byte parity is defined against the TypeScript engine's JavaScript text semantics, inventoried in docs/HOTPATH.md §Text-semantics pins: lengths and clips in UTF-16 code units, JS non-unicode regex classes, JS whitespace class, ECMAScript number formatting in canonical JSON, Node path.relative/basename, Math.round half-up, millisecond ISO timestamps. docs/HOTPATH.md is the hand-written contract inventory the conformance suite (1.2) drives; SPEC gaps it lists (G1–G15) are resolved by SPEC edits or Decisions, never by letting the two implementations differ.
 over: Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations.

@@ -1,5 +1,6 @@
 import { isResolvedTaskStatus, type InitiativeStatus } from '@sofar/schema'
 import { freshnessTotal, type InitiativeState } from './fold'
+import { handleAt } from './handle'
 
 /**
  * The close-time mechanical audit (commit-attribution 5.1).
@@ -150,7 +151,7 @@ export function closeoutFindings(
       ? state.guard_violations
       : state.guard_violations.filter((v) => v.event_id > lastReview)
   if (unread.length > 0) {
-    const rules = [...new Set(unread.map((v) => `D${v.decision}`))]
+    const rules = [...new Set(unread.map((v) => handleAt(state.decisions, v.decision)))]
     findings.push({
       kind: 'guards_crossed',
       text: `${plural(unread.length, 'guarded-rule crossing')} no review has looked at (${name(rules)}) — a crossing is a warning, and closing is the last moment it can still be answered`,

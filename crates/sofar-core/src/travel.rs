@@ -373,7 +373,8 @@ pub fn repo_memory_handles(text: &str) -> HashSet<String> {
     out
 }
 
-/// `ruleHandles`: the `<slug> D<n>` handles in rendered Repo-wide rules lines.
+/// `ruleHandles`: the `<slug> D<n>` handles in rendered Repo-wide rules lines,
+/// bare — the rules render them check-suffixed (r4-fixes U5).
 #[must_use]
 pub fn rule_handles(lines: &[String]) -> HashSet<String> {
     let mut out = HashSet::new();
@@ -389,6 +390,18 @@ pub fn rule_handles(lines: &[String]) -> HashSet<String> {
             continue;
         }
         for h in inner.split(", ") {
+            let h = match h.split_once('·') {
+                Some((bare, suffix))
+                    if suffix.chars().count() == 4
+                        && suffix
+                            .bytes()
+                            .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase()) =>
+                {
+                    bare
+                }
+                Some(_) => continue,
+                None => h,
+            };
             if let Some((slug, d)) = h.split_once(' ')
                 && !slug.is_empty()
                 && slug.bytes().all(is_slug_byte)

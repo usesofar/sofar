@@ -1,4 +1,5 @@
 import type { InitiativeState } from './fold'
+import { handleAt } from './handle'
 import { lexicalCounts, rankLexical, type LexicalDoc } from './lexicon'
 import { retiredOrdinals } from './retire'
 
@@ -171,22 +172,23 @@ function heldAsk(
   live: (n: number) => boolean,
   quoted: boolean,
 ): { why: string; answers: string[] } {
+  const H = (n: number): string => handleAt(state.decisions, n)
   const h = link.held!
   const named = state.decisions[h - 1]!
   const q = (n: number): string => (quoted ? ` "${clip(text(state, n), 80)}"` : '')
   const offers = link.candidates.filter(live)
   const why =
     named.superseded_by !== undefined
-      ? `D${h} was already replaced by D${named.superseded_by}${q(named.superseded_by)}`
+      ? `${H(h)} was already replaced by ${H(named.superseded_by)}${q(named.superseded_by)}`
       : !live(h)
-        ? `D${h} is no longer in force`
+        ? `${H(h)} is no longer in force`
         : offers.length > 0
-          ? `its words match ${offers.map((n) => `D${n}${q(n)}`).join(' and ')} far more`
+          ? `its words match ${offers.map((n) => `${H(n)}${q(n)}`).join(' and ')} far more`
           : 'its words share little with it'
   const answers = [
-    ...(live(h) ? [`\`sofar supersedes D${ordinal} D${h}\` if D${h} is right`] : []),
-    ...offers.map((n) => `\`sofar supersedes D${ordinal} D${n}\` if D${n} is`),
-    `\`sofar supersedes D${ordinal} none\` if it replaces nothing`,
+    ...(live(h) ? [`\`sofar supersedes ${H(ordinal)} ${H(h)}\` if ${H(h)} is right`] : []),
+    ...offers.map((n) => `\`sofar supersedes ${H(ordinal)} ${H(n)}\` if ${H(n)} is`),
+    `\`sofar supersedes ${H(ordinal)} none\` if it replaces nothing`,
   ]
   return { why, answers }
 }
@@ -200,22 +202,24 @@ function heldAsk(
 export function pendingLinkLine(state: InitiativeState, ordinal: number): string | null {
   const pending = state.decisions[ordinal - 1]?.link_pending
   if (pending === undefined) return null
+  const H = (n: number): string => handleAt(state.decisions, n)
   if (pending.held !== undefined) {
     const retired = retiredOrdinals(state)
     const live = (n: number): boolean => state.decisions[n - 1] !== undefined && !retired.has(n)
     const h = pending.held
     const { why, answers } = heldAsk(state, ordinal, pending, live, true)
-    return `D${ordinal} names D${h} "${clip(text(state, h), 80)}" as what it replaces, but ${why}. The link is held and D${h} stays in force until it is answered: ${answers.join(', ')}. Until then the digest shows it and Stop asks.`
+    return `${H(ordinal)} names ${H(h)} "${clip(text(state, h), 80)}" as what it replaces, but ${why}. The link is held and ${H(h)} stays in force until it is answered: ${answers.join(', ')}. Until then the digest shows it and Stop asks.`
   }
-  const named = pending.candidates.map((n) => `D${n} "${clip(state.decisions[n - 1]?.rule ?? '', 80)}"`)
+  const named = pending.candidates.map((n) => `${H(n)} "${clip(state.decisions[n - 1]?.rule ?? '', 80)}"`)
   const may = named.length > 0 ? `it may replace ${named.join(', or ')}` : 'no rule in force shares its words'
   const first = pending.candidates[0]
-  return `D${ordinal} is a rule that names nothing it replaces; ${may}. If it does, answer \`sofar supersedes D${ordinal} ${first !== undefined ? `D${first}` : 'D<n>'}\`; if not, \`sofar supersedes D${ordinal} none\`. Until then the digest shows it and Stop asks.`
+  return `${H(ordinal)} is a rule that names nothing it replaces; ${may}. If it does, answer \`sofar supersedes ${H(ordinal)} ${first !== undefined ? H(first) : 'D<n>'}\`; if not, \`sofar supersedes ${H(ordinal)} none\`. Until then the digest shows it and Stop asks.`
 }
 
 /** The digest's line for a held link (r3-fixes 2.6, D18): handles only. */
 export function heldDigestLine(state: InitiativeState, ordinal: number, link: { candidates: number[]; held?: number }, live: (n: number) => boolean): string {
-  return `- D${ordinal} names D${link.held}, held — ${heldAsk(state, ordinal, link, live, false).why}`
+  const H = (n: number): string => handleAt(state.decisions, n)
+  return `- ${H(ordinal)} names ${H(link.held!)}, held — ${heldAsk(state, ordinal, link, live, false).why}`
 }
 
 /** At most this many links are asked at one Stop; the rest wait in the digest. */
@@ -230,6 +234,7 @@ export const STOP_LINKS_MAX = 5
  * SOFAR_RETIRE=off).
  */
 export function stopLinkLines(state: InitiativeState, sessionId: string, retired: ReadonlySet<number>): string[] {
+  const H = (n: number): string => handleAt(state.decisions, n)
   const live = (n: number): boolean => {
     const d = state.decisions[n - 1]
     return d !== undefined && d.superseded_by === undefined && !retired.has(n)
@@ -246,15 +251,15 @@ export function stopLinkLines(state: InitiativeState, sessionId: string, retired
     if (link.held !== undefined) {
       const { why, answers } = heldAsk(state, i + 1, link, live, false)
       lines.push(
-        `sofar: D${i + 1}, filed this session, names D${link.held} as what it replaces, but ${why}: the link is held and D${link.held} stays in force. Answer before stopping: ${answers.join(', ')}.`,
+        `sofar: ${H(i + 1)}, filed this session, names ${H(link.held)} as what it replaces, but ${why}: the link is held and ${H(link.held)} stays in force. Answer before stopping: ${answers.join(', ')}.`,
       )
       continue
     }
     const may = link.candidates.filter(live)
-    const target = may[0] !== undefined ? `D${may[0]}` : 'D<n>'
-    const what = may.length > 0 ? ` — it may replace ${may.map((n) => `D${n}`).join(' or ')}` : ''
+    const target = may[0] !== undefined ? H(may[0]) : 'D<n>'
+    const what = may.length > 0 ? ` — it may replace ${may.map(H).join(' or ')}` : ''
     lines.push(
-      `sofar: D${i + 1} is a rule this session filed naming nothing it replaces${what}. Answer before stopping: \`sofar supersedes D${i + 1} ${target}\` if it does, \`sofar supersedes D${i + 1} none\` if not.`,
+      `sofar: ${H(i + 1)} is a rule this session filed naming nothing it replaces${what}. Answer before stopping: \`sofar supersedes ${H(i + 1)} ${target}\` if it does, \`sofar supersedes ${H(i + 1)} none\` if not.`,
     )
   }
   if (more > 0) lines.push(`sofar: …and ${more} more pending link(s) this session filed (the digest lists them).`)
@@ -270,13 +275,14 @@ export function stopLinkLines(state: InitiativeState, sessionId: string, retired
 export function supersessionEcho(state: InitiativeState, ordinal: number): { retires?: string; warning?: string } {
   const d = state.decisions[ordinal - 1]
   if (d?.supersedes === undefined) return {}
+  const H = (n: number): string => handleAt(state.decisions, n)
   const k = Number(/^D([1-9][0-9]*)$/.exec(d.supersedes)?.[1] ?? 0)
   const target = state.decisions[k - 1]
-  if (target !== undefined && k < ordinal && target.superseded_by === ordinal) return { retires: `D${k} "${clip(text(state, k), 80)}"` }
+  if (target !== undefined && k < ordinal && target.superseded_by === ordinal) return { retires: `${H(k)} "${clip(text(state, k), 80)}"` }
   return {
     warning:
       target !== undefined && k < ordinal && target.rule !== undefined && d.rule === undefined
-        ? `D${ordinal} names D${k}, a rule, but carries none — a rule is replaced only by a rule, so D${k} stays in force. To replace it, log a decision with a rule that supersedes D${k}.`
-        : `D${ordinal} names ${d.supersedes}, which is not an earlier decision in this record, so it retires nothing.`,
+        ? `${H(ordinal)} names ${H(k)}, a rule, but carries none — a rule is replaced only by a rule, so ${H(k)} stays in force. To replace it, log a decision with a rule that supersedes ${H(k)}.`
+        : `${H(ordinal)} names ${d.supersedes}, which is not an earlier decision in this record, so it retires nothing.`,
   }
 }

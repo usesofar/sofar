@@ -406,7 +406,7 @@ describe('get_state progressive disclosure — digest default vs view:full (toke
     expect(text).toContain('Goal: ship the widget')
     // Handle-first index (r1-fixes 2.2, D11): what was chosen and what was
     // rejected (M4 dead-end guard) on one citable line; the why is on demand.
-    expect(text).toContain('- [D1] ')
+    expect(text).toMatch(/- \[D1·[0-9a-z]{4}\] /)
     expect(text).toContain('sqlite — over postgres')
     expect(text).toContain('full text in decisions/D<n>.md')
     expect(text).not.toContain('zero ops overhead')

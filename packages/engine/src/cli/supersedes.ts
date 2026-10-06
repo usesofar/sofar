@@ -1,4 +1,4 @@
-import { resolveHandle } from '../core/handle'
+import { handleAt, resolveHandle, supersedesHandle } from '../core/handle'
 import { retiredOrdinals } from '../core/retire'
 import { createToolContext, ToolError } from '../mcp/context'
 import { errMessage, fail, ok, type CmdResult } from './shared'
@@ -43,25 +43,27 @@ export function runSupersedes(
     const replacing = none ? null : resolveHandle(state.decisions, target)
     if (replacing !== null && !replacing.ok) return say(replacing.error)
     const n = which.ordinal
+    // Every handle a line names is check-suffixed (r4-fixes U5); the payload keeps the bare ones.
+    const H = (o: number): string => handleAt(state.decisions, o)
     const decision = state.decisions[n - 1]
-    if (decision === undefined) return say(`${slug} has no D${n}`)
+    if (decision === undefined) return say(`${slug} has no ${H(n)}`)
     if (decision.supersedes !== undefined) {
-      return say(`${slug} D${n} already names ${decision.supersedes} — a link is set once; to change it, log a new decision that supersedes D${n}`)
+      return say(`${slug} ${H(n)} already names ${supersedesHandle(state.decisions, decision.supersedes, n)} — a link is set once; to change it, log a new decision that supersedes ${H(n)}`)
     }
     if (replacing === null) {
       ctx.appendAndProject(slug, 'decision_linked', { decision: `D${n}`, decision_id: decision.id }, { session: 'cli', source: 'cli', actor: 'agent' })
-      return ok(`${renderConfirmation([`${slug} D${n} replaces nothing — link answered`], caps)}\n`)
+      return ok(`${renderConfirmation([`${slug} ${H(n)} replaces nothing — link answered`], caps)}\n`)
     }
     const k = replacing.ordinal
     const replaced = state.decisions[k - 1]
-    if (replaced === undefined) return say(`${slug} has no D${k}`)
-    if (k >= n) return say(`D${k} is not earlier than D${n} — a decision replaces only one filed before it`)
+    if (replaced === undefined) return say(`${slug} has no ${H(k)}`)
+    if (k >= n) return say(`${H(k)} is not earlier than ${H(n)} — a decision replaces only one filed before it`)
     if (replaced.superseded_by !== undefined) {
-      return say(`D${k} was already replaced by D${replaced.superseded_by} — name that one: \`sofar supersedes D${n} D${replaced.superseded_by}\``)
+      return say(`${H(k)} was already replaced by ${H(replaced.superseded_by)} — name that one: \`sofar supersedes ${H(n)} ${H(replaced.superseded_by)}\``)
     }
-    if (retiredOrdinals(state).has(k)) return say(`D${k} is no longer in force (its task resolved) — there is nothing to replace`)
+    if (retiredOrdinals(state).has(k)) return say(`${H(k)} is no longer in force (its task resolved) — there is nothing to replace`)
     if (replaced.rule !== undefined && decision.rule === undefined) {
-      return say(`D${k} is a rule and D${n} is not — a rule is replaced only by a rule; log a decision with a rule that supersedes D${k}`)
+      return say(`${H(k)} is a rule and ${H(n)} is not — a rule is replaced only by a rule; log a decision with a rule that supersedes ${H(k)}`)
     }
     ctx.appendAndProject(
       slug,
@@ -70,7 +72,7 @@ export function runSupersedes(
       { session: 'cli', source: 'cli', actor: 'agent' },
     )
     const what = replaced.rule ?? replaced.chose
-    return ok(`${renderConfirmation([`${slug} D${n} supersedes D${k} — retired: "${what.length > 80 ? `${what.slice(0, 79)}…` : what}"`], caps)}\n`)
+    return ok(`${renderConfirmation([`${slug} ${H(n)} supersedes ${H(k)} — retired: "${what.length > 80 ? `${what.slice(0, 79)}…` : what}"`], caps)}\n`)
   } catch (err) {
     if (err instanceof ToolError) return say(errMessage(err))
     throw err

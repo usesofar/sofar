@@ -500,6 +500,36 @@ export function buildCases(): FoldParityCase[] {
     l.ev('decision_logged', { chose: 'c', over: 'o', because: 'b', supersedes: 'D1', supersedes_id: d1, supersedes_held: 'D1', link_candidates: [d1] }, { session: 'A' }) // invalid: both
     cases.push({ id: 'FP-23-link-hold', lines: l.lines, sidecar: { tail_at: 5, seeds: [68, 69, 70], order_independence: true, note: 'r3-fixes 2.6 (D18): supersedes_held with link_candidates is link-pending with held = the first id\'s ordinal and candidates = the rest, and retires nothing; a plain decision may be held; an unknown first id leaves no held; decision_linked answers it and the answer retires; supersedes_held without candidates, or with supersedes, is an invalid line; never drift. The tail starts at the first held link' } })
   }
+  {
+    // r4-fixes U5: `sofar bind` re-logs. A decision re-filed word for word
+    // (only its check changed) supersedes the one it copies, as bind writes
+    // it; the fold marks it like any supersession, and the render folds the
+    // pair into one entry with the old handle as its alias. A chain folds
+    // whole, a plain decision re-logged too, a changed `because` is a real
+    // supersession, and an aliased entry a real change replaced keeps its
+    // aliases on its stub. The fold itself is unchanged.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('session_started', { tool: 'claude-code' }, { session: 'A' })
+    const soft = { chose: 'soft delete', over: 'hard delete', because: 'undo', rule: 'Never hard-delete anything the traveller made.', quote: 'never hard-delete', guard: 'path:src/db/**' }
+    const d1 = l.ev('decision_logged', soft, { session: 'A' })
+    l.ev('decision_logged', { ...soft, check: { cmd: 'bun test test/store.test.ts' }, supersedes: 'D1', supersedes_id: d1 }, { session: 'cli', source: 'cli', actor: 'human' }) // D2: alias D1
+    const cents = { chose: 'integer cents', over: 'floats', because: 'rounding', rule: 'Store money as integer cents.' }
+    const d3 = l.ev('decision_logged', cents, { session: 'A' })
+    const d4 = l.ev('decision_logged', { ...cents, check: { cmd: 'bun test test/money.test.ts' }, supersedes: 'D3', supersedes_id: d3 }, { session: 'cli', source: 'cli', actor: 'human' })
+    l.ev('decision_logged', { ...cents, check: { cmd: 'bun test test/money.test.ts -t cents', hint: 'use cents' }, supersedes: 'D4', supersedes_id: d4 }, { session: 'cli', source: 'cli', actor: 'human' }) // D5: alias D3, D4
+    const tz = { chose: 'IANA zones', over: 'UTC', because: 'travellers', rule: 'Decide today in the city zone.' }
+    const d6 = l.ev('decision_logged', tz, { session: 'A' })
+    l.ev('decision_logged', { ...tz, because: 'the operator said so', supersedes: 'D6', supersedes_id: d6 }, { session: 'A' }) // D7: a changed because is a real supersession
+    const plain = { chose: 'queue retries', over: 'cron', because: 'simpler' }
+    const d8 = l.ev('decision_logged', plain, { session: 'A' })
+    l.ev('decision_logged', { ...plain, supersedes: 'D8', supersedes_id: d8 }, { session: 'A' }) // D9: a plain re-log, alias D8
+    const keys = { chose: 'one key per attempt', over: 'per invoice', because: 'timeouts', rule: 'Every attempt carries its own key.' }
+    const d10 = l.ev('decision_logged', keys, { session: 'A' })
+    const d11 = l.ev('decision_logged', { ...keys, check: { cmd: 'bun test test/keys.test.ts' }, supersedes: 'D10', supersedes_id: d10 }, { session: 'cli', source: 'cli', actor: 'human' })
+    l.ev('decision_logged', { chose: 'one key per invoice', over: 'per attempt', because: 'the provider dedupes', rule: 'Every invoice carries one key.', supersedes: 'D11', supersedes_id: d11 }, { session: 'A' }) // D12 replaces D11 (alias D10)
+    cases.push({ id: 'FP-24-bind-relog', lines: l.lines, sidecar: { tail_at: 6, seeds: [71, 72, 73], order_independence: true, note: 'r4-fixes U5: bind re-logs — a decision re-filed word for word but its check supersedes the one it copies (stamped), a chain of two, a plain re-log, a changed because (a real supersession), and an aliased entry a real change replaced. The fold marks each as any supersession; the render folds a re-log into its replacer as an alias. The tail starts at the second re-log' } })
+  }
   return cases
 }
 

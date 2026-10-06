@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { foldLog, type InitiativeState } from '../src/core/fold'
 import { startServer, type ServeHandle } from '../src/cli/serve'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * speed T3 — the persistent MCP daemon (SPEC §MCP tools, transport, §CLI,
@@ -130,16 +131,20 @@ interface StepResult {
   text: string
 }
 
-/** Redact per-run volatility (fresh ulids) in JSON tool bodies; text bodies pass through raw. */
+/**
+ * Redact per-run volatility (fresh ulids) in JSON tool bodies, and in every
+ * body the check suffixes cut from them (r4-fixes U5); text bodies are
+ * otherwise compared raw.
+ */
 function normalizeBody(text: string): string {
   try {
     const decoded: unknown = JSON.parse(text)
     if (typeof decoded === 'object' && decoded !== null && 'event_id' in decoded) {
-      return JSON.stringify({ ...decoded, event_id: '<volatile>' })
+      return bare(JSON.stringify({ ...decoded, event_id: '<volatile>' }))
     }
-    return text
+    return bare(text)
   } catch {
-    return text // digest/portfolio text — byte-compared as-is
+    return bare(text) // digest/portfolio text — byte-compared but for the suffixes
   }
 }
 

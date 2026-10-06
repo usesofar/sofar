@@ -1,4 +1,5 @@
 import type { InitiativeState } from './fold'
+import { resolveHandle, suffixedHandle } from './handle'
 import { lexicalCounts, rankLexical, type LexicalDoc } from './lexicon'
 import { retiredOrdinals } from './retire'
 import { hasRealAlternative } from '../projections/templates/status'
@@ -93,7 +94,8 @@ function recallDocs(state: InitiativeState, retire: boolean): RecallDoc[] {
     if (retired.has(ordinal)) return
     const handle = `D${ordinal}`
     const prose = [d.rule ?? '', d.chose, d.over, d.quote ?? '', d.because].join('\n')
-    docs.push(doc(`decision:${ordinal}`, d.ts, prose, { handle, line: decisionLine(handle, d) }))
+    // Matched by the bare ordinal, printed check-suffixed (r4-fixes U5).
+    docs.push(doc(`decision:${ordinal}`, d.ts, prose, { handle, line: decisionLine(suffixedHandle(ordinal, d.id), d) }))
   })
   state.memories.forEach((m, i) => {
     if (m.superseded_by !== undefined) return
@@ -103,11 +105,25 @@ function recallDocs(state: InitiativeState, retire: boolean): RecallDoc[] {
   return docs
 }
 
-/** The `D<n>` and `M<n>` handles a prompt names, in order, each once. */
+/**
+ * The `D<n>` and `M<n>` handles a prompt names, in order, each once — a
+ * decision's with its check suffix when the prompt gives one (`D12·k3fz`,
+ * r4-fixes U5), so recallBlock resolves it by the suffix a merge cannot move.
+ */
 export function namedHandles(prompt: string): string[] {
   const out: string[] = []
-  for (const m of prompt.matchAll(/\b([DM][1-9][0-9]{0,5})\b/g)) if (!out.includes(m[1]!)) out.push(m[1]!)
+  for (const m of prompt.matchAll(/\b([DM][1-9][0-9]{0,5})\b(?:·([0-9a-hjkmnp-tv-z]{4})(?![0-9A-Za-z_]))?/g)) {
+    const h = m[2] !== undefined && m[1]!.startsWith('D') ? `${m[1]}·${m[2]}` : m[1]!
+    if (!out.includes(h)) out.push(h)
+  }
   return out
+}
+
+/** A named handle as the bare ordinal it names here: a suffixed one by its suffix (resolveHandle), null when that names nothing. */
+function bareNamed(state: InitiativeState, handle: string): string | null {
+  if (!handle.includes('·')) return handle
+  const r = resolveHandle(state.decisions, handle)
+  return r !== null && r.ok ? `D${r.ordinal}` : null
 }
 
 /**
@@ -123,9 +139,10 @@ export function recallBlock(state: InitiativeState, prompt: string, retire = tru
   const byId = new Map(docs.map((d) => [d.id, d]))
 
   const chosen: RecallDoc[] = []
-  for (const handle of namedHandles(query)) {
-    const d = byHandle.get(handle)
-    if (d !== undefined) chosen.push(d)
+  for (const named of namedHandles(query)) {
+    const handle = bareNamed(state, named)
+    const d = handle === null ? undefined : byHandle.get(handle)
+    if (d !== undefined && !chosen.includes(d)) chosen.push(d)
   }
   const ranked = rankLexical(docs, query, docs.length).matches
   const minTerms = docs.length < RECALL_SMALL_RECORD ? RECALL_MIN_TERMS_SMALL : RECALL_MIN_TERMS

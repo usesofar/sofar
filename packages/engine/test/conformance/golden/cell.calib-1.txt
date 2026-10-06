@@ -9,11 +9,11 @@ exit: 0
 Goal: Build Boopada, a trip planner, one roadmap piece per session. Monorepo (bun, Next.js apps/web, @workspace/providers fixture bundle), SQLite at BOOPADA_DB_PATH, JSON API under /api, one traveller, no login.
 
 Standing constraints — obey verbatim (5):
-- [D1] Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.
-- [D2] Reject any interest that is not one of the seven provider activity categories; never accept free text.
-- [D3] Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.
-- [D4] Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.
-- [D5] Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.
+- [D1·jg2y] Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.
+- [D2·gjr8] Reject any interest that is not one of the seven provider activity categories; never accept free text.
+- [D3·01be] Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.
+- [D4·gnjk] Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.
+- [D5·y43y] Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.
 Progress: 5/12 tasks done (41%) across 9 phase(s)
 
 Phases:
@@ -54,7 +54,7 @@ argv: ["event","session-start"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: boopada-planner\n\nGoal: Build Boopada, a trip planner, one roadmap piece per session. Monorepo (bun, Next.js apps/web, @workspace/providers fixture bundle), SQLite at BOOPADA_DB_PATH, JSON API under /api, one traveller, no login.\n\nNext task: P3-trips Create a trip from legs of cities and nights, with a draft day-by-day plan\n  in 3. Trips [pending] 0/1\n\nNext action: Start roadmap piece 3, trips (task P3-trips): create a trip from legs of cities and nights with a draft day-by-day plan. Add migration 3 with a nullable deleted_at on every trip table, register trips in SOFT_DELETABLE (lib/deletions.ts) and lib/undo.ts per D5 so a trip delete logs ONE deletion and its children share the deleted_at, validate city ids like lib/bucket.ts does, and consider letting a leg start from a bucket item.\n\nLast session (claude-code, ended 2026-09-15T09:07:00.406Z):\n  Shipped phase 2, the bucket list, in c4d31f2. Built: migration 2 in apps/web/lib/db.ts (bucket_items + deletions tables; added a transaction() helper); lib/bucket.ts (store + create/patch validation, unknown_city via providers.locale.getCity, Money per D1); lib/deletions.ts (softDelete, undoLatestDeletion, canU… (clipped — full text in sessions/1fdc5dfb-a750-4766-bb09-94c211ad3703.md)\n\nPhases:\n- 3. Trips [pending] 0/1\n- 4. Itinerary editing [pending] 0/1\n- 5. Itinerary view [pending] 0/1\n- 6. Location to-dos [pending] 0/1\n- 7. Suggestions and transport [pending] 0/1\n- 8. Curation advisor [pending] 0/1\n- 9. Chat command box [pending] 0/1\n- done: 1. Traveller profile, 2. Bucket list (5/5 tasks)\nProgress: 5/12 tasks done (41%) across 9 phase(s)\n\nMemory (3; full text in memory/M<n>.md):\n- [M3] `bun test` runs every apps/web test file in ONE process, so module caches are shared: set BOOPADA_DB_PATH per file in beforeAll (getDb caches per path), and a file that sets BOOPADA_NOW must call `resetProviders()` after setting it and again after deleting it in afterAll, or the…\n- [M2] A green `bun run build` does NOT prove the app runs: Next 16 builds with Turbopack and route handlers are only executed on request. Smoke-test every session with `cd apps/web && PORT=3987 BOOPADA_DB_PATH=/tmp/x/b.sqlite bun run start` then curl the routes — that is how the node:…\n- [M1] Provider gotcha: `providers.fx.getRates(base)` omits `base` itself from `rates`…\n\nRepo memory (.sofar/repo.md):\n## Commands\n\n```bash\nbun install\nbun run lint        # biome check .  (2 pre-existing a11y warnings in packages/ui; warnings do not fail)\nbun run typecheck\nbun run test        # turbo test -> bun test in apps/web and packages/providers\nbun run build       # turbo build -> next build (Turbopack)\ncd apps/web && PORT=3987 bun run start\n```\n\n## Conventions\n\n- Monorepo on bun + turbo. App is `apps/web` (Next.js 16, App Router).\n  Travel data comes from `@workspace/providers` fixtures, shared UI from\n  `@workspace/ui`. One\n…truncated — read .sofar/repo.md for the rest\n\nRecent decisions (last 5 of 6; full text in decisions/D<n>.md):\n- [D2] 2026-09-15 (rule below) Interests are exactly the providers' seven activity categor… — over Free-text interest tags\n- [D3] 2026-09-15 (rule below) One SQLite handle opened through createRequire — over Importing bun:sqlite directly, or better-sqlite3\n- [D4] 2026-09-15 (rule below) Load node:sqlite through `process.getBuiltinModule(\"node:sq… — over createRequire for both, which D3 originally chose\n- [D5] 2026-09-15 (rule below) App-wide soft delete: every traveller-made table has a null… — over Hard DELETE with a confirm dialog\n- [D6] 2026-09-15 Bucket item shape: { id (integer), title, city_id | null, notes | null, estimated_daily_s… — over Free-text city names; decimal-string spend\nEarlier rejected approaches — do NOT re-propose (1 older):\n- [D1] Decimal strings or floats, as the providers quote and as the earlier …\n\nNext ids: D7 (decision), M4 (memory)\n\nSession: conf-session — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ ce11ce1 — in sync with origin/main\n\nStanding constraints — obey verbatim (5):\n- [D5] Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.\n- [D3] Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.\n- [D4] Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.\n- [D2] Reject any interest that is not one of the seven provider activity categories; never accept free text.\n- [D1] Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"boopada-planner P3-trips #conf"}}
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: boopada-planner\n\nGoal: Build Boopada, a trip planner, one roadmap piece per session. Monorepo (bun, Next.js apps/web, @workspace/providers fixture bundle), SQLite at BOOPADA_DB_PATH, JSON API under /api, one traveller, no login.\n\nNext task: P3-trips Create a trip from legs of cities and nights, with a draft day-by-day plan\n  in 3. Trips [pending] 0/1\n\nNext action: Start roadmap piece 3, trips (task P3-trips): create a trip from legs of cities and nights with a draft day-by-day plan. Add migration 3 with a nullable deleted_at on every trip table, register trips in SOFT_DELETABLE (lib/deletions.ts) and lib/undo.ts per D5 so a trip delete logs ONE deletion and its children share the deleted_at, validate city ids like lib/bucket.ts does, and consider letting a leg start from a bucket item.\n\nLast session (claude-code, ended 2026-09-15T09:07:00.406Z):\n  Shipped phase 2, the bucket list, in c4d31f2. Built: migration 2 in apps/web/lib/db.ts (bucket_items + deletions tables; added a transaction() helper); lib/bucket.ts (store + create/patch validation, unknown_city via providers.locale.getCity, Money per D1); lib/deletions.ts (softDelete, undoLatestDeletion, canU… (clipped — full text in sessions/1fdc5dfb-a750-4766-bb09-94c211ad3703.md)\n\nPhases:\n- 3. Trips [pending] 0/1\n- 4. Itinerary editing [pending] 0/1\n- 5. Itinerary view [pending] 0/1\n- 6. Location to-dos [pending] 0/1\n- 7. Suggestions and transport [pending] 0/1\n- 8. Curation advisor [pending] 0/1\n- 9. Chat command box [pending] 0/1\n- done: 1. Traveller profile, 2. Bucket list (5/5 tasks)\nProgress: 5/12 tasks done (41%) across 9 phase(s)\n\nMemory (3; full text in memory/M<n>.md):\n- [M3] `bun test` runs every apps/web test file in ONE process, so module caches are shared: set BOOPADA_DB_PATH per file in beforeAll (getDb caches per path), and a file that sets BOOPADA_NOW must call `resetProviders()` after setting it and again after deleting it in afterAll, or the…\n- [M2] A green `bun run build` does NOT prove the app runs: Next 16 builds with Turbopack and route handlers are only executed on request. Smoke-test every session with `cd apps/web && PORT=3987 BOOPADA_DB_PATH=/tmp/x/b.sqlite bun run start` then curl the routes — that is how the node:…\n- [M1] Provider gotcha: `providers.fx.getRates(base)` omits `base` itself from `rates`…\n\nRepo memory (.sofar/repo.md):\n## Commands\n\n```bash\nbun install\nbun run lint        # biome check .  (2 pre-existing a11y warnings in packages/ui; warnings do not fail)\nbun run typecheck\nbun run test        # turbo test -> bun test in apps/web and packages/providers\nbun run build       # turbo build -> next build (Turbopack)\ncd apps/web && PORT=3987 bun run start\n```\n\n## Conventions\n\n- Monorepo on bun + turbo. App is `apps/web` (Next.js 16, App Router).\n  Travel data comes from `@workspace/providers` fixtures, shared UI from\n  `@workspace/ui`. One\n…truncated — read .sofar/repo.md for the rest\n\nRecent decisions (last 5 of 6; full text in decisions/D<n>.md):\n- [D2·gjr8] 2026-09-15 (rule below) Interests are exactly the providers' seven activity categor… — over Free-text interest tags\n- [D3·01be] 2026-09-15 (rule below) One SQLite handle opened through createRequire — over Importing bun:sqlite directly, or better-sqlite3\n- [D4·gnjk] 2026-09-15 (rule below) Load node:sqlite through `process.getBuiltinModule(\"node:sq… — over createRequire for both, which D3 originally chose\n- [D5·y43y] 2026-09-15 (rule below) App-wide soft delete: every traveller-made table has a null… — over Hard DELETE with a confirm dialog\n- [D6·c1r4] 2026-09-15 Bucket item shape: { id (integer), title, city_id | null, notes | null, estimated_daily_s… — over Free-text city names; decimal-string spend\nEarlier rejected approaches — do NOT re-propose (1 older):\n- [D1·jg2y] Decimal strings or floats, as the providers quote and as the earlier …\n\nNext ids: D7 (decision), M4 (memory)\n\nSession: conf-session — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ ce11ce1 — in sync with origin/main\n\nStanding constraints — obey verbatim (5):\n- [D5·y43y] Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.\n- [D3·01be] Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.\n- [D4·gnjk] Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.\n- [D2·gjr8] Reject any interest that is not one of the seven provider activity categories; never accept free text.\n- [D1·jg2y] Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"boopada-planner P3-trips #conf"}}
 --- stderr
 (empty)
 
@@ -130,11 +130,11 @@ exit: 0
 Goal: Build Boopada, a trip planner, one roadmap piece per session. Monorepo (bun, Next.js apps/web, @workspace/providers fixture bundle), SQLite at BOOPADA_DB_PATH, JSON API under /api, one traveller, no login.
 
 Standing constraints — obey verbatim (5):
-- [D1] Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.
-- [D2] Reject any interest that is not one of the seven provider activity categories; never accept free text.
-- [D3] Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.
-- [D4] Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.
-- [D5] Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.
+- [D1·jg2y] Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.
+- [D2·gjr8] Reject any interest that is not one of the seven provider activity categories; never accept free text.
+- [D3·01be] Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.
+- [D4·gnjk] Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.
+- [D5·y43y] Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.
 Progress: 5/12 tasks done (41%) across 9 phase(s)
 
 Phases:
@@ -188,53 +188,53 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D4·gnjk 2026-09-15 — rule: Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.
 - D5·y43y 2026-09-15 — rule: Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.
 - D6·c1r4 2026-09-15 — chose Bucket item shape: { id (integer), title, city_id | null, notes | null, estimat…
-=== .sofar/initiatives/boopada-planner/decisions/D1.md (added, 701 bytes)
+=== .sofar/initiatives/boopada-planner/decisions/D1.md (added, 707 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-09-15
+D1·jg2y — 2026-09-15
 rule: Never put a decimal string or float money value in an API request or response — always {amount_minor, currency} integer minor units.
 chose: Money in the API is always {"amount_minor": integer, "currency": "ISO code"} in the currency's minor units (JPY/VND exponent 0, JOD 3), in both request and response bodies
 over: Decimal strings or floats, as the providers quote and as the earlier prototype used
 because: The prototype's decimal strings made totals drift. Integer minor units are exact, and provider QuotedPrice values are converted at the boundary in lib/money.ts.
 guard: path:apps/web/**
-=== .sofar/initiatives/boopada-planner/decisions/D2.md (added, 590 bytes)
+=== .sofar/initiatives/boopada-planner/decisions/D2.md (added, 596 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-09-15
+D2·gjr8 — 2026-09-15
 rule: Reject any interest that is not one of the seven provider activity categories; never accept free text.
 chose: Interests are exactly the providers' seven activity categories: culture, food, nature, adventure, nightlife, wellness, tour
 over: Free-text interest tags
 because: Interests have to join against Activity.category from @workspace/providers for suggestions (roadmap 7) and the advisor (roadmap 8); free text would never match. Anything else is rejected with 400 invalid_interest.
-=== .sofar/initiatives/boopada-planner/decisions/D3.md (added, 749 bytes)
+=== .sofar/initiatives/boopada-planner/decisions/D3.md (added, 755 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-09-15
+D3·01be — 2026-09-15
 rule: Open SQLite only through apps/web/lib/db.ts — never import bun:sqlite or node:sqlite directly.
 chose: One SQLite handle opened through createRequire: bun:sqlite under Bun, node:sqlite under Node, behind a tiny Db interface in apps/web/lib/db.ts
 over: Importing bun:sqlite directly, or better-sqlite3
 because: Bun 1.3.14 has no node:sqlite and Next.js runs under Node 24 (which has no bun:sqlite), so the app and `bun test` need different modules. A static import of bun:sqlite breaks the Next build; createRequire hides the specifier from the bundler and stays synchronous. better-sqlite3 would add a native build step.
 guard: path:apps/web/**
-=== .sofar/initiatives/boopada-planner/decisions/D4.md (added, 961 bytes)
+=== .sofar/initiatives/boopada-planner/decisions/D4.md (added, 967 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-09-15
+D4·gnjk — 2026-09-15
 rule: Never reach a Node builtin that Turbopack externalises (node:sqlite) via import or createRequire in apps/web — use process.getBuiltinModule.
 chose: Load node:sqlite through `process.getBuiltinModule("node:sqlite")` under Node, and bun:sqlite through `createRequire` under Bun
 over: createRequire for both, which D3 originally chose
 because: Turbopack traces require() even through createRequire and rewrote node:sqlite into an external it then could not load: `next build` succeeded but every request to /api/profile died with "Cannot find module 'node:sqlite': Unsupported external type Url for commonjs reference". `process.getBuiltinModule` is opaque to the bundler. The bun:sqlite branch is safe under createRequire because it only ever runs under Bun, which does not bundle. Verified with `bun run build` then `bun run start`.
 guard: path:apps/web/**
-=== .sofar/initiatives/boopada-planner/decisions/D5.md (added, 1613 bytes)
+=== .sofar/initiatives/boopada-planner/decisions/D5.md (added, 1619 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-09-15
+D5·y43y — 2026-09-15
 rule: Never hard-DELETE a traveller-made row or ask for delete confirmation — soft-delete through softDelete() in apps/web/lib/deletions.ts, and filter `deleted_at is null` in every list, total and suggestion.
 chose: App-wide soft delete: every traveller-made table has a nullable `deleted_at`; deleting stamps it AND appends a row to a `deletions` log (seq autoincrement, entity, entity_id, deleted_at, undone_at), both in one transaction, via `softDelete()` in apps/web/lib/deletions.ts. POST /api/undo takes the highest-seq un-undone log row, clears the entity's `deleted_at`, stamps `undone_at` and returns { restored: { entity, id, item } }; with none it is 409 `nothing_to_undo`. Repeated undo walks back through older deletions (a stack). Every list/total/suggestion/lookup query filters `deleted_at is null`; PATCH/DELETE on a deleted row is 404.
 over: Hard DELETE with a confirm dialog; a per-feature trash table; ordering undo by deleted_at timestamp
 because: The traveller decided: nothing they made is ever hard-deleted and nothing asks "are you sure?". One log across all entities makes "the most recent deletion" well defined app-wide. Ordering is by log seq, not timestamp, because BOOPADA_NOW freezes the clock so every deletion in a test shares one timestamp. Future entities (trips, days, to-dos) register their table in SOFT_DELETABLE and a reader in lib/undo.ts; a cascading delete should log ONE row for the parent and stamp children with the same deleted_at so undo restores the whole group.
-=== .sofar/initiatives/boopada-planner/decisions/D6.md (added, 836 bytes)
+=== .sofar/initiatives/boopada-planner/decisions/D6.md (added, 842 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-09-15
+D6·c1r4 — 2026-09-15
 chose: Bucket item shape: { id (integer), title, city_id | null, notes | null, estimated_daily_spend: Money | null, created_at, updated_at }; route is /api/bucket (not /api/bucket-list as the previous next-action said). city_id validated with providers.locale.getCity → 400 `unknown_city`; spend validated like the profile budget (integer minor units, known currency, non-negative). PATCH is partial: absent = unchanged, null clears optional fields, title cannot be cleared. GET lists oldest first (created_at, id).
 over: Free-text city names; decimal-string spend; PUT full replace
 because: The user's spec names /api/bucket and PATCH edits; city ids must join against provider cities for trips and suggestions later; D1 governs money.

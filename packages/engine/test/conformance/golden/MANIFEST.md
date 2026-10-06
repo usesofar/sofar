@@ -1,5 +1,37 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED and ADDED for **r4-fixes U5** (0.34.1, branch hotfix/u5; docs/SPEC.md
+§Merge-stable handles), from the TypeScript reference; the Rust core
+reproduces every one (`SOFAR_CORE=… vitest run test/conformance`: 290 passed,
+the 10 perf and real-log skips as before). One new case, `syn.merge-handles`:
+round 4's r1 merge in miniature. A branch files its guarded, checked rule as
+D3; Stop's gate names `[baseline D3·q58n]`; main's own D3 arrives by union
+merge, earlier by id; the gate then names `[baseline D4·q58n]`, the same rule
+by the same suffix; the next digest lists main's `D3·n13m` and the branch's
+`D4·q58n` apart; and a prompt citing the pre-merge `D3·q58n` recalls the
+branch's rule, not main's D3. 29 goldens moved, for these reasons and no
+other:
+- (a) every agent-facing decision handle is check-suffixed: the SessionStart
+  digest (window, ledger, standing constraints, other records' rules, pending
+  links, merge block), PostToolUse notices, the guard-crossed, lesson and
+  recall lines, Stop's gate, check and link lines, `sofar status`'s
+  constraints, and the record bytes a run writes (decisions.md's
+  `superseded by`/`supersedes`, the shard heads `D<n>·<sfx> — <date>` and
+  their `supersedes:` lines);
+- (b) the longer handles cost room under fixed budgets: a capped digest keeps
+  fewer ledger or window lines or clips its tail earlier (cell.round-1-sofar,
+  repo.branch-elsewhere, syn.budget), and a lesson line clipped at its budget
+  keeps 5 fewer chars of text (repo.lessons).
+
+argv.fast-path, cell.calib-1, cell.round-1-sofar, cell.smoke-4-drive,
+cell.smoke-4-sofar, open.O2-update-segment, open.O4-styled-status,
+repo.append, repo.branch-elsewhere, repo.drive-nudge, repo.drive-reach,
+repo.hook-lifecycle, repo.lessons, repo.link-disposition, repo.link-hold,
+repo.peers, repo.prompt-capture, repo.session-start, repo.status,
+syn.baseline, syn.budget, syn.copies, syn.guards, syn.lessons-cut, syn.merge,
+syn.no-git, syn.recall, syn.surfacing, syn.unicode. Every other golden is
+byte-identical. No previous set is kept.
+
 Re-recorded on **release/0.34.0** (stable, from tag v0.34.0-rc.5) from the
 TypeScript reference. The version bump is the whole diff: two goldens
 changed, each by one string. `argv.fast-path` (`--version` is now

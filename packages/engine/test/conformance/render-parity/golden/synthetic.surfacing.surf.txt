@@ -1,4 +1,4 @@
-== options (27406 bytes) ==
+== options (27934 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -17,18 +17,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -36,12 +39,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
@@ -49,6 +54,7 @@
         "quote": "leave src/legacy alone"
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -86,18 +92,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -105,12 +114,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
@@ -118,6 +129,7 @@
         "quote": "leave src/legacy alone"
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -134,16 +146,16 @@
     ]
   }
 }
-== status (554 bytes) ==
+== status (578 bytes) ==
 # surf
 
 Goal: exercise read-time surfacing and decision checks
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
-- [D1] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
-- [D2] The fold never reads the clock.
-- [D7] Run the suite before committing.
-- [D8] Keep lint green.
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
+- [D2·41jn] The fold never reads the clock.
+- [D7·wy1x] Run the suite before committing.
+- [D8·k6kg] Keep lint green.
 Progress: 0/1 tasks done (0%) across 1 phase(s)
 
 Phases:
@@ -155,7 +167,7 @@ Next action: (none recorded)
 Files touched (1):
 - src/legacy/old.ts
 
-== digest:plain (1540 bytes) ==
+== digest:plain (1606 bytes) ==
 # Sofar status: surf
 
 Goal: exercise read-time surfacing and decision checks
@@ -172,27 +184,27 @@ Phases:
 Progress: 0/1 tasks done (0%) across 1 phase(s)
 
 Recent decisions (last 5 of 7 in force, 1 retired; full text in decisions/D<n>.md):
-- [D3] 2026-09-01 split fold.ts into stages, one per event family — over one long function in fold.ts
-- [D5] 2026-09-01 (supersedes D4) document core/fold.ts instead of renaming — over the rename
-- [D6] 2026-09-01 freeze fold.ts until 1.1 lands — over editing now
-- [D7] 2026-09-01 (rule below) test before commit — over after
-- [D8] 2026-09-01 (rule below) lint in CI — over locally
+- [D3·7zjm] 2026-09-01 split fold.ts into stages, one per event family — over one long function in fold.ts
+- [D5·ayy5] 2026-09-01 (supersedes D4·fv5a) document core/fold.ts instead of renaming — over the rename
+- [D6·jxdz] 2026-09-01 freeze fold.ts until 1.1 lands — over editing now
+- [D7·wy1x] 2026-09-01 (rule below) test before commit — over after
+- [D8·k6kg] 2026-09-01 (rule below) lint in CI — over locally
 Earlier rejected approaches — do NOT re-propose (1 older):
-- [D1] editing it in place
+- [D1·984a] editing it in place
 
 Next ids: D9 (decision), M1 (memory)
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
-- [D8] Keep lint green.
-- [D7] Run the suite before committing.
-- [D2] The fold never reads the clock.
-- [D1] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
+- [D8·k6kg] Keep lint green.
+- [D7·wy1x] Run the suite before committing.
+- [D2·41jn] The fold never reads the clock.
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (2373 bytes) ==
+== digest:hook (2469 bytes) ==
 # Sofar status: surf
 
 Goal: exercise read-time surfacing and decision checks
@@ -209,13 +221,13 @@ Phases:
 Progress: 0/1 tasks done (0%) across 1 phase(s)
 
 Recent decisions (last 5 of 7 in force, 1 retired; full text in decisions/D<n>.md):
-- [D3] 2026-09-01 split fold.ts into stages, one per event family — over one long function in fold.ts
-- [D5] 2026-09-01 (supersedes D4) document core/fold.ts instead of renaming — over the rename
-- [D6] 2026-09-01 freeze fold.ts until 1.1 lands — over editing now
-- [D7] 2026-09-01 (rule below) test before commit — over after
-- [D8] 2026-09-01 (rule below) lint in CI — over locally
+- [D3·7zjm] 2026-09-01 split fold.ts into stages, one per event family — over one long function in fold.ts
+- [D5·ayy5] 2026-09-01 (supersedes D4·fv5a) document core/fold.ts instead of renaming — over the rename
+- [D6·jxdz] 2026-09-01 freeze fold.ts until 1.1 lands — over editing now
+- [D7·wy1x] 2026-09-01 (rule below) test before commit — over after
+- [D8·k6kg] 2026-09-01 (rule below) lint in CI — over locally
 Earlier rejected approaches — do NOT re-propose (1 older):
-- [D1] editing it in place
+- [D1·984a] editing it in place
 
 Next ids: D9 (decision), M1 (memory)
 
@@ -231,21 +243,21 @@ Recent work elsewhere: surfacing touched 2 files 3h ago (see sofar status surfac
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
-- [D8] Keep lint green.
-- [D7] Run the suite before committing.
-- [D2] The fold never reads the clock.
-- [D1] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
+- [D8·k6kg] Keep lint green.
+- [D7·wy1x] Run the suite before committing.
+- [D2·41jn] The fold never reads the clock.
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the surf record's goal before its tasks.
-- [delta D2] Keep the digest under its cap.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the surf record's goal before its tasks.
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (1688 bytes) ==
+== digest:lane (1754 bytes) ==
 # Sofar: quick-work lane (surf)
 
 Goal: exercise read-time surfacing and decision checks
@@ -258,27 +270,27 @@ Recent quick work (1 session, 8 decisions since 2026-09-01):
 - 2026-09-01 claude-code — 1 file (src/legacy/old.ts)
 
 Recent decisions (last 5 of 7 in force, 1 retired; full text in decisions/D<n>.md):
-- [D3] 2026-09-01 split fold.ts into stages, one per event family — over one long function in fold.ts
-- [D5] 2026-09-01 (supersedes D4) document core/fold.ts instead of renaming — over the rename
-- [D6] 2026-09-01 freeze fold.ts until 1.1 lands — over editing now
-- [D7] 2026-09-01 (rule below) test before commit — over after
-- [D8] 2026-09-01 (rule below) lint in CI — over locally
+- [D3·7zjm] 2026-09-01 split fold.ts into stages, one per event family — over one long function in fold.ts
+- [D5·ayy5] 2026-09-01 (supersedes D4·fv5a) document core/fold.ts instead of renaming — over the rename
+- [D6·jxdz] 2026-09-01 freeze fold.ts until 1.1 lands — over editing now
+- [D7·wy1x] 2026-09-01 (rule below) test before commit — over after
+- [D8·k6kg] 2026-09-01 (rule below) lint in CI — over locally
 Earlier rejected approaches — do NOT re-propose (1 older):
-- [D1] editing it in place
+- [D1·984a] editing it in place
 
 Next ids: D9 (decision), M1 (memory)
 
 Session: lane-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
-- [D8] Keep lint green.
-- [D7] Run the suite before committing.
-- [D2] The fold never reads the clock.
-- [D1] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
+- [D8·k6kg] Keep lint green.
+- [D7·wy1x] Run the suite before committing.
+- [D2·41jn] The fold never reads the clock.
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (1626 bytes) ==
+== digest:quiet (1692 bytes) ==
 # Sofar status: surf
 
 Goal: exercise read-time surfacing and decision checks
@@ -295,29 +307,29 @@ Phases:
 Progress: 0/1 tasks done (0%) across 1 phase(s)
 
 Recent decisions (last 5 of 7 in force, 1 retired; full text in decisions/D<n>.md):
-- [D3] 2026-09-01 split fold.ts into stages, one per event family — over one long function in fold.ts
-- [D5] 2026-09-01 (supersedes D4) document core/fold.ts instead of renaming — over the rename
-- [D6] 2026-09-01 freeze fold.ts until 1.1 lands — over editing now
-- [D7] 2026-09-01 (rule below) test before commit — over after
-- [D8] 2026-09-01 (rule below) lint in CI — over locally
+- [D3·7zjm] 2026-09-01 split fold.ts into stages, one per event family — over one long function in fold.ts
+- [D5·ayy5] 2026-09-01 (supersedes D4·fv5a) document core/fold.ts instead of renaming — over the rename
+- [D6·jxdz] 2026-09-01 freeze fold.ts until 1.1 lands — over editing now
+- [D7·wy1x] 2026-09-01 (rule below) test before commit — over after
+- [D8·k6kg] 2026-09-01 (rule below) lint in CI — over locally
 Earlier rejected approaches — do NOT re-propose (1 older):
-- [D1] editing it in place
+- [D1·984a] editing it in place
 
 Next ids: D9 (decision), M1 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
-- [D8] Keep lint green.
-- [D7] Run the suite before committing.
-- [D2] The fold never reads the clock.
-- [D1] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
+- [D8·k6kg] Keep lint green.
+- [D7·wy1x] Run the suite before committing.
+- [D2·41jn] The fold never reads the clock.
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6028 bytes) ==
+== digest:cap (6037 bytes) ==
 # Sofar status: surf
 
 Goal: exercise read-time surfacing and decision checks
@@ -347,19 +359,19 @@ Recent work elsewhere: surfacing touched 2 files 3h ago (see sofar status surfac
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
-- [D8] Keep lint green.
-- [D7] Run the suite before committing.
-- [D2] The fold never reads the clock.
-- [D1] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
+- [D8·k6kg] Keep lint green.
+- [D7·wy1x] Run the suite before committing.
+- [D2·41jn] The fold never reads the clock.
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 Repo-wide rules from other records (4 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the surf record's goal before its tasks.
-- [delta D2] Keep the digest under its cap.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the surf record's goal before its tasks.
+- [delta D2·qmqm] Keep the digest under its cap.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -380,7 +392,7 @@ Progress: 0/1 tasks done (0%)
 
 Active phase: Build
 
-== decisions (771 bytes) ==
+== decisions (783 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
 # Decisions: surf
@@ -390,16 +402,16 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D1·984a 2026-09-01 — rule: Never edit files under src/legacy/.
 - D2·41jn 2026-09-01 — rule: The fold never reads the clock.
 - D3·7zjm 2026-09-01 — chose split fold.ts into stages, one per event family
-- D4·fv5a — superseded by D5
-- D5·ayy5 2026-09-01 — (supersedes D4) chose document core/fold.ts instead of renaming
+- D4·fv5a — superseded by D5·ayy5
+- D5·ayy5 2026-09-01 — (supersedes D4·fv5a) chose document core/fold.ts instead of renaming
 - D6·jxdz 2026-09-01 — (until 1.1) chose freeze fold.ts until 1.1 lands
 - D7·wy1x 2026-09-01 — rule: Run the suite before committing.
 - D8·k6kg 2026-09-01 — rule: Keep lint green.
 
-== shard decisions/D1.md (363 bytes) ==
+== shard decisions/D1.md (369 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-09-01
+D1·984a — 2026-09-01
 rule: Never edit files under src/legacy/.
 operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 chose: freeze the legacy tree
@@ -408,53 +420,53 @@ because: it is being replaced
 guard: path:src/legacy/**
 check: sh scripts/check-legacy.sh
 
-== shard decisions/D2.md (258 bytes) ==
+== shard decisions/D2.md (264 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-09-01
+D2·41jn — 2026-09-01
 rule: The fold never reads the clock.
 chose: keep the fold pure in src/core/fold.ts
 over: (no alternative recorded)
 because: replay must not depend on the clock
 
-== shard decisions/D3.md (208 bytes) ==
+== shard decisions/D3.md (214 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-09-01
+D3·7zjm — 2026-09-01
 chose: split fold.ts into stages, one per event family
 over: one long function in fold.ts
 because: readability
 
-== shard decisions/D4.md (203 bytes) ==
+== shard decisions/D4.md (215 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-09-01 — replaced by D5
+D4·fv5a — 2026-09-01 — replaced by D5·ayy5
 chose: rename the helpers in core/fold.ts
 over: keeping the old names
 because: clarity
 
-== shard decisions/D5.md (193 bytes) ==
+== shard decisions/D5.md (205 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-09-01
+D5·ayy5 — 2026-09-01
 chose: document core/fold.ts instead of renaming
 over: the rename
 because: churn
-supersedes: D4
+supersedes: D4·fv5a
 
-== shard decisions/D6.md (183 bytes) ==
+== shard decisions/D6.md (189 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-09-01
+D6·jxdz — 2026-09-01
 chose: freeze fold.ts until 1.1 lands
 over: editing now
 because: conflicts
 until: 1.1
 
-== shard decisions/D7.md (225 bytes) ==
+== shard decisions/D7.md (231 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D7 — 2026-09-01
+D7·wy1x — 2026-09-01
 rule: Run the suite before committing.
 chose: test before commit
 over: after
@@ -462,10 +474,10 @@ because: speed
 guard: cmd:*git commit*
 check: true
 
-== shard decisions/D8.md (200 bytes) ==
+== shard decisions/D8.md (206 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D8 — 2026-09-01
+D8·k6kg — 2026-09-01
 rule: Keep lint green.
 chose: lint in CI
 over: locally

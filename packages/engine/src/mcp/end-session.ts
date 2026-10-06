@@ -19,7 +19,7 @@ import { homeInitiative, ToolError, type ToolContext } from './context'
 import { bindNudge, fitQuote, judgeOptionsFor, quoteFitWarning } from './log-decision'
 import { planPhaseAdd, resolvePhaseOrThrow } from './update-phase'
 import { briefEntryText, uncapturedWarning } from '../core/prompt-buffer'
-import { bareSupersedes } from '../core/handle'
+import { bareSupersedes, suffixedHandle } from '../core/handle'
 import { pendingLinkLine, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 import { citeNudges, homeViewOf } from './waits-on'
@@ -80,6 +80,14 @@ export interface EndSessionResult extends ToolOkResult {
    */
   warnings?: string[]
 }
+
+/**
+ * A batch decision's handle before it has an id (r4-fixes U5): `\u0000D<k>\u0000`
+ * for the k-th decision of the batch, swapped by endSessionFiled for its
+ * check-suffixed handle once appended. Never leaves this module.
+ */
+const draftToken = (k: number): string => `\u0000D${k}\u0000`
+const DRAFT_TOKEN_RE = /\u0000D(\d+)\u0000/g
 
 interface PlannedBatch {
   appends: Array<{ type: string; payload: Record<string, unknown> }>
@@ -214,8 +222,10 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
     if (!valid.ok) refuse(where, valid.errors)
     appends.push({ type: 'decision_logged', payload })
     const ordinal = seen.length + 1
-    seen.push({ id: `batch-${i}`, ts: new Date().toISOString(), chose: d.chose, over: d.over, because: d.because, ...(d.rule !== undefined ? { rule: d.rule } : {}) })
-    decisions.push(`D${ordinal}`)
+    seen.push({ id: '', ts: new Date().toISOString(), chose: d.chose, over: d.over, because: d.because, ...(d.rule !== undefined ? { rule: d.rule } : {}) })
+    // No id yet, so no suffix: a token endSessionFiled swaps for the handle once appended.
+    const handle = draftToken(drafts.length)
+    decisions.push(handle)
     drafts.push({
       ordinal,
       chose: d.chose,
@@ -224,11 +234,11 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
       ...(d.rule !== undefined ? { rule: d.rule } : {}),
       ...(d.supersedes !== undefined ? { supersedes: d.supersedes } : {}),
     })
-    if (fit !== null) warnings.push(quoteFitWarning(ordinal, fit))
-    const nudge = bindNudge(ordinal, d)
+    if (fit !== null) warnings.push(quoteFitWarning(handle, fit))
+    const nudge = bindNudge(handle, d)
     if (nudge !== null) warnings.push(nudge)
     if (d.rule !== undefined) {
-      const warning = ruleFidelityWarning(ordinal, d.rule, payload.quote as string | undefined)
+      const warning = ruleFidelityWarning(handle, d.rule, payload.quote as string | undefined)
       if (warning !== null) warnings.push(warning)
     }
   })
@@ -438,7 +448,7 @@ export async function endSessionJudged(
   const { result, batch, after, sessionId } = endSessionFiled(ctx, args)
   const opts = judgeOpts ?? judgeOptionsFor(ctx)
   const filed: FiledEntry[] = [
-    ...batch.drafts.map((d): FiledEntry => ({ kind: 'decision', label: `D${d.ordinal}`, text: { chose: d.chose, over: d.over, because: d.because } })),
+    ...batch.drafts.map((d): FiledEntry => ({ kind: 'decision', label: d.handle ?? `D${d.ordinal}`, text: { chose: d.chose, over: d.over, because: d.because } })),
     ...(args.memories ?? []).map((text, i): FiledEntry => ({ kind: 'memory', label: batch.memories[i]!, text })),
     ...(args.notes ?? []).map((text, i): FiledEntry => ({ kind: 'note', label: `notes[${i}]`, text })),
   ]
@@ -490,8 +500,10 @@ function endSessionFiled(
   const batch = planBatch(ctx, slug, args, sessionId)
   const pending: string[] = []
   const linked: string[] = []
+  const filed: string[] = []
   for (const { type, payload } of batch.appends) {
     const appended = ctx.appendAndProject(slug, type, payload, { project: false })
+    if (type === 'decision_logged') filed.push(appended.id)
     if (appended.payload.link_candidates !== undefined) pending.push(appended.id)
     else if (type === 'decision_logged' && appended.payload.supersedes !== undefined) linked.push(appended.id)
   }
@@ -519,6 +531,19 @@ function endSessionFiled(
   // One fold serves both readers below: the collision check, and the
   // closed-record guard on the rebind.
   const state = ctx.foldState(slug)
+  // Each filed decision by its check-suffixed handle (r4-fixes U5), now that
+  // it has an id: in `decisions`, in the warnings planned before the append,
+  // and for the judges.
+  const handles = filed.map((id, k) => {
+    const n = state.decisions.findIndex((d) => d.id === id) + 1
+    return n > 0 ? suffixedHandle(n, id) : `D${batch.drafts[k]?.ordinal ?? '?'}`
+  })
+  const swap = (line: string): string => line.replace(DRAFT_TOKEN_RE, (_, k: string) => handles[Number(k)] ?? `D${batch.drafts[Number(k)]?.ordinal ?? '?'}`)
+  batch.decisions = batch.decisions.map(swap)
+  batch.warnings = batch.warnings.map(swap)
+  batch.drafts.forEach((d, k) => {
+    if (handles[k] !== undefined) d.handle = handles[k]
+  })
   // Rules filed naming nothing they replace (r3-fixes 2.5, D15), read from
   // the fold that holds them, so a candidate the batch itself filed resolves.
   for (const id of pending) {
@@ -530,7 +555,7 @@ function endSessionFiled(
   for (const id of linked) {
     const ordinal = state.decisions.findIndex((d) => d.id === id) + 1
     const echo = supersessionEcho(state, ordinal)
-    if (echo.retires !== undefined) retires.push(`D${ordinal} retires ${echo.retires}`)
+    if (echo.retires !== undefined) retires.push(`${suffixedHandle(ordinal, id)} retires ${echo.retires}`)
     if (echo.warning !== undefined) batch.warnings.push(echo.warning)
   }
   const applied = {

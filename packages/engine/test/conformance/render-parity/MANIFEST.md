@@ -1,5 +1,85 @@
 # Render-parity manifest (rust-core D11)
 
+At **r4-fixes U5 (0.34.1, branch hotfix/u5)**: every decision handle an
+agent reads is check-suffixed, and a `sofar bind` re-log renders as one entry
+(docs/SPEC.md §Merge-stable handles). Recorded from the TypeScript templates;
+the Rust port matches every golden (`cargo test --test render_parity`: 129
+goldens byte-identical). `fold-parity.cases.FP-24-bind-relog` ADDED: bind
+re-logs (one, a chain of two, a plain one), a changed `because` that is a real
+supersession, and an aliased entry a real change replaced. 109 goldens
+moved, for these reasons and no other:
+- (a) `D<n>` → `D<n>·<sfx>` in the digest (window, rejected ledger, standing
+  constraints, other records' rules — the options' `repoRules` gain their
+  `id` —, pending links), decisions.md's `superseded by`/`supersedes`/`names
+  … held`, the shard heads and `supersedes:` lines, and `sofar status`'s
+  constraints;
+- (b) under the 6,000-unit cap the longer handles leave less room: a capped
+  digest keeps fewer ledger, window or memory lines, or clips its tail
+  earlier (the window's own budget grew by 25 to keep its five lines).
+The other 19 are byte-identical (no decision, or none rendered):
+fold-parity.cases.FP-02, FP-07, FP-12, FP-19, FP-20, records.repo.self-improve,
+synthetic.driven.drv, synthetic.lifecycle.finished and never-written,
+synthetic.many.rec-03, rec-06 and rec-09, and synthetic.travel.cycle-b,
+dangling, eta, gamma, omega, quiet-links and supersession.
+
+Moved: fold-parity.cases.FP-01-plan-tasks-decisions,
+fold-parity.cases.FP-03-guards-and-orphans,
+fold-parity.cases.FP-04-corrections-void-earlier,
+fold-parity.cases.FP-05-out-of-order-ids,
+fold-parity.cases.FP-06-driver-run-handoffs-verifications,
+fold-parity.cases.FP-08-duplicate-ids-stable-order,
+fold-parity.cases.FP-09-command-outcomes-and-tests,
+fold-parity.cases.FP-10-decision-supersession,
+fold-parity.cases.FP-11-run-adoption-fencing,
+fold-parity.cases.FP-13-stamped-supersession,
+fold-parity.cases.FP-14-decision-checks-and-judgements,
+fold-parity.cases.FP-15-native-memory-origin,
+fold-parity.cases.FP-16-session-rehome, fold-parity.cases.FP-17-plan-brief,
+fold-parity.cases.FP-18-declared-waits-on,
+fold-parity.cases.FP-21-brief-appended,
+fold-parity.cases.FP-22-link-disposition, fold-parity.cases.FP-23-link-hold,
+records.calib-1.boopada-planner, records.repo.architecture-map,
+records.repo.auto-update, records.repo.bench-refresh,
+records.repo.binding-follows-session, records.repo.cli-ui,
+records.repo.commit-attribution, records.repo.cross-initiative-conflicts,
+records.repo.digest-signal, records.repo.drift-certification,
+records.repo.drift-hardening, records.repo.drift-signal,
+records.repo.engine-audit, records.repo.felt-cost, records.repo.harness-build,
+records.repo.hookspath-attribution, records.repo.in-session-drive,
+records.repo.init-statusline, records.repo.initiative-lifecycle,
+records.repo.initiative-list, records.repo.initiative-supersession,
+records.repo.library-surface, records.repo.next-command,
+records.repo.no-bind-durability, records.repo.notes-in-digest,
+records.repo.peer-messaging, records.repo.phase-lifecycle,
+records.repo.plan-carry-forward, records.repo.push-ping-reach,
+records.repo.r1-fixes, records.repo.record-citations,
+records.repo.record-graph, records.repo.record-hygiene-quotes,
+records.repo.record-index, records.repo.record-integrity,
+records.repo.repo-memory-capture, records.repo.roadmap-h2,
+records.repo.rust-core, records.repo.scanner-version-gate,
+records.repo.security-hardening, records.repo.session-driver,
+records.repo.session-orientation, records.repo.session-strategy-bench,
+records.repo.speed-2, records.repo.speed, records.repo.stale-session-signals,
+records.repo.staleness-detection, records.repo.statusline-refresh,
+records.repo.sync-client, records.repo.task-drop-state,
+records.repo.team-readiness, records.repo.token-optimization,
+records.repo.travel-planner, records.repo.typescript-7,
+records.repo.writeback-collisions, records.round-1-sofar.boopada,
+records.smoke-4-drive.boopada, records.smoke-4-sofar.boopada,
+synthetic.baseline.baseline, synthetic.budget.budget,
+synthetic.corrupt.corrupt, synthetic.guards.guards,
+synthetic.lifecycle.abandoned, synthetic.lifecycle.new-name,
+synthetic.lifecycle.old-name, synthetic.many.Rec-12, synthetic.many.rec-01,
+synthetic.many.rec-02, synthetic.many.rec-04, synthetic.many.rec-05,
+synthetic.many.rec-07, synthetic.many.rec-08, synthetic.many.rec-10,
+synthetic.many.rec-11, synthetic.many.rec-13, synthetic.many.rec_14,
+synthetic.surfacing.other, synthetic.surfacing.surf, synthetic.travel.alpha,
+synthetic.travel.beta, synthetic.travel.cap-overflow,
+synthetic.travel.cycle-a, synthetic.travel.delta, synthetic.travel.epsilon,
+synthetic.travel.iota, synthetic.travel.no-links, synthetic.travel.open-wait,
+synthetic.travel.resolved-wait, synthetic.travel.theta, synthetic.travel.zeta,
+synthetic.unicode.unicode.
+
 At **r1-fixes 4.6 (L36, branch r1-fixes-l36)**: `fold-parity.cases.FP-17-plan-brief`
 ADDED, recorded from the TypeScript templates: the plan's brief — the
 operator's roadmap verbatim — as the fixed digest block after the goal, in

@@ -1,4 +1,4 @@
-== options (41611 bytes) ==
+== options (42051 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -25,18 +25,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -44,12 +47,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -104,18 +109,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -123,12 +131,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -211,7 +221,7 @@ Files touched (29):
 - /Users/jins/IO/sofar/packages/engine/test/canonical-serialize.test.ts
 - /private/tmp/claude-501/-Users-jins-IO-sofar/8bc4c7a1-0ee0-4674-bc24-ecebd7571ae6/scratchpad/sweep.mjs
 
-== digest:plain (2109 bytes) ==
+== digest:plain (2139 bytes) ==
 # Sofar status: sync-client
 
 Goal: Ship the v2 sync client (sofar-cloud Phase 5.1, the D14 seam): sofar login via RFC-8628 device flow, sofar link, push/pull sync with offline queue + doorbell SSE against api.sofar.sh, importable @alignlabs/sofar/client subpath — release as 0.9.0
@@ -228,11 +238,11 @@ Phases:
 Progress: 15/15 tasks done (100%) across 6 phase(s)
 
 Recent decisions (5; full text in decisions/D<n>.md):
-- [D1] 2026-07-12 Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/cli… — over Treating the CLAUDE.md Fable-window guard-rail
-- [D2] 2026-07-12 Storage split: committable .sofar/remote.json — over Cursors in a committed .sofar file, in .git/
-- [D3] 2026-07-12 Zero new dependencies: native fetch — over Adding an HTTP client, eventsource, or retry library
-- [D4] 2026-07-12 Amend SPEC §Architectural invariants — over Leaving the invariant text as-is
-- [D5] 2026-07-12 Canonical serializeEvent in the engine — over Reordering sofar-cloud's rowToLine reconstruction to match the CLI's …
+- [D1·6qrn] 2026-07-12 Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/cli… — over Treating the CLAUDE.md Fable-window guard-rail
+- [D2·3xyw] 2026-07-12 Storage split: committable .sofar/remote.json — over Cursors in a committed .sofar file, in .git/
+- [D3·mvqd] 2026-07-12 Zero new dependencies: native fetch — over Adding an HTTP client, eventsource, or retry library
+- [D4·46vt] 2026-07-12 Amend SPEC §Architectural invariants — over Leaving the invariant text as-is
+- [D5·azb2] 2026-07-12 Canonical serializeEvent in the engine — over Reordering sofar-cloud's rowToLine reconstruction to match the CLI's …
 
 Next ids: D6 (decision), M1 (memory)
 
@@ -240,7 +250,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (3629 bytes) ==
+== digest:hook (3683 bytes) ==
 # Sofar status: sync-client
 
 Goal: Ship the v2 sync client (sofar-cloud Phase 5.1, the D14 seam): sofar login via RFC-8628 device flow, sofar link, push/pull sync with offline queue + doorbell SSE against api.sofar.sh, importable @alignlabs/sofar/client subpath — release as 0.9.0
@@ -269,11 +279,11 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (5; full text in decisions/D<n>.md):
-- [D1] 2026-07-12 Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/cli… — over Treating the CLAUDE.md Fable-window guard-rail
-- [D2] 2026-07-12 Storage split: committable .sofar/remote.json — over Cursors in a committed .sofar file, in .git/
-- [D3] 2026-07-12 Zero new dependencies: native fetch — over Adding an HTTP client, eventsource, or retry library
-- [D4] 2026-07-12 Amend SPEC §Architectural invariants — over Leaving the invariant text as-is
-- [D5] 2026-07-12 Canonical serializeEvent in the engine — over Reordering sofar-cloud's rowToLine reconstruction to match the CLI's …
+- [D1·6qrn] 2026-07-12 Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/cli… — over Treating the CLAUDE.md Fable-window guard-rail
+- [D2·3xyw] 2026-07-12 Storage split: committable .sofar/remote.json — over Cursors in a committed .sofar file, in .git/
+- [D3·mvqd] 2026-07-12 Zero new dependencies: native fetch — over Adding an HTTP client, eventsource, or retry library
+- [D4·46vt] 2026-07-12 Amend SPEC §Architectural invariants — over Leaving the invariant text as-is
+- [D5·azb2] 2026-07-12 Canonical serializeEvent in the engine — over Reordering sofar-cloud's rowToLine reconstruction to match the CLI's …
 
 Next ids: D6 (decision), M1 (memory)
 
@@ -290,16 +300,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the sync-client record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the sync-client record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (3221 bytes) ==
+== digest:lane (3251 bytes) ==
 # Sofar: quick-work lane (sync-client)
 
 Goal: Ship the v2 sync client (sofar-cloud Phase 5.1, the D14 seam): sofar login via RFC-8628 device flow, sofar link, push/pull sync with offline queue + doorbell SSE against api.sofar.sh, importable @alignlabs/sofar/client subpath — release as 0.9.0
@@ -319,11 +329,11 @@ Recent quick work (8 sessions, 5 decisions since 2026-07-12):
 - 2026-07-12 claude-code — 23 files (/Users/jins/IO/sofar/packages/engine/src/client/config.ts, /Users/jins/IO/sofar/packages/engine/src/client/http.ts, /Users/jins/IO/sofar/packages/engine/src/client/device.ts, /Users/jins/IO/sofar/packages/engine/src/client/repos.ts, /Users/jins/IO/sofar/packages/engine/src/client/push.ts, /Users/jins/IO/sofar/packages/engine/src/client/pull.ts, /Users/jins/IO/sofar/packages/engine/src/client/doorbell.ts, /Users/jins/IO/sofar/packages/engine/src/cli/new.ts, /Users/jins/IO/sofar/packages/engine/src/cli/cloud.ts, /Users/jins/IO/sofar/packages/engine/src/lib/cli…
 
 Recent decisions (5; full text in decisions/D<n>.md):
-- [D1] 2026-07-12 Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/cli… — over Treating the CLAUDE.md Fable-window guard-rail
-- [D2] 2026-07-12 Storage split: committable .sofar/remote.json — over Cursors in a committed .sofar file, in .git/
-- [D3] 2026-07-12 Zero new dependencies: native fetch — over Adding an HTTP client, eventsource, or retry library
-- [D4] 2026-07-12 Amend SPEC §Architectural invariants — over Leaving the invariant text as-is
-- [D5] 2026-07-12 Canonical serializeEvent in the engine — over Reordering sofar-cloud's rowToLine reconstruction to match the CLI's …
+- [D1·6qrn] 2026-07-12 Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/cli… — over Treating the CLAUDE.md Fable-window guard-rail
+- [D2·3xyw] 2026-07-12 Storage split: committable .sofar/remote.json — over Cursors in a committed .sofar file, in .git/
+- [D3·mvqd] 2026-07-12 Zero new dependencies: native fetch — over Adding an HTTP client, eventsource, or retry library
+- [D4·46vt] 2026-07-12 Amend SPEC §Architectural invariants — over Leaving the invariant text as-is
+- [D5·azb2] 2026-07-12 Canonical serializeEvent in the engine — over Reordering sofar-cloud's rowToLine reconstruction to match the CLI's …
 
 Next ids: D6 (decision), M1 (memory)
 
@@ -332,7 +342,7 @@ Git: sync-client @ a1b2c3d — no origin ref — never pushed
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (2195 bytes) ==
+== digest:quiet (2225 bytes) ==
 # Sofar status: sync-client
 
 Goal: Ship the v2 sync client (sofar-cloud Phase 5.1, the D14 seam): sofar login via RFC-8628 device flow, sofar link, push/pull sync with offline queue + doorbell SSE against api.sofar.sh, importable @alignlabs/sofar/client subpath — release as 0.9.0
@@ -349,11 +359,11 @@ Phases:
 Progress: 15/15 tasks done (100%) across 6 phase(s)
 
 Recent decisions (5; full text in decisions/D<n>.md):
-- [D1] 2026-07-12 Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/cli… — over Treating the CLAUDE.md Fable-window guard-rail
-- [D2] 2026-07-12 Storage split: committable .sofar/remote.json — over Cursors in a committed .sofar file, in .git/
-- [D3] 2026-07-12 Zero new dependencies: native fetch — over Adding an HTTP client, eventsource, or retry library
-- [D4] 2026-07-12 Amend SPEC §Architectural invariants — over Leaving the invariant text as-is
-- [D5] 2026-07-12 Canonical serializeEvent in the engine — over Reordering sofar-cloud's rowToLine reconstruction to match the CLI's …
+- [D1·6qrn] 2026-07-12 Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/cli… — over Treating the CLAUDE.md Fable-window guard-rail
+- [D2·3xyw] 2026-07-12 Storage split: committable .sofar/remote.json — over Cursors in a committed .sofar file, in .git/
+- [D3·mvqd] 2026-07-12 Zero new dependencies: native fetch — over Adding an HTTP client, eventsource, or retry library
+- [D4·46vt] 2026-07-12 Amend SPEC §Architectural invariants — over Leaving the invariant text as-is
+- [D5·azb2] 2026-07-12 Canonical serializeEvent in the engine — over Reordering sofar-cloud's rowToLine reconstruction to match the CLI's …
 
 Next ids: D6 (decision), M1 (memory)
 
@@ -363,7 +373,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6032 bytes) ==
+== digest:cap (6036 bytes) ==
 # Sofar status: sync-client
 
 Goal: Ship the v2 sync client (sofar-cloud Phase 5.1, the D14 seam): sofar login via RFC-8628 device flow, sofar link, push/pull sync with offline queue + doorbell SSE against api.sofar.sh, importable @alignlabs/sofar/client subpath — release as 0.9.0
@@ -391,13 +401,13 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the sync-client record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the sync-client record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -442,42 +452,42 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D4·46vt 2026-07-12 — chose Amend SPEC §Architectural invariants: the zero-model-API-calls invariant stays …
 - D5·azb2 2026-07-12 — chose Canonical serializeEvent in the engine (0.9.1): byte form is a pure function of…
 
-== shard decisions/D1.md (821 bytes) ==
+== shard decisions/D1.md (827 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-07-12
+D1·6qrn — 2026-07-12
 chose: Build the v2 sync CLIENT inside packages/engine as src/client/ + the @alignlabs/sofar/client subpath, under the user's explicit Phase 5.1 task (the D14 seam; server = private sofar-cloud repo, its Phases 1-4 shipped)
 over: Treating the CLAUDE.md Fable-window guard-rail ("DO NOT build the sync service/backend") as blocking, or a separate packages/sync workspace
 because: The guard-rail bans the service/backend, not the client of an already-shipped server; the task brief explicitly authorizes the client and mandates a subpath export of @alignlabs/sofar (Tauri shell + iOS consume it later), matching the existing /schema and /engine lib-surface laws (side-effect-free import, zero-runtime-deps manifest unchanged)
 
-== shard decisions/D2.md (1052 bytes) ==
+== shard decisions/D2.md (1058 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-07-12
+D2·3xyw — 2026-07-12
 chose: Storage split: committable .sofar/remote.json ({version, api_url, org, name, repo_id} — repo_id is not a secret, teammates share the binding); credentials in ~/.config/sofar/credentials.json (XDG_CONFIG_HOME-aware, 0600, keyed by normalized api_url); sync cursors per-clone in ~/.local/state/sofar/sync/<sha256(root)>.json (XDG_STATE_HOME-aware), invalidated when api_url/repo_id change
 over: Cursors in a committed .sofar file, in .git/ (absent under --root without git), or keyed by repo_id alone (two clones of one repo would share per-clone cursors)
 because: Ack/pull cursors mutate on every sync — committing them dirties the repo per push and invites non-union JSON merge conflicts; they are per-clone facts about what THIS checkout exchanged with the server, while the org/repo binding is team-shared truth and belongs in the record dir; idempotent push/pull by event id makes a lost cursor safe (worst case re-push/re-pull, never loss)
 
-== shard decisions/D3.md (626 bytes) ==
+== shard decisions/D3.md (632 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-07-12
+D3·mvqd — 2026-07-12
 chose: Zero new dependencies: native fetch (Node >=18) for all HTTP, a hand-rolled minimal SSE reader for the doorbell, injectable fetch/sleep for tests
 over: Adding an HTTP client, eventsource, or retry library
 because: CLAUDE.md dependency law (nothing beyond the four without a Decision) and the zero-runtime-deps manifest; the wire contract is small (JSON + NDJSON + one SSE endpoint with data/heartbeat lines) and the doorbell is notification-only, so a missed/malformed frame can never lose data — pull is the truth path
 
-== shard decisions/D4.md (897 bytes) ==
+== shard decisions/D4.md (903 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-07-12
+D4·46vt — 2026-07-12
 chose: Amend SPEC §Architectural invariants: the zero-model-API-calls invariant stays absolute, and its "no user content sent anywhere" clause is scoped — the v2 sync client pushes record events to the user's OWN authenticated sofar-cloud repo, opt-in via sofar login + sofar link, and nothing else ever leaves the machine; a new SPEC §Sync client section carries the full client contract
 over: Leaving the invariant text as-is (sync would literally violate it) or weakening the invariant to allow arbitrary egress
 because: SPEC is authoritative over code — shipping sync without amending it would make the record lie; the invariant's intent (felt-cost D3: no model calls, no API keys, no inference costs) is untouched, and sync egress is fenced to explicit, revocable, user-owned destinations
 
-== shard decisions/D5.md (1585 bytes) ==
+== shard decisions/D5.md (1591 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-07-12
+D5·azb2 — 2026-07-12
 chose: Canonical serializeEvent in the engine (0.9.1): byte form is a pure function of the envelope value — fixed schema order v,id,ts,initiative,session,source,actor,user?,type,payload; unknown additive envelope fields preserved after payload (sorted), never dropped; payload + nested objects code-point-sorted recursively, arrays in order; scalars via JSON.stringify (ts verbatim). Forward-only: existing lines never rewritten; pull writes the canonical form of the PARSED event, so a non-canonical server cannot poison a local log.
 over: Reordering sofar-cloud's rowToLine reconstruction to match the CLI's insertion order (the drift-class fix fold-parity forbids), or byte-parity-with-history at the payload level (impossible: jsonb loses insertion order server-side, and 971 of this repo's 2606 committed lines have unsorted payload insertion order, e.g. decision_logged {chose,over,because})
 because: events.jsonl is git-committed — writer and puller emitting different bytes for identical events means spurious diffs/merge conflicts (proven live in sofar-cloud's 5.2 drill). Envelope-level fixed order byte-matches 100% of committed history (swept all 2606 events: 0 envelope-order breaks, 0 semantic drift, idempotent everywhere); payload sorting is the only form both sides can reconstruct after jsonb reorders keys, and historical unsorted-payload lines stay untouched in place (append-only + dedupe-by-id) while export/push/pull legs re-serialize identically on both sides

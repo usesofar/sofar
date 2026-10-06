@@ -10,6 +10,7 @@ import { foldLog } from '../src/core/fold'
 import { mergeFacts, mergeNotice, mergeView, reflogMerges, type ReflogMerge } from '../src/core/merge'
 import { suiteOf } from '../src/core/checks'
 import { renderStatus, STATUS_TRUNCATION_MARKER } from '../src/projections/templates/status'
+import { bare } from './helpers/handles'
 
 /**
  * r3-fixes 2.11 (D19, D20): the merge block, the merge receipt and Stop's
@@ -184,7 +185,7 @@ describe('the merge block at the first session after the merge (D19)', () => {
     emit(root, 'author', 'memory_promoted', { text: 'src/db.ts migrations: append only.', supersedes: 'demo M2' }, '2026-09-10T09:03:00.000Z')
     const out = start(root, 's18')
     const block = out.slice(out.indexOf('⚠ Merged since'))
-    expect(block.split('\n\n')[0]).toBe(
+    expect(bare(block.split('\n\n')[0]!)).toBe(
       [
         `⚠ Merged since the last session: ${sha(root, 'HEAD^1^1')} merge wt-15; ${sha(root, 'HEAD^1')} merge wt-16; ${sha(root, 'HEAD')} bench: merge wt-17 before S18 (conflicts left for S18).`,
         'Conflict markers remain in 1 file(s): src/db.ts.',
@@ -319,7 +320,7 @@ describe('memories in edit-time surfacing (D20)', () => {
     expect(lines[0]).toMatch(/^sofar: \[M1\] names src\/db\.ts \(repo memory\): Every migration in src\/db\.ts runs on a fresh database at app start; pad .*…$/)
     expect(lines[0]!.length).toBeLessThan(360)
     expect(lines[1]).toBe('sofar: [other M1] names src/db.ts (repo memory): db.ts: never re-chain.')
-    expect(lines[2]).toMatch(/^sofar: \[D1\] 2026-09-01 names src\/db\.ts: chose keep src\/db\.ts flat/)
+    expect(lines[2]).toMatch(/^sofar: \[D1·[0-9a-z]{4}\] 2026-09-01 names src\/db\.ts: chose keep src\/db\.ts flat/)
     expect(readHook(root, 'S')).toBe('') // told once per session
   })
 
