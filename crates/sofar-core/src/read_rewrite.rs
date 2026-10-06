@@ -1,9 +1,10 @@
 //! The read rewrite (`core/read-rewrite.ts`, memory-lead 4.3 part C; D39,
 //! D42): an agent's whole-file read of a record projection becomes `sofar
-//! read`. Narrow by construction: one shell segment of `cat`, `head`, `tail`,
-//! `less` or `more` whose every operand is a record's `plan.md`,
-//! `decisions.md`, `memory.md` or `events.jsonl`, with no pipe, redirection,
-//! substitution or sequencing.
+//! read`. Narrow by construction: one shell segment of `cat`, `less` or
+//! `more` whose every operand is a record's `plan.md`, `decisions.md`,
+//! `memory.md` or `events.jsonl`, with no pipe, redirection, substitution or
+//! sequencing. Whole-file reads only (r4-fixes U4): `head`, `tail`, `head -c`
+//! and `sed -n` stop at a count, so they pass through untouched.
 
 use std::path::Path;
 
@@ -25,8 +26,8 @@ pub fn read_gate_enabled() -> bool {
     !(v == "off" || v == "0" || v == "false")
 }
 
-const READERS: &[&str] = &["cat", "head", "tail", "less", "more"];
-const VALUE_FLAGS: &[&str] = &["-n", "-c", "--lines", "--bytes"];
+/// Programs that print a whole file; `head` and `tail` stop at a count.
+const READERS: &[&str] = &["cat", "less", "more"];
 const PROJECTIONS: &[&str] = &[
     "plan.md",
     "decisions.md",
@@ -74,9 +75,8 @@ pub fn rewrite_raw_read(cmd: &str, cwd: &str, root: &str, session: &str) -> Opti
         return None;
     }
     let mut files: Vec<&str> = Vec::new();
-    let mut i = 1;
-    while i < tokens.len() {
-        let mut t = tokens[i];
+    for token in &tokens[1..] {
+        let mut t = *token;
         if t.len() > 1 && t.starts_with('\'') && t.ends_with('\'') {
             t = &t[1..t.len() - 1];
         }
@@ -84,24 +84,15 @@ pub fn rewrite_raw_read(cmd: &str, cwd: &str, root: &str, session: &str) -> Opti
             return None;
         }
         if t.starts_with('-') {
-            if head != "head" && head != "tail" {
-                if t == "-n" && head == "cat" {
-                    i += 1;
-                    continue;
-                }
-                return None;
+            if t == "-n" && head == "cat" {
+                continue;
             }
-            if VALUE_FLAGS.contains(&t) {
-                i += 1;
-            }
-            i += 1;
-            continue;
+            return None;
         }
         if !is_projection(&posix_resolve(cwd, t), root) {
             return None;
         }
         files.push(t);
-        i += 1;
     }
     if files.is_empty() {
         return None;

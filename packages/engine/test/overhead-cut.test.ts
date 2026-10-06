@@ -215,27 +215,30 @@ describe('batched write-back', () => {
     await client.close()
   })
 
-  it('one bad entry anywhere files nothing, and says which', async () => {
-    const cases: Array<[Record<string, unknown>, string]> = [
+  it('one bad entry is left out alone and named; the rest and the write-back file (r4-fixes U6)', async () => {
+    const cases: Array<[Record<string, unknown>, string | null]> = [
       [{ tasks: [{ task_id: '1.1', status: 'done' }, { task_id: '9.9', status: 'done' }] }, 'tasks[1] (9.9): not in the plan'],
       [{ phases: [{ phase: 'Phase 7', status: 'done' }] }, 'phase "Phase 7" not in the plan'],
-      [{ decisions: [{ chose: 'a', over: 'b' }] }, 'decisions[0]'],
-      [{ decisions: [{ chose: 'a', over: 'b', because: 'c', initiative: 'demo' }] }, 'decisions[0]'],
-      [{ decisions: [{ chose: 'a', over: 'b', because: 'c', quote: 'no rule' }] }, 'decisions[0]'],
+      [{ decisions: [{ chose: 'a', over: 'b' }] }, 'decisions[0]: because: must be a non-empty string'],
+      // Round 4's two whole refusals now file: the home's own initiative, and a quote kept as a note.
+      [{ decisions: [{ chose: 'a', over: 'b', because: 'c', initiative: 'demo' }] }, null],
+      [{ decisions: [{ chose: 'a', over: 'b', because: 'c', quote: 'no rule' }] }, null],
     ]
     for (const [batch, message] of cases) {
       const { f, client } = await planned()
-      const before = readFileSync(f.eventsPath, 'utf8')
-      const ended = await callTool<{ code: string; message: string }>(client, 'sofar_end_session', {
+      const before = lines(f.eventsPath).length
+      const ended = await callTool<{ not_filed?: string[] }>(client, 'sofar_end_session', {
         summary: 's',
         next_action: 'n',
-        notes: ['this note must not land either'],
+        notes: ['this note lands anyway'],
         ...batch,
       })
-      expect(ended.isError, JSON.stringify(batch)).toBe(true)
-      expect(ended.body.code).toBe('invalid_input')
-      expect(ended.body.message).toContain(message)
-      expect(readFileSync(f.eventsPath, 'utf8')).toBe(before)
+      expect(ended.isError, JSON.stringify(batch)).toBe(false)
+      if (message === null) expect(ended.body.not_filed).toBeUndefined()
+      else expect(ended.body.not_filed!.join('\n')).toContain(message)
+      const added = lines(f.eventsPath).slice(before)
+      expect(added.at(-1)!.type).toBe('session_ended')
+      expect(added.some((e) => e.type === 'note_added' && e.payload.text === 'this note lands anyway')).toBe(true)
       await client.close()
     }
   })
@@ -245,14 +248,13 @@ describe('batched write-back', () => {
     const standing = { chose: 'App-wide soft delete via deleted_at + deletion_log with POST /api/undo', over: 'Hard deletes or per-entity undo', because: 'b' }
     const reversal = { chose: 'Hard delete for itinerary items', over: 'Soft delete + undo', because: 'b' }
 
-    const before = readFileSync(f.eventsPath, 'utf8')
-    const inBatch = await callTool<{ message: string }>(client, 'sofar_end_session', { summary: 's', next_action: 'n', decisions: [standing, reversal] })
-    expect(inBatch.isError).toBe(true)
-    expect(inBatch.body.message).toContain('decisions[1]')
-    expect(inBatch.body.message).toContain('reverses standing D1')
-    expect(readFileSync(f.eventsPath, 'utf8')).toBe(before)
+    const inBatch = await callTool<{ not_filed: string[]; decisions: string[] }>(client, 'sofar_end_session', { summary: 's', next_action: 'n', decisions: [standing, reversal] })
+    expect(inBatch.isError).toBe(false)
+    expect(inBatch.body.decisions).toEqual(['D1'])
+    expect(inBatch.body.not_filed).toEqual([expect.stringMatching(/^decisions\[1\]: .*reverses standing D1.* — not filed; fix it and file it with sofar_log_decision$/)])
+    expect(foldLog(f.eventsPath).state.decisions).toHaveLength(1)
 
-    const said = await callTool(client, 'sofar_end_session', { summary: 's', next_action: 'n', decisions: [standing, { ...reversal, supersedes: 'D1' }] })
+    const said = await callTool(client, 'sofar_end_session', { summary: 's', next_action: 'n', decisions: [{ ...reversal, supersedes: 'D1' }] })
     expect(said.isError).toBe(false)
     expect(foldLog(f.eventsPath).state.decisions[0]!.superseded_by).toBe(2)
     await client.close()

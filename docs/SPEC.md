@@ -4748,15 +4748,23 @@ sofar_start_session.`
   write-back linkage breaks). That is the record-integrity misroute class,
   and the side-index workaround for it is already rejected.
 - sofar_end_session({session_id?, summary, next_action, tasks?, phases?,
-  decisions?, memories?, notes?, brief_append?}) → {ok, event_id, tasks_applied?,
+  decisions?, memories?, notes?, brief_append?}) → {ok, event_id, not_filed?, tasks_applied?,
   decisions?, memories?, warnings?, parallel_writebacks?, rebound?}  # the
   write-back. `session_id` is optional since memory-lead D3: omitted, the
   ACTIVE session (adopted or started) is ended; with none, `invalid_input`
   names the injected "Session:" line.
   THE BATCH (r1-fixes 2.1, D10 for `tasks`; memory-lead 1.1, D3 for the rest)
-  is planned and validated AS A WHOLE against one fold before any append —
-  one bad entry files nothing, not the good ones and not the write-back:
-  `invalid_input` naming the entry (`tasks[1] (9.9): …`). Entries:
+  is planned and validated against one fold before any append. A bad entry
+  is left out ALONE (r4-fixes U6): `not_filed` names it, its bad field and
+  the tool that files it once fixed (`tasks[1] (9.9): … — not filed; fix it
+  and file it with sofar_update_task`), and every valid entry and the
+  write-back still file; `not_filed` is omitted when every entry filed.
+  Round 4 lost 2 of 65 Claude write-backs whole to one entry each. An
+  `initiative` — accepted top-level though the schema lists none, or on a
+  decision — equal to the session's home changes nothing; any other refuses
+  the WHOLE write-back as `invalid_input` naming
+  `sofar_start_session({"session_id":"<id>","initiative":"<slug>"})`, since
+  filing the rest in the home would misfile it. Entries:
   `tasks` {task_id, status, note?, title?, phase?, waits_on?} — planned exactly as
   sofar_update_task (phase-lifecycle D7), so a `title` naming a different
   task than the one the plan holds is refused. A task the plan has
@@ -4769,12 +4777,16 @@ sofar_start_session.`
   entry with `add` is planned BEFORE every task and status entry
   (phase-lifecycle D10), so the same batch can add tasks into the phase it
   adds. `decisions` —
-  sofar_log_decision's arguments minus `initiative`, checked by its input
+  sofar_log_decision's arguments (`initiative` only as above), checked by its input
   validator, the decision_logged payload validator and the D31 reversal
   check against the record PLUS the batch's earlier decisions, and against
   every other record (D8) — a refusal naming another record's decision adds
   `a replacement for <slug> D<n> is filed with sofar_log_decision, not a
-  write-back`, since a batch entry takes no `initiative`. `memories`
+  write-back`, since a batch entry takes no `initiative`. A `quote` with no
+  `rule` (r4-fixes U6) files the decision without it, appends the quote as
+  note_added `The operator's words behind D<n> (filed as a quote with no
+  rule): <quote>` right after it, and adds a `warnings` line naming the
+  supersession that would make it a rule. `memories`
   and `notes` — non-empty strings, appended as memory_promoted {text} and
   note_added {text}. `brief_append` (r3-fixes 2.9, D6) — non-empty strings,
   each appended as one brief_appended {text}: an entry matching `P<n>` names
@@ -4788,7 +4800,8 @@ sofar_start_session.`
   BEFORE session_ended, with projections
   regenerated ONCE (on the session_ended append), so the fold the write-back
   is read by already counts them (task_done needs both halves,
-  session-driver D5). `tasks_applied` is present iff `tasks` was passed;
+  session-driver D5). `tasks_applied`, present iff `tasks` was passed, counts
+  the entries that filed;
   `decisions` lists the `D<n>` handles and `memories` the `<slug> M<n>`
   handles the batch took, and `warnings` carries the declared-waits_on
   lines and cite nudges (see "Declared waits_on on the write surfaces"
@@ -4860,7 +4873,8 @@ sofar_start_session.`
   task: task_status_changed for a held task, task_added for an add (not the
   note's follow-up status change), the task in plan_updated for a replace.
   - A slug naming no record under .sofar/initiatives/ is `invalid_input`;
-    nothing is filed (for a write-back, the whole batch).
+    nothing is filed (for a write-back, that task alone, in `not_filed`;
+    the rest files — r4-fixes U6).
   - A handle naming nothing in an existing record — a task the plan AFTER
     the write lacks (so a task the same write adds binds), a `D<n>`/`M<n>`
     past the last ordinal, a superseded initiative whose successor is
@@ -4905,7 +4919,13 @@ sofar_start_session.`
   `Suggestions` names "7. Suggestions" (phase-lifecycle 6.1, D8, round-1
   loss row L11); a bare number or `Phase <n>`
   to the one phase labelled `Phase <n>` (position only when no phase name
-  carries such a label). The plan's own name is what gets recorded. The same
+  carries such a label); and by its number (r4-fixes U6): a reference that
+  opens with a phase's own label — a first word carrying its number, such
+  as `s24`, `s10 shelf life`, `P3` or `Phase 1 - Settle`, leading zeros
+  aside — names the one phase whose name opens with the same label,
+  whatever words follow. An added phase's own name never resolves by label,
+  so a new `s11 …` beside an old one is still the writer's to name. The
+  plan's own name is what gets recorded. The same
   resolution guards `sofar event append --type phase_status_changed`, whose
   miss is now refused the same way instead of minting a phase, and
   `--type task_added` (phase-lifecycle D7), which also refuses an id the
@@ -5076,10 +5096,15 @@ and an arg would append a session_ended into a log holding no
 session_started for that id — the split record-integrity 1.1-1.4 exists to
 eliminate, in its worst form (the record holding the work carries no
 wrap-up, the record holding the wrap-up carries no work), while leaving the
-Stop gate armed in the home the write-back skipped. The CLI dialect has no
-re-homing and no session home at all: `sofar event append [slug]` resolves
-its optional leading slug through the branch, so MCP-less tools pass that
-slug on EVERY append, the session_ended one above all.
+Stop gate armed in the home the write-back skipped. Since r4-fixes U6 an
+`initiative` equal to the home is tolerated, unlisted, and changes nothing;
+any other refuses the write-back naming the re-home — it never routes. The
+CLI dialect resolves `sofar event append [slug]`'s optional leading slug
+through the branch, so MCP-less tools pass that slug on EVERY append — except
+a session_ended (r4-fixes U6): with no slug it files in the session's home
+when one is registered, and a slug naming another record is refused, naming
+both re-homes (sofar_start_session, and `sofar event append <slug> --type
+session_started --session <id> --payload '{"tool":"<tool>","rehome":true}'`).
 HOOK writes are pinned too (record-integrity 1.2, D1). A hook runs in a
 fresh process where the in-memory pin above is always null, so before this
 it resolved by branch alone — and a branch switch during live work sent
@@ -5329,12 +5354,15 @@ fires, and a Codex session is Tier 3 (§Host tiers).
 - PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, Cursor
   `preToolUse` matcher `Shell`, Codex `PreToolUse` matcher `Bash`, its entry
   added under D39, which supersedes agents-parity D5 for it alone) → `sofar
-  event pre-tool`. It rewrites ONE kind of call: a single shell segment whose
-  program is `cat`, `head`, `tail`, `less` or `more` and whose every operand
-  resolves to a record's `plan.md`, `decisions.md`, `memory.md` or
+  event pre-tool`. It rewrites ONE kind of call, a whole-file read: a single
+  shell segment whose program is `cat`, `less` or `more` and whose every
+  operand resolves to a record's `plan.md`, `decisions.md`, `memory.md` or
   `events.jsonl`, with no `|`, `&`, `;`, `<`, `>`, backtick, `$`, `(`, `)`,
-  backslash, double quote or newline anywhere in the command. `head`/`tail`
-  counts and `cat -n` are dropped; any other option leaves the call alone. It
+  backslash, double quote or newline anywhere in the command. `cat -n` is
+  dropped; any other option leaves the call alone. A read with a line or byte
+  limit — `head`, `tail`, `head -c`, `sed -n` — is never rewritten (r4-fixes
+  U4): the view is the whole file, and round 4's rewritten `tail -25
+  plan.md` returned 5,094 chars where the original returned 2,076. It
   becomes `sofar read --session '<id>' '<operand>'…`, the operands as typed:
   Claude Code and Codex get `{"hookSpecificOutput":{"hookEventName":"PreToolUse",
   "permissionDecision":"allow","updatedInput":{…the call's input, command
@@ -6676,7 +6704,10 @@ subdirectory, against 33 of 33 from the root.
   surface for MCP-less tools — validate payload, append ONE event,
   regenerate projections, print {ok, event_id} JSON; any failure exits 1
   with the typed-error JSON and appends nothing (added Phase 5, BD30; slug
-  resolves like status). A `session_started` for a session (other than
+  resolves like status, except a session_ended's, which follows the
+  session's home — r4-fixes U6). A decision_logged with a `quote` and no
+  `rule` files without it and appends the quote as a note_added after it,
+  with a `warnings` line (r4-fixes U6). A `session_started` for a session (other than
   "cli") already registered in that record appends nothing and prints
   {ok: true, event_id: <the standing registration's id>, already_started:
   true}; the payload is still validated first (r1-fixes 1.2). `--source`
@@ -6719,7 +6750,9 @@ subdirectory, against 33 of 33 from the root.
   already printed to that session context (the told set holds their hash)
   print `==> <path>: unchanged since you read it this session — … <==`
   instead. `--full`, and any path that is not a projection, prints the file as
-  written; a missing file is named on stderr with exit 1.
+  written; a missing file is named on stderr with exit 1. Never more than
+  `cat` (r4-fixes U4): files are joined as `cat` joins them, and a pointer or
+  `unchanged` line longer than the file prints the file instead.
 - `sofar show <ids…> [--initiative <slug>]` (memory-lead 4.3 part D, D25) —
   print record entries whole by handle, from the fold: `D<n>` (or
   `D<n>·<sfx>`) as its date, replacement or retirement, rule, quote, chose,
@@ -9099,6 +9132,27 @@ stay the underlying derivation's, and exit codes are styling-independent.
   `--full` is the file as written. The rewrite table
   (crates/sofar-core/tests/fixtures/js-read-rewrite.json) is asserted by both
   engines. Tests: test/read-rewrite.test.ts.
+- **Whole-file reads only (r4-fixes U4):** `tail -25`, `tail -n 15`, `head`,
+  `head -n 50`, `head -c 20000` and `sed -n` over a projection, and any
+  compound form (a pipe, `&&`, `;`, a subshell, `bash -c`), pass untouched on
+  Claude Code, Codex and Cursor, as does the Read tool with or without an
+  offset or limit; `syn.read-gate` holds the same in both engines. Over a
+  record, `sofar read` of the projections prints exactly `cat`'s bytes on a
+  first read and fewer on a re-read. Replaying round 4's 9 rewrites, each
+  against the record its session opened on, returns no more bytes than the
+  original command.
+- **Write-backs file every valid entry (r4-fixes U6):** a bad task, phase,
+  decision or memory entry is left out alone and named in `not_filed` with
+  the tool that files it; the rest and the write-back file, and later
+  `D<n>`/`M<n>` handles count only what filed. A quote with no rule is kept as
+  a note. The home's own `initiative` (top-level through the MCP server,
+  which still lists no such property, or on a decision) is accepted; another
+  refuses the write-back whole, naming the sofar_start_session call, and
+  files nothing in either record. `sofar event append` does the same: a
+  quote with no rule is kept as a note, a phase resolves by its label, and a
+  session_ended follows the session's home without a slug and is refused
+  with a slug naming another record. Round 4's 5 refused payloads file with
+  none refused whole. Tests: test/writeback-isolation.test.ts.
 - **Index and shards (memory-lead 4.3 part A, D45):** decisions.md lists
   every decision as one line, a replaced one as its handle and successor and a
   retired one as its handle and task; decisions/D<n>.md holds it whole and

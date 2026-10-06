@@ -19,6 +19,10 @@ import { errMessage, type CmdResult } from './shared'
  * Told once: in a session context that already read a file, a re-read of the
  * same bytes prints one line. The told set holds the bytes' hash, so anything
  * the record gained since is read in full again, and a compaction re-arms it.
+ *
+ * Never more than `cat` (r4-fixes U4): files are joined as cat joins them, and
+ * a pointer or an "unchanged" line that would be longer than the file itself
+ * prints the file instead.
  */
 
 /** `<root>/.sofar/initiatives/<slug>/<file>` → its parts, or null for any other path. */
@@ -60,27 +64,29 @@ export function runRead(cwd: string, paths: readonly string[], options: { sessio
       out.push(raw.replace(/\n$/, ''))
       continue
     }
+    const whole = raw.replace(/\n$/, '')
+    const shorter = (line: string): string => (Buffer.byteLength(line) < Buffer.byteLength(whole) ? line : whole)
     const view = projectionView(display, where.file, raw)
     const session = options.session
     if (session === undefined || session.length === 0) {
-      out.push(view)
+      out.push(shorter(view))
       continue
     }
     const key = `${createHash('sha256').update(view).digest('hex').slice(0, 16)} read:${where.slug}/${where.file}`
     try {
       if (readTold(where.sofarDir, session).has(key)) {
-        out.push(unchangedLine(display))
+        out.push(shorter(unchangedLine(display)))
         continue
       }
       addTold(where.sofarDir, session, [key])
     } catch {
       // The told set is derived: unreadable, the read is simply whole.
     }
-    out.push(view)
+    out.push(shorter(view))
   }
   return {
     exitCode: errors.length > 0 ? 1 : 0,
-    stdout: out.length > 0 ? `${out.join('\n\n')}\n` : '',
+    stdout: out.length > 0 ? `${out.join('\n')}\n` : '',
     stderr: errors.length > 0 ? `${errors.join('\n')}\n` : '',
   }
 }

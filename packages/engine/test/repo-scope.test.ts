@@ -296,21 +296,21 @@ describe('the writers refuse a cross-record reversal before appending', () => {
     expect(foldLog(f.eventsPath).state.decisions).toHaveLength(1)
   })
 
-  it('a write-back batch is refused whole and names the call that can file the replacement', async () => {
+  it('a write-back leaves the entry out and names the call that can file the replacement', async () => {
     const f = fx()
     decide(f.root, 'bucket-list', APP_WIDE)
     const { client } = await connectServer(f.root, { hostSessionId: 'host-1' })
     await callTool(client, 'sofar_log_decision', { chose: 'IANA zones', over: 'UTC', because: 'b' })
-    const before = readFileSync(f.eventsPath, 'utf8')
-    const ended = await callTool<{ code: string; message: string }>(client, 'sofar_end_session', {
+    const ended = await callTool<{ not_filed: string[] }>(client, 'sofar_end_session', {
       summary: 's',
       next_action: 'n',
       decisions: [{ ...REVERSAL, because: 'b' }],
     })
-    expect(ended.isError).toBe(true)
-    expect(ended.body.message).toContain('decisions[0]')
-    expect(ended.body.message).toContain('a replacement for bucket-list D1 is filed with sofar_log_decision, not a write-back')
-    expect(readFileSync(f.eventsPath, 'utf8')).toBe(before)
+    expect(ended.isError).toBe(false)
+    expect(ended.body.not_filed).toHaveLength(1)
+    expect(ended.body.not_filed[0]).toMatch(/^decisions\[0\]: /)
+    expect(ended.body.not_filed[0]).toContain('a replacement for bucket-list D1 is filed with sofar_log_decision, not a write-back')
+    expect(foldLog(f.eventsPath).state.decisions).toHaveLength(1) // only the IANA decision
     await client.close()
   })
 })

@@ -2983,7 +2983,31 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
     }
 
     const ctx = createToolContext(rootDir)
-    const slug = ctx.resolveInitiative(args.slug)
+    let slug = ctx.resolveInitiative(args.slug)
+    // A write-back files where its session lives (r4-fixes U6, as
+    // sofar_end_session does): with no slug it follows the session's home, and
+    // a slug naming another record is refused with the re-home that moves the
+    // session — filed there, the home's write-back would still be missing.
+    if (args.type === 'session_ended') {
+      const id = typeof payload.session_id === 'string' ? payload.session_id : (args.session ?? adoptSession(ctx, rootDir, slug, args.type))
+      const home = homeInitiative(ctx.sofarDir, id, slug)
+      if (home !== null && home !== slug) {
+        if (args.slug === undefined) slug = ctx.resolveInitiative(home)
+        else {
+          const error = `"${slug}" is not session ${id}'s record ("${home}") — a write-back files where its session lives`
+          const repair = `re-home first with sofar_start_session({"session_id":"${id}","initiative":"${slug}"}) or \`sofar event append ${slug} --type session_started --session ${id} --payload '{"tool":"${args.source}","rehome":true}'\`, then write back`
+          throw new ToolError('invalid_input', `${error}; ${repair} — nothing was filed`, [error, repair])
+        }
+      }
+    }
+    // A quote with no rule is kept as a note (r4-fixes U6), never the reason
+    // the decision did not file: the operator's words survive, and nothing
+    // claims they are a rule.
+    let quoteNote: string | undefined
+    if (args.type === 'decision_logged' && payload.rule === undefined && typeof payload.quote === 'string' && payload.quote.trim().length > 0) {
+      quoteNote = payload.quote
+      delete payload.quote
+    }
     // Same refusal as sofar_log_decision (r1-fixes 4.1.2, D31); malformed
     // payloads skip it and fail validation inside appendAndProject as before.
     let fidelity: string | null = null
@@ -3092,6 +3116,12 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
       source,
       actor: args.actor as Actor,
     })
+    let kept: string | null = null
+    if (quoteNote !== undefined) {
+      const ordinal = ctx.foldState(slug).decisions.findIndex((d) => d.id === event.id) + 1
+      ctx.appendAndProject(slug, 'note_added', { text: `The operator's words behind D${ordinal} (filed as a quote with no rule): ${quoteNote}` }, { session, source, actor: args.actor as Actor })
+      kept = `quote: needs a rule — D${ordinal} filed without it and the quote kept as a note; to make it a rule, append a decision_logged with rule and quote, supersedes D${ordinal}`
+    }
     // A rule filed naming nothing it replaces (r3-fixes 2.5, D15).
     const link =
       event.payload.link_candidates !== undefined
@@ -3109,6 +3139,7 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
           })()
         : {}
     const extra = [
+      ...(kept !== null ? [kept] : []),
       ...(moved !== undefined ? [moved] : []),
       ...(echo.warning !== undefined ? [echo.warning] : []),
       ...(fidelity !== null ? [fidelity] : []),

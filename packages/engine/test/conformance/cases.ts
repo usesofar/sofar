@@ -833,12 +833,17 @@ export const CASES: ConformanceCase[] = [
     fixture: synthetic('baseline'),
     steps: [
       s('a whole-file read of the projections: rewritten, the call\'s other input kept', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md .sofar/initiatives/baseline/decisions.md .sofar/initiatives/baseline/memory.md', description: 'read the record', timeout: 120000 } })),
-      s('head -n 40 from a subdirectory', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', cwd: '<ROOT>/src', tool_name: 'Bash', tool_input: { command: 'head -n 40 ../.sofar/initiatives/baseline/events.jsonl' } })),
+      s('cat from a subdirectory', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', cwd: '<ROOT>/src', tool_name: 'Bash', tool_input: { command: 'cat ../.sofar/initiatives/baseline/events.jsonl' } })),
       s('Cursor: its own preToolUse form', ['event', 'pre-tool'], { conversation_id: 'conv-g', cursor_version: '2026.10.01', cwd: '<ROOT>', hook_event_name: 'preToolUse', tool_name: 'Shell', tool_input: { command: 'cat .sofar/initiatives/baseline/decisions.md' } }),
       s('a grep is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'grep -n rule .sofar/initiatives/baseline/decisions.md' } })),
       s('a pipe is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md | head -5' } })),
       s('the Read tool is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Read', tool_input: { file_path: '<ROOT>/.sofar/initiatives/baseline/plan.md' } })),
       s('SOFAR_READ_GATE=off', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md' } }), { env: { SOFAR_READ_GATE: 'off' } }),
+      // r4-fixes U4: a read with a line or byte limit passes through on every host.
+      s('head -n 40 from a subdirectory: passed through', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', cwd: '<ROOT>/src', tool_name: 'Bash', tool_input: { command: 'head -n 40 ../.sofar/initiatives/baseline/events.jsonl' } })),
+      s('tail -25: passed through', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'tail -25 .sofar/initiatives/baseline/plan.md' } })),
+      s('Cursor: head -c passed through', ['event', 'pre-tool'], { conversation_id: 'conv-g', cursor_version: '2026.10.01', cwd: '<ROOT>', hook_event_name: 'preToolUse', tool_name: 'Shell', tool_input: { command: 'head -c 20000 .sofar/initiatives/baseline/decisions.md' } }),
+      s('a Read with offset and limit is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Read', tool_input: { file_path: '<ROOT>/.sofar/initiatives/baseline/plan.md', offset: 10, limit: 25 } })),
     ],
   },
   {

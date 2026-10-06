@@ -120,17 +120,25 @@ export interface EndSessionArgs {
   summary: string
   next_action: string
   /**
+   * Accepted, never advertised (r4-fixes U6): a write-back files where its
+   * session lives (session-orientation D1), so the schema lists no
+   * `initiative`. One equal to the session's home changes nothing; any other
+   * refuses the write-back, naming the sofar_start_session call that moves
+   * the session. Round 4 lost a whole write-back to the home's own slug.
+   */
+  initiative?: string
+  /**
    * Task status changes to file with the write-back (r1-fixes 2.1, D10) —
-   * validated as a whole, then appended in order BEFORE session_ended, so
-   * the write-back's own fold already counts them. One call instead of one
-   * per task at wrap-up.
+   * appended in order BEFORE session_ended, so the write-back's own fold
+   * already counts them. One call instead of one per task at wrap-up.
    */
   tasks?: EndSessionTaskChange[]
   /**
    * The rest of a session's writes, batched into the write-back (memory-lead
    * 1.1, D3): round 1 spent one request per update_phase, log_decision,
-   * remember and add_note, each re-sending the whole context. The batch is
-   * validated whole before anything appends.
+   * remember and add_note, each re-sending the whole context. Each entry is
+   * validated before anything appends; a bad one is left out alone, named
+   * with its repair, and the rest files (r4-fixes U6).
    */
   phases?: EndSessionPhaseChange[]
   decisions?: EndSessionDecision[]
@@ -703,7 +711,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_end_session',
     description:
-      "Write back once, at wrap-up: summary, the single next action, and the session's unlogged decisions, task and phase changes, memories and notes — validated whole, filed first. A returned `parallel_writebacks` lists concurrent sessions with a DIFFERENT next action: reconcile (`peer` is reachable by SendMessage; with `peer_cwd`, confirm first).",
+      "Write back once, at wrap-up: summary, the single next action, and the session's unlogged decisions, task and phase changes, memories and notes — filed first; a bad entry comes back in `not_filed`. A returned `parallel_writebacks` lists concurrent sessions with a DIFFERENT next action: reconcile (`peer` is reachable by SendMessage; with `peer_cwd`, confirm first).",
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_end_session,
   },
   {
@@ -782,6 +790,7 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
     if (!optId(a.session_id)) e.push('session_id: must be a non-empty string')
   },
   sofar_end_session(a, e) {
+    if (!optSlug(a.initiative)) e.push(SLUG_ERROR)
     if (!optId(a.session_id)) e.push('session_id: must be a non-empty string when present')
     if (!str(a.summary)) e.push('summary: must be a non-empty string')
     if (!str(a.next_action)) e.push('next_action: must be a non-empty string')
@@ -861,6 +870,13 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
 }
 
 /**
+ * Keys a tool accepts without listing them in its schema (r4-fixes U6) — the
+ * budgeted tools/list surface (r1-fixes 2.4, D13) stays as it is, and the
+ * handler judges the value. EndSessionArgs.initiative says why.
+ */
+const UNADVERTISED: Partial<Record<ToolName, readonly string[]>> = { sofar_end_session: ['initiative'] }
+
+/**
  * Validate MCP tool arguments against the tool's contract. Unknown keys are
  * rejected (the JSON Schemas declare additionalProperties: false; the
  * validator enforces the same so agents get a field-level error, not silent
@@ -873,7 +889,7 @@ export function validateToolInput(tool: ToolName, args: unknown): ToolInputValid
   const errors: string[] = []
   const allowed = Object.keys(TOOL_INPUT_SCHEMAS[tool].properties)
   for (const key of Object.keys(args)) {
-    if (!allowed.includes(key)) {
+    if (!allowed.includes(key) && !(UNADVERTISED[tool] ?? []).includes(key)) {
       errors.push(`${key}: unknown argument (allowed: ${allowed.join(', ')})`)
     }
   }
