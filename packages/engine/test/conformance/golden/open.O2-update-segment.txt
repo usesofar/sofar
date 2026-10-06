@@ -45,7 +45,7 @@ exit: 0
 Goal: a small healthy record for the hook lifecycle
 
 Standing constraints — obey verbatim (1):
-- [D2] Never rewrite events.jsonl; unknown lines are skipped with a warning.
+- [D2·41jn] Never rewrite events.jsonl; unknown lines are skipped with a warning.
 Progress: 1/4 tasks done (25%) across 2 phase(s)
 
 Phases:
@@ -71,7 +71,7 @@ Files touched (5):
 - src/module/file-3.ts
 - src/module/file-4.ts
 --- stderr
-ℹ sofar 99.0.0 is available (you have 0.33.0-rc.2+trunk) — run `sofar upgrade`.
+ℹ sofar 99.0.0 is available (you have 0.35.0-dev+trunk) — run `sofar upgrade`.
 
 ## record delta
 (no change)

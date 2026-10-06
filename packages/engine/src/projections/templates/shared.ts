@@ -7,6 +7,7 @@ import {
   type SessionActivity,
 } from '../../core/fold'
 import type { TestOutcome } from '../../core/adjacency'
+import { handleAt, qualifiedHandle } from '../../core/handle'
 import type { RepoRule } from '../../core/index-tier1'
 import { lexicalCounts } from '../../core/lexicon'
 import { byCodeUnit } from '../../core/order'
@@ -169,9 +170,9 @@ export function describeFreshness(counts: FreshnessState['events_since_writeback
 /**
  * Standing-constraints section (drift-hardening 2.1): every decision carrying
  * a `rule`, rendered VERBATIM — a rule is never clipped and never ages out of
- * the last-5 recent-decisions window. [D<n>] is the decision's 1-based ordinal
- * in log order, the handle the citation grammar already resolves, so a session
- * can cite the law it is obeying. Shared by renderStatus (budgeted) and
+ * the last-5 recent-decisions window. [D<n>·<sfx>] is the decision's 1-based
+ * ordinal in log order with its check suffix (r4-fixes U5) — the handle a merge
+ * cannot move onto another rule — so a session can cite the law it is obeying. Shared by renderStatus (budgeted) and
  * renderFullStatus (uncapped) so the two surfaces cannot disagree on what the
  * constraints say — the describeFreshness pattern.
  *
@@ -201,7 +202,7 @@ export function standingConstraintLines(
   let used = 0
   let shown = 0
   for (const d of standing) {
-    const line = `- [D${d.ordinal}] ${renderRule(d.rule, d.quote)}`
+    const line = `- [${handleAt(decisions, d.ordinal)}] ${renderRule(d.rule, d.quote)}`
     if (budget !== undefined && shown > 0 && used + line.length + 1 > budget) break
     lines.push(line)
     used += line.length + 1
@@ -237,14 +238,17 @@ export function repoRuleLines(
 ): string[] {
   const key = (rule: string, quote: string | undefined): string => `${rule.replace(/\s+/g, ' ').trim()}\u0000${(quote ?? '').replace(/\s+/g, ' ').trim()}`
   const mine = new Set(own.filter((d) => d.rule !== undefined).map((d) => key(d.rule!, d.quote)))
-  const merged = new Map<string, { r: RepoRule; handles: string[] }>()
+  // Ordered by the bare `<slug> D<n>` as before; rendered suffixed (r4-fixes U5).
+  const merged = new Map<string, { r: RepoRule; handles: string[]; shown: string[] }>()
   for (const r of [...rules].sort((a, b) => (a.ts === b.ts ? byCodeUnit(`${a.initiative} D${a.ordinal}`, `${b.initiative} D${b.ordinal}`) : a.ts < b.ts ? -1 : 1))) {
     const k = key(r.rule, r.quote)
     if (mine.has(k)) continue
     const seen = merged.get(k)
-    if (seen === undefined) merged.set(k, { r, handles: [`${r.initiative} D${r.ordinal}`] })
+    const shown = qualifiedHandle(r.initiative, r.ordinal, r.id)
+    if (seen === undefined) merged.set(k, { r, handles: [`${r.initiative} D${r.ordinal}`], shown: [shown] })
     else {
       seen.handles.push(`${r.initiative} D${r.ordinal}`)
+      seen.shown.push(shown)
       seen.r = r // the newest restatement dates the rule
     }
   }
@@ -254,8 +258,8 @@ export function repoRuleLines(
     .sort((a, b) => b.score - a.score || (a.r.ts === b.r.ts ? byCodeUnit(a.handle, b.handle) : a.r.ts < b.r.ts ? 1 : -1))
   const entries: string[] = []
   let used = 0
-  for (const { r, handle } of ranked) {
-    const line = `- [${handle}] ${renderRule(r.rule, r.quote)}`
+  for (const { r, shown } of ranked) {
+    const line = `- [${shown.join(', ')}] ${renderRule(r.rule, r.quote)}`
     if (used + line.length + 1 > budget) break
     entries.push(line)
     used += line.length + 1

@@ -110,22 +110,22 @@
     ]
   }
 }
-== status (195356 bytes) ==
+== status (195416 bytes) ==
 # budget
 
 Goal: a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget END
 
 Standing constraints — obey verbatim (10):
-- [D1] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D3] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D5] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D7] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D9] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D11] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D13] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D15] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D17] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D19] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D1·41jn] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D3·fv5a] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D5·jxdz] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D7·k6kg] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D9·01s6] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D11·fzvs] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D13·tn6x] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D15·hzx4] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D17·d8bx] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D19·hbgm] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
 Progress: 500/1000 tasks done (50%) across 40 phase(s)
 
 Phases:
@@ -1542,7 +1542,7 @@ Files touched (360):
 - src/area-11/file-28.ts
 - src/area-11/file-29.ts
 
-== digest:plain (6056 bytes) ==
+== digest:plain (6066 bytes) ==
 # Sofar status: budget
 
 Goal: a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long eno…
@@ -1577,26 +1577,26 @@ Phases:
 - Phase 27: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
 - Phase 28: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
 - Phase 29: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 30: a descriptive phase name that runs long a descriptive ph
+- Phase 30: a desc
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (10):
-- [D19] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D17] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D15] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D13] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D11] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D9] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D7] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D5] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D3] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D1] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D19·hbgm] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D17·d8bx] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D15·hzx4] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D13·tn6x] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D11·fzvs] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D9·01s6] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D7·k6kg] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D5·jxdz] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D3·fv5a] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D1·41jn] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (6056 bytes) ==
+== digest:hook (6066 bytes) ==
 # Sofar status: budget
 
 Goal: a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long eno…
@@ -1631,26 +1631,26 @@ Phases:
 - Phase 27: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
 - Phase 28: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
 - Phase 29: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 30: a descriptive phase name that runs long a descriptive ph
+- Phase 30: a desc
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (10):
-- [D19] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D17] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D15] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D13] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D11] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D9] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D7] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D5] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D3] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D1] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D19·hbgm] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D17·d8bx] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D15·hzx4] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D13·tn6x] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D11·fzvs] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D9·01s6] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D7·k6kg] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D5·jxdz] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D3·fv5a] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D1·41jn] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (6009 bytes) ==
+== digest:lane (5979 bytes) ==
 # Sofar: quick-work lane (budget)
 
 Goal: a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long eno…
@@ -1670,8 +1670,7 @@ Memory (6; full text in memory/M<n>.md):
 - [M6] memory 5: operational fact operational fact operational fact operational fact o…
 - [M5] memory 4: operational fact operational fact operational fact operational fact o…
 - [M4] memory 3: operational fact operational fact operational fact operational fact o…
-- [M3] memory 2: operational fact operational fact operational fact operational fact o…
-- …and 2 more in memory.md
+- …and 3 more in memory.md
 
 
 Next ids: D21 (decision), M7 (memory)
@@ -1680,20 +1679,20 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: feature/budget @ a1b2c3d — in sync with origin/feature/budget
 
 Standing constraints — obey verbatim (10):
-- [D19] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D17] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D15] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D13] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D11] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D9] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D7] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D5] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D3] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D1] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D19·hbgm] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D17·d8bx] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D15·hzx4] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D13·tn6x] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D11·fzvs] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D9·01s6] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D7·k6kg] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D5·jxdz] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D3·fv5a] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D1·41jn] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (6056 bytes) ==
+== digest:quiet (6066 bytes) ==
 # Sofar status: budget
 
 Goal: a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long eno…
@@ -1728,26 +1727,26 @@ Phases:
 - Phase 27: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
 - Phase 28: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
 - Phase 29: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 30: a descriptive phase name that runs long a descriptive ph
+- Phase 30: a desc
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (10):
-- [D19] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D17] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D15] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D13] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D11] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D9] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D7] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D5] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D3] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D1] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D19·hbgm] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D17·d8bx] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D15·hzx4] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D13·tn6x] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D11·fzvs] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D9·01s6] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D7·k6kg] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D5·jxdz] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D3·fv5a] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D1·41jn] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6056 bytes) ==
+== digest:cap (6066 bytes) ==
 # Sofar status: budget
 
 Goal: a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long enough to be clipped at the six hundred unit budget a goal long eno…
@@ -1782,20 +1781,20 @@ Phases:
 - Phase 27: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
 - Phase 28: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
 - Phase 29: a descriptive phase name that runs long a descriptive phase name that runs long a descrip… [pending] 0/25
-- Phase 30: a descriptive phase name that runs long a descriptive ph
+- Phase 30: a desc
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (10):
-- [D19] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D17] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D15] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D13] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D11] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D9] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D7] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D5] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D3] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
-- [D1] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D19·hbgm] Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D17·d8bx] Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D15·hzx4] Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D13·tn6x] Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D11·fzvs] Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D9·01s6] Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D7·k6kg] Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D5·jxdz] Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D3·fv5a] Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
+- [D1·41jn] Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -2458,172 +2457,172 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 - M5 2026-09-01 — memory 4: operational fact operational fact operational fact operational fact o…
 - M6 2026-09-01 — memory 5: operational fact operational fact operational fact operational fact o…
 
-== shard decisions/D1.md (857 bytes) ==
+== shard decisions/D1.md (863 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-09-01
+D1·41jn — 2026-09-01
 rule: Rule 0: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 0: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 0: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 0: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D2.md (692 bytes) ==
+== shard decisions/D2.md (698 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-09-01
+D2·7zjm — 2026-09-01
 chose: decision 1: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 1: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 1: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D3.md (857 bytes) ==
+== shard decisions/D3.md (863 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-09-01
+D3·fv5a — 2026-09-01
 rule: Rule 2: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 2: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 2: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 2: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D4.md (692 bytes) ==
+== shard decisions/D4.md (698 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-09-01
+D4·ayy5 — 2026-09-01
 chose: decision 3: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 3: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 3: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D5.md (857 bytes) ==
+== shard decisions/D5.md (863 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-09-01
+D5·jxdz — 2026-09-01
 rule: Rule 4: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 4: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 4: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 4: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D6.md (692 bytes) ==
+== shard decisions/D6.md (698 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-09-01
+D6·wy1x — 2026-09-01
 chose: decision 5: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 5: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 5: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D7.md (857 bytes) ==
+== shard decisions/D7.md (863 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D7 — 2026-09-01
+D7·k6kg — 2026-09-01
 rule: Rule 6: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 6: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 6: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 6: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D8.md (692 bytes) ==
+== shard decisions/D8.md (698 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D8 — 2026-09-01
+D8·4pm5 — 2026-09-01
 chose: decision 7: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 7: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 7: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D9.md (857 bytes) ==
+== shard decisions/D9.md (863 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D9 — 2026-09-01
+D9·01s6 — 2026-09-01
 rule: Rule 8: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 8: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 8: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 8: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D10.md (693 bytes) ==
+== shard decisions/D10.md (699 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D10 — 2026-09-01
+D10·jvw2 — 2026-09-01
 chose: decision 9: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 9: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 9: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D11.md (862 bytes) ==
+== shard decisions/D11.md (868 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D11 — 2026-09-01
+D11·fzvs — 2026-09-01
 rule: Rule 10: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 10: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 10: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 10: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D12.md (696 bytes) ==
+== shard decisions/D12.md (702 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D12 — 2026-09-01
+D12·k4tz — 2026-09-01
 chose: decision 11: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 11: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 11: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D13.md (862 bytes) ==
+== shard decisions/D13.md (868 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D13 — 2026-09-01
+D13·tn6x — 2026-09-01
 rule: Rule 12: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 12: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 12: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 12: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D14.md (696 bytes) ==
+== shard decisions/D14.md (702 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D14 — 2026-09-01
+D14·94xr — 2026-09-01
 chose: decision 13: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 13: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 13: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D15.md (862 bytes) ==
+== shard decisions/D15.md (868 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D15 — 2026-09-01
+D15·hzx4 — 2026-09-01
 rule: Rule 14: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 14: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 14: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 14: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D16.md (696 bytes) ==
+== shard decisions/D16.md (702 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D16 — 2026-09-01
+D16·vs7s — 2026-09-01
 chose: decision 15: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 15: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 15: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D17.md (862 bytes) ==
+== shard decisions/D17.md (868 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D17 — 2026-09-01
+D17·d8bx — 2026-09-01
 rule: Rule 16: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 16: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 16: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 16: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D18.md (696 bytes) ==
+== shard decisions/D18.md (702 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D18 — 2026-09-01
+D18·eja9 — 2026-09-01
 chose: decision 17: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 17: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 17: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D19.md (862 bytes) ==
+== shard decisions/D19.md (868 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D19 — 2026-09-01
+D19·hbgm — 2026-09-01
 rule: Rule 18: standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text standing constraint text 
 chose: decision 18: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 18: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 18: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 
 
-== shard decisions/D20.md (696 bytes) ==
+== shard decisions/D20.md (702 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D20 — 2026-09-01
+D20·b43y — 2026-09-01
 chose: decision 19: chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget chosen text that is long enough to be clipped in the line budget 
 over: alternative 19: rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose rejected approach prose 
 because: because 19: rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose rationale prose 

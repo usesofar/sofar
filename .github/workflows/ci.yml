@@ -17,7 +17,7 @@ on:
       baseline:
         description: 'previous release to gate against (npm version of sofar.sh)'
         required: true
-        default: '0.32.0'
+        default: '0.34.0'
 
 # Many sessions push record-only commits to main; a newer push supersedes the
 # run of an older one instead of queueing behind it.
@@ -142,9 +142,22 @@ jobs:
   # Loose read-path tripwire (r1-fixes D18): a gross regression cannot reach
   # an RC unnoticed. Wide budget on purpose — hosted noise cannot hide a 2×
   # regression, and the ±10% gate runs by hand, interleaved, per the SPEC.
+  # Per ENGINE (r4-fixes U8): the bench pins SOFAR_CORE on both sides and
+  # times each leg like with like through the hook shims hosts run, and
+  # refuses (exit 4) when the two sides ran different engines — the 0.34.0
+  # cut timed the npm baseline's native core against this checkout's
+  # TypeScript and read +70–79%. macOS runs both legs: the baseline's
+  # platform package against the core built here. Linux runs the TypeScript
+  # leg only.
   read-paths:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14, legs: 'ts,native' }
+          - { os: ubuntu-latest, legs: ts }
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -154,24 +167,35 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # The candidate's core, which the bench finds at target/release (a
+      # checkout's own build, never the published package npm ci installs).
+      - uses: dtolnay/rust-toolchain@stable
+        if: contains(matrix.legs, 'native')
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@v2
+        if: contains(matrix.legs, 'native')
+      - run: cargo build --release -p sofar-core
+        if: contains(matrix.legs, 'native')
+      # Its platform package carries the baseline's core (the native leg).
       - name: install the pinned baseline
         run: npm install --prefix "$RUNNER_TEMP/baseline" sofar.sh@${{ inputs.baseline }}
       - name: read-path tripwire (repo fixture)
         run: |
           npm run bench:read-paths -- \
             --baseline "$RUNNER_TEMP/baseline/node_modules/sofar.sh/dist/cli.js" \
-            --candidate packages/engine/dist/cli.js \
+            --candidate packages/engine/dist/cli.js --legs ${{ matrix.legs }} \
             --fixture repo --session ci-tripwire --n 25 --budget 0.5 \
             --record "$RUNNER_TEMP/read-paths.repo.json"
       - name: read-path tripwire (i1000-10mb fixture)
         run: |
           npm run bench:read-paths -- \
             --baseline "$RUNNER_TEMP/baseline/node_modules/sofar.sh/dist/cli.js" \
-            --candidate packages/engine/dist/cli.js \
+            --candidate packages/engine/dist/cli.js --legs ${{ matrix.legs }} \
             --fixture i1000-10mb --n 25 --budget 0.5 \
             --record "$RUNNER_TEMP/read-paths.i1000-10mb.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: read-paths
+          name: read-paths-${{ matrix.os }}
           path: ${{ runner.temp }}/read-paths.*.json

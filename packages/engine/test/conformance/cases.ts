@@ -118,6 +118,51 @@ function recallSeed(m: Materialized): void {
 }
 
 /**
+ * syn.merge-handles (r4-fixes U5): round 4's r1 merge in miniature. Both
+ * branches minted the same ordinal: wt/order-caps filed its rule as D3, and
+ * main its own D3. The branch's side goes in first: the rule, with its check,
+ * and the file it guards.
+ */
+const CAPS_RULE_ID = '01M2Z2B0000000000000000031'
+const MAIN_RULE_ID = '01M2Z2A0000000000000000032'
+/** CAPS_RULE_ID's check suffix: 4 Crockford chars of its sha256 (core/handle.ts), computed here so the catalogue imports no engine code. */
+const CAPS_SFX = ((): string => {
+  const h = createHash('sha256').update(CAPS_RULE_ID).digest()
+  const v = (h[0]! << 12) | (h[1]! << 4) | (h[2]! >> 4)
+  const c = '0123456789abcdefghjkmnpqrstvwxyz'
+  return c[(v >> 15) & 31]! + c[(v >> 10) & 31]! + c[(v >> 5) & 31]! + c[v & 31]!
+})()
+function handleLine(id: string, ts: string, session: string, payload: Record<string, unknown>): string {
+  return JSON.stringify({ v: 1, id, ts, initiative: 'baseline', session, source: 'claude-code', actor: 'agent', user: 'fixture@example.invalid', type: 'decision_logged', payload })
+}
+function capsBranch(m: Materialized): void {
+  mkdirSync(join(m.root, 'src', 'order'), { recursive: true })
+  writeFileSync(join(m.root, 'src', 'order', 'caps.ts'), 'export const CAP = 12\n')
+  const log = join(m.root, '.sofar', 'initiatives', 'baseline', 'events.jsonl')
+  const rule = handleLine(CAPS_RULE_ID, '2026-09-20T10:01:00.000Z', 'wt-caps', {
+    chose: 'cap an order at 12 cases',
+    over: 'no cap',
+    because: 'the warehouse said so',
+    rule: 'Cap an order at 12 cases.',
+    guard: 'path:src/order/**',
+    check: { cmd: 'bun test tests/caps.test.ts' },
+  })
+  writeFileSync(log, `${readFileSync(log, 'utf8')}${rule}\n`)
+}
+/** The merge: main's D3 arrives by union merge, appended in file order but earlier by id, so it folds first. */
+function mainMerged(m: Materialized): void {
+  const log = join(m.root, '.sofar', 'initiatives', 'baseline', 'events.jsonl')
+  const rule = handleLine(MAIN_RULE_ID, '2026-09-20T10:00:00.000Z', 'main-pick', {
+    chose: 'pick newest first',
+    over: 'FEFO',
+    because: 'the operator said so',
+    rule: 'Pick non-perishables newest first.',
+    guard: 'path:src/pick/**',
+  })
+  writeFileSync(log, `${readFileSync(log, 'utf8')}${rule}\n`)
+}
+
+/**
  * syn.merge's repo (r3-fixes 2.11): the skeleton .git gives way to a real one
  * holding the S18 merge, every date pinned so every sha is too, and the
  * baseline record gains what the merge block reads — a session that ran
@@ -748,6 +793,48 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes 0.2 (U1) on the hot path: which run covers which ask, read
+    // against the tree. A directory covers the files under it, a sibling does
+    // not, a test-name filter voids coverage, a failed or pre-edit run never
+    // covers, the bare runner covers every ask — and stays the runner in a
+    // repo with a `test/` directory — and asks on one runner fold into one line.
+    name: 'syn.gate-coverage',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('session-start: the tree the commands name', ['event', 'session-start'], start({ session_id: 'sess-g' }), {
+        before: (m) => {
+          for (const rel of ['src/stock.ts', 'tests/rules/one.test.ts', 'tests/rules/two.test.ts', 'tests/unit/a.test.ts', 'test/smoke.test.ts']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+          }
+        },
+      }),
+      s('a rule checked by one test file', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-g', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', guard: 'path:src/**', check: { cmd: 'bun test tests/rules/one.test.ts', hint: 'reject the move before it lands' }, supersedes: 'none' })]),
+      s('a rule checked by a filtered test file', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-g', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'holds on the location', over: 'holds on lots', because: 'b', rule: 'Holds sit on the location, never on lots.', guard: 'path:src/**', check: { cmd: "bun test tests/rules/two.test.ts -t 'holds'" }, supersedes: 'none' })]),
+      s('Edit the guarded file', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-g' })),
+      s('sess-g writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-g', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('stop: both asks on one line, one command', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('a sibling directory passes', ['event', 'post-tool'], bash('bun test tests/unit', { session_id: 'sess-g' })),
+      s('stop: a sibling covers nothing', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('a filtered run of the parent passes', ['event', 'post-tool'], bash('bun test tests -t holds', { session_id: 'sess-g' })),
+      s('stop: a filter voids coverage', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('the directory holding both passes', ['event', 'post-tool'], bash('bun test tests/rules 2>&1 | tail -3', { session_id: 'sess-g' })),
+      s('stop: a directory covers the files under it', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('Edit again', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-g' })),
+      s('stop: a pre-edit run never covers', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('the bare runner fails', ['event', 'post-tool-failure'], hook('PostToolUseFailure', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'bun test', description: 'x' }, error: 'Exit code 1', exit_code: 1 })),
+      s('stop: a red run after the edit holds, once for both rules', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('the bare runner passes', ['event', 'post-tool'], bash('bun test', { session_id: 'sess-g' })),
+      s('stop: the bare runner covers every ask, test/ notwithstanding', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      // r4-fixes U1b: Codex hands PostToolUse the output text and no exit
+      // status (codex 0.160.0), so its asks are unverifiable and never hold.
+      s('Codex: an apply_patch edit of the guarded file', ['event', 'post-tool', '--host', 'codex'], hook('PostToolUse', { session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions', tool_name: 'apply_patch', tool_input: { command: '*** Begin Patch\n*** Update File: src/stock.ts\n@@\n-export {}\n+export const x = 1\n*** End Patch' }, tool_response: 'Exit code: 0\nWall time: 0.1 seconds\nOutput:\nSuccess. Updated the following files:\nM src/stock.ts\n', tool_use_id: 'exec-x1' })),
+      s('sess-x writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-x', '--source', 'codex', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('Codex: the directory run, its output text only', ['event', 'post-tool', '--host', 'codex'], hook('PostToolUse', { session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions', tool_name: 'Bash', tool_input: { command: 'bun test tests/rules' }, tool_response: '\n', tool_use_id: 'exec-x2' })),
+      s('stop under Codex: unverifiable, not held, told to the operator', ['event', 'stop', '--host', 'codex'], stop({ session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions' })),
+    ],
+  },
+  {
     // r3-fixes 2.11 (D19, D20) on the hot path: round 3's S18 merge in
     // miniature, in a real repo with pinned dates — wt-15 merged clean, wt-16
     // and wt-17 conflicting on src/db.ts, the conflict committed as the
@@ -771,6 +858,25 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes U5: a merge that renumbers. Before the merge the branch's rule
+    // is D3; main's D3 arrives by union merge, earlier by id, and the rule is
+    // D4 after it. Every line names it check-suffixed, so the gate's ask names
+    // the same rule by the same suffix before and after, the digest lists both
+    // D3s apart, and a prompt citing the pre-merge `D3·<sfx>` recalls the
+    // branch's rule, not main's D3.
+    name: 'syn.merge-handles',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('Edit the guarded file on the branch', ['event', 'post-tool'], edit('<ROOT>/src/order/caps.ts', { session_id: 'sess-caps' }), { before: capsBranch }),
+      s('the branch session writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-caps', '--source', 'claude-code', '--payload', '{"summary":"capped orders","next_action":"n"}']),
+      s('stop before the merge: the gate names D3 by its suffix', ['event', 'stop'], stop({ session_id: 'sess-caps' })),
+      s('stop after the merge: the same rule, the same suffix, now D4', ['event', 'stop'], stop({ session_id: 'sess-caps' }), { before: mainMerged }),
+      s('the next digest lists both, apart', ['event', 'session-start'], start({ session_id: 'sess-next' })),
+      // The handle the gate printed before the merge, as an agent would copy it.
+      s('a prompt citing the pre-merge handle recalls the branch rule', ['event', 'user-prompt'], prompt({ session_id: 'sess-cite', prompt: `Is D3·${CAPS_SFX} still the cap we agreed on for orders?` })),
+    ],
+  },
+  {
     // memory-lead 4.3 part B (D25) on the hot path: recall at the first
     // prompt, once per session context, never on Cursor.
     name: 'syn.recall',
@@ -791,12 +897,17 @@ export const CASES: ConformanceCase[] = [
     fixture: synthetic('baseline'),
     steps: [
       s('a whole-file read of the projections: rewritten, the call\'s other input kept', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md .sofar/initiatives/baseline/decisions.md .sofar/initiatives/baseline/memory.md', description: 'read the record', timeout: 120000 } })),
-      s('head -n 40 from a subdirectory', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', cwd: '<ROOT>/src', tool_name: 'Bash', tool_input: { command: 'head -n 40 ../.sofar/initiatives/baseline/events.jsonl' } })),
+      s('cat from a subdirectory', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', cwd: '<ROOT>/src', tool_name: 'Bash', tool_input: { command: 'cat ../.sofar/initiatives/baseline/events.jsonl' } })),
       s('Cursor: its own preToolUse form', ['event', 'pre-tool'], { conversation_id: 'conv-g', cursor_version: '2026.10.01', cwd: '<ROOT>', hook_event_name: 'preToolUse', tool_name: 'Shell', tool_input: { command: 'cat .sofar/initiatives/baseline/decisions.md' } }),
       s('a grep is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'grep -n rule .sofar/initiatives/baseline/decisions.md' } })),
       s('a pipe is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md | head -5' } })),
       s('the Read tool is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Read', tool_input: { file_path: '<ROOT>/.sofar/initiatives/baseline/plan.md' } })),
       s('SOFAR_READ_GATE=off', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md' } }), { env: { SOFAR_READ_GATE: 'off' } }),
+      // r4-fixes U4: a read with a line or byte limit passes through on every host.
+      s('head -n 40 from a subdirectory: passed through', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', cwd: '<ROOT>/src', tool_name: 'Bash', tool_input: { command: 'head -n 40 ../.sofar/initiatives/baseline/events.jsonl' } })),
+      s('tail -25: passed through', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'tail -25 .sofar/initiatives/baseline/plan.md' } })),
+      s('Cursor: head -c passed through', ['event', 'pre-tool'], { conversation_id: 'conv-g', cursor_version: '2026.10.01', cwd: '<ROOT>', hook_event_name: 'preToolUse', tool_name: 'Shell', tool_input: { command: 'head -c 20000 .sofar/initiatives/baseline/decisions.md' } }),
+      s('a Read with offset and limit is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Read', tool_input: { file_path: '<ROOT>/.sofar/initiatives/baseline/plan.md', offset: 10, limit: 25 } })),
     ],
   },
   {

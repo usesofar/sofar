@@ -82,6 +82,47 @@ describe('the pre-tool hook (D39)', () => {
     process.env.SOFAR_READ_GATE = 'off'
     expect(call(root, `cat ${P}/decisions.md`)).toBe('')
   })
+
+  // r4-fixes U4: only a whole-file read is rewritten, on every host.
+  const read = (root: string, toolInput: Record<string, unknown>, host: 'claude' | 'codex' | 'cursor') => {
+    const base = host === 'cursor'
+      ? { conversation_id: 'c1', cursor_version: '2026.10.01', cwd: root, hook_event_name: 'preToolUse' }
+      : { session_id: 's1', cwd: root, hook_event_name: 'PreToolUse', ...(host === 'codex' ? { model: 'gpt-5', turn_id: 't1' } : {}) }
+    return forHost('pre-tool', handlePreTool)(root, JSON.stringify({ ...base, ...toolInput })).stdout
+  }
+  const limited = [
+    `tail -25 ${P}/plan.md`,
+    `tail -n 15 ${P}/plan.md`,
+    `tail ${P}/plan.md`,
+    `head ${P}/decisions.md`,
+    `head -n 50 ${P}/decisions.md`,
+    `head -c 20000 ${P}/decisions.md`,
+    `sed -n 1,80p ${P}/plan.md`,
+  ]
+  const compound = [
+    `cat ${P}/decisions.md | head -150`,
+    `cd ${P} && cat plan.md`,
+    `cat ${P}/plan.md; cat ${P}/memory.md`,
+    `(cat ${P}/plan.md)`,
+    `bash -c "cat ${P}/plan.md"`,
+  ]
+  for (const host of ['claude', 'codex', 'cursor'] as const) {
+    const shell = host === 'cursor' ? 'Shell' : 'Bash'
+    it.each([...limited, ...compound])(`${host}: passes \`%s\` through`, (command) => {
+      expect(read(repo(), { tool_name: shell, tool_input: { command } }, host)).toBe('')
+    })
+    it(`${host}: a Read with an offset or a limit passes through, and so does a whole-file Read`, () => {
+      const root = repo()
+      const file_path = join(root, P, 'plan.md')
+      expect(read(root, { tool_name: 'Read', tool_input: { file_path, offset: 10, limit: 25 } }, host)).toBe('')
+      expect(read(root, { tool_name: 'Read', tool_input: { file_path, limit: 25 } }, host)).toBe('')
+      expect(read(root, { tool_name: 'Read', tool_input: { file_path } }, host)).toBe('')
+    })
+    it(`${host}: a whole-file cat is still rewritten`, () => {
+      const out = read(repo(), { tool_name: shell, tool_input: { command: `cat ${P}/plan.md` } }, host)
+      expect(out).toContain(`sofar read --session '${host === 'cursor' ? 'c1' : 's1'}' '${P}/plan.md'`)
+    })
+  }
 })
 
 describe('sofar read (D42, D45)', () => {
@@ -91,10 +132,11 @@ describe('sofar read (D42, D45)', () => {
     const root = repo()
     const r = runRead(root, [`${P}/decisions.md`, `${P}/plan.md`, `${P}/memory.md`])
     expect(r.exitCode).toBe(0)
-    expect(r.stdout).toBe(`${['decisions.md', 'plan.md', 'memory.md'].map((f) => file(root, f).replace(/\n$/, '')).join('\n\n')}\n`)
-    expect(r.stdout).toMatch(/^- D1·\w{4} — superseded by D3$/m)
+    // Joined as cat joins them (r4-fixes U4): byte for byte what the agent asked for.
+    expect(r.stdout).toBe(['decisions.md', 'plan.md', 'memory.md'].map((f) => file(root, f)).join(''))
+    expect(r.stdout).toMatch(/^- D1·\w{4} — superseded by D3·\w{4}$/m)
     expect(r.stdout).toMatch(/— rule: Percent coupons come off before fixed coupons\.$/m)
-    expect(r.stdout).toMatch(/— \(supersedes D1\) chose store money as decimal strings$/m)
+    expect(r.stdout).toMatch(/— \(supersedes D1·\w{4}\) chose store money as decimal strings$/m)
     expect(r.stdout).toMatch(/^Brief: the operator's words, \d+ chars, verbatim in brief\.md;/m)
     expect(r.stdout).not.toContain('stacked by the provider flag')
     expect(r.stdout).toMatch(/^- M1 \S+ — Run the suite with bun test from apps\/web\.$/m)
@@ -112,6 +154,25 @@ describe('sofar read (D42, D45)', () => {
     appendEvent(join(root, P, 'events.jsonl'), makeEvent({ initiative: 'demo', session: 'author', source: 'claude-code', actor: 'agent', type: 'decision_logged', payload: { chose: 'tax inclusive', over: 'exclusive', because: 'catalogue' } }))
     regenerateProjections(join(root, P), foldLog(join(root, P, 'events.jsonl')).state)
     expect(runRead(root, [`${P}/decisions.md`], { session: 's1' }).stdout).toContain('— chose tax inclusive')
+  })
+
+  it('never prints more than cat would (r4-fixes U4)', () => {
+    const root = repo()
+    const tiny = join(root, '.sofar', 'initiatives', 'tiny')
+    mkdirSync(tiny, { recursive: true })
+    writeFileSync(join(tiny, 'events.jsonl'), '{"a":1}\n')
+    writeFileSync(join(tiny, 'memory.md'), '- M1\n')
+    const paths = ['.sofar/initiatives/tiny/events.jsonl', '.sofar/initiatives/tiny/memory.md']
+    const cat = paths.map((p) => readFileSync(join(root, p), 'utf8')).join('')
+    expect(runRead(root, paths, { session: 's9' }).stdout).toBe(cat)
+    // The re-read's "unchanged" line is longer than these files: the file wins.
+    expect(runRead(root, paths, { session: 's9' }).stdout).toBe(cat)
+    // Over a real record the first read is cat's bytes and the re-read is shorter.
+    const real = [`${P}/plan.md`, `${P}/decisions.md`, `${P}/memory.md`, `${P}/events.jsonl`]
+    const whole = real.map((p) => readFileSync(join(root, p), 'utf8')).join('')
+    const first = runRead(root, real, { session: 's8' }).stdout
+    expect(Buffer.byteLength(first)).toBeLessThan(Buffer.byteLength(whole))
+    expect(Buffer.byteLength(runRead(root, real, { session: 's8' }).stdout)).toBeLessThan(Buffer.byteLength(first))
   })
 
   it('points away from the raw log, reads any other file as cat would, and names a missing one', () => {

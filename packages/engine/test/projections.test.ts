@@ -19,6 +19,7 @@ import {
 } from '../src/projections/templates/status'
 import { GENERATED_HEADER, clip } from '../src/projections/templates/shared'
 import { WORKTREE_LEADS_BUDGET } from '../src/projections/templates/copies'
+import { bare } from './helpers/handles'
 
 const scratch = mkdtempSync(join(tmpdir(), 'sofar-projections-'))
 
@@ -338,7 +339,7 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
     expect(status).toContain('- Phase 1 [active] 1/3')
     expect(status).toContain('Last session (claude-code')
     expect(status).toContain('wired the log core')
-    expect(status).toContain('- [D1] 2026-07-03 a — over b')
+    expect(bare(status)).toContain('- [D1] 2026-07-03 a — over b')
   })
 
   it('decision index (r1-fixes 2.2, D11): handle-first lines carry chose and over, a placeholder over renders no clause, ≤5 decisions render no ledger', () => {
@@ -347,9 +348,9 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
       { id: '01ARZ3NDEKTSV4RRFFQ69G5F01', ts: '2026-07-03T00:00:00.000Z', chose: 'sqlite', over: 'postgres', because: 'zero ops' },
       { id: '01ARZ3NDEKTSV4RRFFQ69G5F02', ts: '2026-07-03T00:00:00.000Z', chose: 'x', over: '(no alternative recorded)', because: 'y' },
     ]
-    const status = renderStatus(state)
+    const status = bare(renderStatus(state))
     expect(status).toContain('Recent decisions (2; full text in decisions/D<n>.md):')
-    expect(status).toContain('- [D1] 2026-07-03 sqlite — over postgres')
+    expect(bare(status)).toContain('- [D1] 2026-07-03 sqlite — over postgres')
     expect(status).toContain('- [D2] 2026-07-03 x\n')
     // the placeholder over is not promoted into the line, and `because` is on demand
     expect(status).not.toContain('(no alternative recorded)')
@@ -367,20 +368,20 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
       over: `alternative ${i + 1} ${'o'.repeat(200)}`,
       because: `reason ${i + 1} ${'b'.repeat(300)}`,
     }))
-    const status = renderStatus(state)
+    const status = bare(renderStatus(state))
     expect(status).toContain('Recent decisions (last 5 of 8; full text in decisions/D<n>.md):')
     expect(status).toContain('Earlier rejected approaches — do NOT re-propose (3 older):')
     // window: D4..D8 with chose clipped at 90 and over clipped at 70 (memory-lead D4) — separately,
     // so the alternative survives however long the chose runs
     for (const n of [4, 5, 6, 7, 8]) {
-      const line = status.split('\n').find((l) => l.startsWith(`- [D${n}] `))!
+      const line = bare(status).split('\n').find((l) => l.startsWith(`- [D${n}] `))!
       expect(line).toContain(`choice ${n} `)
       expect(line).toContain(` — over alternative ${n} `)
       expect(line.length).toBeLessThanOrEqual(`- [D${n}] 2026-07-03 `.length + 120 + ' — over '.length + 90)
     }
     // ledger: D1..D3 over-only, handle-first
     for (const n of [1, 2, 3]) {
-      const line = status.split('\n').find((l) => l.startsWith(`- [D${n}] `))!
+      const line = bare(status).split('\n').find((l) => l.startsWith(`- [D${n}] `))!
       expect(line).toMatch(new RegExp(`^- \\[D${n}\\] alternative ${n} o+…$`))
       expect(status).not.toContain(`choice ${n} `)
     }
@@ -399,7 +400,7 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
       { id: '01ARZ3NDEKTSV4RRFFQ69G5F01', ts: '2026-07-03T00:00:00.000Z', chose: long, over: 'alt', because: 'why', rule: 'Never do the thing.' },
       { id: '01ARZ3NDEKTSV4RRFFQ69G5F02', ts: '2026-07-03T00:00:00.000Z', chose: long, over: 'alt2', because: 'why2' },
     ]
-    const status = renderStatus(state)
+    const status = bare(renderStatus(state))
     expect(status).toContain('- [D1] Never do the thing.')
     const ruled = status.split('\n').find((l) => l.startsWith('- [D1] 2026-07-03'))!
     const plain = status.split('\n').find((l) => l.startsWith('- [D2] 2026-07-03'))!
@@ -420,7 +421,7 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
       rule: `Rule ${i + 1} — ${'x'.repeat(120)} end.`,
     }))
     state.decisions = many
-    const heavy = renderStatus(state)
+    const heavy = bare(renderStatus(state))
     expect(heavy).toMatch(/…and \d+ more \(see decisions\.md\)/)
     const last = heavy.split('\n').find((l) => l.startsWith('- [D40] 2026-07-03'))!
     expect(last).toContain('(rule below)')
@@ -511,7 +512,7 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
     expect(status).toContain('…and 25 more phases (see plan.md)')
     expect(status).toContain('- done: Phase 0, Phase 1, Phase 2 (24/24 tasks)')
     expect(status).toContain('Recent decisions (last 5 of 60; full text in decisions/D<n>.md):')
-    expect(status).toContain('- [D60] 2026-07-03 choice 59')
+    expect(bare(status)).toContain('- [D60] 2026-07-03 choice 59')
     expect(status).toContain('summary 29')
   })
 
@@ -664,7 +665,7 @@ describe('standing constraints — verbatim render contract (drift-hardening 2.1
     const status = renderStatus(state)
 
     expect(status).toContain('Standing constraints — obey verbatim (1):')
-    expect(status).toContain(`- [D1] ${LONG_RULE}`)
+    expect(bare(status)).toContain(`- [D1] ${LONG_RULE}`)
     // placement: the normative frame is the last section before the read-back
     expect(status.indexOf('Standing constraints')).toBeGreaterThan(status.indexOf('Next ids:'))
     expect(status.indexOf('Standing constraints')).toBeLessThan(status.indexOf('Read-back:'))
@@ -710,7 +711,7 @@ describe('standing constraints — verbatim render contract (drift-hardening 2.1
     )
     const full = renderFullStatus(state)
     expect(full).toContain('Standing constraints — obey verbatim (40):')
-    expect(full).toContain(`- [D40] Rule 40 —`)
+    expect(bare(full)).toContain(`- [D40] Rule 40 —`)
     expect(full).not.toContain('more (see decisions.md)')
   })
 

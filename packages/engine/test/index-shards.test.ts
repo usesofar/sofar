@@ -68,11 +68,11 @@ describe('index and shards (D45)', () => {
     expect(plan).toContain('- [ ] 2.1 percent coupons (active)')
     expect(read(dir, 'phases/P1.md')).toContain('- [x] 1.1 invoice model')
     const decisions = read(dir, 'decisions.md')
-    expect(decisions).toMatch(/^- D1·\w{4} — superseded by D3$/m)
+    expect(decisions).toMatch(/^- D1·\w{4} — superseded by D3·\w{4}$/m)
     expect(decisions).toMatch(/^- D2·\w{4} \S+ — rule: Percent coupons come off before fixed coupons\.$/m)
     expect(decisions).not.toContain('percent before fixed') // the quote is in the shard
     expect(read(dir, 'decisions/D2.md')).toContain('rule: Percent coupons come off before fixed coupons.\noperator: "percent before fixed"')
-    expect(read(dir, 'decisions/D1.md')).toMatch(/^D1 — \S+ — replaced by D3\nchose: store money as integer cents\n/m)
+    expect(read(dir, 'decisions/D1.md')).toMatch(/^D1·\w{4} — \S+ — replaced by D3·\w{4}\nchose: store money as integer cents\n/m)
   })
 
   it('a shard is what sofar show prints', () => {
@@ -95,7 +95,7 @@ describe('index and shards (D45)', () => {
     appendEvent(log, makeEvent({ initiative: 'demo', session: 'author', source: 'claude-code', actor: 'agent', type: 'decision_logged', payload: { chose: 'percent after fixed', over: 'percent first', because: 'the operator changed it', rule: 'Fixed coupons come off before percent coupons.', supersedes: 'D2' } }))
     const before = statSync(join(dir, 'memory/M1.md')).mtimeMs
     regenerateProjections(dir, foldLog(log).state, { fingerprint: FP })
-    expect(read(dir, 'decisions/D2.md')).toMatch(/^D2 — \S+ — replaced by D4$/m)
+    expect(read(dir, 'decisions/D2.md')).toMatch(/^D2·\w{4} — \S+ — replaced by D4·\w{4}$/m)
     expect(statSync(join(dir, 'memory/M1.md')).mtimeMs).toBe(before)
     const full = mkdtempSync(join(tmpdir(), 'sofar-shards-full-'))
     roots.push(full)

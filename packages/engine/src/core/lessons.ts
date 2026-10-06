@@ -1,5 +1,6 @@
 import { fdlibmLog } from './fdlibm'
 import type { InitiativeState } from './fold'
+import { suffixedHandle } from './handle'
 import { lexiconHeads, lexiconSuperseded, rankLexicon, type LexiconDoc, type LexiconIndex } from './index-lexicon'
 import { lexicalCounts, rankLexical, type LexicalDoc } from './lexicon'
 import { retiredOrdinals } from './retire'
@@ -164,7 +165,7 @@ function lessonDocs(state: InitiativeState, retire: boolean): LessonDoc[] {
       terms,
       tokens: Object.values(terms).reduce((a, b) => a + b, 0),
       kind: 'rejected',
-      handle: `D${ordinal}`,
+      handle: suffixedHandle(ordinal, d.id),
       text: d.over,
     })
   }
@@ -222,7 +223,7 @@ function lessonOf(index: LexiconIndex, slug: string, home: string, doc: LexiconD
     const rejected = overShare >= LESSON_OVER_SHARE
     return {
       kind: rejected ? 'rejected' : 'decided',
-      handle: `${prefix}D${doc.n}`,
+      handle: `${prefix}${suffixedHandle(doc.n!, doc.id)}`,
       key: doc.id,
       text: (rejected ? heads.over : heads.chose) ?? '',
       ...scope,

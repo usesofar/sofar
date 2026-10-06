@@ -7,6 +7,7 @@ import { indexDir } from '../src/core/index-store'
 import { appendEvent } from '../src/core/log'
 import { handlePostTool } from '../src/cli/event'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * record-index 3.2 — the guard, un-scoped and moved to the point of use.
@@ -147,15 +148,15 @@ describe('3.2 a rule declared elsewhere reaches the edit', () => {
   it('carries the declaring record in the handle, so the citation resolves', () => {
     const f = fx()
     rule(f.root, 'security', { rule: 'R', guard: 'path:**/*.ts' })
-    expect(context(edit(f.root, 'S', join(f.root, 'a.ts')))).toContain('[security D1]')
+    expect(context(edit(f.root, 'S', join(f.root, 'a.ts')))).toMatch(/\[security D1·[0-9a-z]{4}\]/)
   })
 
   it('drops the slug for a rule from THIS record — D<n> is already unambiguous', () => {
     const f = fx()
     rule(f.root, 'demo', { rule: 'R', guard: 'path:**/*.ts' })
     const out = context(edit(f.root, 'S', join(f.root, 'a.ts')))
-    expect(out).toContain('[D1]')
-    expect(out).not.toContain('[demo D1]')
+    expect(out).toMatch(/\[D1·[0-9a-z]{4}\]/)
+    expect(out).not.toContain('[demo D1')
   })
 
   it('numbers the rule as the fold numbers it — D<n> counts unguarded decisions too', () => {
@@ -167,7 +168,7 @@ describe('3.2 a rule declared elsewhere reaches the edit', () => {
     })
     rule(f.root, 'security', { rule: 'R', guard: 'path:**/*.ts' })
 
-    expect(context(edit(f.root, 'S', join(f.root, 'a.ts')))).toContain('[security D2]')
+    expect(context(edit(f.root, 'S', join(f.root, 'a.ts')))).toMatch(/\[security D2·[0-9a-z]{4}\]/)
   })
 
   it('renders the rule verbatim, however long — only the subject is budgeted', () => {
@@ -189,7 +190,7 @@ describe('3.2 a rule declared elsewhere reaches the edit', () => {
     const f = fx()
     rule(f.root, 'security', { rule: 'R', guard: 'path:**/*.ts' })
     const out = context(edit(f.root, 'S', join(f.root, 'a.ts')))
-    expect(out).toBe(
+    expect(bare(out)).toBe(
       'sofar: a.ts is governed by [security D1], a standing rule: "R" (guard: path:**/*.ts). ' +
         'Work against it needs a decision that supersedes security D1.',
     )

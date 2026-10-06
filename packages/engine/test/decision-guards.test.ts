@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { makeEvent, type EventEnvelope, type MakeEventInput } from '../src/core/envelope'
 import { foldLines, GUARD_VIOLATION_CAP, sessionGuardViolations, type InitiativeState } from '../src/core/fold'
+import { handleSuffix } from '../src/core/handle'
 import { serializeEvent } from '../src/core/log'
 import { runDoctor } from '../src/cli/doctor'
 import { runInit } from '../src/cli/init'
@@ -221,9 +222,12 @@ describe('guardViolationLines — the rule renders verbatim (D2)', () => {
     ...over,
   })
 
-  it('names the decision, quotes the rule uncut, and relativizes the path', () => {
-    const [line] = guardViolationLines([violation()], '/repo')
-    expect(line).toContain('[D3]')
+  // The record the violations belong to: handles print check-suffixed (r4-fixes U5).
+  const DECISIONS = [{ id: '01K0000000000000000000000A' }, { id: '01K0000000000000000000000B' }, { id: '01K0000000000000000000000C' }]
+
+  it('names the decision by its check-suffixed handle, quotes the rule uncut, and relativizes the path', () => {
+    const [line] = guardViolationLines([violation()], '/repo', DECISIONS)
+    expect(line).toContain(`[D3·${handleSuffix(DECISIONS[2]!.id)}]`)
     expect(line).toContain(`"${RULE}"`) // verbatim — never clipped (D2)
     expect(line).toContain('.sofar/x.md')
     expect(line).not.toContain('/repo/.sofar/x.md')
@@ -231,7 +235,7 @@ describe('guardViolationLines — the rule renders verbatim (D2)', () => {
 
   it('drops whole subjects with a count pointer rather than clipping', () => {
     const many = Array.from({ length: 6 }, (_, i) => violation({ subject: `/repo/.sofar/${i}.md` }))
-    const [line] = guardViolationLines(many, '/repo')
+    const [line] = guardViolationLines(many, '/repo', DECISIONS)
     expect(line).toContain('6 event(s)')
     expect(line).toContain('(+3 more)')
     expect(line).toContain(`"${RULE}"`)
@@ -241,6 +245,7 @@ describe('guardViolationLines — the rule renders verbatim (D2)', () => {
     const lines = guardViolationLines(
       [violation({ decision: 1 }), violation({ decision: 2 }), violation({ decision: 3 })],
       '/repo',
+      DECISIONS,
     )
     expect(lines).toHaveLength(3)
     expect(lines[2]).toContain('1 more guarded rule(s) crossed')
@@ -251,13 +256,14 @@ describe('guardViolationLines — the rule renders verbatim (D2)', () => {
     const [line] = guardViolationLines(
       [violation({ domain: 'cmd', subject: `npm publish ${'x'.repeat(200)}` })],
       '/repo',
+      DECISIONS,
     )
     expect(line).toContain('…')
     expect(line!.length).toBeLessThan(400)
   })
 
   it('says nothing when nothing crossed', () => {
-    expect(guardViolationLines([], '/repo')).toEqual([])
+    expect(guardViolationLines([], '/repo', DECISIONS)).toEqual([])
   })
 })
 
@@ -311,7 +317,7 @@ describe('gate surface (5.2) — guards ride the block, never cause one', () => 
     const result = handleStop(crossedRepo(), hookStdin())
     expect(result.exitCode).toBe(2)
     expect(result.stderr).toContain(STOP_BLOCK_MESSAGE)
-    expect(result.stderr).toContain('[D1] guard crossed')
+    expect(result.stderr).toMatch(/\[D1·[0-9a-z]{4}\] guard crossed/)
     expect(result.stderr).toContain(`"${RULE}"`)
   })
 
@@ -345,7 +351,7 @@ describe('prompt surface (5.2) — the crossing reaches the agent while it works
     const result = handleUserPrompt(crossedRepo(), hookStdin())
     expect(result.exitCode).toBe(0)
     const lines = hookContext(result).split('\n')
-    expect(lines[0]).toContain('[D1] guard crossed')
+    expect(lines[0]).toMatch(/\[D1·[0-9a-z]{4}\] guard crossed/)
     expect(lines[0]).toContain(`"${RULE}"`)
   })
 

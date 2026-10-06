@@ -9,6 +9,7 @@ import {
   type ReachHit,
   type ReachResult,
 } from '../core/index-reach'
+import { reachDecisionHandle } from '../core/handle'
 import { clip } from '../projections/templates/shared'
 import { fail, ok, type CmdResult } from './shared'
 import {
@@ -154,13 +155,13 @@ export function shortNode(rootDir: string, result: ReachResult, nodeId: string):
   }
   for (const match of result.seed.matches ?? []) {
     if (match.id === nodeId && match.kind === 'decision' && match.ordinal !== undefined) {
-      return `${match.initiative} D${match.ordinal}`
+      return reachDecisionHandle(match.initiative, match.ordinal, match.id)
     }
   }
   for (const group of result.groups) {
     for (const hit of group.hits) {
       if (hit.id === nodeId && hit.kind === 'decision' && hit.ordinal !== undefined) {
-        return `${hit.initiative} D${hit.ordinal}`
+        return reachDecisionHandle(hit.initiative, hit.ordinal, hit.id)
       }
       if (hit.id === nodeId && hit.kind === 'memory' && hit.ordinal !== undefined) {
         return `${hit.initiative} M${hit.ordinal}`
@@ -199,7 +200,7 @@ function headOf(rootDir: string, hit: ReachHit): string {
   const distance = hit.hops === 1 ? '1 hop' : `${hit.hops} hops`
   switch (hit.kind) {
     case 'decision':
-      return `${hit.initiative} D${hit.ordinal ?? '?'}  ${distance}  ${day(hit.ts)}`
+      return `${reachDecisionHandle(hit.initiative, hit.ordinal, hit.id)}  ${distance}  ${day(hit.ts)}`
     case 'note':
       return `${hit.initiative}  ${distance}  ${day(hit.ts)}`
     case 'memory':
@@ -254,7 +255,7 @@ function matchedBlock(matches: readonly LexicalSeedMatch[], omitted: number): Bl
     entries: matches.map((match) => ({
       head:
         match.kind === 'decision'
-          ? `${match.initiative} D${match.ordinal ?? '?'}  ${day(match.ts)}`
+          ? `${reachDecisionHandle(match.initiative, match.ordinal, match.id)}  ${day(match.ts)}`
           : `${match.initiative}  ${day(match.ts)}`,
       detail: [
         clip(match.label, PROSE),

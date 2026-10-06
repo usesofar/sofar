@@ -28,8 +28,13 @@ const here = dirname(fileURLToPath(import.meta.url))
 const repo = join(here, '..', '..')
 const enginePkgPath = join(repo, 'packages', 'engine', 'package.json')
 
-/** `sofar-core-<platform>-<arch>` — boot.ts (CORE_PACKAGE) resolves this exact shape. */
-export const PACKAGE_PREFIX = 'sofar-core-'
+/**
+ * `@sofar.sh/core-<platform>-<arch>` — cli/core.ts (CORE_PACKAGE) and install.mjs
+ * resolve this exact shape. Scoped under the operator's npm org `sofar.sh`
+ * (rust-core D47); the unscoped `sofar-core-*` names of rc.5 are never
+ * published again.
+ */
+export const PACKAGE_PREFIX = '@sofar.sh/core-'
 
 /** Every platform sofar.sh ships a core for; the Rust target is the CI matrix's. */
 export const PLATFORMS = [
@@ -44,6 +49,11 @@ export function packageName(p) {
   return `${PACKAGE_PREFIX}${p.platform}-${p.arch}`
 }
 
+/** The package's directory under packaging/npm/: `core-<platform>-<arch>`. */
+export function packageDir(p) {
+  return `core-${p.platform}-${p.arch}`
+}
+
 export function binaryName(p) {
   return p.platform === 'win32' ? 'sofar-core.exe' : 'sofar-core'
 }
@@ -53,7 +63,7 @@ function manifest(p, version) {
     name: packageName(p),
     version,
     description: `sofar's native hot-path core (sofar-core) for ${p.platform}-${p.arch}. Installed by sofar.sh as an optional dependency; never depend on it directly.`,
-    repository: { type: 'git', url: 'git+https://github.com/jithinio/sofar.git', directory: `packaging/npm/${packageName(p)}` },
+    repository: { type: 'git', url: 'git+https://github.com/jithinio/sofar.git', directory: `packaging/npm/${packageDir(p)}` },
     homepage: 'https://sofar.sh',
     license: 'MIT',
     os: [p.platform],
@@ -73,7 +83,7 @@ export function render(version) {
   const out = []
   for (const p of PLATFORMS) {
     out.push({
-      dir: join(here, packageName(p)),
+      dir: join(here, packageDir(p)),
       files: {
         'package.json': `${JSON.stringify(manifest(p, version), null, 2)}\n`,
         'README.md': readme(p),
@@ -128,7 +138,7 @@ function main(argv) {
   }
 
   const stage = (p, from) => {
-    const to = join(here, packageName(p), binaryName(p))
+    const to = join(here, packageDir(p), binaryName(p))
     copyFileSync(from, to)
     if (p.platform !== 'win32') chmodSync(to, 0o755)
     console.log(`staged ${from} → ${to}`)

@@ -41,6 +41,19 @@ export function recordRoot(start: string): string {
   return from
 }
 
+/**
+ * The git toplevel `start` is in: the nearest ancestor (or `start` itself)
+ * holding a `.git` entry, directory or worktree file. Null outside a repo.
+ * `sofar init` serves this, never `recordRoot` (r4-fixes R12): a record
+ * found above the cwd is not where the operator asked for wiring.
+ */
+export function gitToplevel(start: string): string | null {
+  for (let dir = resolve(start); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, '.git'))) return dir
+    if (dirname(dir) === dir) return null
+  }
+}
+
 /** The .git directory, following a worktree-style .git FILE. Null if absent. */
 export function gitDir(rootDir: string): string | null {
   try {

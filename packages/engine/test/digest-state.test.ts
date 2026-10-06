@@ -114,7 +114,7 @@ const git = {
 function optionsMatrix(): Array<[string, StatusOptions]> {
   const notices = ['Recent work elsewhere: x (2h ago)', 'Cold resume: last event 3 days ago']
   const neighbours = [{ initiative: 'other', paths: 3, decisions: 2 }]
-  const repoRules = [{ initiative: 'other', ordinal: 1, ts: '2026-09-01T00:00:00.000Z', rule: 'Never do the thing.' }]
+  const repoRules = [{ id: '01K00000000000000000000001', initiative: 'other', ordinal: 1, ts: '2026-09-01T00:00:00.000Z', rule: 'Never do the thing.' }]
   return [
     ['none', {}],
     ['session', { sessionId: 's-1' }],

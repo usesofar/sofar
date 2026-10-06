@@ -1,4 +1,4 @@
-# sofar-core-win32-x64
+# @sofar.sh/core-win32-x64
 
 The `sofar-core` binary for win32-x64 — sofar's native hot-path
 core (hooks, statusline, status). This package is installed automatically as an

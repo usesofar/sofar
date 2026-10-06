@@ -90,7 +90,7 @@ describe('sofar doctor: plain path stays byte-identical', () => {
     const r = runDoctor(root, {}, PLAIN, { caps: INERT, stream: capture() })
     expect(r.exitCode).toBe(1)
     expect(r.stdout).toContain(
-      '  FAIL  hook shims missing: stop.sh\n          run `sofar init` to (re)install it',
+      '  FAIL  hook shims missing: stop.sh\n          run `sofar init --refresh` to (re)install it',
     )
   })
 })
@@ -115,7 +115,7 @@ describe('sofar doctor: styled path', () => {
     const r = runDoctor(root, {}, STYLED, { caps: INERT, stream: capture() })
     expect(r.exitCode).toBe(1)
     expect(r.stdout).toContain('  \x1b[31m✗\x1b[39m hook shims missing: stop.sh')
-    expect(r.stdout).toContain('\x1b[2m    └ run `sofar init` to (re)install it\x1b[22m')
+    expect(r.stdout).toContain('\x1b[2m    └ run `sofar init --refresh` to (re)install it\x1b[22m')
     expect(r.stdout).toContain('\x1b[31m1 problem found\x1b[39m')
   })
 

@@ -1,4 +1,4 @@
-== options (42237 bytes) ==
+== options (42765 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -13,18 +13,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -32,18 +35,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -86,18 +92,21 @@
     },
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -105,18 +114,21 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZEPS1L000000000000004",
         "initiative": "epsilon",
         "ordinal": 4,
         "ts": "2026-09-03T00:00:00.000Z",
         "rule": "sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -134,14 +146,14 @@
     ]
   }
 }
-== status (6824 bytes) ==
+== status (6836 bytes) ==
 # binding-follows-session
 
 Goal: A fresh session should open on the initiative the last session actually finished in, without any surface guessing. Resolution stays branch-first (session-orientation D2 stands); what changes is that the branch binding stops being a fact only a human command maintains. sofar_end_session binds the current branch to the session's home, so bindings.json becomes a durable, inspectable record of last-worked instead of decaying the moment work moves — brillo's main stayed bound to baseui-toast-migration across 8 project-tax-architecture commits, and every fresh session there started on the wrong record.
 
 Standing constraints — obey verbatim (2):
-- [D1] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
-- [D2] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
+- [D1·63wm] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
+- [D2·4p54] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
 Progress: 5 done, 1 dropped, 1 remaining across 3 phase(s)
 
 Phases:
@@ -176,7 +188,7 @@ Files touched (6):
 - /Users/jins/IO/sofar/packages/engine/package.json
 - /private/tmp/claude-501/-Users-jins-IO-sofar/74cc7f44-37ce-4e2e-9b66-9ade0f689bef/scratchpad/relmsg.txt
 
-== digest:plain (3680 bytes) ==
+== digest:plain (3704 bytes) ==
 # Sofar status: binding-follows-session
 
 Goal: A fresh session should open on the initiative the last session actually finished in, without any surface guessing. Resolution stays branch-first (session-orientation D2 stands); what changes is that the branch binding stops being a fact only a human command maintains. sofar_end_session binds the current branch to the session's home, so bindings.json becomes a durable, inspectable record of last-w…
@@ -202,20 +214,20 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Release-time doctor comparison, in a repo with live peer sessions: never diff `sofar doctor` output between two versions by running them minutes apart against .sofar directly — peers append while you compare and the delta is unreadable. Snapshot instead: copy .sofar, .git, CLAUD…
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Make the branch binding self-maintaining at write-back time — over Three alternatives, all rejected.
-- [D2] 2026-08-13 (rule below) Drop 3.1. The recent-work notice keeps ranking candidates p… — over Having the notice prefer a candidate whose newest event is a session_…
+- [D1·63wm] 2026-08-13 (rule below) Make the branch binding self-maintaining at write-back time — over Three alternatives, all rejected.
+- [D2·4p54] 2026-08-13 (rule below) Drop 3.1. The recent-work notice keeps ranking candidates p… — over Having the notice prefer a candidate whose newest event is a session_…
 
 Next ids: D3 (decision), M2 (memory)
 
 Standing constraints — obey verbatim (2):
-- [D1] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
-- [D2] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
+- [D1·63wm] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
+- [D2·4p54] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (5004 bytes) ==
+== digest:hook (5052 bytes) ==
 # Sofar status: binding-follows-session
 
 Goal: A fresh session should open on the initiative the last session actually finished in, without any surface guessing. Resolution stays branch-first (session-orientation D2 stands); what changes is that the branch binding stops being a fact only a human command maintains. sofar_end_session binds the current branch to the session's home, so bindings.json becomes a durable, inspectable record of last-w…
@@ -253,8 +265,8 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Make the branch binding self-maintaining at write-back time — over Three alternatives, all rejected.
-- [D2] 2026-08-13 (rule below) Drop 3.1. The recent-work notice keeps ranking candidates p… — over Having the notice prefer a candidate whose newest event is a session_…
+- [D1·63wm] 2026-08-13 (rule below) Make the branch binding self-maintaining at write-back time — over Three alternatives, all rejected.
+- [D2·4p54] 2026-08-13 (rule below) Drop 3.1. The recent-work notice keeps ranking candidates p… — over Having the notice prefer a candidate whose newest event is a session_…
 
 Next ids: D3 (decision), M2 (memory)
 
@@ -266,19 +278,19 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (2):
-- [D1] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
-- [D2] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
+- [D1·63wm] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
+- [D2·4p54] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the binding-follows-session record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the binding-follows-session record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (3464 bytes) ==
+== digest:lane (3488 bytes) ==
 # Sofar: quick-work lane (binding-follows-session)
 
 Goal: A fresh session should open on the initiative the last session actually finished in, without any surface guessing. Resolution stays branch-first (session-orientation D2 stands); what changes is that the branch binding stops being a fact only a human command maintains. sofar_end_session binds the current branch to the session's home, so bindings.json becomes a durable, inspectable record of last-w…
@@ -300,8 +312,8 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Release-time doctor comparison, in a repo with live peer sessions: never diff `…
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Make the branch binding self-maintaining at write-back time — over Three alternatives, all rejected.
-- [D2] 2026-08-13 (rule below) Drop 3.1. The recent-work notice keeps ranking candidates p… — over Having the notice prefer a candidate whose newest event is a session_…
+- [D1·63wm] 2026-08-13 (rule below) Make the branch binding self-maintaining at write-back time — over Three alternatives, all rejected.
+- [D2·4p54] 2026-08-13 (rule below) Drop 3.1. The recent-work notice keeps ranking candidates p… — over Having the notice prefer a candidate whose newest event is a session_…
 
 Next ids: D3 (decision), M2 (memory)
 
@@ -309,12 +321,12 @@ Session: lane-session — adopted on Claude Code; else pass to sofar_start_sessi
 Git: feature/binding-follows-session @ a1b2c3d — in sync with origin/feature/binding-follows-session
 
 Standing constraints — obey verbatim (2):
-- [D2] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
-- [D1] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
+- [D2·4p54] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
+- [D1·63wm] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (3766 bytes) ==
+== digest:quiet (3790 bytes) ==
 # Sofar status: binding-follows-session
 
 Goal: A fresh session should open on the initiative the last session actually finished in, without any surface guessing. Resolution stays branch-first (session-orientation D2 stands); what changes is that the branch binding stops being a fact only a human command maintains. sofar_end_session binds the current branch to the session's home, so bindings.json becomes a durable, inspectable record of last-w…
@@ -340,22 +352,22 @@ Memory (1; full text in memory/M<n>.md):
 - [M1] Release-time doctor comparison, in a repo with live peer sessions: never diff `sofar doctor` output between two versions by running them minutes apart against .sofar directly — peers append while you compare and the delta is unreadable. Snapshot instead: copy .sofar, .git, CLAUD…
 
 Recent decisions (2; full text in decisions/D<n>.md):
-- [D1] 2026-08-13 (rule below) Make the branch binding self-maintaining at write-back time — over Three alternatives, all rejected.
-- [D2] 2026-08-13 (rule below) Drop 3.1. The recent-work notice keeps ranking candidates p… — over Having the notice prefer a candidate whose newest event is a session_…
+- [D1·63wm] 2026-08-13 (rule below) Make the branch binding self-maintaining at write-back time — over Three alternatives, all rejected.
+- [D2·4p54] 2026-08-13 (rule below) Drop 3.1. The recent-work notice keeps ranking candidates p… — over Having the notice prefer a candidate whose newest event is a session_…
 
 Next ids: D3 (decision), M2 (memory)
 
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (2):
-- [D1] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
-- [D2] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
+- [D1·63wm] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
+- [D2·4p54] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6036 bytes) ==
+== digest:cap (6042 bytes) ==
 # Sofar status: binding-follows-session
 
 Goal: A fresh session should open on the initiative the last session actually finished in, without any surface guessing. Resolution stays branch-first (session-orientation D2 stands); what changes is that the branch binding stops being a fact only a human command maintains. sofar_end_session binds the current branch to the session's home, so bindings.json becomes a durable, inspectable record of last-w…
@@ -384,16 +396,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (2):
-- [D1] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
-- [D2] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
+- [D1·63wm] sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
+- [D2·4p54] Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [zeta D9] Name the binding-follows-session record's goal before its tasks.
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the binding-follows-session record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -442,19 +454,19 @@ One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 
 - M1 2026-08-13 — Release-time doctor comparison, in a repo with live peer sessions: never diff `…
 
-== shard decisions/D1.md (4678 bytes) ==
+== shard decisions/D1.md (4684 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-08-13
+D1·63wm — 2026-08-13
 rule: sofar_end_session binds the current branch to the session's home — MOVING an existing binding only, never creating one, and never onto a closed or dropped record. Resolution itself stays branch-first: never infer a fresh session's record from recency or peer liveness.
 chose: Make the branch binding self-maintaining at write-back time: sofar_end_session, after appending session_ended, binds the current branch to the initiative the write-back landed in. Three guards. It only MOVES a binding that already exists, so a branch deliberately left unbound (sofar new --no-bind) stays unbound. It skips a home whose initiative is closed or dropped. It is best-effort — a detached HEAD, a missing or malformed bindings.json, any throw at all leaves the write-back untouched. The rebind is reported back to the caller as an optional `rebound` field on the result, omitted when nothing moved, following the parallel_writebacks precedent.
 over: Three alternatives, all rejected. (a) Redirecting a fresh session's RESOLUTION to the most recently active initiative — the user's first framing, and session-orientation D2's rejected option (a). (b) The user's refinement of (a): detect whether parallel sessions are running and prefer the last initiative a session finished in, computed at read time. (c) Binding at RE-HOME time inside sofar_start_session rather than at write-back. Also rejected: leaving it alone and relying on sofar switch, and adding a statusline marker for the mismatch instead of fixing the underlying fact.
 because: The user's instinct — "last initiative a session finished in, discounting live peers" — is right, and this delivers exactly that answer while computing none of it. A live peer has not ended, so it never moves the binding; the branch therefore names the last CONCLUDED work, which is what "open on what I was last working on" means. (b) cannot be built honestly: sibling liveness is not knowable from the record. fold.ts:927 already says so in the codebase's own words, that a sibling with no session_closed "might be a crashed process that would linger as a false conflict forever", and this repo proves it empirically — four sessions are open without write-back right now (6efd8ee9, 2b0bd269, 7e56a4a0, 74e0b536). Resolution built on that signal degrades every time a session crashes. (a) is settled by D2 and nothing here reopens it: resolveBound feeds handlePostTool and every other hook, so redirecting resolution moves where events LAND, and this changes no resolution code at all. Read-time inference also loses on three counts a write-time fact wins: it is invisible, where `cat .sofar/bindings.json` states exactly what the next session gets; it is unoverridable, where `sofar switch` beats a binding permanently; and it costs a per-hook scan of N logs, where session-orientation 2.3 measured 1.7ms for 38 initiatives on the SessionStart path alone and brillo has 59. (c) is refuted by the session that took this decision: it re-homed drift-certification to session-orientation purely to diagnose the report, and a re-home-time rebind would have pointed this repo's main at a CLOSED record. Write-back time also keeps the tree clean — bindings.json is committed, so the rebind lands inside the write-back moment and is committed with the record, obeying the protocol's write-back-then-commit order rather than leaving trailing dirt. Move-only rather than create because an unbound branch is a deliberate state in this repo (session-orientation itself was created with --no-bind so a peer's branch resolution would not move), and a fresh session on an unbound branch already gets a clear "not bound to an initiative" block telling it to switch. Evidence this is worth building: brillo's main stayed bound to baseui-toast-migration across 8 project-tax-architecture commits, so every fresh session there opened on the wrong record and needed the same manual re-home. Known limitation, accepted: with several peers on one branch the last to write back wins, so the binding becomes "most recently finished" rather than "correct". That is strictly better than weeks-stale, it cannot tear a live peer because homeInitiative treats the branch slug only as a seed candidate that any strictly later session_started displaces (mcp/context.ts:194), and session-orientation's notice remains the backstop for exactly that residue. Reverses the property test/rehome.test.ts pins at line 208-211, but narrowly: re-homing still touches nothing, and that test's own case still passes untouched because the peer's home IS the branch's record.
 
-== shard decisions/D2.md (1983 bytes) ==
+== shard decisions/D2.md (1989 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-08-13
+D2·4p54 — 2026-08-13
 rule: Never make the recent-work notice weigh whether a candidate's session is still live. Ending is an event; being alive is not, and the notice names a candidate rather than judging it.
 chose: Drop 3.1. The recent-work notice keeps ranking candidates purely by newest append, with the existing initiative_status_changed suppression as its only type-aware rule. Re-open only on measured noise from a released rebind, not on prediction.
 over: Having the notice prefer a candidate whose newest event is a session_ended over one mid-flight, so it points at concluded work rather than a peer's live edit — offered to the user this session and declined on inspection.

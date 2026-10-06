@@ -1,5 +1,102 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **main** at the 0.34.1 merge-back (r4-fixes 0.1, U2). Main's
+engine version is `0.35.0-dev+trunk` (r1-fixes M7's `+trunk`, on the next
+minor's pre-release so the pinned `@sofar.sh/core-*` resolve to nothing
+published), and the version string is the whole diff: `argv.fast-path`
+(`--version` is `0.35.0-dev+trunk`) and `open.O2-update-segment` ("you have
+0.35.0-dev+trunk"). No previous set is kept.
+
+Re-recorded on **release/0.34.1** (the hotfix cut, r4-fixes 0.2) from the
+TypeScript reference. The version bump is the whole diff: two goldens
+changed, each by one string. `argv.fast-path` (`--version` is now
+`0.34.1`) and `open.O2-update-segment` (the update notice's "you have
+0.34.1"). No previous set is kept.
+
+RE-RECORDED on **release/0.34.1** (the hotfix integration, r4-fixes 0.2) at
+the merge of hotfix/u5 into hotfix/u1+u3+u4+u8, from the TypeScript reference.
+Two goldens moved, each because U1 and U5 both touch the same Stop-gate line
+and neither branch's golden holds the other's change:
+- `syn.surfacing` step 18: U1's fold (the two asks on `bun test` in one line,
+  one command) with U5's suffixed handles (`[surf D1·984a]`, `[surf D9·<SFX>]`).
+- `syn.gate-coverage` (U1's case): every handle U5 suffixes — the digest's
+  decisions and standing constraints, the PostToolUse guard notices, the gate
+  asks and failure line, and the decision shards' heads (D1–D4, +6 or +7
+  bytes each). No coverage verdict moved.
+U4's `syn.read-gate` and every U5 golden pass unchanged on the integrated
+tree. No previous set is kept.
+
+RE-RECORDED and ADDED for **r4-fixes U5** (0.34.1, branch hotfix/u5; docs/SPEC.md
+§Merge-stable handles), from the TypeScript reference; the Rust core
+reproduces every one (`SOFAR_CORE=… vitest run test/conformance`: 290 passed,
+the 10 perf and real-log skips as before). One new case, `syn.merge-handles`:
+round 4's r1 merge in miniature. A branch files its guarded, checked rule as
+D3; Stop's gate names `[baseline D3·q58n]`; main's own D3 arrives by union
+merge, earlier by id; the gate then names `[baseline D4·q58n]`, the same rule
+by the same suffix; the next digest lists main's `D3·n13m` and the branch's
+`D4·q58n` apart; and a prompt citing the pre-merge `D3·q58n` recalls the
+branch's rule, not main's D3. 29 goldens moved, for these reasons and no
+other:
+- (a) every agent-facing decision handle is check-suffixed: the SessionStart
+  digest (window, ledger, standing constraints, other records' rules, pending
+  links, merge block), PostToolUse notices, the guard-crossed, lesson and
+  recall lines, Stop's gate, check and link lines, `sofar status`'s
+  constraints, and the record bytes a run writes (decisions.md's
+  `superseded by`/`supersedes`, the shard heads `D<n>·<sfx> — <date>` and
+  their `supersedes:` lines);
+- (b) the longer handles cost room under fixed budgets: a capped digest keeps
+  fewer ledger or window lines or clips its tail earlier (cell.round-1-sofar,
+  repo.branch-elsewhere, syn.budget), and a lesson line clipped at its budget
+  keeps 5 fewer chars of text (repo.lessons).
+
+argv.fast-path, cell.calib-1, cell.round-1-sofar, cell.smoke-4-drive,
+cell.smoke-4-sofar, open.O2-update-segment, open.O4-styled-status,
+repo.append, repo.branch-elsewhere, repo.drive-nudge, repo.drive-reach,
+repo.hook-lifecycle, repo.lessons, repo.link-disposition, repo.link-hold,
+repo.peers, repo.prompt-capture, repo.session-start, repo.status,
+syn.baseline, syn.budget, syn.copies, syn.guards, syn.lessons-cut, syn.merge,
+syn.no-git, syn.recall, syn.surfacing, syn.unicode. Every other golden is
+byte-identical. No previous set is kept.
+
+RE-RECORDED on **hotfix/u1** for **r4-fixes 0.2** (U1b, Codex outcomes):
+`syn.gate-coverage` gains four Codex steps (`--host codex`). An apply_patch
+edit of the guarded file and a write-back come first. Then a `bun test
+tests/rules` run arrives whose PostToolUse carries its output text and no exit
+status, as codex 0.160.0 sends it. Last, a Stop that exits 0 with one
+`systemMessage` line: the two asks cannot be verified on this host, and the
+stop is not held. Codex hooks are TypeScript's in both legs (the core hands
+`--host codex` back), so the Rust core reproduces it unchanged. No other golden
+moved.
+
+ADDED and RE-RECORDED on **hotfix/u1** (from v0.34.0) for **r4-fixes 0.2**
+(U1, the Stop gate's coverage): one new case, `syn.gate-coverage`. A bare
+word in a test command that names a path on disk is an argument, so a green
+`bun test tests/rules` covers the asks for the two files under it, while
+`bun test tests/unit` (a sibling) and `bun test tests -t holds` (a test-name
+filter) cover nothing; the two asks on the runner fold into one line with one
+command (`bun test tests/rules`); a run before the latest edit never covers; a
+failed bare `bun test` after it is one failure line for both rules; a green
+bare `bun test` covers every ask, the repo's `test/` directory
+notwithstanding. One golden moved: `syn.surfacing` step 18, whose two asks on
+`bun test` (the suite's and D9's file) now fold into one line that names both
+rules and runs `bun test`. The Rust core reproduces every golden
+(`SOFAR_CORE=… vitest run test/conformance`: 285 passed). No previous set is
+kept: nothing else changed.
+
+Re-recorded on **release/0.34.0** (stable, from tag v0.34.0-rc.5) from the
+TypeScript reference. The version bump is the whole diff: two goldens
+changed, each by one string. `argv.fast-path` (`--version` is now
+`0.34.0`) and `open.O2-update-segment` (`you have 0.34.0`), both
+previously `0.34.0-rc.5`. Every other golden is byte-identical.
+
+Re-recorded on **release/0.34.0-rc.5** (from main ac8d5b17) from the
+TypeScript reference. The version bump is the whole diff: two goldens
+changed, each by one string. `argv.fast-path` (`--version` is now
+`0.34.0-rc.5`) and `open.O2-update-segment` (`you have 0.34.0-rc.5`), both
+previously `0.33.0-rc.2+trunk`. Every other golden is byte-identical, and
+the entries below keep the versions they were recorded against, which is
+what makes them history.
+
 RE-RECORDED for **memory-lead 4.3 part A** (D45, the index-and-shard layout):
 25 goldens moved, for three reasons and no other.
 - (a) The digest's pointers name shards: `Recent decisions (…; full text in

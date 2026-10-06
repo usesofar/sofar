@@ -13,6 +13,7 @@ import { startSession } from '../src/mcp/start-session'
 import { updatePlan } from '../src/mcp/update-plan'
 import { renderStatus } from '../src/projections/templates/status'
 import { PLAIN_CAPS as PLAIN } from '../src/cli/statusline'
+import { bare } from './helpers/handles'
 
 /**
  * r3-fixes 2.5 (D15) — a rule filed naming nothing it replaces is asked.
@@ -86,7 +87,7 @@ describe('stamping', () => {
     const d1 = fold(f).decisions[0]!
     expect(lastPayload(f).link_candidates).toEqual([d1.id])
     expect(fold(f).decisions[2]!.link_pending).toEqual({ session: 'cli', candidates: [1] })
-    expect(result.warnings).toContain(
+    expect(result.warnings?.map(bare)).toContain(
       'D3 is a rule that names nothing it replaces; it may replace D1 "Retry a failed charge at most three times, one day apart". If it does, answer `sofar supersedes D3 D1`; if not, `sofar supersedes D3 none`. Until then the digest shows it and Stop asks.',
     )
   })
@@ -117,8 +118,8 @@ describe('stamping', () => {
     const f = fx()
     logDecision(f.ctx, RETRY)
     const result = endSession(f.ctx, { session_id: 'sess-w', summary: 's', next_action: 'n', decisions: [RETRY_V2, { ...TAX, supersedes: 'none' }] })
-    expect(result.decisions).toEqual(['D2', 'D3'])
-    expect(result.warnings?.some((w) => w.startsWith('D2 is a rule that names nothing it replaces; it may replace D1'))).toBe(true)
+    expect(result.decisions?.map(bare)).toEqual(['D2', 'D3'])
+    expect(result.warnings?.some((w) => bare(w).startsWith('D2 is a rule that names nothing it replaces; it may replace D1'))).toBe(true)
     const [, d2, d3] = fold(f).decisions
     expect(d2!.link_pending?.candidates).toEqual([1])
     expect(d3!.link_pending).toBeUndefined()
@@ -131,7 +132,7 @@ describe('stamping', () => {
     const res = runAppend(f.root, { type: 'decision_logged', payload: JSON.stringify(RETRY_V2), source: 'codex', actor: 'agent', session: 'cx' })
     expect(res.exitCode).toBe(0)
     const out = JSON.parse(res.stdout) as { warnings?: string[] }
-    expect(out.warnings?.[0]).toMatch(/^D2 is a rule that names nothing it replaces; it may replace D1/)
+    expect(bare(out.warnings?.[0] ?? '')).toMatch(/^D2 is a rule that names nothing it replaces; it may replace D1/)
     const none = runAppend(f.root, { type: 'decision_logged', payload: JSON.stringify({ ...TAX, supersedes: 'none' }), source: 'codex', actor: 'agent', session: 'cx' })
     expect(none.exitCode).toBe(0)
     expect(lastPayload(f)).not.toHaveProperty('supersedes')
@@ -146,7 +147,7 @@ describe('sofar supersedes', () => {
     const before = freshnessTotal(fold(f).freshness)
     const res = runSupersedes(f.root, 'D2', 'D1', {}, PLAIN, PLAIN)
     expect(res.exitCode).toBe(0)
-    expect(res.stdout).toContain('demo D2 supersedes D1 — retired: "Retry a failed charge at most three times, one day apart"')
+    expect(bare(res.stdout)).toContain('demo D2 supersedes D1 — retired: "Retry a failed charge at most three times, one day apart"')
     const [d1, d2] = fold(f).decisions
     expect(d1!.superseded_by).toBe(2)
     expect(d2!.supersedes).toBe('D1')
@@ -171,7 +172,7 @@ describe('sofar supersedes', () => {
     logDecision(f.ctx, { ...RETRY_V2, supersedes: 'D1' })
     logDecision(f.ctx, { chose: 'Keep retries in a queue', over: 'cron', because: 'simpler' })
     logDecision(f.ctx, { ...RETRY_V2, chose: 'Retry seven times' })
-    const say = (d: string, t: string) => runSupersedes(f.root, d, t, {}, PLAIN, PLAIN).stderr
+    const say = (d: string, t: string) => bare(runSupersedes(f.root, d, t, {}, PLAIN, PLAIN).stderr)
     expect(say('D4', 'D1')).toContain('D1 was already replaced by D2 — name that one: `sofar supersedes D4 D2`')
     expect(say('D3', 'D2')).toContain('a rule is replaced only by a rule')
     expect(say('D3', 'D4')).toContain('D4 is not earlier than D3')
@@ -187,7 +188,7 @@ describe('the ask', () => {
     const f = fx()
     logDecision(f.ctx, RETRY)
     logDecision(f.ctx, RETRY_V2)
-    const digest = renderStatus(fold(f))
+    const digest = bare(renderStatus(fold(f)))
     expect(digest).toContain('⚠ Links pending — 1 rule(s) filed naming nothing they replace; answer each: `sofar supersedes D<n> <D<m>|none>`\n- D2 may replace D1')
     vi.stubEnv('SOFAR_LINK_ASK', 'off')
     expect(renderStatus(fold(f))).not.toContain('Links pending')
@@ -203,7 +204,7 @@ describe('the ask', () => {
     endSession(f.ctx, { summary: 's', next_action: 'n', decisions: [RETRY_V2] })
     const held = stop(f, 'sess-a')
     expect(held.exitCode).toBe(2)
-    expect(held.stderr).toBe(
+    expect(bare(held.stderr)).toBe(
       'sofar: D2 is a rule this session filed naming nothing it replaces — it may replace D1. Answer before stopping: `sofar supersedes D2 D1` if it does, `sofar supersedes D2 none` if not.',
     )
     expect(stop(f, 'sess-a', { stop_hook_active: true }).exitCode).toBe(0)

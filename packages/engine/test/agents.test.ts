@@ -205,18 +205,25 @@ describe('the picker', () => {
 describe('which agents an init run sets up', () => {
   const quiet = { input: new PassThrough(), output: new PassThrough(), caps: plain }
 
-  it('the flag wins; with no terminal and no flag, every agent', async () => {
+  it('the flag wins; with no terminal and no flag, a first init refuses (r4-fixes R12)', async () => {
     const root = freshRepo()
     expect(await resolveInitAgents(root, 'cursor', { ...quiet, interactive: true })).toEqual({
       agents: ['cursor'],
     })
-    expect(await resolveInitAgents(root, undefined, { ...quiet, interactive: false })).toEqual({
-      agents: [...AGENTS],
+    const home = tempDir('sofar-home-')
+    mkdirSync(join(home, '.cursor'))
+    const refused = await resolveInitAgents(root, undefined, {
+      ...quiet,
+      interactive: false,
+      machine: { home, env: { PATH: '' } },
     })
+    expect(refused).toHaveProperty('error')
+    expect('error' in refused && refused.error).toContain('agents found on this machine: Cursor (cursor)')
+    expect('error' in refused && refused.error).toContain('run: sofar init --agents cursor')
     expect(await resolveInitAgents(root, 'bogus', { ...quiet, interactive: false })).toHaveProperty('error')
   })
 
-  it('on a terminal, pre-selects agents found on the machine or wired in the repo', async () => {
+  it('on a terminal, a rerun pre-selects only the wired agents, never ones merely found on the machine', async () => {
     const root = freshRepo()
     expect(init(root, ['codex']).exitCode).toBe(0)
     const home = tempDir('sofar-home-')
@@ -231,7 +238,7 @@ describe('which agents an init run sets up', () => {
       machine: { home, env: { PATH: '' } },
     })
     input.write('\r') // accept the pre-selection
-    expect(await choice).toEqual({ agents: ['cursor', 'codex'] })
+    expect(await choice).toEqual({ agents: ['codex'] })
   })
 
   it('pre-selects every agent when nothing is found, so enter alone keeps the old result', async () => {
@@ -427,7 +434,7 @@ describe('uninit and doctor for a subset of agents', () => {
     expect(broken.exitCode).toBe(1)
     expect(broken.stdout).toContain('Codex hook shims missing: stop.sh')
     expect(broken.stdout).toContain('.codex/hooks.json missing hooks: SessionStart, UserPromptSubmit, PreToolUse, Stop, SessionEnd')
-    expect(broken.stdout).toContain('run `sofar init --agents codex` to (re)install it')
+    expect(broken.stdout).toContain('run `sofar init --refresh` to (re)install it')
   })
 
   it('doctor checks only the wired agents and names the rest with the command that adds them', () => {
@@ -449,7 +456,7 @@ describe('uninit and doctor for a subset of agents', () => {
     const result = runDoctor(root, {}, plain)
     expect(result.exitCode).toBe(1)
     expect(result.stdout).toContain('hook shims missing: stop.sh')
-    expect(result.stdout).toContain('run `sofar init --agents cursor` to (re)install it')
+    expect(result.stdout).toContain('run `sofar init --refresh` to (re)install it')
   })
 
   it('doctor fails a record with no agent wired at all', () => {

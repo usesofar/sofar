@@ -28,6 +28,7 @@ import { GIT_HOOKS } from '../src/cli/init'
 import { drive } from '../src/driver/drive'
 import { buildSurface } from '../src/driver/permissions'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
+import { bare } from './helpers/handles'
 import { callTool, callToolExpectError, connectServer } from './helpers/mcp'
 
 /**
@@ -196,7 +197,7 @@ describe('trust: approvals and the pre-commit opt-in live on the clone', () => {
   })
 
   it('the failure line carries the rule and the fix: the hint, else the operator\'s words and the way out', () => {
-    const c: InForceCheck = { handle: 'policy D1', initiative: 'policy', ordinal: 1, rule: SOFT, check: { cmd: 'npm test', hint: 'use deleted_at and POST /api/undo' } }
+    const c: InForceCheck = { handle: 'policy D1', shown: 'policy D1', initiative: 'policy', ordinal: 1, rule: SOFT, check: { cmd: 'npm test', hint: 'use deleted_at and POST /api/undo' } }
     const outcome = { result: 'fail' as const, exit_code: 3, duration_ms: 5, diagnostics: 'one\nexpected soft delete' }
     expect(checkFailureLine(c, outcome)).toBe(
       `sofar: check for [policy D1] failed (exit 3): expected soft delete — rule: "${SOFT}" — fix: use deleted_at and POST /api/undo`,
@@ -216,8 +217,8 @@ describe('sofar check', () => {
     expect(refused.exitCode).toBe(1)
     expect(refused.stderr).toContain('an agent cannot approve its own command')
     expect((await runCheck(root, { approve: 'D1' }, { confirm: async () => false })).stdout).toContain('not approved')
-    expect((await runCheck(root, { approve: 'D1' }, { confirm: yes })).stdout).toContain('approved [demo D1]')
-    expect((await runCheck(root, { list: true })).stdout).toContain('[demo D1] approved — `exit 0` — applies to any change')
+    expect(bare((await runCheck(root, { approve: 'D1' }, { confirm: yes })).stdout)).toContain('approved [demo D1]')
+    expect(bare((await runCheck(root, { list: true })).stdout)).toContain('[demo D1] approved — `exit 0` — applies to any change')
     expect((await runCheck(root, { approve: 'nope D9' }, { confirm: yes })).stderr).toContain('nope D9 carries no check in force')
   })
 
@@ -231,8 +232,8 @@ describe('sofar check', () => {
     writeFileSync(join(root, 'src', 'db', 'store.ts'), 'export const hard = true\n')
     const warned = await runCheck(root)
     expect(warned.exitCode).toBe(0)
-    expect(warned.stdout).toContain('sofar: check for [demo D1] failed (exit 3): store.ts still hard-deletes — rule: "Never hard-delete anything the traveller made." — fix: use deleted_at')
-    expect(warned.stdout).toContain('1 decision check(s) bear on this work but are not approved on this clone, so none ran: [demo D2] `touch unapproved-ran.txt`')
+    expect(bare(warned.stdout)).toContain('sofar: check for [demo D1] failed (exit 3): store.ts still hard-deletes — rule: "Never hard-delete anything the traveller made." — fix: use deleted_at')
+    expect(bare(warned.stdout)).toContain('1 decision check(s) bear on this work but are not approved on this clone, so none ran: [demo D2] `touch unapproved-ran.txt`')
     expect(warned.stdout).toContain('1 check(s) ran on 1 changed path(s) — 0 passed, 1 failed')
     expect(existsSync(join(root, 'unapproved-ran.txt'))).toBe(false)
     expect((await runCheck(root, { strict: true })).exitCode).toBe(1)
@@ -249,7 +250,7 @@ describe('sofar check', () => {
     const warns = await runCheck(root, { staged: true })
     expect(warns.exitCode).toBe(0)
     expect(warns.stdout).toBe('')
-    expect(warns.stderr).toContain('check for [demo D1] failed (exit 3)')
+    expect(bare(warns.stderr)).toContain('check for [demo D1] failed (exit 3)')
     expect(warns.stderr).toContain('the commit goes ahead — this clone only warns')
 
     expect((await runCheck(root, { blockCommits: 'on' })).stdout).toContain('now FAIL')
@@ -313,8 +314,8 @@ describe('Stop: failures ride the write-back block, never cause one', () => {
     expect(r.exitCode).toBe(2)
     const lines = r.stderr.split('\n')
     expect(lines[0]).toBe(STOP_BLOCK_MESSAGE.split('\n')[0])
-    expect(r.stderr).toContain('sofar: check for [demo D1] failed (exit 2): nope — rule: "Never hard-delete anything the traveller made." — fix: restore soft delete')
-    expect(r.stderr).toContain('[demo D2] `touch never.txt`')
+    expect(bare(r.stderr)).toContain('sofar: check for [demo D1] failed (exit 2): nope — rule: "Never hard-delete anything the traveller made." — fix: restore soft delete')
+    expect(bare(r.stderr)).toContain('[demo D2] `touch never.txt`')
     expect(existsSync(join(root, 'never.txt'))).toBe(false)
   })
 
@@ -354,7 +355,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     wroteBack(root, 's1')
     const r = stop(root, 's1')
     expect(r.exitCode).toBe(2)
-    expect(r.stderr).toBe(
+    expect(bare(r.stderr)).toBe(
       'sofar: [demo D1] "Never hard-delete anything the traveller made." bear on files you edited, and no covering test passed since your last edit — run `cd apps/web && bun test test/store.test.ts` and fix any failure before stopping (fix: restore soft delete in src/db/store.ts)',
     )
     expect(stop(root, 's1', true).exitCode).toBe(0) // stop_hook_active: one ask per stop
@@ -385,7 +386,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     ran(root, 's1', 'bun test', false, 1)
     const r = stop(root, 's1')
     expect(r.exitCode).toBe(2)
-    expect(r.stderr).toBe(
+    expect(bare(r.stderr)).toBe(
       'sofar: `bun test` failed (exit 1) after your last edit, and it covers [demo D1] "Never hard-delete anything the traveller made." — fix: restore soft delete in src/db/store.ts',
     )
   })
@@ -413,7 +414,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     emit(root, 'policy', 'decision_logged', { chose: 'x', over: 'y', because: 'b', rule: 'Old rule.', guard: 'path:src/db/**', check: CHECK })
     edited(root, 's1')
     wroteBack(root, 's1')
-    expect(stop(root, 's1').stderr).toContain('[policy D1]')
+    expect(bare(stop(root, 's1').stderr)).toContain('[policy D1]')
     // Through a write path, which keeps the declared index current (r3-fixes D23):
     // Stop reads it with no freshness pass.
     createToolContext(root).appendAndProject('policy', 'decision_logged', { chose: 'x', over: 'y', because: 'b', rule: 'New rule.', supersedes: 'D1' })
@@ -525,7 +526,8 @@ describe('binding a rule to its test (r3-fixes 2.10c)', () => {
     emit(root, 'demo', 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'b', rule: SOFT, quote: 'never hard-delete', guard: 'path:src/db/**' })
     const r = runBind(root, 'D1', 'bun test test/store.test.ts', { hint: 'restore soft delete' }, plain, plain)
     expect(r.exitCode).toBe(0)
-    expect(r.stdout).toContain('bound demo D2 (supersedes D1): check `bun test test/store.test.ts`')
+    // One rule, re-filed with its check (r4-fixes U5): the new handle, the old as its alias.
+    expect(bare(r.stdout)).toContain('bound demo D1: check `bun test test/store.test.ts` — the same rule, now listed as D2 (alias D1)')
     const [d1, d2] = foldLog(logOf(root)).state.decisions
     expect(d1!.superseded_by).toBe(2)
     expect(d2).toMatchObject({ rule: SOFT, quote: 'never hard-delete', guard: 'path:src/db/**', check: { cmd: 'bun test test/store.test.ts', hint: 'restore soft delete' }, supersedes: 'D1' })
@@ -533,7 +535,7 @@ describe('binding a rule to its test (r3-fixes 2.10c)', () => {
     emit(root, 'demo', 'file_touched', { path: 'src/db/store.ts', op: 'edit' }, 's1')
     emit(root, 'demo', 'session_ended', { session_id: 's1', summary: 's', next_action: 'n' }, 's1')
     const held = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 0)
-    expect(held.stderr).toContain('[demo D2]')
+    expect(bare(held.stderr)).toContain('[demo D2]')
     expect(held.stderr).toContain('run `bun test test/store.test.ts`')
   })
 
@@ -555,8 +557,8 @@ describe('binding a rule to its test (r3-fixes 2.10c)', () => {
     await callTool(client, 'sofar_start_session', { tool: 'claude-code', initiative: 'demo' })
     const base = { chose: 'soft delete in src/db/store.ts', over: 'hard delete', because: 'b' }
     const nudged = await callTool(client, 'sofar_log_decision', { ...base, rule: 'Never hard-delete in src/db/store.ts.' })
-    expect(nudged.body).toMatchObject({ warnings: [expect.stringContaining('D1 names src/db/store.ts but no test is bound to it')] })
-    expect(JSON.stringify(nudged.body)).toContain('sofar bind D1')
+    expect(nudged.body).toMatchObject({ warnings: [expect.stringMatching(/^D1·[0-9a-z]{4} names src\/db\/store\.ts but no test is bound to it/)] })
+    expect(bare(JSON.stringify(nudged.body))).toContain('sofar bind D1')
     const tested = await callTool(client, 'sofar_log_decision', { ...base, rule: 'Never hard-delete in src/db/store.ts, ever.', check: { cmd: 'bun test test/store.test.ts' } })
     expect(JSON.stringify(tested.body)).not.toContain('no test is bound')
     const fileless = await callTool(client, 'sofar_log_decision', { chose: 'be kind', over: 'be terse', because: 'b', rule: 'Be kind to users.' })
@@ -586,14 +588,14 @@ describe('drive: a failed check blocks acceptance', () => {
     })
     const out = await drive(root, 'demo', { adapter, surface: buildSurface({ allow: ['Bash(test:*)'] }), maxSessions: 2 })
     expect(out.handoffs.map((h) => h.reason)).toEqual(['verify_failed', 'task_done'])
-    expect(out.handoffs[0]!.detail).toContain('sofar: check for [policy D1] failed (exit 1)')
+    expect(bare(out.handoffs[0]!.detail ?? '')).toContain('sofar: check for [policy D1] failed (exit 1)')
     expect(out.handoffs[0]!.detail).toContain('fix: create ok.txt at the repo root')
-    expect(adapter.sessions[1]!.request.prompt).toContain('The previous session marked this task done, but sofar: check for [policy D1] failed')
+    expect(bare(adapter.sessions[1]!.request.prompt)).toContain('The previous session marked this task done, but sofar: check for [policy D1] failed')
     const t = foldLog(logOf(root)).state.phases[0]!.tasks[0]!
     expect(t.status).toBe('done')
     expect(t.verification).toBeUndefined()
     expect(t.checks).toEqual([expect.objectContaining({ decision: 'policy D1', result: 'pass', command: 'test -f ok.txt' })])
-    expect(readFileSync(logOf(root), 'utf8')).toContain('reopened by the driver — sofar: check for [policy D1] failed')
+    expect(bare(readFileSync(logOf(root), 'utf8'))).toContain('reopened by the driver — sofar: check for [policy D1] failed')
   })
 
   it('a check neither approved nor inside the surface is recorded refused and blocks nothing', async () => {

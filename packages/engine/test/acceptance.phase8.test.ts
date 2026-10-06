@@ -228,7 +228,7 @@ describe('acceptance 1 — uninit round-trips (hash-based)', () => {
     const root = freshRepo()
     const before = hashTree(root)
 
-    expect(cli(root, ['init']).status).toBe(0)
+    expect(cli(root, ['init', '--agents', 'all']).status).toBe(0)
     const uninit = cli(root, ['uninit', '--purge'])
     expect(uninit.status).toBe(0)
     expect(uninit.stdout).toContain('removed .sofar/ (record deleted)')
@@ -236,7 +236,7 @@ describe('acceptance 1 — uninit round-trips (hash-based)', () => {
     expect(hashTree(root)).toEqual(before)
 
     // and the default (no --purge) path keeps the record with the notice
-    expect(cli(root, ['init']).status).toBe(0)
+    expect(cli(root, ['init', '--agents', 'all']).status).toBe(0)
     const kept = cli(root, ['uninit'])
     expect(kept.status).toBe(0)
     expect(kept.stdout).toContain('record kept at .sofar/ (use --purge to delete it)')
@@ -290,7 +290,7 @@ describe('acceptance 2 — the adopt flow, brief executed as scripted shell', ()
     writeFileSync(join(root, 'sofar.md'), LEGACY_RECORD)
     writeFileSync(join(root, 'CLAUDE.md'), LEGACY_CLAUDE_MD)
 
-    expect(cli(root, ['init']).status).toBe(0)
+    expect(cli(root, ['init', '--agents', 'all']).status).toBe(0)
     // deliberately no --goal: the brief's plan_updated must carry the goal
     expect(cli(root, ['new', SLUG]).status).toBe(0)
 

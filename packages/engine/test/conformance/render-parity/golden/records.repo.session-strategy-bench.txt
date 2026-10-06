@@ -1,4 +1,4 @@
-== options (41688 bytes) ==
+== options (42128 bytes) ==
 {
   "plain": {},
   "hook": {
@@ -25,18 +25,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -44,12 +47,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -104,18 +109,21 @@
     ],
     "repoRules": [
       {
+        "id": "01K4ZZALPHA000000000000003",
         "initiative": "alpha",
         "ordinal": 3,
         "ts": "2026-09-01T10:00:00.000Z",
         "rule": "Always run the full suite before pushing."
       },
       {
+        "id": "01K4ZZBETA0000000000000001",
         "initiative": "beta",
         "ordinal": 1,
         "ts": "2026-09-02T10:00:00.000Z",
         "rule": "Always  run the full suite\nbefore pushing."
       },
       {
+        "id": "01K4ZZGAMMA000000000000007",
         "initiative": "gamma",
         "ordinal": 7,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -123,12 +131,14 @@
         "quote": "no hand edits to generated files"
       },
       {
+        "id": "01K4ZZDELTA000000000000002",
         "initiative": "delta",
         "ordinal": 2,
         "ts": "2026-08-01T00:00:00.000Z",
         "rule": "Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap. Keep the digest under its cap."
       },
       {
+        "id": "01K4ZZZETA0000000000000009",
         "initiative": "zeta",
         "ordinal": 9,
         "ts": "2026-09-02T10:00:00.000Z",
@@ -210,7 +220,7 @@ Files touched (19):
 - /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/run-graders.py
 - /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/aggregate-grades.py
 
-== digest:plain (2932 bytes) ==
+== digest:plain (2992 bytes) ==
 # Sofar status: session-strategy-bench
 
 Goal: Automated controlled benchmark: one long session vs fresh-sessions-per-task (Sofar pattern), measuring cost shape, output quality, and time. Second scenario of handoff-bench; reuses its harness, blind-grading machinery, and evidence format. MEASURES only — read-side; zero engine/injection changes; findings that suggest engine changes are logged as proposals.
@@ -228,17 +238,17 @@ Phases:
 Progress: 20/20 tasks done (100%) across 6 phase(s)
 
 Recent decisions (last 5 of 12; full text in decisions/D<n>.md):
-- [D8] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
-- [D9] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
-- [D10] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
-- [D11] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
-- [D12] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
+- [D8·srtt] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
+- [D9·7ygk] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
+- [D10·aq29] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
+- [D11·8760] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
+- [D12·y1b4] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
 Earlier rejected approaches — do NOT re-propose (7 older):
-- [D1] Post-hoc analysis of whatever the data shows, or predictions written/…
-- [D2] Letting benchmark findings drive engine/injection tweaks in-flight wi…
-- [D3] Building a new bench, single-family
-- [D4] Running arm L with sofar wired
-- [D5] Running bench worktrees inside the live brillo checkout
+- [D1·450y] Post-hoc analysis of whatever the data shows, or predictions written/…
+- [D2·h2n4] Letting benchmark findings drive engine/injection tweaks in-flight wi…
+- [D3·bfwq] Building a new bench, single-family
+- [D4·5vw5] Running arm L with sofar wired
+- [D5·1swh] Running bench worktrees inside the live brillo checkout
 - …and 2 more (see decisions.md)
 
 Next ids: D13 (decision), M1 (memory)
@@ -247,7 +257,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:hook (4485 bytes) ==
+== digest:hook (4569 bytes) ==
 # Sofar status: session-strategy-bench
 
 Goal: Automated controlled benchmark: one long session vs fresh-sessions-per-task (Sofar pattern), measuring cost shape, output quality, and time. Second scenario of handoff-bench; reuses its harness, blind-grading machinery, and evidence format. MEASURES only — read-side; zero engine/injection changes; findings that suggest engine changes are logged as proposals.
@@ -277,17 +287,17 @@ Repo memory (.sofar/repo.md):
 …truncated — read .sofar/repo.md for the rest
 
 Recent decisions (last 5 of 12; full text in decisions/D<n>.md):
-- [D8] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
-- [D9] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
-- [D10] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
-- [D11] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
-- [D12] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
+- [D8·srtt] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
+- [D9·7ygk] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
+- [D10·aq29] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
+- [D11·8760] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
+- [D12·y1b4] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
 Earlier rejected approaches — do NOT re-propose (7 older):
-- [D1] Post-hoc analysis of whatever the data shows, or predictions written/…
-- [D2] Letting benchmark findings drive engine/injection tweaks in-flight wi…
-- [D3] Building a new bench, single-family
-- [D4] Running arm L with sofar wired
-- [D5] Running bench worktrees inside the live brillo checkout
+- [D1·450y] Post-hoc analysis of whatever the data shows, or predictions written/…
+- [D2·h2n4] Letting benchmark findings drive engine/injection tweaks in-flight wi…
+- [D3·bfwq] Building a new bench, single-family
+- [D4·5vw5] Running arm L with sofar wired
+- [D5·1swh] Running bench worktrees inside the live brillo checkout
 - …and 2 more (see decisions.md)
 
 Next ids: D13 (decision), M1 (memory)
@@ -305,16 +315,16 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the session-strategy-bench record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the session-strategy-bench record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:lane (3659 bytes) ==
+== digest:lane (3719 bytes) ==
 # Sofar: quick-work lane (session-strategy-bench)
 
 Goal: Automated controlled benchmark: one long session vs fresh-sessions-per-task (Sofar pattern), measuring cost shape, output quality, and time. Second scenario of handoff-bench; reuses its harness, blind-grading machinery, and evidence format. MEASURES only — read-side; zero engine/injection changes; findings that suggest engine changes are logged as proposals.
@@ -332,17 +342,17 @@ Recent quick work (5 sessions, 12 decisions since 2026-07-19):
 - 2026-07-19 claude-code — 19 files (/Users/jins/IO/sofar/product doc/session-strategy-bench-evidence.md, /Users/jins/IO/handoff-bench/scenario2-session-strategy/RUBRIC.md, /Users/jins/IO/handoff-bench/scenario2-session-strategy/README.md, /Users/jins/IO/handoff-bench/scenario2-session-strategy/prompts/task-prompt-template.md, /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/run-workload.sh, /Users/jins/IO/handoff-bench/scenario2-session-strategy/scripts/extract-usage.py, /Users/jins/IO/handoff-bench/scenario2-session-strategy/prompts/grader-prompt.md, /Users/jins/IO/handoff-benc…
 
 Recent decisions (last 5 of 12; full text in decisions/D<n>.md):
-- [D8] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
-- [D9] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
-- [D10] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
-- [D11] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
-- [D12] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
+- [D8·srtt] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
+- [D9·7ygk] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
+- [D10·aq29] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
+- [D11·8760] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
+- [D12·y1b4] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
 Earlier rejected approaches — do NOT re-propose (7 older):
-- [D1] Post-hoc analysis of whatever the data shows, or predictions written/…
-- [D2] Letting benchmark findings drive engine/injection tweaks in-flight wi…
-- [D3] Building a new bench, single-family
-- [D4] Running arm L with sofar wired
-- [D5] Running bench worktrees inside the live brillo checkout
+- [D1·450y] Post-hoc analysis of whatever the data shows, or predictions written/…
+- [D2·h2n4] Letting benchmark findings drive engine/injection tweaks in-flight wi…
+- [D3·bfwq] Building a new bench, single-family
+- [D4·5vw5] Running arm L with sofar wired
+- [D5·1swh] Running bench worktrees inside the live brillo checkout
 - …and 2 more (see decisions.md)
 
 Next ids: D13 (decision), M1 (memory)
@@ -352,7 +362,7 @@ Git: session-strategy-bench @ a1b2c3d — no origin ref — never pushed
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:quiet (3018 bytes) ==
+== digest:quiet (3078 bytes) ==
 # Sofar status: session-strategy-bench
 
 Goal: Automated controlled benchmark: one long session vs fresh-sessions-per-task (Sofar pattern), measuring cost shape, output quality, and time. Second scenario of handoff-bench; reuses its harness, blind-grading machinery, and evidence format. MEASURES only — read-side; zero engine/injection changes; findings that suggest engine changes are logged as proposals.
@@ -370,17 +380,17 @@ Phases:
 Progress: 20/20 tasks done (100%) across 6 phase(s)
 
 Recent decisions (last 5 of 12; full text in decisions/D<n>.md):
-- [D8] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
-- [D9] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
-- [D10] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
-- [D11] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
-- [D12] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
+- [D8·srtt] 2026-07-20 S2-R02 P3' probe ships as a NEW task 7 in both workloads — over Replacing task 6 with the redesigned probe as the brief literally spe…
+- [D9·7ygk] 2026-07-20 R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — over Running arm S against the daemon to show the T3 speedup, or leaving t…
+- [D10·aq29] 2026-07-20 Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenC… — over Folding all three graders into one worse-of-three or majority rule, o…
+- [D11·8760] 2026-07-20 P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run — over Running the orientation probe live in the arm worktree before each ta…
+- [D12·y1b4] 2026-07-20 R02 replicates R01's arm-setup procedure EXACTLY — over Equalizing the arms in R02 by giving arm L a .claude/ carrying the sa…
 Earlier rejected approaches — do NOT re-propose (7 older):
-- [D1] Post-hoc analysis of whatever the data shows, or predictions written/…
-- [D2] Letting benchmark findings drive engine/injection tweaks in-flight wi…
-- [D3] Building a new bench, single-family
-- [D4] Running arm L with sofar wired
-- [D5] Running bench worktrees inside the live brillo checkout
+- [D1·450y] Post-hoc analysis of whatever the data shows, or predictions written/…
+- [D2·h2n4] Letting benchmark findings drive engine/injection tweaks in-flight wi…
+- [D3·bfwq] Building a new bench, single-family
+- [D4·5vw5] Running arm L with sofar wired
+- [D5·1swh] Running bench worktrees inside the live brillo checkout
 - …and 2 more (see decisions.md)
 
 Next ids: D13 (decision), M1 (memory)
@@ -391,7 +401,7 @@ Read-back: before acting, restate goal, next action, and standing constraints in
 
 (generated by sofar — full detail in plan.md, decisions.md, sessions/)
 
-== digest:cap (6036 bytes) ==
+== digest:cap (6040 bytes) ==
 # Sofar status: session-strategy-bench
 
 Goal: Automated controlled benchmark: one long session vs fresh-sessions-per-task (Sofar pattern), measuring cost shape, output quality, and time. Second scenario of handoff-bench; reuses its harness, blind-grading machinery, and evidence format. MEASURES only — read-side; zero engine/injection changes; findings that suggest engine changes are logged as proposals.
@@ -420,13 +430,13 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 
 3 commits of this record are unverified — no origin ref to compare.
 
-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Repo-wide rules from other records (3 of 4, most relevant first):
-- [alpha D3, beta D1] Always run the full suite before pushing.
-- [gamma D7] Never edit generated files by hand. — operator: "no hand edits to generated files"
-- [zeta D9] Name the session-strategy-bench record's goal before its tasks.
+- [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
+- [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
+- [zeta D9·yytw] Name the session-strategy-bench record's goal before its tasks.
 - …and 1 more in other records (their decisions.md)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
@@ -484,98 +494,98 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D11·8760 2026-07-20 — chose P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured …
 - D12·y1b4 2026-07-20 — chose R02 replicates R01's arm-setup procedure EXACTLY — arm S gets the live ~/IO/bri…
 
-== shard decisions/D1.md (771 bytes) ==
+== shard decisions/D1.md (777 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D1 — 2026-07-19
+D1·450y — 2026-07-19
 chose: Pre-registered falsifiable predictions (P1 cost-climb-vs-flat, P2 quality-parity, P3 arm L wins verbatim-recall-from-early-session — deliberately the opponent's territory, P4 latency-growth) frozen in product doc/session-strategy-bench-evidence.md at initiative creation, before any run
 over: Post-hoc analysis of whatever the data shows, or predictions written/softened after seeing run 1
 because: The benchmark must be able to lose — P3 registers a case where the long session is expected to WIN, so a clean sweep for arm S would itself be suspect. Falsified predictions get recorded as falsified; marketing copy derives only from the honest-summary paragraph.
 
-== shard decisions/D2.md (676 bytes) ==
+== shard decisions/D2.md (682 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D2 — 2026-07-19
+D2·h2n4 — 2026-07-19
 chose: Measure-only jurisdiction: read-side only, zero changes to engine or injection content; any finding that suggests an engine change is logged as a proposal in this record, never implemented here
 over: Letting benchmark findings drive engine/injection tweaks in-flight within this initiative
 because: Measuring and optimizing in one initiative contaminates both: the numbers stop being comparable across runs and the changes ship without their own acceptance criteria. Injection byte-stability is a SPEC invariant; this bench depends on the measured surface staying frozen.
 
-== shard decisions/D3.md (819 bytes) ==
+== shard decisions/D3.md (825 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D3 — 2026-07-19
+D3·bfwq — 2026-07-19
 chose: Reuse the handoff-bench machinery: harness/rubric base at ~/IO/handoff-bench, evidence file alongside R04's in product doc/ (sofar-bench format), dual blind graders with >=1 cross-family, "blind LLM-graded, cross-family" label only when both graders ran, and minimum 2 workload types (feature + refactor) before any headline claim
 over: Building a new bench, single-family (Anthropic-only) grading, or headline claims from one workload
 because: R04's judge-provenance mitigations (cross-family re-grade + founder spot-check, both cleared 2026-07-11) set the credibility bar; a second scenario inherits it by reusing the same machinery instead of re-earning it. Single-workload results are an anecdote, not a claim.
 
-== shard decisions/D4.md (901 bytes) ==
+== shard decisions/D4.md (907 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D4 — 2026-07-19
+D4·5vw5 — 2026-07-19
 chose: Arm L runs in a worktree with sofar wiring stripped (sofar uninit --purge; scenario-1 arm-A doctoring precedent); both arms share a frozen TASKS.md committed into the snapshot so task prompts stay byte-identical; arm S's initiative plan is seeded from TASKS.md
 over: Running arm L with sofar wired (its Stop hook exits 2 on any turn without session_ended, forcing per-task write-backs), or arm-specific prompt wording pointing arm S at the record
 because: The Stop gate makes "session never ends" impossible for a wired arm L and would contaminate the treatment: L must be the pure long-session strategy (context as memory), S the pure sofar pattern (record as memory). TASKS.md as the shared task source is the only way to keep prompts byte-identical while each arm keeps its own memory channel.
 
-== shard decisions/D5.md (1085 bytes) ==
+== shard decisions/D5.md (1091 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D5 — 2026-07-19
+D5·1swh — 2026-07-19
 chose: Bench isolation via a dedicated clone (~/IO/brillo-bench @ a6e0c8d2, origin remote removed) with user-named roadmap features as workloads: W1 Meeting Minutes &amp; Summary, W3 AI Chat (optional third); sync-health W1 retired unrun; W2 retargeted at the clone. Feature tasks enforce a no-live-API rule (deterministic reference impls behind provider-agnostic interfaces; acceptance = typecheck + unit tests)
 over: Running bench worktrees inside the live brillo checkout (prod app), keeping the invented sync-health workload, or letting workload acceptance depend on live model/OAuth calls the bench copy has no credentials for
 because: User direction 2026-07-19: brillo is live prod — duplicate it and bench in the copy. Removing the origin remote makes a push-back to prod impossible by construction; user-named features are real roadmap work (better workload validity than an invented feature); retiring before any run keeps the freeze discipline intact (no prediction touched).
 
-== shard decisions/D6.md (1082 bytes) ==
+== shard decisions/D6.md (1088 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D6 — 2026-07-20
+D6·k1k3 — 2026-07-20
 chose: Publish P1 as SPLIT (arm-S-flat falsified on the feature workload, held on the refactor), P3 as NOT TESTED (probe design failed — both arms imported the constant instead of recalling it), P4 as PARTIALLY SUPPORTED (large erratic latency penalty, not monotonic prefix growth); record the arm-L wall-clock win prominently
 over: Rewording P1 to "climbs less steeply" as if that had been predicted, quietly dropping the failed probe, reporting only the cost win that favors the product, or treating the workload-type split as noise to be averaged away
 because: The pre-registration exists precisely so a losing prediction gets published as losing; the benchmark had to be able to lose (D1). Arm S won cost on both workloads but lost wall-clock on both — reporting only the former would be marketing, not evidence. Workload-type variance is a finding (scenario-1 precedent), and a probe that fails to discriminate is a methodology result worth more than a fabricated P3 verdict.
 
-== shard decisions/D7.md (830 bytes) ==
+== shard decisions/D7.md (836 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D7 — 2026-07-20
+D7·p7d5 — 2026-07-20
 chose: Report P2 as SUPPORTED on the grounds that the arm gap (2 of 108) is smaller than the inter-grader gap, and publish the direction flip explicitly (Claude: S better by 1; GLM: L better by 2)
 over: Reporting the worse-of-two total (L 20 vs S 22) as "the long session produces better work", or reporting the same-family grader alone (S 19 vs L 20) as "the record pattern produces better work"
 because: Either single-grader reading would be a real number used to tell a false story — the gap is not robust to grader choice, which is exactly what the cross-family requirement exists to expose. Quality parity is the defensible claim, and it is what makes the 17.7% cost saving meaningful rather than a discount for worse output.
 
-== shard decisions/D8.md (998 bytes) ==
+== shard decisions/D8.md (1004 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D8 — 2026-07-20
+D8·srtt — 2026-07-20
 chose: S2-R02 P3' probe ships as a NEW task 7 in both workloads; tasks 1-6 stay byte-identical to R01 (specs, prompts, snapshots unchanged). P1' is evaluated on tasks 1-6 totals — directly comparable to R01 — and the arm-S R01-vs-R02 delta table covers tasks 1-6 only; task 7 is priced and reported separately and excluded from every curve and total.
 over: Replacing task 6 with the redesigned probe as the brief literally specified
 because: Replacing task 6 would change that task's spec in both workloads, so neither task 6 nor the workload totals would be comparable to R01 — and the workload total is exactly what P1' (wall-clock gap at most half of R01's +26%/+48%) is measured on. The probe's job is to test P3', not to cost the run its comparability spine. Appending it keeps every R01 number a like-for-like referent at the price of 4 extra task runs (~$18). User-sanctioned 2026-07-20.
 
-== shard decisions/D9.md (1353 bytes) ==
+== shard decisions/D9.md (1359 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D9 — 2026-07-20
+D9·7ygk — 2026-07-20
 chose: R02 arm S runs the PUBLISHED @alignlabs/sofar 0.10.0 in DEFAULT config — stdio MCP as `sofar init` registers it, `sofar serve` NOT running, nudge and drift-gated Stop active as shipped. The T3 HTTP daemon's benefit may not be claimed from this run. Version note frozen: R01 arm S = 0.9.2 (published 2026-07-13, latest at R01 time), R02 arm S = 0.10.0 (published 2026-07-20T09:24Z).
 over: Running arm S against the daemon to show the T3 speedup, or leaving the R01 arm-S engine version unrecorded
 because: The daemon is opt-in: a default-config user does not get it, so a number produced with it running would not describe the shipped product. Version-delta audit over 183e4db..f067915 (0.9.2 to 0.10.0) found exactly four changed source files — cli/event.ts (T1 Stop gate), cli/serve.ts (T3 HTTP MCP), core/fold.ts (T4 task_files), projections/templates/status.ts (T4 files: line) — with src/mcp/**, packages/schema/** and src/hooks/*.sh untouched, so the 7-tool schema surface is unchanged and NOTHING rode along beyond the speed initiative. A rendered-block diff on the real R01-era W1 arm-S record (truncated to task 4 active) differs by exactly one line: the T4 files: hint. R02's delta is therefore attributable to the speed batch alone.
 
-== shard decisions/D10.md (1473 bytes) ==
+== shard decisions/D10.md (1479 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D10 — 2026-07-20
+D10·aq29 — 2026-07-20
 chose: Three graders, two roles. PRIMARY = Grader A claude-opus-4-8 + Grader B GLM 5.2 via OpenCode, worse-of-two, unchanged from R01 — this pair alone adjudicates P2' and carries the R01-to-R02 quality delta. ROBUSTNESS = Grader C gpt-5.5 via `codex exec` under an ISOLATED CODEX_HOME (auth.json symlinked; no user hooks, skills, memories or rules), empty working dir, read-only sandbox — reported in its own table, never folded into the primary rule. Label: "blind LLM-graded, cross-family x2".
 over: Folding all three graders into one worse-of-three or majority rule, or dropping Grader C because two graders already earned the R01 label
 because: R01's primary pair IS the comparability instrument — re-weighting the rule while also changing the engine would confound the quality delta with a grading-protocol change, and there would be no way to tell which moved. A third outside-family grader is worth having (R01's headline finding was that the arm gap is smaller than the inter-grader gap, which one extra family can corroborate or break) but only as a disclosed second opinion. If C's ordering disagrees with the primary pair that is published as a finding, not as grounds to re-weight after data. Access verified before the arms run: codex exec + gpt-5.5 returns clean output from an isolated home; it bills the ChatGPT subscription, so no marginal API spend.
 
-== shard decisions/D11.md (1299 bytes) ==
+== shard decisions/D11.md (1305 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D11 — 2026-07-20
+D11·8760 — 2026-07-20
 chose: P5' fabricated-path sidecar runs POST-HOC by replay, never inside the measured run: for each task N and arm, a scratch worktree is checked out at that arm's task-(N-1) product commit with a copy of the arm's .sofar truncated to the matching event boundary, and one orientation-only session ("which files would you open for this task and why") runs there and ends. Main task prompts are untouched; sidecar cost is extracted separately and EXCLUDED from every cost/time curve and total.
 over: Running the orientation probe live in the arm worktree before each task, or appending the question to the task prompt
 because: A live probe in the arm-S worktree would append session_started events to the very record under measurement and shift its "Last session" surface; a prompt change would break the byte-identical-prompt integrity rule that the whole R01 comparison rests on. Replay reconstructs the exact orientation state each arm faced with zero contamination. Disclosed limitation: for arm L the sidecar is a COLD-session proxy, not L's operating condition (a warm long session already knows its files), so the arm-L fabricated-path rate is a floor-comparison number, not L's in-run behavior.
 
-== shard decisions/D12.md (1204 bytes) ==
+== shard decisions/D12.md (1210 bytes) ==
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
-D12 — 2026-07-20
+D12·y1b4 — 2026-07-20
 chose: R02 replicates R01's arm-setup procedure EXACTLY — arm S gets the live ~/IO/brillo/.claude copied in (hooks, settings.local.json, and its two skills: shadcn, migrate-radix-to-base), arm L gets none of it after `sofar uninit --purge` — and the skills asymmetry is named as a disclosed confound in R02's caveats AND flagged as retroactively applying to R01, whose caveat 7 named only the record-keeping obligation.
 over: Equalizing the arms in R02 by giving arm L a .claude/ carrying the same skills minus sofar wiring, or leaving the asymmetry unmentioned as R01 did
 because: Equalizing would be the better experiment but it would make R02 non-comparable to R01, and the R01-vs-R02 arm-S delta is this run's headline artifact — changing two variables at once destroys it. Leaving it unmentioned is not an option: arm S could reach a shadcn skill on W1's UI task that arm L could not, so "arm S = the sofar pattern" overstates what the treatment actually was in both runs. Naming it costs nothing and is owed to R01's published numbers too. Equalized arms are the right design for a future R03.

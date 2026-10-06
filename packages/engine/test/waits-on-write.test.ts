@@ -174,10 +174,21 @@ describe('sofar_end_session tasks waits_on', () => {
     expect(r.warnings).toEqual([expect.stringContaining('"other 7.7" is dangling')])
   })
 
-  it('an unknown slug refuses the whole write-back', () => {
+  it('an unknown slug leaves out its own task alone; the rest of the write-back files (r4-fixes U6)', () => {
     const f = fx()
     f.ctx.session.set({ id: 'S1', tool: 'claude-code', initiative: 'demo' })
-    refusedWith(f, () => endSession(f.ctx, { summary: 's', next_action: 'n', tasks: [{ task_id: '2.1', status: 'blocked', waits_on: ['ghost 1.1'] }] }))
+    const r = endSession(f.ctx, {
+      summary: 's',
+      next_action: 'n',
+      tasks: [
+        { task_id: '2.1', status: 'blocked', waits_on: ['ghost 1.1'] },
+        { task_id: '2.2', status: 'blocked', waits_on: ['other 4.4'] },
+      ],
+    })
+    expect(r.not_filed).toEqual([expect.stringMatching(/^tasks\[0\] \(2\.1\): waits_on: no initiative "ghost" under \.sofar\/initiatives\/ — not filed; fix it and file it with sofar_update_task$/)])
+    expect(r.tasks_applied).toBe(1)
+    expect(f.waits('demo', '2.1')).toBeUndefined()
+    expect(f.waits('demo', '2.2')).toEqual(['other 4.4'])
   })
 })
 

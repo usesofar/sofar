@@ -158,36 +158,66 @@ fn decision_text_kept(state: &InitiativeState) -> (HashSet<usize>, HashSet<usize
     (window, over)
 }
 
+/// `relogTextKept` (r4-fixes U5): both halves of every supersession whose
+/// rule, quote and until already agree keep chose, over, because and guard
+/// whole, so the re-log test answers on the cut as on the state.
+fn relog_text_kept(state: &InitiativeState) -> HashSet<usize> {
+    let mut kept = HashSet::new();
+    for (i, d) in state.decisions.iter().enumerate() {
+        let Some(by) = d.superseded_by else {
+            continue;
+        };
+        #[allow(clippy::cast_possible_truncation, reason = "ordinals fit usize")]
+        let by = by as usize;
+        let Some(r) = by.checked_sub(1).and_then(|k| state.decisions.get(k)) else {
+            continue;
+        };
+        if r.rule != d.rule || r.quote != d.quote || r.until != d.until {
+            continue;
+        }
+        kept.insert(i);
+        kept.insert(by - 1);
+    }
+    kept
+}
+
 fn cut_decision(
     d: &DecisionState,
     i: usize,
     window: &HashSet<usize>,
     over: &HashSet<usize>,
+    relog: &HashSet<usize>,
 ) -> DecisionState {
     let in_window = window.contains(&i);
+    let whole = relog.contains(&i);
     DecisionState {
-        id: String::new(),
+        // Every handle the digest prints is check-suffixed (r4-fixes U5).
+        id: d.id.clone(),
         ts: if in_window {
             d.ts.clone()
         } else {
             String::new()
         },
-        chose: if in_window {
+        chose: if whole || in_window {
             d.chose.clone()
         } else {
             String::new()
         },
-        over: if over.contains(&i) {
+        over: if whole || over.contains(&i) {
             d.over.clone()
         } else if has_real_alternative(&d.over) {
             REAL_OVER.to_owned()
         } else {
             String::new()
         },
-        because: String::new(),
+        because: if whole {
+            d.because.clone()
+        } else {
+            String::new()
+        },
         rule: d.rule.clone(),
         quote: d.quote.clone(),
-        guard: None,
+        guard: if whole { d.guard.clone() } else { None },
         supersedes: d.supersedes.clone(),
         until: d.until.clone(),
         check: None,
@@ -230,6 +260,7 @@ pub fn digest_state(state: &InitiativeState) -> InitiativeState {
         s.summary.is_none() && s.activity.is_some()
     });
     let (window, over) = decision_text_kept(state);
+    let relog = relog_text_kept(state);
     let cut_sessions = sessions
         .iter()
         .enumerate()
@@ -285,7 +316,7 @@ pub fn digest_state(state: &InitiativeState) -> InitiativeState {
             .decisions
             .iter()
             .enumerate()
-            .map(|(i, d)| cut_decision(d, i, &window, &over))
+            .map(|(i, d)| cut_decision(d, i, &window, &over, &relog))
             .collect(),
         ..state.clone()
     }
@@ -319,6 +350,7 @@ mod tests {
             decisions: 2,
         }];
         let rules = vec![RepoRule {
+            id: "01K00000000000000000000001".into(),
             initiative: "other".into(),
             ordinal: 1.0,
             ts: "2026-09-01T00:00:00.000Z".into(),

@@ -214,13 +214,20 @@ export function repoMemoryHandles(text: string): Set<string> {
   return out
 }
 
-/** The `<slug> D<n>` handles in rendered Repo-wide rules lines (`- [a D1, b D3] …`). */
+/**
+ * The `<slug> D<n>` handles in rendered Repo-wide rules lines (`- [a D1·k3fz,
+ * b D3·x7k2] …`), bare: a link target names the ordinal, and the rules render
+ * it check-suffixed (r4-fixes U5).
+ */
 export function ruleHandles(lines: readonly string[]): Set<string> {
   const out = new Set<string>()
   for (const line of lines) {
     const m = /^- \[([^\]]+)\] /.exec(line)
     if (m === null) continue
-    for (const h of m[1]!.split(', ')) if (/^[a-z0-9-]+ D[1-9][0-9]*$/.test(h)) out.add(h)
+    for (const h of m[1]!.split(', ')) {
+      const bare = /^([a-z0-9-]+ D[1-9][0-9]*)(?:·[0-9a-z]{4})?$/.exec(h)
+      if (bare !== null) out.add(bare[1]!)
+    }
   }
   return out
 }

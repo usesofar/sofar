@@ -373,7 +373,7 @@ describe('sofar doctor and Codex’s MCP server', () => {
     const result = doctor(root)
     expect(result.exitCode).toBe(1)
     expect(result.stdout).toContain('.codex/config.toml sofar server not registered')
-    expect(result.stdout).toContain('run `sofar init --agents codex` to (re)install it')
+    expect(result.stdout).toContain('run `sofar init --refresh` to (re)install it')
   })
 
   it('warns, naming the line, when a registered table does not pre-approve sofar’s tools (3.4)', () => {

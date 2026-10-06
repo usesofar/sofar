@@ -20,8 +20,12 @@ node packaging/npm/emit.mjs --binaries DIR   # stage DIR/<rust-target>/sofar-cor
 
 1. Bump `packages/engine/package.json` and run `node packaging/npm/emit.mjs`.
 2. Download the five `sofar-core-<target>` artifacts from the `core` CI job
-   into one directory, then `node packaging/npm/emit.mjs --binaries DIR`.
-3. `npm publish` each `packaging/npm/sofar-core-*` package.
+   into one directory (`gh run download -p 'sofar-core-*' -D DIR`), rename each
+   `DIR/sofar-core-<target>` to `DIR/<target>`, then
+   `node packaging/npm/emit.mjs --binaries DIR`.
+3. `npm publish` each `packaging/npm/core-*` package (`@sofar.sh/core-<platform>-<arch>`,
+   scoped under the `sofar.sh` npm org; the unscoped rc.5 `sofar-core-*`
+   names are deprecated and never published again).
 4. `npm publish -w sofar.sh` (the user runs it: classifier + OTP).
 
 sofar.sh pins the platform packages at the release version, so step 3 must

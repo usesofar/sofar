@@ -1,4 +1,4 @@
-# sofar-core-linux-arm64
+# @sofar.sh/core-linux-arm64
 
 The `sofar-core` binary for linux-arm64 — sofar's native hot-path
 core (hooks, statusline, status). This package is installed automatically as an

@@ -306,11 +306,13 @@ pub(crate) fn memory_handle(m: &ScopedMemory, slug: &str) -> String {
 }
 
 fn scope_handle(d: &ScopedDecision, slug: &str) -> String {
+    // Check-suffixed either way (r4-fixes U5).
     let ordinal = json::number_to_string(d.ordinal);
+    let suffix = crate::projections::handle_suffix(&d.id);
     if d.initiative == slug {
-        format!("D{ordinal}")
+        format!("D{ordinal}·{suffix}")
     } else {
-        format!("{} D{ordinal}", d.initiative)
+        format!("{} D{ordinal}·{suffix}", d.initiative)
     }
 }
 
@@ -767,7 +769,7 @@ fn bound_or_lane(layout: &Layout, session: &str) -> Option<String> {
 /// `PostToolUse` only for a call that succeeded; Codex also fires it after a
 /// failing command (and reaches the core only with `--host codex`, which the
 /// core hands back to TypeScript).
-fn post_tool_proves_success(host_tool: &str) -> bool {
+pub(crate) fn post_tool_proves_success(host_tool: &str) -> bool {
     host_tool != "codex"
 }
 

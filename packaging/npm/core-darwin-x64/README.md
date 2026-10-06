@@ -1,4 +1,4 @@
-# sofar-core-darwin-x64
+# @sofar.sh/core-darwin-x64
 
 The `sofar-core` binary for darwin-x64 — sofar's native hot-path
 core (hooks, statusline, status). This package is installed automatically as an

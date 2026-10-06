@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
-import { PACKAGE_PREFIX, binaryName, optionalDependencies, packageName } from '../../../packaging/npm/emit.mjs'
+import { PACKAGE_PREFIX, PLATFORMS, binaryName, optionalDependencies, packageDir, packageName } from '../../../packaging/npm/emit.mjs'
 
 /**
  * Task 6.2 (BD41) — the distribution channel is npm (BD1), so the tarball
@@ -102,7 +102,11 @@ const tarball = join(packDest, tarballBase)
     expect(spec.optionalDependencies).toEqual(optionalDependencies(manifest.version))
     for (const name of Object.keys(spec.optionalDependencies as Record<string, string>)) {
       expect(name.startsWith(PACKAGE_PREFIX)).toBe(true)
-      const platformSpec = JSON.parse(readFileSync(join(engineDir, '..', '..', 'packaging', 'npm', name, 'package.json'), 'utf8')) as Record<string, unknown>
+      expect(name.startsWith('@sofar.sh/core-')).toBe(true) // scoped (rust-core D47); never a new unscoped sofar-core-*
+      const p = PLATFORMS.find((x) => packageName(x) === name)
+      expect(p).toBeDefined()
+      const platformSpec = JSON.parse(readFileSync(join(engineDir, '..', '..', 'packaging', 'npm', packageDir(p!), 'package.json'), 'utf8')) as Record<string, unknown>
+      expect(platformSpec.name).toBe(name)
       expect(platformSpec.version).toBe(manifest.version)
       expect(platformSpec.os).toHaveLength(1)
       expect(platformSpec.cpu).toHaveLength(1)
@@ -112,7 +116,15 @@ const tarball = join(packDest, tarballBase)
   }, 120_000)
 
   it('the tarball installs into a temp prefix and the installed bin answers --version', () => {
-    const installed = npm(['install', '-g', '--prefix', prefix, tarball], scratch)
+    // Hermetic: once this version's @sofar.sh/core-* packages are published, a
+    // plain install fetches the registry's core for this machine (0.34.0 did),
+    // and what this suite pins is the tarball itself — zero runtime deps, the
+    // TypeScript hot path with no core; the native-core E2E below installs a
+    // locally packed core. `--omit=optional` cannot say so: npm 10 and 11
+    // ignore it under -g (Node.shouldOmit omits only below a project root or
+    // workspace). Offline against an empty cache, the tarball installs from
+    // disk and no optional core can be fetched, on any npm and with no network.
+    const installed = npm(['install', '-g', '--prefix', prefix, '--offline', '--cache', join(scratch, 'npm-cache'), tarball], scratch)
     expect(installed.status).toBe(0)
 
     const pkgDir = join(prefix, 'lib', 'node_modules', 'sofar.sh')
@@ -127,8 +139,8 @@ const tarball = join(packDest, tarballBase)
     )
 
     // zero runtime deps landed — the bundled-CLI contract. The platform
-    // packages are optional and unpublished at this version in a test run, so
-    // npm installs none of them and sofar.sh must not mind.
+    // packages are optional and unreachable above, so npm installs none of
+    // them and sofar.sh must not mind.
     const depDirs = existsSync(join(pkgDir, 'node_modules'))
       ? readdirSync(join(pkgDir, 'node_modules')).filter((d) => !d.startsWith('.'))
       : []
@@ -153,7 +165,7 @@ const tarball = join(packDest, tarballBase)
   it('the installed sofar drives init → new → status in a fixture repo', () => {
     const root = freshRepo()
 
-    const init = sofar(['init', '--root', root])
+    const init = sofar(['init', '--agents', 'all', '--root', root])
     expect(init.status).toBe(0)
     expect(init.stdout).toContain('sofar init: done')
 
@@ -372,7 +384,7 @@ function tarballName(): string {
 const repoRoot = join(here, '..', '..', '..')
 const localCore = join(repoRoot, 'target', 'release', 'sofar-core')
 const thisPlatform = { platform: process.platform, arch: process.arch }
-const platformPkgDir = join(repoRoot, 'packaging', 'npm', packageName(thisPlatform))
+const platformPkgDir = join(repoRoot, 'packaging', 'npm', packageDir(thisPlatform))
 
 describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native core E2E (rust-core 3.2) — platform package → postinstall → sofar-core on PATH', () => {
   const corePrefix = join(scratch, 'core-prefix')
@@ -382,7 +394,8 @@ describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native 
     expect(staged.status, staged.stderr).toBe(0)
     const packedCore = npm(['pack', '--pack-destination', packDest], platformPkgDir)
     expect(packedCore.status, packedCore.stderr).toBe(0)
-    const coreTarball = join(packDest, `${packageName(thisPlatform)}-${manifest.version}.tgz`)
+    // npm pack names a scoped package's tarball <scope>-<name>-<version>.tgz
+    const coreTarball = join(packDest, `${packageName(thisPlatform).replace(/^@/, '').replace('/', '-')}-${manifest.version}.tgz`)
     expect(existsSync(coreTarball)).toBe(true)
 
     mkdirSync(corePrefix, { recursive: true })
@@ -400,7 +413,7 @@ describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native 
     const root = freshRepo()
     const bin = join(corePrefix, 'bin')
     const env = { ...cleanEnv(), PATH: `${bin}:${process.env.PATH ?? ''}`, SOFAR_NO_UPDATE_CHECK: '1', TERM: 'dumb' }
-    expect(spawnSync(process.execPath, [join(bin, 'sofar'), 'init', '--root', root], { encoding: 'utf8', env }).status).toBe(0)
+    expect(spawnSync(process.execPath, [join(bin, 'sofar'), 'init', '--agents', 'all', '--root', root], { encoding: 'utf8', env }).status).toBe(0)
     expect(spawnSync(process.execPath, [join(bin, 'sofar'), 'new', 'core-demo', '--goal', 'prove the core', '--root', root], { encoding: 'utf8', env }).status).toBe(0)
 
     // the binary itself, by its PATH name — no node in front

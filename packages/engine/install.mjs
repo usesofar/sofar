@@ -1,6 +1,6 @@
 // sofar.sh postinstall (rust-core 3.2): put the native core on PATH.
 //
-// npm installs at most one sofar-core-<platform>-<arch> optional dependency
+// npm installs at most one @sofar.sh/core-<platform>-<arch> optional dependency
 // (the one whose os/cpu match) and links THIS package's bin/sofar-core into
 // the prefix's bin dir. That file starts as a JavaScript shim; here it is
 // replaced with the native binary when one is present, so `sofar-core event
@@ -18,7 +18,7 @@ const shim = join(here, 'bin', 'sofar-core')
 
 try {
   if (process.platform === 'win32') process.exit(0)
-  const pkg = `sofar-core-${process.platform}-${process.arch}`
+  const pkg = `@sofar.sh/core-${process.platform}-${process.arch}`
   let binary
   try {
     binary = join(dirname(createRequire(import.meta.url).resolve(`${pkg}/package.json`)), 'sofar-core')

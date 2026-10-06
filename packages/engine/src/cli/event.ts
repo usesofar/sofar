@@ -39,7 +39,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
+import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, stopGate, suiteOf, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -90,7 +90,7 @@ import { readGateEnabled, rewriteRawRead } from '../core/read-rewrite'
 import { RECALL_TOLD_KEY, recallBlock, recallEnabled } from '../core/recall'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
-import { bareSupersedes } from '../core/handle'
+import { bareSupersedes, handleAt, qualifiedHandle, suffixedHandle } from '../core/handle'
 import { briefEntryText, capturePrompt, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
 import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
@@ -1344,7 +1344,11 @@ export function handleStop(
     // test that passed after the last one. sofar runs nothing here — the agent
     // runs the tests under its host's permissions — and stop_hook_active above
     // bounds it to one ask per stop. SOFAR_ENFORCE=off restores D10's Stop.
-    const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, slug, state, session) : null
+    // A host whose PostToolUse proves nothing (Codex: output text only, no
+    // exit status, read from codex 0.160.0) cannot show a pass: the gate's asks
+    // there are unverifiable and never hold (r4-fixes U1b).
+    const outcomesKnown = postToolProvesSuccess(host ?? hookHost(hook))
+    const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, slug, state, session, outcomesKnown) : null
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop: a rule it filed naming nothing it replaces. SOFAR_LINK_ASK=off
     // is its ablation arm.
@@ -1366,8 +1370,11 @@ export function handleStop(
       }
     }
     if (!owes) {
-      const held = [...(gate?.blocks === true ? gate.lines : []), ...merge, ...links]
-      return held.length > 0 ? { exitCode: 2, stdout: '', stderr: held.join('\n') } : { ...OK }
+      const held = [...merge, ...links]
+      if (gate?.blocks === true || held.length > 0) return { exitCode: 2, stdout: '', stderr: [...(gate?.lines ?? []), ...held].join('\n') }
+      // A line the gate does not hold for (an unverifiable ask, U1b) holds
+      // nothing on its own: it reaches the operator, and rides any block.
+      return gate !== null && gate.lines.length > 0 ? { exitCode: 0, stdout: JSON.stringify({ systemMessage: gate.lines.join('\n') }), stderr: '' } : { ...OK }
     }
 
     // Guard crossings RIDE the block; they never cause one (D3). By the time
@@ -1379,6 +1386,7 @@ export function handleStop(
     const crossings = guardViolationLines(
       sessionGuardViolations(state, sessionId, session.ended),
       rootDir,
+      state.decisions,
     )
     // Decision checks ride the same block (D9/D10): they run only here, where
     // the write-back gate already holds the session, so an approved check costs
@@ -1407,7 +1415,7 @@ export function handleStop(
  * the session's own newest test command, else the record's. Fails open: a gate
  * that cannot read the index says nothing, since it is never the write-back gate.
  */
-function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState): StopGate {
+function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState, outcomesKnown: boolean): StopGate {
   const none: StopGate = { lines: [], blocks: false }
   try {
     const captured = (session.activity?.files ?? []).filter((f) => !f.startsWith('+'))
@@ -1432,7 +1440,7 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     }
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
-    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt)
+    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, rootProbe(rootDir), outcomesKnown)
   } catch {
     return none
   }
@@ -1521,7 +1529,12 @@ function stopCheckLines(
     const approved = applicable.filter((c) => isApproved(rootDir, c.check.cmd))
     const { ran, skipped } = runChecks(approved, rootDir, runVerification, { perCheckMs: STOP_CHECK_MAX_MS, budgetMs: STOP_CHECK_BUDGET_MS })
     const lines = ran.filter((r) => r.outcome.result !== 'pass').map((r) => checkFailureLine(r.check, r.outcome))
-    const unapproved = unapprovedLine(applicable.filter((c) => !approved.includes(c)))
+    // Once per clone per day (r4-fixes U7): `sofar doctor` keeps the full list.
+    const unapproved = throttledUnapprovedLine(
+      rootDir,
+      applicable.filter((c) => !approved.includes(c)),
+      new Date().toISOString(),
+    )
     if (unapproved !== null) lines.push(unapproved)
     if (skipped.length > 0) lines.push(`sofar: ${skipped.length} decision check(s) did not run — Stop's ${STOP_CHECK_BUDGET_MS / 1000}s budget was spent; \`sofar check\` runs them all`)
     return lines
@@ -1609,7 +1622,7 @@ export function lessonLines(lessons: readonly Lesson[]): string[] {
     const matched = `matched: ${l.terms.join(', ')}`
     // Where the full text is: the decision's own shard (memory-lead D43), in
     // this record or another's (D15).
-    const ordinal = /D(\d+)$/.exec(l.handle)?.[1]
+    const ordinal = /D(\d+)(?:·[0-9a-z]{4})?$/.exec(l.handle)?.[1]
     const file = ordinal === undefined ? 'decisions.md' : `decisions/D${ordinal}.md`
     const where = l.initiative === undefined ? file : `${l.initiative}/${file}`
     const line =
@@ -2080,6 +2093,7 @@ function guardSubject(v: GuardViolation, rootDir: string): string {
 export function guardViolationLines(
   violations: readonly GuardViolation[],
   rootDir: string,
+  decisions: ReadonlyArray<{ id: string }>,
 ): string[] {
   if (violations.length === 0) return []
   const byRule = new Map<number, GuardViolation[]>()
@@ -2097,7 +2111,7 @@ export function guardViolationLines(
     const named = group.slice(0, GUARD_SUBJECTS_MAX).map((v) => guardSubject(v, rootDir))
     const more = group.length > named.length ? ` (+${group.length - named.length} more)` : ''
     lines.push(
-      `sofar: [D${ordinal}] guard crossed — "${head.rule}" — ${group.length} event(s): ` +
+      `sofar: [${handleAt(decisions, ordinal)}] guard crossed — "${head.rule}" — ${group.length} event(s): ` +
         `${named.join(', ')}${more} (guard: ${head.guard}).`,
     )
   }
@@ -2171,8 +2185,9 @@ type ScopeNotice = {
 const noticeEntry = (n: ScopeNotice): ScopedDecision | ScopedMemory => n.decision ?? n.memory
 
 function scopeHandle(d: ScopedDecision, slug: string): string {
-  // `D<n>` is initiative-scoped, so a handle from elsewhere carries its record.
-  return d.initiative === slug ? `D${d.ordinal}` : `${d.initiative} D${d.ordinal}`
+  // `D<n>` is initiative-scoped, so a handle from elsewhere carries its record;
+  // check-suffixed either way (r4-fixes U5).
+  return d.initiative === slug ? suffixedHandle(d.ordinal, d.id) : qualifiedHandle(d.initiative, d.ordinal, d.id)
 }
 
 function memoryHandle(m: ScopedMemory, slug: string): string {
@@ -2842,7 +2857,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // `SOFAR_LESSONS=off` is the ablation switch (D18): round 2 prices the
     // line's tokens on their own, and a lever must be separable to be priced.
     if (prompt !== null && lessonsEnabled()) lines.unshift(...lessonLines(promptLessons(ctx.sofarDir, state, slug, sessionId, prompt)))
-    lines.unshift(...guardViolationLines(sessionGuardViolations(state, sessionId, me.ended), rootDir))
+    lines.unshift(...guardViolationLines(sessionGuardViolations(state, sessionId, me.ended), rootDir, state.decisions))
 
     const wrap = parallelWrapLine(state, sessionId)
     if (wrap !== null) lines.push(wrap)
@@ -2971,10 +2986,34 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
     }
 
     const ctx = createToolContext(rootDir)
-    const slug = ctx.resolveInitiative(args.slug)
+    let slug = ctx.resolveInitiative(args.slug)
+    // A write-back files where its session lives (r4-fixes U6, as
+    // sofar_end_session does): with no slug it follows the session's home, and
+    // a slug naming another record is refused with the re-home that moves the
+    // session — filed there, the home's write-back would still be missing.
+    if (args.type === 'session_ended') {
+      const id = typeof payload.session_id === 'string' ? payload.session_id : (args.session ?? adoptSession(ctx, rootDir, slug, args.type))
+      const home = homeInitiative(ctx.sofarDir, id, slug)
+      if (home !== null && home !== slug) {
+        if (args.slug === undefined) slug = ctx.resolveInitiative(home)
+        else {
+          const error = `"${slug}" is not session ${id}'s record ("${home}") — a write-back files where its session lives`
+          const repair = `re-home first with sofar_start_session({"session_id":"${id}","initiative":"${slug}"}) or \`sofar event append ${slug} --type session_started --session ${id} --payload '{"tool":"${args.source}","rehome":true}'\`, then write back`
+          throw new ToolError('invalid_input', `${error}; ${repair} — nothing was filed`, [error, repair])
+        }
+      }
+    }
+    // A quote with no rule is kept as a note (r4-fixes U6), never the reason
+    // the decision did not file: the operator's words survive, and nothing
+    // claims they are a rule.
+    let quoteNote: string | undefined
+    if (args.type === 'decision_logged' && payload.rule === undefined && typeof payload.quote === 'string' && payload.quote.trim().length > 0) {
+      quoteNote = payload.quote
+      delete payload.quote
+    }
     // Same refusal as sofar_log_decision (r1-fixes 4.1.2, D31); malformed
     // payloads skip it and fail validation inside appendAndProject as before.
-    let fidelity: string | null = null
+    let fidelity: number | null = null
     let moved: string | undefined
     if (args.type === 'decision_logged') {
       // A check-suffixed handle (r3-fixes 2.6, D18) is judged and stored as
@@ -2991,8 +3030,9 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
       }
       // What the rule adds to the operator's words (memory-lead 1.2, D2), the
       // warning sofar_log_decision returns; reported only once the append lands.
+      // Named check-suffixed (r4-fixes U5), so worded once the append has an id.
       if (typeof payload.rule === 'string' && typeof payload.quote === 'string') {
-        fidelity = ruleFidelityWarning(ctx.foldState(slug).decisions.length + 1, payload.rule, payload.quote)
+        fidelity = ctx.foldState(slug).decisions.length + 1
       }
     }
     // A phase by number or in any case records the plan's own name, and a miss
@@ -3080,6 +3120,14 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
       source,
       actor: args.actor as Actor,
     })
+    let kept: string | null = null
+    if (quoteNote !== undefined) {
+      const ordinal = ctx.foldState(slug).decisions.findIndex((d) => d.id === event.id) + 1
+      ctx.appendAndProject(slug, 'note_added', { text: `The operator's words behind D${ordinal} (filed as a quote with no rule): ${quoteNote}` }, { session, source, actor: args.actor as Actor })
+      // The note is stored, so it names the bare ordinal; this line is agent-facing (r4-fixes U5).
+      const handle = suffixedHandle(ordinal, event.id)
+      kept = `quote: needs a rule — ${handle} filed without it and the quote kept as a note; to make it a rule, append a decision_logged with rule and quote, supersedes ${handle}`
+    }
     // A rule filed naming nothing it replaces (r3-fixes 2.5, D15).
     const link =
       event.payload.link_candidates !== undefined
@@ -3096,10 +3144,12 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
             return supersessionEcho(after, after.decisions.findIndex((d) => d.id === event.id) + 1)
           })()
         : {}
+    const fidelityLine = fidelity === null ? null : ruleFidelityWarning(suffixedHandle(fidelity, event.id), payload.rule as string, payload.quote as string)
     const extra = [
+      ...(kept !== null ? [kept] : []),
       ...(moved !== undefined ? [moved] : []),
       ...(echo.warning !== undefined ? [echo.warning] : []),
-      ...(fidelity !== null ? [fidelity] : []),
+      ...(fidelityLine !== null ? [fidelityLine] : []),
       ...(link !== null ? [link] : []),
     ]
     const warnings = lagWarnings(ctx, slug, args.type, extra)

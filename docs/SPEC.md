@@ -99,14 +99,19 @@ S30), and their greps returned whole thousand-char entries.
   Its full text … is in decisions/D<n>.md, or \`sofar show D<n>\`.`), then
   per decision `- D<n>·<sfx> <date> — (<marks>) rule: <rule>` with the rule
   whole and whitespace collapsed, or `… chose <head of 80>`. Marks are `until
-  <task>`, `supersedes D<m>`, `names D<m>, held`. A replaced decision is
-  `- D<n>·<sfx> — superseded by D<m>`, a retired one `- D<n>·<sfx> —
-  retired: <task> resolved`. Every decision stays listed; ordinals never
+  <task>`, `alias D<m>·<sfx>[, …]`, `supersedes D<m>·<sfx>`, `names
+  D<m>·<sfx>, held`. A replaced decision is `- D<n>·<sfx> — superseded by
+  D<m>·<sfx>`, a retired one `- D<n>·<sfx> — retired: <task> resolved`, each
+  followed by ` (alias …)` when it has aliases. A re-log is not listed on
+  its own line: its replacer's line carries it as an alias (see
+  §Merge-stable handles). Every other decision stays listed; ordinals never
   renumber.
 - decisions/D<n>.md: the generated header, then the decision a field a line
-  — `D<n> — <date>[ — replaced by D<m> | — retired: <task> resolved]`, then
-  `rule:`, `quote:`, `chose:`, `over:`, `because:`, `guard:`, `check:`,
-  `supersedes:`, `until:` as present. `sofar show D<n>` prints the same text.
+  — `D<n>·<sfx> — <date>[ — re-logged as D<m>·<sfx>, the same decision | —
+  replaced by D<m>·<sfx> | — retired: <task> resolved]`, then `rule:`,
+  `quote:`, `chose:`, `over:`, `because:`, `guard:`, `check:`, `alias:` (its
+  aliases) or `supersedes:`, `until:` as present. `sofar show D<n>` prints the
+  same text.
 - memory.md: its citation note and `One line per memory; its full text is in
   memory/M<n>.md, or \`sofar show M<n>\`.`, then `- M<n> <date> —
   [(supersedes M<m>) ][native mark]<head of 80>`, or `- M<n> — superseded by
@@ -688,7 +693,13 @@ outside every permission prompt the host has. A check runs only when:
 An applicable unapproved check is named, never run: `sofar: N decision
 check(s) bear on this work but are not approved on this clone, so none ran:
 [<slug> D<n>] \`<cmd>\`, … — the operator approves one with \`sofar check
---approve "<handle>"\``.
+--approve "<handle>"\``. On the AUTOMATIC surfaces, pre-commit and Stop, it
+prints at most once per clone per UTC day (r4-fixes U7): the first to print it
+writes the day to `<state>/checks/<key>.notice` (beside the trust file, same
+key), and later ones that day leave it out. Round 4 printed it on 52 of 104
+Claude commits, and agents relayed the same operator-only fix each time. With
+no state dir to hold the claim it prints as before. `sofar check` (not
+`--staged`), `--list` and `sofar doctor` name unapproved checks whenever asked.
 
 FAILURE LINE, on every surface: `sofar: check for [<slug> D<n>] failed
 (<how>): <last output line> — rule: "<rule>" — fix: <hint>`, the fix being,
@@ -767,22 +778,71 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   scopeHitsForSubject). A rule that names no edited path bears on nothing.
 - REQUIREMENT: a rule whose check is test-shaped needs that check's test
   segment. Any other rule needs the record's known suite: the runner head of
-  the session's own `last_test`, else the newest session's, run with no
-  arguments. With no known suite, such a rule asks nothing.
-- COVERING: a run covers a requirement when its runner head (the tokens before
-  the first path, file, flag, assignment or quoted argument; shell redirections
-  such as `2>&1` or `> out.log` dropped) is the same and it has no arguments,
-  or it names every argument the requirement names. A requirement with no
-  arguments is covered only by an argless run. A run counts only when its
-  event's ts is after the newest mtime among the edited files that exist.
-- VERDICT, per requirement: the newest covering run since the last edit passed
-  → satisfied; it failed → `sofar: \`<run>\` failed (exit N) after your last
-  edit, and it covers [<slug> D<n>] "<rule>"… — fix: <hint>`; none → `sofar:
-  [<slug> D<n>] "<rule>"… bear on files you edited, and no covering test passed
-  since your last edit — run \`<cmd>\` and fix any failure before stopping
-  (fix: <hint>)`, where <cmd> is the check's own command or the suite's head.
-  At most 5 lines, then a count line. Any line blocks: exit 2 with the lines on
-  stderr, which each host adapter delivers (§Cursor host, §Codex host).
+  the session's own `last_test`, else the newest session's, run on the
+  directories that command named and nothing else (r4-fixes U1): its files
+  and narrowing flags drop, and a root operand (`.`) leaves it argless. With
+  no known suite, such a rule asks nothing.
+- RUNNER HEAD AND OPERANDS (r4-fixes U1): shell redirections such as `2>&1` or
+  `> out.log` drop. The head is the tokens before the first path, file, flag,
+  assignment or quoted argument, or before the first bare word, not the
+  first token, that names a path that exists under the root. A runner word
+  never ends it: `vitest`, `jest`, `mocha`, `ava`, `tap`, `pytest`, `py.test`,
+  `rspec`, `phpunit`, `cypress`, `playwright`, `node`, and a subcommand right
+  after the word that takes it (`bun test`, `npm run`, `run test`, `uv run`,
+  `vitest run`, `cargo test`, `go test` and the other TOOL_TEST runners). So
+  `bun test tests` is `bun test` on `tests`, `bun test` stays a runner in a repo
+  with a `test/` directory, and `pytest test` runs that directory. An
+  argument is an OPERAND when it names a path that exists, or looks like one
+  (holds `/` or `.`). A directory operand includes everything under it, and
+  go's `./...` is the directory before it. Any other non-flag word NARROWS the
+  run, such as a positional name filter or a flag's value. So does a
+  NARROWING FLAG, given bare (its value is the next word) or as `flag=value`:
+  `-t`, `--testNamePattern`, `--test-name-pattern`, `-k`, `-m`, `--grep`,
+  `-g`, `--grep-invert`, `--filter`, `-run`, `-skip`, `--testPathPattern`,
+  `--testPathPatterns`, `--testPathIgnorePatterns`, `--shard`, `--project`,
+  `--deselect`, `--ignore`, `--ignore-glob` and `--exclude`. These take no
+  value: `--only`, `--onlyChanged`, `-o`, `--changed`, `--related`,
+  `--findRelatedTests`, `--lf`, `--last-failed`, `--only-changed` and
+  `-short`. The tree is read only here, at Stop. `suiteOf`, which projections
+  call, reads none: there a bare word stays in the head.
+- COVERING: a run covers a requirement when the heads are the same and one of
+  these holds. (1) The run has no arguments: the bare runner covers every ask
+  on it. (2) The run names every argument the requirement names, and if a
+  narrowing flag is among the run's, the run is exactly that command. (3) The
+  run carries neither a narrowing flag nor a narrowing word, and has
+  operands. Then each of the requirement's operands lies under one of the
+  run's directories, or equals one of its files. A requirement with no
+  operand, such as the suite, is covered by a run with a directory. A sibling
+  directory never covers. A run counts only when its event's ts is after the
+  newest mtime among the edited files that exist. A failed run never covers,
+  nor does one from before the last edit.
+- VERDICT: the newest covering run since the last edit decides each
+  requirement. If it passed, the requirement is satisfied. If it failed, the
+  line is `sofar: \`<run>\` failed (exit N) after your last edit, and it covers
+  [<slug> D<n>] "<rule>"… — fix: <hint>`. Every requirement that run covers
+  shares this one line. If no covering run exists, the line is `sofar:
+  [<slug> D<n>] "<rule>"… bear on files you edited, and no covering test
+  passed since your last edit — run \`<cmd>\` and fix any failure before
+  stopping (fix: <hint>)`, one line per runner. For a lone ask, <cmd> is the
+  check's own command or the suite's. For several asks it is the runner on
+  the directory that holds every path they name, or the bare runner when one
+  of them names no path or the paths share no directory. At most 5 lines,
+  then a count line. Any line blocks: exit 2 with the lines on stderr, which
+  each host adapter delivers (§Cursor host, §Codex host).
+- UNKNOWN OUTCOME (r4-fixes U1b; memory-lead D37 blocks only on a FAILED
+  bound check): a host whose PostToolUse proves nothing reports no test
+  outcome. That is Codex: codex 0.160.0 sends the command's output text and no
+  exit status, has no failure hook, and sofar records its runs without `ok`.
+  There a missing pass is UNVERIFIABLE, not unpassed. Every ask on such a host
+  folds into one line, where the first ask would have stood: `sofar:
+  [<slug> D<n>] "<rule>"… bear on files you edited, but this host reports no
+  test exit status, so sofar cannot verify their tests and does not hold the
+  stop — check them yourself: \`<cmd>\`, \`<cmd>\``. That line never holds
+  the stop. Only a known failure does, such as an interrupted run. The line
+  rides any block that fires anyway: the write-back block, a failure line, the
+  merge ask or the link ask. Alone, it exits 0 with
+  `{"systemMessage":"<line>"}` on stdout, which goes to the operator, once per
+  stop.
 - BOUNDS: `stop_hook_active` exits 0 first, so the gate asks once per stop. An
   unreadable index makes it say nothing (it is never the write-back gate).
 - BINDING (2.10c). A rule that guards or names a file but has no test-shaped
@@ -4507,8 +4567,9 @@ what the decision's own words match. A disagreement is HELD, never refused.
   other decision resolves to it, and the result's `warnings` says `<handle>
   is D<m> now — the record was renumbered (a merge), so its suffix decided`;
   otherwise it is refused (`invalid_input`, naming what D<n> is here). The
-  payload stores the bare `D<m>` plus the stamped `supersedes_id`. The digest
-  keeps bare `[D<n>]`.
+  payload stores the bare `D<m>` plus the stamped `supersedes_id`. Since
+  r4-fixes U5 every agent-facing line prints the suffixed handle too (see
+  §Merge-stable handles).
 - HOLD (writer only, `appendAndProject`, after `supersedes_id` is stamped):
   with T the target, the decision is HELD when (a) T is already replaced —
   offered: the live head of T's replacement chain, if this decision could
@@ -4556,6 +4617,52 @@ what the decision's own words match. A disagreement is HELD, never refused.
 - ABLATION: `SOFAR_LINK_HOLD=off` takes every named target as named, as
   before 2.6. Handles and the echo have no switch: neither changes what
   retires.
+
+## Merge-stable handles
+r4-fixes U5, the 0.34.1 render fix (the event-level fix is A8). Round 4 found
+two failures of the bare ordinal. `sofar bind` attaches a check by re-filing a
+rule word for word with `supersedes`, so 13–24% of a rep's decisions were such
+copies, and agents told the operator "D73 into D76". In r1 two worktrees both
+minted D62, and after the S18 merge the Stop gate's "[binwise D62]" named a
+different rule on main. Render only: no event, payload or fold change.
+
+- EVERY LINE (both engines): an agent-facing line names a decision by
+  `D<n>·<sfx>` (`<slug> D<n>·<sfx>` where it names its record), never the bare
+  ordinal: the Stop gate's asks and failure lines, the decision-check failure
+  and approval lines (`sofar check`, Stop, pre-commit, drive), the Stop link
+  asks, PostToolUse read and edit notices, the guard-crossed line, the lessons
+  and recall lines, the SessionStart digest (window, rejected ledger, standing
+  constraints, other records' rules, pending links) and its merge block,
+  decisions.md and the shards, the review packet, `sofar close`, `sofar
+  find`, and every write result (sofar_log_decision, sofar_end_session's
+  `decisions`, `retires` and `warnings`, `sofar event append`, `sofar bind`,
+  `sofar supersedes`). A write-back's decision has no id until appended, so
+  its handle is filled in after the append. Bare stays: what is stored (a
+  payload's `supersedes`, a verification's `decision`, the per-clone trust
+  file), the `Next ids: D<n>` line (no id yet), shard file names
+  (`decisions/D<n>.md`), another record's decision in a reversal refusal (the
+  labels tier carries no id), and a travel line's link target (as cited).
+  Where this SPEC writes a rendered line with `[D<n>]`, `[<slug> D<n>]` or
+  `[<handle>]` for a decision, the line prints the suffixed form.
+- READ BACK: `sofar check --approve` takes `D<n>`, `D<n>·<sfx>`, `<slug>
+  D<n>` or `<slug> D<n>·<sfx>`; `sofar bind`, `sofar show` and every write
+  path take `D<n>` or `D<n>·<sfx>`; a suffix decides when a merge moved the
+  ordinal. A prompt that names `D<n>·<sfx>`
+  recalls the decision that suffix names, not whatever `D<n>` is now.
+- RE-LOGS: a decision whose replacer (`superseded_by`) carries the same chose,
+  over, because, rule, quote, guard and until — only the check may differ —
+  is that replacer's ALIAS (core/handle.ts `relogAliases`; a chain folds
+  whole). decisions.md lists the pair as one line, the replacer's handle with
+  `alias <old>` as its mark; the digest window marks the replacer `alias
+  <old>` where it said `supersedes <old>`, and its `retired` count leaves
+  aliases out; the alias's shard says `re-logged as <new>, the same
+  decision`. `sofar bind` says `bound <slug> <old>: check \`<cmd>\` — the
+  same rule, now listed as <new> (alias <old>)`.
+- BUDGET: the digest's decision window is 1,025 chars (MAX_DECISIONS × the
+  5-char suffix over 1,000), so it holds the same lines it held with bare
+  handles; the other budgets are unchanged. The digest cache's cut keeps every
+  decision's id and both halves of a supersession whose rule, quote and until
+  agree whole (DIGEST_CACHE_VERSION 5).
 
 ## MCP tools (server name: sofar)
 
@@ -4693,15 +4800,23 @@ sofar_start_session.`
   write-back linkage breaks). That is the record-integrity misroute class,
   and the side-index workaround for it is already rejected.
 - sofar_end_session({session_id?, summary, next_action, tasks?, phases?,
-  decisions?, memories?, notes?, brief_append?}) → {ok, event_id, tasks_applied?,
+  decisions?, memories?, notes?, brief_append?}) → {ok, event_id, not_filed?, tasks_applied?,
   decisions?, memories?, warnings?, parallel_writebacks?, rebound?}  # the
   write-back. `session_id` is optional since memory-lead D3: omitted, the
   ACTIVE session (adopted or started) is ended; with none, `invalid_input`
   names the injected "Session:" line.
   THE BATCH (r1-fixes 2.1, D10 for `tasks`; memory-lead 1.1, D3 for the rest)
-  is planned and validated AS A WHOLE against one fold before any append —
-  one bad entry files nothing, not the good ones and not the write-back:
-  `invalid_input` naming the entry (`tasks[1] (9.9): …`). Entries:
+  is planned and validated against one fold before any append. A bad entry
+  is left out ALONE (r4-fixes U6): `not_filed` names it, its bad field and
+  the tool that files it once fixed (`tasks[1] (9.9): … — not filed; fix it
+  and file it with sofar_update_task`), and every valid entry and the
+  write-back still file; `not_filed` is omitted when every entry filed.
+  Round 4 lost 2 of 65 Claude write-backs whole to one entry each. An
+  `initiative` — accepted top-level though the schema lists none, or on a
+  decision — equal to the session's home changes nothing; any other refuses
+  the WHOLE write-back as `invalid_input` naming
+  `sofar_start_session({"session_id":"<id>","initiative":"<slug>"})`, since
+  filing the rest in the home would misfile it. Entries:
   `tasks` {task_id, status, note?, title?, phase?, waits_on?} — planned exactly as
   sofar_update_task (phase-lifecycle D7), so a `title` naming a different
   task than the one the plan holds is refused. A task the plan has
@@ -4714,12 +4829,17 @@ sofar_start_session.`
   entry with `add` is planned BEFORE every task and status entry
   (phase-lifecycle D10), so the same batch can add tasks into the phase it
   adds. `decisions` —
-  sofar_log_decision's arguments minus `initiative`, checked by its input
+  sofar_log_decision's arguments (`initiative` only as above), checked by its input
   validator, the decision_logged payload validator and the D31 reversal
   check against the record PLUS the batch's earlier decisions, and against
   every other record (D8) — a refusal naming another record's decision adds
   `a replacement for <slug> D<n> is filed with sofar_log_decision, not a
-  write-back`, since a batch entry takes no `initiative`. `memories`
+  write-back`, since a batch entry takes no `initiative`. A `quote` with no
+  `rule` (r4-fixes U6) files the decision without it, appends the quote as
+  note_added `The operator's words behind D<n> (filed as a quote with no
+  rule): <quote>` right after it (stored, so the bare ordinal), and adds a
+  `warnings` line naming, by its `D<n>·<sfx>` handle (r4-fixes U5), the
+  supersession that would make it a rule. `memories`
   and `notes` — non-empty strings, appended as memory_promoted {text} and
   note_added {text}. `brief_append` (r3-fixes 2.9, D6) — non-empty strings,
   each appended as one brief_appended {text}: an entry matching `P<n>` names
@@ -4733,8 +4853,9 @@ sofar_start_session.`
   BEFORE session_ended, with projections
   regenerated ONCE (on the session_ended append), so the fold the write-back
   is read by already counts them (task_done needs both halves,
-  session-driver D5). `tasks_applied` is present iff `tasks` was passed;
-  `decisions` lists the `D<n>` handles and `memories` the `<slug> M<n>`
+  session-driver D5). `tasks_applied`, present iff `tasks` was passed, counts
+  the entries that filed;
+  `decisions` lists the `D<n>·<sfx>` handles (r4-fixes U5) and `memories` the `<slug> M<n>`
   handles the batch took, and `warnings` carries the declared-waits_on
   lines and cite nudges (see "Declared waits_on on the write surfaces"
   below), then §Rule fidelity's warning for each batched rule, then the write-time judge's lines for the batched
@@ -4805,7 +4926,8 @@ sofar_start_session.`
   task: task_status_changed for a held task, task_added for an add (not the
   note's follow-up status change), the task in plan_updated for a replace.
   - A slug naming no record under .sofar/initiatives/ is `invalid_input`;
-    nothing is filed (for a write-back, the whole batch).
+    nothing is filed (for a write-back, that task alone, in `not_filed`;
+    the rest files — r4-fixes U6).
   - A handle naming nothing in an existing record — a task the plan AFTER
     the write lacks (so a task the same write adds binds), a `D<n>`/`M<n>`
     past the last ordinal, a superseded initiative whose successor is
@@ -4850,7 +4972,13 @@ sofar_start_session.`
   `Suggestions` names "7. Suggestions" (phase-lifecycle 6.1, D8, round-1
   loss row L11); a bare number or `Phase <n>`
   to the one phase labelled `Phase <n>` (position only when no phase name
-  carries such a label). The plan's own name is what gets recorded. The same
+  carries such a label); and by its number (r4-fixes U6): a reference that
+  opens with a phase's own label — a first word carrying its number, such
+  as `s24`, `s10 shelf life`, `P3` or `Phase 1 - Settle`, leading zeros
+  aside — names the one phase whose name opens with the same label,
+  whatever words follow. An added phase's own name never resolves by label,
+  so a new `s11 …` beside an old one is still the writer's to name. The
+  plan's own name is what gets recorded. The same
   resolution guards `sofar event append --type phase_status_changed`, whose
   miss is now refused the same way instead of minting a phase, and
   `--type task_added` (phase-lifecycle D7), which also refuses an id the
@@ -5021,10 +5149,15 @@ and an arg would append a session_ended into a log holding no
 session_started for that id — the split record-integrity 1.1-1.4 exists to
 eliminate, in its worst form (the record holding the work carries no
 wrap-up, the record holding the wrap-up carries no work), while leaving the
-Stop gate armed in the home the write-back skipped. The CLI dialect has no
-re-homing and no session home at all: `sofar event append [slug]` resolves
-its optional leading slug through the branch, so MCP-less tools pass that
-slug on EVERY append, the session_ended one above all.
+Stop gate armed in the home the write-back skipped. Since r4-fixes U6 an
+`initiative` equal to the home is tolerated, unlisted, and changes nothing;
+any other refuses the write-back naming the re-home — it never routes. The
+CLI dialect resolves `sofar event append [slug]`'s optional leading slug
+through the branch, so MCP-less tools pass that slug on EVERY append — except
+a session_ended (r4-fixes U6): with no slug it files in the session's home
+when one is registered, and a slug naming another record is refused, naming
+both re-homes (sofar_start_session, and `sofar event append <slug> --type
+session_started --session <id> --payload '{"tool":"<tool>","rehome":true}'`).
 HOOK writes are pinned too (record-integrity 1.2, D1). A hook runs in a
 fresh process where the in-memory pin above is always null, so before this
 it resolved by branch alone — and a branch switch during live work sent
@@ -5274,12 +5407,15 @@ fires, and a Codex session is Tier 3 (§Host tiers).
 - PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, Cursor
   `preToolUse` matcher `Shell`, Codex `PreToolUse` matcher `Bash`, its entry
   added under D39, which supersedes agents-parity D5 for it alone) → `sofar
-  event pre-tool`. It rewrites ONE kind of call: a single shell segment whose
-  program is `cat`, `head`, `tail`, `less` or `more` and whose every operand
-  resolves to a record's `plan.md`, `decisions.md`, `memory.md` or
+  event pre-tool`. It rewrites ONE kind of call, a whole-file read: a single
+  shell segment whose program is `cat`, `less` or `more` and whose every
+  operand resolves to a record's `plan.md`, `decisions.md`, `memory.md` or
   `events.jsonl`, with no `|`, `&`, `;`, `<`, `>`, backtick, `$`, `(`, `)`,
-  backslash, double quote or newline anywhere in the command. `head`/`tail`
-  counts and `cat -n` are dropped; any other option leaves the call alone. It
+  backslash, double quote or newline anywhere in the command. `cat -n` is
+  dropped; any other option leaves the call alone. A read with a line or byte
+  limit — `head`, `tail`, `head -c`, `sed -n` — is never rewritten (r4-fixes
+  U4): the view is the whole file, and round 4's rewritten `tail -25
+  plan.md` returned 5,094 chars where the original returned 2,076. It
   becomes `sofar read --session '<id>' '<operand>'…`, the operands as typed:
   Claude Code and Codex get `{"hookSpecificOutput":{"hookEventName":"PreToolUse",
   "permissionDecision":"allow","updatedInput":{…the call's input, command
@@ -5972,7 +6108,7 @@ Shims contain no logic — they invoke the sofar CLI.
 
 ## CLI
 ROOT (r3-fixes 2.12, D12). Every repo-scoped command and hook without `--root`
-serves the nearest ancestor of its working directory that holds a `.sofar/`
+— except `sofar init`, below — serves the nearest ancestor of its working directory that holds a `.sofar/`
 directory, looked for only inside the git repo that directory is in, up to and
 including its top (the first ancestor with a `.git` entry). Outside a repo, or
 with no record in it, the working directory itself, as before. `--root` is
@@ -5981,7 +6117,7 @@ follows its `cd`. In round 3, with cwd as the root, every hook silently did
 nothing from `apps/web`: Claude Write/Edit capture was 0 of 156 from a
 subdirectory, against 33 of 33 from the root.
 
-- `sofar init [--agents <list>] [--[no-]prompt-capture]` — create .sofar/, write repo.md stub, install hook shims
+- `sofar init [--agents <list>] [--refresh] [--[no-]prompt-capture]` — create .sofar/, write repo.md stub, install hook shims
   (including git's own `.git/hooks/prepare-commit-msg`, never clobbering —
   commit-attribution D7, §Hooks)
   + .claude/settings.json hooks block, emit .mcp.json registration, the
@@ -6014,25 +6150,46 @@ subdirectory, against 33 of 33 from the root.
   turns capture back on. A run that changes it reports one line. `.sofar/`,
   `.gitattributes` and the git hook are shared and always installed. `--agents` takes
   `claude-code`, `cursor`, `codex` comma-separated, or `all`; an unknown name
-  exits 1 and writes nothing. Without the flag, when stdin and stderr are a
-  terminal (not CI, not TERM=dumb), init asks with a multi-select drawn on
+  exits 1 and writes nothing. SELECTION (r4-fixes R12, implementing r1-fixes
+  D35; supersedes D36's non-interactive "all"): the hosts a run writes are
+  within `--agents` ?? the wired set ?? a refusal. The WIRED SET is read from
+  the files themselves, as `sofar doctor` reads it (its PER AGENT check). A repo
+  already wired is rewired for exactly that set in every mode: `--refresh`
+  (what every upgrade notice names) and a run with no terminal take it as it
+  is, and the terminal picker pre-selects it alone — an agent merely installed
+  on the machine is never added by Enter (the Cursor incident, r3-fixes 2.15).
+  `--refresh` with `--agents` exits 1, and `--refresh` with nothing wired
+  refuses like a first init. A FIRST init (nothing wired), when stdin and
+  stderr are a terminal (not CI, not TERM=dumb), asks with a multi-select drawn on
   stderr — arrows or j/k move, space toggles, `a` toggles all, enter
   confirms (never on an empty selection), esc or ctrl-c exits 1 with nothing
   written — pre-selecting the agents found on this machine (binary on PATH
-  or `~/.claude`, `~/.cursor`, `~/.codex`) or already wired in the repo, and
-  every agent when none is found. NON-INTERACTIVE DEFAULT: with no flag and
-  stdin or stderr not a terminal, or `CI` set, or TERM=dumb, init never
-  prompts and sets up EVERY agent — the same tree an r1-fixes build wrote
-  before 7.1, which since Phase 6 includes `.cursor/hooks.json` and
-  `.cursor/mcp.json` beside Claude Code's files and AGENTS.md. A harness that
-  must control which agents' config a repo carries passes `--agents`
-  explicitly, and must pass it whenever it runs init under a pseudo-terminal,
-  where the picker would wait for keys. Builds before 7.1 (0.32.0,
+  or `~/.claude`, `~/.cursor`, `~/.codex`), and every agent when none is
+  found. With no terminal (stdin or stderr not a terminal, or `CI` set, or
+  TERM=dumb) a first init without `--agents` exits 1 and writes nothing,
+  naming the agents found on this machine and the exact command, `sofar init
+  --agents <found ids>` (plus `--root` when one was given); it never guesses.
+  A harness that must control which agents' config a repo carries passes
+  `--agents` explicitly, and must pass it whenever it runs init under a
+  pseudo-terminal, where the picker would wait for keys. ROOT: init serves
+  `--root` as given, else the git toplevel of the working directory (the
+  nearest ancestor with a `.git` entry), else the working directory — never
+  the record found by r3-fixes D12's walk-up, so a run from `packages/x/`
+  wires the repo, and a `.sofar/` under `packages/x/` is not where it lands.
+  WIRING JOURNAL (r4-fixes R12): every run that wrote anything appends one
+  JSON line to `<state>/wiring/<cloneKey>.jsonl` (outside the repo, never
+  committed; nothing when the state dir resolves inside the clone): `ts`,
+  `sofar` (version), `root`, `cwd`, `argv`, `tty`, `selection` (`flag`,
+  `refresh`, `wired` or `picker`), `agents`, `result` (`ok` or `aborted`)
+  and `files`, each `{path, op: write|remove, sha256}` with the path
+  root-relative when inside it. It is an audit trail, not a selection store:
+  nothing reads it to decide what to wire. Builds before 7.1 (0.32.0,
   0.33.0-rc.1) reject `--agents` as an unknown option (exit 1). Re-running
   with another agent adds that agent's files and leaves the others' bytes
   alone. The shims live in `.claude/hooks/` whenever Claude Code is picked or
   any hook config already runs them from there; a repo without Claude Code
-  keeps them in `.cursor/hooks/sofar/`, run as
+  keeps them in `.cursor/hooks/sofar/` (also when a run picks neither, as
+  `--agents codex` on a Cursor repo: r4-fixes R12), run as
   `$CURSOR_PROJECT_DIR/.cursor/hooks/sofar/<shim>`, so a Cursor-only repo
   carries no `.claude/`. Adding Claude Code later moves them: Cursor's
   entries are repointed in place (other keys kept) even when Cursor was not
@@ -6141,8 +6298,15 @@ subdirectory, against 33 of 33 from the root.
   agents-parity 2.1), checked for its six shims, its six hooks.json entries
   (five until memory-lead D39 added PreToolUse) and its sofar server, in `.codex/config.toml` or the user's config.toml
   (agents-parity 2.2) — each unwired agent gets one ok line naming
-  `sofar init --agents <id>`, a partial install's repair hint names its own
-  agents, and a record with no agent wired at all FAILs. A passing Codex
+  `sofar init --agents <id>`, a wired repo's repair hint (and the stale
+  protocol block's) names `sofar init --refresh`, which rewires exactly the
+  wired set (r4-fixes R12), and a record with no agent wired at all FAILs.
+  The HOT PATH line names the implementation hooks run on; when this is a
+  global npm install whose own `bin/sofar-core` is still the JavaScript stub
+  — its install script did not run, npm 12's default — it WARNs that node
+  boots before the native core on every hook and names `npm config set
+  allow-scripts=sofar.sh --location=user` and `npm install -g sofar.sh
+  --allow-scripts=sofar.sh` (r4-fixes U9; Windows keeps the stub by design). A passing Codex
   check means wired, not running: doctor cannot see whether Codex trusts the
   project or sofar's hooks, because the file holding that state is
   unverified (§Codex host). Plus the MERGE-RULES check (r3-fixes 2.14):
@@ -6216,7 +6380,12 @@ subdirectory, against 33 of 33 from the root.
   (5) decision guards — every crossing in `guard_violations`
   (§Decision guards), one WARN naming `[D<n>]`, the subject, and the rule
   VERBATIM. Always WARN and never FAIL: the audit's exit code is the very
-  exit code D3 forbids a guard from moving; (6) repo memory — two halves, both checked against the
+  exit code D3 forbids a guard from moving. In the same section, one WARN
+  names the decision checks in force that this clone has not approved
+  (`N decision check(s) not approved on this clone, so none of them runs at
+  Stop or pre-commit: [<slug> D<n>] \`<cmd>\`, …`, hint `sofar check
+  --approve "<handle>"`), every run — the surface the once-a-day automatic
+  line defers to (r4-fixes U7; §Decision checks (memory-lead 2.3, D9, D10)); (6) repo memory — two halves, both checked against the
   hand-written `.sofar/repo.md`, the one file every SessionStart injects.
   OBSERVED: every decision the record TREATS as repo-wide (§Record graph
   `repoGeneral`: cited FROM another initiative). DECLARED: every fact promoted
@@ -6588,7 +6757,10 @@ subdirectory, against 33 of 33 from the root.
   surface for MCP-less tools — validate payload, append ONE event,
   regenerate projections, print {ok, event_id} JSON; any failure exits 1
   with the typed-error JSON and appends nothing (added Phase 5, BD30; slug
-  resolves like status). A `session_started` for a session (other than
+  resolves like status, except a session_ended's, which follows the
+  session's home — r4-fixes U6). A decision_logged with a `quote` and no
+  `rule` files without it and appends the quote as a note_added after it,
+  with a `warnings` line (r4-fixes U6). A `session_started` for a session (other than
   "cli") already registered in that record appends nothing and prints
   {ok: true, event_id: <the standing registration's id>, already_started:
   true}; the payload is still validated first (r1-fixes 1.2). `--source`
@@ -6631,7 +6803,9 @@ subdirectory, against 33 of 33 from the root.
   already printed to that session context (the told set holds their hash)
   print `==> <path>: unchanged since you read it this session — … <==`
   instead. `--full`, and any path that is not a projection, prints the file as
-  written; a missing file is named on stderr with exit 1.
+  written; a missing file is named on stderr with exit 1. Never more than
+  `cat` (r4-fixes U4): files are joined as `cat` joins them, and a pointer or
+  `unchanged` line longer than the file prints the file instead.
 - `sofar show <ids…> [--initiative <slug>]` (memory-lead 4.3 part D, D25) —
   print record entries whole by handle, from the fold: `D<n>` (or
   `D<n>·<sfx>`) as its date, replacement or retirement, rule, quote, chose,
@@ -6880,7 +7054,7 @@ from the sync client's credentials.json so a credential rewrite can never
 lose a preference. Default false; an unreadable config is not consent. When
 on, the refresh child performs the install itself and records
 `installed: {version, at}`, which turns the notice into "auto-upgraded to
-X — restart your agent, and run `sofar init` in each repo to refresh its
+X — restart your agent, and run `sofar init --refresh` in each repo to refresh its
 wiring". That marker is dropped once the running binary catches up, so the
 reminder cannot outlive its cause. Installing stays a thing the user chose
 because an upgrade replaces the binary AND leaves repo wiring stale (hook
@@ -7213,12 +7387,30 @@ stay the underlying derivation's, and exit codes are styling-independent.
   with no verify command records nothing and renders as before.
 - **Read-path latency budget (r1-fixes D18):** `npm run bench:read-paths --
   --baseline <previous release cli.js> --candidate <RC cli.js> --fixture
-  repo|i1000-10mb` times session-start, user-prompt, stop and statusline
-  end to end, baseline and candidate interleaved ABAB, n≥25, and exits 1
-  when any candidate p50 exceeds the baseline's by more than 10%. TWO
+  repo|i1000-10mb [--legs ts,native]` times session-start, user-prompt, stop
+  and statusline end to end AS HOSTS RUN THEM, baseline and candidate
+  interleaved ABAB, n≥25, and exits 1 when any candidate p50 exceeds the
+  baseline's by more than 10% on any leg. ENTRY: each side's OWN hook shim
+  (the `session-start.sh`, `user-prompt-submit.sh` and `stop.sh` bytes its
+  `sofar init` writes) and `sofar statusline` through its bin, on a PATH
+  whose `sofar` and `node` are that side's and which holds no other sofar
+  install (`--entry shim`, the default; `--entry cli` times `node cli.js
+  <hook>`, to split a shim delta from an engine one). LEGS (r4-fixes U8):
+  `SOFAR_CORE` is pinned on each side and the gate runs per engine, each
+  leg comparing one engine with itself — `ts` (`SOFAR_CORE=0` on both
+  sides, the TypeScript hot path) and `native` (each side's own core: the
+  baseline's installed `@sofar.sh/core-<platform>-<arch>` package, a
+  checkout's own `target/release/sofar-core` and never the published
+  package its node_modules may hold; `--baseline-core` /
+  `--candidate-core` name one). Before a leg is timed an engine witness
+  runs every hook once per side and records which engine answered; when a
+  hook ran different engines on the two sides, or not the leg's, the
+  script refuses to compare and exits 4 — a delta between two engines is
+  not a regression (the 0.34.0 cut timed an npm baseline's native core
+  against a checkout's TypeScript and read +70–79%). TWO
   fixtures are pinned, named as rust-core's conformance perf cells are
   (`SOFAR_PERF_CELLS=repo,i1000-10mb` there), and the gate must pass on
-  BOTH: `repo` — this repository's own record (55 initiatives, 0.6 MB
+  BOTH, on BOTH legs: `repo` — this repository's own record (55 initiatives, 0.6 MB
   bound log on main, a registered session id passed with `--session`), and
   `i1000-10mb` — 1,000 initiatives sharing the `.sofar/` with a ≥10 MB
   bound log (36–41k events: a plan, ten decisions with five guarded,
@@ -7226,21 +7418,26 @@ stay the underlying derivation's, and exit codes are styling-independent.
   sibling leaving a session open on a path the bound record also edits),
   which the script generates deterministically so a scale-only regression
   cannot hide behind a small-record pass. PROCEDURE: interleaved, n ≥ 25,
-  the same record and session id for both binaries, against the pinned
-  0.32.0 as-shipped baseline (`~/.bench/sofar-0.32.0`); the 1-minute load
+  the same record and session id for both sides, against the PREVIOUS
+  RELEASE installed from npm under a scratch prefix (`npm install --prefix
+  ~/.bench/sofar-<previous> sofar.sh@<previous>`, never the operator's
+  global install; its platform package is the native leg's baseline core);
+  the 1-minute load
   average is recorded at start and end (the script prints it and writes it
   with `--record <file.json>`) — a loaded machine is fine, since
   interleaving hits both binaries with the same load, but a load average
   that changes by more than 50% during the run is a repeat (exit 3), never
   a verdict. An RC CHECKLIST ITEM (4.2): hosted runners' noise exceeds the
   ±10% budget, so the budget gate runs by hand and both tables (`--record`
-  JSON) go in the RC's task note as evidence, together with the ablation
+  JSON, which names each leg and the engines it witnessed) go in the RC's
+  task note as evidence, together with the ablation
   switch the round-2 addendum needs (`SOFAR_LESSONS=off`; D20: priced
   separately, never summed). TRIPWIRE: the same script with `--budget 0.5
   --record` is the loose CI check — hosted noise cannot hide a 2×
   regression, and a manual-only gate is one forgotten step from silence.
-  This repository has no CI today; until the operator adds one, the
-  tripwire runs as the first step of the RC checklist.
+  It is the `read-paths` job of `.github/workflows/ci.yml`, run on
+  dispatch with the previous release as its baseline input: macOS runs
+  both legs (it cargo-builds the candidate's core), Linux the `ts` leg.
   Attribution per lever is by ablation (D5, D20): a lever's latency cost is
   stated beside its predicted gain, and one over budget gets cheaper or a
   flag defaulted off. Measured for the r1-fixes RC against 0.32.0 on
@@ -8477,7 +8674,7 @@ stay the underlying derivation's, and exit codes are styling-independent.
   TypeScript surface, and the refresh claim is made by the stub after the
   core has rendered a `statusline` or `status`.
 - **Rust core, distribution (rust-core 3.2):** the native core ships as one
-  npm package per platform (`sofar-core-<platform>-<arch>` for darwin
+  npm package per platform (`@sofar.sh/core-<platform>-<arch>` for darwin
   arm64/x64, linux x64/arm64 and win32 x64), each holding the binary and
   nothing else, generated by `packaging/npm/emit.mjs` and declared as
   optionalDependencies of sofar.sh at sofar.sh's exact version; `--check`
@@ -8699,12 +8896,32 @@ stay the underlying derivation's, and exit codes are styling-independent.
   leaves `.claude/settings.json`, `.mcp.json` and CLAUDE.md byte-identical;
   adding Claude Code to a Cursor repo leaves every Cursor event with exactly
   the settings.json command, removes `.cursor/hooks/`, and a following
-  all-agent init changes nothing. With no terminal and no flag, init writes
-  every agent's files (the pre-7.1 tree). In a pseudo-terminal the picker
-  pre-selects found agents, toggles on space, confirms on enter, and ctrl-c
-  exits 1 with nothing written; an unknown `--agents` name exits 1. doctor on
+  all-agent init changes nothing. In a pseudo-terminal the picker
+  pre-selects found agents on a first init and only the wired ones on a
+  rerun, toggles on space, confirms on enter, and ctrl-c exits 1 with nothing
+  written; an unknown `--agents` name exits 1. doctor on
   a Cursor-only repo passes with no `.claude/settings.json` line and names
   Claude Code as not set up.
+- **Init selection (r4-fixes R12, U3):** a property test over (wired set ×
+  `--agents` × terminal or not × cwd at the root or two levels down × first
+  run or rerun × `--refresh`) holds that the hosts written are within
+  `--agents` ?? the wired set ?? a refusal (an explicit `--agents` may still
+  repoint an already-wired Cursor onto Claude Code's shims), that a refusal
+  exits 1 and changes no byte, that nothing lands under the subdirectory, and
+  that the wiring journal names exactly the files each writing run changed.
+  A Claude-only repo on a machine with `~/.cursor` (a scratch HOME) gains no
+  `.cursor/*` after a non-TTY `sofar init`, an interactive Enter, `sofar init`
+  from `packages/x/` (also with a `.sofar/` there), or `sofar upgrade`
+  followed by the `sofar init --refresh` it prints. A first non-TTY init
+  names the agents found and `sofar init --agents <ids>`.
+  Tests: test/init-selection.test.ts.
+- **Approval notice (r4-fixes U7):** two commits in a session show the
+  unapproved-check line at most once; the next UTC day shows it again;
+  `sofar check` and `sofar doctor` show it every time.
+- **npm 12 install (r4-fixes U9):** doctor WARNs with the allow-scripts lines
+  when a global install's `bin/sofar-core` is still the JavaScript stub, and
+  not for the binary, a source checkout or Windows; the README installs with
+  `--allow-scripts=sofar.sh`.
 - **Codex hooks (agents-parity 2.1):** `.codex/hooks.json` uses only keys and
   events codex 0.154.0 parses (contract fixture `config_shape`). On the 0.154.0
   payload fixtures dispatched with `--host codex`:
@@ -8991,6 +9208,27 @@ stay the underlying derivation's, and exit codes are styling-independent.
   `--full` is the file as written. The rewrite table
   (crates/sofar-core/tests/fixtures/js-read-rewrite.json) is asserted by both
   engines. Tests: test/read-rewrite.test.ts.
+- **Whole-file reads only (r4-fixes U4):** `tail -25`, `tail -n 15`, `head`,
+  `head -n 50`, `head -c 20000` and `sed -n` over a projection, and any
+  compound form (a pipe, `&&`, `;`, a subshell, `bash -c`), pass untouched on
+  Claude Code, Codex and Cursor, as does the Read tool with or without an
+  offset or limit; `syn.read-gate` holds the same in both engines. Over a
+  record, `sofar read` of the projections prints exactly `cat`'s bytes on a
+  first read and fewer on a re-read. Replaying round 4's 9 rewrites, each
+  against the record its session opened on, returns no more bytes than the
+  original command.
+- **Write-backs file every valid entry (r4-fixes U6):** a bad task, phase,
+  decision or memory entry is left out alone and named in `not_filed` with
+  the tool that files it; the rest and the write-back file, and later
+  `D<n>`/`M<n>` handles count only what filed. A quote with no rule is kept as
+  a note. The home's own `initiative` (top-level through the MCP server,
+  which still lists no such property, or on a decision) is accepted; another
+  refuses the write-back whole, naming the sofar_start_session call, and
+  files nothing in either record. `sofar event append` does the same: a
+  quote with no rule is kept as a note, a phase resolves by its label, and a
+  session_ended follows the session's home without a slug and is refused
+  with a slug naming another record. Round 4's 5 refused payloads file with
+  none refused whole. Tests: test/writeback-isolation.test.ts.
 - **Index and shards (memory-lead 4.3 part A, D45):** decisions.md lists
   every decision as one line, a replaced one as its handle and successor and a
   retired one as its handle and task; decisions/D<n>.md holds it whole and

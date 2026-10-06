@@ -1,11 +1,11 @@
 {
-  "name": "sofar-core-darwin-arm64",
-  "version": "0.33.0-rc.2+trunk",
+  "name": "@sofar.sh/core-darwin-arm64",
+  "version": "0.35.0-dev+trunk",
   "description": "sofar's native hot-path core (sofar-core) for darwin-arm64. Installed by sofar.sh as an optional dependency; never depend on it directly.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jithinio/sofar.git",
-    "directory": "packaging/npm/sofar-core-darwin-arm64"
+    "directory": "packaging/npm/core-darwin-arm64"
   },
   "homepage": "https://sofar.sh",
   "license": "MIT",

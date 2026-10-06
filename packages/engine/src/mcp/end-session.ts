@@ -19,7 +19,7 @@ import { homeInitiative, ToolError, type ToolContext } from './context'
 import { bindNudge, fitQuote, judgeOptionsFor, quoteFitWarning } from './log-decision'
 import { planPhaseAdd, resolvePhaseOrThrow } from './update-phase'
 import { briefEntryText, uncapturedWarning } from '../core/prompt-buffer'
-import { bareSupersedes } from '../core/handle'
+import { bareSupersedes, suffixedHandle } from '../core/handle'
 import { pendingLinkLine, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { declareTaskWaits, heldTasks, planTaskChange } from './update-task'
 import { citeNudges, homeViewOf } from './waits-on'
@@ -61,6 +61,12 @@ export interface ParallelWritebackPeer extends ParallelWriteback {
  * write tool already returns more than `{ok, event_id}`.
  */
 export interface EndSessionResult extends ToolOkResult {
+  /**
+   * Entries left out of the write-back (r4-fixes U6), each naming its entry,
+   * the bad field and the tool that files it once fixed. Omitted when every
+   * entry filed; everything else in the call did.
+   */
+  not_filed?: string[]
   /** Overlapping sessions whose next_action differs from the one just written. */
   parallel_writebacks?: ParallelWritebackPeer[]
   /** The branch binding this write-back moved. Omitted when nothing moved. */
@@ -81,26 +87,70 @@ export interface EndSessionResult extends ToolOkResult {
   warnings?: string[]
 }
 
+/**
+ * A batch decision's handle before it has an id (r4-fixes U5): `\u0000D<k>\u0000`
+ * for the k-th decision of the batch, swapped by endSessionFiled for its
+ * check-suffixed handle once appended. Never leaves this module.
+ */
+const draftToken = (k: number): string => `\u0000D${k}\u0000`
+const DRAFT_TOKEN_RE = /\u0000D(\d+)\u0000/g
+
 interface PlannedBatch {
   appends: Array<{ type: string; payload: Record<string, unknown> }>
   decisions: string[]
   memories: string[]
   warnings: string[]
+  /** Entries left out (r4-fixes U6): each names its entry, the bad field and the repair. */
+  notFiled: string[]
+  /** What did file, for the write-time judges: task indexes, memories with their handles, notes. */
+  filed: { tasks: number[]; memories: Array<{ label: string; text: string }>; notes: string[] }
   /** The fold the batch was planned against, and its decisions as the judge reads them (typed-judge 3.1). */
   before: InitiativeState
   drafts: DecisionDraft[]
 }
 
+/** The tool that files one entry of each write-back array alone — the repair a left-out entry names. */
+const ENTRY_TOOL = {
+  phases: 'sofar_update_phase',
+  tasks: 'sofar_update_task',
+  decisions: 'sofar_log_decision',
+  memories: 'sofar_remember',
+  notes: 'sofar_add_note',
+  brief_append: 'sofar_end_session brief_append',
+} as const
+
+const isInvalid = (err: unknown): err is ToolError => err instanceof ToolError && err.code === 'invalid_input'
+const errorText = (err: ToolError): string => (err.errors !== undefined && err.errors.length > 0 ? err.errors.join('; ') : err.message)
+
+/**
+ * A write-back's `initiative` (r4-fixes U6), top-level or on a decision: the
+ * session's own home is accepted and changes nothing; any other refuses the
+ * WHOLE write-back, because filing the rest in the home would misfile it. The
+ * write-back still takes no initiative (session-orientation D1): the repair
+ * is to move the session.
+ */
+function crossInitiative(home: string, sessionId: string, where: string, initiative: unknown): void {
+  if (initiative === undefined || initiative === home) return
+  const target = typeof initiative === 'string' ? initiative : String(initiative)
+  const error = `${where}: "${target}" is not this session's record ("${home}") — a write-back files where its session lives`
+  const repair = `re-home first with sofar_start_session({"session_id":"${sessionId}","initiative":"${target}"}), then write back`
+  throw new ToolError('invalid_input', `${error}; ${repair} — nothing was filed`, [error, repair])
+}
+
 /**
  * Plan and validate a write-back's batch against ONE fold (memory-lead 1.1,
- * D3) — nothing here appends. Every refusal names its entry, and each entry
- * obeys the contract of the tool it stands in for:
+ * D3) — nothing here appends. Each entry obeys the contract of the tool it
+ * stands in for, and since r4-fixes U6 a bad entry is left out ALONE: it is
+ * named in `notFiled` with its bad field and the tool that files it once
+ * fixed, and every valid entry still files. Round 4 lost 2 of 65 Claude
+ * write-backs whole to one entry each (a quote without a rule; the home's own
+ * `initiative`). Only a different `initiative` still refuses the batch.
  *
  *  - tasks: planTaskChange, exactly as sofar_update_task — a task the plan
  *    has → task_status_changed (a `title` naming a different task is an id
- *    collision, refused); one it lacks WITH a `title` → task_added into
- *    `phase` (name or number, default the active phase); WITHOUT one it is
- *    refused — the fold would skip the change with a warning, a status
+ *    collision, left out); one it lacks WITH a `title` → task_added into
+ *    `phase` (name, number or label, default the active phase); WITHOUT one
+ *    it is left out — the fold would skip the change with a warning, a status
  *    silently lost at the one moment nobody is watching.
  *  - phases: resolved like sofar_update_phase (D32); an unchanged status and
  *    note files nothing, as there. One with `add` is planned FIRST
@@ -108,23 +158,42 @@ interface PlannedBatch {
  *    tasks and status changes can name the phase it adds.
  *  - decisions: sofar_log_decision's argument contract, then the payload's,
  *    then the D31 reversal check against the record PLUS the batch's earlier
- *    decisions — a batch cannot reverse itself silently either.
+ *    decisions — a batch cannot reverse itself silently either. A `quote`
+ *    with no `rule` (U6) files the decision without it and keeps the quote as
+ *    a note: the operator's words survive, and nothing claims they are a rule.
  *  - memories, notes: non-empty text (the tool-input validator's check).
  *  - brief_append (r3-fixes 2.9, D6): one brief_appended each, LAST. A `P<n>`
  *    this session captured is copied from the prompt buffer; one it never
- *    captured is a warning and files nothing, never a refusal of the batch
- *    (2.8) — the agent still holds the words and can append them.
+ *    captured is a warning and files nothing (2.8) — the agent still holds
+ *    the words and can append them.
  */
 function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, sessionId: string): PlannedBatch {
+  crossInitiative(slug, sessionId, 'initiative', args.initiative)
+  ;(args.decisions ?? []).forEach((d, i) => crossInitiative(slug, sessionId, `decisions[${i}].initiative`, (d as { initiative?: unknown }).initiative))
+
   const state = ctx.foldState(slug)
   const appends: PlannedBatch['appends'] = []
-  const refuse = (where: string, errors: readonly string[]): never => {
-    throw new ToolError('invalid_input', `${where}: ${errors.join('; ')} — nothing was filed`, [...errors])
+  const notFiled: string[] = []
+  const refuse = (errors: readonly string[]): never => {
+    throw new ToolError('invalid_input', errors.join('; '), [...errors])
   }
-  const check = (where: string, type: string, payload: Record<string, unknown>): void => {
+  const check = (type: string, payload: Record<string, unknown>): void => {
     const result = validatePayload(type, payload)
-    if (!result.ok) refuse(where, result.errors)
+    if (!result.ok) refuse(result.errors)
     appends.push({ type, payload })
+  }
+  /** Plan one entry; a refusal leaves out that entry alone, with its repair. */
+  const entry = (where: string, kind: keyof typeof ENTRY_TOOL, plan: () => void): boolean => {
+    const mark = appends.length
+    try {
+      plan()
+      return true
+    } catch (err) {
+      if (!isInvalid(err)) throw err
+      appends.length = mark
+      notFiled.push(`${where}: ${errorText(err)} — not filed; fix it and file it with ${ENTRY_TOOL[kind]}`)
+      return false
+    }
   }
 
   // Phase adds go first (phase-lifecycle D10), so every other entry —
@@ -133,14 +202,15 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
   const phases: PhaseState[] = [...state.phases]
   const phaseChanges = args.phases ?? []
   phaseChanges.forEach((ph, i) => {
-    const where = `phases[${i}] (${ph.phase})`
-    if (ph.add !== true) {
-      if (ph.after !== undefined) refuse(where, ['after: only with add: true'])
-      return
-    }
-    const planned = planPhaseAdd(phases, slug, ph)
-    check(where, 'phase_added', planned.payload)
-    phases.splice(planned.at, 0, { name: planned.payload.phase as string, status: ph.status, tasks: [] })
+    entry(`phases[${i}] (${ph.phase})`, 'phases', () => {
+      if (ph.add !== true) {
+        if (ph.after !== undefined) refuse(['after: only with add: true'])
+        return
+      }
+      const planned = planPhaseAdd(phases, slug, ph)
+      check('phase_added', planned.payload)
+      phases.splice(planned.at, 0, { name: planned.payload.phase as string, status: ph.status, tasks: [] })
+    })
   })
   const view: InitiativeState = phases.length === state.phases.length ? state : { ...state, phases }
 
@@ -149,102 +219,178 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
   const held = heldTasks(state)
   const tasks = args.tasks ?? []
   // Declared links (linked-context 2.3) bind against the plan the whole
-  // batch leaves behind; an unknown slug refuses the batch like any entry.
-  const declared = declareTaskWaits(ctx, slug, state, tasks, held)
-  let nextDeclared = 0
+  // batch leaves behind. An unknown slug leaves out its own task: the batch
+  // is bound whole first, and only on a refusal one task at a time.
+  const { handles, warnings: declaredWarnings, refused } = declareEach(ctx, slug, state, tasks, held)
+  const filedTasks: number[] = []
   tasks.forEach((t, i) => {
-    const waits = t.waits_on !== undefined ? declared.handles[nextDeclared++] : undefined
-    const planned = planTaskChange(view, slug, t, held, waits)
-    if (!planned.ok) return refuse(`tasks[${i}] (${t.task_id})`, planned.errors)
-    appends.push(...planned.appends)
-    if (!held.has(t.task_id)) held.set(t.task_id, t.title!)
+    const where = `tasks[${i}] (${t.task_id})`
+    const waitsRefused = refused.get(i)
+    if (waitsRefused !== undefined) {
+      notFiled.push(`${where}: ${waitsRefused} — not filed; fix it and file it with ${ENTRY_TOOL.tasks}`)
+      return
+    }
+    const filed = entry(where, 'tasks', () => {
+      const planned = planTaskChange(view, slug, t, held, handles.get(i))
+      if (!planned.ok) refuse(planned.errors)
+      else appends.push(...planned.appends)
+    })
+    if (filed) filedTasks.push(i)
+    if (filed && !held.has(t.task_id)) held.set(t.task_id, t.title!)
   })
 
   phaseChanges.forEach((ph, i) => {
     if (ph.add === true) return
-    const where = `phases[${i}] (${ph.phase})`
-    const phase = resolvePhaseOrThrow(phases, ph.phase, slug)
-    const note = ph.note !== undefined && ph.note.length > 0 ? ph.note : undefined
-    if (phase.status === ph.status && note === phase.note) return
-    check(where, 'phase_status_changed', { phase: phase.name, status: ph.status, ...(note !== undefined ? { note } : {}) })
+    entry(`phases[${i}] (${ph.phase})`, 'phases', () => {
+      if (ph.after !== undefined) return // already named in notFiled
+      const phase = resolvePhaseOrThrow(phases, ph.phase, slug)
+      const note = ph.note !== undefined && ph.note.length > 0 ? ph.note : undefined
+      if (phase.status === ph.status && note === phase.note) return
+      check('phase_status_changed', { phase: phase.name, status: ph.status, ...(note !== undefined ? { note } : {}) })
+    })
   })
 
   // Cites where a declared wait may have been meant (linked-context 5.3),
   // read against the sets this batch leaves behind.
   const waits = homeViewOf(state).waits
-  tasks.filter((t) => t.waits_on !== undefined).forEach((t, k) => waits.set(t.task_id, declared.handles[k]!))
+  for (const [i, h] of handles) waits.set(tasks[i]!.task_id, h)
   const blocked = tasks.filter((t) => t.status === 'blocked' && t.note !== undefined).map((t) => ({ taskId: t.task_id, note: t.note! }))
   const nudges = citeNudges(ctx.sofarDir, slug, waits, blocked, args.next_action)
 
   const decisions: string[] = []
-  const warnings: string[] = [...declared.warnings, ...nudges]
+  const warnings: string[] = [...declaredWarnings, ...nudges]
   const drafts: DecisionDraft[] = []
   const seen: DecisionState[] = [...state.decisions]
   const foreign = (args.decisions ?? []).length > 0 ? foreignDecisions(ctx.sofarDir, slug) : undefined
-  ;(args.decisions ?? []).forEach((d, i) => {
+  ;(args.decisions ?? []).forEach((raw, i) => {
     const where = `decisions[${i}]`
-    const input = validateToolInput('sofar_log_decision', d)
-    if (!input.ok) refuse(where, input.errors)
-    if ((d as { initiative?: unknown }).initiative !== undefined) refuse(where, ['initiative: not allowed — a write-back files in its session\'s record'])
-    let payload: Record<string, unknown> = { chose: d.chose, over: d.over, because: d.because }
-    for (const key of ['rule', 'quote', 'guard', 'supersedes', 'until', 'check'] as const) {
-      if (d[key] !== undefined) payload[key] = d[key]
-    }
-    // A check-suffixed handle (r3-fixes 2.6, D18) is judged and filed as the
-    // bare one it names in the record as read; a batch entry has no suffix yet.
-    const bare = bareSupersedes(state.decisions, payload)
-    if (bare.error !== undefined) refuse(where, [bare.error])
-    if (bare.moved !== undefined) warnings.push(bare.moved)
-    payload = bare.payload
-    if (typeof payload.supersedes === 'string') d = { ...d, supersedes: payload.supersedes }
-    // An over-long quote is cut to whole operator sentences (r3-fixes 2.8)
-    // rather than refusing the whole write-back over one entry.
-    const fit = d.quote !== undefined ? fitQuote(d.quote, d.rule ?? d.chose) : null
-    if (fit !== null) payload.quote = fit.quote
-    const reversal = silentReversal({ ...state, decisions: seen } as InitiativeState, d, foreign)
-    if (reversal !== null) {
-      // A replacement for another record's decision lands in THAT record,
-      // which a write-back cannot address (D8): name the call that can.
-      const route = reversal.elsewhere.length > 0 ? [`a replacement for ${reversal.elsewhere[0]} is filed with sofar_log_decision, not a write-back`] : []
-      refuse(where, [reversal.message, ...reversal.errors, ...route])
-    }
-    // "supersedes":"none" (r3-fixes 2.5) is the writer's to strip at the
-    // append; the payload rules judge the decision without it.
-    const valid = validatePayload('decision_logged', withoutNone(payload))
-    if (!valid.ok) refuse(where, valid.errors)
-    appends.push({ type: 'decision_logged', payload })
-    const ordinal = seen.length + 1
-    seen.push({ id: `batch-${i}`, ts: new Date().toISOString(), chose: d.chose, over: d.over, because: d.because, ...(d.rule !== undefined ? { rule: d.rule } : {}) })
-    decisions.push(`D${ordinal}`)
-    drafts.push({
-      ordinal,
-      chose: d.chose,
-      over: d.over,
-      because: d.because,
-      ...(d.rule !== undefined ? { rule: d.rule } : {}),
-      ...(d.supersedes !== undefined ? { supersedes: d.supersedes } : {}),
+    const later: string[] = []
+    const filed = entry(where, 'decisions', () => {
+      // The home's own initiative changes nothing (crossInitiative above).
+      let d = { ...raw } as typeof raw & { initiative?: unknown }
+      delete d.initiative
+      const input = validateToolInput('sofar_log_decision', d)
+      if (!input.ok) refuse(input.errors)
+      // A quote is the source of a rule; with no rule it is kept as a note
+      // (r4-fixes U6), never dropped and never the reason nothing filed.
+      const quote = d.rule === undefined && typeof d.quote === 'string' && d.quote.trim().length > 0 ? d.quote : undefined
+      if (quote !== undefined) delete d.quote
+      let payload: Record<string, unknown> = { chose: d.chose, over: d.over, because: d.because }
+      for (const key of ['rule', 'quote', 'guard', 'supersedes', 'until', 'check'] as const) {
+        if (d[key] !== undefined) payload[key] = d[key]
+      }
+      // A check-suffixed handle (r3-fixes 2.6, D18) is judged and filed as the
+      // bare one it names in the record as read; a batch entry has no suffix yet.
+      const bare = bareSupersedes(state.decisions, payload)
+      if (bare.error !== undefined) refuse([bare.error])
+      if (bare.moved !== undefined) later.push(bare.moved)
+      payload = bare.payload
+      if (typeof payload.supersedes === 'string') d = { ...d, supersedes: payload.supersedes }
+      // An over-long quote is cut to whole operator sentences (r3-fixes 2.8)
+      // rather than refusing the whole write-back over one entry.
+      const fit = d.quote !== undefined ? fitQuote(d.quote, d.rule ?? d.chose) : null
+      if (fit !== null) payload.quote = fit.quote
+      const reversal = silentReversal({ ...state, decisions: seen } as InitiativeState, d, foreign)
+      if (reversal !== null) {
+        // A replacement for another record's decision lands in THAT record,
+        // which a write-back cannot address (D8): name the call that can.
+        const route = reversal.elsewhere.length > 0 ? [`a replacement for ${reversal.elsewhere[0]} is filed with sofar_log_decision, not a write-back`] : []
+        refuse([reversal.message, ...reversal.errors, ...route])
+      }
+      // "supersedes":"none" (r3-fixes 2.5) is the writer's to strip at the
+      // append; the payload rules judge the decision without it.
+      const valid = validatePayload('decision_logged', withoutNone(payload))
+      if (!valid.ok) refuse(valid.errors)
+      const ordinal = seen.length + 1
+      // No id yet, so no suffix: a token endSessionFiled swaps for the handle once appended.
+      const handle = draftToken(drafts.length)
+      appends.push({ type: 'decision_logged', payload })
+      if (quote !== undefined) {
+        // The note is stored, so it names the bare ordinal (r4-fixes U5); the warning is agent-facing.
+        check('note_added', { text: `The operator's words behind D${ordinal} (filed as a quote with no rule): ${quote}` })
+        later.push(`${where}: quote: needs a rule — ${handle} filed without it and the quote kept as a note; to make it a rule, file the rule and quote with sofar_log_decision, supersedes ${handle}`)
+      }
+      seen.push({ id: '', ts: new Date().toISOString(), chose: d.chose, over: d.over, because: d.because, ...(d.rule !== undefined ? { rule: d.rule } : {}) })
+      decisions.push(handle)
+      drafts.push({
+        ordinal,
+        chose: d.chose,
+        over: d.over,
+        because: d.because,
+        ...(d.rule !== undefined ? { rule: d.rule } : {}),
+        ...(d.supersedes !== undefined ? { supersedes: d.supersedes } : {}),
+      })
+      if (fit !== null) later.push(quoteFitWarning(handle, fit))
+      const nudge = bindNudge(handle, d)
+      if (nudge !== null) later.push(nudge)
+      if (d.rule !== undefined) {
+        const warning = ruleFidelityWarning(handle, d.rule, payload.quote as string | undefined)
+        if (warning !== null) later.push(warning)
+      }
     })
-    if (fit !== null) warnings.push(quoteFitWarning(ordinal, fit))
-    const nudge = bindNudge(ordinal, d)
-    if (nudge !== null) warnings.push(nudge)
-    if (d.rule !== undefined) {
-      const warning = ruleFidelityWarning(ordinal, d.rule, payload.quote as string | undefined)
-      if (warning !== null) warnings.push(warning)
+    if (filed) warnings.push(...later)
+  })
+
+  const memories: Array<{ label: string; text: string }> = []
+  ;(args.memories ?? []).forEach((text, i) => {
+    if (entry(`memories[${i}]`, 'memories', () => check('memory_promoted', { text }))) {
+      memories.push({ label: `${slug} M${state.memories.length + memories.length + 1}`, text })
     }
   })
-
-  const memories = (args.memories ?? []).map((text, i) => {
-    check(`memories[${i}]`, 'memory_promoted', { text })
-    return `${slug} M${state.memories.length + i + 1}`
-  })
-  ;(args.notes ?? []).forEach((text, i) => check(`notes[${i}]`, 'note_added', { text }))
-  ;(args.brief_append ?? []).forEach((entry, i) => {
-    const text = briefEntryText(ctx.rootDir, sessionId, entry)
-    if (text === null) warnings.push(uncapturedWarning(`brief_append[${i}]`, entry))
-    else check(`brief_append[${i}]`, 'brief_appended', { text })
+  const notes = (args.notes ?? []).filter((text, i) => entry(`notes[${i}]`, 'notes', () => check('note_added', { text })))
+  ;(args.brief_append ?? []).forEach((item, i) => {
+    const text = briefEntryText(ctx.rootDir, sessionId, item)
+    if (text === null) warnings.push(uncapturedWarning(`brief_append[${i}]`, item))
+    else entry(`brief_append[${i}]`, 'brief_append', () => check('brief_appended', { text }))
   })
 
-  return { appends, decisions, memories, warnings, before: state, drafts }
+  return {
+    appends,
+    decisions,
+    memories: memories.map((m) => m.label),
+    warnings,
+    notFiled,
+    filed: { tasks: filedTasks, memories, notes },
+    before: state,
+    drafts,
+  }
+}
+
+/**
+ * declareTaskWaits for a write-back's tasks, isolated per task (r4-fixes U6):
+ * bound whole, as before, and only when that refuses, each task's waits_on
+ * alone against the same plan view, so one unknown slug leaves out one task.
+ */
+function declareEach(
+  ctx: ToolContext,
+  slug: string,
+  state: InitiativeState,
+  tasks: NonNullable<EndSessionArgs['tasks']>,
+  held: ReadonlyMap<string, string>,
+): { handles: Map<number, string[]>; warnings: string[]; refused: Map<number, string> } {
+  const withWaits = tasks.flatMap((t, i) => (t.waits_on !== undefined ? [i] : []))
+  const handles = new Map<number, string[]>()
+  const refused = new Map<number, string>()
+  try {
+    const declared = declareTaskWaits(ctx, slug, state, tasks, held)
+    withWaits.forEach((i, k) => handles.set(i, declared.handles[k]!))
+    return { handles, warnings: declared.warnings, refused }
+  } catch (err) {
+    if (!isInvalid(err)) throw err
+  }
+  const warnings: string[] = []
+  for (const i of withWaits) {
+    const alone = tasks.map((t, j) => (j === i ? t : { ...t, waits_on: undefined }))
+    try {
+      const declared = declareTaskWaits(ctx, slug, state, alone, held)
+      handles.set(i, declared.handles[0]!)
+      warnings.push(...declared.warnings)
+    } catch (err) {
+      if (!isInvalid(err)) throw err
+      refused.set(i, errorText(err))
+    }
+  }
+  return { handles, warnings, refused }
 }
 
 /**
@@ -438,12 +584,13 @@ export async function endSessionJudged(
   const { result, batch, after, sessionId } = endSessionFiled(ctx, args)
   const opts = judgeOpts ?? judgeOptionsFor(ctx)
   const filed: FiledEntry[] = [
-    ...batch.drafts.map((d): FiledEntry => ({ kind: 'decision', label: `D${d.ordinal}`, text: { chose: d.chose, over: d.over, because: d.because } })),
-    ...(args.memories ?? []).map((text, i): FiledEntry => ({ kind: 'memory', label: batch.memories[i]!, text })),
-    ...(args.notes ?? []).map((text, i): FiledEntry => ({ kind: 'note', label: `notes[${i}]`, text })),
+    ...batch.drafts.map((d): FiledEntry => ({ kind: 'decision', label: d.handle ?? `D${d.ordinal}`, text: { chose: d.chose, over: d.over, because: d.because } })),
+    ...batch.filed.memories.map(({ label, text }): FiledEntry => ({ kind: 'memory', label, text })),
+    ...batch.filed.notes.map((text, i): FiledEntry => ({ kind: 'note', label: `notes[${i}]`, text })),
   ]
   const titles = new Map(after.phases.flatMap((p) => p.tasks.map((t) => [t.id, t.title] as const)))
-  const done: DoneTask[] = (args.tasks ?? [])
+  const done: DoneTask[] = batch.filed.tasks
+    .map((i) => args.tasks![i]!)
     .filter((t) => t.status === 'done')
     .map((t) => ({ id: t.task_id, title: titles.get(t.task_id) ?? t.title ?? '', ...(t.note !== undefined ? { note: t.note } : {}) }))
   const [decided, misfiled, unproven, written] = await Promise.all([
@@ -480,18 +627,22 @@ function endSessionFiled(
   const slug = endsActive ? active.initiative : resolveWriteBackHome(ctx, sessionId)
 
   // The batched write-back (r1-fixes 2.1, D10 for tasks; memory-lead 1.1, D3
-  // for the rest): the WHOLE batch is planned and validated against one fold
-  // before anything appends, so one bad entry files nothing — a write-back is
-  // the last thing a session does, and a half-filed batch under it would be
-  // the worst place for a partial failure. Then appended in order, BEFORE
-  // session_ended, so the fold the write-back is read by already counts them
-  // (task_done needs both halves, session-driver D5), with ONE projection
-  // pass at the end instead of one per event.
+  // for the rest): the whole batch is planned and validated against one fold
+  // before anything appends. A bad entry is left out alone and named in
+  // `not_filed` with its repair (r4-fixes U6): a write-back is the last thing
+  // a session does, and refusing it whole lost every valid entry with it —
+  // 2 of round 4's 65 Claude write-backs. Only a different `initiative`
+  // still refuses it whole. Then appended in order, BEFORE session_ended, so
+  // the fold the write-back is read by already counts them (task_done needs
+  // both halves, session-driver D5), with ONE projection pass at the end
+  // instead of one per event.
   const batch = planBatch(ctx, slug, args, sessionId)
   const pending: string[] = []
   const linked: string[] = []
+  const filed: string[] = []
   for (const { type, payload } of batch.appends) {
     const appended = ctx.appendAndProject(slug, type, payload, { project: false })
+    if (type === 'decision_logged') filed.push(appended.id)
     if (appended.payload.link_candidates !== undefined) pending.push(appended.id)
     else if (type === 'decision_logged' && appended.payload.supersedes !== undefined) linked.push(appended.id)
   }
@@ -519,6 +670,19 @@ function endSessionFiled(
   // One fold serves both readers below: the collision check, and the
   // closed-record guard on the rebind.
   const state = ctx.foldState(slug)
+  // Each filed decision by its check-suffixed handle (r4-fixes U5), now that
+  // it has an id: in `decisions`, in the warnings planned before the append,
+  // and for the judges.
+  const handles = filed.map((id, k) => {
+    const n = state.decisions.findIndex((d) => d.id === id) + 1
+    return n > 0 ? suffixedHandle(n, id) : `D${batch.drafts[k]?.ordinal ?? '?'}`
+  })
+  const swap = (line: string): string => line.replace(DRAFT_TOKEN_RE, (_, k: string) => handles[Number(k)] ?? `D${batch.drafts[Number(k)]?.ordinal ?? '?'}`)
+  batch.decisions = batch.decisions.map(swap)
+  batch.warnings = batch.warnings.map(swap)
+  batch.drafts.forEach((d, k) => {
+    if (handles[k] !== undefined) d.handle = handles[k]
+  })
   // Rules filed naming nothing they replace (r3-fixes 2.5, D15), read from
   // the fold that holds them, so a candidate the batch itself filed resolves.
   for (const id of pending) {
@@ -530,11 +694,12 @@ function endSessionFiled(
   for (const id of linked) {
     const ordinal = state.decisions.findIndex((d) => d.id === id) + 1
     const echo = supersessionEcho(state, ordinal)
-    if (echo.retires !== undefined) retires.push(`D${ordinal} retires ${echo.retires}`)
+    if (echo.retires !== undefined) retires.push(`${suffixedHandle(ordinal, id)} retires ${echo.retires}`)
     if (echo.warning !== undefined) batch.warnings.push(echo.warning)
   }
   const applied = {
-    ...(args.tasks !== undefined ? { tasks_applied: args.tasks.length } : {}),
+    ...(batch.notFiled.length > 0 ? { not_filed: batch.notFiled } : {}),
+    ...(args.tasks !== undefined ? { tasks_applied: batch.filed.tasks.length } : {}),
     ...(batch.decisions.length > 0 ? { decisions: batch.decisions } : {}),
     ...(retires.length > 0 ? { retires } : {}),
     ...(batch.memories.length > 0 ? { memories: batch.memories } : {}),

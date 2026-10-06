@@ -12,6 +12,7 @@ import { handlePostTool, handleSessionStart, SCOPE_NOTICE_BUDGET } from '../src/
 import { minutiaeHead } from '../src/projections/templates/status'
 import { forHost } from '../src/cli/host'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
+import { bare } from './helpers/handles'
 
 /**
  * memory-lead 2.1 (D6) — read-time surfacing.
@@ -77,9 +78,10 @@ const bash = (root: string, session: string, command: string): string => context
 const edit = (root: string, session: string, rel: string): string =>
   context(hook(root, session, 'Edit', { file_path: join(root, rel), old_string: 'a', new_string: 'b' }))
 
+/** The notice text, its handles' check suffixes dropped (r4-fixes U5; pinned in handle-render.test.ts). */
 function context(stdout: string): string {
   if (stdout.length === 0) return ''
-  return (JSON.parse(stdout) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext
+  return bare((JSON.parse(stdout) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext)
 }
 
 function logLines(root: string, slug: string): string[] {
@@ -360,7 +362,7 @@ describe('2.1 subjects on every host', () => {
     const payload = JSON.stringify(fixture['post-tool-use.read']!.payload).replaceAll('/tmp/repo', f.root)
     const result = forHost('post-tool', handlePostTool)(f.root, payload)
     expect(result.exitCode).toBe(0)
-    expect(JSON.parse(result.stdout)).toEqual({
+    expect(JSON.parse(bare(result.stdout))).toEqual({
       additional_context: 'sofar: [alpha D1] 2026-09-01 names docs/notes.txt: chose keep docs/notes.txt ASCII-only.',
     })
   })
