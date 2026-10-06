@@ -8,4 +8,4 @@ Progress: 0/0 tasks done (0%)
 
 (no plan recorded yet — call sofar_update_plan)
 
-Next action: The operator runs the 0.34.0 publish sequence from ~/IO/sofar-stable (win32 probe first; stop on 403); then the orchestrator verifies the registry and dist-tags, and the global install.
+Next action: Operator: plan the improvement phase (round 5 on a harder chain; Codex token overhead; CI tripwire fix) and rule keep/drop on .cursor in this repo.

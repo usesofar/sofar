@@ -8,7 +8,7 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-04: "Starting the initiatives for the benchmark and everything. Our goal is to learn from the mistake and improve in the next benchmark. Improve and fix the problems that we face and that we lack, and then test the new benchmark. That was also a part of our goal"
 
-Progress: 40 done, 2 dropped, 4 remaining
+Progress: 41 done, 3 dropped, 2 remaining
 
 ## Phase 1 — Diagnose round 3 [done] — 7/7 done
 
@@ -50,14 +50,14 @@ Progress: 40 done, 2 dropped, 4 remaining
 - [x] 3.8 Codex hooks in every cell (ROUND-3-REPORT H-f): launchCodex passes --dangerously-bypass-hook-trust, and check-rep asserts hook-sourced events per agent on each hook-using arm (round 3: 0 Codex hook events on all 3 sofar reps)
 - [x] 3.9 Consolidate the round-4 runner on one branch. 3.2 and 3.3 landed on round3-runner-dev (79e7cdc, 813448d); 3.1/3.4/3.5/3.8 and 3.7 are on handoff-bench main. Merge them onto one branch, re-run the full runner suite, and pin that commit and hash for PRE-REGISTRATION-R4.
 
-## Phase 4 — Release candidate [pending] — 4/6 done
+## Phase 4 — Release candidate [pending] — 5/6 (1 dropped) done
 
 - [x] 4.1 Cut rc.5 with Phase 2: full suite, SPEC acceptance criteria, D18 read-path gate on both pinned fixtures
 - [x] 4.2 Publish rc.5 to npm next (operator runs the publish)
 - [x] 4.0 Rust parity gate before the rc.5 cut. The Rust core must be byte-identical to TS on digest, every hook's stdout and the CLI surfaces that agents read, on every real events.jsonl (this repo and sofar-cloud) plus the round-4 fixture, after all Phase 2 fixes land in both engines. rc.5 ships Rust only when green.
-- [ ] 4.3 Unblock sofar-core-win32-x64 on npm. Its first publish (0.34.0-rc.5) hit E403 "Package name triggered spam detection". Operator: open an npm support ticket for the name, then publish it from ~/IO/sofar-rc5/packaging/npm/sofar-core-win32-x64. Don't rename (rust-core D22) unless support refuses.
+- [-] 4.3 Unblock sofar-core-win32-x64 on npm. Its first publish (0.34.0-rc.5) hit E403 "Package name triggered spam detection". Operator: open an npm support ticket for the name, then publish it from ~/IO/sofar-rc5/packaging/npm/sofar-core-win32-x64. Don't rename (rust-core D22) unless support refuses. (dropped)
 - [x] 4.4 Scoped core packages for the next release (rust-core D-latest, superseding D22). emit.mjs emits @sofar/core-<platform>-<arch>. sofar.sh optionalDependencies and install.mjs and the shim lookup use the scoped names; packaging tests and the release procedure (repo memory M1, r3-fixes M10) are updated. Publish @sofar/core-win32-x64 first as the spam-filter probe. Deprecate the five rc.5 sofar-core-* names with a pointer after the scoped ones ship. Do not touch rc.5 (round 4's pin).
-- [ ] 4.5 Cut stable 0.34.0 from v0.34.0-rc.5's tested code plus 4.4 (scoped @sofar.sh/core-* packages). Run the full suite, cargo, conformance, parity:real, D18 vs rc.4 and the packaging tests. Tag v0.34.0 locally; CI builds the 5 cores; stage. The operator publishes the cores first (@sofar.sh/core-win32-x64 first as the spam probe), then sofar.sh with dist-tag latest. Deprecate the 5 unscoped rc.5 sofar-core-* names with a pointer. (active)
+- [x] 4.5 Cut stable 0.34.0 from v0.34.0-rc.5's tested code plus 4.4 (scoped @sofar.sh/core-* packages). Run the full suite, cargo, conformance, parity:real, D18 vs rc.4 and the packaging tests. Tag v0.34.0 locally; CI builds the 5 cores; stage. The operator publishes the cores first (@sofar.sh/core-win32-x64 first as the spam probe), then sofar.sh with dist-tag latest. Deprecate the 5 unscoped rc.5 sofar-core-* names with a pointer.
 
 ## Phase 5 — Round 4 benchmark [active] — 8/9 done
 
