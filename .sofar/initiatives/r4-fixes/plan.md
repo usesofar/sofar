@@ -32,4 +32,4 @@ Progress: 8/10 tasks done (80%)
 ## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/0 done
 
 
-Next action: Read the integration report; if all gates are green, tag v0.34.1, push, run CI, stage the cores, hand the operator the publish commands; then U2 merges back into main.
+Next action: When CI is green and the cores are staged: hand the operator the 0.34.1 publish commands (5 cores, then sofar.sh --tag latest); then U2 merges release/0.34.1 back into main.
