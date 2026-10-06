@@ -172,7 +172,7 @@ describe('sofar_update_phase — an unknown phase is an error, never a phantom',
     const before = f.events().length
 
     // The fold's findOrCreatePhase would CREATE this one; the tool must not.
-    expect(() => updatePhase(f.ctx, { phase: 'Phase 1 - Settle', status: 'done' })).toThrow(
+    expect(() => updatePhase(f.ctx, { phase: 'Settle up', status: 'done' })).toThrow(
       ToolError,
     )
     expect(f.events()).toHaveLength(before)
@@ -287,7 +287,7 @@ describe('sofar_update_phase — what closing a phase actually clears', () => {
 describe('a phase named by number or in any case (r1-fixes 4.1.5, L11, D32)', () => {
   const phases = [{ name: 'Phase 1 — Settle' }, { name: 'Phase 2 — Build' }, { name: 'Phase 12 — Later' }]
 
-  it('resolves exact, any case, `3`, `Phase 3` — and nothing looser', () => {
+  it('resolves exact, any case, `3`, `Phase 3`, a label — and nothing looser', () => {
     expect(resolvePhase(phases, 'Phase 2 — Build')?.name).toBe('Phase 2 — Build')
     expect(resolvePhase(phases, '  phase 2 —   BUILD ')?.name).toBe('Phase 2 — Build')
     expect(resolvePhase(phases, '2')?.name).toBe('Phase 2 — Build')
@@ -295,7 +295,27 @@ describe('a phase named by number or in any case (r1-fixes 4.1.5, L11, D32)', ()
     expect(resolvePhase(phases, '12')?.name).toBe('Phase 12 — Later') // `Phase 1` never claims `Phase 12`
     expect(resolvePhase(phases, '3')).toBeUndefined() // labelled plans resolve by label, not position
     expect(resolvePhase(phases, 'Build')).toBeUndefined() // no substrings
-    expect(resolvePhase(phases, 'Phase 1 - Settle')).toBeUndefined() // a different dash is a different name
+    // By its number (r4-fixes U6): a reference opening with the phase's own label.
+    expect(resolvePhase(phases, 'Phase 1 - Settle')?.name).toBe('Phase 1 — Settle')
+    expect(resolvePhase(phases, 'phase 12: later work')?.name).toBe('Phase 12 — Later')
+    expect(resolvePhase([{ name: 'Design — Review' }], 'Design - Review')).toBeUndefined() // a different dash is a different name
+  })
+
+  it("resolves round 4's three phase misses by the label they open with (r4-fixes U6)", () => {
+    const r1 = ['s01 ledger foundation', 's09 reservation routing and stock summary', 's10 transfers and tighter shelf life', 's16 per-order quantity cap', 's15 case-pack reorder rounding', 's24 per-SKU shelf life'].map((name) => ({ name }))
+    expect(resolvePhase(r1, 's10 shelf life')?.name).toBe('s10 transfers and tighter shelf life')
+    expect(resolvePhase(r1, 's24')?.name).toBe('s24 per-SKU shelf life') // the 6th phase here: a label, never a position
+    expect(resolvePhase(r1, 'S1')?.name).toBe('s01 ledger foundation') // leading zeros aside
+    expect(resolvePhase(r1, 's17 cycle counts')).toBeUndefined() // no phase carries s17
+    expect(resolvePhase(r1, 'S01 anything')?.name).toBe('s01 ledger foundation')
+    const r3 = [{ name: 's09 reservation routing and stock summary' }, { name: 's10 transfers and shelf life' }]
+    expect(resolvePhase(r3, 's10 transfers and shelf-life')?.name).toBe('s10 transfers and shelf life')
+    // Ambiguous labels, unlabelled words and a label inside a word resolve nothing.
+    expect(resolvePhase([{ name: 's2 a' }, { name: 's02 b' }], 's2')).toBeUndefined()
+    expect(resolvePhase([{ name: 'wave 3 — ship' }], 'wave 3')).toBeUndefined()
+    expect(resolvePhase([{ name: 's24x tooling' }], 's24')).toBeUndefined()
+    // An add's own name never resolves by label: a new `s11 …` beside an old one is the writer's call.
+    expect(resolvePhase(r1, 's24 demand reorder points', { byLabel: false })).toBeUndefined()
   })
 
   it('falls back to position only when no phase carries a `Phase <n>` label, and refuses ambiguity', () => {
@@ -327,7 +347,7 @@ describe('a phase named by number or in any case (r1-fixes 4.1.5, L11, D32)', ()
     expect(append('phase 1').exitCode).toBe(0)
     expect(f.events().at(-1)!.payload.phase).toBe('Phase 1 — Settle')
 
-    const miss = append('Phase 1 - Settle')
+    const miss = append('Settle up')
     expect(miss.exitCode).toBe(1)
     expect(JSON.parse(miss.stderr).message).toContain('by number ("3", "Phase 3")')
     expect(foldLog(f.eventsPath).state.phases).toHaveLength(3)
@@ -475,14 +495,13 @@ describe('adding a phase mid-plan (phase-lifecycle 7.1, D10)', () => {
     expect(phaseOf(f, 'Phase 1b — Extend')!.tasks).toMatchObject([{ id: '1b.1', status: 'active' }])
   })
 
-  it('a write-back refuses after without add, filing nothing', () => {
+  it('a write-back leaves out an `after` without add, naming it, and files the rest (r4-fixes U6)', () => {
     const f = fx()
     startSession(f.ctx, { tool: 'claude-code', session_id: 'S1' })
-    const before2 = readFileSync(f.eventsPath, 'utf8')
-    expect(() =>
-      endSession(f.ctx, { session_id: 'S1', summary: 's', next_action: 'n', phases: [{ phase: 'Phase 1', status: 'done', after: 'Phase 2' }] }),
-    ).toThrow(/after: only with add/)
-    expect(readFileSync(f.eventsPath, 'utf8')).toBe(before2)
+    const before2 = f.events().length
+    const r = endSession(f.ctx, { session_id: 'S1', summary: 's', next_action: 'n', phases: [{ phase: 'Phase 1', status: 'done', after: 'Phase 2' }] })
+    expect(r.not_filed).toEqual(['phases[0] (Phase 1): after: only with add: true — not filed; fix it and file it with sofar_update_phase'])
+    expect(f.events().slice(before2).map((e) => e.type)).toEqual(['session_ended'])
   })
 
   it('the CLI append resolves after and refuses a held name', () => {

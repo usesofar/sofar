@@ -46,14 +46,14 @@
   "cwd": "/r",
   "root": "/r",
   "session": "s1",
-  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/plan.md'"
+  "rewrite": null
  },
  {
   "cmd": "tail -100 .sofar/initiatives/demo/decisions.md",
   "cwd": "/r",
   "root": "/r",
   "session": "s1",
-  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/decisions.md'"
+  "rewrite": null
  },
  {
   "cmd": "cat -n .sofar/initiatives/demo/decisions.md",
@@ -194,5 +194,96 @@
   "root": "/r",
   "session": "s1",
   "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/../demo/plan.md'"
+ },
+ {
+  "cmd": "tail -25 .sofar/initiatives/demo/plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "tail -n 15 .sofar/initiatives/demo/plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "tail .sofar/initiatives/demo/plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "head .sofar/initiatives/demo/decisions.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "head -c 20000 .sofar/initiatives/demo/decisions.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "head --lines=40 .sofar/initiatives/demo/memory.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "sed -n 1,80p .sofar/initiatives/demo/plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/decisions.md | head -150",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cd .sofar/initiatives/demo && cat plan.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "(cat .sofar/initiatives/demo/plan.md)",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "cat .sofar/initiatives/demo/plan.md; cat .sofar/initiatives/demo/memory.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": null
+ },
+ {
+  "cmd": "more .sofar/initiatives/demo/memory.md",
+  "cwd": "/r",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' '.sofar/initiatives/demo/memory.md'"
+ },
+ {
+  "cmd": "cat decisions.md",
+  "cwd": "/r/.sofar/initiatives/demo",
+  "root": "/r",
+  "session": "s1",
+  "rewrite": "sofar read --session 's1' 'decisions.md'"
  }
 ]

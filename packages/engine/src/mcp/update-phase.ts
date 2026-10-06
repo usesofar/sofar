@@ -71,10 +71,18 @@ export function updatePhase(ctx: ToolContext, args: UpdatePhaseArgs): UpdatePhas
  *     D8), when exactly one matches;
  *  4. `3` or `Phase 3` (any case) — the one phase LABELLED `Phase 3` (then a
  *     non-digit or the end); when no phase carries a `Phase <digits>` label,
- *     the third phase by position.
- * Never a substring or prefix: `wave 3` is ambiguous on real plans.
+ *     the third phase by position;
+ *  5. by its number (r4-fixes U6): a reference that opens with a phase's
+ *     own label — `s24`, `s10 shelf life`, `P3`, `Phase 1 - Settle` — names
+ *     the one phase whose name opens with the same label, leading zeros
+ *     aside, whatever words follow. Round 4's Codex sessions named phases by
+ *     the label they numbered them with and misremembered the words after
+ *     it, 3 times. `byLabel: false` skips it: an add's own name is the
+ *     writer's to choose.
+ * Never a bare substring or prefix: `wave 3` is ambiguous on real plans, and
+ * opens with no number. Nor a different dash in an unlabelled name.
  */
-export function resolvePhase<P extends { name: string }>(phases: readonly P[], ref: string): P | undefined {
+export function resolvePhase<P extends { name: string }>(phases: readonly P[], ref: string, options: { byLabel?: boolean } = {}): P | undefined {
   const exact = phases.find((p) => p.name === ref)
   if (exact !== undefined) return exact
   const fold = (s: string): string => s.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -84,13 +92,25 @@ export function resolvePhase<P extends { name: string }>(phases: readonly P[], r
   const stripped = phases.filter((p) => bare(p.name) === bare(ref))
   if (stripped.length === 1) return stripped[0]
   const number = /^(?:phase\s*)?(\d+)$/i.exec(ref.trim())?.[1]
-  if (number === undefined) return undefined
-  const labelled = (p: P, n: string): boolean => new RegExp(`^phase\\s*${n}(?!\\d)`, 'i').test(p.name.trim())
-  if (phases.some((p) => /^phase\s*\d/i.test(p.name.trim()))) {
-    const hits = phases.filter((p) => labelled(p, String(Number(number))))
-    return hits.length === 1 ? hits[0] : undefined
+  if (number !== undefined) {
+    const labelled = (p: P, n: string): boolean => new RegExp(`^phase\\s*${n}(?!\\d)`, 'i').test(p.name.trim())
+    if (phases.some((p) => /^phase\s*\d/i.test(p.name.trim()))) {
+      const hits = phases.filter((p) => labelled(p, String(Number(number))))
+      return hits.length === 1 ? hits[0] : undefined
+    }
+    return phases[Number(number) - 1]
   }
-  return phases[Number(number) - 1]
+  if (options.byLabel === false) return undefined
+  const label = phaseLabel(ref)
+  if (label === undefined) return undefined
+  const hits = phases.filter((p) => phaseLabel(p.name) === label)
+  return hits.length === 1 ? hits[0] : undefined
+}
+
+/** A name's leading label — `s24`, `p3`, `phase5`, `7` — when its first word carries a number; leading zeros dropped. */
+function phaseLabel(name: string): string | undefined {
+  const m = /^(phase\s*|[a-z]{0,3})0*(\d+)(?!\w)/i.exec(name.trim())
+  return m === null ? undefined : `${m[1]!.replace(/\s+/g, '').toLowerCase()}${m[2]!}`
 }
 
 /** resolvePhase, or the typed miss both writers return — naming the plan's phases and the accepted forms. */
@@ -104,7 +124,7 @@ export function resolvePhaseOrThrow<P extends { name: string }>(phases: readonly
     'invalid_input',
     names.length === 0
       ? `initiative "${slug}" has no phases yet — record a plan first (sofar_update_plan, or a plan_updated append)`
-      : `phase "${ref}" not in the plan for "${slug}" — tried the exact name, any case, without a leading ordinal ("7. "), and by number ("3", "Phase 3"); this plan has ${listed}${more}`,
+      : `phase "${ref}" not in the plan for "${slug}" — tried the exact name, any case, without a leading ordinal ("7. "), by number ("3", "Phase 3") and by its label ("s24"); this plan has ${listed}${more}`,
   )
 }
 
@@ -123,7 +143,7 @@ export function planPhaseAdd<P extends { name: string }>(
   args: { phase: string; status: string; note?: string; after?: string },
 ): { payload: Record<string, unknown>; at: number } {
   const name = args.phase.trim()
-  const held = resolvePhase(phases, name)
+  const held = resolvePhase(phases, name, { byLabel: false })
   if (held !== undefined) {
     throw new ToolError('invalid_input', `phase "${name}" is already in the plan for "${slug}" as "${held.name}" — drop add to set its status`)
   }

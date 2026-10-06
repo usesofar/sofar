@@ -491,12 +491,15 @@ describe('less bookkeeping (r1-fixes 2.1, D10)', () => {
     await client.close()
   })
 
-  it('one bad `tasks` entry appends nothing — not the good ones, not the write-back', async () => {
+  it('one bad `tasks` entry is left out alone, named with its repair — the good one and the write-back file (r4-fixes U6)', async () => {
     const fixture = makeRepoFixture()
     const { client } = await connectServer(fixture.root)
     const started = await callTool<{ session_id: string }>(client, 'sofar_start_session', { tool: 'claude-code' })
-    const before = readFileSync(fixture.eventsPath, 'utf8')
-    const ended = await callTool<{ code: string; message: string }>(client, 'sofar_end_session', {
+    await callTool(client, 'sofar_update_plan', {
+      plan: { goal: 'g', phases: [{ name: 'Phase 1', status: 'active', tasks: [{ id: '1.1', title: 'a' }, { id: '1.2', title: 'b' }] }] },
+    })
+    const before = readFileSync(fixture.eventsPath, 'utf8').split('\n').filter(Boolean).length
+    const ended = await callTool<{ ok: boolean; tasks_applied: number; not_filed: string[] }>(client, 'sofar_end_session', {
       session_id: started.body.session_id,
       summary: 's',
       next_action: 'n',
@@ -505,9 +508,12 @@ describe('less bookkeeping (r1-fixes 2.1, D10)', () => {
         { task_id: '1.2', status: 'nope' },
       ],
     })
-    expect(ended.isError).toBe(true)
-    expect(ended.body.code).toBe('invalid_input')
-    expect(readFileSync(fixture.eventsPath, 'utf8')).toBe(before)
+    expect(ended.isError).toBe(false)
+    expect(ended.body.tasks_applied).toBe(1)
+    expect(ended.body.not_filed).toEqual([expect.stringMatching(/^tasks\[1\] \(1\.2\): status: must be one of .* — not filed; fix it and file it with sofar_update_task$/)])
+    const added = readFileSync(fixture.eventsPath, 'utf8').split('\n').filter(Boolean).slice(before).map((l) => JSON.parse(l) as { type: string; payload: Record<string, unknown> })
+    expect(added.map((e) => e.type)).toEqual(['task_status_changed', 'session_ended'])
+    expect(added[0]!.payload).toMatchObject({ id: '1.1', status: 'done' })
 
     const bare = await callTool<{ ok: boolean; tasks_applied?: number }>(client, 'sofar_end_session', {
       session_id: started.body.session_id,

@@ -195,19 +195,19 @@ describe('over MCP — the schema carries title and phase', () => {
     await client.close()
   })
 
-  it('sofar_end_session refuses a colliding title naming the entry, and holds a task it adds for later entries', async () => {
+  it('sofar_end_session leaves out a colliding title naming the entry, and holds a task it adds for later entries', async () => {
     const f = fx()
     const { client } = await connectServer(f.root, { hostSessionId: 'host-2' })
     const before = f.lines().length
-    const collided = await callTool<{ code: string; message: string }>(client, 'sofar_end_session', {
+    const collided = await callTool<{ not_filed: string[] }>(client, 'sofar_end_session', {
       summary: 's',
       next_action: 'n',
       tasks: [{ task_id: '1.1', status: 'pending', title: 'something else' }],
     })
-    expect(collided.isError).toBe(true)
-    expect(collided.body.message).toContain('tasks[0] (1.1): already in the plan as "api"')
-    // Only the host session's adoption lands; nothing from the batch, no write-back.
-    expect(f.lines().slice(before).map((l) => l.type)).toEqual(['session_started'])
+    expect(collided.isError).toBe(false)
+    expect(collided.body.not_filed[0]).toContain('tasks[0] (1.1): already in the plan as "api"')
+    // The host session's adoption and the write-back land; the colliding entry does not (r4-fixes U6).
+    expect(f.lines().slice(before).map((l) => l.type)).toEqual(['session_started', 'session_ended'])
 
     const ended = await callTool<Record<string, unknown>>(client, 'sofar_end_session', {
       summary: 's',
