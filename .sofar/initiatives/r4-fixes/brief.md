@@ -5,3 +5,7 @@
 The operator's words, verbatim. `sofar show brief¶<k>` prints one paragraph.
 
 Operator, 2026-10-06: "First send agents to analyse where we loss and research on techniques and methods to improve our system end to end in all areas. We can also plan engineering / innovate in all the areas. First do a through research technique and methods which can help improve sofar in all areas."
+
+--- Operator, 2026-10-06 ---
+
+Whenever you fix anything make sure that we don't degrade. We have to only see improvement, like improvement in percentages. We need to see better results Whatever you fix just try to test it before jumping into another test. That is a good thing, right? We have to make sure it will work properly
