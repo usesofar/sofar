@@ -32,4 +32,4 @@ Progress: 8/10 tasks done (80%)
 ## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/0 done
 
 
-Next action: When CI is green and the cores are staged: hand the operator the 0.34.1 publish commands (5 cores, then sofar.sh --tag latest); then U2 merges release/0.34.1 back into main.
+Next action: Operator publishes 0.34.1 from ~/IO/sofar-hf-int (5 cores, then sofar.sh --tag latest, then the next dist-tag); then the orchestrator verifies, reinstalls the global, and runs U2 (merge release/0.34.1 back into main).
