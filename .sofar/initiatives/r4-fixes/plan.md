@@ -79,4 +79,4 @@ Progress: 9/51 tasks done (17%)
 - [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
 - [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
 
-Next action: New session: rehome to r4-fixes, read the 2026-10-06 handoff note, check the U2 merge-back and the 8 wave-a/* branches, then integrate Wave A onto release/0.35.0.
+Next action: Relay each Wave A / U2 agent report to the new orchestrator session and note it in r4-fixes; take no new work here.
