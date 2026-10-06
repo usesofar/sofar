@@ -13,3 +13,6 @@ dist/
 
 # Rust workspace build output
 target/
+
+# Built native cores, including pre-rename package dirs (packaging/npm/sofar-core-<os>-<arch>/)
+packaging/npm/*/sofar-core*
