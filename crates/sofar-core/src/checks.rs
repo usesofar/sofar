@@ -707,12 +707,69 @@ pub fn rules_can_bear(index: &GuardIndex) -> bool {
             && (d.guard.is_some() || !d.mentions.is_empty())
     })
 }
+/// What a path names on disk (`PathKind`): a directory or a file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PathKind {
+    Dir,
+    File,
+}
 
-/// A test segment split into its runner head and its arguments (`TestSpec`).
+/// `PathProbe`: what a repo-relative (or absolute) path names on disk, or
+/// `None` for nothing — the gate's one window on the tree (r4-fixes 0.2, U1).
+pub type PathProbe<'a> = &'a dyn Fn(&str) -> Option<PathKind>;
+
+/// `NO_TREE`: every bare word reads as part of the runner, as for `suite_of`,
+/// which projections call.
+fn no_tree(_: &str) -> Option<PathKind> {
+    None
+}
+
+/// `rootProbe`: the tree under `root`, each path asked once.
+pub fn root_probe(root: &Path) -> impl Fn(&str) -> Option<PathKind> + '_ {
+    let seen =
+        std::cell::RefCell::new(std::collections::HashMap::<String, Option<PathKind>>::new());
+    move |path: &str| {
+        if let Some(kind) = seen.borrow().get(path) {
+            return *kind;
+        }
+        let full = if Path::new(path).is_absolute() {
+            PathBuf::from(path)
+        } else {
+            root.join(path)
+        };
+        let kind = std::fs::metadata(full).ok().map(|m| {
+            if m.is_dir() {
+                PathKind::Dir
+            } else {
+                PathKind::File
+            }
+        });
+        seen.borrow_mut().insert(path.to_owned(), kind);
+        kind
+    }
+}
+
+/// A path a test command names (`Operand`): as written, normalized, and
+/// whether it is a directory.
+#[derive(Debug, Clone, PartialEq)]
+struct Operand {
+    token: String,
+    path: String,
+    dir: bool,
+}
+
+/// A test segment split into its runner head and its arguments, and what the
+/// arguments select (`TestSpec`).
 #[derive(Debug, Clone, PartialEq)]
 struct TestSpec {
     head: String,
     args: Vec<String>,
+    /// The files and directories the arguments name.
+    operands: Vec<Operand>,
+    /// A word that names no path: the run may select less than its paths.
+    narrowed: bool,
+    /// A test-name filter flag: the run selects tests by name.
+    filtered: bool,
 }
 
 /// What follows `&` or the leading ASCII digits of a redirection token.
@@ -742,15 +799,164 @@ fn is_arg_token(token: &str) -> bool {
         || token.starts_with('"')
 }
 
-/// `suiteOf`: the runner a test command names, its arguments dropped — the
-/// suite an ask names (r3-fixes D10, D19).
-#[must_use]
-pub fn suite_of(cmd: &str) -> String {
-    test_spec(cmd).head
+/// `RUNNER_WORDS`: runners, never an operand even when a path of that name exists.
+const RUNNER_WORDS: &[&str] = &[
+    "vitest",
+    "jest",
+    "mocha",
+    "ava",
+    "tap",
+    "pytest",
+    "py.test",
+    "rspec",
+    "phpunit",
+    "cypress",
+    "playwright",
+    "node",
+];
+
+/// `SUBCOMMANDS`: a subcommand right after the word that takes it.
+const SUBCOMMANDS: &[(&str, &str)] = &[
+    ("npm", "test"),
+    ("npm", "t"),
+    ("npm", "run"),
+    ("pnpm", "test"),
+    ("pnpm", "t"),
+    ("pnpm", "run"),
+    ("yarn", "test"),
+    ("yarn", "t"),
+    ("yarn", "run"),
+    ("bun", "test"),
+    ("bun", "t"),
+    ("bun", "run"),
+    ("run", "test"),
+    ("run", "t"),
+    ("poetry", "run"),
+    ("uv", "run"),
+    ("bundle", "exec"),
+    ("vitest", "run"),
+    ("cypress", "run"),
+    ("playwright", "test"),
+    ("cargo", "test"),
+    ("go", "test"),
+    ("dotnet", "test"),
+    ("swift", "test"),
+    ("mix", "test"),
+    ("gradle", "test"),
+    ("gradlew", "test"),
+    ("mvn", "test"),
+    ("make", "test"),
+    ("deno", "test"),
+    ("zig", "test"),
+];
+
+/// `keepsHead`: a word that stays in the runner even when a path of that name
+/// exists — so `bun test` is a runner in a repo with a `test/` directory,
+/// while `pytest test` runs that directory.
+fn keeps_head(prev: &str, word: &str) -> bool {
+    RUNNER_WORDS.contains(&word) || SUBCOMMANDS.iter().any(|(p, w)| *p == prev && *w == word)
 }
 
-/// `testSpec`: the runner and its arguments, redirections dropped.
-fn test_spec(segment: &str) -> TestSpec {
+/// `FILTER_FLAGS`: test-name filters (go's `-run` among them).
+const FILTER_FLAGS: &[&str] = &[
+    "-t",
+    "--testNamePattern",
+    "--test-name-pattern",
+    "-k",
+    "--grep",
+    "-g",
+    "--filter",
+    "-run",
+];
+
+/// `filterFlag`: the filter flag a token is, bare or `flag=pattern`.
+fn filter_flag(token: &str) -> Option<&'static str> {
+    FILTER_FLAGS.iter().copied().find(|f| {
+        token == *f
+            || token
+                .strip_prefix(f)
+                .is_some_and(|rest| rest.starts_with('='))
+    })
+}
+
+fn quoted(token: &str) -> bool {
+    token.starts_with('\'') || token.starts_with('"')
+}
+
+/// `pastQuote`: just past the quoted word starting at `i` — the whitespace
+/// split cuts a quoted filter into tokens.
+fn past_quote(args: &[String], i: usize) -> usize {
+    let q = args[i].chars().next().unwrap_or('\'');
+    if args[i].chars().count() > 1 && args[i].ends_with(q) {
+        return i + 1;
+    }
+    let mut j = i + 1;
+    while j < args.len() && !args[j].ends_with(q) {
+        j += 1;
+    }
+    (j + 1).min(args.len())
+}
+
+/// `normalPath`: `.` and empty segments dropped, `..` folded; `""` is the root.
+fn normal_path(token: &str) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    for seg in token.split('/') {
+        if seg.is_empty() || seg == "." {
+            continue;
+        }
+        if seg == ".." && out.last().is_some_and(|l| *l != "..") {
+            out.pop();
+        } else {
+            out.push(seg);
+        }
+    }
+    format!(
+        "{}{}",
+        if token.starts_with('/') { "/" } else { "" },
+        out.join("/")
+    )
+}
+
+/// `operandOf`: the path an argument names — one that exists, or a
+/// path-shaped one taken as a file; go's `./...` is the directory before it.
+/// `None` for a word that names no path.
+fn operand_of(token: &str, probe: PathProbe<'_>) -> Option<Operand> {
+    let recursive = token == "..." || token.ends_with("/...");
+    let path = normal_path(if recursive {
+        &token[..token.len() - 3]
+    } else {
+        token
+    });
+    let kind = if path.is_empty() {
+        Some(PathKind::Dir)
+    } else {
+        probe(&path)
+    };
+    if kind == Some(PathKind::Dir) || (kind == Some(PathKind::File) && !recursive) {
+        return Some(Operand {
+            token: token.to_owned(),
+            path,
+            dir: kind == Some(PathKind::Dir),
+        });
+    }
+    token.contains(['/', '.']).then(|| Operand {
+        token: token.to_owned(),
+        path: normal_path(token),
+        dir: false,
+    })
+}
+
+/// `suiteOf`: the runner a test command names, its arguments dropped — the
+/// suite an ask names (r3-fixes D10, D19). Reads no tree.
+#[must_use]
+pub fn suite_of(cmd: &str) -> String {
+    test_spec(cmd, &no_tree).head
+}
+
+/// `testSpec`: the runner and its arguments, redirections dropped. The head
+/// ends at the first token that reads as an argument, or at a bare word naming
+/// a path that exists (r4-fixes U1) unless it is a runner word.
+fn test_spec(segment: &str, probe: PathProbe<'_>) -> TestSpec {
     let raw: Vec<&str> = js_trim(segment)
         .split(is_js_whitespace)
         .filter(|t| !t.is_empty())
@@ -766,21 +972,81 @@ fn test_spec(segment: &str) -> TestSpec {
         }
         i += 1;
     }
-    match tokens.iter().position(|t| is_arg_token(t)) {
-        None => TestSpec {
-            head: tokens.join(" "),
-            args: Vec::new(),
-        },
-        Some(at) => TestSpec {
-            head: tokens[..at].join(" "),
-            args: tokens[at..].iter().map(|t| (*t).to_owned()).collect(),
-        },
+    let at = tokens.iter().enumerate().position(|(i, t)| {
+        is_arg_token(t) || (i > 0 && !keeps_head(tokens[i - 1], t) && probe(t).is_some())
+    });
+    let (head, args) = match at {
+        None => (tokens.join(" "), Vec::new()),
+        Some(at) => (
+            tokens[..at].join(" "),
+            tokens[at..].iter().map(|t| (*t).to_owned()).collect(),
+        ),
+    };
+    let mut spec = TestSpec {
+        head,
+        args,
+        operands: Vec::new(),
+        narrowed: false,
+        filtered: false,
+    };
+    let args = &spec.args;
+    let mut operands = Vec::new();
+    let (mut narrowed, mut filtered) = (false, false);
+    let mut i = 0;
+    while i < args.len() {
+        let t = args[i].as_str();
+        if quoted(t) {
+            narrowed = true;
+            i = past_quote(args, i);
+            continue;
+        }
+        let filter = filter_flag(t);
+        i += 1;
+        if let Some(filter) = filter {
+            filtered = true;
+            if t == filter && i < args.len() {
+                i = if quoted(&args[i]) {
+                    past_quote(args, i)
+                } else {
+                    i + 1
+                }; // its pattern
+            }
+            continue;
+        }
+        if t.starts_with('-') {
+            continue; // a flag
+        }
+        let operand = if t.contains('=') {
+            None
+        } else {
+            operand_of(t, probe)
+        };
+        match operand {
+            None => narrowed = true,
+            Some(o) => operands.push(o),
+        }
     }
+    spec.operands = operands;
+    spec.narrowed = narrowed;
+    spec.filtered = filtered;
+    spec
 }
 
-/// `covers`: the same runner, and either the whole suite or every argument
-/// the requirement names. A requirement with no arguments is covered only by
-/// an argless run.
+/// `under`: a path inside a directory, or the directory itself.
+fn under(path: &str, dir: &str) -> bool {
+    dir.is_empty()
+        || path == dir
+        || path
+            .strip_prefix(dir)
+            .is_some_and(|rest| rest.starts_with('/'))
+}
+
+/// `covers` (r3-fixes D10; r4-fixes U1): the same runner, and an argless run;
+/// or a run naming every argument the requirement names; a test-name filter
+/// voids the rest; otherwise a run's directories cover the paths under them
+/// and its files themselves, and a run with a directory covers an ask that
+/// names no path. A sibling never covers, nor a run narrowed by a word that
+/// names no path.
 fn covers(run: &TestSpec, req: &TestSpec) -> bool {
     if run.head != req.head {
         return false;
@@ -788,7 +1054,28 @@ fn covers(run: &TestSpec, req: &TestSpec) -> bool {
     if run.args.is_empty() {
         return true;
     }
-    !req.args.is_empty() && req.args.iter().all(|a| run.args.contains(a))
+    let named = !req.args.is_empty() && req.args.iter().all(|a| run.args.contains(a));
+    if run.filtered {
+        return named && run.args.iter().all(|a| req.args.contains(a));
+    }
+    if named {
+        return true;
+    }
+    if run.narrowed || run.operands.is_empty() {
+        return false;
+    }
+    if req.operands.is_empty() {
+        return run.operands.iter().any(|o| o.dir);
+    }
+    req.operands.iter().all(|t| {
+        run.operands.iter().any(|o| {
+            if o.dir {
+                under(&t.path, &o.path)
+            } else {
+                t.path == o.path
+            }
+        })
+    })
 }
 
 /// One rule hanging on a requirement.
@@ -824,15 +1111,14 @@ fn flat_clip(text: &str, max: usize) -> String {
 }
 
 /// `namedRules`.
-fn named_rules(req: &Requirement) -> String {
-    let shown: Vec<String> = req
-        .rules
+fn named_rules(rules: &[&GateRule]) -> String {
+    let shown: Vec<String> = rules
         .iter()
         .take(3)
         .map(|r| format!("[{}] \"{}\"", r.handle, flat_clip(&r.rule, 140)))
         .collect();
-    let more = if req.rules.len() > 3 {
-        format!("; +{} more", req.rules.len() - 3)
+    let more = if rules.len() > 3 {
+        format!("; +{} more", rules.len() - 3)
     } else {
         String::new()
     };
@@ -845,10 +1131,12 @@ fn check_field(d: &ScopedDecision, key: &str) -> Option<String> {
 }
 
 /// The requirements the bearing rules hang on, in rule order (`stopGate`'s
-/// grouping): a rule's own test-shaped check, else the suite's head.
+/// grouping): a rule's own test-shaped check, else the suite — the known
+/// command's runner on the directories it ran.
 fn gate_requirements(
     mut bearing: Vec<&ScopedDecision>,
-    suite: Option<&str>,
+    known: Option<&TestSpec>,
+    probe: PathProbe<'_>,
 ) -> Vec<(String, Requirement)> {
     bearing.sort_by(|a, b| {
         if a.initiative == b.initiative {
@@ -859,19 +1147,33 @@ fn gate_requirements(
             cmp_utf16(&a.initiative, &b.initiative)
         }
     });
+    let suite_dirs: Vec<Operand> = match known {
+        Some(k) if !k.operands.iter().any(|o| o.dir && o.path.is_empty()) => {
+            k.operands.iter().filter(|o| o.dir).cloned().collect()
+        }
+        _ => Vec::new(),
+    };
     let mut reqs: Vec<(String, Requirement)> = Vec::new();
     for d in bearing {
         let check_cmd = check_field(d, "cmd");
         let own = check_cmd.as_deref().and_then(test_shaped_command);
         let (spec, cmd) = if let Some(own) = own {
-            (test_spec(&own), check_cmd.unwrap_or_default())
-        } else if let Some(suite) = suite.filter(|s| !s.is_empty()) {
+            (test_spec(&own, probe), check_cmd.unwrap_or_default())
+        } else if let Some(k) = known.filter(|k| !k.head.is_empty()) {
+            let args: Vec<String> = suite_dirs.iter().map(|o| o.token.clone()).collect();
+            let cmd = std::iter::once(k.head.clone())
+                .chain(args.iter().cloned())
+                .collect::<Vec<_>>()
+                .join(" ");
             (
                 TestSpec {
-                    head: suite.to_owned(),
-                    args: Vec::new(),
+                    head: k.head.clone(),
+                    args,
+                    operands: suite_dirs.clone(),
+                    narrowed: false,
+                    filtered: false,
                 },
-                suite.to_owned(),
+                cmd,
             )
         } else {
             continue;
@@ -899,46 +1201,55 @@ fn gate_requirements(
     reqs
 }
 
-/// One requirement's line: `None` when its newest covering run passed, a
-/// failure line when it failed, an ask when none ran.
-fn gate_line(req: &Requirement, runs: &[&TimedTestOutcome]) -> Option<String> {
-    let latest = runs
-        .iter()
-        .rev()
-        .find(|r| covers(&test_spec(&r.outcome.cmd), &req.spec));
-    if latest.is_some_and(|r| r.outcome.ok) {
-        return None;
+/// `askCommand` (r4-fixes U1): one command for every ask on one runner — a
+/// lone ask's own; else the runner on the directory holding every path the
+/// asks name, or the bare runner when one asks for the suite or the paths
+/// share no directory.
+fn ask_command(head: &str, reqs: &[&Requirement], probe: PathProbe<'_>) -> String {
+    if reqs.len() == 1 {
+        return reqs[0].cmd.clone();
     }
-    let fix = req
-        .rules
-        .iter()
-        .find_map(|r| r.hint.as_deref())
-        .map_or_else(
-            || "make the work hold the rule, or log a decision that supersedes it".to_owned(),
-            one_line,
-        );
-    Some(match latest {
-        None => format!(
-            "sofar: {} bear on files you edited, and no covering test passed since your last edit — run `{}` and fix any failure before stopping (fix: {fix})",
-            named_rules(req),
-            req.cmd
-        ),
-        Some(run) => format!(
-            "sofar: `{}` failed{} after your last edit, and it covers {} — fix: {fix}",
-            run.outcome.cmd,
-            run.outcome
-                .exit
-                .map(|e| format!(" (exit {})", json::number_to_string(e)))
-                .unwrap_or_default(),
-            named_rules(req)
-        ),
-    })
+    let mut common: Option<Vec<&str>> = None;
+    for req in reqs {
+        if req.spec.operands.is_empty() {
+            return head.to_owned();
+        }
+        for o in &req.spec.operands {
+            let mut dir: Vec<&str> = o.path.split('/').collect();
+            if !o.dir {
+                dir.pop();
+            }
+            common = Some(match common {
+                None => dir,
+                Some(c) => {
+                    let n = c.iter().zip(dir.iter()).take_while(|(a, b)| a == b).count();
+                    c[..n].to_vec()
+                }
+            });
+        }
+    }
+    let dir = common.unwrap_or_default().join("/");
+    if !dir.is_empty() && probe(&dir) == Some(PathKind::Dir) {
+        format!("{head} {dir}")
+    } else {
+        head.to_owned()
+    }
+}
+
+/// Asks on one runner, or the requirements one failed run covers.
+struct Group<'a> {
+    key: String,
+    head: String,
+    failed: Option<&'a TimedTestOutcome>,
+    reqs: Vec<&'a Requirement>,
 }
 
 /// `stopGate`: every in-force rule, repo-wide, that guards or names a path
 /// this session edited needs a covering test that passed after its last edit
 /// — its check's test segment, or the repo's suite (the runner of
-/// `known_test`). A run counts only if it finished after `edited_at_ms`.
+/// `known_test` on the directories it ran). A run counts only if it finished
+/// after `edited_at_ms`. A failed latest covering run is a failure line, one
+/// per run; no covering run is an ask, one line per runner (r4-fixes U1).
 #[must_use]
 pub fn stop_gate(
     index: &GuardIndex,
@@ -946,6 +1257,7 @@ pub fn stop_gate(
     tests_since_edit: &[TimedTestOutcome],
     known_test: Option<&str>,
     edited_at_ms: Option<f64>,
+    probe: PathProbe<'_>,
 ) -> StopGate {
     let runs: Vec<&TimedTestOutcome> = match edited_at_ms {
         None => tests_since_edit.iter().collect(),
@@ -973,12 +1285,63 @@ pub fn stop_gate(
         return StopGate::default();
     }
 
-    let suite = known_test.map(|k| test_spec(k).head);
-    let reqs = gate_requirements(bearing, suite.as_deref());
-    let mut lines: Vec<String> = reqs
+    let known = known_test.map(|k| test_spec(k, probe));
+    let reqs = gate_requirements(bearing, known.as_ref(), probe);
+    // Asks on one runner fold into one line with one command; requirements a
+    // failed run covers, into that run's line.
+    let ran: Vec<(&TimedTestOutcome, TestSpec)> = runs
         .iter()
-        .filter_map(|(_, req)| gate_line(req, &runs))
+        .map(|r| (*r, test_spec(&r.outcome.cmd, probe)))
         .collect();
+    let mut groups: Vec<Group<'_>> = Vec::new();
+    for (key, req) in &reqs {
+        let latest = ran
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, (_, spec))| covers(spec, &req.spec));
+        if latest.is_some_and(|(_, (run, _))| run.outcome.ok) {
+            continue;
+        }
+        let group = match latest {
+            Some((at, _)) => format!("failed\0{at}"),
+            None if !req.spec.head.is_empty() => format!("ask\0{}", req.spec.head),
+            None => format!("ask\0\0{key}"),
+        };
+        match groups.iter_mut().find(|g| g.key == group) {
+            Some(g) => g.reqs.push(req),
+            None => groups.push(Group {
+                key: group,
+                head: req.spec.head.clone(),
+                failed: latest.map(|(_, (run, _))| *run),
+                reqs: vec![req],
+            }),
+        }
+    }
+    let mut lines: Vec<String> = Vec::new();
+    for group in &groups {
+        let rules: Vec<&GateRule> = group.reqs.iter().flat_map(|r| r.rules.iter()).collect();
+        let fix = rules.iter().find_map(|r| r.hint.as_deref()).map_or_else(
+            || "make the work hold the rule, or log a decision that supersedes it".to_owned(),
+            one_line,
+        );
+        lines.push(match group.failed {
+            None => format!(
+                "sofar: {} bear on files you edited, and no covering test passed since your last edit — run `{}` and fix any failure before stopping (fix: {fix})",
+                named_rules(&rules),
+                ask_command(&group.head, &group.reqs, probe)
+            ),
+            Some(run) => format!(
+                "sofar: `{}` failed{} after your last edit, and it covers {} — fix: {fix}",
+                run.outcome.cmd,
+                run.outcome
+                    .exit
+                    .map(|e| format!(" (exit {})", json::number_to_string(e)))
+                    .unwrap_or_default(),
+                named_rules(&rules)
+            ),
+        });
+    }
     let blocks = !lines.is_empty();
     let more = lines.len().saturating_sub(STOP_GATE_LINES);
     lines.truncate(STOP_GATE_LINES);
@@ -993,36 +1356,262 @@ pub fn stop_gate(
 #[cfg(test)]
 mod gate_tests {
     use super::*;
+    use crate::fold::TestOutcome;
+    use crate::json::Object;
+
+    fn spec(cmd: &str) -> TestSpec {
+        test_spec(cmd, &no_tree)
+    }
 
     #[test]
     fn spec_splits_head_from_args_and_drops_redirections() {
-        let s = test_spec("bun test test/a.test.ts");
+        let s = spec("bun test test/a.test.ts");
         assert_eq!(s.head, "bun test");
         assert_eq!(s.args, vec!["test/a.test.ts".to_owned()]);
-        assert_eq!(test_spec("bun run test 2>&1").head, "bun run test");
-        assert!(test_spec("bun run test 2>&1").args.is_empty());
-        assert_eq!(test_spec("bun run test > out.log").head, "bun run test");
-        assert!(test_spec("bun run test > out.log").args.is_empty());
-        // A bare word is not an argument (TS ARG_TOKEN): only a path-, file-,
-        // flag-, assignment- or quote-shaped token starts the arguments.
-        assert_eq!(test_spec("npx vitest run src/").head, "npx vitest run");
-        assert_eq!(test_spec("npx vitest run src").head, "npx vitest run src");
+        assert_eq!(spec("bun run test 2>&1").head, "bun run test");
+        assert!(spec("bun run test 2>&1").args.is_empty());
+        assert_eq!(spec("bun run test > out.log").head, "bun run test");
+        assert!(spec("bun run test > out.log").args.is_empty());
+        // Without the tree a bare word is not an argument (TS ARG_TOKEN): only
+        // a path-, file-, flag-, assignment- or quote-shaped token starts them.
+        assert_eq!(spec("npx vitest run src/").head, "npx vitest run");
+        assert_eq!(spec("npx vitest run src").head, "npx vitest run src");
         assert!(!is_redirect("&2>"));
         assert!(is_redirect("&>log"));
         assert!(is_bare_redirect(">>"));
     }
 
     #[test]
+    fn a_bare_word_naming_a_path_is_an_argument_but_a_runner_word_never() {
+        let tree = |p: &str| match p {
+            "tests" | "test" | "src" | "run" => Some(PathKind::Dir),
+            _ => None,
+        };
+        assert_eq!(test_spec("bun test tests", &tree).head, "bun test");
+        assert_eq!(
+            test_spec("npx vitest run src", &tree).head,
+            "npx vitest run"
+        );
+        assert_eq!(test_spec("bun test", &tree).head, "bun test");
+        assert_eq!(test_spec("bun run test", &tree).head, "bun run test");
+        assert_eq!(test_spec("pytest test", &tree).head, "pytest");
+        assert_eq!(test_spec("bun test test", &tree).head, "bun test");
+        assert_eq!(suite_of("bun test tests 2>&1"), "bun test tests"); // no tree: projections stay pure
+        assert_eq!(normal_path("./tests//rules/../unit/"), "tests/unit");
+        assert_eq!(normal_path("."), "");
+        assert_eq!(normal_path("../x"), "../x");
+    }
+
+    #[test]
     fn covers_the_suite_or_a_superset_of_files() {
-        let req = test_spec("bun test test/a.test.ts");
-        assert!(covers(&test_spec("bun test"), &req));
+        let req = spec("bun test test/a.test.ts");
+        assert!(covers(&spec("bun test"), &req));
         assert!(covers(
-            &test_spec("bun test test/b.test.ts test/a.test.ts"),
+            &spec("bun test test/b.test.ts test/a.test.ts"),
             &req
         ));
-        assert!(!covers(&test_spec("bun test test/b.test.ts"), &req));
-        let suite = test_spec("bun test");
-        assert!(!covers(&test_spec("bun test test/a.test.ts"), &suite));
-        assert!(covers(&test_spec("bun test"), &suite));
+        assert!(!covers(&spec("bun test test/b.test.ts"), &req));
+        let suite = spec("bun test");
+        assert!(!covers(&spec("bun test test/a.test.ts"), &suite));
+        assert!(covers(&spec("bun test"), &suite));
+    }
+
+    // --- the tables shared with test/stop-gate-coverage.test.ts -------------
+
+    fn fixture(name: &str) -> Json {
+        let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+        json::parse(&std::fs::read_to_string(path).unwrap()).unwrap()
+    }
+
+    fn text(o: &Object, key: &str) -> String {
+        o.get(key)
+            .and_then(Json::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    }
+
+    fn strings(v: Option<&Json>) -> Vec<String> {
+        v.and_then(Json::as_arr)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|s| s.as_str().map(str::to_owned))
+            .collect()
+    }
+
+    fn runs(v: Option<&Json>, ok: Option<bool>) -> Vec<TimedTestOutcome> {
+        v.and_then(Json::as_arr)
+            .unwrap_or_default()
+            .iter()
+            .map(|r| {
+                let r = r.as_obj().unwrap();
+                TimedTestOutcome {
+                    outcome: TestOutcome {
+                        cmd: text(r, "cmd"),
+                        ok: ok.unwrap_or_else(|| r.get("ok").is_some_and(Json::is_true)),
+                        exit: r.get("exit").and_then(Json::as_f64),
+                    },
+                    ts: text(r, "ts"),
+                }
+            })
+            .collect()
+    }
+
+    fn index(scoped: Vec<ScopedDecision>) -> GuardIndex {
+        GuardIndex {
+            guards: Vec::new(),
+            scoped,
+            retired: std::collections::HashSet::new(),
+            decisions: Vec::new(),
+            memories: Vec::new(),
+        }
+    }
+
+    fn decision(d: &Object) -> ScopedDecision {
+        ScopedDecision {
+            id: text(d, "id"),
+            initiative: text(d, "initiative"),
+            ordinal: d.get("ordinal").and_then(Json::as_f64).unwrap(),
+            ts: String::new(),
+            chose: "c".to_owned(),
+            over: "o".to_owned(),
+            rule: d.get("rule").and_then(Json::as_str).map(str::to_owned),
+            quote: None,
+            guard: d.get("guard").and_then(Json::as_str).map(str::to_owned),
+            check: d.get("check").cloned(),
+            until: None,
+            superseded_by: None,
+            mentions: strings(d.get("mentions")),
+        }
+    }
+
+    fn tree_of(tree: Option<&Object>) -> impl Fn(&str) -> Option<PathKind> + '_ {
+        move |p: &str| match tree.and_then(|t| t.get(p)).and_then(Json::as_str) {
+            Some("dir") => Some(PathKind::Dir),
+            Some("file") => Some(PathKind::File),
+            _ => None,
+        }
+    }
+
+    /// The coverage matrix: bun, vitest, jest, pytest, cargo and go, rendered
+    /// byte for byte as the TypeScript gate renders it.
+    #[test]
+    fn every_matrix_case_renders_as_typescript_does() {
+        let m = fixture("js-stop-gate-coverage.json");
+        let m = m.as_obj().unwrap();
+        let edited_at = js_date_parse(&text(m, "edited_at"));
+        let files = strings(m.get("files"));
+        let tree = m.get("tree").and_then(Json::as_obj);
+        let cases = m.get("cases").and_then(Json::as_arr).unwrap();
+        assert!(cases.len() >= 40);
+        for c in cases {
+            let c = c.as_obj().unwrap();
+            let name = text(c, "name");
+            let scoped = c
+                .get("checks")
+                .and_then(Json::as_arr)
+                .unwrap()
+                .iter()
+                .enumerate()
+                .map(|(i, cmd)| {
+                    let n = json::usize_to_f64(i + 1);
+                    let check = cmd.as_str().map(|cmd| {
+                        let mut o = Object::new();
+                        o.insert("cmd".to_owned(), Json::Str(cmd.to_owned()));
+                        if i == 0 {
+                            o.insert("hint".to_owned(), Json::Str("hint one".to_owned()));
+                        }
+                        Json::Obj(o)
+                    });
+                    ScopedDecision {
+                        id: format!("d{}", i + 1),
+                        initiative: "demo".to_owned(),
+                        ordinal: n,
+                        ts: String::new(),
+                        chose: "c".to_owned(),
+                        over: "o".to_owned(),
+                        rule: Some(format!("Rule {}.", i + 1)),
+                        quote: None,
+                        guard: Some("path:src/**".to_owned()),
+                        check,
+                        until: None,
+                        superseded_by: None,
+                        mentions: Vec::new(),
+                    }
+                })
+                .collect();
+            let no_tree = c.get("no_tree").is_some_and(Json::is_true);
+            let probe = tree_of(if no_tree { None } else { tree });
+            let known = c.get("known").and_then(Json::as_str);
+            let gate = stop_gate(
+                &index(scoped),
+                &files,
+                &runs(c.get("runs"), None),
+                known,
+                edited_at,
+                &probe,
+            );
+            assert_eq!(
+                gate.blocks,
+                c.get("blocks").is_some_and(Json::is_true),
+                "{name}"
+            );
+            assert_eq!(gate.lines, strings(c.get("lines")), "{name}");
+        }
+    }
+
+    /// Round 4's 28 Stop holds, replayed: the lines TypeScript renders, and a
+    /// seeded red run after the last edit holding every session U1 clears.
+    #[test]
+    fn round_four_replays_as_typescript_does() {
+        let holds = fixture("js-stop-gate-round4.json");
+        let holds = holds.as_arr().unwrap();
+        assert_eq!(holds.len(), 28);
+        let mut cleared = 0;
+        for h in holds {
+            let h = h.as_obj().unwrap();
+            let block = text(h, "block");
+            let scoped = h
+                .get("decisions")
+                .and_then(Json::as_arr)
+                .unwrap()
+                .iter()
+                .map(|d| decision(d.as_obj().unwrap()))
+                .collect();
+            let index = index(scoped);
+            let files = strings(h.get("files"));
+            let probe = tree_of(h.get("tree").and_then(Json::as_obj));
+            let known = h.get("known_test").and_then(Json::as_str);
+            let tests = runs(h.get("tests_since_edit"), None);
+            let gate = stop_gate(&index, &files, &tests, known, None, &probe);
+            let u1 = h.get("u1").and_then(Json::as_obj).unwrap();
+            assert_eq!(
+                gate.blocks,
+                u1.get("blocks").is_some_and(Json::is_true),
+                "{block}"
+            );
+            assert_eq!(gate.lines, strings(u1.get("lines")), "{block}");
+            if let Some(last) = tests.last().filter(|_| !gate.blocks) {
+                cleared += 1;
+                let mut red = last.clone();
+                red.outcome.ok = false;
+                red.outcome.exit = Some(1.0);
+                red.ts = "2099-01-01T00:00:00.000Z".to_owned();
+                let mut seeded = tests.clone();
+                seeded.push(red);
+                let held = stop_gate(&index, &files, &seeded, known, None, &probe);
+                assert!(held.blocks, "{block}");
+                assert!(
+                    held.lines[0].contains("failed (exit 1) after your last edit"),
+                    "{block}"
+                );
+            }
+            // Codex records no outcome; were its runs known to pass, 16 of 18 clear.
+            if let Some(unknown) = h.get("unknown_outcome_runs") {
+                let passed = runs(Some(unknown), Some(true));
+                let gate = stop_gate(&index, &files, &passed, known, None, &probe);
+                assert_eq!(gate.blocks, passed.is_empty(), "{block}");
+            }
+        }
+        assert_eq!(cleared, 9);
     }
 }

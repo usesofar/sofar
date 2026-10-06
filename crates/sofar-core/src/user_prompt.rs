@@ -1131,7 +1131,8 @@ fn stop_gate_for(
         })
         .map(|t| t.cmd.as_str());
     let tests = activity.map_or(&[][..], |a| a.tests_since_edit.as_slice());
-    crate::checks::stop_gate(&index, &files, tests, known, edited_at)
+    let probe = crate::checks::root_probe(root);
+    crate::checks::stop_gate(&index, &files, tests, known, edited_at, &probe)
 }
 
 /// `handleSessionEnd`: append `session_closed` once.

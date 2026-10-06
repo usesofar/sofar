@@ -39,7 +39,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
+import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -1432,7 +1432,7 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     }
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
-    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt)
+    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, rootProbe(rootDir))
   } catch {
     return none
   }

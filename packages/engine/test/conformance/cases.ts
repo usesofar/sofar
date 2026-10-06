@@ -748,6 +748,42 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes 0.2 (U1) on the hot path: which run covers which ask, read
+    // against the tree. A directory covers the files under it, a sibling does
+    // not, a test-name filter voids coverage, a failed or pre-edit run never
+    // covers, the bare runner covers every ask — and stays the runner in a
+    // repo with a `test/` directory — and asks on one runner fold into one line.
+    name: 'syn.gate-coverage',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('session-start: the tree the commands name', ['event', 'session-start'], start({ session_id: 'sess-g' }), {
+        before: (m) => {
+          for (const rel of ['src/stock.ts', 'tests/rules/one.test.ts', 'tests/rules/two.test.ts', 'tests/unit/a.test.ts', 'test/smoke.test.ts']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+          }
+        },
+      }),
+      s('a rule checked by one test file', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-g', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', guard: 'path:src/**', check: { cmd: 'bun test tests/rules/one.test.ts', hint: 'reject the move before it lands' }, supersedes: 'none' })]),
+      s('a rule checked by a filtered test file', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-g', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'holds on the location', over: 'holds on lots', because: 'b', rule: 'Holds sit on the location, never on lots.', guard: 'path:src/**', check: { cmd: "bun test tests/rules/two.test.ts -t 'holds'" }, supersedes: 'none' })]),
+      s('Edit the guarded file', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-g' })),
+      s('sess-g writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-g', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('stop: both asks on one line, one command', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('a sibling directory passes', ['event', 'post-tool'], bash('bun test tests/unit', { session_id: 'sess-g' })),
+      s('stop: a sibling covers nothing', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('a filtered run of the parent passes', ['event', 'post-tool'], bash('bun test tests -t holds', { session_id: 'sess-g' })),
+      s('stop: a filter voids coverage', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('the directory holding both passes', ['event', 'post-tool'], bash('bun test tests/rules 2>&1 | tail -3', { session_id: 'sess-g' })),
+      s('stop: a directory covers the files under it', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('Edit again', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-g' })),
+      s('stop: a pre-edit run never covers', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('the bare runner fails', ['event', 'post-tool-failure'], hook('PostToolUseFailure', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'bun test', description: 'x' }, error: 'Exit code 1', exit_code: 1 })),
+      s('stop: a red run after the edit holds, once for both rules', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+      s('the bare runner passes', ['event', 'post-tool'], bash('bun test', { session_id: 'sess-g' })),
+      s('stop: the bare runner covers every ask, test/ notwithstanding', ['event', 'stop'], stop({ session_id: 'sess-g' })),
+    ],
+  },
+  {
     // r3-fixes 2.11 (D19, D20) on the hot path: round 3's S18 merge in
     // miniature, in a real repo with pinned dates — wt-15 merged clean, wt-16
     // and wt-17 conflicting on src/db.ts, the conflict committed as the

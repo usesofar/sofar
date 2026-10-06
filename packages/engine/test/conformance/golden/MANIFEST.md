@@ -1,5 +1,20 @@
 # Golden manifest (rust-core D11)
 
+ADDED and RE-RECORDED on **hotfix/u1** (from v0.34.0) for **r4-fixes 0.2**
+(U1, the Stop gate's coverage): one new case, `syn.gate-coverage`. A bare
+word in a test command that names a path on disk is an argument, so a green
+`bun test tests/rules` covers the asks for the two files under it, while
+`bun test tests/unit` (a sibling) and `bun test tests -t holds` (a test-name
+filter) cover nothing; the two asks on the runner fold into one line with one
+command (`bun test tests/rules`); a run before the latest edit never covers; a
+failed bare `bun test` after it is one failure line for both rules; a green
+bare `bun test` covers every ask, the repo's `test/` directory
+notwithstanding. One golden moved: `syn.surfacing` step 18, whose two asks on
+`bun test` (the suite's and D9's file) now fold into one line that names both
+rules and runs `bun test`. The Rust core reproduces every golden
+(`SOFAR_CORE=… vitest run test/conformance`: 285 passed). No previous set is
+kept: nothing else changed.
+
 Re-recorded on **release/0.34.0** (stable, from tag v0.34.0-rc.5) from the
 TypeScript reference. The version bump is the whole diff: two goldens
 changed, each by one string. `argv.fast-path` (`--version` is now
