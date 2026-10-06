@@ -804,7 +804,7 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     writeFileSync(join(root, 'CLAUDE.md'), PROTOCOL_BLOCK_V5, 'utf8')
     const r = runDoctor(root)
     expect(r.stdout).toContain('CLAUDE.md protocol block is from an older sofar')
-    expect(r.stdout).toContain('run `sofar init` to refresh it')
+    expect(r.stdout).toContain('run `sofar init --refresh` to refresh it')
     expect(r.stdout).not.toContain('CLAUDE.md protocol block is customized')
   })
 

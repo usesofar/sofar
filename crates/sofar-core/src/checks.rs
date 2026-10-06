@@ -235,6 +235,47 @@ pub fn unapproved_line(checks: &[&InForceCheck]) -> Option<String> {
     ))
 }
 
+/// `unapprovedNoticePath`: `<state>/checks/<key>.notice`, beside the trust
+/// file and keyed the same — the UTC day the unapproved line last printed on
+/// an automatic surface. None when the state dir would sit inside the clone.
+#[must_use]
+pub fn unapproved_notice_path(root: &Path) -> Option<PathBuf> {
+    trust_path(root).map(|p| p.with_extension("notice"))
+}
+
+/// `claimUnapprovedNotice`: at most once per clone per UTC day on the
+/// automatic surfaces, pre-commit and Stop (r4-fixes U7). The first surface to
+/// print it today claims the day; with no state dir to hold the claim, it
+/// prints as before.
+#[must_use]
+pub fn claim_unapproved_notice(root: &Path, now_iso: &str) -> bool {
+    let Some(path) = unapproved_notice_path(root) else {
+        return true;
+    };
+    let day = now_iso.get(..10).unwrap_or(now_iso);
+    if let Ok(text) = std::fs::read_to_string(&path)
+        && js_trim(&text) == day
+    {
+        return false;
+    }
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(&path, format!("{day}\n"));
+    true
+}
+
+/// `throttledUnapprovedLine`: `unapproved_line`, once per clone per day (U7).
+#[must_use]
+pub fn throttled_unapproved_line(
+    root: &Path,
+    checks: &[&InForceCheck],
+    now_iso: &str,
+) -> Option<String> {
+    let line = unapproved_line(checks)?;
+    claim_unapproved_notice(root, now_iso).then_some(line)
+}
+
 /// `\x1b\[[0-9;]*[A-Za-z]` removed.
 fn strip_ansi(text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
@@ -560,7 +601,12 @@ pub fn stop_check_lines(
         .copied()
         .filter(|c| !approved.iter().any(|a| std::ptr::eq(*a, *c)))
         .collect();
-    lines.extend(unapproved_line(&unapproved));
+    // Once per clone per day (r4-fixes U7): `sofar doctor` keeps the full list.
+    lines.extend(throttled_unapproved_line(
+        root,
+        &unapproved,
+        &crate::envelope::to_iso_string(std::time::SystemTime::now()),
+    ));
     if !skipped.is_empty() {
         lines.push(format!(
             "sofar: {} decision check(s) did not run — Stop's {}s budget was spent; `sofar check` runs them all",

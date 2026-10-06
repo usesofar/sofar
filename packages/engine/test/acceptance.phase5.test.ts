@@ -93,7 +93,7 @@ describe('acceptance — opencode-adapter.md manual checklist, simulated against
     const stopProbe = `${JSON.stringify({ session_id: SESSION, stop_hook_active: false })}\n`
 
     // step 1 — sofar init: AGENTS.md block installed
-    const init = cli(root, ['init'])
+    const init = cli(root, ['init', '--agents', 'all'])
     expect(init.status).toBe(0)
     expect(init.stdout).toContain('created AGENTS.md (sofar protocol block)')
     expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toContain('<!-- sofar:protocol -->')

@@ -688,7 +688,13 @@ outside every permission prompt the host has. A check runs only when:
 An applicable unapproved check is named, never run: `sofar: N decision
 check(s) bear on this work but are not approved on this clone, so none ran:
 [<slug> D<n>] \`<cmd>\`, … — the operator approves one with \`sofar check
---approve "<handle>"\``.
+--approve "<handle>"\``. On the AUTOMATIC surfaces, pre-commit and Stop, it
+prints at most once per clone per UTC day (r4-fixes U7): the first to print it
+writes the day to `<state>/checks/<key>.notice` (beside the trust file, same
+key), and later ones that day leave it out. Round 4 printed it on 52 of 104
+Claude commits, and agents relayed the same operator-only fix each time. With
+no state dir to hold the claim it prints as before. `sofar check` (not
+`--staged`), `--list` and `sofar doctor` name unapproved checks whenever asked.
 
 FAILURE LINE, on every surface: `sofar: check for [<slug> D<n>] failed
 (<how>): <last output line> — rule: "<rule>" — fix: <hint>`, the fix being,
@@ -6021,7 +6027,7 @@ Shims contain no logic — they invoke the sofar CLI.
 
 ## CLI
 ROOT (r3-fixes 2.12, D12). Every repo-scoped command and hook without `--root`
-serves the nearest ancestor of its working directory that holds a `.sofar/`
+— except `sofar init`, below — serves the nearest ancestor of its working directory that holds a `.sofar/`
 directory, looked for only inside the git repo that directory is in, up to and
 including its top (the first ancestor with a `.git` entry). Outside a repo, or
 with no record in it, the working directory itself, as before. `--root` is
@@ -6030,7 +6036,7 @@ follows its `cd`. In round 3, with cwd as the root, every hook silently did
 nothing from `apps/web`: Claude Write/Edit capture was 0 of 156 from a
 subdirectory, against 33 of 33 from the root.
 
-- `sofar init [--agents <list>] [--[no-]prompt-capture]` — create .sofar/, write repo.md stub, install hook shims
+- `sofar init [--agents <list>] [--refresh] [--[no-]prompt-capture]` — create .sofar/, write repo.md stub, install hook shims
   (including git's own `.git/hooks/prepare-commit-msg`, never clobbering —
   commit-attribution D7, §Hooks)
   + .claude/settings.json hooks block, emit .mcp.json registration, the
@@ -6063,25 +6069,46 @@ subdirectory, against 33 of 33 from the root.
   turns capture back on. A run that changes it reports one line. `.sofar/`,
   `.gitattributes` and the git hook are shared and always installed. `--agents` takes
   `claude-code`, `cursor`, `codex` comma-separated, or `all`; an unknown name
-  exits 1 and writes nothing. Without the flag, when stdin and stderr are a
-  terminal (not CI, not TERM=dumb), init asks with a multi-select drawn on
+  exits 1 and writes nothing. SELECTION (r4-fixes R12, implementing r1-fixes
+  D35; supersedes D36's non-interactive "all"): the hosts a run writes are
+  within `--agents` ?? the wired set ?? a refusal. The WIRED SET is read from
+  the files themselves, as `sofar doctor` reads it (its PER AGENT check). A repo
+  already wired is rewired for exactly that set in every mode: `--refresh`
+  (what every upgrade notice names) and a run with no terminal take it as it
+  is, and the terminal picker pre-selects it alone — an agent merely installed
+  on the machine is never added by Enter (the Cursor incident, r3-fixes 2.15).
+  `--refresh` with `--agents` exits 1, and `--refresh` with nothing wired
+  refuses like a first init. A FIRST init (nothing wired), when stdin and
+  stderr are a terminal (not CI, not TERM=dumb), asks with a multi-select drawn on
   stderr — arrows or j/k move, space toggles, `a` toggles all, enter
   confirms (never on an empty selection), esc or ctrl-c exits 1 with nothing
   written — pre-selecting the agents found on this machine (binary on PATH
-  or `~/.claude`, `~/.cursor`, `~/.codex`) or already wired in the repo, and
-  every agent when none is found. NON-INTERACTIVE DEFAULT: with no flag and
-  stdin or stderr not a terminal, or `CI` set, or TERM=dumb, init never
-  prompts and sets up EVERY agent — the same tree an r1-fixes build wrote
-  before 7.1, which since Phase 6 includes `.cursor/hooks.json` and
-  `.cursor/mcp.json` beside Claude Code's files and AGENTS.md. A harness that
-  must control which agents' config a repo carries passes `--agents`
-  explicitly, and must pass it whenever it runs init under a pseudo-terminal,
-  where the picker would wait for keys. Builds before 7.1 (0.32.0,
+  or `~/.claude`, `~/.cursor`, `~/.codex`), and every agent when none is
+  found. With no terminal (stdin or stderr not a terminal, or `CI` set, or
+  TERM=dumb) a first init without `--agents` exits 1 and writes nothing,
+  naming the agents found on this machine and the exact command, `sofar init
+  --agents <found ids>` (plus `--root` when one was given); it never guesses.
+  A harness that must control which agents' config a repo carries passes
+  `--agents` explicitly, and must pass it whenever it runs init under a
+  pseudo-terminal, where the picker would wait for keys. ROOT: init serves
+  `--root` as given, else the git toplevel of the working directory (the
+  nearest ancestor with a `.git` entry), else the working directory — never
+  the record found by r3-fixes D12's walk-up, so a run from `packages/x/`
+  wires the repo, and a `.sofar/` under `packages/x/` is not where it lands.
+  WIRING JOURNAL (r4-fixes R12): every run that wrote anything appends one
+  JSON line to `<state>/wiring/<cloneKey>.jsonl` (outside the repo, never
+  committed; nothing when the state dir resolves inside the clone): `ts`,
+  `sofar` (version), `root`, `cwd`, `argv`, `tty`, `selection` (`flag`,
+  `refresh`, `wired` or `picker`), `agents`, `result` (`ok` or `aborted`)
+  and `files`, each `{path, op: write|remove, sha256}` with the path
+  root-relative when inside it. It is an audit trail, not a selection store:
+  nothing reads it to decide what to wire. Builds before 7.1 (0.32.0,
   0.33.0-rc.1) reject `--agents` as an unknown option (exit 1). Re-running
   with another agent adds that agent's files and leaves the others' bytes
   alone. The shims live in `.claude/hooks/` whenever Claude Code is picked or
   any hook config already runs them from there; a repo without Claude Code
-  keeps them in `.cursor/hooks/sofar/`, run as
+  keeps them in `.cursor/hooks/sofar/` (also when a run picks neither, as
+  `--agents codex` on a Cursor repo: r4-fixes R12), run as
   `$CURSOR_PROJECT_DIR/.cursor/hooks/sofar/<shim>`, so a Cursor-only repo
   carries no `.claude/`. Adding Claude Code later moves them: Cursor's
   entries are repointed in place (other keys kept) even when Cursor was not
@@ -6190,8 +6217,15 @@ subdirectory, against 33 of 33 from the root.
   agents-parity 2.1), checked for its six shims, its six hooks.json entries
   (five until memory-lead D39 added PreToolUse) and its sofar server, in `.codex/config.toml` or the user's config.toml
   (agents-parity 2.2) — each unwired agent gets one ok line naming
-  `sofar init --agents <id>`, a partial install's repair hint names its own
-  agents, and a record with no agent wired at all FAILs. A passing Codex
+  `sofar init --agents <id>`, a wired repo's repair hint (and the stale
+  protocol block's) names `sofar init --refresh`, which rewires exactly the
+  wired set (r4-fixes R12), and a record with no agent wired at all FAILs.
+  The HOT PATH line names the implementation hooks run on; when this is a
+  global npm install whose own `bin/sofar-core` is still the JavaScript stub
+  — its install script did not run, npm 12's default — it WARNs that node
+  boots before the native core on every hook and names `npm config set
+  allow-scripts=sofar.sh --location=user` and `npm install -g sofar.sh
+  --allow-scripts=sofar.sh` (r4-fixes U9; Windows keeps the stub by design). A passing Codex
   check means wired, not running: doctor cannot see whether Codex trusts the
   project or sofar's hooks, because the file holding that state is
   unverified (§Codex host). Plus the MERGE-RULES check (r3-fixes 2.14):
@@ -6265,7 +6299,12 @@ subdirectory, against 33 of 33 from the root.
   (5) decision guards — every crossing in `guard_violations`
   (§Decision guards), one WARN naming `[D<n>]`, the subject, and the rule
   VERBATIM. Always WARN and never FAIL: the audit's exit code is the very
-  exit code D3 forbids a guard from moving; (6) repo memory — two halves, both checked against the
+  exit code D3 forbids a guard from moving. In the same section, one WARN
+  names the decision checks in force that this clone has not approved
+  (`N decision check(s) not approved on this clone, so none of them runs at
+  Stop or pre-commit: [<slug> D<n>] \`<cmd>\`, …`, hint `sofar check
+  --approve "<handle>"`), every run — the surface the once-a-day automatic
+  line defers to (r4-fixes U7; §Decision checks (memory-lead 2.3, D9, D10)); (6) repo memory — two halves, both checked against the
   hand-written `.sofar/repo.md`, the one file every SessionStart injects.
   OBSERVED: every decision the record TREATS as repo-wide (§Record graph
   `repoGeneral`: cited FROM another initiative). DECLARED: every fact promoted
@@ -6929,7 +6968,7 @@ from the sync client's credentials.json so a credential rewrite can never
 lose a preference. Default false; an unreadable config is not consent. When
 on, the refresh child performs the install itself and records
 `installed: {version, at}`, which turns the notice into "auto-upgraded to
-X — restart your agent, and run `sofar init` in each repo to refresh its
+X — restart your agent, and run `sofar init --refresh` in each repo to refresh its
 wiring". That marker is dropped once the running binary catches up, so the
 reminder cannot outlive its cause. Installing stays a thing the user chose
 because an upgrade replaces the binary AND leaves repo wiring stale (hook
@@ -8748,12 +8787,32 @@ stay the underlying derivation's, and exit codes are styling-independent.
   leaves `.claude/settings.json`, `.mcp.json` and CLAUDE.md byte-identical;
   adding Claude Code to a Cursor repo leaves every Cursor event with exactly
   the settings.json command, removes `.cursor/hooks/`, and a following
-  all-agent init changes nothing. With no terminal and no flag, init writes
-  every agent's files (the pre-7.1 tree). In a pseudo-terminal the picker
-  pre-selects found agents, toggles on space, confirms on enter, and ctrl-c
-  exits 1 with nothing written; an unknown `--agents` name exits 1. doctor on
+  all-agent init changes nothing. In a pseudo-terminal the picker
+  pre-selects found agents on a first init and only the wired ones on a
+  rerun, toggles on space, confirms on enter, and ctrl-c exits 1 with nothing
+  written; an unknown `--agents` name exits 1. doctor on
   a Cursor-only repo passes with no `.claude/settings.json` line and names
   Claude Code as not set up.
+- **Init selection (r4-fixes R12, U3):** a property test over (wired set ×
+  `--agents` × terminal or not × cwd at the root or two levels down × first
+  run or rerun × `--refresh`) holds that the hosts written are within
+  `--agents` ?? the wired set ?? a refusal (an explicit `--agents` may still
+  repoint an already-wired Cursor onto Claude Code's shims), that a refusal
+  exits 1 and changes no byte, that nothing lands under the subdirectory, and
+  that the wiring journal names exactly the files each writing run changed.
+  A Claude-only repo on a machine with `~/.cursor` (a scratch HOME) gains no
+  `.cursor/*` after a non-TTY `sofar init`, an interactive Enter, `sofar init`
+  from `packages/x/` (also with a `.sofar/` there), or `sofar upgrade`
+  followed by the `sofar init --refresh` it prints. A first non-TTY init
+  names the agents found and `sofar init --agents <ids>`.
+  Tests: test/init-selection.test.ts.
+- **Approval notice (r4-fixes U7):** two commits in a session show the
+  unapproved-check line at most once; the next UTC day shows it again;
+  `sofar check` and `sofar doctor` show it every time.
+- **npm 12 install (r4-fixes U9):** doctor WARNs with the allow-scripts lines
+  when a global install's `bin/sofar-core` is still the JavaScript stub, and
+  not for the binary, a source checkout or Windows; the README installs with
+  `--allow-scripts=sofar.sh`.
 - **Codex hooks (agents-parity 2.1):** `.codex/hooks.json` uses only keys and
   events codex 0.154.0 parses (contract fixture `config_shape`). On the 0.154.0
   payload fixtures dispatched with `--host codex`:

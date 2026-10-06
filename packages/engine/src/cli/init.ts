@@ -14,10 +14,11 @@ import {
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { effectiveHooksDir } from '../core/attribution'
-import { commonGitDir } from '../core/git'
+import { commonGitDir, gitToplevel } from '../core/git'
 import { promptCaptureEnabled, setPromptCapture } from '../core/prompt-buffer'
 import { mcpRegistration } from '../mcp/register'
 import {
+  AGENT_LABELS,
   AGENTS,
   type AgentId,
   agentsOnMachine,
@@ -44,6 +45,14 @@ import { detectFormatterHazards, hostShapedJSON } from './formatters'
 import type { HookName } from './host'
 import { detectTailwindV4, SOURCE_NOT_SINCE } from './scanners'
 import { fail, ok, REPO_MD_STUB, type CmdResult } from './shared'
+import {
+  appendWiringEntry,
+  journalPath,
+  sha256Hex,
+  type WiringSelection,
+} from './wiring-journal'
+import type { StateEnv } from '../core/state-dir'
+import { version as SOFAR_VERSION } from '../../package.json'
 import { type Caps, createStyle, stderrCaps, stdoutCaps, symbolsFor } from './ui'
 import sessionStartShim from '../hooks/session-start.sh'
 import userPromptSubmitShim from '../hooks/user-prompt-submit.sh'
@@ -1950,9 +1959,10 @@ export interface InitOptions {
    */
   home?: string
   /**
-   * The agents to set up (r1-fixes 7.1, D36); every agent when absent. Only
-   * the picked agents' files are written — .sofar/, .gitattributes and the
-   * git hook are shared and always installed.
+   * The agents to set up (r1-fixes 7.1, D36); every agent when absent, for
+   * library callers — the CLI always resolves them (runInitCommand, r4-fixes
+   * R12). Only the picked agents' files are written — .sofar/, .gitattributes
+   * and the git hook are shared and always installed.
    */
   agents?: readonly AgentId[]
   /**
@@ -1961,6 +1971,22 @@ export interface InitOptions {
    * re-run never turns capture back on behind the operator's back.
    */
   promptCapture?: boolean
+  /**
+   * Who is running this init, for the wiring journal (r4-fixes R12). The CLI
+   * always passes it; a run without it journals nothing.
+   */
+  journal?: InitJournalContext
+}
+
+export interface InitJournalContext {
+  argv: readonly string[]
+  cwd: string
+  tty: boolean
+  selection: WiringSelection
+  /** State-dir environment override — tests only. */
+  env?: StateEnv
+  /** Clock override — tests only. */
+  now?: () => string
 }
 
 export type StatuslineInstall =
@@ -2271,6 +2297,10 @@ export function shimHomeFor(rootDir: string, agents: ReadonlySet<AgentId>): Shim
   for (const config of [join('.claude', 'settings.json'), join('.cursor', 'hooks.json')]) {
     if (runsShimFrom(readText(join(rootDir, config)), 'claude')) return 'claude'
   }
+  // A Cursor repo keeps its own shims when a run picks neither Claude Code nor
+  // Cursor (`--agents codex`): falling through to Claude Code's directory
+  // would create .claude/ and move Cursor onto it unasked (r4-fixes R12).
+  if (runsShimFrom(readText(join(rootDir, '.cursor', 'hooks.json')), 'cursor')) return 'cursor'
   return agents.has('cursor') ? 'cursor' : 'claude'
 }
 
@@ -2282,19 +2312,36 @@ type Change = 'created' | 'updated' | 'unchanged'
 
 class InitAbort extends Error {}
 
+/**
+ * The files this init run has written or removed, for the wiring journal
+ * (r4-fixes R12); null outside a run. Every write and removal below goes
+ * through put/drop, so the journal cannot miss one.
+ */
+let runWrites: Array<{ path: string; op: 'write' | 'remove'; sha256?: string }> | null = null
+
+function put(path: string, content: string): void {
+  writeFileSync(path, content, 'utf8')
+  runWrites?.push({ path, op: 'write', sha256: sha256Hex(content) })
+}
+
+function drop(path: string): void {
+  unlinkSync(path)
+  runWrites?.push({ path, op: 'remove' })
+}
+
 function writeIfChanged(path: string, content: string): Change {
   if (existsSync(path)) {
     if (readFileSync(path, 'utf8') === content) return 'unchanged'
-    writeFileSync(path, content, 'utf8')
+    put(path, content)
     return 'updated'
   }
-  writeFileSync(path, content, 'utf8')
+  put(path, content)
   return 'created'
 }
 
 function createIfMissing(path: string, content: string): Change {
   if (existsSync(path)) return 'unchanged'
-  writeFileSync(path, content, 'utf8')
+  put(path, content)
   return 'created'
 }
 
@@ -2357,7 +2404,7 @@ function initSofarDir(rootDir: string, report: string[]): void {
 function ensureGitattributes(rootDir: string, report: string[]): void {
   const path = join(rootDir, '.gitattributes')
   if (!existsSync(path)) {
-    writeFileSync(path, `${GITATTRIBUTES_LINES.join('\n')}\n`, 'utf8')
+    put(path, `${GITATTRIBUTES_LINES.join('\n')}\n`)
     report.push('created .gitattributes (union merge for event logs and projections)')
     return
   }
@@ -2369,7 +2416,7 @@ function ensureGitattributes(rootDir: string, report: string[]): void {
     return
   }
   const separator = content.endsWith('\n') || content.length === 0 ? '' : '\n'
-  writeFileSync(path, `${content}${separator}${missing.join('\n')}\n`, 'utf8')
+  put(path, `${content}${separator}${missing.join('\n')}\n`)
   report.push(`updated .gitattributes (union merge for ${missing.length} sofar path(s) appended)`)
 }
 
@@ -2448,13 +2495,13 @@ function installOneGitHook(rootDir: string, hook: GitHookSpec, report: string[])
       return
     }
     // Ours from an older version: keep it current, same as the .claude shims.
-    writeFileSync(path, hook.shim, 'utf8')
+    put(path, hook.shim)
     chmodSync(path, 0o755)
     report.push(`updated .git/hooks/${hook.name}`)
     return
   }
   mkdirSync(join(dir, 'hooks'), { recursive: true })
-  writeFileSync(path, hook.shim, 'utf8')
+  put(path, hook.shim)
   chmodSync(path, 0o755)
   report.push(`created .git/hooks/${hook.name}`)
 }
@@ -2481,7 +2528,7 @@ function removeCursorShims(rootDir: string, report: string[]): void {
   for (const shim of SHIMS) {
     const path = join(rootDir, dir, shim.file)
     if (!existsSync(path)) continue
-    unlinkSync(path)
+    drop(path)
     report.push(`removed ${dir}/${shim.file} (shims now in ${SHIM_HOMES.claude.dir}/)`)
     removed++
   }
@@ -2787,7 +2834,7 @@ function mergeCodexMcp(
   if (state === 'absent') {
     mkdirSync(dirname(path), { recursive: true })
     const { text: next, skipped } = directMerged(withSofarServer(text))
-    writeFileSync(path, next, 'utf8')
+    put(path, next)
     const change = exists ? 'updated' : 'created'
     report.push(`${change} ${CODEX_CONFIG}`)
     if (skipped !== null) report.push(skipped)
@@ -2816,7 +2863,7 @@ function mergeCodexDirect(rootDir: string, report: string[]): void {
   if (codexMcpState(text) !== 'registered') return
   const { text: next, skipped } = directMerged(text)
   if (next !== text) {
-    writeFileSync(path, next, 'utf8')
+    put(path, next)
     report.push(`updated ${CODEX_CONFIG} (Codex calls sofar's tools directly)`)
   }
   if (skipped !== null) report.push(skipped)
@@ -2934,7 +2981,7 @@ function appendProtocolBlock(
 ): void {
   const path = join(rootDir, file)
   if (!existsSync(path)) {
-    writeFileSync(path, block, 'utf8')
+    put(path, block)
     report.push(`created ${file} (sofar protocol block)`)
     return
   }
@@ -2954,13 +3001,13 @@ function appendProtocolBlock(
     // Both are non-null whenever the state is 'stale' — it is derived from them.
     if (span !== null && templateSpan !== null) {
       const wanted = block.slice(templateSpan.start, templateSpan.end)
-      writeFileSync(path, current.slice(0, span.start) + wanted + current.slice(span.end), 'utf8')
+      put(path, current.slice(0, span.start) + wanted + current.slice(span.end))
       report.push(`updated ${file} (protocol block refreshed)`)
       return
     }
   }
   const separator = current.length === 0 ? '' : current.endsWith('\n') ? '\n' : '\n\n'
-  writeFileSync(path, `${current}${separator}${block}`, 'utf8')
+  put(path, `${current}${separator}${block}`)
   report.push(`updated ${file} (sofar protocol block appended)`)
 }
 
@@ -3008,6 +3055,8 @@ export function runInit(
   let codexHooks: Change = 'unchanged'
   let codexMcp: Change = 'unchanged'
   let codexUserStep = false
+  runWrites = []
+  let aborted = false
   try {
     initSofarDir(rootDir, report)
     ensureGitattributes(rootDir, report)
@@ -3055,8 +3104,31 @@ export function runInit(
       )
     }
   } catch (err) {
+    aborted = true
     if (err instanceof InitAbort) return fail(renderFailure(`sofar init: ${err.message}`, errCaps))
     throw err
+  } finally {
+    const writes = runWrites ?? []
+    runWrites = null
+    if (options.journal !== undefined && writes.length > 0) {
+      const j = options.journal
+      appendWiringEntry(
+        rootDir,
+        {
+          ts: (j.now ?? (() => new Date().toISOString()))(),
+          sofar: SOFAR_VERSION,
+          root: rootDir,
+          cwd: j.cwd,
+          argv: [...j.argv],
+          tty: j.tty,
+          selection: j.selection,
+          agents: orderAgents(picked),
+          result: aborted ? 'aborted' : 'ok',
+          files: writes.map((w) => ({ ...w, path: journalPath(rootDir, w.path) })),
+        },
+        j.env,
+      )
+    }
   }
   const changed = report.filter((line) => !line.startsWith('unchanged')).length
   const result =
@@ -3110,24 +3182,131 @@ export interface AgentPrompt {
 
 export type AgentChoice = { agents: AgentId[] } | { error: string } | { cancelled: true }
 
+export interface AgentResolution {
+  /** `--refresh`: rewire exactly the wired set, never ask (r4-fixes R12). */
+  refresh?: boolean
+  /** The command a refusal tells the operator to run — `sofar init` plus any `--root`. */
+  command?: string
+}
+
 /**
- * Which agents this init run sets up (r1-fixes 7.1, D36). The `--agents` flag
- * wins. Without it a terminal gets the picker, pre-selecting the agents found
- * on this machine or already wired in this repo (every agent when none is
- * found, so enter alone keeps today's result). With no terminal — a script,
- * CI, an agent's shell — every agent, which is what init did before it asked.
+ * Which agents this init run sets up (r1-fixes 7.1, D35; r4-fixes R12): the
+ * hosts written are always within `--agents` ?? the wired set ?? a refusal.
+ *
+ * - `--agents` wins, and names the set this run writes.
+ * - A repo already wired is rewired for exactly its wired set, in every mode:
+ *   `--refresh` and a run with no terminal take it as it is, and the picker
+ *   pre-selects it alone, so Enter never adds an agent that is merely
+ *   installed on this machine (the Cursor incident, r3-fixes 2.15).
+ * - A first init asks on a terminal, the picker seeded with the agents found
+ *   on this machine (every agent when none is). With no terminal it refuses —
+ *   never "all" (r1-fixes D36's default, superseded) — naming the agents found
+ *   and the exact command to run.
  */
 export async function resolveInitAgents(
   rootDir: string,
   flag: string | undefined,
   prompt: AgentPrompt,
+  how: AgentResolution = {},
 ): Promise<AgentChoice> {
+  const command = how.command ?? 'sofar init'
+  if (flag !== undefined && how.refresh === true) {
+    return { error: '--refresh rewires the agents already wired here and --agents names them — pass one, not both' }
+  }
   if (flag !== undefined) return parseAgents(flag)
-  if (!prompt.interactive) return { agents: [...AGENTS] }
-  const found = orderAgents([...agentsOnMachine(prompt.machine), ...wiredAgents(rootDir)])
-  const preselected = found.length > 0 ? found : [...AGENTS]
+  const wired = wiredAgents(rootDir)
+  if (wired.length > 0 && (how.refresh === true || !prompt.interactive)) return { agents: wired }
+  const machine = agentsOnMachine(prompt.machine)
+  if (how.refresh === true) {
+    return { error: firstInitRefusal('--refresh found no agent wired here to refresh, so nothing was written', machine, command) }
+  }
+  if (!prompt.interactive) {
+    return {
+      error: firstInitRefusal(
+        'no --agents and no terminal to ask on, and a first init sets up only the agents you name — nothing was written',
+        machine,
+        command,
+      ),
+    }
+  }
+  const found = orderAgents([...machine, ...wired])
+  const preselected = wired.length > 0 ? wired : machine.length > 0 ? machine : [...AGENTS]
   const agents = await pickAgents(preselected, found, prompt.input, prompt.output, prompt.caps)
   return agents === null ? { cancelled: true } : { agents }
+}
+
+/** The refusal a first init without a choice prints: what is on this machine, and the command that names it. */
+function firstInitRefusal(why: string, machine: readonly AgentId[], command: string): string {
+  const found = machine.length > 0 ? machine.map((id) => `${AGENT_LABELS[id]} (${id})`).join(', ') : 'none'
+  const ids = machine.length > 0 ? machine.join(',') : AGENTS[0]
+  return [
+    why,
+    `  agents found on this machine: ${found}`,
+    `  run: ${command} --agents ${ids}`,
+    `  (name only the agents this repo uses: ${AGENTS.join(', ')}, comma-separated, or all)`,
+  ].join('\n')
+}
+
+/**
+ * init's root (r4-fixes R12): `--root` as given, else the git toplevel of the
+ * working directory, else the working directory. Never the record found by
+ * r3-fixes D12's walk-up, which every other command keeps: wiring lands where
+ * the operator is, not wherever a `.sofar/` happens to sit above them.
+ */
+export function initRoot(cwd: string, root: string | undefined): string {
+  return resolve(root ?? gitToplevel(cwd) ?? cwd)
+}
+
+export interface InitCommandOptions {
+  agents?: string
+  refresh?: boolean
+  root?: string
+  statusline?: boolean
+  promptCapture?: boolean
+}
+
+export interface InitCommandContext extends AgentPrompt {
+  cwd: string
+  /** The argv after `sofar`, for the wiring journal. */
+  argv: readonly string[]
+  /** Home override for runInit's personal-settings checks — tests only. */
+  home?: string
+  /** Wiring-journal overrides — tests only. */
+  journalEnv?: StateEnv
+  now?: () => string
+}
+
+/** `sofar init` end to end: the root, the agents (or a refusal), the wiring, the journal line. */
+export async function runInitCommand(opts: InitCommandOptions, ctx: InitCommandContext): Promise<CmdResult> {
+  const root = initRoot(ctx.cwd, opts.root)
+  const command = opts.root === undefined ? 'sofar init' : `sofar init --root ${shellQuote(opts.root)}`
+  const choice = await resolveInitAgents(root, opts.agents, ctx, {
+    refresh: opts.refresh === true,
+    command,
+  })
+  if ('error' in choice) return fail(`sofar init: ${choice.error}`)
+  if ('cancelled' in choice) return fail('sofar init: cancelled — nothing written')
+  const selection: WiringSelection =
+    opts.agents !== undefined ? 'flag' : opts.refresh === true ? 'refresh' : ctx.interactive ? 'picker' : 'wired'
+  return runInit(root, {
+    statusline: opts.statusline === true,
+    agents: choice.agents,
+    ...(opts.promptCapture === undefined ? {} : { promptCapture: opts.promptCapture }),
+    ...(ctx.home === undefined ? {} : { home: ctx.home }),
+    journal: {
+      argv: ctx.argv,
+      cwd: ctx.cwd,
+      tty: ctx.interactive,
+      selection,
+      ...(ctx.journalEnv === undefined ? {} : { env: ctx.journalEnv }),
+      ...(ctx.now === undefined ? {} : { now: ctx.now }),
+    },
+  })
+}
+
+/** A path as one shell word: bare when safe, single-quoted otherwise. */
+function shellQuote(value: string): string {
+  return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`
 }
 
 /**

@@ -39,7 +39,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, stopGate, suiteOf, unapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
+import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, stopGate, suiteOf, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -1528,7 +1528,12 @@ function stopCheckLines(
     const approved = applicable.filter((c) => isApproved(rootDir, c.check.cmd))
     const { ran, skipped } = runChecks(approved, rootDir, runVerification, { perCheckMs: STOP_CHECK_MAX_MS, budgetMs: STOP_CHECK_BUDGET_MS })
     const lines = ran.filter((r) => r.outcome.result !== 'pass').map((r) => checkFailureLine(r.check, r.outcome))
-    const unapproved = unapprovedLine(applicable.filter((c) => !approved.includes(c)))
+    // Once per clone per day (r4-fixes U7): `sofar doctor` keeps the full list.
+    const unapproved = throttledUnapprovedLine(
+      rootDir,
+      applicable.filter((c) => !approved.includes(c)),
+      new Date().toISOString(),
+    )
     if (unapproved !== null) lines.push(unapproved)
     if (skipped.length > 0) lines.push(`sofar: ${skipped.length} decision check(s) did not run — Stop's ${STOP_CHECK_BUDGET_MS / 1000}s budget was spent; \`sofar check\` runs them all`)
     return lines

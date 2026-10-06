@@ -209,7 +209,7 @@ export async function runUpgrade(
         // Upgrading replaces the binary, not repo wiring — hook shims and the
         // protocol block are files in the repo. Without this line an upgraded
         // sofar keeps running an old protocol block indefinitely (speed-2 T6).
-        `Run \`sofar init\` in each repo to refresh its wiring (protocol block, hook shims).\n` +
+        `Run \`sofar init --refresh\` in each repo to refresh its wiring (protocol block, hook shims).\n` +
         // The opt-in pitch (auto-update 3.3) lands HERE and nowhere else: the
         // moment the user just paid the chore is the only one where the offer
         // is information rather than nagging. Suppressed once it is taken, so

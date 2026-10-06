@@ -204,7 +204,8 @@ describe('acceptance 2 + packaging — the BUILT CLI: init idempotency and .sh t
   it('dist-bundle init works on a fresh repo and a second run changes zero bytes', () => {
     const root = freshRepo()
 
-    const first = cli(root, ['init'])
+    // A first init with no terminal names its agents (r4-fixes R12).
+    const first = cli(root, ['init', '--agents', 'all'])
     expect(first.status).toBe(0)
     expect(first.stdout).toContain('created .claude/hooks/session-start.sh')
 
@@ -218,6 +219,7 @@ describe('acceptance 2 + packaging — the BUILT CLI: init idempotency and .sh t
     }
 
     const before = hashTree(root)
+    // A rerun with no flag rewires exactly the wired set — all three here.
     const second = cli(root, ['init'])
     expect(second.status).toBe(0)
     expect(second.stdout).toContain('already initialized — nothing to do')
@@ -226,7 +228,7 @@ describe('acceptance 2 + packaging — the BUILT CLI: init idempotency and .sh t
 
   it('built-CLI smoke: new → status → export | import - round-trips between repos', () => {
     const repoA = freshRepo()
-    expect(cli(repoA, ['init']).status).toBe(0)
+    expect(cli(repoA, ['init', '--agents', 'all']).status).toBe(0)
     expect(cli(repoA, ['new', 'loop', '--goal', 'smoke the bundle']).status).toBe(0)
 
     const status = cli(repoA, ['status'])
@@ -240,7 +242,7 @@ describe('acceptance 2 + packaging — the BUILT CLI: init idempotency and .sh t
 
     // pipe the capture into `import -` on a second repo (same slug, no bind noise)
     const repoB = freshRepo()
-    expect(cli(repoB, ['init']).status).toBe(0)
+    expect(cli(repoB, ['init', '--agents', 'all']).status).toBe(0)
     expect(cli(repoB, ['new', 'loop', '--goal', 'replica']).status).toBe(0)
 
     const imported = cli(repoB, ['import', '-'], exported.stdout)

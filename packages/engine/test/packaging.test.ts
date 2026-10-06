@@ -157,7 +157,7 @@ const tarball = join(packDest, tarballBase)
   it('the installed sofar drives init → new → status in a fixture repo', () => {
     const root = freshRepo()
 
-    const init = sofar(['init', '--root', root])
+    const init = sofar(['init', '--agents', 'all', '--root', root])
     expect(init.status).toBe(0)
     expect(init.stdout).toContain('sofar init: done')
 
@@ -405,7 +405,7 @@ describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native 
     const root = freshRepo()
     const bin = join(corePrefix, 'bin')
     const env = { ...cleanEnv(), PATH: `${bin}:${process.env.PATH ?? ''}`, SOFAR_NO_UPDATE_CHECK: '1', TERM: 'dumb' }
-    expect(spawnSync(process.execPath, [join(bin, 'sofar'), 'init', '--root', root], { encoding: 'utf8', env }).status).toBe(0)
+    expect(spawnSync(process.execPath, [join(bin, 'sofar'), 'init', '--agents', 'all', '--root', root], { encoding: 'utf8', env }).status).toBe(0)
     expect(spawnSync(process.execPath, [join(bin, 'sofar'), 'new', 'core-demo', '--goal', 'prove the core', '--root', root], { encoding: 'utf8', env }).status).toBe(0)
 
     // the binary itself, by its PATH name — no node in front

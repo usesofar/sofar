@@ -11,6 +11,7 @@ import {
   isApproved,
   runChecks,
   setBlocksCommits,
+  throttledUnapprovedLine,
   unapprovedLine,
   type InForceCheck,
 } from '../core/checks'
@@ -127,7 +128,12 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
     if (paths === null && opts.all !== true) return staged ? ok() : fail('sofar check: git could not say what changed — pass --all to run every approved check')
     const applicable = opts.all === true ? checks : applicableChecks(checks, paths ?? [])
     const approved = applicable.filter((c) => isApproved(rootDir, c.check.cmd, env))
-    const unapproved = unapprovedLine(applicable.filter((c) => !approved.includes(c)))
+    // Pre-commit says it once per clone per day (r4-fixes U7); an explicit
+    // `sofar check` always does.
+    const unapprovedChecks = applicable.filter((c) => !approved.includes(c))
+    const unapproved = staged
+      ? throttledUnapprovedLine(rootDir, unapprovedChecks, (io.now ?? (() => new Date().toISOString()))(), env)
+      : unapprovedLine(unapprovedChecks)
     const { ran } = runChecks(approved, rootDir, runVerification)
     const failed = ran.filter((r) => r.outcome.result !== 'pass')
 

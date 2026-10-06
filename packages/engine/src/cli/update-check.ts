@@ -165,7 +165,7 @@ export function noticeLine(notice: UpdateNotice): string {
   if (notice.installed) {
     return (
       `sofar auto-upgraded to ${notice.latest} (you are running ${notice.current}). ` +
-      'Restart your agent, and run `sofar init` in each repo to refresh its wiring.'
+      'Restart your agent, and run `sofar init --refresh` in each repo to refresh its wiring.'
     )
   }
   return `sofar ${notice.latest} is available (you have ${notice.current}) — run \`sofar upgrade\`.`
