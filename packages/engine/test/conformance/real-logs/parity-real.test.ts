@@ -76,3 +76,31 @@ describe('parity-real checker (r3-fixes 4.0)', () => {
     expect(r.out).toMatch(/\[session-start\] startup, fresh session: stdout differs at byte 200 /)
   }, 240_000)
 })
+
+describe('parity-real N4: relative ages one unit apart (r4-fixes 0.35 int)', () => {
+  const b = (s: string): Buffer => Buffer.from(s, 'utf8')
+  const pair = async (x: string, y: string): Promise<[string, string]> => {
+    const { reconcileAges } = (await import(CHECKER)) as { reconcileAges: (a: Buffer, b: Buffer) => [Buffer, Buffer] }
+    const [p, q] = reconcileAges(b(x), b(y))
+    return [p.toString('utf8'), q.toString('utf8')]
+  }
+
+  it('masks a one-unit tick between the legs (CI run 37509117594, bench-refresh step 3)', async () => {
+    const [p, q] = await pair('r4-fixes (last event 5m ago) vs x (6d ago)', 'r4-fixes (last event 6m ago) vs x (6d ago)')
+    expect(p).toBe(q)
+    expect(p).toBe('r4-fixes (last event <AGE:m> ago) vs x (<AGE:d> ago)')
+  })
+
+  it('leaves a gap of 2 or more raw, so a real divergence still fails', async () => {
+    const [p, q] = await pair('last event 5m ago', 'last event 7m ago')
+    expect(p).not.toBe(q)
+  })
+
+  it('leaves a unit change and a count mismatch raw', async () => {
+    const [p, q] = await pair('last event 89m ago', 'last event 2h ago')
+    expect(p).not.toBe(q)
+    const [r, s] = await pair('5m ago and 3h ago', '5m ago')
+    expect(r).toBe('5m ago and 3h ago')
+    expect(s).toBe('5m ago')
+  })
+})

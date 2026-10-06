@@ -33,9 +33,11 @@
  *       derived cache whose bytes are each implementation's own (the same
  *       exclusion the conformance harness makes;
  *       docs/HOTPATH.md, §Derived index on the hot path)
- * Relative ages (`1m ago`) are NOT normalised. The legs run seconds apart, so
- * a live record can cross a minute boundary between them; a failing record is
- * therefore re-run from scratch (up to 3 attempts), and one that is then
+ *   N4  a relative age (`5m ago`) that differs between the legs by at most
+ *       one unit, paired in order → `<AGE:m>` (see reconcileAges)
+ * The legs run seconds apart, so a live record can still cross a boundary N4
+ * does not cover; a failing record is therefore re-run from scratch (up to 3
+ * attempts), and one that is then
  * byte-identical is reported as FLAKY with the first attempt's difference
  * printed. FLAKY passes the gate — the later attempt IS a byte-identical run —
  * unless `--strict`. A real divergence reproduces on every attempt: FAIL.
@@ -334,7 +336,7 @@ function recordDelta(snapshot, sofar) {
 }
 
 // ---------------------------------------------------------------------------
-// Normalisation (N1, N2) — by shape, inside the leg's own run window only.
+// Normalisation (N1, N2; N4 is pairwise, in compareLegs) — by shape, inside the leg's own run window only.
 // ---------------------------------------------------------------------------
 
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
@@ -354,6 +356,31 @@ function normalise(buf, win) {
     .replace(ULID_RE, (id) => (inWin(ulidTime(id)) ? '<ULID>' : id))
     .replace(ISO_RE, (ts) => (inWin(Date.parse(ts)) ? '<TS>' : ts))
   return Buffer.from(out, 'utf8')
+}
+
+const AGE_RE = /\b(\d+)([mhd]) ago\b/g
+
+/**
+ * N4: the legs read the wall clock seconds apart, so a relative age can tick
+ * one unit between them (`5m ago` → `6m ago`) on every attempt when a leg is
+ * slow (CI: 380 s for the fast run). Pair the two streams' ages in order;
+ * when both hold the same count and each pair shares a unit and differs by at
+ * most 1, both become `<AGE:unit>`. Anything else — a count mismatch, a unit
+ * change, a gap of 2 or more — stays raw, so a real divergence still FAILs.
+ */
+export function reconcileAges(a, b) {
+  const at = [...a.toString('utf8').matchAll(AGE_RE)]
+  const bt = [...b.toString('utf8').matchAll(AGE_RE)]
+  if (at.length === 0 || at.length !== bt.length) return [a, b]
+  const ok = at.map((m, i) => m[2] === bt[i][2] && Math.abs(Number(m[1]) - Number(bt[i][1])) <= 1)
+  const mask = (buf) => {
+    let i = 0
+    return Buffer.from(
+      buf.toString('utf8').replace(AGE_RE, (whole, _n, unit) => (ok[i++] ? `<AGE:${unit}> ago` : whole)),
+      'utf8',
+    )
+  }
+  return [mask(a), mask(b)]
 }
 
 // ---------------------------------------------------------------------------
@@ -421,7 +448,8 @@ function compareLegs(ts, core, priv) {
       diffs.push({ step: i + 1, surface: a.surface, title: a.title, stream: 'exit', ts: a.exit, core: b.exit })
     }
     for (const stream of ['stdout', 'stderr']) {
-      const at = firstDiff(a[stream], b[stream])
+      const [sa, sb] = reconcileAges(a[stream], b[stream])
+      const at = firstDiff(sa, sb)
       if (at === -1) continue
       ok = false
       diffs.push({
