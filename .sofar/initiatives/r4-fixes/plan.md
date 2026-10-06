@@ -8,9 +8,9 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-06: "First send agents to analyse where we loss and research on techniques and methods to improve our system end to end in all areas. We can also plan engineering / innovate in all the areas. First do a through research technique and methods which can help improve sofar in all areas."
 
-Progress: 7/10 tasks done (70%)
+Progress: 8/10 tasks done (80%)
 
-## Phase 1 — Loss analysis and research [active] — 7/10 done
+## Phase 1 — Loss analysis and research [done] — 8/10 done
 
 - [x] 1.1 Loss forensics, rounds 3–4: where sofar loses, ties or nearly loses, per agent, segment and mechanism (live reads, recall hits, gate firings, write-backs, Codex overhead, S18–S20, compaction)
 - [x] 1.2 Research: context engineering and cost for Claude Code, Codex and Cursor (Oct 2026). Target ≤0.7x native on all three
@@ -19,7 +19,7 @@ Progress: 7/10 tasks done (70%)
 - [x] 1.5 Research: competitor and market teardown (Oct 2026), and the claims sofar can win
 - [x] 1.6 Research: benchmark science — a harder held-out chain without a ceiling, power, public benchmarks, faster runs, credible claims
 - [x] 1.7 Research: engineering and product — hot path and Rust, install and upgrade, reliability, DX, observability, the self-improvement loop
-- [ ] 1.8 Synthesis: one ranked improvement plan (R4-RESEARCH.md) with a PREDICT per item, an ablation per item (D5), and invariant conflicts flagged, for the operator's ruling (active)
+- [x] 1.8 Synthesis: one ranked improvement plan (R4-RESEARCH.md) with a PREDICT per item, an ablation per item (D5), and invariant conflicts flagged, for the operator's ruling
 - [ ] 0.1 Release hygiene: merge release/0.34.0 (v0.34.0: version 0.34.0, scoped @sofar.sh/core-* packaging) back into main, so the next cut from main keeps the scoped cores; reconcile main's 0.33.0-rc.2+trunk version convention. Do it in a scratch worktree, run the full suite, then fast-forward main.
 - [ ] 0.2 HOTFIX 0.34.1 for the shipped Stop-gate false positive. core/checks.ts testSpec/ARG_TOKEN misreads a bare test path (`bun test tests`) as part of the runner, so a passing broader run never covers a narrower bound-test ask, and vice versa. Every round-4 gate firing was false (Codex 18/18, Claude 10/63). Fix in TS and Rust with coverage tests (directory covers file, bare runner covers any), keep parity, and check D18. Ship from release/0.34.0 as 0.34.1 together with the merge-back (0.1).
 
@@ -32,5 +32,4 @@ Progress: 7/10 tasks done (70%)
 ## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/0 done
 
 
-Active phase: Phase 1 — Loss analysis and research
-Next action: Relay R4-RESEARCH.md (urgent list, Wave A/B/C, Chain N, operator rulings). Ask the operator to go on hotfix 0.34.1 (0.2 + 0.1) first.
+Next action: Operator: go on hotfix 0.34.1 (U1–U6, U8 with R12), then rulings R1–R3, R10, R11, R14, R15, R18 and R22 before Wave A; or "accept all recommendations".
