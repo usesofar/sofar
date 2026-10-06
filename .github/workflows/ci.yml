@@ -17,7 +17,7 @@ on:
       baseline:
         description: 'previous release to gate against (npm version of sofar.sh)'
         required: true
-        default: '0.34.0'
+        default: '0.34.1'
 
 # Many sessions push record-only commits to main; a newer push supersedes the
 # run of an older one instead of queueing behind it.
@@ -53,6 +53,22 @@ jobs:
       # the 100 ms budget. `npm test` locally still runs it; perf needs SOFAR_PERF.
       - run: npx vitest run --project unit
       - run: npm run typecheck
+
+  # Release invariants (r4-fixes 0.1, U2): sofar.sh's version is >= the
+  # newest v* tag, and every optionalDependency is @sofar.sh/core-*. v0.34.0
+  # and v0.34.1 were cut on branches main never merged, which left main behind
+  # both with the unscoped cores. Full history so `git tag` sees every tag; the
+  # script is node builtins only, so no install.
+  release-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node packaging/npm/release-guard.mjs
 
   # The native core (rust-core 3.2): one build per platform sofar.sh ships a
   # core for, tested where the runner can run it, and uploaded as the
