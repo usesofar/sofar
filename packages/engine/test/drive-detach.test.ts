@@ -96,6 +96,24 @@ async function until(check: () => boolean, ms = 30_000): Promise<void> {
   }
 }
 
+/**
+ * A run's progress file once it says `stopped`. The driver appends run_stopped
+ * and only then rewrites the file, so a fold that already shows the stop can
+ * still read the file's `running` (a race, seen under load): wait on the file.
+ */
+async function stoppedProgress(state: string, runId: string): Promise<Record<string, unknown>> {
+  const path = join(state, 'sofar', 'runs', `${runId}.json`)
+  const read = (): Record<string, unknown> | null => {
+    try {
+      return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
+    } catch {
+      return null // not written yet
+    }
+  }
+  await until(() => read()?.state === 'stopped')
+  return read()!
+}
+
 /** Every environment a driven session was launched with, one map per session. */
 function sessionEnvs(r: Repo): Map<string, string>[] {
   return readdirSync(r.out)
@@ -165,7 +183,7 @@ describe('sofar drive --detach (in-session-drive D1)', () => {
     expect(res.status, res.stderr).toBe(0)
     await until(() => latestRun(fold(r))?.stopped !== undefined)
     const run = latestRun(fold(r))!
-    const file = JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${run.id}.json`), 'utf8'))
+    const file = await stoppedProgress(state, run.id)
     expect(file).toMatchObject({ run: run.id, slug: 'demo', launched_by: CALLER.CLAUDE_CODE_SESSION_ID, state: 'stopped' })
 
     // Codex names its thread instead; a plain terminal names nobody. Both run
@@ -179,14 +197,14 @@ describe('sofar drive --detach (in-session-drive D1)', () => {
     expect(bare(codex, { CODEX_THREAD_ID: 'thread-7' }).status).toBe(0)
     await until(() => latestRun(fold(codex))?.stopped !== undefined)
     const codexRun = latestRun(fold(codex))!.id
-    expect(JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${codexRun}.json`), 'utf8')).launched_by).toBe('thread-7')
+    expect((await stoppedProgress(state, codexRun)).launched_by).toBe('thread-7')
 
     // Cursor's agent shell names its conversation (drive-reach D2); a driven session never inherits it.
     const cursor = repo('launched-by-cursor', ['1.1'])
     expect(bare(cursor, { CURSOR_AGENT: '1', CURSOR_CONVERSATION_ID: 'conv-9', CURSOR_REQUEST_ID: 'req-1' }).status).toBe(0)
     await until(() => latestRun(fold(cursor))?.stopped !== undefined)
     const cursorRun = latestRun(fold(cursor))!.id
-    expect(JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${cursorRun}.json`), 'utf8')).launched_by).toBe('conv-9')
+    expect((await stoppedProgress(state, cursorRun)).launched_by).toBe('conv-9')
     for (const env of sessionEnvs(cursor)) {
       for (const name of ['CURSOR_AGENT', 'CURSOR_CONVERSATION_ID', 'CURSOR_REQUEST_ID', 'SOFAR_DRIVE_LAUNCHED_BY']) expect(env.has(name), name).toBe(false)
     }
@@ -196,7 +214,7 @@ describe('sofar drive --detach (in-session-drive D1)', () => {
     expect(plainRes.status, plainRes.stderr).toBe(0)
     await until(() => latestRun(fold(plain))?.stopped !== undefined)
     const plainRun = latestRun(fold(plain))!.id
-    expect(JSON.parse(readFileSync(join(state, 'sofar', 'runs', `${plainRun}.json`), 'utf8'))).not.toHaveProperty('launched_by')
+    expect(await stoppedProgress(state, plainRun)).not.toHaveProperty('launched_by')
   })
 
   it("a preflight refusal is the command's own output, exit 1, and nothing is recorded", () => {
