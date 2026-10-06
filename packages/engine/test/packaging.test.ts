@@ -116,7 +116,15 @@ const tarball = join(packDest, tarballBase)
   }, 120_000)
 
   it('the tarball installs into a temp prefix and the installed bin answers --version', () => {
-    const installed = npm(['install', '-g', '--prefix', prefix, tarball], scratch)
+    // Hermetic: once this version's @sofar.sh/core-* packages are published, a
+    // plain install fetches the registry's core for this machine (0.34.0 did),
+    // and what this suite pins is the tarball itself — zero runtime deps, the
+    // TypeScript hot path with no core; the native-core E2E below installs a
+    // locally packed core. `--omit=optional` cannot say so: npm 10 and 11
+    // ignore it under -g (Node.shouldOmit omits only below a project root or
+    // workspace). Offline against an empty cache, the tarball installs from
+    // disk and no optional core can be fetched, on any npm and with no network.
+    const installed = npm(['install', '-g', '--prefix', prefix, '--offline', '--cache', join(scratch, 'npm-cache'), tarball], scratch)
     expect(installed.status).toBe(0)
 
     const pkgDir = join(prefix, 'lib', 'node_modules', 'sofar.sh')
@@ -131,8 +139,8 @@ const tarball = join(packDest, tarballBase)
     )
 
     // zero runtime deps landed — the bundled-CLI contract. The platform
-    // packages are optional and unpublished at this version in a test run, so
-    // npm installs none of them and sofar.sh must not mind.
+    // packages are optional and unreachable above, so npm installs none of
+    // them and sofar.sh must not mind.
     const depDirs = existsSync(join(pkgDir, 'node_modules'))
       ? readdirSync(join(pkgDir, 'node_modules')).filter((d) => !d.startsWith('.'))
       : []
