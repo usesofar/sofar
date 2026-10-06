@@ -74,6 +74,7 @@ import {
 } from '../core/index-tier1'
 import { rankByRelevance, refreshRelevance, relevance, type RelevanceRow } from '../core/index-relevance'
 import { addTold, clearTold, readTold, toldKey } from '../core/told'
+import { BOUND_TOLD, boundLine, cursorDebtEnabled, debtNoteHead, debtNoteText } from '../core/cursor-debt'
 import { resolvePeers, type Peer } from '../core/peers'
 import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
 import { nextTask } from '../core/drive-queue'
@@ -1206,10 +1207,14 @@ export function handlePostTool(rootDir: string, input: string, declared?: HookHo
 
     // Before the append, never after: the notice asks what this session has
     // already been told, and the current edit is not yet part of that history.
-    const notice = scopeNotice(ctx.sofarDir, rootDir, slug, session, [
-      ...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })),
-      ...readSubjects,
-    ])
+    const notice = scopeNotice(
+      ctx.sofarDir,
+      rootDir,
+      slug,
+      session,
+      [...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })), ...readSubjects],
+      host.tool === 'cursor' && cursorDebtEnabled(),
+    )
     const [call] = calls
     if (call === undefined) return injected([...driven, ...notice])
     const { head } = call
@@ -1549,6 +1554,10 @@ function stopCheckLines(
  * else (BD21 — fabricating a session_ended here would clobber the
  * fold-derived current.next_action). Skipped when the session is unknown
  * (nothing to close) or already ended (write-back or a prior close won).
+ *
+ * On Cursor, which fires no stop hook headless (r4-fixes A9), it first files
+ * what Stop's test gate would have asked as a note for the next session,
+ * written back or not, once per session (core/cursor-debt).
  */
 export function handleSessionEnd(rootDir: string, input: string): HookResult {
   try {
@@ -1561,8 +1570,14 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
     if (bound === null) return { ...OK }
     const { ctx, slug } = bound
 
-    const session = ctx.foldState(slug).sessions.find((s) => s.id === sessionId)
-    if (session === undefined || session.ended !== undefined) return { ...OK }
+    const state = ctx.foldState(slug)
+    const session = state.sessions.find((s) => s.id === sessionId)
+    if (session === undefined) return { ...OK }
+    if (hookHost(hook).tool === 'cursor' && cursorDebtEnabled() && slug !== QUICK_LANE && enforceEnabled()) {
+      const note = cursorDebtNote(rootDir, ctx.sofarDir, slug, state, session)
+      if (note !== null) ctx.appendAndProject(slug, 'note_added', { text: note }, { session: sessionId, source: 'hook' })
+    }
+    if (session.ended !== undefined) return { ...OK }
 
     ctx.appendAndProject(slug, 'session_closed', { reason: strField(hook, 'reason') ?? 'unknown' }, {
       session: sessionId,
@@ -1572,6 +1587,20 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
   } catch {
     return { ...OK }
   }
+}
+
+/**
+ * The note a Cursor sessionEnd files (r4-fixes A9): Stop's test gate, run as
+ * Stop would run it for this session, its lines as the note's body. Null when
+ * the gate asks nothing, or when this session already filed one (a host that
+ * fires sessionEnd twice must not file it twice).
+ */
+function cursorDebtNote(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState): string | null {
+  const gate = stopGateFor(rootDir, sofarDir, slug, state, session, true)
+  if (gate.lines.length === 0) return null
+  const head = debtNoteHead(session.id)
+  if (state.freshness.notes.some((n) => n.text.startsWith(head))) return null
+  return debtNoteText(session.id, gate.lines)
 }
 
 /**
@@ -2285,6 +2314,7 @@ function scopeNotice(
   slug: string,
   session: string,
   subjects: readonly NoticeSubject[],
+  bound = false,
 ): string[] {
   try {
     const index = refreshGuards(sofarDir)
@@ -2297,12 +2327,22 @@ function scopeNotice(
     const notices: ScopeNotice[] = []
     const shown = new Set<string>()
     const tell: string[] = []
+    // Cursor's bound line (r4-fixes A9): an edited path's governing rules,
+    // taken before the told filter, since a read may already have told some.
+    const boundPaths: Array<{ rendered: string; rules: ScopedDecision[] }> = []
     for (const { domain, subject, edit } of subjects) {
       let hits: Array<{ entry: ScopedDecision | ScopedMemory; tier: ScopeNotice['tier']; depth: number }> = scopeHitsForSubject(index, domain, subject)
         // An until-scoped decision is never a candidate (task resolution is not
         // indexed); a superseded one is out while retirement is on.
         .filter(({ decision: d }) => d.until === undefined && !(retire && d.superseded_by !== undefined))
         .map(({ decision, guarded, depth }) => ({ entry: decision, tier: guarded ? 0 : decision.rule !== undefined ? 1 : 3, depth }))
+      if (bound && edit && domain === 'path' && session !== 'cli') {
+        const rules = hits.filter((h) => h.tier === 0 && (h.entry as ScopedDecision).rule !== undefined).map((h) => h.entry as ScopedDecision)
+        const rendered = renderSubject(domain, subject, rootDir)
+        if (rules.length > 0 && !told.has(toldKey(BOUND_TOLD, rendered)) && !boundPaths.some((b) => b.rendered === rendered)) {
+          boundPaths.push({ rendered, rules })
+        }
+      }
       // A memory names a path or nothing (r3-fixes D20), and a replaced one is
       // never told: it is the fact the record withdrew.
       if (domain === 'path' && memories.length > 0) {
@@ -2331,7 +2371,7 @@ function scopeNotice(
         )
       }
     }
-    if (notices.length === 0) return []
+    if (notices.length === 0 && boundPaths.length === 0) return []
 
     const ordered = orderNotices(notices, slug, storedRelevance(sofarDir, index, notices))
     const rendered = ordered.slice(0, SCOPE_DECISIONS_MAX).map((n) => scopeNoticeLine(n, slug))
@@ -2345,8 +2385,25 @@ function scopeNotice(
     }
     while (kept > 1 && lengthOf(kept) > SCOPE_NOTICE_BUDGET) kept -= 1
     const over = overflowLine(ordered.slice(kept))
+    const lines = over === null ? rendered.slice(0, kept) : [...rendered.slice(0, kept), over]
+    // A rule this call already gave in full, or a bound line earlier this
+    // session, is named by its handle alone.
+    const given = new Set(ordered.slice(0, kept).filter((n) => n.decision !== undefined && n.tier <= 1).map((n) => n.decision!.id))
+    for (const { rendered: path, rules } of boundPaths) {
+      const sorted = [...rules].sort((x, y) => {
+        if ((x.initiative === slug) !== (y.initiative === slug)) return x.initiative === slug ? 1 : -1
+        return x.initiative === y.initiative ? x.ordinal - y.ordinal : byCodeUnit(x.initiative, y.initiative)
+      })
+      const parts = sorted.map((d) => ({ handle: scopeHandle(d, slug), rule: d.rule!, told: given.has(d.id) || told.has(toldKey(d.id, BOUND_TOLD)) }))
+      lines.push(boundLine(path, parts))
+      tell.push(toldKey(BOUND_TOLD, path))
+      for (const d of sorted) {
+        if (!given.has(d.id) && !told.has(toldKey(d.id, BOUND_TOLD))) tell.push(toldKey(d.id, BOUND_TOLD))
+        given.add(d.id)
+      }
+    }
     addTold(sofarDir, session, tell)
-    return over === null ? rendered.slice(0, kept) : [...rendered.slice(0, kept), over]
+    return lines
   } catch {
     return []
   }

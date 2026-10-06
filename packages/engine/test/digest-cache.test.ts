@@ -109,7 +109,8 @@ describe('session-start digest cache (rust-core 4.4)', () => {
     const want = ts()
     const tsBytes = readFileSync(file, 'utf8')
     expect(JSON.parse(tsBytes).v).toBe(DIGEST_CACHE_VERSION)
-    expect(DIGEST_CACHE_VERSION).toBe(5)
+    // 6 (r4-fixes A9): a standing rule keeps its guard, so a v5 file is a miss.
+    expect(DIGEST_CACHE_VERSION).toBe(6)
     expect(rust(), 'rust warm on the TypeScript file').toBe(want)
     rmSync(file)
     expect(rust(), 'rust cold').toBe(want)
@@ -122,10 +123,12 @@ describe('session-start digest cache (rust-core 4.4)', () => {
     const v2 = JSON.stringify({ ...good, v: 2 })
     // v4 (r3-fixes D19): the cut carries merge_facts, so a v3 file is a miss.
     const v3 = JSON.stringify({ ...good, v: 3 })
+    const v5 = JSON.stringify({ ...good, v: 5 })
     for (const [label, bad] of [
       ['v1 file', v1],
       ['v2 file', v2],
       ['v3 file', v3],
+      ['v5 file', v5],
       ['garbage', 'nope'],
       ['truncated', tsBytes.slice(0, 200)],
       ['state null', JSON.stringify({ ...good, state: null })],

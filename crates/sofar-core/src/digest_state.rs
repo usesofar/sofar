@@ -217,7 +217,12 @@ fn cut_decision(
         },
         rule: d.rule.clone(),
         quote: d.quote.clone(),
-        guard: if whole { d.guard.clone() } else { None },
+        // A standing rule's guard ranks it against the focus files (r4-fixes A9).
+        guard: if whole || d.rule.is_some() {
+            d.guard.clone()
+        } else {
+            None
+        },
         supersedes: d.supersedes.clone(),
         until: d.until.clone(),
         check: None,

@@ -17,6 +17,7 @@ import { heldDigestLine, linkAskEnabled } from '../../core/link-candidates'
 import type { RecordProvenance } from '../../core/record-copies'
 import type { RunLiveness } from '../../core/run-lock'
 import { retireEnabled, retiredOrdinals } from '../../core/retire'
+import { boundOrdinals, focusFiles, rankEnabled } from '../../core/rule-focus'
 import { renderProvenanceBlock } from './copies'
 import {
   clip,
@@ -849,7 +850,9 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   // each field is cut at its first clause boundary past MINUTIAE_MIN chars.
   // The standing constraints (10) are built now so the window can mark the
   // decisions whose rule renders below.
-  const rules = standingConstraintLines(state.decisions, STANDING_LEDGER_BUDGET, retire, focusTerms)
+  // Guarded rules on the focus files lead (r4-fixes A9); SOFAR_RANK=v034 is 0.34's order.
+  const lead = lane || !rankEnabled() ? undefined : boundOrdinals(state.decisions, focusFiles(state, focus?.task), retire)
+  const rules = standingConstraintLines(state.decisions, STANDING_LEDGER_BUDGET, retire, focusTerms, lead)
   const shownRules = new Set(rules.map((line) => /^- \[D(\d+)(?:·[0-9a-z]{4})?\]/.exec(line)?.[1]).filter((n): n is string => n !== undefined))
   if (state.decisions.length > 0) {
     const inForce = state.decisions.map((d, i) => ({ d, ordinal: i + 1 })).filter((x) => !retired.has(x.ordinal))

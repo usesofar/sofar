@@ -212,9 +212,9 @@ Recent decisions (3; full text in decisions/D<n>.md):
 Next ids: D4 (decision), M1 (memory)
 
 Standing constraints — obey verbatim (3):
+- [D1·984a] Never edit files under src/legacy/.
 - [D3·7zjm] Schema changes go through packages/schema/src only.
 - [D2·41jn] Never run npm publish from a workstation.
-- [D1·984a] Never edit files under src/legacy/.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -256,9 +256,9 @@ Recent work elsewhere: guards touched 2 files 3h ago (see sofar status guards).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (3):
+- [D1·984a] Never edit files under src/legacy/.
 - [D3·7zjm] Schema changes go through packages/schema/src only.
 - [D2·41jn] Never run npm publish from a workstation.
-- [D1·984a] Never edit files under src/legacy/.
 Repo-wide rules from other records (4 of 4, most relevant first):
 - [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
 - [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
@@ -324,9 +324,9 @@ Next ids: D4 (decision), M1 (memory)
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (3):
+- [D1·984a] Never edit files under src/legacy/.
 - [D3·7zjm] Schema changes go through packages/schema/src only.
 - [D2·41jn] Never run npm publish from a workstation.
-- [D1·984a] Never edit files under src/legacy/.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -367,9 +367,9 @@ NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (3):
+- [D1·984a] Never edit files under src/legacy/.
 - [D3·7zjm] Schema changes go through packages/schema/src only.
 - [D2·41jn] Never run npm publish from a workstation.
-- [D1·984a] Never edit files under src/legacy/.
 Repo-wide rules from other records (4 of 4, most relevant first):
 - [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
 - [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"

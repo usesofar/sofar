@@ -6,6 +6,7 @@
 use std::path::Path;
 
 use crate::append::{append_and_project, ensure_lane, register_lazily};
+use crate::cursor_debt::{BOUND_TOLD, BoundRule, bound_line, cursor_debt_enabled};
 use crate::diagnostics::{RowInput, record_diagnostic};
 use crate::fold_cli::CmdResult;
 use crate::guards::GuardDomain;
@@ -519,6 +520,7 @@ fn scope_notice(
     slug: &str,
     session: &str,
     subjects: &[NoticeSubject],
+    bound: bool,
 ) -> Vec<String> {
     let index = refresh_guards(layout);
     let memories_on = memory_surfacing_enabled() && !index.memories.is_empty();
@@ -531,31 +533,24 @@ fn scope_notice(
     let mut notices: Vec<ScopeNotice<'_>> = Vec::new();
     let mut shown: Vec<&str> = Vec::new();
     let mut tell: Vec<String> = Vec::new();
+    // Cursor's bound line (r4-fixes A9): an edited path's governing rules,
+    // taken before the told filter, since a read may already have told some.
+    let mut bound_paths: Vec<(String, Vec<&ScopedDecision>)> = Vec::new();
     for NoticeSubject {
         domain,
         subject,
         edit,
     } in subjects
     {
-        // (entry, tier, depth): an until-scoped decision is never a candidate,
-        // a superseded one is out while retirement is on.
-        let mut hits: Vec<(Entry<'_>, usize, usize)> =
-            scope_hits_for_subject(&index, *domain, subject)
-                .into_iter()
-                .filter(|h| {
-                    h.decision.until.is_none() && !(retire && h.decision.superseded_by.is_some())
-                })
-                .map(|h| {
-                    let tier = if h.guarded {
-                        0
-                    } else if h.decision.rule.is_some() {
-                        1
-                    } else {
-                        3
-                    };
-                    (Entry::Decision(h.decision), tier, h.depth)
-                })
-                .collect();
+        let mut hits = decision_hits(&index, *domain, subject, retire);
+        if bound && *edit && *domain == GuardDomain::Path && session != "cli" {
+            collect_bound(
+                &hits,
+                render_subject(*domain, subject, &layout.root),
+                &told,
+                &mut bound_paths,
+            );
+        }
         // A memory names a path or nothing (r3-fixes D20), and a replaced one
         // is never told.
         if *domain == GuardDomain::Path && memories_on {
@@ -595,7 +590,7 @@ fn scope_notice(
             });
         }
     }
-    if notices.is_empty() {
+    if notices.is_empty() && bound_paths.is_empty() {
         return Vec::new();
     }
     let rows = stored_relevance(layout, &index, &notices);
@@ -621,9 +616,113 @@ fn scope_notice(
         kept -= 1;
     }
     let over = overflow_line(&ordered[kept..]);
-    add_told(layout, session, &tell);
     let mut lines: Vec<String> = rendered[..kept].to_vec();
     lines.extend(over);
+    // A rule this call already gave in full, or a bound line earlier this
+    // session, is named by its handle alone.
+    let given: Vec<&str> = ordered[..kept]
+        .iter()
+        .filter_map(|n| match n.entry {
+            Entry::Decision(d) if n.tier <= 1 => Some(d.id.as_str()),
+            _ => None,
+        })
+        .collect();
+    lines.extend(bound_lines(bound_paths, slug, given, &told, &mut tell));
+    add_told(layout, session, &tell);
+    lines
+}
+
+/// (entry, tier, depth) per decision bearing on a subject: an until-scoped
+/// decision is never a candidate, a superseded one is out while retirement is
+/// on. Tier 0 guard, 1 ruled mention, 3 unruled mention.
+fn decision_hits<'a>(
+    index: &'a GuardIndex,
+    domain: GuardDomain,
+    subject: &str,
+    retire: bool,
+) -> Vec<(Entry<'a>, usize, usize)> {
+    scope_hits_for_subject(index, domain, subject)
+        .into_iter()
+        .filter(|h| h.decision.until.is_none() && !(retire && h.decision.superseded_by.is_some()))
+        .map(|h| {
+            let tier = if h.guarded {
+                0
+            } else if h.decision.rule.is_some() {
+                1
+            } else {
+                3
+            };
+            (Entry::Decision(h.decision), tier, h.depth)
+        })
+        .collect()
+}
+
+/// Cursor's bound line (r4-fixes A9): an edited path's guarded rules, taken
+/// before the told filter (a read may already have told some), once per path.
+fn collect_bound<'a>(
+    hits: &[(Entry<'a>, usize, usize)],
+    rendered: String,
+    told: &[String],
+    bound_paths: &mut Vec<(String, Vec<&'a ScopedDecision>)>,
+) {
+    let rules: Vec<&ScopedDecision> = hits
+        .iter()
+        .filter_map(|(e, tier, _)| match e {
+            Entry::Decision(d) if *tier == 0 && d.rule.is_some() => Some(*d),
+            _ => None,
+        })
+        .collect();
+    if !rules.is_empty()
+        && !told.contains(&told_key(BOUND_TOLD, &rendered))
+        && !bound_paths.iter().any(|(p, _)| *p == rendered)
+    {
+        bound_paths.push((rendered, rules));
+    }
+}
+
+/// The bound lines for the edited paths, in the guard notices' order; each
+/// rule's words once per session, its handle alone after.
+fn bound_lines<'a>(
+    bound_paths: Vec<(String, Vec<&'a ScopedDecision>)>,
+    slug: &str,
+    mut given: Vec<&'a str>,
+    told: &[String],
+    tell: &mut Vec<String>,
+) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (path, mut rules) in bound_paths {
+        rules.sort_by(|x, y| {
+            let (xm, ym) = (x.initiative == slug, y.initiative == slug);
+            if xm != ym {
+                return if xm {
+                    std::cmp::Ordering::Greater
+                } else {
+                    std::cmp::Ordering::Less
+                };
+            }
+            if x.initiative == y.initiative {
+                x.ordinal.total_cmp(&y.ordinal)
+            } else {
+                by_code_unit(&x.initiative, &y.initiative)
+            }
+        });
+        let parts: Vec<BoundRule> = rules
+            .iter()
+            .map(|d| BoundRule {
+                handle: scope_handle(d, slug),
+                rule: d.rule.clone().unwrap_or_default(),
+                told: given.contains(&d.id.as_str()) || told.contains(&told_key(&d.id, BOUND_TOLD)),
+            })
+            .collect();
+        lines.push(bound_line(&path, &parts));
+        tell.push(told_key(BOUND_TOLD, &path));
+        for d in &rules {
+            if !given.contains(&d.id.as_str()) && !told.contains(&told_key(&d.id, BOUND_TOLD)) {
+                tell.push(told_key(&d.id, BOUND_TOLD));
+            }
+            given.push(&d.id);
+        }
+    }
     lines
 }
 
@@ -828,7 +927,7 @@ pub fn handle_post_tool(root: &Path, input: &str) -> CmdResult {
         let read_only = calls.is_empty() && layout.initiatives_root().exists();
         let mut lines = driven;
         if read_only {
-            lines.extend(scope_notice(&layout, "", session, &read_subjects));
+            lines.extend(scope_notice(&layout, "", session, &read_subjects, false));
         }
         return injected(lines);
     };
@@ -844,7 +943,13 @@ pub fn handle_post_tool(root: &Path, input: &str) -> CmdResult {
         })
         .collect();
     subjects.extend(read_subjects);
-    let notice = scope_notice(&layout, &slug, session, &subjects);
+    let notice = scope_notice(
+        &layout,
+        &slug,
+        session,
+        &subjects,
+        host.tool == "cursor" && cursor_debt_enabled(),
+    );
     let Some(call) = calls.first() else {
         let mut lines = driven;
         lines.extend(notice);

@@ -1176,7 +1176,34 @@ fn stop_gate_for(
     )
 }
 
-/// `handleSessionEnd`: append `session_closed` once.
+/// `cursorDebtNote` (r4-fixes A9): Stop's test gate as Stop would run it for
+/// this session, its lines as the note's body; `None` when the gate asks
+/// nothing or this session already filed one.
+fn cursor_debt_note(
+    root: &Path,
+    layout: &Layout,
+    slug: &str,
+    state: &InitiativeState,
+    session: &SessionState,
+) -> Option<String> {
+    let gate = stop_gate_for(root, layout, slug, state, session, true);
+    if gate.lines.is_empty() {
+        return None;
+    }
+    let head = crate::cursor_debt::debt_note_head(&session.id);
+    if state
+        .freshness
+        .notes
+        .iter()
+        .any(|n| n.text.starts_with(&head))
+    {
+        return None;
+    }
+    Some(crate::cursor_debt::debt_note_text(&session.id, &gate.lines))
+}
+
+/// `handleSessionEnd`: on Cursor, the debt note first (r4-fixes A9); then
+/// append `session_closed` once.
 #[must_use]
 pub fn handle_session_end(root: &Path, input: &str) -> CmdResult {
     let layout = Layout::new(root);
@@ -1192,6 +1219,16 @@ pub fn handle_session_end(root: &Path, input: &str) -> CmdResult {
     let Some(session) = state.sessions.iter().find(|s| s.id == session_id) else {
         return silent();
     };
+    if hook_host(&hook).tool == "cursor"
+        && crate::cursor_debt::cursor_debt_enabled()
+        && slug != QUICK_LANE
+        && crate::checks::enforce_enabled()
+        && let Some(note) = cursor_debt_note(root, &layout, &slug, &state, session)
+    {
+        let mut payload = Object::with_capacity(1);
+        payload.insert("text", Json::Str(note));
+        let _ = append_and_project(&layout, &slug, "note_added", payload, session_id, "hook");
+    }
     if session.ended.is_some() {
         return silent();
     }

@@ -1,5 +1,18 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED and ADDED for **r4-fixes A9** (0.35.0 Wave A, branch
+wave-a-a9; docs/SPEC.md §Cursor host and §Digest composition), from the
+TypeScript reference. Four goldens moved, each only in a SessionStart digest's
+Standing constraints order, byte length unchanged: the rules whose `path:`
+guard binds the focus files now lead, oldest first (`cell.smoke-4-sofar` D3
+before D6; `syn.copies` and `syn.surfacing` D1 first; `syn.guards` D1 first).
+One case ADDED, `syn.cursor-debt`: a Cursor read of a guarded file (the
+notice), its edit (the bound line, the rule in its words), the same path
+again (nothing), `SOFAR_CURSOR_DEBT=off` and Claude Code (the notice alone),
+a Cursor sessionEnd filing the test gate's ask as a note and then the close,
+a second sessionEnd (nothing), Claude's SessionEnd (the close alone), and the
+next digest showing the note under `Notes since write-back`.
+
 Re-recorded on **release/0.34.1** (the hotfix cut, r4-fixes 0.2) from the
 TypeScript reference. The version bump is the whole diff: two goldens
 changed, each by one string. `argv.fast-path` (`--version` is now

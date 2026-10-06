@@ -1259,7 +1259,17 @@ one blank line):
    hook notices — as before.
 10. STANDING CONSTRAINTS (PROTECTED): standingConstraintLines with a focus —
     ranked by RELEVANCE, ties newest (highest ordinal) first — under the
-    2,000-char whole-entry budget, the first entry always whole. Then, in
+    2,000-char whole-entry budget, the first entry always whole. Ahead of
+    that ranking (r4-fixes A9, not in the lane) come the rules BOUND to the
+    FOCUS FILES, oldest first: every standing rule whose `path:` guard
+    matches one of them (core/rule-focus). The focus files are the focus
+    task's `task_files`; when it has none, or there is no focus task, every
+    file the newest 5 sessions with activity touched (LANE_RECENT_SESSIONS).
+    Round 4's rep-1 Cursor S18 read back the four newest rules and broke G1
+    (D7, guarding `lib/inventory/**`, planted at S2), which recency ranked
+    18th of 22. `SOFAR_RANK=v034` (read at render time) restores 0.34's
+    order. digestState keeps a standing rule's `guard` (digest cache v6).
+    Then, in
     the same block, REPO-WIDE RULES (memory-lead 2.2, D8): every OTHER
     record's in-force rule from the decision-scope tier (§Derived index),
     under `Repo-wide rules from other records (<shown> of <N>, most relevant
@@ -2933,14 +2943,43 @@ and carry no `.claude/`; adding Claude Code later repoints them to the
 `$CLAUDE_PROJECT_DIR/.claude/hooks/` form, restoring the byte-identical rule.
 
 **Limits stated, not worked around.** Headless `cursor-agent -p` fires no
-stop, beforeSubmitPrompt or afterAgentResponse hook, so no write-back gate
-reaches a print-mode session. It does fire sessionStart, postToolUse,
-postToolUseFailure (Shell and Write) and sessionEnd, as seen live in r1-fixes
-6.9. A driven Cursor session's write-back is judged
-from the fold, as for every adapter (session-driver D3). A resumed chat
-(`--resume`) gets no sessionStart context. The MCP server cannot learn the
-conversation id from its environment, so `sofar_start_session` still takes
-the id from the injected Session line.
+stop or beforeSubmitPrompt hook, so no write-back gate reaches a print-mode
+session. It does fire sessionStart, postToolUse, postToolUseFailure (Shell
+and Write) and sessionEnd, as seen live in r1-fixes 6.9. On cursor-agent
+2026.10.01-e373342 (r4-fixes R18 probe, no model call): stop and
+beforeSubmitPrompt never fired in round 4's 9 print-mode sessions; the
+bundle fires sessionEnd from the shutdown both modes share, and afterFileEdit
+beside postToolUse in the Write executor (observe-only: its output carries no
+context); afterAgentResponse fires only from the interactive UI and is
+unshown headless. The verdict and its evidence:
+`packages/engine/test/fixtures/cursor/README.md`. A driven Cursor session's
+write-back is judged from the fold, as for every adapter (session-driver D3).
+A resumed chat (`--resume`) gets no sessionStart context. The MCP server
+cannot learn the conversation id from its environment, so
+`sofar_start_session` still takes the id from the injected Session line.
+
+**Cursor without a Stop gate (r4-fixes A9).** The test gate's two jobs move
+to the hooks print mode fires; `SOFAR_CURSOR_DEBT=off` (also `0`, `false`)
+turns both off.
+- EDIT: a Cursor postToolUse that captures an edit of a path some in-force
+  rule guards (`path:` glob) adds one line, once per path a session edits:
+  `sofar: Cursor runs no Stop gate, so no test holds this edit — <path> is
+  governed by <n> standing rule(s): [<handle>] "<rule>"; …`. It names EVERY
+  governing rule, in the read notice's guard order; a rule's words appear
+  once per session (a rule this call's notice or an earlier bound line gave
+  renders as `[<handle>]`, and so does every rule past 3,000 chars of rule
+  text). The read notice still names at most three guards and tells each
+  (decision, path) once, so before this an edit after a read said nothing:
+  round 4's rep-1 S18 was told D1 and D2 and "…and 7 more", never D7.
+  Keys `#bound <path>` and `<id> #bound` in the told set.
+- END: a Cursor sessionEnd runs Stop's test gate for the session (as Stop
+  would, edits and outcomes known), written back or not, and when it asks
+  anything appends `note_added` {text: `Unverified edits on rule-bound paths
+  (Cursor session <id8> ended with no Stop gate to hold it): <the gate's
+  lines, "sofar: " dropped>`}, source `hook`, once per session (a note with
+  that head already in the window is not repeated). The next session's
+  digest shows it under `Notes since write-back`. Not in the quick lane, not
+  under `SOFAR_ENFORCE=off`.
 
 **Which `sofar` Cursor runs (live finding, r1-fixes M6).** Cursor rebuilds
 PATH from the user's login shell for its hooks, ignoring the PATH it was
@@ -6055,7 +6094,8 @@ fires, and a Codex session is Tier 3 (§Host tiers).
   failure keeps exiting 0 (BD22). The gate only ever converts an exit-2
   into an exit-0 — no today-exit-0 path becomes blocking.
 - SessionEnd shim → appends mechanical session-close marker (fallback only;
-  cannot feed back to the agent).
+  cannot feed back to the agent). On Cursor it first files the test gate's
+  asks as a note for the next session (r4-fixes A9, §Cursor host).
 - pre-commit shim → `.git/hooks/pre-commit` (memory-lead 2.3, D9): runs
   `sofar check --staged` and exits 1 only when that returned 10, else 0 —
   so no sofar, an older sofar without `check`, or a crash never fails a
@@ -9041,6 +9081,21 @@ stay the underlying derivation's, and exit codes are styling-independent.
   - Filed. What the run settles is written into §Cursor host and §Driver,
     whichever way it went. It settled: print mode's hook set, the chat id's
     identity across stream and hooks, and `inputTokens` excluding cache reads.
+- **Cursor without a Stop gate; guarded rules first (r4-fixes A9):** both
+  engines, byte for byte (conformance `syn.cursor-debt`). A Cursor
+  postToolUse edit of a path two or more rules guard adds the bound line
+  naming every one, each rule's words once per session, once per path, also
+  after a read whose notice folded some into "…and N more"; Claude Code and
+  `SOFAR_CURSOR_DEBT=off` get the notice alone. A Cursor sessionEnd for a
+  session whose rule-bound edit has no covering pass after it appends one
+  `note_added` with the gate's lines, written back or not, never twice; a
+  covering pass, Claude Code, `SOFAR_CURSOR_DEBT=off` or `SOFAR_ENFORCE=off`
+  files none. The digest leads Standing constraints with the rules whose
+  `path:` guard binds the focus files, oldest first, `SOFAR_RANK=v034`
+  restoring 0.34's order, and renderStatus(digestState(s)) still equals
+  renderStatus(s). Replayed on round 4's Cursor S18–S20 (3 reps): G1 is
+  named in the digest and at S18's first `lib/inventory` edit in every rep
+  where G1 carries a guard.
 - **Rule fidelity (memory-lead 1.2):** decision_logged accepts `quote` with a
   `rule` up to 300 chars and rejects it without one, empty, or longer. The
   round-1 pair (rule "…reject anything else with 4xx.", quote "Reject

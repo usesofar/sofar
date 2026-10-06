@@ -1528,11 +1528,22 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     }
 
     // (8) The decision index with minutiae dropped — yielding (precedence 3).
+    // Guarded rules on the focus files lead (r4-fixes A9); SOFAR_RANK=v034 is 0.34's order.
+    let lead = if lane || !crate::rule_focus::rank_enabled() {
+        Vec::new()
+    } else {
+        crate::rule_focus::bound_ordinals(
+            &state.decisions,
+            &crate::rule_focus::focus_files(state, focus.map(|(t, _)| t)),
+            retire,
+        )
+    };
     let rules = standing_constraint_lines(
         &state.decisions,
         Some(STANDING_LEDGER_BUDGET),
         retire,
         Some(&focus_terms),
+        &lead,
     );
     let shown_rules: Vec<usize> = rules
         .iter()
@@ -1896,7 +1907,7 @@ pub fn render_full_status(
         lines.extend(state.brief.split('\n').map(str::to_owned));
     }
 
-    let standing = standing_constraint_lines(&state.decisions, None, retire, None);
+    let standing = standing_constraint_lines(&state.decisions, None, retire, None, &[]);
     if !standing.is_empty() {
         lines.push(String::new());
         lines.extend(standing);
