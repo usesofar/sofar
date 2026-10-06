@@ -1,6 +1,8 @@
 import { ulid } from 'ulid'
 import type { StartSessionArgs } from '@sofar/schema/tool-inputs'
 import { continuesFor } from '../core/lineage'
+import { readSessionPointer } from '../core/session-pointer'
+import { isFinishing, sessionsActiveSince } from '../core/worktree-sessions'
 import { homeInitiative, resolveSessionFirst, toSource, type ToolContext } from './context'
 
 /**
@@ -73,6 +75,61 @@ export function adoptHostSession(ctx: ToolContext, sessionId: string, tool: stri
 
 /** The tool an adopted session is recorded under: the env var is Claude Code's. */
 export const HOST_TOOL = 'claude-code'
+
+/** `SOFAR_ADOPT=off` turns worktree adoption off (the r4-fixes A3 ablation switch). */
+export function adoptEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return (env.SOFAR_ADOPT ?? '').trim().toLowerCase() !== 'off'
+}
+
+/**
+ * A server that started this long before the pointer's session may belong to
+ * an EARLIER session of the same worktree, so it does not adopt.
+ */
+export const ADOPT_SERVER_LEAD_MS = 10 * 60 * 1000
+
+/**
+ * Worktree adoption (r4-fixes A3; 1.2 O4): a host that gives its MCP server
+ * no session id (Codex, Cursor) still hands the id to its hooks, which leave
+ * the newest one in this worktree's session pointer. The server adopts that
+ * session, through adoptHostSession and so through A10's resolver, when it is
+ * the ONLY live session here; otherwise nothing is pinned and the agent is
+ * asked to call sofar_start_session, as before. All must hold:
+ *  - the pointer was written by a hook (a CLI-minted id is not a host's);
+ *  - this server did not start more than ADOPT_SERVER_LEAD_MS before that
+ *    session, which would make it an earlier session's server;
+ *  - that session did not finish (write back or close) before this server
+ *    started — a pointer left behind by a finished session is not ours;
+ *  - no OTHER session acted in this worktree's record since the pointer's
+ *    session started and is still unfinished (core/worktree-sessions.ts).
+ * Returns the adopted id, or null.
+ */
+export function adoptWorktreeSession(ctx: ToolContext, tool: string, serverStartMs: number): string | null {
+  try {
+    if (!adoptEnabled()) return null
+    const pointer = readSessionPointer(ctx.rootDir)
+    if (pointer === null || pointer.writer !== 'hook') return null
+    const since = Date.parse(pointer.ts)
+    if (Number.isNaN(since) || serverStartMs < since - ADOPT_SERVER_LEAD_MS) return null
+    const tails = sessionsActiveSince(ctx.sofarDir, since)
+    const own = tails.get(pointer.session)
+    if (own !== undefined && isFinishing(own.lastType) && own.last < serverStartMs) return null
+    for (const [id, tail] of tails) {
+      if (id !== pointer.session && !isFinishing(tail.lastType)) return null
+    }
+    return adoptHostSession(ctx, pointer.session, tool) ? pointer.session : null
+  } catch {
+    return null
+  }
+}
+
+/** The session_started tool for an MCP client that names itself (initialize's clientInfo). */
+export function toolOfClient(name: string | undefined): string {
+  const n = (name ?? '').toLowerCase()
+  if (n.includes('codex')) return 'codex'
+  if (n.includes('cursor')) return 'cursor'
+  if (n.includes('claude')) return 'claude-code'
+  return 'mcp'
+}
 
 /**
  * Adopt a known id (pin only) or register an unknown or omitted one, then pin it.

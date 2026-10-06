@@ -57,10 +57,14 @@ export interface Connected {
 }
 
 /** Server + client over a linked in-memory transport pair. */
-export async function connectServer(rootDir: string, options: { hostSessionId?: string } = {}): Promise<Connected> {
-  const handle = createSofarServer({ rootDir, ...options })
+export async function connectServer(
+  rootDir: string,
+  options: { hostSessionId?: string; adoptWorktree?: boolean; startedAtMs?: number; clientName?: string } = {},
+): Promise<Connected> {
+  const { clientName = 'sofar-test-client', ...serverOptions } = options
+  const handle = createSofarServer({ rootDir, ...serverOptions })
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
-  const client = new Client({ name: 'sofar-test-client', version: '0.0.0' })
+  const client = new Client({ name: clientName, version: '0.0.0' })
   await Promise.all([handle.server.connect(serverTransport), client.connect(clientTransport)])
   return { client, handle }
 }

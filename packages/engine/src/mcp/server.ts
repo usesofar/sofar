@@ -19,7 +19,7 @@ import { version } from '../../package.json'
 import { createToolContext, ToolError, type ActiveSession, type ToolContext } from './context'
 import { recordDiagnostic } from '../core/diagnostics'
 import { getState } from './get-state'
-import { adoptHostSession, startSession } from './start-session'
+import { adoptHostSession, adoptWorktreeSession, startSession, toolOfClient } from './start-session'
 import { endSessionJudged } from './end-session'
 import { updateTaskJudged } from './update-task'
 import { updatePhase } from './update-phase'
@@ -163,6 +163,15 @@ export interface CreateSofarServerOptions {
    * Claude Code session whose id must not leak into fixtures.
    */
   hostSessionId?: string
+  /**
+   * Adopt the worktree's newest hook-registered session when it is the only
+   * live one (r4-fixes A3). Only `sofar mcp` passes it, and only without a
+   * host session id: that server is a stdio child of ONE agent process. The
+   * serve daemon is shared and never adopts; tests opt in.
+   */
+  adoptWorktree?: boolean
+  /** When this server started (epoch ms) — the A3 lead guard; default now. */
+  startedAtMs?: number
 }
 
 export interface SofarServerHandle {
@@ -183,6 +192,8 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
   const rootDir = resolve(options.rootDir ?? recordRoot(process.cwd()))
   const context = createToolContext(rootDir)
   const hostSessionId = options.hostSessionId?.trim() || undefined
+  const adoptWorktree = hostSessionId === undefined && options.adoptWorktree === true
+  const startedAtMs = options.startedAtMs ?? Date.now()
 
   const server = new Server(
     { name: SERVER_NAME, version: SERVER_VERSION },
@@ -221,6 +232,10 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
       // the explicit start (D3) — once per process, whatever tool comes first.
       if (hostSessionId !== undefined && name !== 'sofar_start_session' && context.session.get() === null) {
         adoptHostSession(context, hostSessionId)
+      }
+      // No id from the host: the worktree's only live hook session (A3).
+      if (adoptWorktree && name !== 'sofar_start_session' && context.session.get() === null) {
+        adoptWorktreeSession(context, toolOfClient(server.getClientVersion()?.name), startedAtMs)
       }
       // Runtime-validated above; the registry's per-tool arg types are
       // narrower than `unknown`, hence the cast.

@@ -830,7 +830,7 @@ program
   .option('--root <dir>', 'repo root containing .sofar/ (default: current directory)')
   .action(async (opts: { root?: string }) => {
     // A stdio child of one Claude Code session adopts that session (memory-lead D3).
-    const handle = createSofarServer({ rootDir: opts.root, hostSessionId: process.env.CLAUDE_CODE_SESSION_ID })
+    const handle = createSofarServer({ rootDir: opts.root, hostSessionId: process.env.CLAUDE_CODE_SESSION_ID, adoptWorktree: true })
     await handle.connectStdio()
     // stdio transport keeps the process alive until the client disconnects
   })

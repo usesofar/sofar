@@ -4702,7 +4702,24 @@ pinned with no append and an unknown one is registered through
 registerSession with {tool: "claude-code"} (plus `continues` when lineage
 placed it) — exactly sofar_start_session with that id and no `initiative`.
 Best-effort: when nothing resolves, nothing is pinned and the tool raises its
-own typed error. An explicit sofar_start_session always wins and re-homes. tools/list carries
+own typed error. An explicit sofar_start_session always wins and re-homes.
+**Worktree adoption (r4-fixes A3; 1.2 O4).** A host that gives its MCP
+server no session id (Codex, Cursor) still hands the id to its hooks, which
+leave the newest one in the worktree's session pointer
+(`.sofar/.index/session.json`, writer `hook`). `sofar mcp` with no
+CLAUDE_CODE_SESSION_ID passes `adoptWorktree: true`, and before any tool but
+sofar_start_session, with no session active, the server adopts the pointer's
+session through adoptHostSession (so through the same resolver), recording
+the MCP client's name as the tool (`codex`, `cursor`, `claude-code`, else
+`mcp`), when ALL hold: the pointer's writer is `hook`; the server did not
+start more than 10 minutes before the pointer's ts (it would be an earlier
+session's server); that session did not write back or close before the
+server started; and no OTHER session appended an event to this worktree's
+logs at or after the pointer's ts whose newest event is not its
+`session_ended`/`session_closed` (core/worktree-sessions.ts). Otherwise
+nothing is pinned and the agent is asked to call sofar_start_session, as
+before. The serve daemon never passes the flag; tests opt in. Off by
+`SOFAR_ADOPT=off`. tools/list carries
 `_meta: {"anthropic/alwaysLoad": true}` on ALWAYS_LOADED_TOOLS —
 sofar_end_session and sofar_log_decision — which Claude Code honours by
 skipping tool-search deferral for that tool (verified in 2.1.270–2.1.274,

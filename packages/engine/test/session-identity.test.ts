@@ -7,12 +7,14 @@ import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { readLastHomes, setLastHome } from '../src/core/last-home'
 import { firstPrompt, readLineage } from '../src/core/lineage'
+import { writeSessionPointer } from '../src/core/session-pointer'
 import { handlePostTool, handleSessionEnd, handleSessionStart, handleStop, handleUserPrompt } from '../src/cli/event'
 import { runSwitch } from '../src/cli/new'
 import { createToolContext } from '../src/mcp/context'
 import { endSession } from '../src/mcp/end-session'
 import { applyClose } from '../src/mcp/close-initiative'
-import { adoptHostSession } from '../src/mcp/start-session'
+import { adoptHostSession, adoptWorktreeSession, ADOPT_SERVER_LEAD_MS } from '../src/mcp/start-session'
+import { callTool, connectServer } from './helpers/mcp'
 
 /**
  * r4-fixes A10 (session identity and binding stability) and A3 (worktree
@@ -301,3 +303,81 @@ describe('the contested-branch line (A10; R11 (c))', () => {
     expect(sessionStart(root, 'FRESH-2')).not.toContain('live record')
   })
 })
+
+describe('worktree adoption on hosts with no MCP session id (A3)', () => {
+  const NOW = Date.parse('2026-10-06T10:00:00.000Z')
+
+  function withPointer(session: string, ts: string): { root: string; sofar: string } {
+    const r = repo()
+    writeSessionPointer(r.root, session, 'hook')
+    const path = join(r.sofar, '.index', 'session.json')
+    writeFileSync(path, `${JSON.stringify({ session, writer: 'hook', ts })}\n`)
+    return r
+  }
+
+  it('adopts the only live hook session, through the A10 resolver', () => {
+    const { root, sofar } = withPointer('CODEX-1', '2026-10-06T09:59:30.000Z')
+    // An earlier session that wrote back before this one started is finished.
+    emit(sofar, 'beta', 'OLD', 'session_started', { tool: 'codex' }, '2026-10-06T09:00:00.000Z')
+    emit(sofar, 'beta', 'OLD', 'session_ended', { summary: 's', next_action: 'n' }, '2026-10-06T09:30:00.000Z')
+    const ctx = createToolContext(root)
+    expect(adoptWorktreeSession(ctx, 'codex', NOW)).toBe('CODEX-1')
+    expect(ctx.session.get()).toMatchObject({ id: 'CODEX-1', initiative: 'alpha', tool: 'codex' })
+  })
+
+  it('a session registered by its hooks keeps its own home', () => {
+    const { root, sofar } = withPointer('CODEX-1', '2026-10-06T09:59:30.000Z')
+    emit(sofar, 'beta', 'CODEX-1', 'session_started', { tool: 'codex' }, '2026-10-06T09:59:40.000Z')
+    const ctx = createToolContext(root)
+    expect(adoptWorktreeSession(ctx, 'codex', NOW)).toBe('CODEX-1')
+    expect(ctx.session.get()?.initiative).toBe('beta')
+  })
+
+  it('asks instead whenever another session is live in this worktree', () => {
+    const { root, sofar } = withPointer('CODEX-2', '2026-10-06T09:59:30.000Z')
+    emit(sofar, 'alpha', 'PEER', 'session_started', { tool: 'codex' }, '2026-10-06T09:00:00.000Z')
+    emit(sofar, 'alpha', 'PEER', 'command_run', { cmd: 'npm test' }, '2026-10-06T09:59:50.000Z')
+    const ctx = createToolContext(root)
+    expect(adoptWorktreeSession(ctx, 'codex', NOW)).toBeNull()
+    expect(ctx.session.get()).toBeNull()
+  })
+
+  it('never adopts a finished pointer, a CLI-minted id, a far older server, or with SOFAR_ADOPT=off', () => {
+    let r = withPointer('DONE', '2026-10-06T09:00:00.000Z')
+    emit(r.sofar, 'alpha', 'DONE', 'session_started', { tool: 'cursor' }, '2026-10-06T09:00:01.000Z')
+    emit(r.sofar, 'alpha', 'DONE', 'session_ended', { summary: 's', next_action: 'n' }, '2026-10-06T09:30:00.000Z')
+    expect(adoptWorktreeSession(createToolContext(r.root), 'cursor', NOW)).toBeNull()
+
+    r = repo()
+    writeSessionPointer(r.root, 'cli-01MINTED', 'cli')
+    expect(adoptWorktreeSession(createToolContext(r.root), 'codex', NOW)).toBeNull()
+
+    r = withPointer('LATER', '2026-10-06T10:00:00.000Z')
+    expect(adoptWorktreeSession(createToolContext(r.root), 'codex', NOW - ADOPT_SERVER_LEAD_MS - 1)).toBeNull()
+    expect(adoptWorktreeSession(createToolContext(r.root), 'codex', NOW)).toBe('LATER')
+
+    r = withPointer('OFF', '2026-10-06T09:59:30.000Z')
+    process.env.SOFAR_ADOPT = 'off'
+    expect(adoptWorktreeSession(createToolContext(r.root), 'codex', NOW)).toBeNull()
+  })
+
+  it('the server adopts at the first tool call, recording the client as the tool', async () => {
+    const { root, sofar } = withPointer('CURSOR-1', new Date(Date.now() - 5_000).toISOString())
+    const { client, handle } = await connectServer(root, { adoptWorktree: true, clientName: 'cursor-vscode' })
+    const out = await callTool(client, 'sofar_log_decision', { chose: 'a', over: 'b', because: 'c' })
+    expect(out.isError).toBe(false)
+    expect(handle.getActiveSession()).toMatchObject({ id: 'CURSOR-1', tool: 'cursor', initiative: 'alpha' })
+    const log = readFileSync(join(sofar, 'initiatives', 'alpha', 'events.jsonl'), 'utf8')
+    expect(log).toContain('"session":"CURSOR-1"')
+    await client.close()
+  })
+
+  it('a server that does not opt in (the serve daemon) never adopts', async () => {
+    const { root } = withPointer('CURSOR-2', new Date(Date.now() - 5_000).toISOString())
+    const { client, handle } = await connectServer(root)
+    await callTool(client, 'sofar_log_decision', { chose: 'a', over: 'b', because: 'c' })
+    expect(handle.getActiveSession()).toBeNull()
+    await client.close()
+  })
+})
+
