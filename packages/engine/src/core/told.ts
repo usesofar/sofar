@@ -105,11 +105,29 @@ export function fragmentEpoch(told: ReadonlySet<string>, name: string): string |
 
 /** Set a state fragment's epoch (null forgets it). Silent on failure, like addTold: a lost write re-tells. */
 export function setFragment(sofarDir: string, session: string, name: string, epoch: string | null): void {
-  if (session === 'cli') return
+  updateTold(sofarDir, session, [], [[name, epoch]])
+}
+
+/**
+ * One read and one write for a hook's whole update (a hot path pays per file
+ * write): add `keys`, then set each fragment in order (null forgets it).
+ * Silent on failure: a set that cannot be written re-tells.
+ */
+export function updateTold(
+  sofarDir: string,
+  session: string,
+  keys: readonly string[],
+  fragments: ReadonlyArray<readonly [string, string | null]>,
+): void {
+  if (session === 'cli' || (keys.length === 0 && fragments.length === 0)) return
   try {
-    const prefix = `${name}=`
-    const told = [...readTold(sofarDir, session)].filter((key) => !key.startsWith(prefix))
-    if (epoch !== null) told.push(`${prefix}${epoch}`)
+    let told = [...readTold(sofarDir, session)]
+    for (const key of keys) if (!told.includes(key)) told.push(key)
+    for (const [name, epoch] of fragments) {
+      const prefix = `${name}=`
+      told = told.filter((key) => !key.startsWith(prefix))
+      if (epoch !== null) told.push(`${prefix}${epoch}`)
+    }
     ensureIndexDir(sofarDir)
     mkdirSync(join(indexDir(sofarDir), TOLD_DIR), { recursive: true })
     writeFileAtomic(toldFile(sofarDir, session), `${JSON.stringify({ v: TOLD_VERSION, told })}\n`)

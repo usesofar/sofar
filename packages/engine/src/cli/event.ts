@@ -85,6 +85,7 @@ import {
   setFragment,
   toldKey,
   toldLinesEnabled,
+  updateTold,
 } from '../core/told'
 import { resolvePeers, type Peer } from '../core/peers'
 import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
@@ -965,8 +966,7 @@ function seedTold(
   status: string,
   git: ReturnType<typeof readGitState>,
 ): void {
-  addTold(sofarDir, session, renderedEntryIds(state, status).map(entryToldKey))
-  if (git !== null) setFragment(sofarDir, session, PUSH_FRAGMENT, pushEpoch(git))
+  updateTold(sofarDir, session, renderedEntryIds(state, status).map(entryToldKey), git === null ? [] : [[PUSH_FRAGMENT, pushEpoch(git)]])
 }
 
 /** The push-state fragment and its epoch: branch, HEAD and the origin tip (r4-fixes A4). */
@@ -3024,14 +3024,17 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     lines.push(...landedNotice(rootDir, ctx.sofarDir, slug, sessionId, git))
 
     // Told once per push epoch (r4-fixes A4): the line says something only
-    // when HEAD or the origin tip moved since this context last heard it.
+    // when HEAD or the origin tip moved since this context last heard it. The
+    // epochs this prompt moves are written once, below.
     const toldLines = toldLinesEnabled()
+    const toldNow = toldLines ? readTold(ctx.sofarDir, sessionId) : new Set<string>()
+    const moved: Array<[string, string | null]> = []
     const gitLine = gitStateLine(git)
     if (gitLine !== null && git !== null) {
       if (!toldLines) lines.push(gitLine)
-      else if (fragmentEpoch(readTold(ctx.sofarDir, sessionId), PUSH_FRAGMENT) !== pushEpoch(git)) {
+      else if (fragmentEpoch(toldNow, PUSH_FRAGMENT) !== pushEpoch(git)) {
         lines.push(gitLine)
-        setFragment(ctx.sofarDir, sessionId, PUSH_FRAGMENT, pushEpoch(git))
+        moved.push([PUSH_FRAGMENT, pushEpoch(git)])
       }
     }
 
@@ -3047,11 +3050,12 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // write-back below the floor forgets the band, so the next climb re-tells.
     let nudge = debt >= NUDGE_DRIFT_MIN
     if (toldLines) {
-      const told = fragmentEpoch(readTold(ctx.sofarDir, sessionId), DEBT_FRAGMENT)
+      const told = fragmentEpoch(toldNow, DEBT_FRAGMENT)
       const band = nudge ? String(debtBand(debt)) : null
-      if (band !== told) setFragment(ctx.sofarDir, sessionId, DEBT_FRAGMENT, band)
+      if (band !== told) moved.push([DEBT_FRAGMENT, band])
       nudge = band !== null && band !== told
     }
+    updateTold(ctx.sofarDir, sessionId, [], moved)
     if (nudge) {
       lines.push(
         `sofar: ${debt} unwritten events in THIS session — if the current batch of work ` +

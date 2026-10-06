@@ -137,16 +137,32 @@ pub fn fragment_epoch(told: &[String], name: &str) -> Option<String> {
 /// `setFragment`: set a state fragment's epoch (`None` forgets it). Silent on
 /// failure: a lost write re-tells.
 pub fn set_fragment(layout: &Layout, session: &str, name: &str, epoch: Option<&str>) {
-    if session == "cli" {
+    update_told(layout, session, &[], &[(name, epoch)]);
+}
+
+/// `updateTold`: one read and one write for a hook's whole update — add
+/// `keys`, then set each fragment in order (`None` forgets it).
+pub fn update_told(
+    layout: &Layout,
+    session: &str,
+    keys: &[String],
+    fragments: &[(&str, Option<&str>)],
+) {
+    if session == "cli" || (keys.is_empty() && fragments.is_empty()) {
         return;
     }
-    let prefix = format!("{name}=");
-    let mut told: Vec<String> = read_told(layout, session)
-        .into_iter()
-        .filter(|k| !k.starts_with(&prefix))
-        .collect();
-    if let Some(epoch) = epoch {
-        told.push(format!("{prefix}{epoch}"));
+    let mut told = read_told(layout, session);
+    for key in keys {
+        if !told.contains(key) {
+            told.push(key.clone());
+        }
+    }
+    for (name, epoch) in fragments {
+        let prefix = format!("{name}=");
+        told.retain(|k| !k.starts_with(&prefix));
+        if let Some(epoch) = epoch {
+            told.push(format!("{prefix}{epoch}"));
+        }
     }
     let Ok(dir) = layout.ensure_index_dir() else {
         return;

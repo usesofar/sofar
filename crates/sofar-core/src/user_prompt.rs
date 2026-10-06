@@ -572,15 +572,20 @@ fn told_state_lines(
     debt: u64,
 ) -> (Option<String>, bool) {
     let told_lines = crate::told::told_lines_enabled();
+    let told = if told_lines {
+        crate::told::read_told(layout, session_id)
+    } else {
+        Vec::new()
+    };
+    let mut moved: Vec<(&str, Option<String>)> = Vec::new();
     let mut push = None;
     if let (Some(line), Some(g)) = (git_state_line(git), git) {
         if told_lines {
             let epoch = push_epoch(g);
-            let told = crate::told::read_told(layout, session_id);
             if crate::told::fragment_epoch(&told, PUSH_FRAGMENT).as_deref() != Some(epoch.as_str())
             {
                 push = Some(line);
-                crate::told::set_fragment(layout, session_id, PUSH_FRAGMENT, Some(&epoch));
+                moved.push((PUSH_FRAGMENT, Some(epoch)));
             }
         } else {
             push = Some(line);
@@ -589,13 +594,15 @@ fn told_state_lines(
     // Below the floor the band is forgotten, so the next climb re-tells.
     let mut nudge = debt >= NUDGE_DRIFT_MIN;
     if told_lines {
-        let told = crate::told::read_told(layout, session_id);
         let told_band = crate::told::fragment_epoch(&told, DEBT_FRAGMENT);
         let band = nudge.then(|| crate::told::debt_band(debt).to_string());
         if band != told_band {
-            crate::told::set_fragment(layout, session_id, DEBT_FRAGMENT, band.as_deref());
+            moved.push((DEBT_FRAGMENT, band.clone()));
         }
         nudge = band.is_some() && band != told_band;
+        let fragments: Vec<(&str, Option<&str>)> =
+            moved.iter().map(|(n, e)| (*n, e.as_deref())).collect();
+        crate::told::update_told(layout, session_id, &[], &fragments);
     }
     (push, nudge)
 }

@@ -478,15 +478,12 @@ fn seed_told(
         .iter()
         .map(|id| crate::told::entry_told_key(id))
         .collect();
-    crate::told::add_told(layout, session, &keys);
-    if let Some(g) = git {
-        crate::told::set_fragment(
-            layout,
-            session,
-            crate::user_prompt::PUSH_FRAGMENT,
-            Some(&crate::user_prompt::push_epoch(g)),
-        );
-    }
+    let epoch = git.map(crate::user_prompt::push_epoch);
+    let fragments: Vec<(&str, Option<&str>)> = epoch
+        .as_deref()
+        .map(|e| vec![(crate::user_prompt::PUSH_FRAGMENT, Some(e))])
+        .unwrap_or_default();
+    crate::told::update_told(layout, session, &keys, &fragments);
 }
 
 /// `handleSessionStart`.
