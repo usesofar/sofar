@@ -79,4 +79,4 @@ Progress: 9/51 tasks done (17%)
 - [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
 - [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
 
-Next action: Relay each Wave A / U2 agent report to the new orchestrator session and note it in r4-fixes; take no new work here.
+Next action: Relay each Wave A / U2 agent report to the new orchestrator c9e36b5c ("r4-fixes A1 #c9e3") and note each in r4-fixes.
