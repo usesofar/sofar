@@ -88,7 +88,7 @@ exit: 2
 --- stdout
 (empty)
 --- stderr
-Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
+Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.
 sofar: [D1·984a] guard crossed — "Never edit files under src/legacy/." — 3 event(s): src/legacy/old.ts, src/legacy/old.ts, src/legacy/new.ts (guard: path:src/legacy/**).
 sofar: check for [surf D1·984a] failed (exit 3): legacy tree modified: src/legacy/old.ts — rule: "Never edit files under src/legacy/." — fix: restore src/legacy from git
 sofar: 1 decision check(s) bear on this work but are not approved on this clone, so none ran: [surf D8·k6kg] `node -e "process.exit(1)"` — the operator approves one with `sofar check --approve "<handle>"`

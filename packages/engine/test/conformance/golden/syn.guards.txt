@@ -79,7 +79,7 @@ exit: 2
 --- stdout
 (empty)
 --- stderr
-Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
+Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.
 sofar: [D1·984a] guard crossed — "Never edit files under src/legacy/." — 2 event(s): src/legacy/old.ts, src/legacy/deep/x.ts (guard: path:src/legacy/**,!src/legacy/README.md).
 sofar: [D2·41jn] guard crossed — "Never run npm publish from a workstation." — 2 event(s): npm publish --access public, npm run release (guard: cmd:*npm publish*,*npm run release*).
 

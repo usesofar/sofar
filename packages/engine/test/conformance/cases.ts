@@ -287,6 +287,16 @@ const transcript = (bytes: number) => (m: Materialized) => {
   writeFileSync(join(m.root, 'transcript.jsonl'), `${'{"type":"assistant","text":"padding"}\n'.repeat(Math.ceil(bytes / 40))}`)
 }
 
+/** A final reply ending with an in-band write-back block (r4-fixes A1). */
+const inlineReply = (body: string): string => `Done: the module is in.\n\n\`\`\`sofar\n${body}\n\`\`\`\n`
+const INLINE_OK = JSON.stringify({
+  summary: 'Filed from the reply.',
+  next_action: 'Carry on from the record.',
+  decisions: [{ chose: 'the reply carries the write-back', over: 'a tool call', because: 'no round trip', supersedes: 'none' }],
+  memories: ['The write-back is the last block of the final reply.'],
+  notes: ['Filed by the Stop hook.'],
+})
+
 const s = (title: string, argv: string[], stdin?: Step['stdin'], rest: Partial<Step> = {}): Step => ({
   title,
   argv,
@@ -678,6 +688,31 @@ export const CASES: ConformanceCase[] = [
       s('Edit under a drifted session', ['event', 'post-tool'], edit('<ROOT>/src/module/file-9.ts', { session_id: 'sess-open' })),
       s('session-end', ['event', 'session-end'], end({ session_id: 'sess-open', reason: 'prompt_input_exit' })),
       s('status after', ['status']),
+    ],
+  },
+  {
+    // r4-fixes A1 (SPEC §In-band write-back): a Stop or SessionEnd that may
+    // carry a ```sofar block is filed by the TypeScript engine — the native
+    // core hands it back after reading stdin — so both legs print and write
+    // the same bytes. One ask, then the held Stop files the repaired block;
+    // the tool arm reads no block; Cursor's comes from its transcript at
+    // sessionEnd.
+    name: 'syn.inline-writeback',
+    fixture: synthetic('baseline', { branch: 'main', head: CELL_SHA, upstream: CELL_OLD }),
+    steps: [
+      s('a block that is not JSON: one repair ask, nothing filed', ['event', 'stop'], stop({ session_id: 'sess-open', last_assistant_message: inlineReply('{"summary": "half a block",') })),
+      s('the repaired block, on the held Stop: filed', ['event', 'stop'], stop({ session_id: 'sess-open', stop_hook_active: true, last_assistant_message: inlineReply(INLINE_OK) })),
+      s('the same reply at SessionEnd files nothing twice', ['event', 'session-end'], end({ session_id: 'sess-open', last_assistant_message: inlineReply(INLINE_OK) })),
+      s('an edit registers a second session, owing', ['event', 'post-tool'], edit('<ROOT>/src/module/file-3.ts', { session_id: 'sess-tool' })),
+      s('SOFAR_WRITEBACK=tool: the block is not read, the hold names the tool', ['event', 'stop'], stop({ session_id: 'sess-tool', last_assistant_message: inlineReply(INLINE_OK) }), { env: { SOFAR_WRITEBACK: 'tool' } }),
+      s('inline, no block: the hold asks for one', ['event', 'stop'], stop({ session_id: 'sess-tool', last_assistant_message: 'Done.' })),
+      s('a Cursor edit registers its chat', ['event', 'post-tool'], hook('postToolUse', { session_id: 'cursor-chat', conversation_id: 'cursor-chat', cursor_version: '2026.10.01-e373342', tool_name: 'Write', tool_input: { file_path: '<ROOT>/src/module/file-4.ts', content: 'x' }, tool_output: '' })),
+      s('Cursor sessionEnd files the block its transcript ends with', ['event', 'session-end'], end({ session_id: 'cursor-chat', conversation_id: 'cursor-chat', cursor_version: '2026.10.01-e373342', hook_event_name: 'sessionEnd', reason: 'completed', transcript_path: '<ROOT>/cursor-transcript.jsonl' }), {
+        before: (m) => {
+          const line = { role: 'assistant', message: { content: [{ type: 'text', text: inlineReply(INLINE_OK) }] } }
+          writeFileSync(join(m.root, 'cursor-transcript.jsonl'), `${JSON.stringify(line)}\n{"type":"turn_ended","status":"success"}\n`)
+        },
+      }),
     ],
   },
   {
