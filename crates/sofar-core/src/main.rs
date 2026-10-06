@@ -142,6 +142,16 @@ fn main() -> ExitCode {
             }))
         }
         Dispatch::Owned(Owned::Event {
+            hook: Hook::PostToolBatch,
+            root,
+        }) => {
+            let root = resolve_root(root.as_deref());
+            mirror(&sofar_core::post_tool::handle_post_tool_batch(
+                &root,
+                &read_stdin(),
+            ))
+        }
+        Dispatch::Owned(Owned::Event {
             hook: Hook::PreTool,
             root,
         }) => {

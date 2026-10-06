@@ -68,6 +68,7 @@ import preToolUseShim from '../hooks/pre-tool-use.sh'
 import stopShim from '../hooks/stop.sh'
 import sessionEndShim from '../hooks/session-end.sh'
 import driveAwaitShim from '../hooks/drive-await.sh'
+import postToolBatchShim from '../hooks/post-tool-batch.sh'
 import { AWAIT_HOOK_TIMEOUT_SEC } from '../core/run-await'
 import prepareCommitMsgShim from '../hooks/prepare-commit-msg.sh'
 import preCommitShim from '../hooks/pre-commit.sh'
@@ -2205,7 +2206,7 @@ export function uninstallStatusline(
 
 interface ShimSpec {
   file: string
-  event: 'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'Stop' | 'SessionEnd'
+  event: 'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'PostToolBatch' | 'PostToolUseFailure' | 'Stop' | 'SessionEnd'
   /** The `sofar event` subcommand the shim runs. */
   hook: HookName
   matcher?: string
@@ -2256,6 +2257,15 @@ export const SHIMS: readonly ShimSpec[] = [
     // The timeout is explicit because the DEFAULT is 600 s and a hook killed
     // at its timeout wakes nobody; the watch stops itself before this (D-3.5).
     entry: { asyncRewake: true, timeout: AWAIT_HOOK_TIMEOUT_SEC },
+  },
+  {
+    // One surfacing block per parallel batch (r4-fixes A4): Claude Code's own
+    // event, so Cursor and Codex never receive the shim or its entry.
+    file: 'post-tool-batch.sh',
+    event: 'PostToolBatch',
+    hook: 'post-tool-batch',
+    text: postToolBatchShim,
+    claudeOnly: true,
   },
   {
     file: 'post-tool-use-failure.sh',
@@ -2810,7 +2820,7 @@ function mergeMcpJson(rootDir: string, rel: string, report: string[]): Change {
  * once, never loop it.
  */
 export const CURSOR_HOOKS: Readonly<
-  Record<ShimSpec['event'], { event: string; matcher?: string; loop_limit?: number }>
+  Partial<Record<ShimSpec['event'], { event: string; matcher?: string; loop_limit?: number }>>
 > = {
   SessionStart: { event: 'sessionStart' },
   UserPromptSubmit: { event: 'beforeSubmitPrompt' },
@@ -2848,7 +2858,7 @@ function mergeCursorHooks(rootDir: string, home: ShimHome, add: boolean, report:
   let moved = 0
   let widened = 0
   for (const shim of shimsFor('cursor')) {
-    const { event, matcher, loop_limit } = CURSOR_HOOKS[shim.event]
+    const { event, matcher, loop_limit } = CURSOR_HOOKS[shim.event]!
     const existing = hooks[event]
     if (existing !== undefined && !Array.isArray(existing)) {
       throw new InitAbort(`${rel} hooks.${event} is not an array — refusing to modify it.`)

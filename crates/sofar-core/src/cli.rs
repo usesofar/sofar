@@ -22,6 +22,8 @@ pub enum Hook {
     SessionStart,
     PostTool,
     PostToolFailure,
+    /// `PostToolBatch` (r4-fixes A4): Claude Code's per-batch surfacing.
+    PostToolBatch,
     /// `PreToolUse` (memory-lead 4.3 part C, D39): the raw-read rewrite.
     PreTool,
     UserPrompt,
@@ -37,6 +39,7 @@ impl Hook {
             Hook::SessionStart => "session-start",
             Hook::PostTool => "post-tool",
             Hook::PostToolFailure => "post-tool-failure",
+            Hook::PostToolBatch => "post-tool-batch",
             Hook::PreTool => "pre-tool",
             Hook::UserPrompt => "user-prompt",
             Hook::Stop => "stop",
@@ -49,6 +52,7 @@ impl Hook {
             "session-start" => Hook::SessionStart,
             "post-tool" => Hook::PostTool,
             "post-tool-failure" => Hook::PostToolFailure,
+            "post-tool-batch" => Hook::PostToolBatch,
             "pre-tool" => Hook::PreTool,
             "user-prompt" => Hook::UserPrompt,
             "stop" => Hook::Stop,
@@ -214,6 +218,7 @@ mod tests {
             ("session-start", Hook::SessionStart),
             ("post-tool", Hook::PostTool),
             ("post-tool-failure", Hook::PostToolFailure),
+            ("post-tool-batch", Hook::PostToolBatch),
             ("pre-tool", Hook::PreTool),
             ("user-prompt", Hook::UserPrompt),
             ("stop", Hook::Stop),

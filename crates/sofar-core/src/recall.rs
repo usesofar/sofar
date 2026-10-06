@@ -21,6 +21,18 @@ pub fn recall_enabled() -> bool {
     !(v == "off" || v == "0" || v == "false")
 }
 
+/// `recallV034`: `SOFAR_RECALL=v034`, 0.34's block (r4-fixes A4's ablation arm).
+#[must_use]
+pub fn recall_v034() -> bool {
+    std::env::var_os("SOFAR_RECALL")
+        .is_some_and(|raw| js_trim(&raw.to_string_lossy()).to_lowercase() == "v034")
+}
+
+/// The capped block (r4-fixes A4): entries, chars and one line's cap.
+pub const RECALL_CAP_BUDGET: usize = 2_500;
+pub const RECALL_CAP_ENTRIES: usize = 8;
+pub const RECALL_CAP_LINE: usize = 280;
+
 /// `RECALL_TOLD_KEY`.
 pub const RECALL_TOLD_KEY: &str = "recall prompt";
 pub const RECALL_BUDGET: usize = 8_000;
@@ -49,6 +61,10 @@ struct RecallDoc {
     doc: LexicalDoc,
     handle: String,
     line: String,
+    /// The capped block's one line: the rule, else the choice, else the memory.
+    short: String,
+    /// The event id that filed it — the told set's key (r4-fixes A4).
+    entry_id: String,
 }
 
 fn decision_line(handle: &str, d: &DecisionState) -> String {
@@ -66,7 +82,14 @@ fn decision_line(handle: &str, d: &DecisionState) -> String {
     format!("- [{handle}] {}", parts.join("; "))
 }
 
-fn recall_doc(id: String, ts: &str, prose: &str, handle: String, line: String) -> RecallDoc {
+struct DocText {
+    handle: String,
+    line: String,
+    short: String,
+    entry_id: String,
+}
+
+fn recall_doc(id: String, ts: &str, prose: &str, text: DocText) -> RecallDoc {
     let terms = lexical_counts(&utf16_prefix(prose, RECALL_DOC_CHARS));
     let tokens = terms.iter().map(|(_, n)| n).sum();
     RecallDoc {
@@ -76,8 +99,10 @@ fn recall_doc(id: String, ts: &str, prose: &str, handle: String, line: String) -
             terms,
             tokens,
         },
-        handle,
-        line,
+        handle: text.handle,
+        line: text.line,
+        short: text.short,
+        entry_id: text.entry_id,
     }
 }
 
@@ -103,13 +128,22 @@ fn recall_docs(state: &InitiativeState, retire: bool) -> Vec<RecallDoc> {
         ]
         .join("\n");
         // Matched by the bare ordinal, printed check-suffixed (r4-fixes U5).
-        let line = decision_line(&crate::projections::suffixed_handle(ordinal, &d.id), d);
+        let shown = crate::projections::suffixed_handle(ordinal, &d.id);
+        let short = match &d.rule {
+            Some(rule) => format!("- [{shown}] rule: \"{}\"", one_line(rule)),
+            None => format!("- [{shown}] chose {}", one_line(&d.chose)),
+        };
+        let line = decision_line(&shown, d);
         docs.push(recall_doc(
             format!("decision:{ordinal}"),
             &d.ts,
             &prose,
-            handle,
-            line,
+            DocText {
+                handle,
+                line,
+                short,
+                entry_id: d.id.clone(),
+            },
         ));
     }
     for (i, m) in state.memories.iter().enumerate() {
@@ -122,8 +156,12 @@ fn recall_docs(state: &InitiativeState, retire: bool) -> Vec<RecallDoc> {
             format!("memory:{}", i + 1),
             &m.ts,
             &m.text,
-            handle,
-            line,
+            DocText {
+                handle,
+                short: line.clone(),
+                line,
+                entry_id: m.id.clone(),
+            },
         ));
     }
     docs
@@ -200,18 +238,23 @@ fn bare_named(state: &InitiativeState, handle: &str) -> Option<String> {
     }
 }
 
-/// `recallBlock`: the block for a prompt, or `None` when the record holds
-/// nothing it names.
-#[must_use]
-pub fn recall_block(state: &InitiativeState, prompt: &str, retire: bool) -> Option<String> {
+/// `recallChosen`: the entries a prompt recalls, strongest first — the
+/// handles it names, then the ranking — skipping the event ids in `skip`.
+fn recall_chosen(
+    state: &InitiativeState,
+    prompt: &str,
+    retire: bool,
+    skip: &[String],
+) -> (Vec<RecallDoc>, Vec<usize>) {
     let query = utf16_prefix(prompt, RECALL_PROMPT_CHARS);
     if js_trim(&query).is_empty() {
-        return None;
+        return (Vec::new(), Vec::new());
     }
     let docs = recall_docs(state, retire);
     if docs.is_empty() {
-        return None;
+        return (docs, Vec::new());
     }
+    let skipped = |d: &RecallDoc| skip.iter().any(|id| *id == d.entry_id);
     let mut chosen: Vec<usize> = Vec::new();
     for named in named_handles(&query) {
         let Some(handle) = bare_named(state, &named) else {
@@ -219,6 +262,7 @@ pub fn recall_block(state: &InitiativeState, prompt: &str, retire: bool) -> Opti
         };
         if let Some(i) = docs.iter().position(|d| d.handle == handle)
             && !chosen.contains(&i)
+            && !skipped(&docs[i])
         {
             chosen.push(i);
         }
@@ -242,7 +286,7 @@ pub fn recall_block(state: &InitiativeState, prompt: &str, retire: bool) -> Opti
         let Some(i) = docs.iter().position(|d| d.doc.id == m.id) else {
             continue;
         };
-        if chosen.contains(&i) {
+        if chosen.contains(&i) || skipped(&docs[i]) {
             continue;
         }
         if docs[i].doc.id.starts_with("memory:") {
@@ -253,6 +297,43 @@ pub fn recall_block(state: &InitiativeState, prompt: &str, retire: bool) -> Opti
         }
         chosen.push(i);
     }
+    (docs, chosen)
+}
+
+/// `cappedRecallBlock` (r4-fixes A4): at most `RECALL_CAP_ENTRIES` one-line
+/// entries in `RECALL_CAP_BUDGET` chars, none whose event id is in `told`;
+/// the text and the ids it told, or `None`.
+#[must_use]
+pub fn capped_recall_block(
+    state: &InitiativeState,
+    prompt: &str,
+    retire: bool,
+    told: &[String],
+) -> Option<(String, Vec<String>)> {
+    let (docs, chosen) = recall_chosen(state, prompt, retire, told);
+    let mut lines = vec![HEADER.to_owned()];
+    let mut ids: Vec<String> = Vec::new();
+    let mut used = utf16_len(HEADER);
+    for i in chosen {
+        if ids.len() >= RECALL_CAP_ENTRIES {
+            break;
+        }
+        let line = clip(&docs[i].short, RECALL_CAP_LINE);
+        if used + 1 + utf16_len(&line) > RECALL_CAP_BUDGET {
+            break;
+        }
+        used += 1 + utf16_len(&line);
+        lines.push(line);
+        ids.push(docs[i].entry_id.clone());
+    }
+    (!ids.is_empty()).then(|| (lines.join("\n"), ids))
+}
+
+/// `recallBlock`: the block for a prompt, or `None` when the record holds
+/// nothing it names — 0.34's, kept for `SOFAR_RECALL=v034`.
+#[must_use]
+pub fn recall_block(state: &InitiativeState, prompt: &str, retire: bool) -> Option<String> {
+    let (docs, chosen) = recall_chosen(state, prompt, retire, &[]);
     if chosen.is_empty() {
         return None;
     }
@@ -287,15 +368,26 @@ pub fn prompt_recall(
     session: &str,
     prompt: &str,
 ) -> Option<String> {
-    if crate::told::read_told(layout, session)
-        .iter()
-        .any(|k| k == RECALL_TOLD_KEY)
-    {
+    let told = crate::told::read_told(layout, session);
+    if told.iter().any(|k| k == RECALL_TOLD_KEY) {
         return None;
     }
-    let block = recall_block(state, prompt, crate::projections::retire_enabled())?;
-    crate::told::add_told(layout, session, &[RECALL_TOLD_KEY.to_owned()]);
-    Some(block)
+    let retire = crate::projections::retire_enabled();
+    if recall_v034() {
+        let block = recall_block(state, prompt, retire)?;
+        crate::told::add_told(layout, session, &[RECALL_TOLD_KEY.to_owned()]);
+        return Some(block);
+    }
+    // Capped, and never what the digest already said (r4-fixes A4).
+    let held: Vec<String> = told
+        .iter()
+        .filter_map(|k| k.strip_prefix('@').map(str::to_owned))
+        .collect();
+    let (text, ids) = capped_recall_block(state, prompt, retire, &held)?;
+    let mut keys = vec![RECALL_TOLD_KEY.to_owned()];
+    keys.extend(ids.iter().map(|id| crate::told::entry_told_key(id)));
+    crate::told::add_told(layout, session, &keys);
+    Some(text)
 }
 
 #[cfg(test)]

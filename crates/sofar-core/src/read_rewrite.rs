@@ -105,6 +105,107 @@ pub fn rewrite_raw_read(cmd: &str, cwd: &str, root: &str, session: &str) -> Opti
     ))
 }
 
+/// `rewriteRawReadSegments` (r4-fixes A4): every simple command that heads a
+/// pipeline and is a whole-file read becomes `sofar read`; every other byte is
+/// kept. A command with a backtick, `$(`, a heredoc or a backslash is not
+/// split. `None` when no segment is rewritten.
+#[must_use]
+pub fn rewrite_raw_read_segments(
+    cmd: &str,
+    cwd: &str,
+    root: &str,
+    session: &str,
+) -> Option<String> {
+    if let Some(whole) = rewrite_raw_read(cmd, cwd, root, session) {
+        return Some(whole);
+    }
+    if cmd.contains(['`', '\\']) || cmd.contains("$(") || cmd.contains("<<") {
+        return None;
+    }
+    let bytes = cmd.as_bytes();
+    let mut spans: Vec<(usize, usize, bool)> = Vec::new();
+    let mut quote: Option<u8> = None;
+    let mut start = 0usize;
+    let mut heads = true;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = quote {
+            if c == q {
+                quote = None;
+            }
+            i += 1;
+            continue;
+        }
+        if c == b'"' || c == b'\'' {
+            quote = Some(c);
+            i += 1;
+            continue;
+        }
+        let two = &bytes[i..(i + 2).min(bytes.len())];
+        let (width, pipe) = if two == b"&&" || two == b"||" {
+            (2, false)
+        } else if c == b'|' {
+            (1, true)
+        } else if c == b';' || c == b'\n' || c == b'&' {
+            (1, false)
+        } else {
+            (0, false)
+        };
+        if width == 0 {
+            i += 1;
+            continue;
+        }
+        spans.push((start, i, heads));
+        heads = !pipe;
+        start = i + width;
+        i += width;
+    }
+    if quote.is_some() {
+        return None;
+    }
+    spans.push((start, cmd.len(), heads));
+    let mut out = String::new();
+    let mut at = 0usize;
+    let mut changed = false;
+    for (s, e, heads) in spans {
+        if !heads {
+            continue;
+        }
+        let text = &cmd[s..e];
+        let body_start = text.len() - text.trim_start_matches(is_js_whitespace).len();
+        let body_end = text
+            .trim_end_matches(is_js_whitespace)
+            .len()
+            .max(body_start);
+        let lead = &text[..body_start];
+        let trail = &text[body_end..];
+        let mut body = &text[body_start..body_end];
+        let mut redirect = "";
+        if let Some(rest) = body.strip_suffix(" 2>/dev/null") {
+            redirect = " 2>/dev/null";
+            body = rest.trim_end_matches(is_js_whitespace);
+        }
+        if body.contains(['<', '>']) {
+            continue;
+        }
+        let Some(rewritten) = rewrite_raw_read(body, cwd, root, session) else {
+            continue;
+        };
+        out.push_str(&cmd[at..s]);
+        out.push_str(lead);
+        out.push_str(&rewritten);
+        out.push_str(redirect);
+        out.push_str(trail);
+        at = e;
+        changed = true;
+    }
+    changed.then(|| {
+        out.push_str(&cmd[at..]);
+        out
+    })
+}
+
 /// `handlePreTool`: the host's own rewrite form, or no output.
 #[must_use]
 pub fn handle_pre_tool(root: &Path, input: &str) -> CmdResult {
@@ -131,7 +232,14 @@ pub fn handle_pre_tool(root: &Path, input: &str) -> CmdResult {
     };
     let root_str = root.to_string_lossy();
     let cwd = str_field(&hook, "cwd").unwrap_or(&root_str);
-    let Some(rewritten) = rewrite_raw_read(cmd, cwd, &root_str, session) else {
+    // Per segment inside compound commands (r4-fixes A4); the whole command
+    // only, as 0.34.1, under SOFAR_TOLD_LINES=off.
+    let rewritten = if crate::told::told_lines_enabled() {
+        rewrite_raw_read_segments(cmd, cwd, &root_str, session)
+    } else {
+        rewrite_raw_read(cmd, cwd, &root_str, session)
+    };
+    let Some(rewritten) = rewritten else {
         return silent;
     };
     let mut updated: Object = tool_input.clone();
@@ -158,8 +266,29 @@ pub fn handle_pre_tool(root: &Path, input: &str) -> CmdResult {
 
 #[cfg(test)]
 mod tests {
-    use super::rewrite_raw_read;
+    use super::{rewrite_raw_read, rewrite_raw_read_segments};
     use crate::json::{self, Json};
+
+    /// r4-fixes A4: the per-segment table the TypeScript suite asserts too.
+    #[test]
+    fn every_segment_case_rewrites_as_typescript_does() {
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/js-read-rewrite-segments.json"
+        ))
+        .unwrap();
+        let cases = json::parse(&text).unwrap();
+        for case in cases.as_arr().unwrap() {
+            let c = case.as_obj().unwrap();
+            let s = |k: &str| c.get(k).and_then(Json::as_str).unwrap();
+            assert_eq!(
+                rewrite_raw_read_segments(s("cmd"), s("cwd"), s("root"), s("session")).as_deref(),
+                c.get("rewrite").and_then(Json::as_str),
+                "{}",
+                s("cmd")
+            );
+        }
+    }
 
     /// The table the TypeScript suite asserts too (test/read-rewrite.test.ts).
     #[test]

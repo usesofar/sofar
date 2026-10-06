@@ -14,7 +14,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"sess-clean","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/src/legacy/old.ts","old_string":"a","new_string":"b"},"tool_response":{}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/legacy/old.ts is governed by [D1·984a], a standing rule: \"Never edit files under src/legacy/.\" (guard: path:src/legacy/**,!src/legacy/README.md). Work against it needs a decision that supersedes D1·984a."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/legacy/old.ts is governed by [D1·984a] (guard: path:src/legacy/**,!src/legacy/README.md), the standing rule in your context. Work against it needs a decision that supersedes D1·984a."}}
 --- stderr
 (empty)
 
@@ -32,7 +32,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"sess-clean","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"src/legacy/deep/x.ts","old_string":"a","new_string":"b"},"tool_response":{}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/legacy/deep/x.ts is governed by [D1·984a], a standing rule: \"Never edit files under src/legacy/.\" (guard: path:src/legacy/**,!src/legacy/README.md). Work against it needs a decision that supersedes D1·984a."}}
+(empty)
 --- stderr
 (empty)
 
@@ -68,7 +68,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-clean","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: [D1·984a] guard crossed — \"Never edit files under src/legacy/.\" — 2 event(s): src/legacy/old.ts, src/legacy/deep/x.ts (guard: path:src/legacy/**,!src/legacy/README.md).\nsofar: [D2·41jn] guard crossed — \"Never run npm publish from a workstation.\" — 2 event(s): npm publish --access public, npm run release (guard: cmd:*npm publish*,*npm run release*).\nsofar: main @ ce11ce1, never pushed.\nsofar: 7 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"guards 1.1 #sess"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: [D1·984a] guard crossed — \"Never edit files under src/legacy/.\" — 2 event(s): src/legacy/old.ts, src/legacy/deep/x.ts (guard: path:src/legacy/**,!src/legacy/README.md).\nsofar: [D2·41jn] guard crossed — \"Never run npm publish from a workstation.\" — 2 event(s): npm publish --access public, npm run release (guard: cmd:*npm publish*,*npm run release*).\nsofar: 7 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"guards 1.1 #sess"}}
 --- stderr
 (empty)
 

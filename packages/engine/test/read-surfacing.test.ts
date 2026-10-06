@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { makeEvent } from '../src/core/envelope'
 import { fileMentions, mentionDepth } from '../src/core/file-mentions'
 import { foldLog } from '../src/core/fold'
@@ -278,12 +278,20 @@ describe('2.1 told once', () => {
     expect(edit(f.root, 'S', 'src/a.ts')).toBe('')
   })
 
-  it('another path is told again, and another session is told separately', () => {
+  it('an entry is told once per context, whatever the path (r4-fixes A4); another session is told separately', () => {
     const f = fx()
     decide(f.root, 'alpha', { chose: 'pair src/a.ts with src/b.ts' })
     expect(read(f.root, 'S', 'src/a.ts')).toContain('names src/a.ts')
-    expect(read(f.root, 'S', 'src/b.ts')).toContain('names src/b.ts')
+    expect(read(f.root, 'S', 'src/b.ts')).toBe('')
     expect(read(f.root, 'T', 'src/a.ts')).toContain('names src/a.ts')
+    // 0.34's per-path set is the ablation arm.
+    vi.stubEnv('SOFAR_TOLD_LINES', 'off')
+    try {
+      expect(read(f.root, 'U', 'src/a.ts')).toContain('names src/a.ts')
+      expect(read(f.root, 'U', 'src/b.ts')).toContain('names src/b.ts')
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('compaction forgets: SessionStart with source compact clears the set', () => {

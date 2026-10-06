@@ -494,6 +494,7 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let state = cached_digest_state(&layout, &slug);
     let repo_memory = read_repo_memory(&layout);
     let git = read_git_state(root);
+    let git_for_told = git.clone();
     if let (Some(sid), Some(g)) = (session_id, &git) {
         note_upstream(&layout, sid, &g.branch, g.upstream_full.as_deref());
     }
@@ -548,6 +549,25 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             limit: Some(crate::host_payload::digest_limit(hook_host(&hook).tool)),
         },
     );
+    // The told set starts from what this block told (r4-fixes A4): its
+    // entries, and the push state its Git line gave.
+    if let Some(sid) = session_id
+        && crate::told::told_lines_enabled()
+    {
+        let keys: Vec<String> = crate::told::rendered_entry_ids(&state, &status)
+            .iter()
+            .map(|id| crate::told::entry_told_key(id))
+            .collect();
+        crate::told::add_told(&layout, sid, &keys);
+        if let Some(g) = &git_for_told {
+            crate::told::set_fragment(
+                &layout,
+                sid,
+                crate::user_prompt::PUSH_FRAGMENT,
+                Some(&crate::user_prompt::push_epoch(g)),
+            );
+        }
+    }
     // The session's name (session-naming D1): the slug and the focus task the
     // block leads with, handed to Claude Code as a title. Only an absent,
     // derived or sofar-owned title is replaced; otherwise the block goes out

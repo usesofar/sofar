@@ -1,5 +1,33 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED and ADDED on **wave-a-a2-a4** for **r4-fixes A4** (the told set,
+hook-line epochs, the recall cap, PostToolBatch, per-segment reads) from the
+TypeScript reference; the Rust core reproduces every golden. One new case,
+`syn.told-lines`: the digest seeds the told set, a PostToolBatch tells two
+reads as one block and marks the session so its PostToolUse only captures,
+the same rule on another file is not told again, another session gets the
+rule whole once, `SOFAR_TOLD_LINES=off` is 0.34's, and a compaction re-arms
+the push and debt lines. 19 goldens moved, for these reasons and no other:
+- (a) the prompt hook's push line is told once per push epoch, and the
+  session start's Git line is its first telling, so a first prompt after a
+  session start no longer repeats it (cell.calib-1, cell.round-1-sofar,
+  cell.smoke-4-drive, cell.smoke-4-sofar, repo.branch-elsewhere,
+  repo.drive-reach, repo.hook-lifecycle, syn.driven, syn.many,
+  syn.merge-handles, syn.unicode, syn.lessons-cut); the debt nudge is told
+  once per band (syn.lessons-cut);
+- (b) an entry is told once per context on any path, and a guard the digest
+  holds is told as its binding without the rule's text again (syn.guards,
+  syn.surfacing, syn.merge, repo.hook-lifecycle);
+- (c) the recall block is capped — one line an entry, the rule only, nothing
+  the digest holds (syn.recall), and the told files the lessons cases dump
+  carry the new keys (repo.lessons);
+- (d) a whole-file read heading a pipeline inside a compound command is
+  rewritten on its own (syn.read-gate: the old "a pipe is left alone" step,
+  three new steps around it);
+- (e) `sofar event --help` lists the new `post-tool-batch` subcommand
+  (argv.fast-path).
+Every other golden is byte-identical. No previous set is kept.
+
 RE-RECORDED on **wave-a-a2-a4** for **r4-fixes A2** (host-compiled
 payloads, 0.35.0 Wave A) from the TypeScript reference; the Rust core
 reproduces it. One golden moved: `repo.session-start`, the step "a Cursor

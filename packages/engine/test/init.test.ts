@@ -164,6 +164,8 @@ describe('sofar init on a fresh repo', () => {
           ],
         },
       ],
+      // One surfacing block per parallel batch (r4-fixes A4), Claude Code only.
+      PostToolBatch: [{ hooks: [{ type: 'command', command: '$CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-batch.sh' }] }],
       PostToolUseFailure: [
         {
           matcher: 'Edit|Write|MultiEdit|Bash',
@@ -409,7 +411,7 @@ describe('sofar init --statusline (opt-in rent-meter wiring, D4 informed re-test
 
     const settings = readJSON(join(root, '.claude', 'settings.json'))
     expect(settings.statusLine).toEqual(STATUSLINE_SETTINGS_ENTRY)
-    expect(Object.keys(settings.hooks as object)).toHaveLength(7) // hooks untouched by the flag
+    expect(Object.keys(settings.hooks as object)).toHaveLength(8) // hooks untouched by the flag
   })
 
   it('is byte-level idempotent: a second --statusline run changes no file', () => {
@@ -555,7 +557,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
     expect(result.exitCode).toBe(0)
     // The report block ends at the blank line before the (unstyled) hint.
     const lines = (result.stdout.split('\n\n')[0] ?? '').split('\n')
-    expect(lines.at(-1)).toBe('\x1b[32m✓\x1b[39m sofar init: done (29 changes)')
+    expect(lines.at(-1)).toBe('\x1b[32m✓\x1b[39m sofar init: done (30 changes)')
     expect(lines[0]).toBe('\x1b[2m  └ created .sofar/repo.md\x1b[22m')
     for (const line of lines.slice(0, -1)) {
       expect(line.startsWith('\x1b[2m  └ ')).toBe(true)
@@ -575,6 +577,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .claude/hooks/pre-tool-use.sh',
         'created .claude/hooks/post-tool-use.sh',
         'created .claude/hooks/drive-await.sh',
+        'created .claude/hooks/post-tool-batch.sh',
         'created .claude/hooks/post-tool-use-failure.sh',
         'created .claude/hooks/stop.sh',
         'created .claude/hooks/session-end.sh',
@@ -596,7 +599,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .claude/skills/sofar-write/SKILL.md',
         'created AGENTS.md (sofar protocol block)',
         'created .agents/skills/sofar-write/SKILL.md',
-        'sofar init: done (29 changes)',
+        'sofar init: done (30 changes)',
         '',
         STATUSLINE_HINT,
         '',
@@ -859,7 +862,7 @@ describe('Cursor wiring (r1-fixes 6.2/6.6, D34)', () => {
     // asyncRewake has no Cursor equivalent.
     expect(shimsFor('cursor').some((shim) => shim.file === 'drive-await.sh')).toBe(false)
     for (const shim of shimsFor('cursor')) {
-      const spec = CURSOR_HOOKS[shim.event]
+      const spec = CURSOR_HOOKS[shim.event]!
       const [entry] = cursor.hooks[spec.event] ?? []
       expect(entry?.command, spec.event).toBe(hookCommand(shim.file))
       expect(entry?.command).toBe(claude.hooks[shim.event]?.[0]?.hooks[0]?.command)

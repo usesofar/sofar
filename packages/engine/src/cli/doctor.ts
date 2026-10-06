@@ -313,7 +313,7 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     // Cursor's set excludes the Claude-only rewake shim (3.7).
     const missingCursorHooks = shimsFor('cursor')
       .filter((shim) => !fileHas(cursorHooksPath, hookCommand(shim.file, home)))
-      .map((shim) => CURSOR_HOOKS[shim.event].event)
+      .map((shim) => CURSOR_HOOKS[shim.event]!.event)
     findings.push(
       missingCursorHooks.length === 0
         ? { level: 'ok', text: '.cursor/hooks.json hooks wired' }

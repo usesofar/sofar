@@ -264,6 +264,7 @@ describe('sofar init for a subset of agents', () => {
     const written = files(root).filter((rel) => !rel.startsWith('.git/') && !rel.startsWith('.sofar/'))
     expect(written).toEqual([
       '.claude/hooks/drive-await.sh',
+      '.claude/hooks/post-tool-batch.sh',
       '.claude/hooks/post-tool-use-failure.sh',
       '.claude/hooks/post-tool-use.sh',
       '.claude/hooks/pre-tool-use.sh',
@@ -371,8 +372,8 @@ describe('sofar init for a subset of agents', () => {
     const settings = readJSON(join(root, '.claude', 'settings.json')) as {
       hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>
     }
-    for (const shim of SHIMS) {
-      const entries = moved.hooks[CURSOR_HOOKS[shim.event].event] ?? []
+    for (const shim of SHIMS.filter((s) => s.claudeOnly !== true)) {
+      const entries = moved.hooks[CURSOR_HOOKS[shim.event]!.event] ?? []
       expect(entries.map((e) => e.command)).toEqual([settings.hooks[shim.event]?.[0]?.hooks[0]?.command])
     }
     expect(moved.hooks.stop?.[0]).toEqual({ command: hookCommand('stop.sh'), loop_limit: 1, timeout: 30 })

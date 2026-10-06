@@ -41,7 +41,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #conf"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #conf"}}
 --- stderr
 (empty)
 
@@ -77,7 +77,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01M3QAAAAAAAAAAAAAAAAAAAAA on linked-context stopped: needs_user · 7 handoffs · 7/9\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #conf"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar drive: run 01M3QAAAAAAAAAAAAAAAAAAAAA on linked-context stopped: needs_user · 7 handoffs · 7/9","sessionTitle":"rust-core 1.2 #conf"}}
 --- stderr
 (empty)
 

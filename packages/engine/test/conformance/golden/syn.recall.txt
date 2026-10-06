@@ -5,7 +5,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-r","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"Percent coupons before fixed ones: how do coupons stack when the provider marks them stackable? See D3."}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D3·dn1e] rule: \"Percent coupons come off before fixed coupons.\"; chose percent coupons apply before fixed amounts; over fixed first; because the operator said so\n- [M2] memory: Coupon stacking lives in apps/web/lib/coupons.ts; the provider flag is stackable.\nsofar: this prompt is P1 — if it is roadmap or spec, keep it in the brief by id at write-back (brief_append [\"P1\"]); sofar copies it verbatim.","sessionTitle":"baseline 1.2 #sess"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D3·dn1e] rule: \"Percent coupons come off before fixed coupons.\"\n- [M2] memory: Coupon stacking lives in apps/web/lib/coupons.ts; the provider flag is stackable.\nsofar: this prompt is P1 — if it is roadmap or spec, keep it in the brief by id at write-back (brief_append [\"P1\"]); sofar copies it verbatim.","sessionTitle":"baseline 1.2 #sess"}}
 --- stderr
 (empty)
 
@@ -32,7 +32,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-r","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"percent coupons stack with fixed coupons"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D3·dn1e] rule: \"Percent coupons come off before fixed coupons.\"; chose percent coupons apply before fixed amounts; over fixed first; because the operator said so\n- [M2] memory: Coupon stacking lives in apps/web/lib/coupons.ts; the provider flag is stackable.","sessionTitle":"baseline 1.2 #sess"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"baseline 1.2 #sess"}}
 --- stderr
 (empty)
 

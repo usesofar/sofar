@@ -900,7 +900,11 @@ export const CASES: ConformanceCase[] = [
       s('cat from a subdirectory', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', cwd: '<ROOT>/src', tool_name: 'Bash', tool_input: { command: 'cat ../.sofar/initiatives/baseline/events.jsonl' } })),
       s('Cursor: its own preToolUse form', ['event', 'pre-tool'], { conversation_id: 'conv-g', cursor_version: '2026.10.01', cwd: '<ROOT>', hook_event_name: 'preToolUse', tool_name: 'Shell', tool_input: { command: 'cat .sofar/initiatives/baseline/decisions.md' } }),
       s('a grep is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'grep -n rule .sofar/initiatives/baseline/decisions.md' } })),
-      s('a pipe is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md | head -5' } })),
+      // r4-fixes A4: a whole-file read heading a pipeline is rewritten on its own, the rest kept.
+      s('a read piped to head: its read segment rewritten', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md | head -5' } })),
+      s('a compound command: each read segment rewritten, the code read kept', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: "ls; cat src/a.ts && cat .sofar/initiatives/baseline/memory.md 2>/dev/null\ncat '.sofar/initiatives/baseline/decisions.md' | tail -3" } })),
+      s('a compound command with a substitution is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md; echo $(date)' } })),
+      s('SOFAR_TOLD_LINES=off: a pipe is left alone, as 0.34.1', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md | head -5' } }), { env: { SOFAR_TOLD_LINES: 'off' } }),
       s('the Read tool is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Read', tool_input: { file_path: '<ROOT>/.sofar/initiatives/baseline/plan.md' } })),
       s('SOFAR_READ_GATE=off', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md' } }), { env: { SOFAR_READ_GATE: 'off' } }),
       // r4-fixes U4: a read with a line or byte limit passes through on every host.
@@ -908,6 +912,45 @@ export const CASES: ConformanceCase[] = [
       s('tail -25: passed through', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'tail -25 .sofar/initiatives/baseline/plan.md' } })),
       s('Cursor: head -c passed through', ['event', 'pre-tool'], { conversation_id: 'conv-g', cursor_version: '2026.10.01', cwd: '<ROOT>', hook_event_name: 'preToolUse', tool_name: 'Shell', tool_input: { command: 'head -c 20000 .sofar/initiatives/baseline/decisions.md' } }),
       s('a Read with offset and limit is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Read', tool_input: { file_path: '<ROOT>/.sofar/initiatives/baseline/plan.md', offset: 10, limit: 25 } })),
+    ],
+  },
+  {
+    // r4-fixes A4: the told set seeded from the digest and the recall block,
+    // hook lines as fragments told once per epoch, and Claude Code's
+    // PostToolBatch carrying a batch's surfacing as one block.
+    name: 'syn.told-lines',
+    fixture: synthetic('surfacing'),
+    steps: [
+      s('session-start: the digest seeds the told set', ['event', 'session-start'], start({ session_id: 'sess-t' }), {
+        before: (m) => {
+          for (const rel of ['src/core/fold.ts', 'src/legacy/old.ts', 'src/legacy/new.ts', 'docs/SPEC.md']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+          }
+        },
+      }),
+      s('prompt: the push line the digest gave is not repeated; recall leaves out what the digest holds', ['event', 'user-prompt'], prompt({ session_id: 'sess-t', prompt: 'the fold must not read the clock; split fold.ts and leave the legacy tree alone' })),
+      s('PostToolBatch: two reads, one block, the guard told as its binding', ['event', 'post-tool-batch'], hook('PostToolBatch', {
+        session_id: 'sess-t',
+        tool_calls: [
+          { tool_name: 'Read', tool_input: { file_path: '<ROOT>/src/core/fold.ts' }, tool_use_id: 'tu-1', tool_response: {} },
+          { tool_name: 'Read', tool_input: { file_path: '<ROOT>/src/legacy/old.ts' }, tool_use_id: 'tu-2', tool_response: {} },
+        ],
+      })),
+      s('PostToolUse after a batch ran: it captures, the batch tells', ['event', 'post-tool'], edit('<ROOT>/src/legacy/new.ts', { session_id: 'sess-t' })),
+      s('PostToolBatch: the same rule on another file is not told again', ['event', 'post-tool-batch'], hook('PostToolBatch', {
+        session_id: 'sess-t',
+        tool_calls: [{ tool_name: 'Edit', tool_input: { file_path: '<ROOT>/src/legacy/new.ts', old_string: 'a', new_string: 'b' }, tool_use_id: 'tu-3', tool_response: {} }],
+      })),
+      s('another session, no digest, no batch: the rule whole on its first file', ['event', 'post-tool'], read('<ROOT>/src/legacy/old.ts', { session_id: 'sess-u' })),
+      s('…and nothing on its second', ['event', 'post-tool'], read('<ROOT>/src/legacy/new.ts', { session_id: 'sess-u' })),
+      s('SOFAR_TOLD_LINES=off: per file, as 0.34', ['event', 'post-tool'], read('<ROOT>/src/legacy/new.ts', { session_id: 'sess-v' }), { env: { SOFAR_TOLD_LINES: 'off' } }),
+      s('SOFAR_TOLD_LINES=off: PostToolBatch is silent', ['event', 'post-tool-batch'], hook('PostToolBatch', {
+        session_id: 'sess-v',
+        tool_calls: [{ tool_name: 'Read', tool_input: { file_path: '<ROOT>/src/core/fold.ts' }, tool_use_id: 'tu-4', tool_response: {} }],
+      }), { env: { SOFAR_TOLD_LINES: 'off' } }),
+      s('compact: the set is cleared and seeded again', ['event', 'session-start'], start({ session_id: 'sess-t', source: 'compact' })),
+      s('…so the first prompt after it is quiet on the push state too', ['event', 'user-prompt'], prompt({ session_id: 'sess-t' })),
     ],
   },
   {
