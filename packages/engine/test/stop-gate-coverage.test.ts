@@ -11,6 +11,7 @@ import { CODEX_HOST } from '../src/cli/host'
 import { makeEvent } from '../src/core/envelope'
 import { foldLog } from '../src/core/fold'
 import { appendEvent } from '../src/core/log'
+import { bare } from './helpers/handles'
 
 /**
  * r4-fixes 0.2 (U1): which test run covers which ask at Stop, read against
@@ -205,10 +206,13 @@ describe('Codex: an outcome sofar cannot see is unverifiable, never unpassed (r4
       const codex = stop(false, CODEX_HOST)
       expect(codex.exitCode).toBe(0)
       expect(codex.stderr).toBe('')
-      expect(JSON.parse(codex.stdout)).toEqual({
-        systemMessage:
-          'sofar: [demo D1] "Keep a.ts whole." bear on files you edited, but this host reports no test exit status, so sofar cannot verify their tests and does not hold the stop — check them yourself: `bun test tests/a.test.ts`',
-      })
+      // The rule is named by its check-suffixed handle (r4-fixes U5); its id is minted here, so the suffix is not pinned.
+      const said = JSON.parse(codex.stdout) as { systemMessage: string }
+      expect(Object.keys(said)).toEqual(['systemMessage'])
+      expect(said.systemMessage).toMatch(/^sofar: \[demo D1·\w{4}\] /)
+      expect(bare(said.systemMessage)).toBe(
+        'sofar: [demo D1] "Keep a.ts whole." bear on files you edited, but this host reports no test exit status, so sofar cannot verify their tests and does not hold the stop — check them yourself: `bun test tests/a.test.ts`',
+      )
       expect(stop(true, CODEX_HOST)).toEqual({ exitCode: 0, stdout: '', stderr: '' }) // once per stop
       // A host that reports outcomes still holds for the same missing pass.
       expect(stop(false).exitCode).toBe(2)

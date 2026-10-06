@@ -6,6 +6,7 @@ import { ToolError, createToolContext, type ToolContext } from '../src/mcp/conte
 import { endSession } from '../src/mcp/end-session'
 import { startSession } from '../src/mcp/start-session'
 import { updatePlan } from '../src/mcp/update-plan'
+import { bare } from './helpers/handles'
 import { callTool, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
 
 /**
@@ -62,8 +63,9 @@ describe('sofar_end_session files every valid entry (r4-fixes U6)', () => {
       decisions: [decision('returns validate the order first'), decision('value a resellable return at the latest receipt cost', { quote: 'a resellable return adds a FIFO layer at the latest receipt cost' })],
     })
     expect(r.not_filed).toBeUndefined()
-    expect(r.decisions).toEqual(['D1', 'D2'])
-    expect(r.warnings).toContain('decisions[1]: quote: needs a rule — D2 filed without it and the quote kept as a note; to make it a rule, file the rule and quote with sofar_log_decision, supersedes D2')
+    // Handles print check-suffixed (r4-fixes U5); bare() keeps the assertion about the ordinals.
+    expect(r.decisions).toEqual([expect.stringMatching(/^D1·\w{4}$/), expect.stringMatching(/^D2·\w{4}$/)])
+    expect(r.warnings?.map(bare)).toContain('decisions[1]: quote: needs a rule — D2 filed without it and the quote kept as a note; to make it a rule, file the rule and quote with sofar_log_decision, supersedes D2')
     expect(f.types(before)).toEqual(['decision_logged', 'decision_logged', 'note_added', 'session_ended'])
     const state = foldLog(f.eventsPath).state
     expect(state.decisions[1]!.chose).toBe('value a resellable return at the latest receipt cost')
@@ -76,7 +78,7 @@ describe('sofar_end_session files every valid entry (r4-fixes U6)', () => {
     const before = f.lines()
     const r = endSession(f.ctx, { session_id: 'S1', summary: 's', next_action: 'n', initiative: 'demo', decisions: [decision('check sellability first', { initiative: 'demo' })] })
     expect(r.not_filed).toBeUndefined()
-    expect(r.decisions).toEqual(['D1'])
+    expect(r.decisions?.map(bare)).toEqual(['D1'])
     expect(f.types(before)).toEqual(['decision_logged', 'session_ended'])
     expect(f.raw()).not.toContain('"initiative":"demo","chose"')
   })
@@ -126,7 +128,7 @@ describe('sofar_end_session files every valid entry (r4-fixes U6)', () => {
       'memories[0]: text: must be a non-empty string — not filed; fix it and file it with sofar_remember',
     ])
     expect(r.tasks_applied).toBe(1)
-    expect(r.decisions).toEqual(['D1'])
+    expect(r.decisions?.map(bare)).toEqual(['D1'])
     expect(r.memories).toEqual(['demo M1'])
     expect(f.types(before)).toEqual(['task_status_changed', 'phase_status_changed', 'decision_logged', 'memory_promoted', 'note_added', 'session_ended'])
     const state = foldLog(f.eventsPath).state
@@ -176,7 +178,7 @@ describe('the CLI write-back path, the same way (r4-fixes U6)', () => {
     const before = f.lines()
     const r = append(f, 'decision_logged', decision('value returns at the latest receipt cost', { quote: 'at the latest receipt cost' }))
     expect(r.exitCode).toBe(0)
-    expect(JSON.parse(r.stdout).warnings).toContain('quote: needs a rule — D1 filed without it and the quote kept as a note; to make it a rule, append a decision_logged with rule and quote, supersedes D1')
+    expect((JSON.parse(r.stdout).warnings as string[]).map(bare)).toContain('quote: needs a rule — D1 filed without it and the quote kept as a note; to make it a rule, append a decision_logged with rule and quote, supersedes D1')
     expect(f.types(before)).toEqual(['decision_logged', 'note_added'])
   })
 

@@ -5,6 +5,7 @@ import { makeEvent } from '../src/core/envelope'
 import { serializeEvent } from '../src/core/log'
 import { ALWAYS_LOADED_TOOLS } from '../src/mcp/server'
 import { STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
+import { bare } from './helpers/handles'
 import { callTool, connectServer, makeRepoFixture, type Fixture } from './helpers/mcp'
 
 /**
@@ -250,7 +251,7 @@ describe('batched write-back', () => {
 
     const inBatch = await callTool<{ not_filed: string[]; decisions: string[] }>(client, 'sofar_end_session', { summary: 's', next_action: 'n', decisions: [standing, reversal] })
     expect(inBatch.isError).toBe(false)
-    expect(inBatch.body.decisions).toEqual(['D1'])
+    expect(inBatch.body.decisions.map(bare)).toEqual(['D1']) // check-suffixed on the wire (r4-fixes U5)
     expect(inBatch.body.not_filed).toEqual([expect.stringMatching(/^decisions\[1\]: .*reverses standing D1.* — not filed; fix it and file it with sofar_log_decision$/)])
     expect(foldLog(f.eventsPath).state.decisions).toHaveLength(1)
 
