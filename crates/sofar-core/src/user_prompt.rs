@@ -1188,6 +1188,11 @@ pub fn handle_session_end(root: &Path, input: &str) -> CmdResult {
     let Some(slug) = resolve_bound(&layout, session_id) else {
         return silent();
     };
+    // `/clear` mints a new id in this same process: hand it this home
+    // (r4-fixes A10, the baton carrier in lineage.rs).
+    if str_field(&hook, "reason") == Some("clear") {
+        let _ = crate::lineage::write_baton(&layout, session_id, &slug);
+    }
     let state = fold_state(&layout, &slug);
     let Some(session) = state.sessions.iter().find(|s| s.id == session_id) else {
         return silent();

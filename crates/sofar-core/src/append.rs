@@ -246,13 +246,29 @@ pub fn register_session(
     tool: &str,
     source: &'static str,
 ) {
+    register_session_continuing(layout, slug, session_id, tool, None, source);
+}
+
+/// `registerSession` with the lineage parent a first registration names
+/// (`continues`, r4-fixes A10) — payload key order `tool`, `continues`.
+pub fn register_session_continuing(
+    layout: &Layout,
+    slug: &str,
+    session_id: &str,
+    tool: &str,
+    continues: Option<&str>,
+    source: &'static str,
+) {
     if registered(layout, slug, session_id) {
         return;
     }
     let section = || {
         if !registered(layout, slug, session_id) {
-            let mut payload = Object::with_capacity(1);
+            let mut payload = Object::with_capacity(2);
             payload.insert("tool", Json::Str(tool.to_owned()));
+            if let Some(parent) = continues {
+                payload.insert("continues", Json::Str(parent.to_owned()));
+            }
             let _ =
                 append_and_project(layout, slug, "session_started", payload, session_id, source);
         }
@@ -266,7 +282,9 @@ pub fn register_session(
 /// `registerLazily`: `cli` is never a session identity.
 pub fn register_lazily(layout: &Layout, slug: &str, session: &str, host_tool: &str) {
     if session != "cli" {
-        register_session(layout, slug, session, host_tool, "hook");
+        // A session lineage traced to a parent says so on its first line (A10).
+        let parent = crate::lineage::continues_for(layout, session, slug);
+        register_session_continuing(layout, slug, session, host_tool, parent.as_deref(), "hook");
     }
 }
 

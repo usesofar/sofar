@@ -143,18 +143,42 @@ pub fn resolve_session_first(
             ResolvedVia::Branch
         }
     };
-    if let Some(id) = session_id.filter(|s| !s.is_empty())
-        && let Some(home) = home_initiative(layout, id, branch_slug.as_deref())
-    {
-        let via = if Some(home.as_str()) == branch_slug.as_deref() {
-            branch_via()
-        } else {
-            ResolvedVia::Session
-        };
-        return Some((home, via));
+    if let Some(id) = session_id.filter(|s| !s.is_empty()) {
+        // The home, else the lineage SessionStart traced (r4-fixes A10).
+        let found = home_initiative(layout, id, branch_slug.as_deref()).or_else(|| {
+            if !crate::lineage::lineage_enabled() {
+                return None;
+            }
+            crate::lineage::read_lineage(layout, id)
+                .map(|l| l.home)
+                .filter(|home| layout.initiative_dir(home).exists())
+        });
+        if let Some(home) = found {
+            let via = if Some(home.as_str()) == branch_slug.as_deref() {
+                branch_via()
+            } else {
+                ResolvedVia::Session
+            };
+            return Some((home, via));
+        }
     }
     let via = branch_via();
     Some((branch_slug?, via))
+}
+
+/// `recordOpen` (r4-fixes A10): a record a lineage carrier may name — it
+/// exists and is not done, dropped or superseded.
+#[must_use]
+pub fn record_open(layout: &Layout, slug: &str) -> bool {
+    let slug_ok = !slug.is_empty()
+        && slug
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
+    slug_ok
+        && layout.events_path(slug).exists()
+        && !crate::status::is_closed_initiative_status(
+            &crate::append::fold_state(layout, slug).status,
+        )
 }
 
 /// `laneAvailability`: whether the quick lane can catch this branch's work.

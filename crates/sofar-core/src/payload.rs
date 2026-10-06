@@ -954,6 +954,11 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                     .is_none_or(|v| matches!(v, Json::Bool(true))),
                 "rehome: must be true when present",
             );
+            must(
+                e,
+                opt_nonempty_str(p.get("continues")),
+                "continues: must be a non-empty string (the parent session id) when present",
+            );
         }
         "session_ended" => {
             must(

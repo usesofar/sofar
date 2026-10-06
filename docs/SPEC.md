@@ -239,7 +239,9 @@ supersedes_id? — that decision's event id, required with `supersedes`; both
 ids stamped by `sofar supersedes`; never drift; r3-fixes 2.5, D15) ·
 session_started (tool, model?, rehome? — `true` only: a deliberate re-home
 back into a log that already registered this session, folded silently;
-binding-follows-session D5) · session_ended (summary, next_action) ·
+binding-follows-session D5; continues? — the parent session id a lineage
+carrier traced this NEW id to, on its first registration only, in the
+parent's home; r4-fixes A10, R11 (a); the fold ignores it) · session_ended (summary, next_action) ·
 session_closed (reason — mechanical close from the SessionEnd hook; never
 carries summary/next_action, added Phase 3, BD21) ·
 file_touched (path, op, ok?) · command_run (cmd, ok?, exit?) — `ok` is what the
@@ -4692,13 +4694,15 @@ passes CLAUDE_CODE_SESSION_ID (set by Claude Code ≥2.1.154 on its stdio MCP
 servers, ≥2.1.163 on resume — the id its hooks receive) to
 createSofarServer as `hostSessionId`; the serve daemon and tests never do.
 Before any tool other than sofar_start_session runs while no session is
-active, the server calls adoptHostSession: the session's HOME initiative
-(homeInitiative) wins, the branch binding is the fallback, a known id is
+active, the server calls adoptHostSession: the session resolves through
+resolveSessionFirst — its HOME initiative (homeInitiative) wins, then the
+lineage SessionStart traced for an unregistered id, then the worktree's route
+(its last home over the committed binding; r4-fixes A10) — a known id is
 pinned with no append and an unknown one is registered through
-registerSession with {tool: "claude-code"} — exactly sofar_start_session
-with that id and no `initiative`. Best-effort: when neither home nor branch
-resolves, nothing is pinned and the tool raises its own typed error. An
-explicit sofar_start_session always wins and re-homes. tools/list carries
+registerSession with {tool: "claude-code"} (plus `continues` when lineage
+placed it) — exactly sofar_start_session with that id and no `initiative`.
+Best-effort: when nothing resolves, nothing is pinned and the tool raises its
+own typed error. An explicit sofar_start_session always wins and re-homes. tools/list carries
 `_meta: {"anthropic/alwaysLoad": true}` on ALWAYS_LOADED_TOOLS —
 sofar_end_session and sofar_log_decision — which Claude Code honours by
 skipping tool-search deferral for that tool (verified in 2.1.270–2.1.274,
@@ -4866,7 +4870,8 @@ sofar_start_session.`
   and next action (typed-judge 3.2, see §Judge for both); each is omitted
   when empty, so a write-back with no batch, a concrete next action and
   nothing flagged in its summary is byte-identical to before. `rebound` names the
-  branch binding this write-back moved ({branch, from, to}), omitted when
+  branch route this write-back moved ({branch, from, to}) — in the worked
+  worktree's last home since r4-fixes A10, never the committed file — omitted when
   none moved — the rebind contract and its four guards are stated with the
   session-before-branch precedence below (binding-follows-session D1,
   no-bind-durability D1).
@@ -5173,7 +5178,64 @@ re-home beats a stale registration. A session registered nowhere falls back
 to the branch and registers there (lazy registration, D2 — unchanged). An
 UNBOUND branch is a miss rather than an error for a registered session,
 which also ends the silent event drop unbound branches used to cause.
-THE WRITE-BACK BINDS THE BRANCH (binding-follows-session D1). end_session,
+SESSION IDENTITY BEFORE ANY ROUTE (r4-fixes A10; rulings R11, R15, R22).
+A home now resolves in this order, in both engines: (1) the explicit pin —
+start_session's `initiative`, and a registration in the logs (the home
+above); (2) LINEAGE, for an id no log registered: SessionStart traces a new
+host-minted id to the session it continues and writes the verdict to
+`.sofar/.index/lineage/<id>.json` (never an append — SessionStart still
+writes no event). Carriers, in order, the first naming an OPEN record (exists,
+not done/dropped/superseded) winning: the `/clear` baton — SessionEnd with
+reason `clear` writes `.sofar/.index/baton/<host pid>.json` = {from, home,
+ts, procStart} from the host registry's entry for the ending id, and a
+SessionStart with source `clear`/`fork` takes the one baton whose registry
+file still carries the same procStart and names either id, within 60 s; the
+session TITLE, whose first space-delimited token is an open record's exact
+slug (sofar's own titles start with it and survive `/clear`; `/rename <slug>`
+is the operator's gesture; session-naming D1 still forbids writing the
+registry); the PROMPT FINGERPRINT (R15, local only), on source
+`resume`/`fork`: the first operator prompt in the first 256 KiB of
+`transcript_path` (Claude's first non-meta, non-tool-result `user` line not
+opening with `<`; Codex's first `user_message`) equals, at ≥20 UTF-16 units,
+the FIRST captured prompt of exactly one other session in r3-fixes D6's
+buffer — no carrier when capture is off; and the host REGISTRY's
+`formerNames` for this id, the latest `until` naming another id. (3) The
+worktree's ROUTE: the committed binding for the branch, overlaid by this
+worktree's last home (`.sofar/.index/last-home.json`) when the committed
+table routes the branch and the record exists; (4) the quick lane, as
+before. Lineage is identity, not inference (R11 (a)): the session is not
+fresh — the host renamed it — so it outranks every route, refining
+binding-follows-session D1's "never infer a fresh session's record" and
+record-integrity D9's "the branch may seed the candidate" (a lineage home is
+not a branch seed; a registered home still wins over it). The first
+registration in the lineage home carries `continues: <parent>`. Off by
+`SOFAR_LINEAGE=off`. A session that resolved with NO carrier (unregistered,
+no lineage) on a branch whose live sessions in this worktree are homed in
+another record gets one volatile-tail line first among the SessionStart
+notices: `⚠ <branch> serves N live record(s): a (2 sessions), b (1
+session). This session opened <slug> by the branch's route; if this work is
+<other>, call sofar_start_session with initiative "<other>".` (≤400 chars;
+ranked by count, then slug by code unit). Liveness is the host registry's
+pid (Claude Code peers whose cwd is this worktree or below), which R11 (c)
+allows here and only here: binding-follows-session D2 is NARROWED to the
+recent-work notice, which still never weighs liveness.
+THE WRITE-BACK BINDS THE BRANCH (binding-follows-session D1) — IN THE
+WORKTREE, SINCE r4-fixes A10. R11 (b) supersedes D1's committed rebind, D4's
+and D5's target file and no-bind-durability D1's write side: the move below
+lands in the worked worktree's untracked `.sofar/.index/last-home.json`
+(branch → {slug, session, ts}), and a write-back NEVER modifies the committed
+bindings.json. All four guards still read the committed table, unchanged;
+`rebound.from` is the route before the move (that last home, else the
+committed binding). Only `sofar new` (binding) and `sofar switch` write a
+branch into the committed file — both also forget this worktree's last home
+for that branch, so an explicit route always wins — and closing removes
+committed bindings and every last home naming the record in the closing
+worktree. Concurrent write-backs still flip a branch's route (last to finish
+wins), but only in their own worktree's untracked file, so nothing reaches
+git. `SOFAR_LASTHOME=committed` restores the committed rebind and stops the
+overlay. The paragraphs that follow argue for the committed file and stand as
+the history of D1/D4/D5; read "bindings.json" there as the last home.
+end_session,
 after appending session_ended, points the current branch at the initiative
 that write-back landed in, and returns `rebound: {branch, from, to}` when it
 moved (omitted otherwise, the parallel_writebacks shape). This changes NO

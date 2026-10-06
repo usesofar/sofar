@@ -150,11 +150,19 @@ exist → else `unknown_initiative` with the `available initiatives: a, b …
 (details: sofar list)` suffix (≤10 named, `, …+N more`), or `no initiatives
 exist yet — create one with \`sofar new <slug>\`` when none.
 
+Since r4-fixes A10 a branch the committed table routes is routed to this
+worktree's last home when `.sofar/.index/last-home.json` names an existing
+record for it (`{<branch>: {slug, session, ts}}`; slug `[a-z0-9-]+`; any read
+failure = no entry; off under `SOFAR_LASTHOME=committed`). An unbound branch
+is untouched (lane, unbound notice as before).
+
 `resolveSessionFirst(ctx, sessionId)` (every hook, the statusline):
 1. `branchSlug = resolveInitiative()` or null on any throw.
 2. If sessionId non-empty: `home = homeInitiative(sofarDir, sessionId,
-   branchSlug)`; if non-null → `{slug: home, via: home === branchSlug ?
-   'branch' : 'session'}`.
+   branchSlug)`; if null and `SOFAR_LINEAGE` is not `off`, `home =`
+   `.sofar/.index/lineage/<safe id>.json`'s `home` when that record's
+   directory exists (r4-fixes A10); if non-null → `{slug: home, via: home ===
+   branchSlug ? 'branch' : 'session'}`.
 3. Else `{slug: branchSlug, via: 'branch'}`, or null when both miss.
 
 `homeInitiative`: `cli` and empty ids → null. Read `preferred`'s log first
@@ -186,7 +194,33 @@ allowed here by commit-attribution D6, forbidden per prompt); no identity
 spawn, because this hook never calls `makeEvent`.
 Writes: `shipwatch.json` (noteUpstream mark, when session_id and git state
 both resolve); `guards.json`/`graph.json` + their meta files (refreshNeighbours);
-NEVER events.jsonl (lazy registration, record-hygiene D2).
+`lineage/<safe id>.json` (r4-fixes A10, below); NEVER events.jsonl (lazy
+registration, record-hygiene D2).
+
+Lineage (r4-fixes A10; `SOFAR_LINEAGE=off` skips it): BEFORE resolution, for
+a session_id other than `cli` that no log registers
+(`homeInitiative(id, null)`) and that has no lineage file yet, the first
+carrier naming an OPEN record (`events.jsonl` exists, status not
+done/dropped/superseded) is written as `{home, parent?, carrier, ts}`:
+`baton` (source `clear`|`fork`: exactly one `baton/<pid>.json` with ts within
+60,000 ms of now, `from` ≠ id, whose registry `<pid>.json` has the same
+`procStart` and `sessionId` ∈ {id, from}); `title` (JS-trimmed
+`session_title`, first `' '`-token `[a-z0-9-]+`); `fingerprint` (source
+`resume`|`fork`, capture on: the transcript's first 262,144 bytes, whole lines,
+first prompt ≥20 UTF-16 units equal to the first row's `text` of exactly one
+other `*.jsonl` in the prompt buffer, names sorted by code unit; parent = the
+file stem; home = homeInitiative(parent, null)); `registry` (the registry
+file, sorted by name, ≤128, whose `sessionId` is the id; parent = the
+`formerNames[].sessionId` ≠ id with the greatest finite `until`). Registry
+files parse as in peers (`pid` positive integer, `sessionId` non-empty).
+Contested line (r4-fixes A10): when no carrier placed the session and it is
+unregistered, the first notice is `⚠ <branch> serves <N> live record(s):
+<slug> (<n> session(s)), …. This session opened <slug> by the branch's route;
+if this work is <other>, call sofar_start_session with initiative
+"<other>".` over live registry peers (pid alive) other than this id whose
+`cwd` is the root or under it, counted by `homeInitiative(peer, null)`;
+emitted only when those homes plus the opened slug are ≥2 distinct; ranked
+count desc then code unit; clipped to 400.
 
 stdout, exit 0 always:
 - Nothing resolves AND repo has no `.sofar/initiatives` entries → empty.
@@ -332,7 +366,11 @@ Reads: stdin; resolution; bound log (fold). Writes: `events.jsonl` +
 projections when it appends. Spawns: `git config user.email` on append.
 No session_id / unresolved / session unknown / `session.ended` set → 0,
 nothing. Else append `session_closed {reason: hook.reason ?? 'unknown'}`
-with `{session, source: 'hook'}`. Exit 0 always.
+with `{session, source: 'hook'}`. Exit 0 always. Before that, once resolved,
+`reason === 'clear'` writes `.sofar/.index/baton/<pid>.json` = `{from, home,
+ts, procStart}` (r4-fixes A10) from the registry entry whose `sessionId` is
+this id; none → nothing. A lazy registration (post-tool) whose slug equals
+the lineage file's home adds `continues: <parent>` to `session_started`.
 
 ### event append
 
@@ -668,6 +706,8 @@ message file (commit-trailer).
 | `SOFAR_RETIRE` | `off`/`0`/`false` renders every decision as if none were retired (r1-fixes D25) |
 | `SOFAR_CORE_DISPATCHED` | set by the stub for the core it spawns: exit-64 diagnostics stay silent |
 | `CLAUDE_CODE_SESSION_ID` | commit-trailer only |
+| `SOFAR_LINEAGE` | `off` (trimmed, any case): no lineage carriers, no lineage read (r4-fixes A10) |
+| `SOFAR_LASTHOME` | `committed` (trimmed, any case): no last-home overlay (r4-fixes A10) |
 | `GIT_CONFIG_*`, git's own env | inherited by the `git config user.email` spawn |
 | `XDG_CONFIG_HOME` | refresh child only (auto-upgrade preference) |
 

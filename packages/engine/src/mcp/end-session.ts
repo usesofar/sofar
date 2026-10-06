@@ -1,6 +1,7 @@
 import { isClosedInitiativeStatus, validatePayload } from '@sofar/schema'
 import { validateToolInput, type EndSessionArgs, type ToolOkResult } from '@sofar/schema/tool-inputs'
 import { readBindingsFile, writeBinding } from '../core/bindings'
+import { lastHomeEnabled, lastHomeOf, setLastHome } from '../core/last-home'
 import { overlappingWritebacks, type DecisionState, type InitiativeState, type ParallelWriteback, type PhaseState } from '../core/fold'
 import { decisionJudgeWarnings, type DecisionDraft } from '../core/decision-judge'
 import { currentBranch, sameRepoWorktree } from '../core/git'
@@ -394,7 +395,10 @@ function declareEach(
 }
 
 /**
- * A branch binding moved by a write-back (binding-follows-session D1).
+ * A branch route moved by a write-back (binding-follows-session D1). Since
+ * r4-fixes A10 (R11 (b)) the move lands in the worked worktree's untracked
+ * last home (core/last-home.ts), not in the committed bindings.json; `from` is
+ * the route before it (that last home, else the committed binding).
  *
  * Reported because the whole case for a binding over a read-time inference is
  * that it is INSPECTABLE — `cat .sofar/bindings.json` states exactly what the
@@ -411,7 +415,12 @@ export interface BranchRebound {
 
 /**
  * Bind the current branch to the initiative this write-back landed in
- * (binding-follows-session D1).
+ * (binding-follows-session D1) — in that worktree's last home since r4-fixes
+ * A10, which supersedes D1's committed rebind, D4's and D5's file and
+ * no-bind-durability D1's write side (R11 (b)): the four guards below still
+ * read the committed table, but the move never writes it. The prose that
+ * follows argues for the committed file and stands as history; the committed
+ * path survives only under SOFAR_LASTHOME=committed.
  *
  * The gap it closes: `bindings.json` is what a FRESH session resolves through,
  * and until now only a human `sofar switch` maintained it — so it decayed the
@@ -470,14 +479,24 @@ function rebindBranch(
     const checkout = workedCheckout(ctx.rootDir, state.sessions.find((s) => s.id === sessionId)?.activity?.files ?? [])
     const branch = currentBranch(checkout)
     if (branch === null) return undefined
-    const bindingsPath = join(checkout, '.sofar', 'bindings.json')
+    const sofarDir = join(checkout, '.sofar')
+    const bindingsPath = join(sofarDir, 'bindings.json')
     const bindings = readBindingsFile(bindingsPath)
-    const from = bindings[branch]
-    if (typeof from !== 'string' || from.length === 0) return undefined // move-only
-    if (from === slug) return undefined
+    const committed = bindings[branch]
+    if (typeof committed !== 'string' || committed.length === 0) return undefined // move-only
     if (isClosedInitiativeStatus(state.status)) return undefined
     if (!Object.values(bindings).includes(slug)) return undefined // never introduces
-    if (!writeBinding(bindingsPath, branch, slug)) return undefined
+    if (!lastHomeEnabled()) {
+      // SOFAR_LASTHOME=committed: the pre-A10 rebind of the committed file.
+      if (committed === slug) return undefined
+      if (!writeBinding(bindingsPath, branch, slug)) return undefined
+      return { branch, from: committed, to: slug }
+    }
+    // r4-fixes A10 (R11 (b)): the move lands in THAT worktree's untracked
+    // last home, never in the committed bindings.json.
+    const from = lastHomeOf(sofarDir, branch) ?? committed
+    if (from === slug) return undefined
+    if (!setLastHome(sofarDir, branch, slug, sessionId)) return undefined
     return { branch, from, to: slug }
   } catch {
     return undefined

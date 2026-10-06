@@ -62,7 +62,7 @@ export interface Peer {
  */
 const REGISTRY_SCAN_MAX = 128
 
-function registryDir(env: Record<string, string | undefined>): string {
+export function registryDir(env: Record<string, string | undefined> = process.env): string {
   const configured = env.CLAUDE_CONFIG_DIR
   if (typeof configured === 'string' && configured.length > 0) {
     return join(configured, 'sessions')

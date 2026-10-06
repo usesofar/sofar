@@ -74,7 +74,8 @@ import {
 } from '../core/index-tier1'
 import { rankByRelevance, refreshRelevance, relevance, type RelevanceRow } from '../core/index-relevance'
 import { addTold, clearTold, readTold, toldKey } from '../core/told'
-import { resolvePeers, type Peer } from '../core/peers'
+import { livePeers, resolvePeers, type Peer } from '../core/peers'
+import { continuesFor, lineageEnabled, readLineage, resolveLineage, writeBaton, writeLineage } from '../core/lineage'
 import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
 import { nextTask } from '../core/drive-queue'
 import { noteDriveSeen } from '../core/drive-seen'
@@ -102,6 +103,7 @@ import {
   createToolContext,
   homeInitiative,
   initiativeSlugs,
+  recordOpen,
   registrationIn,
   resolveSessionFirst,
   toSource,
@@ -809,6 +811,80 @@ function sessionMergeNotice(rootDir: string, slug: string, state: InitiativeStat
   }
 }
 
+/**
+ * Trace a new session id to the session it continues (r4-fixes A10,
+ * core/lineage.ts) and leave the answer where every later hook reads it.
+ * Only for an id no log registered and no earlier SessionStart traced; never
+ * an append. True when the session resolves by lineage (now or before).
+ */
+function traceLineage(rootDir: string, hook: Obj, sessionId: string): boolean {
+  try {
+    if (!lineageEnabled() || sessionId === 'cli') return false
+    const ctx = createToolContext(rootDir)
+    if (!existsSync(ctx.sofarDir)) return false
+    if (readLineage(ctx.sofarDir, sessionId) !== null) return true
+    // Carriers first, the registration scan only once one fires: a fresh
+    // startup has none, and SessionStart then pays no extra scan of the logs.
+    const lineage = resolveLineage({
+      rootDir,
+      sofarDir: ctx.sofarDir,
+      sessionId,
+      source: strField(hook, 'source'),
+      title: strField(hook, 'session_title'),
+      transcriptPath: strField(hook, 'transcript_path'),
+      isOpen: (slug) => recordOpen(ctx, slug),
+      homeOf: (id) => homeInitiative(ctx.sofarDir, id, null),
+      nowMs: Date.now(),
+    })
+    if (lineage === null || homeInitiative(ctx.sofarDir, sessionId, null) !== null) return false
+    return writeLineage(ctx.sofarDir, sessionId, lineage)
+  } catch {
+    return false
+  }
+}
+
+/** Character budget for the contested-branch line (r4-fixes A10). */
+export const CONTESTED_BUDGET = 400
+
+/**
+ * A branch serving more than one live record (r4-fixes A10; 1.4 O2 (b); R11
+ * (c), narrowing binding-follows-session D2 to the recent-work notice): a
+ * session that resolved with no carrier — no registration, no lineage — is
+ * told which records the LIVE sessions in this worktree are homed in, when
+ * that is not just the one it opened. Liveness is the host registry's pid
+ * (core/peers.ts), so only Claude Code peers count; the record alone cannot
+ * tell a live sibling from a crashed one, which is why D2's notice still
+ * never weighs it. Shows the multi-value instead of resolving it.
+ */
+export function contestedNotice(ctx: ToolContext, rootDir: string, slug: string, sessionId: string | null): string | null {
+  try {
+    if (sessionId === null) return null
+    const branch = currentBranch(rootDir)
+    if (branch === null) return null
+    const root = resolve(rootDir)
+    const peers = livePeers().filter((p) => p.sessionId !== sessionId && (p.cwd === root || p.cwd.startsWith(`${root}/`)))
+    if (peers.length === 0) return null
+    if (homeInitiative(ctx.sofarDir, sessionId, slug) !== null) return null
+    const counts = new Map<string, number>()
+    for (const peer of peers) {
+      const home = homeInitiative(ctx.sofarDir, peer.sessionId, null)
+      if (home !== null) counts.set(home, (counts.get(home) ?? 0) + 1)
+    }
+    if (counts.size === 0 || new Set([...counts.keys(), slug]).size < 2) return null
+    const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || byCodeUnit(a[0], b[0]))
+    const other = ranked.find(([s]) => s !== slug)![0]
+    const list = ranked.map(([s, n]) => `${s} (${n} ${n === 1 ? 'session' : 'sessions'})`).join(', ')
+    const records = ranked.length === 1 ? 'record' : 'records'
+    return clipTo(
+      `⚠ ${branch} serves ${ranked.length} live ${records}: ${list}. This session opened ${slug} by the branch's route; ` +
+        `if this work is ${other}, call sofar_start_session with initiative "${other}".`,
+      CONTESTED_BUDGET,
+    )
+  } catch {
+    return null
+  }
+}
+
 export function handleSessionStart(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
@@ -817,6 +893,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // Hand the host's id to CLI appends that omit --session (r1-fixes 4.1.3, D29)
     // — before resolution, because an unbound session's appends name a slug.
     if (sessionId !== null) writeSessionPointer(rootDir, sessionId, 'hook')
+    // A new id for old work (r4-fixes A10): trace its lineage before anything
+    // resolves, so this block and every later hook follow the parent's home.
+    const traced = sessionId !== null ? traceLineage(rootDir, hook, sessionId) : false
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK, stdout: unboundNotice(rootDir, sessionId) }
     const { ctx, slug, via } = bound
@@ -882,6 +961,7 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // the cap on a long record never takes it.
     const merge = mergeBlockEnabled() ? sessionMergeNotice(rootDir, slug, state, scope) : null
     const notices = [
+      traced ? null : contestedNotice(ctx, rootDir, slug, sessionId),
       recentWorkElsewhereNotice(ctx.sofarDir, slug, via),
       otherWorktreesNotice(rootDir, slug, ctx.eventsPath(slug)),
       closedBanner(state),
@@ -1066,7 +1146,10 @@ function markShellWrites(sofarDir: string, session: string, calls: readonly Clas
  * session recorded as claude-code misattributes every event it carries.
  */
 function registerLazily(ctx: ToolContext, slug: string, session: string, host: HookHost): void {
-  if (session !== 'cli') ctx.registerSession(slug, session, { tool: host.tool }, { source: 'hook' })
+  if (session === 'cli') return
+  // A session lineage traced to a parent says so on its first line (r4-fixes A10).
+  const parent = continuesFor(ctx.sofarDir, session, slug)
+  ctx.registerSession(slug, session, { tool: host.tool, ...(parent !== null ? { continues: parent } : {}) }, { source: 'hook' })
 }
 
 /**
@@ -1560,6 +1643,9 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK }
     const { ctx, slug } = bound
+    // `/clear` mints a new id in this same process: hand it this home
+    // (r4-fixes A10, the baton carrier in core/lineage.ts).
+    if (strField(hook, 'reason') === 'clear') writeBaton(ctx.sofarDir, sessionId, slug)
 
     const session = ctx.foldState(slug).sessions.find((s) => s.id === sessionId)
     if (session === undefined || session.ended !== undefined) return { ...OK }

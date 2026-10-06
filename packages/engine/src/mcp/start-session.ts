@@ -1,6 +1,7 @@
 import { ulid } from 'ulid'
 import type { StartSessionArgs } from '@sofar/schema/tool-inputs'
-import { homeInitiative, toSource, type ToolContext } from './context'
+import { continuesFor } from '../core/lineage'
+import { homeInitiative, resolveSessionFirst, toSource, type ToolContext } from './context'
 
 /**
  * sofar_start_session — adopt-by-id (task 7.1, BD43, replacing BD20's
@@ -21,7 +22,9 @@ import { homeInitiative, toSource, type ToolContext } from './context'
  * mapped to envelope.source.
  */
 export function startSession(ctx: ToolContext, args: StartSessionArgs): { session_id: string } {
-  let slug = ctx.resolveInitiative(args.initiative)
+  // No initiative named: the A10 resolver (r4-fixes) — home, lineage, route.
+  const resolved = args.initiative === undefined && args.session_id !== undefined ? resolveSessionFirst(ctx, args.session_id) : null
+  let slug = ctx.resolveInitiative(resolved?.slug ?? args.initiative)
 
   // Home beats branch when no initiative is named (record-integrity 1.4, D1).
   // Lazy registration (D2) means the PostToolUse hook usually registers a
@@ -53,18 +56,15 @@ export function startSession(ctx: ToolContext, args: StartSessionArgs): { sessio
  * before adoption existed, raising its own typed error if it needs a record.
  * Returns whether a session is now active.
  */
-export function adoptHostSession(ctx: ToolContext, sessionId: string): boolean {
+export function adoptHostSession(ctx: ToolContext, sessionId: string, tool: string = HOST_TOOL): boolean {
   try {
-    let branchSlug: string | null = null
-    try {
-      branchSlug = ctx.resolveInitiative(undefined)
-    } catch {
-      branchSlug = null
-    }
-    const home = homeInitiative(ctx.sofarDir, sessionId, branchSlug)
-    const slug = home !== null ? ctx.resolveInitiative(home) : branchSlug
-    if (slug === null) return false
-    pinSession(ctx, slug, { tool: HOST_TOOL, session_id: sessionId }, false)
+    // The A10 resolver (r4-fixes): the home, else the lineage SessionStart
+    // traced, else this worktree's route (its last home over the committed
+    // binding) — the same answer every hook gets for this id.
+    const resolved = resolveSessionFirst(ctx, sessionId)
+    if (resolved === null) return false
+    const slug = ctx.resolveInitiative(resolved.slug)
+    pinSession(ctx, slug, { tool, session_id: sessionId }, false)
     return true
   } catch {
     return false
@@ -117,6 +117,9 @@ function pinSession(ctx: ToolContext, slug: string, args: StartSessionArgs, reho
   const sessionId = args.session_id ?? ulid()
   const payload: Record<string, unknown> = { tool: args.tool }
   if (args.model !== undefined) payload.model = args.model
+  // A session lineage traced to a parent says so on its first line (r4-fixes A10).
+  const parent = args.session_id !== undefined ? continuesFor(ctx.sofarDir, sessionId, slug) : null
+  if (parent !== null) payload.continues = parent
 
   // Idempotent (r1-fixes 1.2): a PostToolUse hook racing this call may have
   // registered the same id since the check above, and then this is adoption.

@@ -1,5 +1,19 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r4-fixes A10** (session identity and binding stability, branch
+wave-a-a10-a3) from the TypeScript reference; the Rust core reproduces it
+(`SOFAR_CORE=… vitest run test/conformance`). One new case, `syn.lineage`, on
+the `many` fixture (main → rec-03; sess-elsewhere homed in rec-10; rec-13
+done): a title naming an open record routes an unregistered id there and its
+first edit registers it with no parent; a done record's title and
+`SOFAR_LINEAGE=off` leave the branch's route; `/clear` leaves a baton at
+SessionEnd and the new id takes it, its first registration carrying
+`continues`; the registry's `formerNames` and a resumed transcript's prompt
+fingerprint each place a new id in the parent's home; the worktree's
+`last-home.json` outranks the committed binding (and `SOFAR_LASTHOME=committed`
+does not); and two live registry peers homed apart give the contested line.
+Every other golden is byte-identical. No previous set is kept.
+
 Re-recorded on **release/0.34.1** (the hotfix cut, r4-fixes 0.2) from the
 TypeScript reference. The version bump is the whole diff: two goldens
 changed, each by one string. `argv.fast-path` (`--version` is now
