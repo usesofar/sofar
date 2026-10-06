@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import { PACKAGE_PREFIX, PLATFORMS, binaryName, optionalDependencies, packageDir, packageName } from '../../../packaging/npm/emit.mjs'
+import { scaled } from './helpers/tracked'
 
 /**
  * Task 6.2 (BD41) — the distribution channel is npm (BD1), so the tarball
@@ -113,7 +114,7 @@ const tarball = join(packDest, tarballBase)
       expect(platformSpec.bin).toBeUndefined() // sofar.sh's own bin/sofar-core is what lands on PATH
       expect(platformSpec.scripts).toBeUndefined()
     }
-  }, 120_000)
+  }, scaled(120_000))
 
   it('the tarball installs into a temp prefix and the installed bin answers --version', () => {
     // Hermetic: once this version's @sofar.sh/core-* packages are published, a
@@ -160,7 +161,7 @@ const tarball = join(packDest, tarballBase)
     const version = sofar(['--version'])
     expect(version.status).toBe(0)
     expect(version.stdout.trim()).toBe(manifest.version) // 6.4 single-sourcing, through the channel
-  }, 120_000)
+  }, scaled(120_000))
 
   it('the installed sofar drives init → new → status in a fixture repo', () => {
     const root = freshRepo()
@@ -196,7 +197,7 @@ const tarball = join(packDest, tarballBase)
     expect(status.status).toBe(0)
     expect(status.stdout).toContain('# demo')
     expect(status.stdout).toContain('Goal: prove the tarball')
-  }, 60_000)
+  }, scaled(60_000))
 })
 
 // ---------------------------------------------------------------------------
@@ -334,7 +335,7 @@ describe('library surface E2E (library-surface 1.3) — subpath exports from the
     )
     expect(tsc.stdout).toBe('')
     expect(tsc.status).toBe(0)
-  }, 120_000)
+  }, scaled(120_000))
 
   it('fold parity: the installed bundle folds this repo\'s own record identically to the source fold', async () => {
     const { foldLines: bundleFold } = (await import(
@@ -407,7 +408,7 @@ describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native 
     expect(readFileSync(onPath).equals(readFileSync(localCore))).toBe(true)
     expect(statSync(onPath).mode & 0o111).not.toBe(0)
     expect(existsSync(join(corePrefix, 'lib', 'node_modules', packageName(thisPlatform), binaryName(thisPlatform)))).toBe(true)
-  }, 120_000)
+  }, scaled(120_000))
 
   it('sofar-core on PATH answers status, the shim execs it, and sofar dispatches to it', () => {
     const root = freshRepo()
@@ -433,5 +434,5 @@ describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native 
     // while a forbidden core takes the TypeScript path to the same bytes
     const viaTs = spawnSync(process.execPath, [join(bin, 'sofar'), 'status', '--no-color', '--root', root], { encoding: 'utf8', env: { ...env, SOFAR_CORE: '0' } })
     expect(viaTs.stdout).toBe(direct.stdout)
-  }, 60_000)
+  }, scaled(60_000))
 })

@@ -24,6 +24,7 @@ import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { foldLog, type InitiativeState } from '../src/core/fold'
 import type { LaunchRequest } from '../src/driver/adapter'
+import { scaled } from './helpers/tracked'
 
 /**
  * The codex adapter (session-driver 3.1, D9) against a STUBBED `codex` on
@@ -688,7 +689,7 @@ printf '%s\\n' '${JSON.stringify(TURN_DONE)}'
     expect(touched.every((e) => e.session === THREAD.thread_id)).toBe(true)
     // And the write-back gate holds, then releases, that same session.
     expect(JSON.parse(readFileSync(join(repo.out, 'stop'), 'utf8'))).toEqual({ held: 2, released: 0 })
-  }, 60_000)
+  }, scaled(60_000))
 
   it('hooks untrusted: the handoff names the assigned id the session used instead, beside a parallel codex session', async () => {
     const { outcome, repo, progress } = await driveHooked('untrusted', {
@@ -701,7 +702,7 @@ printf '%s\\n' '${JSON.stringify(TURN_DONE)}'
     expect(outcome.handoffs).toHaveLength(1)
     expect(outcome.handoffs[0]).toMatchObject({ reason: 'task_done', session_id: used })
     expect(progress.filter((l) => l.includes('unresolved'))).toEqual([])
-  }, 60_000)
+  }, scaled(60_000))
 
   it('the nudge reaches the session through Codex’s PostToolUse shim, in the shape Codex’s schema accepts', async () => {
     const repo = hookedRepo('nudge')
@@ -719,5 +720,5 @@ printf '%s\\n' '${JSON.stringify(TURN_DONE)}'
     expect(decoded).toMatchObject({
       hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: expect.stringContaining(nudgeLine({ pct: 81, tokens: 810_000 })) },
     })
-  }, 60_000)
+  }, scaled(60_000))
 })

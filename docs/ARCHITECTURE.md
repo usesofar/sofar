@@ -302,6 +302,21 @@ three-call adapter and the driver never becomes an agent loop of its own.
 | `driver/keep-awake.ts` | Keeping the Mac awake for a run (drive-visibility D5): `caffeinate -i -w <driver pid>` from the moment the run is taken, so the assertion ends with the driver by any path and no pid is stored. The run's flag wins, else the saved `drive.keep_awake`, which a flagless run reads again before every launch; unset is off and stated as a warning in the opening lines, never prompted for here. Inert, and said so, elsewhere than macOS. |
 | `driver/drive.ts` | The `sofar drive` loop: fold → next task (active-first, then plan order) → launch → wait → handoff, until a stop rule fires. Reasons are read from the record (D5) — `needs_user` is the named task in `blocked`, `task_done` needs a write-back plus a resolved task, everything else stalls. One launch directory per run, verified by realpath to serve the same log (D6). A stop request is honoured before each launch from the fold and during a session by `watchStopRequests`, which reads only appended bytes (in-session-drive D2). |
 
+### Test and bench hygiene (outside `packages/*/src`)
+
+`tools/hermetic.mjs` (r4-fixes A13) is shared by `vitest.config.ts`, the
+vitest global setup (`packages/engine/test/global-setup.ts`), the test helper
+`packages/engine/test/helpers/tracked.ts` and the bench scripts
+(`packages/engine/bench/read-paths.mjs`, `bench/find.mjs`,
+`scripts/parity-real.mjs`). It points HOME, USERPROFILE, every XDG_* dir,
+CODEX_HOME and CLAUDE_CONFIG_DIR into one scratch root; snapshots the real
+home's agent and sofar dirs before a run and fails the run on a change the
+hosts' own live sessions cannot explain (the HOME canary); measures a machine
+speed factor that scales test timeouts; refuses the latency pin and the perf
+baseline on battery; and sweeps the processes a run left behind. Tests spawn
+long-lived children with `spawnTracked`: their own process group, a
+parent-death pipe on stdin, killed by group after every test.
+
 ---
 
 ## Invariants

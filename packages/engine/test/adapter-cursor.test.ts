@@ -22,6 +22,7 @@ import { drive } from '../src/driver/drive'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { foldLog } from '../src/core/fold'
+import { scaled } from './helpers/tracked'
 
 /**
  * The cursor adapter (r1-fixes 6.8, D38) against a STUBBED `cursor-agent` on
@@ -345,7 +346,7 @@ describe('sofar drive runs unchanged against it (6.8)', () => {
     expect(argv).toContain('--force')
     expect(argv).not.toContain('--approve-mcps')
     expect(progress.some((l) => l.includes('no per-tool permission rules'))).toBe(true)
-  }, 90_000)
+  }, scaled(90_000))
 
   it('no hooks Cursor runs: the handoff names the assigned id the session used, beside a parallel cursor session', async () => {
     const r = repo('nohooks', ['1.1'])
@@ -356,5 +357,5 @@ describe('sofar drive runs unchanged against it (6.8)', () => {
     expect(outcome.handoffs).toHaveLength(1)
     expect(outcome.handoffs[0]).toMatchObject({ reason: 'task_done', session_id: used })
     expect(progress.filter((l) => l.includes('unresolved'))).toEqual([])
-  }, 60_000)
+  }, scaled(60_000))
 })

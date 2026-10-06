@@ -11,6 +11,7 @@ import { atAnchor, LINK_LABEL_SOURCE, linkLine, readTravel, refreshLinks, refres
 import { indexDir, readIndexMeta } from '../src/core/index-store'
 import { initiativeSlugs } from '../src/core/listing'
 import { retiredOrdinals } from '../src/core/retire'
+import { scaled } from './helpers/tracked'
 
 /**
  * linked-context 4.1 (record-index D18 pattern): links/<slug>.json is derived
@@ -370,7 +371,7 @@ describe('links tier (linked-context 4.1)', () => {
         some += cold.length
       }
       expect(some, 'no record links anything; the comparison proves little').toBeGreaterThan(0)
-    }, 120_000)
+    }, scaled(120_000))
   }
 
   it('a quiet record answers from links/<slug>.json without opening links.json', () => {
@@ -455,7 +456,7 @@ describe('links tier (linked-context 4.1)', () => {
     const stamp = statSync(linksFile(rs, slug)).mtimeMs
     expect(refreshLinks(rs, slug)).toEqual(written.links)
     expect(statSync(linksFile(rs, slug)).mtimeMs).toBe(stamp)
-  }, 120_000)
+  }, scaled(120_000))
 
   it('an append no link reads keeps the cached file (a tail scan, no pass); one that can moves it', () => {
     const sofar = travelRecord()
@@ -636,7 +637,7 @@ describe('links tier staleness (linked-context 4.2)', () => {
     for (const links of reference.values()) {
       for (const l of links) expect({ from: l.from, kind: l.kind, to: l.to, anchor: l.anchor, ...atAnchor(byHandle.get(l.to)!, l.anchor) }).toEqual(l)
     }
-  }, 120_000)
+  }, scaled(120_000))
 
   it('real logs: moving every cross-record target of the most-linked record re-snapshots without a pass', () => {
     const sofar = realRecord()
@@ -654,5 +655,5 @@ describe('links tier staleness (linked-context 4.2)', () => {
       refreshLinks(sofar, slug)
       expect(withoutPass(sofar, () => refreshLinks(sofar, home)), slug).toEqual(fromLogs(sofar).get(home))
     }
-  }, 120_000)
+  }, scaled(120_000))
 })

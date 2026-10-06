@@ -17,6 +17,7 @@ import { exportNDJSON, importNDJSON, readEvents } from '../src/core/cursor'
 import { makeEvent, validateEnvelope } from '../src/core/envelope'
 import { foldLog } from '../src/core/fold'
 import { appendEvent } from '../src/core/log'
+import { scaled } from './helpers/tracked'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 const scratch = mkdtempSync(join(tmpdir(), 'sofar-acceptance-'))
@@ -71,7 +72,7 @@ beforeAll(async () => {
       })
     }),
   )
-}, 60_000)
+}, scaled(60_000))
 
 describe('Phase 1 acceptance', () => {
   it('1. 1k concurrent appends from 4 processes → zero lost or interleaved lines', () => {

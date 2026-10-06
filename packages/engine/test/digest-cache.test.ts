@@ -11,6 +11,7 @@ import { appendEvents } from '../src/core/log'
 import { digestState } from '../src/projections/templates/digest-state'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
 import { initiativeText, shapes, type CorpusSpec } from './conformance/perf/corpus'
+import { scaled } from './helpers/tracked'
 
 /** rust-core 4.4 (session-start B): the digest cache changes no byte of the hook's output. */
 
@@ -138,7 +139,7 @@ describe('session-start digest cache (rust-core 4.4)', () => {
       expect(ts(), `typescript ${label}`).toBe(want)
       expect(readFileSync(file, 'utf8'), `typescript rewrites after ${label}`).toBe(tsBytes)
     }
-  }, 120_000)
+  }, scaled(120_000))
 
   it.skipIf(!existsSync(core))('every real record and a team-shaped one: TypeScript and Rust write the same v4 bytes', () => {
     const dir = join(__dirname, '..', '..', '..', '.sofar', 'initiatives')
@@ -164,5 +165,5 @@ describe('session-start digest cache (rust-core 4.4)', () => {
       checked += 1
     }
     expect(checked).toBeGreaterThan(30)
-  }, 300_000)
+  }, scaled(300_000))
 })
