@@ -32,4 +32,4 @@ Progress: 8/10 tasks done (80%)
 ## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/0 done
 
 
-Next action: Collect U1, U3 and U5; integrate all branches on release/0.34.1 (fix the packaging test, the lockfile for npm ≥11, the SPEC read-path paragraph and the commit trailers); run the gates; cut 0.34.1.
+Next action: Read the integration report; if all gates are green, tag v0.34.1, push, run CI, stage the cores, hand the operator the publish commands; then U2 merges back into main.
