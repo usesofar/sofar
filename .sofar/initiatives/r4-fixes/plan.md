@@ -8,15 +8,15 @@ Brief (the operator's words, verbatim):
 
 Operator, 2026-10-06: "First send agents to analyse where we loss and research on techniques and methods to improve our system end to end in all areas. We can also plan engineering / innovate in all the areas. First do a through research technique and methods which can help improve sofar in all areas."
 
-Progress: 5/9 tasks done (55%)
+Progress: 6/9 tasks done (66%)
 
-## Phase 1 — Loss analysis and research [active] — 5/9 done
+## Phase 1 — Loss analysis and research [active] — 6/9 done
 
 - [ ] 1.1 Loss forensics, rounds 3–4: where sofar loses, ties or nearly loses, per agent, segment and mechanism (live reads, recall hits, gate firings, write-backs, Codex overhead, S18–S20, compaction) (active)
 - [x] 1.2 Research: context engineering and cost for Claude Code, Codex and Cursor (Oct 2026). Target ≤0.7x native on all three
 - [x] 1.3 Research: knowledge correctness — decision currency, supersession, enforcement, temporal knowledge, conflict detection without model calls
 - [x] 1.4 Research: team and multi-agent — branches, merges, worktrees, concurrent and cross-vendor agents, orchestration
-- [ ] 1.5 Research: competitor and market teardown (Oct 2026), and the claims sofar can win (active)
+- [x] 1.5 Research: competitor and market teardown (Oct 2026), and the claims sofar can win
 - [x] 1.6 Research: benchmark science — a harder held-out chain without a ceiling, power, public benchmarks, faster runs, credible claims
 - [x] 1.7 Research: engineering and product — hot path and Rust, install and upgrade, reliability, DX, observability, the self-improvement loop
 - [ ] 1.8 Synthesis: one ranked improvement plan (R4-RESEARCH.md) with a PREDICT per item, an ablation per item (D5), and invariant conflicts flagged, for the operator's ruling
@@ -32,4 +32,4 @@ Progress: 5/9 tasks done (55%)
 
 
 Active phase: Phase 1 — Loss analysis and research
-Next action: Collect 1.1 and 1.5; then synthesise R4-RESEARCH.md (1.8) with all operator rulings in one list.
+Next action: Collect 1.1; then synthesise R4-RESEARCH.md (1.8) with all operator rulings in one list.
