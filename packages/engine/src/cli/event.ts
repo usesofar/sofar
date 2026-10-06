@@ -116,7 +116,9 @@ import {
   minutiaeHead,
   renderStatus,
   sessionIdLine,
+  STATUS_CHAR_LIMIT,
 } from '../projections/templates/status'
+import { digestLimit } from '../core/host-payload'
 import { REPO_MD_STUB, readInput } from './shared'
 import {
   DECLARED_HOSTS,
@@ -902,6 +904,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
       ...(merge !== null ? { merge } : {}),
       ...(slug === QUICK_LANE ? { lane: true } : {}),
       ...(activity ? {} : { activity: false }),
+      // The host's digest budget (r4-fixes A2): Claude Code 6,000, Codex
+      // 4,000, Cursor 3,000; every host 6,000 under SOFAR_PAYLOAD=v034.
+      ...(digestLimit(host.tool) !== STATUS_CHAR_LIMIT ? { limit: digestLimit(host.tool) } : {}),
     })
     // The size half of a memory-use signal (self-improve 1.2): how many bytes
     // this hook put in front of the model, and how many of them were repo

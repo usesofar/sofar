@@ -31,7 +31,7 @@ import {
   codexUserConfigPath,
 } from './codex-config'
 import {
-  AGENTS_PROTOCOL_BLOCK,
+  agentsBlockFor,
   classifyProtocolBlock,
   CODEX_SHIM_DIR,
   CODEX_SHIMS,
@@ -44,7 +44,6 @@ import {
   shimHomeFor,
   SHIMS,
   shimsFor,
-  SHIPPED_AGENTS_PROTOCOL_BLOCKS,
   SHIPPED_PROTOCOL_BLOCKS,
   wiredAgents,
 } from './init'
@@ -407,9 +406,9 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
   // repo reveals it — `sofar upgrade` replaces the binary, not repo wiring.
   const blocks = [
     ...(claude ? [{ file: 'CLAUDE.md', template: PROTOCOL_BLOCK, shipped: SHIPPED_PROTOCOL_BLOCKS }] : []),
-    ...(cursor || wired.has('codex')
-      ? [{ file: 'AGENTS.md', template: AGENTS_PROTOCOL_BLOCK, shipped: SHIPPED_AGENTS_PROTOCOL_BLOCKS }]
-      : []),
+    // The thin block when every reader is hooked and MCP-wired, else the full
+    // CLI loop (r4-fixes A2) — the choice init makes, so the two agree.
+    ...(cursor || wired.has('codex') ? [{ file: 'AGENTS.md', ...agentsBlockFor(rootDir, userHome) }] : []),
   ]
   for (const { file, template, shipped } of blocks) {
     const path = join(rootDir, file)

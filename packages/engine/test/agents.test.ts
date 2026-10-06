@@ -272,6 +272,7 @@ describe('sofar init for a subset of agents', () => {
       '.claude/hooks/stop.sh',
       '.claude/hooks/user-prompt-submit.sh',
       '.claude/settings.json',
+      '.claude/skills/sofar-write/SKILL.md', // the CLI write grammar (r4-fixes A2)
       '.gitattributes',
       '.mcp.json',
       'CLAUDE.md',
@@ -285,6 +286,7 @@ describe('sofar init for a subset of agents', () => {
     expect(result.exitCode).toBe(0)
     const written = files(root).filter((rel) => !rel.startsWith('.git/') && !rel.startsWith('.sofar/'))
     expect(written).toEqual([
+      '.agents/skills/sofar-write/SKILL.md', // hooked and MCP-wired: the thin AGENTS.md (r4-fixes A2)
       '.cursor/hooks.json',
       // Cursor's own set: never the Claude-only rewake shim (drive-visibility 3.7).
       ...shimsFor('cursor').map((shim) => `.cursor/hooks/sofar/${shim.file}`).sort(),
@@ -309,6 +311,7 @@ describe('sofar init for a subset of agents', () => {
     expect(result.exitCode).toBe(0)
     const written = files(root).filter((rel) => !rel.startsWith('.git/') && !rel.startsWith('.sofar/'))
     expect(written).toEqual([
+      '.agents/skills/sofar-write/SKILL.md',
       '.codex/config.toml',
       '.codex/hooks.json',
       ...CODEX_SHIMS.map((shim) => `.codex/hooks/sofar/${shim.file}`).sort(),

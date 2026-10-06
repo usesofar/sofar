@@ -48,6 +48,7 @@ pub mod guards;
 pub mod home;
 pub mod hook;
 pub mod host;
+pub mod host_payload;
 pub mod identity;
 pub mod index_lexicon;
 pub mod index_links;

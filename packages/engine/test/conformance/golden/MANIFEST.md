@@ -1,5 +1,13 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED on **wave-a-a2-a4** for **r4-fixes A2** (host-compiled
+payloads, 0.35.0 Wave A) from the TypeScript reference; the Rust core
+reproduces it. One golden moved: `repo.session-start`, the step "a Cursor
+payload never gets a title" — Cursor's digest is now capped at 3,000 chars
+(Claude Code keeps 6,000), so its block keeps less of the record and its
+Session and Git lines are protected at the cut. Every Claude Code step is
+byte-identical. No previous set is kept.
+
 Re-recorded on **release/0.34.1** (the hotfix cut, r4-fixes 0.2) from the
 TypeScript reference. The version bump is the whole diff: two goldens
 changed, each by one string. `argv.fast-path` (`--version` is now

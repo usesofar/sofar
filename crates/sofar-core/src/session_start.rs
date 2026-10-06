@@ -543,6 +543,9 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             activity: if activity { None } else { Some(false) },
             retire: retire_enabled(),
             travel,
+            // The host's digest budget (r4-fixes A2): Cursor 3,000, Claude
+            // Code 6,000; every host 6,000 under SOFAR_PAYLOAD=v034.
+            limit: Some(crate::host_payload::digest_limit(hook_host(&hook).tool)),
         },
     );
     // The session's name (session-naming D1): the slug and the focus task the

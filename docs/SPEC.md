@@ -1293,6 +1293,39 @@ non-positive budget rendering nothing. If the unprotected text still exceeds
 6,000 − the protected text − 3, it is cut to fit with `…truncated — run sofar
 status for full detail` on its own line, and the protected end follows whole.
 
+### Host-compiled payloads (r4-fixes A2)
+One fold, sized per host to what an always-on byte costs there (R4-RESEARCH
+1.2 O2): a token carried for a session costs ~3 input units on Claude Code,
+~4.3 on Codex and ~17 on Cursor.
+- DIGEST CAP PER HOST: the SessionStart block's hard cap (the 6,000 above) is
+  the host's: Claude Code 6,000, Codex 4,000, Cursor 3,000; any other host
+  6,000. Under a smaller cap L the brief, next-task title, next-action,
+  standing-constraint and other-records'-rules budgets scale to
+  ⌊budget × L / 6,000⌋, every 6,000 in YIELD reads L, and the identity block
+  (Session and Git lines) is PROTECTED, so a capped block never loses the id
+  a write-back passes. At 6,000 the block is byte-identical to before.
+- AGENTS.md: when every AGENTS.md reader init has wired (Cursor, Codex) runs
+  sofar's hooks AND reaches its MCP server (Codex: the project's or the
+  user's config.toml), init writes the THIN block (≤1,500 chars: the three
+  clauses, INJECTED, the one write-back naming every field it carries, and a
+  pointer to `sofar help write`) and the `sofar-write` skill in
+  `.agents/skills/sofar-write/SKILL.md`; any other repo keeps the full CLI
+  block. Each block refreshes the other (both are in the other's ledger), and
+  doctor judges the block by the same rule. Claude Code gets the skill in
+  `.claude/skills/sofar-write/SKILL.md`; its CLAUDE.md block is unchanged.
+  `sofar help write` prints the grammar the skill holds: the full block's CLI
+  loop and prohibitions, cut from the block itself.
+- CODEX TOOLS: the `[mcp_servers.sofar]` table init writes lists only
+  `sofar_end_session` (`enabled_tools`), and passes the list to the server
+  (`env = { SOFAR_MCP_TOOLS = … }`), whose instructions then never name a
+  hidden tool. `sofar init --codex-tools end_session|all|none|<list>` picks
+  the set; a table sofar wrote byte for byte is swapped to it on any later
+  init, a user's is never touched.
+- `SOFAR_PAYLOAD=v034` is the ablation arm: every host's cap 6,000, the full
+  AGENTS.md block, no skill, every Codex tool.
+- CACHE GUARD: `tools/list` is pinned by hash in the suite
+  (test/host-payloads.test.ts).
+
 ## Record graph (repo-wide adjacency derivation — record-graph 1.1)
 `buildGraph(rootDir)` (core/graph.ts) is ONE mechanical, read-side adjacency
 derivation over every `.sofar/initiatives/*/events.jsonl` in the repo. It
