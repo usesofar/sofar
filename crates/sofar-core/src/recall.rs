@@ -254,7 +254,7 @@ fn recall_chosen(
     if docs.is_empty() {
         return (docs, Vec::new());
     }
-    let skipped = |d: &RecallDoc| skip.iter().any(|id| *id == d.entry_id);
+    let skipped = |d: &RecallDoc| skip.contains(&d.entry_id);
     let mut chosen: Vec<usize> = Vec::new();
     for named in named_handles(&query) {
         let Some(handle) = bare_named(state, &named) else {

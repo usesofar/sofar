@@ -97,6 +97,7 @@ fn not_ours(message: &str) -> ExitCode {
     ExitCode::from(64)
 }
 
+#[allow(clippy::too_many_lines, reason = "one arm per owned argv shape")]
 fn main() -> ExitCode {
     match dispatch(std::env::args_os().skip(1)) {
         Dispatch::Owned(Owned::Fold { args }) => mirror(&run_fold(&args)),

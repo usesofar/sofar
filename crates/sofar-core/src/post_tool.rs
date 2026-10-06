@@ -533,6 +533,7 @@ fn scope_notice(
 
 /// `scopeNotice` with `lastTouch` (r4-fixes A4): `false` for a batch, whose
 /// edits are appended before `PostToolBatch` runs.
+#[allow(clippy::too_many_lines, reason = "a verbatim port of one handler")]
 fn scope_notice_with(
     layout: &Layout,
     slug: &str,

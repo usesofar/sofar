@@ -14,7 +14,7 @@ use crate::diagnostics::{RowInput, record_diagnostic};
 use crate::digest_cache::cached_digest_state;
 use crate::fold::InitiativeState;
 use crate::fold_cli::CmdResult;
-use crate::git::read_git_state;
+use crate::git::{GitState, read_git_state};
 use crate::home::{LaneAvailability, ResolvedVia, lane_availability, resolve_session_first};
 use crate::hook::{clip_to, parse_hook, str_field};
 use crate::host::{CLAUDE_CODE, hook_host, session_title, title_to_apply, with_session_title};
@@ -465,8 +465,33 @@ fn session_merge_notice(
     )
 }
 
+/// `seedTold` (r4-fixes A4): the block's entries and the push state its Git
+/// line gave.
+fn seed_told(
+    layout: &Layout,
+    session: &str,
+    state: &InitiativeState,
+    status: &str,
+    git: Option<&GitState>,
+) {
+    let keys: Vec<String> = crate::told::rendered_entry_ids(state, status)
+        .iter()
+        .map(|id| crate::told::entry_told_key(id))
+        .collect();
+    crate::told::add_told(layout, session, &keys);
+    if let Some(g) = git {
+        crate::told::set_fragment(
+            layout,
+            session,
+            crate::user_prompt::PUSH_FRAGMENT,
+            Some(&crate::user_prompt::push_epoch(g)),
+        );
+    }
+}
+
 /// `handleSessionStart`.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "a verbatim port of one handler")]
 pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let layout = Layout::new(root);
     let hook = parse_hook(input);
@@ -549,24 +574,11 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             limit: Some(crate::host_payload::digest_limit(hook_host(&hook).tool)),
         },
     );
-    // The told set starts from what this block told (r4-fixes A4): its
-    // entries, and the push state its Git line gave.
+    // The told set starts from what this block told (r4-fixes A4).
     if let Some(sid) = session_id
         && crate::told::told_lines_enabled()
     {
-        let keys: Vec<String> = crate::told::rendered_entry_ids(&state, &status)
-            .iter()
-            .map(|id| crate::told::entry_told_key(id))
-            .collect();
-        crate::told::add_told(&layout, sid, &keys);
-        if let Some(g) = &git_for_told {
-            crate::told::set_fragment(
-                &layout,
-                sid,
-                crate::user_prompt::PUSH_FRAGMENT,
-                Some(&crate::user_prompt::push_epoch(g)),
-            );
-        }
+        seed_told(&layout, sid, &state, &status, git_for_told.as_ref());
     }
     // The session's name (session-naming D1): the slug and the focus task the
     // block leads with, handed to Claude Code as a title. Only an absent,

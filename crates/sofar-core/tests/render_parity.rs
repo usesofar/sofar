@@ -136,6 +136,12 @@ fn options_from(value: &Json) -> StatusOptions {
         activity: o.get("activity").map(Json::is_true),
         retire: true,
         travel: sofar_core::travel::TravelInput::default(),
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a digest cap is a small positive integer"
+        )]
+        limit: o.get("limit").and_then(Json::as_f64).map(|n| n as usize),
     }
 }
 
