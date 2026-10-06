@@ -1,5 +1,21 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED and ADDED for **r4-fixes A8** (Wave A, branch wave-a-a5-a8 off
+v0.34.1; docs/SPEC.md §Decision checks, §Link disposition, §Supersede-target
+integrity), from the TypeScript reference. One new case, `syn.check-bound`:
+the guards fixture's D1 takes its check by `check_bound` (what `sofar bind`
+appends), keeps its handle, the Stop gate asks `[guards D1·984a]` to run the
+bound test after an edit it governs and is covered once it passes, and the next
+digest still says `Next ids: D4`. Four goldens moved, for these reasons only:
+- `repo.link-disposition`, `repo.link-hold`: the write result's pending/held
+  line gains slot-diff's version clause (`— D3·<SFX> looks like a new version
+  of D1·1x01`, with the changed slots when the match is exact).
+- `repo.lessons`, `syn.lessons-cut`: the lexicon tier's artifact hashes, same
+  sizes — every index file embeds INDEX_SCHEMA_VERSION, bumped 12 → 13 so a
+  tier built before `check_bound` existed is rebuilt.
+A5 (current-only agent views) touches no hot-path surface. No previous set is
+kept.
+
 Re-recorded on **release/0.34.1** (the hotfix cut, r4-fixes 0.2) from the
 TypeScript reference. The version bump is the whole diff: two goldens
 changed, each by one string. `argv.fast-path` (`--version` is now

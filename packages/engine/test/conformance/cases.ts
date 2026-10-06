@@ -835,6 +835,31 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes A8 on the hot path: a check bound after the fact. The fixture's
+    // guarded D1 takes its check by check_bound (what `sofar bind` appends) and
+    // keeps its handle; the gate then holds an edit it governs until that test
+    // passed, and the next digest still names D1 with D4 the next id.
+    name: 'syn.check-bound',
+    fixture: synthetic('guards'),
+    steps: [
+      s('session-start: the tree the check names', ['event', 'session-start'], start({ session_id: 'sess-b' }), {
+        before: (m) => {
+          for (const rel of ['src/legacy/a.ts', 'tests/legacy.test.ts']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+          }
+        },
+      }),
+      s('bind D1 its test: no decision minted', ['event', 'append', '--type', 'check_bound', '--session', 'sess-b', '--source', 'claude-code', '--payload', JSON.stringify({ decision: 'D1', decision_id: '01M1E6R3100000000000000003', check: { cmd: 'bun test tests/legacy.test.ts', hint: 'leave src/legacy/ as it is' } })]),
+      s('Edit a file the guarded rule governs', ['event', 'post-tool'], edit('<ROOT>/src/legacy/a.ts', { session_id: 'sess-b' })),
+      s('sess-b writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-b', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('stop: the bound check is asked by D1', ['event', 'stop'], stop({ session_id: 'sess-b' })),
+      s('the bound test passes', ['event', 'post-tool'], bash('bun test tests/legacy.test.ts', { session_id: 'sess-b' })),
+      s('stop: covered, nothing held', ['event', 'stop'], stop({ session_id: 'sess-b' })),
+      s('session-start: D1 keeps its handle, D4 is next', ['event', 'session-start'], start({ session_id: 'sess-c' })),
+    ],
+  },
+  {
     // r3-fixes 2.11 (D19, D20) on the hot path: round 3's S18 merge in
     // miniature, in a real repo with pinned dates — wt-15 merged clean, wt-16
     // and wt-17 conflicting on src/db.ts, the conflict committed as the

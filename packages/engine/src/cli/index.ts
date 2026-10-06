@@ -395,7 +395,7 @@ program
 
 program
   .command('bind <decision> <cmd>')
-  .description("give a standing rule the test that proves it: re-file D<n> as recorded, plus check {cmd}, superseding it (r3-fixes 2.10c)")
+  .description('give a standing rule the test that proves it: D<n> takes check {cmd} and keeps its handle (r3-fixes 2.10c, r4-fixes A8)')
   .option('--hint <text>', 'the fix a failure shows')
   .option('--initiative <slug>', 'record to bind in (default: the bound one)')
   .option('--root <dir>', 'repo root (default: the record above the current directory)')

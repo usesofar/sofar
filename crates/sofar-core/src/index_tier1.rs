@@ -416,6 +416,10 @@ impl SlugReducer for GuardReducer {
             apply_memory(state, event, slug);
             return;
         }
+        if event.event_type == "check_bound" {
+            apply_check_bound(state, event);
+            return;
+        }
         if event.event_type != "decision_logged" {
             return;
         }
@@ -510,6 +514,43 @@ impl SlugReducer for GuardReducer {
             superseded_by: None,
             mentions,
         });
+    }
+}
+
+/// `applyCheckBound` (r4-fixes A8), mirroring the fold: the ruled entry the
+/// event names by id takes the check, replacing any it had, and the command's
+/// file tokens join its mentions after the ones it had. No ordinal moves.
+fn apply_check_bound(state: &mut SlugGuardState, event: &IndexedEvent) {
+    let p = &event.payload;
+    let Some(id) = p.get("decision_id").and_then(Json::as_str) else {
+        return;
+    };
+    let Some(check) = p
+        .get("check")
+        .and_then(Json::as_obj)
+        .filter(|c| c.get("cmd").and_then(Json::as_str).is_some())
+    else {
+        return;
+    };
+    let Some(entry) = state
+        .entries
+        .iter_mut()
+        .find(|e| e.id == id && e.rule.is_some())
+    else {
+        return;
+    };
+    let mut o = Object::with_capacity(3);
+    for key in ["cmd", "hint", "timeout_ms"] {
+        if let Some(v) = check.get(key) {
+            o.insert(key, v.clone());
+        }
+    }
+    entry.check = Some(Json::Obj(o));
+    let cmd = check.get("cmd").and_then(Json::as_str).unwrap_or("");
+    for token in crate::file_mentions::file_mentions(cmd) {
+        if !entry.mentions.contains(&token) {
+            entry.mentions.push(token);
+        }
     }
 }
 
@@ -1411,6 +1452,46 @@ mod tests {
         format!(
             "{{\"v\":1,\"id\":\"{id}\",\"ts\":\"2026-01-01T00:00:00.000Z\",\"initiative\":\"{slug}\",\"session\":\"{session}\",\"source\":\"hook\",\"actor\":\"agent\",\"type\":\"{ty}\",\"payload\":{payload}}}\n"
         )
+    }
+
+    #[test]
+    fn check_bound_gives_the_ruled_entry_its_check_and_file_tokens_warm_and_cold() {
+        use std::io::Write as _;
+        let dir = crate::testing::scratch_dir("tier1-bound");
+        let layout = Layout::new(&dir);
+        fs::create_dir_all(layout.initiative_dir("a")).unwrap();
+        fs::write(
+            layout.events_path("a"),
+            line("01ARZ3NDEKTSV4RRFFQ69G5FA1", "a", "s1", "decision_logged", "{\"chose\":\"c\",\"over\":\"o\",\"because\":\"b\",\"rule\":\"r\",\"guard\":\"path:src/db/**\"}")
+                + &line("01ARZ3NDEKTSV4RRFFQ69G5FA2", "a", "s1", "decision_logged", "{\"chose\":\"plain\",\"over\":\"o\",\"because\":\"b\"}"),
+        )
+        .unwrap();
+        assert!(refresh_guards(&layout).scoped[0].check.is_none());
+        let mut f = fs::OpenOptions::new()
+            .append(true)
+            .open(layout.events_path("a"))
+            .unwrap();
+        f.write_all(
+            (line("01ARZ3NDEKTSV4RRFFQ69G5FA3", "a", "cli", "check_bound", "{\"decision\":\"D1\",\"decision_id\":\"01ARZ3NDEKTSV4RRFFQ69G5FA1\",\"check\":{\"cmd\":\"bun test test/store.test.ts\"}}")
+                + &line("01ARZ3NDEKTSV4RRFFQ69G5FA4", "a", "cli", "check_bound", "{\"decision\":\"D2\",\"decision_id\":\"01ARZ3NDEKTSV4RRFFQ69G5FA2\",\"check\":{\"cmd\":\"bun test\"}}")
+                + &line("01ARZ3NDEKTSV4RRFFQ69G5FA5", "a", "cli", "check_bound", "{\"decision\":\"D1\",\"decision_id\":\"01ARZ3NDEKTSV4RRFFQ69G5FA1\",\"check\":{\"cmd\":\"bun test test/db.test.ts\",\"hint\":\"h\"}}"))
+                .as_bytes(),
+        )
+        .unwrap();
+        drop(f);
+        let warm = refresh_guards(&layout).scoped;
+        assert_eq!(warm.len(), 1, "a plain decision with no file is no entry");
+        let check = warm[0].check.as_ref().and_then(Json::as_obj).unwrap();
+        assert_eq!(
+            check.get("cmd").and_then(Json::as_str),
+            Some("bun test test/db.test.ts")
+        );
+        assert_eq!(check.get("hint").and_then(Json::as_str), Some("h"));
+        assert!(warm[0].mentions.iter().any(|m| m == "test/store.test.ts"));
+        assert!(warm[0].mentions.iter().any(|m| m == "test/db.test.ts"));
+        fs::remove_dir_all(layout.index_dir()).unwrap();
+        assert_eq!(refresh_guards(&layout).scoped, warm);
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

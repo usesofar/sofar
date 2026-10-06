@@ -51,7 +51,7 @@ pub const RUN_STOP_REASONS: [&str; 7] = [
 pub const VERIFICATION_RESULTS: [&str; 5] = ["pass", "fail", "timeout", "error", "refused"];
 
 /// `EVENT_TYPES`, in the schema's order.
-pub const EVENT_TYPES: [&str; 30] = [
+pub const EVENT_TYPES: [&str; 31] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
@@ -62,6 +62,7 @@ pub const EVENT_TYPES: [&str; 30] = [
     "task_status_changed",
     "decision_logged",
     "decision_linked",
+    "check_bound",
     "session_started",
     "session_ended",
     "session_closed",
@@ -944,6 +945,21 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                     "supersedes_id: requires `supersedes`",
                 );
             }
+        }
+        "check_bound" => {
+            must(
+                e,
+                p.get("decision")
+                    .and_then(Json::as_str)
+                    .is_some_and(|h| !h.is_empty() && is_decision_handle(h)),
+                "decision: must be the bare handle `D<n>` of the rule being bound",
+            );
+            must(
+                e,
+                str(p.get("decision_id")),
+                "decision_id: must be a non-empty string (that decision's event id)",
+            );
+            e.extend(check_spec_errors(p.get("check").unwrap_or(&Json::Null)));
         }
         "session_started" => {
             must(e, str(p.get("tool")), "tool: must be a non-empty string");

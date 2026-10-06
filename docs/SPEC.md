@@ -237,6 +237,10 @@ decision_linked (decision — `D<n>`, decision_id — its event id,
 supersedes? — `D<m>` it replaces, absent = "replaces nothing",
 supersedes_id? — that decision's event id, required with `supersedes`; both
 ids stamped by `sofar supersedes`; never drift; r3-fixes 2.5, D15) ·
+check_bound (decision — `D<n>`, decision_id — its event id, check —
+{cmd, hint?, timeout_ms?} as on decision_logged; what `sofar bind` appends:
+the rule keeps its ordinal and takes the check, replacing any it had; mints
+no decision and no id; never drift; see §Decision checks; r4-fixes A8) ·
 session_started (tool, model?, rehome? — `true` only: a deliberate re-home
 back into a log that already registered this session, folded silently;
 binding-follows-session D5) · session_ended (summary, next_action) ·
@@ -669,7 +673,31 @@ on every ruled entry, and the command's file tokens join the entry's
 mentions, so reading or editing the check's own script surfaces the decision
 (§Read-time surfacing). Agents edit tests to pass them (ImpossibleBench);
 the command itself lives in the append-only record and changes only through
-a ruled superseder.
+a ruled superseder or a `check_bound`.
+
+BOUND AFTER THE FACT (r4-fixes A8). `sofar bind` appends `check_bound`
+{decision, decision_id, check}: the fold finds the decision by
+`decision_id` and sets its check, replacing any it had; it mints no
+decision, so the rule keeps its ordinal and its handle. One naming no folded
+decision (`check_bound names D<n> (<id>), which this record never folded —
+skipped`) or a decision with no rule (`check_bound D<n> names a decision with
+no rule — a check belongs to a rule, so nothing is bound`) binds nothing,
+with a warning; one with no valid check is an invalid line. A rule that
+later replaces a bound one carries only its own check. The scope tier
+mirrors it (the entry takes the check; the command's file tokens join its
+mentions after the ones it had), and `check_bound` refreshes the declared
+index at write time like a decision. Never drift: bookkeeping on a rule
+counted when it was filed, as decision_linked is. Before 0.35 a bind
+re-filed the rule word for word with `check` and `supersedes` itself: 13–24%
+of a round-4 rep's decisions were such copies, each bind moved the rule's
+ordinal ("D73 into D76"), and a bind on each of two worktrees minted the
+same `D<n>` twice. A record holding those re-logs still lists each pair as
+one entry (§Merge-stable handles, RE-LOGS). OLDER READERS: 0.34.x skips
+`check_bound` with `line <n>: unknown event type "check_bound" — skipped`
+(FORMAT.md §8; verified on 0.34.1's TypeScript and native folds): the rule
+keeps its ordinal and renders without its check, the Stop gate does not
+hold on it, `sofar status` prints the warning on stderr, and the
+SessionStart block carries none.
 
 IN FORCE: a ruled decision carrying `check` that no later rule of its own
 record replaced — checks are repo-wide, like the rules they belong to.
@@ -4548,6 +4576,32 @@ rule (D25), and asking every unlinked decision would spend 264 of round 3's
   and ride the write-back block of one that owes it.
 - ABLATION: `SOFAR_LINK_ASK=off` drops the digest block and the Stop ask;
   the stamp and the write result stay.
+- SLOT-DIFF (r4-fixes A8, core/slot-diff.ts; r4-research 1.3 #7, N6): the
+  stamped candidates are re-ordered so the ones that look like the rule this
+  one is a new version of come first, best score first, the rest in BM25
+  order. For the new decision N and a candidate C, each compared on its rule
+  (else what it chose), over the content words (the lexicon's fold, stop words
+  out, plural and tense endings stripped alike): FRAME = |LCS| ÷ the shorter
+  text's words, 0 below 2 words in common; OVER = the share of N's `over`
+  words (decision handles dropped) that C's rule and chose carry, each word
+  weighted ln(1 + (n + 1) ÷ (df + 1)) over the n decisions folded so far.
+  VERSION-LIKE when max(FRAME, OVER) ≥ 0.4. The write result's line then
+  reads `… it may replace D<m> "<rule, 80>"[, or …] — D<n> looks like a new
+  version of D<m>[ (\`<old>\` → \`<new>\`[, …])]. If it does, …`, naming
+  the first version-like candidate; the changed slots are named only when the
+  match is EXACT (N6 as written: FRAME ≥ 0.6 and every differing word a slot
+  value — a number, an identifier-shaped or quoted token, or a word in at most
+  3 of the record's decisions), at most 3. It never links on its own. The
+  digest and Stop render the stamped order, so both engines show it with no
+  render change. REPLAY (round 3's 48 versions and 339 other decisions, through
+  the shipped ranker): 36 of 48 versions flagged, 8 of 339 others (all rules,
+  8 of the 75 non-version rules); the true target first among the stamped
+  candidates for 27 of 34 where it is known, against 24 by BM25 alone, and
+  for 36 of round 4's 48 linked rule changes, against 32 (held out). N6 as
+  written flagged 0 of 48: agents restate a changed rule in new words far more
+  than they swap one value. ABLATION: `SOFAR_SLOTDIFF=off` (also `0`,
+  `false`) keeps BM25 order, the hold below without its slot key, and no
+  version clause.
 
 ## Supersede-target integrity
 r3-fixes 2.6, adopted as D18. Round 3 retired the wrong entry twice in 3
@@ -4594,6 +4648,19 @@ what the decision's own words match. A disagreement is HELD, never refused.
   is` per offer, and `\`sofar supersedes D<n> none\` if it replaces
   nothing`, comma-joined. `sofar supersedes` answers a held link exactly as
   a pending one (§Link disposition) and is not itself held.
+- SLOT KEY (r4-fixes A8; not under `SOFAR_SLOTDIFF=off`), checked after (b)
+  and before (c): a RULE that names a PLAIN decision T is HELD when T is not
+  version-like for it (§Link disposition, SLOT-DIFF) while one of its link
+  candidates (the in-force rules §Link disposition would stamp) is, with a
+  higher score — offered: those candidates, best score first, at most two. A
+  rule's predecessor is a rule. Round 4's r2 S18 named D52, the recordCount
+  details (cosine 0.182, over the 0.16 floor), and left D51 "any variance is
+  applied at once" in force beside its replacement for 10 sessions; D51's
+  OVER score was 0.60 to D52's 0.33. Over round 3's 51 and round 4's 92 links
+  it holds that one and round 3's r2 S30 link (already held by (c)), with no
+  false hold. (c)'s offers are re-ordered the same way, version-like first.
+  The <why> stays `its words match D<a> … far more`; the write result adds
+  the SLOT-DIFF version clause after it.
 - ECHO: a decision whose `supersedes` is taken names what it retired — the
   result's `retires: "D<T> \"<rule or chose, 80>\""` (sofar_log_decision,
   `sofar event append`) or `retires: ["D<n> retires D<T> \"…\""]`
@@ -4656,8 +4723,10 @@ different rule on main. Render only: no event, payload or fold change.
   `alias <old>` as its mark; the digest window marks the replacer `alias
   <old>` where it said `supersedes <old>`, and its `retired` count leaves
   aliases out; the alias's shard says `re-logged as <new>, the same
-  decision`. `sofar bind` says `bound <slug> <old>: check \`<cmd>\` — the
-  same rule, now listed as <new> (alias <old>)`.
+  decision`. Since r4-fixes A8 `sofar bind` mints no re-log (it appends
+  `check_bound`, §Decision checks) and says `bound <slug> <handle>: check
+  \`<cmd>\` — the same rule, the same handle`; the alias rendering stays
+  for the re-logs records already hold.
 - BUDGET: the digest's decision window is 1,025 chars (MAX_DECISIONS × the
   5-char suffix over 1,000), so it holds the same lines it held with bare
   handles; the other budgets are unchanged. The digest cache's cut keeps every
@@ -6787,13 +6856,16 @@ subdirectory, against 33 of 33 from the root.
   pinned by test to pass validatePayload and to append through `event
   append`.
 - `sofar bind <D<n>> <cmd> [--hint <text>] [--initiative <slug>]` (r3-fixes
-  2.10c) — give a standing rule the test that proves it. It re-files D<n>
-  exactly as recorded (chose, over, because, rule, quote, guard), plus
-  `check: {cmd, hint?}` and `supersedes: D<n>`, through the same validated
-  append. It prints `bound <slug> D<m> (supersedes D<n>): check \`<cmd>\``,
-  adding a note when the command is not test-shaped, because the Stop gate
-  cannot read such a command. It refuses a non-handle, a missing decision, a
-  decision with no rule, and a retired one (naming its replacement).
+  2.10c; r4-fixes A8) — give a standing rule the test that proves it. It
+  appends `check_bound` {decision: `D<n>`, decision_id, check: {cmd, hint?}}
+  through the same validated append (§Decision checks), so the rule keeps its
+  handle. It prints `bound <slug> D<n>·<sfx>: check \`<cmd>\`[ (it replaces
+  \`<old cmd>\`)] — the same rule, the same handle`, adding a note when the
+  command is not test-shaped, because the Stop gate cannot read such a
+  command; when the rule already carries that exact check it appends nothing
+  and says `<slug> D<n>·<sfx> already carries check \`<cmd>\` — nothing to
+  bind`. It refuses a non-handle, a missing decision, a decision with no
+  rule, and a replaced one (naming its replacement).
 - `sofar read <paths…> [--session <id>] [--full]` (memory-lead 4.3 part C,
   D42, D45) — what a rewritten whole-file read runs. A record's plan.md,
   decisions.md, memory.md and brief.md print as written (the first three are
@@ -9271,9 +9343,14 @@ stay the underlying derivation's, and exit codes are styling-independent.
   `make`, editors, `cat a | sh`, `python3 - <<EOF` and `sed 's/a/b/w out'`
   mark; `cat … | grep`, `git status`, `git add -A && git commit`, `sofar
   event append`, `sed -n 5,9p` and a plain `cat <<EOF` do not.
-- **Binding (r3-fixes 2.10c):** `sofar bind D1 'bun test test/store.test.ts'`
-  files D2 with D1's rule, quote and guard plus the check, retires D1, and a
-  session that edits the guarded file is then asked to run that test. It
+- **Binding (r3-fixes 2.10c; r4-fixes A8):** `sofar bind D1 'bun test
+  test/store.test.ts'` appends `check_bound` and D1 keeps its handle and
+  takes the check (no D2), a session that edits the guarded file is then
+  asked to run that test, the same bind again appends nothing, and another
+  command replaces the check. fold-parity `FP-25-check-bound` pins the fold
+  in both engines: the ordinal stays, a re-bind replaces, a plain decision
+  or an unfolded id binds nothing with a warning, a missing check is an
+  invalid line, never drift. It
   refuses `twelve`, a missing D9, a rule-less decision and a retired one. A
   rule naming `src/db/store.ts` with no check is nudged with `sofar bind D1`;
   one with a test-shaped check, and one naming no file, are not.

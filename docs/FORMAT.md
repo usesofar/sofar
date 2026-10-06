@@ -113,6 +113,7 @@ present, MUST be strings. Status enums for both tasks and phases are
 | `task_status_changed` | `id`, `status` (required; `status` ∈ enum); `note` (optional) | Sets a task's status. A `note` on a `blocked` transition explains the blockage and feeds `current.blocked_on` (§5.4). |
 | `decision_logged` | `chose`, `over`, `because` (required) | Records a decision **with** the rejected alternative and the rationale. All three are mandatory by design. |
 | `decision_linked` | `decision`, `decision_id` (required); `supersedes`, `supersedes_id` (optional, together) | Answers a decision's supersession after it was filed: what it replaces, or (both absent) nothing. |
+| `check_bound` | `decision`, `decision_id`, `check` (required; `check` = `{cmd, hint?, timeout_ms?}` as on `decision_logged`) | A rule given the test that proves it after it was filed (`sofar bind`, since 0.35). Mints no decision: the rule keeps its position and takes the check. |
 | `session_started` | `tool` (required); `model` (optional) | Registers a work session. The session's id is the envelope `session` field — the payload carries no id. |
 | `session_ended` | `summary`, `next_action` (required); `session_id` (optional) | The write-back: what happened and what to do next. Targets `payload.session_id` when present, else the envelope `session`. The latest `session_ended` also sets the initiative-level `current.next_action`. |
 | `session_closed` | `reason` (required) | Mechanical close marker (e.g. the process exited). Deliberately carries **no** summary or next_action — see §5.5 for the asymmetry with `session_ended`. |
@@ -228,6 +229,11 @@ does not un-void its original target (v1 behavior — see also §8).
   when that names an EARLIER decision and the decision is not a rule named
   by a plain one, mark it superseded by this decision and set this
   decision's `supersedes` to its handle; otherwise warn and retire nothing.
+- `check_bound` — find the decision whose `id` is `decision_id`; if none,
+  skip with a warning. If it carries no `rule`, skip with a warning (a check
+  belongs to a rule). Else set its `check`, replacing any it had. It appends
+  no decision, so no position moves. No other state effect, and it is not a
+  change a write-back owes.
 - `session_started` — register a session with id = envelope `session`,
   `tool`, optional `model`, `started = event.ts`. If that session id is
   already registered, skip with a warning.
@@ -357,7 +363,10 @@ immutability rule of §3 — is the entire sync interface.
   removed or change meaning within v1.
 - **New event types may appear.** Readers MUST skip events of unknown type
   with a warning — never fatally (§5.1). This is the load-bearing rule: it
-  is what lets old readers coexist with new writers.
+  is what lets old readers coexist with new writers. Example: `check_bound`
+  (sofar 0.35). A 0.34 reader skips it with `unknown event type
+  "check_bound"`, keeps every decision at the same position, and shows the
+  rule without the check it was given.
 - **History is immutable.** No conforming tool ever rewrites, reorders, or
   deletes log lines. Corrections are events (§5.2). A tool that mutates
   `events.jsonl` in place does not implement this format.

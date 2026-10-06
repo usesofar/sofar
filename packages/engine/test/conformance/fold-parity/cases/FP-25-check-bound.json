@@ -1,0 +1,10 @@
+{
+  "tail_at": 4,
+  "seeds": [
+    74,
+    75,
+    76
+  ],
+  "order_independence": true,
+  "note": "r4-fixes A8: check_bound sets a rule's check by its id and mints no decision — the ordinal stays; a re-bind replaces the check; one naming a plain decision or an unfolded id binds nothing, with a warning; one with no check is an invalid line; a rule replacing a bound one takes nothing of its check; never drift. The tail starts at the first bind"
+}
