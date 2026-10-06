@@ -988,6 +988,12 @@ export const CASES: ConformanceCase[] = [
       s('status of a record whose other copy adds nothing', ['status', 'other']),
       s('status of a record held only on another worktree', ['status', 'elsewhere']),
       s('status of a slug held nowhere', ['status', 'nowhere']),
+      // r4-fixes A14: the operator drops `feature`; the hint and the union
+      // leave it out, and SOFAR_ABANDON=off restores the 0.34 line.
+      s('abandon: the operator drops feature', ['abandon', 'feature']),
+      s('session-start: an abandoned branch is not raised again', ['event', 'session-start'], start({ session_id: 'sess-b' })),
+      s('session-start with SOFAR_ABANDON=off: every branch, no hint', ['event', 'session-start'], start({ session_id: 'sess-c' }), { env: { SOFAR_ABANDON: 'off' } }),
+      s('status: the abandoned branch folds no more', ['status', 'surf']),
     ],
   },
   {

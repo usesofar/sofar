@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
+import { abandonedBranches } from './abandoned'
 import { foldLines, type InitiativeState } from './fold'
 import { commonGitDir } from './git'
 
@@ -29,6 +30,10 @@ import { commonGitDir } from './git'
  *   least as new as its tip.
  * - REMOTE: remote-tracking refs, opt-in only (D1): they cover teammates'
  *   pushed branches but also drag in abandoned ones.
+ *
+ * A branch the operator marked abandoned (`sofar abandon`, r4-fixes A14) is
+ * no copy at all, as a worktree or as a ref: its work was seen and dropped,
+ * and naming it again only repeats a settled question.
  *
  * Every failure (no git, a bare or unborn repo, an unreadable checkout)
  * degrades to fewer copies, never to an error. Callers are orientation
@@ -267,11 +272,13 @@ export function scanRecordCopies(rootDir: string, options: ScanOptions = {}): Co
     logs.set(slug, list)
   }
 
+  const abandoned = abandonedBranches(rootDir)
   const checkouts = listCheckouts(common)
   const checkedOut = new Set<string>()
   for (const checkout of checkouts) {
     if (checkout.branch !== null) checkedOut.add(checkout.branch)
     if (self !== null && realpathOrNull(checkout.root) === self) continue
+    if (checkout.branch !== null && abandoned.has(checkout.branch)) continue
     const copy: RecordCopy = { kind: 'worktree', ref: checkout.branch, path: checkout.root }
     copies.push(copy)
     const slugs = wanted === null ? initiativeDirs(checkout.root) : [...wanted]
@@ -297,6 +304,7 @@ export function scanRecordCopies(rootDir: string, options: ScanOptions = {}): Co
   const taken: Ref[] = []
   for (const ref of refs) {
     if (ref.kind === 'branch' && checkedOut.has(ref.name)) continue
+    if (abandoned.has(ref.name)) continue
     if (coveredShas.has(ref.sha)) continue
     coveredShas.add(ref.sha)
     taken.push(ref)
@@ -481,7 +489,8 @@ function idsOf(text: string): Set<string> {
  * to this record since it forked), and a stat plus one small window at the
  * copy's own end proves that without reading either log. Only a copy that
  * diverged is read in full, and this log's ids are read once, the first time
- * one is needed.
+ * one is needed. A worktree on a branch the operator abandoned is skipped;
+ * the marks are read once, the first time a diverged copy needs them.
  */
 export function worktreeLeads(rootDir: string, slug: string, localPath: string): WorktreeLead[] {
   if (!SLUG.test(slug)) return []
@@ -495,6 +504,7 @@ export function worktreeLeads(rootDir: string, slug: string, localPath: string):
     // no copy here: every event another checkout holds is unseen
   }
   let localIds: Set<string> | null = null
+  let abandoned: Set<string> | null = null
   const leads: WorktreeLead[] = []
   for (const checkout of listCheckouts(common)) {
     if (self !== null && realpathOrNull(checkout.root) === self) continue
@@ -511,6 +521,10 @@ export function worktreeLeads(rootDir: string, slug: string, localPath: string):
       const theirs = readWindow(path, size - width, width)
       const ours = readWindow(localPath, size - width, width)
       if (theirs !== null && ours !== null && theirs.equals(ours)) continue
+    }
+    if (checkout.branch !== null) {
+      abandoned ??= abandonedBranches(rootDir)
+      if (abandoned.has(checkout.branch)) continue
     }
     let text: string
     try {

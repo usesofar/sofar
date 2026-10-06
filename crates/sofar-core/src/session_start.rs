@@ -22,7 +22,7 @@ use crate::index_tier1::{refresh_guards, refresh_neighbours, repo_rules};
 use crate::json::{Json, Object, number_to_string};
 use crate::layout::{Layout, initiative_slugs};
 use crate::projections::retire_enabled;
-use crate::record_copies::{home_dir, worktree_leads, worktree_leads_notice};
+use crate::record_copies::{abandon_enabled, home_dir, worktree_leads, worktree_leads_notice};
 use crate::session_pointer::write_session_pointer;
 use crate::shipwatch::note_upstream;
 use crate::status::{
@@ -414,7 +414,11 @@ fn other_worktrees_notice(root: &Path, slug: &str, log_path: &Path) -> Option<St
     if slug == QUICK_LANE {
         return None;
     }
-    worktree_leads_notice(&worktree_leads(root, slug, log_path), home_dir().as_deref())
+    worktree_leads_notice(
+        &worktree_leads(root, slug, log_path),
+        home_dir().as_deref(),
+        abandon_enabled(),
+    )
 }
 
 /// `sessionMergeNotice` (r3-fixes D19): the merge block for this start, or

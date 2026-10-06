@@ -310,14 +310,14 @@ describe('D3 — doctor is the backstop for logs the tool did not write', () => 
   ]
 
   it('warns per unexplained drop without failing the run', () => {
-    const r = runDoctor(repoWithLog(drops))
+    const r = runDoctor(repoWithLog(drops), { history: true })
     expect(r.exitCode).toBe(0)
     expect(r.stdout).toContain('demo: task "1.3" dropped with no reason')
     expect(r.stdout).toContain('demo: task "1.2" dropped citing no decision')
   })
 
   it('stays silent on a drop whose reason cites a decision', () => {
-    expect(runDoctor(repoWithLog(drops)).stdout).not.toContain('"1.1" dropped')
+    expect(runDoctor(repoWithLog(drops), { history: true }).stdout).not.toContain('"1.1" dropped')
   })
 })
 

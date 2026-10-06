@@ -10,7 +10,8 @@ import { registerReviewCommand } from './review'
 import { runAdopt } from './adopt'
 import { runInitCommand } from './init'
 import { stderrCaps } from './ui'
-import { runDoctor } from './doctor'
+import { runAbandon } from './abandon'
+import { explainCheck, runDoctor } from './doctor'
 import { runUninit } from './uninit'
 import { runNew, runSwitch } from './new'
 import { runClose } from './close'
@@ -122,17 +123,37 @@ program
 program
   .command('doctor')
   .description(
-    'audit this repo: wiring integrity, record health, and tree-wide tool hazards (Tailwind v4, Biome, Prettier, markdownlint reaching .sofar); --fix writes each tool\'s .sofar exclusion',
+    'audit this repo: what to act on now (wiring, the hot path, record integrity, live sessions, tool hazards — the only findings that set the exit code), then one line counting the history; --history lists it, --fix writes each tool\'s .sofar exclusion',
   )
   .option(
     '--fix',
     'apply the safe fixes: insert `@source not "…/.sofar"` after the tailwindcss import; add the .sofar exclusion to biome.json, .prettierignore, .markdownlintignore',
   )
+  .option('--history', 'also list the history: settled sessions, unnamed repo memory, past guard crossings, record hygiene')
+  .option('--json', 'every finding as JSON, with its check id and tier')
+  .option('--explain <id>', 'what one check looks at, why it matters, and how to clear it')
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action((opts: { fix?: boolean; root?: string }) => {
+  .action((opts: { fix?: boolean; history?: boolean; json?: boolean; explain?: string; root?: string }) => {
+    if (opts.explain !== undefined) {
+      emit(explainCheck(opts.explain))
+      return
+    }
     // withUpdateNotice touches stderr only — doctor's exit code is its verdict
     // on the RECORD, and a new release must never be able to change it (D1).
-    emit(withUpdateNotice(runDoctor(rootOf(opts), { fix: opts.fix === true })))
+    const result = runDoctor(rootOf(opts), { fix: opts.fix === true, history: opts.history === true, json: opts.json === true })
+    emit(opts.json === true ? result : withUpdateNotice(result))
+  })
+
+program
+  .command('abandon [branch]')
+  .description(
+    "mark a branch abandoned on this clone: its record copies stop being named at SessionStart, in the write guard, `sofar status` and `sofar list` (r4-fixes A14); per-user state, the branch itself is untouched",
+  )
+  .option('--undo', 'clear the mark, so the branch is named again')
+  .option('--list', 'list the branches marked abandoned (also the default with no branch)')
+  .option('--root <dir>', 'repo root (default: the record above the current directory)')
+  .action((branch: string | undefined, opts: { undo?: boolean; list?: boolean; root?: string }) => {
+    emit(runAbandon(rootOf(opts), branch, { undo: opts.undo === true, list: opts.list === true }))
   })
 
 program

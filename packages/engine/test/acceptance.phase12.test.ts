@@ -190,7 +190,7 @@ describe('12.2 doctor flags orphan task events (misroute symptom)', () => {
       ...planned(),
       ev('task_status_changed', { id: 'zz.9', status: 'done' }, { session: 'sess-intruder' }),
     ])
-    const report = runDoctor(root)
+    const report = runDoctor(root, { history: true })
     expect(report.exitCode).toBe(0) // WARN, not FAIL
     expect(report.stdout).toContain('demo: 1 task event(s) for "zz.9" — no such task in the plan')
     expect(report.stdout).toContain('possible misroute from another initiative (session sess-intruder')
@@ -205,7 +205,7 @@ describe('12.2 doctor flags orphan task events (misroute symptom)', () => {
     const change = ev('task_status_changed', { id: 'late.1', status: 'done' })
     const add = ev('task_added', { phase: 'PA', id: 'late.1', title: 'added later' })
     const root = repoWithLog('demo', [...base, change, add])
-    const report = runDoctor(root)
+    const report = runDoctor(root, { history: true })
     expect(report.stdout).not.toContain('no such task in the plan')
   })
 })

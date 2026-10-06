@@ -77,6 +77,8 @@ import {
 import { byCodeUnit } from '../core/order'
 import { checksInForce, isApproved, type InForceCheck } from '../core/checks'
 import { refreshGuards } from '../core/index-tier1'
+import { abandonEnabled, listAbandoned } from '../core/abandoned'
+import { livePeers } from '../core/peers'
 
 /**
  * `sofar doctor [--fix]` (tasks 10.2/10.3 + 11.1/11.2/11.3) — audit a host repo:
@@ -110,6 +112,23 @@ import { refreshGuards } from '../core/index-tier1'
  * Exit code: 1 when any FAIL-level finding remains after fixes (so CI can gate
  * on it); 0 on a clean repo. WARN findings surface without failing.
  *
+ * TRIAGE (r4-fixes A14). Every finding carries a stable check id (`sofar
+ * doctor --explain <id>`) and a tier. ACT NOW is what the operator can and
+ * should fix today: wiring, the hot path, a log that cannot be read, a session
+ * that is live and tearing right now, files under concurrent edit, tool
+ * hazards, unapproved checks. HISTORY is what already happened and cannot be
+ * repaired: settled split sessions, untracked past work, fold warnings, unnamed
+ * repo memory, past guard crossings, record hygiene. Only act-now findings are
+ * listed and only act-now FAILs set the exit code; history is one count line,
+ * listed by `--history`. On this repo the flat report was 467 WARN, 31 FAIL and
+ * exit 1 (r4-research 1.7 #6), and record-integrity D3 already warned that "a
+ * permanently red doctor trains people to ignore it".
+ *
+ * Liveness: an open session (no write-back) whose last event is more than 24 h
+ * old and that has no live host process is ABANDONED, not live — most "torn,
+ * live" FAILs were sessions that never received a SessionEnd. Its split is
+ * history. `SOFAR_ABANDON=off` restores the flat 0.34 report and liveness.
+ *
  * Rendering (cli-ui 2.4) is capability-gated: `caps.color` picks the styled
  * report (✓/⚠/✗ level marks, bold sections, dim └ hints) — the styled layout
  * is inherently color-coded (D1), so piped/NO_COLOR output keeps the
@@ -121,6 +140,16 @@ export interface DoctorOptions {
   fix?: boolean
   /** Home directory override for the Codex user-config check. Tests only — production reads CODEX_HOME or os.homedir(). */
   home?: string
+  /** List the history findings too (A14). */
+  history?: boolean
+  /** Print every finding as JSON instead of the report (A14). */
+  json?: boolean
+  /** The clock for liveness — tests only. */
+  now?: Date
+  /** Session ids with a live host process — tests only; production reads the hosts' registries. */
+  liveSessions?: ReadonlySet<string>
+  /** Environment for SOFAR_ABANDON — tests only. */
+  env?: Record<string, string | undefined>
 }
 
 /** Progress channel for the tree-scan spinner — injectable for tests. */
@@ -133,6 +162,9 @@ export interface DoctorProgress {
 
 export type Level = 'ok' | 'warn' | 'fail'
 
+/** Act now (sets the exit code) or history (one count line, listed by --history). */
+export type Tier = 'now' | 'history'
+
 export interface Finding {
   level: Level
   text: string
@@ -140,6 +172,10 @@ export interface Finding {
   hint?: string
   /** True when --fix just applied this repair — counted in the summary. */
   fixed?: boolean
+  /** Stable check id (`sofar doctor --explain <id>`); absent only on findings built outside doctor. */
+  id?: CheckId
+  /** Overrides the check's own tier: a split session is act-now only while it is live. */
+  tier?: Tier
 }
 
 interface Section {
@@ -148,6 +184,80 @@ interface Section {
 }
 
 const MARKER: Record<Level, string> = { ok: '  ok  ', warn: '  WARN', fail: '  FAIL' }
+
+// ---------------------------------------------------------------------------
+// The checks (r4-fixes A14): a stable id per check, its tier, and the long
+// story `sofar doctor --explain <id>` prints, in the style of `rustc --explain`.
+// ---------------------------------------------------------------------------
+
+interface CheckInfo {
+  tier: Tier
+  title: string
+  explain: string
+}
+
+const WIRING_FIX = 'Fix: `sofar init --refresh` rewires exactly the agents this repo is wired for; `sofar init --agents <id>` adds one.'
+
+export const CHECKS = {
+  'bindings': { tier: 'now', title: '.sofar/bindings.json is present', explain: `Bindings map each git branch to the initiative its sessions serve. Without the file no session can resolve its record. ${WIRING_FIX}` },
+  'agents': { tier: 'now', title: 'an agent is wired', explain: 'A repo with a .sofar/ record but no agent wired records nothing: no hook fires and no MCP server answers. `sofar init` wires the agents you pick; an agent this repo is not wired for is named with the command that adds it.' },
+  'hook-shims': { tier: 'now', title: 'hook shims are installed', explain: `The shims under .claude/hooks (or .cursor/hooks) are what the host runs on every hook event. A missing one silently drops that event: no SessionStart block, no Stop gate. ${WIRING_FIX}` },
+  'claude-hooks': { tier: 'now', title: '.claude/settings.json registers every hook', explain: `Claude Code runs a shim only when settings.json names it. ${WIRING_FIX}` },
+  'claude-mcp': { tier: 'now', title: '.mcp.json registers the sofar server', explain: `Without the entry Claude Code has no sofar_* tools, so a session cannot write back. ${WIRING_FIX}` },
+  'cursor-hooks': { tier: 'now', title: '.cursor/hooks.json registers every hook', explain: `Cursor reads its own hooks file and cannot share Claude Code's. ${WIRING_FIX}` },
+  'cursor-mcp': { tier: 'now', title: '.cursor/mcp.json registers the sofar server', explain: `Cursor reads its own MCP file, not .mcp.json. ${WIRING_FIX}` },
+  'codex-shims': { tier: 'now', title: 'Codex hook shims are installed', explain: `Codex runs the shims under .codex/hooks. ${WIRING_FIX}` },
+  'codex-hooks': { tier: 'now', title: '.codex/hooks.json registers every hook', explain: `${WIRING_FIX}` },
+  'codex-mcp': { tier: 'now', title: 'Codex reaches the sofar MCP server', explain: 'The project .codex/config.toml, or your user config.toml, must register [mcp_servers.sofar]. When the project file cannot take sofar\'s table, `codex mcp add` registers it at user level once.' },
+  'codex-approval': { tier: 'now', title: 'Codex pre-approves sofar\'s tools', explain: 'Without `default_tools_approval_mode = "approve"` under [mcp_servers.sofar], `codex exec` and driven sessions refuse every sofar tool call, so the session cannot write back.' },
+  'codex-direct': { tier: 'now', title: 'Codex sees sofar\'s tools directly', explain: 'Without the direct namespace, Codex code mode hides sofar\'s tools inside its one exec tool and the agent writes through the CLI dialect instead (r3-fixes 2.7).' },
+  'protocol-block': { tier: 'now', title: 'the protocol block in CLAUDE.md / AGENTS.md is current', explain: 'The block tells agents how to use the record. A stale one keeps directing them by an older protocol; `sofar init --refresh` replaces it. A customized block is yours and is never rewritten: compare it with a fresh `sofar init` in a scratch repo.' },
+  'attribution': { tier: 'now', title: 'commits are attributed to their initiative', explain: 'The prepare-commit-msg hook stamps each commit with the session and initiative that made it. It fails silently, so doctor asks the recent history instead: if none of the last 20 commits carries a trailer, the hook is not working.' },
+  'gitattributes': { tier: 'now', title: 'generated sofar paths merge clean', explain: 'events.jsonl merges with merge=union and the projections are marked generated. Without those attributes a merge leaves them conflicted. `sofar init` appends the missing lines and never edits yours.' },
+  'hot-path': { tier: 'now', title: 'which engine runs the hooks', explain: 'Hooks run on the native core when one is installed, else on TypeScript under node (~2 ms against ~30 ms). npm 12 skips install scripts unless allowed, leaving the JavaScript stub: run `npm config set allow-scripts=sofar.sh --location=user` and reinstall.' },
+  'log-readable': { tier: 'now', title: 'every initiative log can be read', explain: 'A log that cannot be read at all hides the whole record from every surface. Check the file\'s permissions and that it is a regular file.' },
+  'fold-warnings': { tier: 'history', title: 'fold warnings in a log', explain: 'Corrupt or unknown lines, duplicate registrations and stub sessions are skipped with a warning during fold and never rewritten (the log is append-only). They are history: nothing can repair them, and the fold already tolerates them.' },
+  'stub-sessions': { tier: 'history', title: 'sessions that ended without starting', explain: 'A hook or agent wrote back for a session that never registered. History: the session is over.' },
+  'stale-phase': { tier: 'history', title: 'a phase whose tasks are all done is still open', explain: 'Record hygiene: emit phase_status_changed (sofar_update_phase) to close it, else it keeps showing as the active phase.' },
+  'drop-reason': { tier: 'history', title: 'a dropped task names no decision', explain: 'A drop closes a task without delivering it, so its reason is the only record that a decision was made. History: cite the decision in a new task_status_changed note when you next touch the record.' },
+  'untracked-work': { tier: 'history', title: 'a finished session changed files but no plan task', explain: 'Its work is not reflected in the phase tree. History: the session has ended. Adopting the hook session through sofar_start_session keeps files and task changes together next time.' },
+  'orphan-task-events': { tier: 'history', title: 'task events for a task the plan does not have', explain: 'Usually another initiative\'s task ids that landed here through a branch-switch misroute. History: correct the events or add the task.' },
+  'record-folds': { tier: 'history', title: 'a record folds clean', explain: 'One line per record that folded with no warning.' },
+  'closed-bound': { tier: 'now', title: 'a closed initiative is still bound to a branch', explain: 'A new session on that branch would land on finished work. Re-run `sofar close <slug>` (idempotent), or `sofar switch <slug>` to reopen it.' },
+  'missing-successor': { tier: 'now', title: 'a superseded initiative names a successor that does not exist', explain: 'Every surface points resumption at a record that is not there. Re-close it naming the right one: `sofar close <slug> --superseded-by <slug>`.' },
+  'finished-open': { tier: 'history', title: 'every phase is resolved but the initiative is still active', explain: 'Record hygiene: nothing remains, yet it reads as live work everywhere. Close it with `sofar close <slug>`.' },
+  'lifecycle': { tier: 'now', title: 'initiative lifecycle is consistent', explain: 'No closed record is still bound, and no finished record is left open.' },
+  'split-session': { tier: 'now', title: 'a session\'s events span more than one initiative', explain: 'A session registered in two records (torn), or with events in one that never registered it (leaked), has its work split across logs. While the session is LIVE it is act-now: end it before more events tear. Once every part has ended, or the session is ABANDONED (open, idle more than 24 h, no live host process), it is history: no event carries a misplacement marker, so it cannot be repaired, and the write pin prevents new splits.' },
+  'session-routing': { tier: 'now', title: 'no session spans more than one initiative', explain: 'Every session\'s events live in one record.' },
+  'concurrent-edit': { tier: 'now', title: 'a file is under edit by two open sessions', explain: 'Two live sessions holding the same file risk overwriting each other. Abandoned sessions (idle more than 24 h, no live process) are left out.' },
+  'concurrency': { tier: 'now', title: 'no file is under concurrent edit', explain: 'No two live sessions hold the same file.' },
+  'guard-crossed': { tier: 'history', title: 'past work crossed a guarded rule', explain: 'Guards warn, never block (drift-hardening D3). The hooks warned the session when it happened; this is the record of it.' },
+  'checks-unapproved': { tier: 'now', title: 'decision checks not approved on this clone', explain: 'A check runs at Stop and pre-commit only after the operator approves its exact command on this clone: `sofar check --approve "<handle>"`; `sofar check --list` shows them all.' },
+  'guards': { tier: 'now', title: 'no work crosses a guarded rule', explain: 'No guard violation is recorded.' },
+  'repo-general': { tier: 'history', title: 'a repo-general decision .sofar/repo.md does not name', explain: 'A decision cited from other initiatives is repo-wide law, which a new session meets only if the hand-written repo.md names it as `<slug> D<n>`. Curation, not a fault: sofar never generates repo.md.' },
+  'promoted-unnamed': { tier: 'history', title: 'a promoted memory .sofar/repo.md does not name', explain: 'A memory promoted with `sofar remember` belongs in repo.md, cited as `<slug> M<n>`. Curation, not a fault.' },
+  'repo-memory': { tier: 'now', title: 'repo memory is named in repo.md', explain: 'Every repo-general decision and promoted memory is named in .sofar/repo.md.' },
+  'tailwind-scan': { tier: 'now', title: 'Tailwind v4 does not scan .sofar/', explain: 'Tailwind v4 scans the whole tree for class names, .sofar/ included. `sofar doctor --fix` adds the `@source not` exclusion (Tailwind 4.1+).' },
+  'formatter-scan': { tier: 'now', title: 'formatters and linters leave .sofar/ alone', explain: 'Biome, Prettier and markdownlint process the whole tree by default and turn their checks red on generated record files. `sofar doctor --fix` adds each tool\'s exclusion.' },
+  'abandoned-branches': { tier: 'history', title: 'branches marked abandoned on this clone', explain: '`sofar abandon <branch>` stops every surface from naming that branch\'s record copies (r4-fixes A14). `sofar abandon --undo <branch>` brings one back.' },
+} as const satisfies Record<string, CheckInfo>
+
+export type CheckId = keyof typeof CHECKS
+
+/** `sofar doctor --explain <id>`. */
+export function explainCheck(id: string): CmdResult {
+  const info = (CHECKS as Record<string, CheckInfo>)[id]
+  if (info === undefined) {
+    return fail(`sofar doctor --explain: no check "${id}". Checks: ${Object.keys(CHECKS).join(', ')}`)
+  }
+  const tier = info.tier === 'now' ? 'act now (sets the exit code when it fails)' : 'history (counted, listed by --history)'
+  return ok(`${id} — ${info.title}\ntier: ${tier}\n\n${info.explain}\n`)
+}
+
+function tierOf(f: Finding): Tier {
+  if (f.tier !== undefined) return f.tier
+  return f.id === undefined ? 'now' : CHECKS[f.id].tier
+}
 
 // ---------------------------------------------------------------------------
 // 1. Wiring integrity.
@@ -213,6 +323,7 @@ function auditAttribution(rootDir: string, findings: Finding[]): void {
   // absolute path to its old home and lost attribution for two days.
   if (hooks.configured !== null && !existsSync(hooks.dir)) {
     findings.push({
+      id: 'attribution',
       level: 'warn',
       text: `commit attribution off — core.hooksPath is ${hooks.configured}, which does not exist, so git runs no hooks at all`,
       hint: 'a moved or renamed repo keeps an absolute hooksPath to its old home: `git config --unset core.hooksPath` (or point it at a real directory), then run `sofar init`',
@@ -221,6 +332,7 @@ function auditAttribution(rootDir: string, findings: Finding[]): void {
   }
   if (!existsSync(hook)) {
     findings.push({
+      id: 'attribution',
       level: 'warn',
       text: 'commit attribution off — no prepare-commit-msg hook',
       hint: 'run `sofar init` to install it; commits will not be linked to their initiative',
@@ -233,12 +345,14 @@ function auditAttribution(rootDir: string, findings: Finding[]): void {
   const blank = unattributed(commits).length
   if (blank < commits.length) {
     findings.push({
+      id: 'attribution',
       level: 'ok',
       text: `commit attribution live (${commits.length - blank}/${commits.length} recent commits attributed)`,
     })
     return
   }
   findings.push({
+    id: 'attribution',
     level: 'warn',
     text: `prepare-commit-msg installed but the last ${commits.length} commits carry no attribution`,
     hint: 'the hook exits 0 on every failure, so this is silent: check that the `sofar` on PATH has `commit-trailer` (`sofar commit-trailer --help`) and that commits are made from a registered session',
@@ -260,12 +374,13 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
   const bindings = join(rootDir, '.sofar', 'bindings.json')
   findings.push(
     existsSync(bindings)
-      ? { level: 'ok', text: '.sofar/bindings.json present' }
-      : { level: 'fail', text: '.sofar/bindings.json missing', hint: repair },
+      ? { id: 'bindings', level: 'ok', text: '.sofar/bindings.json present' }
+      : { id: 'bindings', level: 'fail', text: '.sofar/bindings.json missing', hint: repair },
   )
 
   if (wired.size === 0) {
     findings.push({
+      id: 'agents',
       level: 'fail',
       text: `no agent wired (${AGENTS.map((id) => AGENT_LABELS[id]).join(', ')})`,
       hint: 'run `sofar init` to set one up',
@@ -284,8 +399,8 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     )
     findings.push(
       missingShims.length === 0
-        ? { level: 'ok', text: `hook shims installed (${expected.length}/${expected.length})` }
-        : { level: 'fail', text: `hook shims missing: ${missingShims.join(', ')}`, hint: repair },
+        ? { id: 'hook-shims', level: 'ok', text: `hook shims installed (${expected.length}/${expected.length})` }
+        : { id: 'hook-shims', level: 'fail', text: `hook shims missing: ${missingShims.join(', ')}`, hint: repair },
     )
   }
 
@@ -296,14 +411,14 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     )
     findings.push(
       missingHooks.length === 0
-        ? { level: 'ok', text: '.claude/settings.json hooks wired' }
-        : { level: 'fail', text: `.claude/settings.json missing hooks: ${missingHooks.join(', ')}`, hint: repair },
+        ? { id: 'claude-hooks', level: 'ok', text: '.claude/settings.json hooks wired' }
+        : { id: 'claude-hooks', level: 'fail', text: `.claude/settings.json missing hooks: ${missingHooks.join(', ')}`, hint: repair },
     )
 
     findings.push(
       mcpHasSofar(rootDir, '.mcp.json')
-        ? { level: 'ok', text: '.mcp.json sofar server registered' }
-        : { level: 'fail', text: '.mcp.json sofar server not registered', hint: repair },
+        ? { id: 'claude-mcp', level: 'ok', text: '.mcp.json sofar server registered' }
+        : { id: 'claude-mcp', level: 'fail', text: '.mcp.json sofar server not registered', hint: repair },
     )
   }
 
@@ -317,13 +432,13 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
       .map((shim) => CURSOR_HOOKS[shim.event].event)
     findings.push(
       missingCursorHooks.length === 0
-        ? { level: 'ok', text: '.cursor/hooks.json hooks wired' }
-        : { level: 'fail', text: `.cursor/hooks.json missing hooks: ${missingCursorHooks.join(', ')}`, hint: repair },
+        ? { id: 'cursor-hooks', level: 'ok', text: '.cursor/hooks.json hooks wired' }
+        : { id: 'cursor-hooks', level: 'fail', text: `.cursor/hooks.json missing hooks: ${missingCursorHooks.join(', ')}`, hint: repair },
     )
     findings.push(
       mcpHasSofar(rootDir, '.cursor/mcp.json')
-        ? { level: 'ok', text: '.cursor/mcp.json sofar server registered' }
-        : { level: 'fail', text: '.cursor/mcp.json sofar server not registered', hint: repair },
+        ? { id: 'cursor-mcp', level: 'ok', text: '.cursor/mcp.json sofar server registered' }
+        : { id: 'cursor-mcp', level: 'fail', text: '.cursor/mcp.json sofar server not registered', hint: repair },
     )
   }
 
@@ -335,8 +450,8 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     ).map((shim) => shim.file)
     findings.push(
       missingCodexShims.length === 0
-        ? { level: 'ok', text: `Codex hook shims installed (${CODEX_SHIMS.length}/${CODEX_SHIMS.length})` }
-        : { level: 'fail', text: `Codex hook shims missing: ${missingCodexShims.join(', ')}`, hint: repair },
+        ? { id: 'codex-shims', level: 'ok', text: `Codex hook shims installed (${CODEX_SHIMS.length}/${CODEX_SHIMS.length})` }
+        : { id: 'codex-shims', level: 'fail', text: `Codex hook shims missing: ${missingCodexShims.join(', ')}`, hint: repair },
     )
     const codexHooksPath = join(rootDir, '.codex', 'hooks.json')
     const missingCodexHooks = CODEX_SHIMS.filter(
@@ -344,8 +459,8 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     ).map((shim) => shim.event)
     findings.push(
       missingCodexHooks.length === 0
-        ? { level: 'ok', text: '.codex/hooks.json hooks wired' }
-        : { level: 'fail', text: `.codex/hooks.json missing hooks: ${missingCodexHooks.join(', ')}`, hint: repair },
+        ? { id: 'codex-hooks', level: 'ok', text: '.codex/hooks.json hooks wired' }
+        : { id: 'codex-hooks', level: 'fail', text: `.codex/hooks.json missing hooks: ${missingCodexHooks.join(', ')}`, hint: repair },
     )
     // Its MCP server (2.2, D7): the project's .codex/config.toml, or the user's
     // config.toml, where `codex mcp add` puts it when the project file cannot
@@ -358,7 +473,7 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
       // an unreadable file stays 'unreadable'
     }
     if (state === 'registered') {
-      findings.push({ level: 'ok', text: `${CODEX_CONFIG} sofar server registered` })
+      findings.push({ id: 'codex-mcp', level: 'ok', text: `${CODEX_CONFIG} sofar server registered` })
       // 3.4: a table from an older init lacks the approval key, so `codex exec`
       // refuses every sofar tool call. The table is the user's (D7): name the line.
       let approvalSet = true
@@ -369,6 +484,7 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
       }
       if (!approvalSet) {
         findings.push({
+          id: 'codex-approval',
           level: 'warn',
           text: `${CODEX_CONFIG} sofar tools not pre-approved — codex exec and driven sessions refuse sofar's MCP calls`,
           hint: `add \`${CODEX_TOOLS_APPROVAL}\` under [mcp_servers.sofar] in ${CODEX_CONFIG}`,
@@ -385,16 +501,18 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
       }
       if (direct !== 'set') {
         findings.push({
+          id: 'codex-direct',
           level: 'warn',
           text: `${CODEX_CONFIG} Codex reaches sofar's tools only through code mode's exec tool`,
           hint: `add \`${CODEX_DIRECT_KEY}\` under [features.code_mode] in ${CODEX_CONFIG}`,
         })
       }
     } else if (codexConfigRegistersSofar(codexUserConfigPath(userHome))) {
-      findings.push({ level: 'ok', text: 'Codex sofar server registered in your user config.toml' })
+      findings.push({ id: 'codex-mcp', level: 'ok', text: 'Codex sofar server registered in your user config.toml' })
     } else {
       const why = state === 'blocked' ? 'defines mcp_servers outside [mcp_servers.<name>] tables' : 'is not TOML sofar can read'
       findings.push({
+        id: 'codex-mcp',
         level: 'fail',
         text: `${CODEX_CONFIG} sofar server not registered`,
         hint: state === 'absent' ? repair : `${CODEX_CONFIG} ${why}, so init leaves it — run \`${CODEX_MCP_ADD}\` once`,
@@ -416,10 +534,11 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     const text = existsSync(path) ? readFileSync(path, 'utf8') : ''
     switch (classifyProtocolBlock(text, template, shipped)) {
       case 'current':
-        findings.push({ level: 'ok', text: `${file} protocol block current` })
+        findings.push({ id: 'protocol-block', level: 'ok', text: `${file} protocol block current` })
         break
       case 'stale':
         findings.push({
+          id: 'protocol-block',
           level: 'warn',
           text: `${file} protocol block is from an older sofar`,
           hint: 'run `sofar init --refresh` to refresh it',
@@ -430,19 +549,21 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
         // Not a fault — an edited block is the user's. Say so, so a repo that
         // silently misses protocol updates is at least visible.
         findings.push({
+          id: 'protocol-block',
           level: 'warn',
           text: `${file} protocol block is customized — sofar will not refresh it`,
           hint: 'compare it against a fresh `sofar init` in a scratch repo',
         })
         break
       default:
-        findings.push({ level: 'fail', text: `${file} protocol block missing`, hint: repair })
+        findings.push({ id: 'protocol-block', level: 'fail', text: `${file} protocol block missing`, hint: repair })
     }
   }
 
   if (wired.size > 0) {
     for (const id of AGENTS.filter((agent) => !wired.has(agent))) {
       findings.push({
+        id: 'agents',
         level: 'ok',
         text: `${AGENT_LABELS[id]} not set up — \`sofar init --agents ${id}\` adds it`,
       })
@@ -494,7 +615,7 @@ export function auditGitattributes(rootDir: string, findings: Finding[]): void {
   }
   const short = GITATTRIBUTES_LINES.filter((line) => wanted(line).some(([attr, value]) => !applied(line, attr, value)))
   if (short.length === 0) {
-    findings.push({ level: 'ok', text: `.gitattributes merges every generated sofar path clean (${GITATTRIBUTES_LINES.length} rules)` })
+    findings.push({ id: 'gitattributes', level: 'ok', text: `.gitattributes merges every generated sofar path clean (${GITATTRIBUTES_LINES.length} rules)` })
     return
   }
   const addable = short.filter((line) => !ours.has(pattern(line)))
@@ -503,6 +624,7 @@ export function auditGitattributes(rootDir: string, findings: Finding[]): void {
   if (addable.length > 0) hint.push('run `sofar init` to append them (it never touches your own lines), or add:', ...addable.map((l) => `  ${l}`))
   if (owned.length > 0) hint.push("your own line wins for these and init leaves it; make it read:", ...owned.map((l) => `  ${l}`))
   findings.push({
+    id: 'gitattributes',
     level: 'warn',
     text: `.gitattributes leaves ${short.length} of ${GITATTRIBUTES_LINES.length} generated sofar path(s) to a text merge, which can conflict on them`,
     hint: hint.join('\n'),
@@ -556,11 +678,12 @@ export function auditCore(findings: Finding[], probe: CoreProbe = {}): void {
   const core = probe.core ?? resolveCore(env.SOFAR_CORE, import.meta.url)
   switch (core.kind) {
     case 'override':
-      findings.push({ level: 'ok', text: `hot path: native core named by SOFAR_CORE (${core.path})` })
+      findings.push({ id: 'hot-path', level: 'ok', text: `hot path: native core named by SOFAR_CORE (${core.path})` })
       break
     case 'package':
       if (core.version !== null && core.version !== CURRENT_VERSION) {
         findings.push({
+          id: 'hot-path',
           level: 'warn',
           text: `hot path: native core ${core.version} does not match sofar ${CURRENT_VERSION}`,
           hint: 'run `sofar upgrade` — the core ships pinned to each release',
@@ -569,16 +692,18 @@ export function auditCore(findings: Finding[], probe: CoreProbe = {}): void {
         // Windows keeps the stub by design: npm's .cmd wrapper runs it with
         // node, and the stub finds the .exe itself (install.mjs).
         findings.push({
+          id: 'hot-path',
           level: 'warn',
           text: `hot path: node boots before the native core on every hook — sofar.sh's install script did not run, so its \`sofar-core\` is still the JavaScript stub`,
           hint: `npm 12 skips install scripts unless allowed: run \`${ALLOW_SCRIPTS_CONFIG}\`, then reinstall with \`${ALLOW_SCRIPTS_INSTALL}\``,
         })
       } else {
-        findings.push({ level: 'ok', text: `hot path: native core ${CORE_PACKAGE}${core.version === null ? '' : ` ${core.version}`}` })
+        findings.push({ id: 'hot-path', level: 'ok', text: `hot path: native core ${CORE_PACKAGE}${core.version === null ? '' : ` ${core.version}`}` })
       }
       break
     default:
       findings.push({
+        id: 'hot-path',
         level: 'ok',
         text:
           core.reason === 'forbidden'
@@ -650,7 +775,7 @@ function realFileCount(files: string[]): number {
 function auditRecords(folded: Folded[]): Section {
   const findings: Finding[] = []
   if (folded.length === 0) {
-    findings.push({ level: 'ok', text: 'no initiative logs yet — nothing to fold' })
+    findings.push({ id: 'log-readable', level: 'ok', text: 'no initiative logs yet — nothing to fold' })
     return { title: 'Record health', findings }
   }
   // Citation resolution needs the sibling slugs, so a cross-initiative
@@ -659,7 +784,7 @@ function auditRecords(folded: Folded[]): Section {
 
   for (const { slug, state, warnings, orphans, error } of folded) {
     if (error !== undefined || state === undefined) {
-      findings.push({ level: 'fail', text: `${slug}: cannot read log — ${error ?? 'unknown error'}` })
+      findings.push({ id: 'log-readable', level: 'fail', text: `${slug}: cannot read log — ${error ?? 'unknown error'}` })
       continue
     }
     const before = findings.length
@@ -668,6 +793,7 @@ function auditRecords(folded: Folded[]): Section {
     const stubs = state.sessions.filter((s) => s.tool === 'unknown').map((s) => s.id)
     if (stubs.length > 0) {
       findings.push({
+        id: 'stub-sessions',
         level: 'warn',
         text: `${slug}: ${stubs.length} stub session(s) — session_ended without session_started`,
         hint: `ids: ${stubs.join(', ')} (a hook or agent wrote back without registering the session)`,
@@ -685,6 +811,7 @@ function auditRecords(folded: Folded[]): Section {
       const hidden = warnings.length - shown.length
       const hint = hidden > 0 ? [...shown, `+${hidden} more (see \`sofar status <slug>\`)`] : shown
       findings.push({
+        id: 'fold-warnings',
         level: 'warn',
         text: `${slug}: ${warnings.length} fold warning(s)`,
         hint: hint.join('\n'),
@@ -696,6 +823,7 @@ function auditRecords(folded: Folded[]): Section {
     // status renders share it; the WARN text here is unchanged.
     for (const stale of staleActivePhases(state)) {
       findings.push({
+        id: 'stale-phase',
         level: 'warn',
         text: `${slug}: phase "${stale.name}" — all ${stale.tasks_done} tasks done but phase still ${stale.status}`,
         hint: 'emit phase_status_changed to mark it done, else it keeps showing as the active phase',
@@ -711,12 +839,14 @@ function auditRecords(folded: Folded[]): Section {
       const cited = extractCitations(note, slug, knownSlugs).length > 0
       if (note.trim() === '') {
         findings.push({
+          id: 'drop-reason',
           level: 'warn',
           text: `${slug}: task "${taskId}" dropped with no reason`,
           hint: 'a drop with no stated reason reads as forgotten rather than decided — re-emit task_status_changed with a note',
         })
       } else if (!cited) {
         findings.push({
+          id: 'drop-reason',
           level: 'warn',
           text: `${slug}: task "${taskId}" dropped citing no decision`,
           hint: `reason recorded ("${note.slice(0, 60)}${note.length > 60 ? '…' : ''}") but it points at no D<n> — log the decision and cite it, so the drop survives the author's context`,
@@ -732,6 +862,7 @@ function auditRecords(folded: Folded[]): Section {
       if (s.ended === undefined || s.activity === undefined) continue
       if (realFileCount(s.activity.files) >= UNTRACKED_FILE_THRESHOLD && s.activity.task_changes.length === 0) {
         findings.push({
+          id: 'untracked-work',
           level: 'warn',
           text: `${slug}: session ${s.id} touched ${realFileCount(s.activity.files)} files but changed no plan tasks`,
           hint: 'either the work is not tracked as tasks, or its tasks landed on a sibling session — adopt the hook session via start_session so files + task changes stay together',
@@ -752,13 +883,14 @@ function auditRecords(folded: Folded[]): Section {
     for (const [taskId, group] of byTask) {
       const last = group[group.length - 1]!
       findings.push({
+        id: 'orphan-task-events',
         level: 'warn',
         text: `${slug}: ${group.length} task event(s) for "${taskId}" — no such task in the plan`,
         hint: `possible misroute from another initiative (session ${last.session}, last event ${last.event_id}) — correct the event(s) or add the task`,
       })
     }
 
-    if (findings.length === before) findings.push({ level: 'ok', text: `${slug}: folds clean` })
+    if (findings.length === before) findings.push({ id: 'record-folds', level: 'ok', text: `${slug}: folds clean` })
   }
   return { title: 'Record health', findings }
 }
@@ -825,6 +957,7 @@ function auditLifecycle(rootDir: string, folded: Folded[]): Section {
         .sort()
       if (bound.length > 0) {
         findings.push({
+          id: 'closed-bound',
           level: 'warn',
           text: `${slug}: closed (${state.status}) but still bound to ${bound.map((b) => `"${b}"`).join(', ')}`,
           hint: `a new session on that branch would land on finished work — re-run \`sofar close ${slug}\` (idempotent) or \`sofar switch ${slug}\` to reopen it`,
@@ -836,6 +969,7 @@ function auditLifecycle(rootDir: string, folded: Folded[]): Section {
       // it at write time; this is the read-time check for everything after.
       if (state.successor !== null && !folded.some((f) => f.slug === state.successor)) {
         findings.push({
+          id: 'missing-successor',
           level: 'warn',
           text: `${slug}: superseded by "${state.successor}", which does not exist under .sofar/initiatives/`,
           hint: `every surface points resumption at a record that is not there — re-close it naming the right one: \`sofar close ${slug} --superseded-by <slug>\``,
@@ -850,6 +984,7 @@ function auditLifecycle(rootDir: string, folded: Folded[]): Section {
     // shows it, and a fresh session resumes work that is over.
     if (state.phases.length > 0 && state.phases.every((p) => isResolvedTaskStatus(p.status))) {
       findings.push({
+        id: 'finished-open',
         level: 'warn',
         text: `${slug}: all ${state.phases.length} phase(s) resolved but the initiative is still active`,
         hint: `nothing remains, yet it still reads as live work everywhere — close it with \`sofar close ${slug}\``,
@@ -858,12 +993,12 @@ function auditLifecycle(rootDir: string, folded: Folded[]): Section {
   }
 
   if (findings.length === 0) {
-    findings.push({ level: 'ok', text: 'no closed initiative still bound, no finished record left open' })
+    findings.push({ id: 'lifecycle', level: 'ok', text: 'no closed initiative still bound, no finished record left open' })
   }
   return { title: 'Initiative lifecycle', findings }
 }
 
-function auditSplitSessions(folded: Folded[]): Section {
+function auditSplitSessions(folded: Folded[], abandoned: ReadonlyMap<string, number>): Section {
   const footprints = new Map<string, Footprint[]>()
   const add = (id: string, slug: string, registered: boolean, open = false): void => {
     if (id === 'cli') return
@@ -888,7 +1023,11 @@ function auditSplitSessions(folded: Folded[]): Section {
     const homes = list.filter((f) => f.registered).map((f) => f.slug)
     const leaked = list.filter((f) => !f.registered).map((f) => f.slug)
     const shape = homes.length > 1 ? 'torn' : 'leaked'
-    const live = list.some((f) => f.open)
+    const open = list.some((f) => f.open)
+    // Open but abandoned (A14): idle past ABANDON_IDLE_MS with no live host
+    // process. Nothing is tearing it any more; it is history like an ended one.
+    const idleHours = abandoned.get(id)
+    const live = open && idleHours === undefined
     let hint: string
     if (homes.length > 1) {
       hint = `registered in ${homes.join(', ')} — its writes were split across ${homes.length} records`
@@ -899,16 +1038,20 @@ function auditSplitSessions(folded: Folded[]): Section {
     }
     hint += live
       ? ' — this session is still OPEN: end it before more events tear'
-      : ' — settled history (all sessions ended); the write pin prevents new splits'
+      : open
+        ? ` — open, but idle ${idleHours} h with no live host process: abandoned, so settled history; the write pin prevents new splits`
+        : ' — settled history (all sessions ended); the write pin prevents new splits'
     findings.push({
+      id: 'split-session',
+      tier: live ? 'now' : 'history',
       level: live ? 'fail' : 'warn',
-      text: `session ${id} spans ${list.length} initiatives (${shape}${live ? ', live' : ', history'}): ${list.map((f) => f.slug).join(', ')}`,
+      text: `session ${id} spans ${list.length} initiatives (${shape}${live ? ', live' : open ? ', abandoned' : ', history'}): ${list.map((f) => f.slug).join(', ')}`,
       hint,
     })
   }
 
   if (findings.length === 0) {
-    findings.push({ level: 'ok', text: 'no session spans more than one initiative' })
+    findings.push({ id: 'session-routing', level: 'ok', text: 'no session spans more than one initiative' })
   }
   return { title: 'Session routing', findings }
 }
@@ -934,6 +1077,7 @@ function auditGuards(rootDir: string, folded: Folded[]): Section {
       const rel = relative(rootDir, v.subject)
       const where = v.domain === 'path' && rel.length > 0 && !rel.startsWith('..') ? rel : v.subject
       findings.push({
+        id: 'guard-crossed',
         level: 'warn',
         text: `${slug}: [D${v.decision}] guard crossed — ${where}`,
         hint: `"${v.rule}" (guard: ${v.guard}; session ${v.session}, event ${v.event_id})`,
@@ -942,6 +1086,7 @@ function auditGuards(rootDir: string, folded: Folded[]): Section {
   }
   if (findings.length === 0) {
     findings.push({
+      id: 'guards',
       level: 'ok',
       text:
         guarded === 0
@@ -971,13 +1116,31 @@ function unapprovedFinding(checks: readonly InForceCheck[]): Finding {
   const named = checks.slice(0, 3).map((c) => `[${c.handle}] \`${c.check.cmd}\``).join(', ')
   const more = checks.length > 3 ? `, +${checks.length - 3} more` : ''
   return {
+    id: 'checks-unapproved',
     level: 'warn',
     text: `${checks.length} decision check(s) not approved on this clone, so none of them runs at Stop or pre-commit: ${named}${more}`,
     hint: 'the operator approves one with `sofar check --approve "<handle>"`; `sofar check --list` shows them all',
   }
 }
 
-function auditConcurrency(folded: Folded[]): Section {
+/** The fold's view with abandoned sessions treated as ended (A14): neither holds a file any more. */
+function withoutAbandoned(folded: Folded[], abandoned: ReadonlyMap<string, number>): Folded[] {
+  if (abandoned.size === 0) return folded
+  return folded.map((f) =>
+    f.state === undefined
+      ? f
+      : {
+          ...f,
+          state: {
+            ...f.state,
+            sessions: f.state.sessions.map((s) => (s.ended === undefined && abandoned.has(s.id) ? { ...s, ended: 'abandoned' } : s)),
+          },
+        },
+  )
+}
+
+function auditConcurrency(all: Folded[], abandoned: ReadonlyMap<string, number>): Section {
+  const folded = withoutAbandoned(all, abandoned)
   const findings: Finding[] = []
   let conflictTotal = 0
   for (const { slug, state } of folded) {
@@ -985,6 +1148,7 @@ function auditConcurrency(folded: Folded[]): Section {
     for (const c of openSessionFileConflicts(state)) {
       conflictTotal++
       findings.push({
+        id: 'concurrent-edit',
         level: 'warn',
         text: `${slug}: ${c.path} — touched by ${c.sessions.length} open sessions`,
         hint: `sessions ${c.sessions.join(', ')} are both in-flight on this file (concurrent-edit / clobber risk)`,
@@ -1007,6 +1171,7 @@ function auditConcurrency(folded: Folded[]): Section {
   for (const c of crossed) {
     conflictTotal++
     findings.push({
+      id: 'concurrent-edit',
       level: 'warn',
       text: `${c.path} — held across ${c.initiatives.length} initiatives (${c.initiatives.join(', ')})`,
       hint: `${c.holders.map((h) => `${h.session} in ${h.initiative}`).join('; ')} — a clobber does not respect the initiative boundary`,
@@ -1014,7 +1179,7 @@ function auditConcurrency(folded: Folded[]): Section {
   }
 
   if (conflictTotal === 0) {
-    findings.push({ level: 'ok', text: 'no files under concurrent edit by multiple open sessions' })
+    findings.push({ id: 'concurrency', level: 'ok', text: 'no files under concurrent edit by multiple open sessions' })
   }
   return { title: 'Concurrency', findings }
 }
@@ -1079,6 +1244,7 @@ function auditRepoMemory(rootDir: string, folded: Folded[]): Section {
 
   if (general.length === 0 && promoted.length === 0) {
     findings.push({
+      id: 'repo-memory',
       level: 'ok',
       text: 'nothing observed as repo-general and nothing promoted (no decision cited from outside its own initiative, no memory_promoted events)',
     })
@@ -1103,6 +1269,7 @@ function auditRepoMemory(rootDir: string, folded: Folded[]): Section {
     const handle = `${decision.initiative} D${decision.ordinal}`
     if (named.has(handle)) continue
     findings.push({
+      id: 'repo-general',
       level: 'warn',
       text: `${handle} is repo-general — cited from ${decision.cited_by.join(', ')} — but .sofar/repo.md never names it`,
       hint: `chose: ${clip(decision.chose, 120)} — write it into repo.md by hand, citing \`${handle}\` (sofar never generates repo.md)`,
@@ -1112,6 +1279,7 @@ function auditRepoMemory(rootDir: string, folded: Folded[]): Section {
     const handle = `${memory.slug} M${memory.ordinal}`
     if (named.has(handle)) continue
     findings.push({
+      id: 'promoted-unnamed',
       level: 'warn',
       text: `${handle} was promoted to repo memory but .sofar/repo.md never names it`,
       hint: `${clip(memory.text, 120)} — write it into repo.md by hand, citing \`${handle}\` (sofar never generates repo.md)`,
@@ -1125,7 +1293,7 @@ function auditRepoMemory(rootDir: string, folded: Folded[]): Section {
     if (promoted.length > 0) {
       parts.push(`${promoted.length} promoted ${promoted.length === 1 ? 'memory' : 'memories'}`)
     }
-    findings.push({ level: 'ok', text: `all ${parts.join(' and ')} named in .sofar/repo.md` })
+    findings.push({ id: 'repo-memory', level: 'ok', text: `all ${parts.join(' and ')} named in .sofar/repo.md` })
   }
   return { title: 'Repo memory', findings }
 }
@@ -1189,13 +1357,14 @@ function auditScanners(rootDir: string, fix: boolean, progress: ScanProgress): S
   const findings: Finding[] = []
   const tw = detectTailwindV4(rootDir)
   if (!tw.v4) {
-    findings.push({ level: 'ok', text: 'no tree-wide class scanner detected (Tailwind v4 absent)' })
+    findings.push({ id: 'tailwind-scan', level: 'ok', text: 'no tree-wide class scanner detected (Tailwind v4 absent)' })
     return { title: 'Scanner hazards', findings }
   }
 
   const entries = scanEntries(rootDir, progress)
   if (entries.length === 0) {
     findings.push({
+      id: 'tailwind-scan',
       level: 'warn',
       text: `Tailwind v4 present (tailwindcss ${tw.range}) but no \`@import "tailwindcss"\` entry stylesheet found`,
       hint: 'if you add one, run `sofar doctor --fix` to exclude .sofar from scanning',
@@ -1209,11 +1378,11 @@ function auditScanners(rootDir: string, fix: boolean, progress: ScanProgress): S
     try {
       content = readFileSync(entry, 'utf8')
     } catch (err) {
-      findings.push({ level: 'fail', text: `${rel}: cannot read — ${errMessage(err)}` })
+      findings.push({ id: 'tailwind-scan', level: 'fail', text: `${rel}: cannot read — ${errMessage(err)}` })
       continue
     }
     if (cssExcludesSofar(content, entry, rootDir)) {
-      findings.push({ level: 'ok', text: `${rel}: excludes .sofar from Tailwind scanning` })
+      findings.push({ id: 'tailwind-scan', level: 'ok', text: `${rel}: excludes .sofar from Tailwind scanning` })
       continue
     }
     if (fix && tw.sourceNot) {
@@ -1222,10 +1391,11 @@ function auditScanners(rootDir: string, fix: boolean, progress: ScanProgress): S
         try {
           writeFileSync(entry, next, 'utf8')
         } catch (err) {
-          findings.push({ level: 'fail', text: `${rel}: fix failed — ${errMessage(err)}` })
+          findings.push({ id: 'tailwind-scan', level: 'fail', text: `${rel}: fix failed — ${errMessage(err)}` })
           continue
         }
         findings.push({
+          id: 'tailwind-scan',
           level: 'ok',
           text: `${rel}: added \`${sofarExclusionDirective(entry, rootDir)}\``,
           fixed: true,
@@ -1234,6 +1404,7 @@ function auditScanners(rootDir: string, fix: boolean, progress: ScanProgress): S
       }
     }
     findings.push({
+      id: 'tailwind-scan',
       level: 'fail',
       text: `${rel}: Tailwind v4 will scan .sofar/ — no \`@source not\` exclusion`,
       hint: !tw.sourceNot
@@ -1264,6 +1435,7 @@ function auditFormatters(rootDir: string, fix: boolean): Section {
   const hazards = detectFormatterHazards(rootDir)
   if (hazards.length === 0) {
     findings.push({
+      id: 'formatter-scan',
       level: 'ok',
       text: 'no formatter or linter reaching .sofar detected (Biome, Prettier, markdownlint absent)',
     })
@@ -1271,20 +1443,21 @@ function auditFormatters(rootDir: string, fix: boolean): Section {
   }
   for (const h of hazards) {
     if (h.excluded) {
-      findings.push({ level: 'ok', text: `${h.label}: excludes .sofar (${h.file})` })
+      findings.push({ id: 'formatter-scan', level: 'ok', text: `${h.label}: excludes .sofar (${h.file})` })
       continue
     }
     if (fix && h.apply !== undefined) {
       try {
         h.apply()
       } catch (err) {
-        findings.push({ level: 'fail', text: `${h.label}: fix failed — ${errMessage(err)}` })
+        findings.push({ id: 'formatter-scan', level: 'fail', text: `${h.label}: fix failed — ${errMessage(err)}` })
         continue
       }
-      findings.push({ level: 'ok', text: `${h.label}: added ${h.directive} to ${h.file}`, fixed: true })
+      findings.push({ id: 'formatter-scan', level: 'ok', text: `${h.label}: added ${h.directive} to ${h.file}`, fixed: true })
       continue
     }
     findings.push({
+      id: 'formatter-scan',
       level: 'fail',
       text: `${h.label} will process .sofar/ — no exclusion in ${h.file}`,
       hint: h.withheld !== undefined
@@ -1303,15 +1476,21 @@ interface Tally {
   fails: number
   warns: number
   fixesApplied: number
+  /** History findings at WARN or FAIL (A14 triage only; 0 in the flat report). */
+  history: number
 }
 
-function tallyOf(sections: Section[]): Tally {
-  const tally: Tally = { fails: 0, warns: 0, fixesApplied: 0 }
+function tallyOf(sections: Section[], triage = false): Tally {
+  const tally: Tally = { fails: 0, warns: 0, fixesApplied: 0, history: 0 }
   for (const section of sections) {
     for (const f of section.findings) {
+      if (f.fixed === true) tally.fixesApplied++
+      if (triage && tierOf(f) === 'history') {
+        if (f.level !== 'ok') tally.history++
+        continue
+      }
       if (f.level === 'fail') tally.fails++
       if (f.level === 'warn') tally.warns++
-      if (f.fixed === true) tally.fixesApplied++
     }
   }
   return tally
@@ -1329,28 +1508,47 @@ function summaryParts(tally: Tally, style: Style): string[] {
       : style.error(`${tally.fails} problem${tally.fails === 1 ? '' : 's'} found`),
   )
   if (tally.warns > 0) parts.push(style.warn(`${tally.warns} warning${tally.warns === 1 ? '' : 's'}`))
+  if (tally.history > 0) parts.push(style.dim(`${tally.history} in history`))
   return parts
 }
 
+/** What a report shows: the act-now sections, then (with --history) the history ones, then the count line. */
+interface Report {
+  sections: Section[]
+  historySections?: Section[]
+  historyLine?: string
+  tally: Tally
+}
+
+const HISTORY_HEADING = 'History (settled — never sets the exit code):'
+
 /** The pre-cli-ui plain report — the piped/NO_COLOR contract, byte-stable. */
-function renderPlain(rootDir: string, sections: Section[], tally: Tally): string {
+function renderPlain(rootDir: string, report: Report): string {
   const lines: string[] = [`sofar doctor — ${rootDir}`, '']
-  for (const section of sections) {
-    lines.push(`${section.title}:`)
-    for (const f of section.findings) {
-      lines.push(`${MARKER[f.level]}  ${f.text}`)
-      // A hint may carry several lines (fold warnings list one per line);
-      // each is indented identically, so a one-line hint is unchanged.
-      if (f.hint !== undefined) for (const h of f.hint.split('\n')) lines.push(`          ${h}`)
+  const body = (sections: Section[]): void => {
+    for (const section of sections) {
+      lines.push(`${section.title}:`)
+      for (const f of section.findings) {
+        lines.push(`${MARKER[f.level]}  ${f.text}`)
+        // A hint may carry several lines (fold warnings list one per line);
+        // each is indented identically, so a one-line hint is unchanged.
+        if (f.hint !== undefined) for (const h of f.hint.split('\n')) lines.push(`          ${h}`)
+      }
+      lines.push('')
     }
-    lines.push('')
   }
-  lines.push(`sofar doctor: ${summaryParts(tally, createStyle(false)).join(', ')}`)
+  body(report.sections)
+  if (report.historySections !== undefined && report.historySections.length > 0) {
+    lines.push(HISTORY_HEADING, '')
+    body(report.historySections)
+  }
+  if (report.historyLine !== undefined) lines.push(report.historyLine, '')
+  lines.push(`sofar doctor: ${summaryParts(report.tally, createStyle(false)).join(', ')}`)
   return `${lines.join('\n')}\n`
 }
 
 /** Styled report (cli-ui 2.4): ✓/⚠/✗ level marks, bold sections, dim └ hints. */
-function renderStyled(rootDir: string, sections: Section[], tally: Tally, caps: Caps): string {
+function renderStyled(rootDir: string, report: Report, caps: Caps): string {
   const style = createStyle(true)
   const sym = symbolsFor(caps.unicode)
   const mark: Record<Level, string> = {
@@ -1361,24 +1559,161 @@ function renderStyled(rootDir: string, sections: Section[], tally: Tally, caps: 
   // ASCII fallback marks are uneven (√ / !! / ×) — pad so finding texts stay columnar.
   const markWidth = Math.max(...[sym.ok, sym.warn, sym.fail].map((s) => visibleWidth(s)))
   const lines: string[] = [`${style.bold('sofar doctor')} ${style.dim(`— ${rootDir}`)}`, '']
-  for (const section of sections) {
-    lines.push(style.bold(`${section.title}:`))
-    for (const f of section.findings) {
-      lines.push(`  ${padEndVisible(mark[f.level], markWidth)} ${f.text}`)
-      if (f.hint !== undefined) {
-        // Multi-line hints: the elbow marks the first line only, continuations
-        // align under it, so the block reads as one hint rather than several.
-        const pad = ' '.repeat(markWidth + 3)
-        const cont = ' '.repeat(visibleWidth(sym.elbow) + 1)
-        f.hint.split('\n').forEach((h, i) => {
-          lines.push(style.dim(i === 0 ? `${pad}${sym.elbow} ${h}` : `${pad}${cont}${h}`))
-        })
+  const body = (sections: Section[]): void => {
+    for (const section of sections) {
+      lines.push(style.bold(`${section.title}:`))
+      for (const f of section.findings) {
+        lines.push(`  ${padEndVisible(mark[f.level], markWidth)} ${f.text}`)
+        if (f.hint !== undefined) {
+          // Multi-line hints: the elbow marks the first line only, continuations
+          // align under it, so the block reads as one hint rather than several.
+          const pad = ' '.repeat(markWidth + 3)
+          const cont = ' '.repeat(visibleWidth(sym.elbow) + 1)
+          f.hint.split('\n').forEach((h, i) => {
+            lines.push(style.dim(i === 0 ? `${pad}${sym.elbow} ${h}` : `${pad}${cont}${h}`))
+          })
+        }
+      }
+      lines.push('')
+    }
+  }
+  body(report.sections)
+  if (report.historySections !== undefined && report.historySections.length > 0) {
+    lines.push(style.bold(HISTORY_HEADING), '')
+    body(report.historySections)
+  }
+  if (report.historyLine !== undefined) lines.push(style.dim(report.historyLine), '')
+  lines.push(style.bold(`sofar doctor: ${summaryParts(report.tally, style).join(', ')}`))
+  return `${lines.join('\n')}\n`
+}
+
+// ---------------------------------------------------------------------------
+// Triage (r4-fixes A14).
+// ---------------------------------------------------------------------------
+
+/** An open session idle longer than this, with no live host process, is abandoned (A14). */
+export const ABANDON_IDLE_MS = 24 * 60 * 60 * 1000
+
+/** Canonical lines lead with the envelope in key order (core/log.ts): the ts and session without a parse. */
+const ENVELOPE_HEAD = /^\{"v":\d+,"id":"[^"]*","ts":"([^"]+)","initiative":"[^"]*","session":"([^"]*)"/
+
+/** session id → its newest event's ts, over one log. Doctor-only: one more read of each log. */
+function lastSeenIn(logPath: string, into: Map<string, string>): void {
+  let text: string
+  try {
+    text = readFileSync(logPath, 'utf8')
+  } catch {
+    return
+  }
+  for (const line of text.split('\n')) {
+    if (line.length === 0) continue
+    let ts: string | undefined
+    let session: string | undefined
+    const head = ENVELOPE_HEAD.exec(line)
+    if (head !== null) {
+      ts = head[1]
+      session = head[2]
+    } else {
+      try {
+        const e = JSON.parse(line) as { ts?: unknown; session?: unknown }
+        if (typeof e.ts === 'string' && typeof e.session === 'string') {
+          ts = e.ts
+          session = e.session
+        }
+      } catch {
+        continue // corrupt: the fold warns about it, liveness ignores it
       }
     }
-    lines.push('')
+    if (ts === undefined || session === undefined) continue
+    const seen = into.get(session)
+    if (seen === undefined || ts > seen) into.set(session, ts)
   }
-  lines.push(style.bold(`sofar doctor: ${summaryParts(tally, style).join(', ')}`))
-  return `${lines.join('\n')}\n`
+}
+
+/** Session ids a host reports a live process for: Claude Code's own registry (core/peers.ts). */
+function liveSessionIds(): Set<string> {
+  try {
+    return new Set(livePeers().map((p) => p.sessionId))
+  } catch {
+    return new Set()
+  }
+}
+
+/**
+ * Open sessions (registered, never ended) that are abandoned: newest event
+ * older than ABANDON_IDLE_MS and no live host process. Codex and Cursor keep
+ * no registry sofar can read, so for them idleness alone decides. Returns id →
+ * whole hours idle.
+ */
+function abandonedSessions(rootDir: string, folded: Folded[], now: Date, live: ReadonlySet<string>): Map<string, number> {
+  const open = new Map<string, string>()
+  for (const { state } of folded) {
+    for (const s of state?.sessions ?? []) if (s.ended === undefined && s.id !== 'cli') open.set(s.id, s.started)
+  }
+  const abandoned = new Map<string, number>()
+  if (open.size === 0) return abandoned
+  const lastSeen = new Map<string, string>()
+  for (const { slug } of folded) lastSeenIn(join(rootDir, '.sofar', 'initiatives', slug, 'events.jsonl'), lastSeen)
+  for (const [id, started] of open) {
+    if (live.has(id)) continue
+    const last = Date.parse(lastSeen.get(id) ?? started)
+    if (!Number.isFinite(last)) continue
+    const idle = now.getTime() - last
+    if (idle > ABANDON_IDLE_MS) abandoned.set(id, Math.floor(idle / 3_600_000))
+  }
+  return abandoned
+}
+
+/** The act-now view: each section's act-now findings, or one line saying there is nothing to act on. */
+function actNowSections(sections: Section[]): Section[] {
+  return sections.flatMap((section) => {
+    const now = section.findings.filter((f) => tierOf(f) === 'now')
+    const history = section.findings.filter((f) => tierOf(f) === 'history' && f.level !== 'ok').length
+    if (now.length > 0) return [{ title: section.title, findings: now }]
+    if (section.findings.length === 0) return []
+    return [{ title: section.title, findings: [{ level: 'ok' as const, text: history > 0 ? `nothing to act on (${history} in history)` : 'nothing to act on' }] }]
+  })
+}
+
+function historySections(sections: Section[]): Section[] {
+  return sections
+    .map((section) => ({ title: section.title, findings: section.findings.filter((f) => tierOf(f) === 'history') }))
+    .filter((section) => section.findings.length > 0)
+}
+
+/** `History: N finding(s) — 307 repo memory, 81 session routing, … — sofar doctor --history lists them`. */
+function historyLine(sections: Section[], listed: boolean): string | undefined {
+  const counts = sections
+    .map((section) => ({ title: section.title, n: section.findings.filter((f) => tierOf(f) === 'history' && f.level !== 'ok').length }))
+    .filter((c) => c.n > 0)
+    .sort((a, b) => b.n - a.n)
+  const total = counts.reduce((sum, c) => sum + c.n, 0)
+  if (total === 0) return undefined
+  const parts = counts.map((c) => `${c.n} ${c.title.toLowerCase()}`).join(', ')
+  return `History: ${total} finding(s) that need no action now — ${parts}${listed ? '' : ' (`sofar doctor --history` lists them)'}`
+}
+
+function jsonReport(rootDir: string, sections: Section[], triage: boolean, exitCode: number, tally: Tally): string {
+  const findings = sections.flatMap((section) =>
+    section.findings.map((f) => ({
+      section: section.title,
+      ...(f.id !== undefined ? { id: f.id } : {}),
+      tier: triage ? tierOf(f) : 'now',
+      level: f.level,
+      text: f.text,
+      ...(f.hint !== undefined ? { hint: f.hint } : {}),
+      ...(f.fixed === true ? { fixed: true } : {}),
+    })),
+  )
+  const report = {
+    version: 1,
+    root: rootDir,
+    triage,
+    exit_code: exitCode,
+    summary: { act_now: { fail: tally.fails, warn: tally.warns }, history: tally.history, fixes_applied: tally.fixesApplied },
+    findings,
+  }
+  return `${JSON.stringify(report, null, 2)}\n`
 }
 
 export function runDoctor(
@@ -1391,23 +1726,57 @@ export function runDoctor(
   if (!existsSync(join(rootDir, '.sofar'))) {
     return fail('sofar doctor: no .sofar/ record here — run `sofar init` first')
   }
+  const env = options.env ?? process.env
+  // SOFAR_ABANDON=off: the flat 0.34 report, liveness without the abandoned
+  // disposition, every FAIL in the exit code (the A14 ablation switch).
+  const triage = abandonEnabled(env)
 
   const folded = foldInitiatives(rootDir)
+  const abandoned = triage
+    ? abandonedSessions(rootDir, folded, options.now ?? new Date(), options.liveSessions ?? liveSessionIds())
+    : new Map<string, number>()
   const sections = [
     auditWiring(rootDir, options.home),
     auditRecords(folded),
     auditLifecycle(rootDir, folded),
-    auditSplitSessions(folded),
-    auditConcurrency(folded),
+    auditSplitSessions(folded, abandoned),
+    auditConcurrency(folded, abandoned),
     auditGuards(rootDir, folded),
     auditRepoMemory(rootDir, folded),
     auditScanners(rootDir, fix, { caps: progress.caps ?? stderrCaps(), stream: progress.stream }),
     auditFormatters(rootDir, fix),
   ]
+  if (triage) {
+    const marks = listAbandoned(rootDir, env)
+    if (marks.length > 0) {
+      sections.push({
+        title: 'Abandoned branches',
+        findings: [
+          {
+            id: 'abandoned-branches',
+            level: 'ok',
+            text: `${marks.length} branch(es) marked abandoned on this clone, named by no surface: ${marks.map((m) => m.branch).join(', ')}`,
+            hint: '`sofar abandon --undo <branch>` brings one back',
+          },
+        ],
+      })
+    }
+  }
 
-  const tally = tallyOf(sections)
-  const stdout = caps.color
-    ? renderStyled(rootDir, sections, tally, caps)
-    : renderPlain(rootDir, sections, tally)
-  return tally.fails === 0 ? ok(stdout) : { exitCode: 1, stdout, stderr: '' }
+  const tally = tallyOf(sections, triage)
+  const exitCode = tally.fails === 0 ? 0 : 1
+  if (options.json === true) return { exitCode, stdout: jsonReport(rootDir, sections, triage, exitCode, tally), stderr: '' }
+
+  const report: Report = triage
+    ? {
+        sections: actNowSections(sections),
+        ...(options.history === true ? { historySections: historySections(sections) } : {}),
+        ...(historyLine(sections, options.history === true) !== undefined
+          ? { historyLine: historyLine(sections, options.history === true)! }
+          : {}),
+        tally,
+      }
+    : { sections, tally }
+  const stdout = caps.color ? renderStyled(rootDir, report, caps) : renderPlain(rootDir, report)
+  return { exitCode, stdout, stderr: '' }
 }

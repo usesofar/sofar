@@ -180,6 +180,54 @@ fn ids_of(text: &str) -> HashSet<String> {
         .collect()
 }
 
+// ---------------------------------------------------------------------------
+// Abandoned branches (`core/abandoned.ts`, r4-fixes A14): the operator's own
+// marks, in the per-user state dir keyed by the clone's COMMON git dir. Every
+// surface that names other copies leaves a marked branch out. Files only.
+
+/// `abandonEnabled`: `SOFAR_ABANDON=off` ignores every mark (0.34 bytes).
+#[must_use]
+pub fn abandon_enabled() -> bool {
+    std::env::var("SOFAR_ABANDON").map_or(true, |v| v != "off")
+}
+
+/// `abandonPath`: `<state>/abandoned/<key>.json`; None when the state dir
+/// would sit inside the clone.
+#[must_use]
+pub fn abandon_path(root: &Path) -> Option<PathBuf> {
+    let base = crate::diagnostics::state_base();
+    if crate::diagnostics::resolves_inside(&base, root) {
+        return None;
+    }
+    let keyed = common_git_dir(root).unwrap_or_else(|| root.to_path_buf());
+    Some(
+        base.join("abandoned")
+            .join(format!("{}.json", crate::diagnostics::clone_key(&keyed))),
+    )
+}
+
+/// `abandonedBranches`: the branches marked abandoned on this clone; empty
+/// when marks are off, or the file is missing or unreadable.
+#[must_use]
+pub fn abandoned_branches(root: &Path) -> HashSet<String> {
+    if !abandon_enabled() {
+        return HashSet::new();
+    }
+    let Some(path) = abandon_path(root) else {
+        return HashSet::new();
+    };
+    let Ok(bytes) = fs::read(path) else {
+        return HashSet::new();
+    };
+    let Ok(Json::Obj(file)) = json::parse(&String::from_utf8_lossy(&bytes)) else {
+        return HashSet::new();
+    };
+    match file.get("branches") {
+        Some(Json::Obj(branches)) => branches.iter().map(|(k, _)| k.to_owned()).collect(),
+        _ => HashSet::new(),
+    }
+}
+
 /// `PREFIX_PROBE_BYTES`: the tail window compared to call a copy an older prefix.
 const PREFIX_PROBE_BYTES: u64 = 4096;
 
@@ -211,6 +259,7 @@ pub fn worktree_leads(root: &Path, slug: &str, local_path: &Path) -> Vec<Worktre
     let me = realpath(root);
     let local_size = fs::metadata(local_path).map_or(0, |m| m.len());
     let mut local_ids: Option<HashSet<String>> = None;
+    let mut abandoned: Option<HashSet<String>> = None;
     let mut leads = Vec::new();
     for checkout in list_checkouts(&common) {
         if me.is_some() && realpath(Path::new(&checkout.root)) == me {
@@ -235,6 +284,13 @@ pub fn worktree_leads(root: &Path, slug: &str, local_path: &Path) -> Vec<Worktre
             if theirs.is_some() && theirs == ours {
                 continue;
             }
+        }
+        if let Some(branch) = checkout.branch.as_deref()
+            && abandoned
+                .get_or_insert_with(|| abandoned_branches(root))
+                .contains(branch)
+        {
+            continue;
         }
         let Some(text) = read_text(&path) else {
             continue;
@@ -308,10 +364,19 @@ pub fn copy_label(copy: &RecordCopy, home: Option<&str>) -> String {
 /// `WORKTREE_LEADS_BUDGET`.
 pub const WORKTREE_LEADS_BUDGET: usize = 360;
 
+/// `ABANDON_HINT`: how a dropped branch stops being named (r4-fixes A14).
+pub const ABANDON_HINT: &str =
+    "If the operator dropped a branch, `sofar abandon <branch>` stops naming it.";
+
 /// `worktreeLeadsNotice`: the `SessionStart` line naming other worktrees whose
 /// copy of this record holds events this checkout lacks; None when none does.
+/// With `abandon_hint` and a lead on a named branch, it ends with `ABANDON_HINT`.
 #[must_use]
-pub fn worktree_leads_notice(leads: &[WorktreeLead], home: Option<&str>) -> Option<String> {
+pub fn worktree_leads_notice(
+    leads: &[WorktreeLead],
+    home: Option<&str>,
+    abandon_hint: bool,
+) -> Option<String> {
     if leads.is_empty() {
         return None;
     }
@@ -326,13 +391,20 @@ pub fn worktree_leads_notice(leads: &[WorktreeLead], home: Option<&str>) -> Opti
     } else {
         String::new()
     };
-    Some(crate::projections::clip(
+    let hint = if abandon_hint && leads.iter().any(|l| l.copy.reference.is_some()) {
+        format!(" {ABANDON_HINT}")
+    } else {
+        String::new()
+    };
+    // The hint rides outside the clip, so a long path never cuts it.
+    let notice = crate::projections::clip(
         &format!(
             "⚠ {total} event(s) of this record live on other worktrees, not on this checkout: {}{more}. This block folds this checkout's copy alone; `sofar status` folds them in. They reach this branch only by a merge.",
             named.join(", ")
         ),
         WORKTREE_LEADS_BUDGET,
-    ))
+    );
+    Some(notice + &hint)
 }
 
 /// `os.homedir()` as Node reads it on POSIX: `$HOME` when set.
@@ -468,6 +540,7 @@ pub fn scan_record_copies(root: &Path, slug: &str) -> Vec<ForeignLog> {
         return logs;
     };
     let me = realpath(root);
+    let abandoned = abandoned_branches(root);
     let checkouts = list_checkouts(&common);
     let checked_out: HashSet<&str> = checkouts
         .iter()
@@ -475,6 +548,13 @@ pub fn scan_record_copies(root: &Path, slug: &str) -> Vec<ForeignLog> {
         .collect();
     for checkout in &checkouts {
         if me.is_some() && realpath(Path::new(&checkout.root)) == me {
+            continue;
+        }
+        if checkout
+            .branch
+            .as_deref()
+            .is_some_and(|b| abandoned.contains(b))
+        {
             continue;
         }
         let path = Path::new(&checkout.root)
@@ -501,7 +581,10 @@ pub fn scan_record_copies(root: &Path, slug: &str) -> Vec<ForeignLog> {
         .collect();
     let mut taken: Vec<&Ref> = Vec::new();
     for r in &refs {
-        if checked_out.contains(r.name.as_str()) || covered.contains(&r.sha) {
+        if checked_out.contains(r.name.as_str())
+            || abandoned.contains(&r.name)
+            || covered.contains(&r.sha)
+        {
             continue;
         }
         covered.insert(r.sha.clone());
