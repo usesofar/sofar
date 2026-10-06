@@ -4,7 +4,7 @@ import { findFrom } from '../src/core/index-reach'
 import { describe, expect, it } from 'vitest'
 import { TOOL_INPUT_SCHEMAS, TOOL_NAMES, type ToolName } from '@sofar/schema/tool-inputs'
 import { ALWAYS_LOADED_TOOLS, createSofarServer, SERVER_INSTRUCTIONS, SERVER_NAME, serverInstructions } from '../src/mcp/server'
-import { PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS } from '../src/cli/init'
+import { PROTOCOL_BLOCK, PROTOCOL_BLOCK_V13, SHIPPED_PROTOCOL_BLOCKS } from '../src/cli/init'
 import { foldLog, type InitiativeState } from '../src/core/fold'
 import { GENERATED_HEADER } from '../src/projections/templates/shared'
 import { handlePostTool } from '../src/cli/event'
@@ -531,7 +531,11 @@ describe('less bookkeeping (r1-fixes 2.1, D10)', () => {
     const instructions = client.getInstructions()
     expect(instructions).toBe(SERVER_INSTRUCTIONS)
     expect(instructions).toContain('do not call sofar_get_state')
-    expect(instructions).toContain('Call sofar_start_session first')
+    // The in-band write-back (r4-fixes A1) needs no start call; 0.34's line is the tool arm's.
+    expect(instructions).toContain('the write-back block needs no call')
+    expect(instructions).toContain('end your final reply with one ```sofar block')
+    expect(serverInstructions(false, 'tool')).toContain('Call sofar_start_session first')
+    expect(serverInstructions(false, 'tool')).not.toContain('```sofar')
     expect(instructions).toContain('Write back once, at wrap-up')
     for (const tool of ALWAYS_LOADED_TOOLS) expect(TOOL_NAMES).toContain(tool)
     expect(instructions!.length).toBeLessThan(900)
@@ -543,8 +547,11 @@ describe('less bookkeeping (r1-fixes 2.1, D10)', () => {
   })
 
   it('the CLAUDE.md block (V8, memory-lead D3) writes back once, needs no start call on Claude Code, and names the next ids', () => {
-    expect(PROTOCOL_BLOCK).toContain('On Claude Code, sofar\'s tools adopt this session from its own id: there is\n  no start call.')
-    expect(PROTOCOL_BLOCK).toContain('write back with ONE `sofar_end_session` call')
+    // 0.34's wording is V13, which SOFAR_WRITEBACK=tool installs; the default teaches the block (r4-fixes A1).
+    expect(PROTOCOL_BLOCK_V13).toContain('On Claude Code, sofar\'s tools adopt this session from its own id: there is\n  no start call.')
+    expect(PROTOCOL_BLOCK_V13).toContain('write back with ONE `sofar_end_session` call')
+    expect(PROTOCOL_BLOCK).toContain('There is no start call: sofar\'s hooks know this session')
+    expect(PROTOCOL_BLOCK).toContain('end your final reply with ONE fenced `sofar` block')
     for (const field of ['`decisions`', '`tasks`', '`phases`', '`memories`', '`notes`', '`title`', '`quote`']) {
       expect(PROTOCOL_BLOCK).toContain(field)
     }

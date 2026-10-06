@@ -31,7 +31,7 @@ import {
   codexUserConfigPath,
 } from './codex-config'
 import {
-  AGENTS_PROTOCOL_BLOCK,
+  agentsProtocolBlock,
   classifyProtocolBlock,
   CODEX_SHIM_DIR,
   CODEX_SHIMS,
@@ -39,13 +39,13 @@ import {
   CURSOR_HOOKS,
   GITATTRIBUTES_LINES,
   hookCommand,
-  PROTOCOL_BLOCK,
+  protocolBlock,
   SHIM_HOMES,
   shimHomeFor,
   SHIMS,
   shimsFor,
-  SHIPPED_AGENTS_PROTOCOL_BLOCKS,
-  SHIPPED_PROTOCOL_BLOCKS,
+  shippedAgentsProtocolBlocks,
+  shippedProtocolBlocks,
   wiredAgents,
 } from './init'
 import {
@@ -406,9 +406,9 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
   // keeps directing agents by the old protocol forever, and nothing else in the
   // repo reveals it — `sofar upgrade` replaces the binary, not repo wiring.
   const blocks = [
-    ...(claude ? [{ file: 'CLAUDE.md', template: PROTOCOL_BLOCK, shipped: SHIPPED_PROTOCOL_BLOCKS }] : []),
+    ...(claude ? [{ file: 'CLAUDE.md', template: protocolBlock(), shipped: shippedProtocolBlocks() }] : []),
     ...(cursor || wired.has('codex')
-      ? [{ file: 'AGENTS.md', template: AGENTS_PROTOCOL_BLOCK, shipped: SHIPPED_AGENTS_PROTOCOL_BLOCKS }]
+      ? [{ file: 'AGENTS.md', template: agentsProtocolBlock(), shipped: shippedAgentsProtocolBlocks() }]
       : []),
   ]
   for (const { file, template, shipped } of blocks) {
