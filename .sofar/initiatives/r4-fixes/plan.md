@@ -79,5 +79,5 @@ Progress: 20/51 tasks done (39%)
 - [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
 - [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
 
-Next action: Relay the remaining 4 Wave A reports (A2+A4, A6+A7, A9, A10+A3) to "r4-fixes A2 #c9e3"; raise the A5 shard ruling with the operator.
+Next action: Relay A2+A4's report to "r4-fixes A2 #c9e3"; get the operator's rulings on A6/A7, A5 and the A10 carrier.
 Blocked on: task A6: Built (bc2f6464) but the replay misses (precision 0.46–0.50, recall ~0.5, median 6 sites). Awaiting the operator ruling: default-off plus redesign.; task A7: Built (b826be0b) but the replay misses (precision 0.13, recall 0/27). Awaiting the operator ruling: default-off plus redesign.
