@@ -76,4 +76,4 @@ Progress: 27 done, 4 dropped, 30 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Operator publishes pack3's six rc.3 tarballs with --tag next, cores first; then verify shasums and merge release/0.35.0 back into main.
+Next action: Confirm main CI 37662770544 green on 5d238835; then the operator rules on H3 and H4.
