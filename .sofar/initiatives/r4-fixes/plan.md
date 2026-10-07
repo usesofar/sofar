@@ -6,11 +6,11 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 26 done, 4 dropped, 30 remaining
+Progress: 27 done, 4 dropped, 30 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
-## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 13/18 (3 dropped) done
+## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 14/19 (3 dropped) done
 
 - [x] A1 A1 In-band write-back: a fenced `sofar` block in the final reply is filed by the Stop handler (SOFAR_WRITEBACK). PREDICT Codex −0.15 to −0.20, Cursor −0.08 to −0.15, Claude −0.03 to −0.05
 - [x] A2 A2 Host-compiled payloads: AGENTS.md block ≤1.5k chars, CLI grammar moved to a skill, per-host budgets (SOFAR_PAYLOAD). PREDICT Codex −0.05 to −0.07, Cursor −0.05 to −0.10
@@ -30,6 +30,7 @@ Progress: 26 done, 4 dropped, 30 remaining
 - [x] H2 Untracked last home follows write-backs to --no-bind records (fresh tab opens where the operator stopped)
 - [ ] H3 Hold close line: every Stop hold asks the agent to end on one line restating its answer, so the answer is what the operator sees last (SOFAR_HOLD_CLOSE). Changes the SPEC-pinned BD2 message and the conformance goldens; needs a Decision first
 - [ ] H4 Read-only sessions move the last home too: set it at Stop when a registered session's home differs (one write, only on change)
+- [x] H5 Per-host write-back default: Claude Code through sofar_end_session, Codex/Cursor in-band block (rc.2 turned every Claude completion summary into JSON)
 
 ## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 2/16 (1 dropped) done
 
@@ -75,4 +76,4 @@ Progress: 26 done, 4 dropped, 30 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Run B4's pre-build replay (claims, ready frontier) before writing engine code, as B2/B3 did.
+Next action: Operator: merge writeback-host-default into release/0.35.0 and cut rc.3.
