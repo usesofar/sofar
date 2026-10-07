@@ -402,7 +402,14 @@ describe.skipIf(!existsSync(localCore) || process.platform === 'win32')('native 
     expect(existsSync(coreTarball)).toBe(true)
 
     mkdirSync(corePrefix, { recursive: true })
-    const installed = npm(['install', '-g', '--prefix', corePrefix, join(packDest, tarballName()), coreTarball], scratch)
+    // npm 12 runs no install script unless allowed, and its named allow-list
+    // matches registry specs only, never a local tarball: this scratch
+    // prefix holds just our two tarballs, so allow every script (npm 11
+    // ignores the setting). A registry install with `--allow-scripts=sofar.sh`
+    // runs the postinstall (checked on npm 12.2, 0.35.0-rc.1).
+    const installed = npm(['install', '-g', '--prefix', corePrefix, join(packDest, tarballName()), coreTarball], scratch, {
+      npm_config_dangerously_allow_all_scripts: 'true',
+    })
     expect(installed.status, installed.stderr).toBe(0)
 
     // postinstall replaced the JavaScript shim with the binary itself
