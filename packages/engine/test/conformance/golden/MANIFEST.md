@@ -1,5 +1,10 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.35.0** for the rc cut (r4-fixes 3.1) from the
+TypeScript reference. The version bump is the whole diff: two goldens changed,
+each by one string. `argv.fast-path` (`--version` is now `0.35.0-rc.1`) and
+`open.O2-update-segment` ("you have 0.35.0-rc.1").
+
 RE-RECORDED at the **0.35.0 integration** (release/0.35.0, A9 onto A1–A4, A8,
 A10): three goldens recorded on other branches move for one reason, A9's
 ranking (guarded rules on the focus task's files lead Standing constraints):
