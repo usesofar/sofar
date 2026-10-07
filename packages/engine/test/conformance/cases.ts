@@ -1085,6 +1085,42 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes B1 (D16): the work map on the first prompt — ranked by the
+    // prompt's words, each name once, a missing file dropped, the budget
+    // filled by a file of 200 exports; told once; SOFAR_WORKMAP=off.
+    name: 'syn.workmap',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('first prompt: the map, the prompt\'s words first', ['event', 'user-prompt'], prompt({ session_id: 'sess-w', prompt: 'reserve stock and cancel the order when QTY_LIMIT trips' }), {
+        before: (m) => {
+          const files: Record<string, string> = {
+            'src/module/file-0.ts': [
+              'export class Ledger {',
+              '  reserveStock(orderId: string, qty: number): void {',
+              "    if (qty > 10) throw new LedgerError('QTY_LIMIT')",
+              '  }',
+              '  private async cancelOrder(orderId: string) {',
+              '  }',
+              '}',
+              'export const api = {',
+              '  shipOrder: async (id: string) => id,',
+              '}',
+            ].join('\n'),
+            'src/module/file-1.ts': "export function stockOnHand(sku: string) {\n  throw new Error(\"UNKNOWN_SKU\")\n}\n",
+            'src/module/file-2.ts': "it('caps', () => expect(() => l.reserveStock('o', 11)).toThrow('QTY_LIMIT'))\n",
+            'src/module/file-3.ts': Array.from({ length: 200 }, (_, i) => `export function handlerNumber${i}() {}`).join('\n'),
+          }
+          for (const [rel, text] of Object.entries(files)) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), text)
+          }
+        },
+      }),
+      s('second prompt: told once, no map', ['event', 'user-prompt'], prompt({ session_id: 'sess-w', prompt: 'reserve stock again' })),
+      s('SOFAR_WORKMAP=off: no map for a fresh session', ['event', 'user-prompt'], prompt({ session_id: 'sess-x', prompt: 'reserve stock' }), { env: { SOFAR_WORKMAP: 'off' } }),
+    ],
+  },
+  {
     // drive-visibility 2.2, 2.3 and 3.2 on the hot path (rust-core D29).
     name: 'syn.driven',
     fixture: synthetic('driven'),

@@ -103,6 +103,7 @@ import { redactCommand } from '../core/redact'
 import { cacheChanges, cachedChanges, markWrote, pathspecKey, readWrote } from '../core/wrote'
 import { readGateEnabled, rewriteRawRead, rewriteRawReadSegments } from '../core/read-rewrite'
 import { cappedRecallBlock, RECALL_TOLD_KEY, recallBlock, recallEnabled, recallV034 } from '../core/recall'
+import { WORKMAP_TOLD_KEY, workmapBlock, workmapEnabled } from '../core/workmap'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes, handleAt, qualifiedHandle, suffixedHandle } from '../core/handle'
@@ -3149,9 +3150,12 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // first prompt is the cue, and in a bench session it is the only one.
     // Cursor's prompt hook cannot inject, so it is never spent there.
     const recall = prompt !== null && host.tool !== 'cursor' && recallEnabled() ? promptRecall(ctx.sofarDir, state, sessionId, prompt) : null
+    // The work map (r4-fixes B1, D16) rides the same first prompt: its ranking
+    // needs the prompt's words, which SessionStart has not seen yet.
+    const map = prompt !== null && host.tool !== 'cursor' && workmapEnabled() ? promptWorkmap(rootDir, ctx.sofarDir, state, sessionId, prompt) : null
     const me = state.sessions.find((s) => s.id === sessionId)
     if (me === undefined) {
-      const first = [recall, keep].filter((l): l is string => l !== null)
+      const first = [recall, map, keep].filter((l): l is string => l !== null)
       return withSessionTitle('user-prompt', first.length === 0 ? { ...OK } : { ...OK, stdout: first.join('\n') }, title) // not ours to nudge
     }
 
@@ -3261,6 +3265,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       )
     }
     if (recall !== null) lines.push(recall)
+    if (map !== null) lines.push(map)
     if (keep !== null) lines.push(keep)
 
     return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)
@@ -3289,6 +3294,18 @@ function promptRecall(sofarDir: string, state: InitiativeState, session: string,
   const block = cappedRecallBlock(state, prompt, retireEnabled(), held)
   if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY, ...block.ids.map(entryToldKey)])
   return block?.text ?? null
+}
+
+/**
+ * The work map for this prompt (r4-fixes B1, D16), once per session: the told
+ * key is set only when a block renders, so a record with nothing to scan yet
+ * tries again on the next prompt.
+ */
+function promptWorkmap(rootDir: string, sofarDir: string, state: InitiativeState, session: string, prompt: string): string | null {
+  if (readTold(sofarDir, session).has(WORKMAP_TOLD_KEY)) return null
+  const block = workmapBlock(rootDir, state, prompt)
+  if (block !== null) addTold(sofarDir, session, [WORKMAP_TOLD_KEY])
+  return block
 }
 
 // ---------------------------------------------------------------------------

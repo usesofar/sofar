@@ -1,5 +1,14 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED and ADDED for **r4-fixes B1** (Wave B, branch wave-b-b1; docs/SPEC.md
+§Work map (r4-fixes B1, D16)), from the TypeScript reference. One golden moved:
+`syn.merge-handles`, whose fixture touched `src/order/caps.ts` and whose case
+creates it, so its first prompt now ends with the work map (`CAP:1`). One case
+ADDED, `syn.workmap`: the map ranked by the prompt's words, each name once, a
+missing file dropped, the budget filled; told once; `SOFAR_WORKMAP=off`. The
+Rust core reproduces both (`SOFAR_CORE=… vitest run test/conformance`: 55
+passed).
+
 Re-recorded on **main** at the 0.35.0-rc.1 merge-back (r4-fixes 3.1). Main's
 engine version is `0.36.0-dev+trunk` (r4-fixes D8's rule: a pre-release at or
 above the newest tag that resolves to nothing published), and the version
