@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -161,13 +161,16 @@ describe('child processes', () => {
     expect(await until(() => !groupAlive(pgid) && carrying(mark).length === 0, 10_000)).toBe(true)
   })
 
-  it.skipIf(process.platform === 'win32')('a tracked group dies with its parent: the parent-death pipe', async () => {
+  // Under /bin/sh, and under dash too where one exists: Linux's /bin/sh is
+  // dash, whose kill builtin refused the `--` the wrapper once passed.
+  const WRAPPER_SHELLS = ['/bin/sh', ...(existsSync('/bin/dash') ? ['/bin/dash'] : [])]
+  it.skipIf(process.platform === 'win32').each(WRAPPER_SHELLS)('a tracked group dies with its parent: the parent-death pipe (%s)', async (shell) => {
     const mark = uniqueMark()
     // The parent stands in for a vitest worker killed at a timeout: it spawns
     // the wrapper exactly as spawnTracked does, reports the group, and hangs.
     const parentScript = `
       const { spawn } = require('node:child_process')
-      const c = spawn('/bin/sh', ['-c', ${JSON.stringify(TRACKED_WRAPPER)}, 'sh', '/bin/sh', '-c', ${JSON.stringify(`sleep ${mark} & while :; do sleep 1; done`)}], { detached: true, stdio: ['pipe', 'ignore', 'ignore'] })
+      const c = spawn(${JSON.stringify(shell)}, ['-c', ${JSON.stringify(TRACKED_WRAPPER)}, 'sh', '/bin/sh', '-c', ${JSON.stringify(`sleep ${mark} & while :; do sleep 1; done`)}], { detached: true, stdio: ['pipe', 'ignore', 'ignore'] })
       process.stdout.write(String(c.pid) + '\\n')
       setInterval(() => {}, 1000)
     `

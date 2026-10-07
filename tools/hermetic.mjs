@@ -464,9 +464,12 @@ export function sweepOrphans(baseline, needles) {
  * EOF and the loop kills the whole group, grandchildren included: a
  * parent-death signal that needs no prctl, so it works on macOS. A child that
  * finishes first takes the watcher down with it and exits with its status.
+ * `kill -TERM -$$`, never `kill -TERM -- -$$`: dash (Linux's /bin/sh) reads
+ * `--` as a pid and fails with "Illegal number", so the group outlived its
+ * parent on CI (0.35 integration); both shells take a negative pid as a group.
  */
 export const TRACKED_WRAPPER =
   'exec 3<&0; ' +
   '"$@" </dev/null 3<&- & c=$!; ' +
-  '( while read -r _ <&3; do :; done; kill -TERM -- -$$ ) </dev/null >/dev/null 2>&1 & w=$!; ' +
+  '( while read -r _ <&3; do :; done; kill -TERM -$$ ) </dev/null >/dev/null 2>&1 & w=$!; ' +
   'exec 3<&-; wait "$c"; s=$?; kill "$w" 2>/dev/null; exit "$s"'
