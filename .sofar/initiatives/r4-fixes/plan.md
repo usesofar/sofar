@@ -71,4 +71,4 @@ Progress: 21 done, 3 dropped, 32 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Operator: approve pushing release/0.35.0 for CI; then stage the 5 cores (emit --binaries is now mandatory, A12) and hand over the rc publish to next.
+Next action: Operator publishes the six packed tarballs from the scratchpad pack dir with --tag next (cores first); then verify dist-tags and shasums, and merge release/0.35.0 back into main.
