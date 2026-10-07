@@ -73,7 +73,20 @@ import {
   type ScopedMemory,
 } from '../core/index-tier1'
 import { rankByRelevance, refreshRelevance, relevance, type RelevanceRow } from '../core/index-relevance'
-import { addTold, clearTold, readTold, toldKey } from '../core/told'
+import {
+  addTold,
+  clearTold,
+  debtBand,
+  entryToldKey,
+  fragmentEpoch,
+  pointToldKey,
+  readTold,
+  renderedEntryIds,
+  setFragment,
+  toldKey,
+  toldLinesEnabled,
+  updateTold,
+} from '../core/told'
 import { resolvePeers, type Peer } from '../core/peers'
 import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
 import { nextTask } from '../core/drive-queue'
@@ -86,8 +99,8 @@ import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
 import { cacheChanges, cachedChanges, markWrote, pathspecKey, readWrote } from '../core/wrote'
-import { readGateEnabled, rewriteRawRead } from '../core/read-rewrite'
-import { RECALL_TOLD_KEY, recallBlock, recallEnabled } from '../core/recall'
+import { readGateEnabled, rewriteRawRead, rewriteRawReadSegments } from '../core/read-rewrite'
+import { cappedRecallBlock, RECALL_TOLD_KEY, recallBlock, recallEnabled, recallV034 } from '../core/recall'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes, handleAt, qualifiedHandle, suffixedHandle } from '../core/handle'
@@ -119,7 +132,9 @@ import {
   minutiaeHead,
   renderStatus,
   sessionIdLine,
+  STATUS_CHAR_LIMIT,
 } from '../projections/templates/status'
+import { digestLimit } from '../core/host-payload'
 import { REPO_MD_STUB, readInput } from './shared'
 import {
   DECLARED_HOSTS,
@@ -921,6 +936,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
       ...(merge !== null ? { merge } : {}),
       ...(slug === QUICK_LANE ? { lane: true } : {}),
       ...(activity ? {} : { activity: false }),
+      // The host's digest budget (r4-fixes A2): Claude Code 6,000, Codex
+      // 4,000, Cursor 3,000; every host 6,000 under SOFAR_PAYLOAD=v034.
+      ...(digestLimit(host.tool) !== STATUS_CHAR_LIMIT ? { limit: digestLimit(host.tool) } : {}),
     })
     // The size half of a memory-use signal (self-improve 1.2): how many bytes
     // this hook put in front of the model, and how many of them were repo
@@ -943,9 +961,92 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // the host to its registry — the address peers message. Only Claude Code
     // reads the key, and only an absent, derived or sofar-owned title is
     // replaced; otherwise the block goes out plain, byte-identical.
+    // The told set starts from what this block told (r4-fixes A4): its
+    // entries, and the push state its Git line gave.
+    if (sessionId !== null && toldLinesEnabled()) seedTold(ctx.sofarDir, sessionId, state, status, git)
     const title =
       host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
     return withSessionTitle('session-start', { ...OK, stdout: status }, title)
+  } catch {
+    return { ...OK }
+  }
+}
+
+/**
+ * Seed the session's told set from the block just rendered (r4-fixes A4): an
+ * entry the digest holds is never re-sent by the recall block, and a notice
+ * about it names the path, not the rule again; the Git line is the push
+ * state's first telling. A failed write re-tells, never silences.
+ */
+function seedTold(
+  sofarDir: string,
+  session: string,
+  state: InitiativeState,
+  status: string,
+  git: ReturnType<typeof readGitState>,
+): void {
+  updateTold(sofarDir, session, renderedEntryIds(state, status).map(entryToldKey), git === null ? [] : [[PUSH_FRAGMENT, pushEpoch(git)]])
+}
+
+/** The push-state fragment and its epoch: branch, HEAD and the origin tip (r4-fixes A4). */
+export const PUSH_FRAGMENT = 'push'
+function pushEpoch(git: NonNullable<ReturnType<typeof readGitState>>): string {
+  return `${git.branch}@${git.head}:${git.upstream ?? '-'}`
+}
+/** The debt nudge's fragment (r4-fixes A4). */
+export const DEBT_FRAGMENT = 'debt'
+
+/** The told-set fragment PostToolBatch sets on its first run in a session context (r4-fixes A4). */
+export const BATCH_FRAGMENT = 'batch'
+
+/** Does this session's PostToolBatch carry its surfacing? Claude Code only, and only once that hook has run. */
+function batchSurfaces(sofarDir: string, session: string, host: HookHost): boolean {
+  return host.tool === 'claude-code' && session !== 'cli' && toldLinesEnabled() && fragmentEpoch(readTold(sofarDir, session), BATCH_FRAGMENT) !== null
+}
+
+/** The tools PostToolUse's matcher sends it, and so the calls a batch surfaces for. */
+const SURFACED_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'Bash', 'Read', 'Grep'])
+
+/**
+ * PostToolBatch (r4-fixes A4; Claude Code, which fires it once after every
+ * call of a parallel batch resolved): the batch's read-time surfacing as ONE
+ * block, told once per context. Its PostToolUse calls ran concurrently, each
+ * reading a told set none had written yet, so a rule bearing on four files
+ * read at once was told four times. The first run marks the session; from
+ * then on its PostToolUse captures and this hook tells. A Claude Code without
+ * the event never marks it, so PostToolUse keeps surfacing.
+ * `SOFAR_TOLD_LINES=off` turns it off.
+ */
+export function handlePostToolBatch(rootDir: string, input: string): HookResult {
+  try {
+    if (!toldLinesEnabled()) return { ...OK }
+    const hook = parseHook(input)
+    const session = strField(hook, 'session_id')
+    if (session === null) return { ...OK }
+    const bound = resolveBound(rootDir, session)
+    if (bound === null) return { ...OK }
+    const { ctx, slug } = bound
+    if (fragmentEpoch(readTold(ctx.sofarDir, session), BATCH_FRAGMENT) === null) setFragment(ctx.sofarDir, session, BATCH_FRAGMENT, '1')
+    const subjects: NoticeSubject[] = []
+    const batch = Array.isArray(hook.tool_calls) ? hook.tool_calls : []
+    for (const raw of batch) {
+      if (!isObj(raw) || !SURFACED_TOOLS.has(strField(raw, 'tool_name') ?? '')) continue
+      const one: Obj = { ...raw, session_id: session, ...(typeof hook.cwd === 'string' ? { cwd: hook.cwd } : {}) }
+      const calls = classifyToolCall(one)
+      const edited = new Set(calls.filter((c) => c.domain === 'path').map((c) => resolve(rootDir, c.subject)))
+      subjects.push(
+        ...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })),
+        ...readPaths(one, rootDir)
+          .filter((p) => !edited.has(p))
+          .map((p) => ({ domain: 'path' as const, subject: p, edit: false })),
+      )
+    }
+    const lines = scopeNotice(ctx.sofarDir, rootDir, slug, session, subjects, { lastTouch: false })
+    if (lines.length === 0) return { ...OK }
+    return {
+      ...OK,
+      stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolBatch', additionalContext: lines.join('\n') } })}\n`,
+    }
   } catch {
     return { ...OK }
   }
@@ -1054,7 +1155,10 @@ export function handlePreTool(rootDir: string, input: string, declared?: HookHos
     const toolInput = isObj(hook.tool_input) ? hook.tool_input : null
     const cmd = toolInput === null ? null : strField(toolInput, 'command')
     if (session === null || toolInput === null || cmd === null) return { ...OK }
-    const rewritten = rewriteRawRead(cmd, strField(hook, 'cwd') ?? rootDir, rootDir, session)
+    // Per segment inside compound commands (r4-fixes A4); the whole command
+    // only, as 0.34.1, under SOFAR_TOLD_LINES=off.
+    const rewrite = toldLinesEnabled() ? rewriteRawReadSegments : rewriteRawRead
+    const rewritten = rewrite(cmd, strField(hook, 'cwd') ?? rootDir, rootDir, session)
     if (rewritten === null) return { ...OK }
     const updated = { ...toolInput, command: rewritten }
     const out =
@@ -1225,10 +1329,14 @@ export function handlePostTool(rootDir: string, input: string, declared?: HookHo
 
     // Before the append, never after: the notice asks what this session has
     // already been told, and the current edit is not yet part of that history.
-    const notice = scopeNotice(ctx.sofarDir, rootDir, slug, session, [
-      ...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })),
-      ...readSubjects,
-    ])
+    // A Claude Code session whose PostToolBatch has run gets its surfacing
+    // there, once per batch (r4-fixes A4).
+    const notice = batchSurfaces(ctx.sofarDir, session, host)
+      ? []
+      : scopeNotice(ctx.sofarDir, rootDir, slug, session, [
+          ...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })),
+          ...readSubjects,
+        ])
     const [call] = calls
     if (call === undefined) return injected([...driven, ...notice])
     const { head } = call
@@ -1627,9 +1735,11 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
  * mechanical events since the last write-back, stdout (exit 0 =
  * additionalContext for this hook) carries ONE line nudging an in-flow
  * sofar_end_session — a write-back while context is warm makes the Stop
- * gate a fallback instead of a forced extra turn. Stateless: it re-fires
- * on every prompt until the write-back resets drift (staleness-line
- * precedent). Best-effort per BD22 — every failure path is silence.
+ * gate a fallback instead of a forced extra turn. Told once per debt band
+ * (5, 10, 20, 40 … — r4-fixes A4), re-armed when a write-back takes the debt
+ * under the floor or a compaction clears the told set; `SOFAR_TOLD_LINES=off`
+ * re-fires it on every prompt. Best-effort per BD22 — every failure path is
+ * silence.
  */
 export const NUDGE_DRIFT_MIN = 5
 
@@ -1733,10 +1843,12 @@ function clipTo(text: string, max: number): string {
  * which is exactly the hand-reasoning 4.2 set out to abolish.
  *
  * Unbinding it is nearly free. The state is refs-only (no subprocess, no
- * commit-graph walk), the line is bounded by construction, and it re-fires
- * statelessly like the drift nudge beside it — repeating a true fact stays
- * cheaper than storing one, and D5 already rejected an "already told you"
- * marker for this family of lines.
+ * commit-graph walk) and the line is bounded by construction. It once
+ * re-fired statelessly on every prompt (D5 rejected an "already told you"
+ * marker for this family); since r4-fixes A4 it is a fragment told once per
+ * push epoch — branch, HEAD and origin tip — because a repeat carried for
+ * the rest of the session costs more than one small told-set key, and a
+ * moved epoch still tells it at once. `SOFAR_TOLD_LINES=off` re-fires it.
  *
  * Repo-level by design: it reports HEAD against origin, never "your
  * commits". Attributing commits to sessions needs the graph walk core/git.ts
@@ -2226,6 +2338,12 @@ type ScopeNotice = {
   depth: number
   rendered: string
   domain: GuardDomain
+  /**
+   * A guard whose rule this context already holds from the digest or the
+   * recall block (r4-fixes A4): the notice names the path's binding, not the
+   * rule again.
+   */
+  brief?: boolean
 } & ({ decision: ScopedDecision; memory?: undefined } | { memory: ScopedMemory; decision?: undefined })
 
 /** What a notice speaks for: its decision, or its memory. */
@@ -2259,6 +2377,9 @@ export function scopeNoticeLine(n: ScopeNotice, slug: string): string {
   }
   const d = n.decision
   const handle = scopeHandle(d, slug)
+  if (n.tier === 0 && n.brief === true) {
+    return `sofar: ${n.rendered} is governed by [${handle}] (guard: ${d.guard}), the standing rule in your context. Work against it needs a decision that supersedes ${handle}.`
+  }
   if (n.tier === 0) {
     return (
       `sofar: ${n.rendered} is governed by [${handle}], a standing rule: ${scopeRuleText(d)} ` +
@@ -2332,6 +2453,7 @@ function scopeNotice(
   slug: string,
   session: string,
   subjects: readonly NoticeSubject[],
+  options: { lastTouch?: boolean } = {},
 ): string[] {
   try {
     const index = refreshGuards(sofarDir)
@@ -2339,6 +2461,9 @@ function scopeNotice(
     if ((index.scoped.length === 0 && memories.length === 0) || subjects.length === 0) return []
     const retire = retireEnabled()
     const told = readTold(sofarDir, session)
+    // Told once per context per entry, whatever path (r4-fixes A4); 0.34's
+    // per-(entry, path) set under SOFAR_TOLD_LINES=off.
+    const fragments = toldLinesEnabled() && session !== 'cli'
     let files: FileIndex | null = null
 
     const notices: ScopeNotice[] = []
@@ -2361,7 +2486,10 @@ function scopeNotice(
       const rendered = renderSubject(domain, subject, rootDir)
       if (domain === 'path' && session !== 'cli') {
         hits = hits.filter(({ entry }) => !told.has(toldKey(entry.id, rendered)))
-        if (edit && hits.length > 0) {
+        // A batch's edits are appended before PostToolBatch runs, so its own
+        // touch would read as an earlier one (r4-fixes A4): the told set's
+        // fragments answer instead.
+        if (edit && hits.length > 0 && options.lastTouch !== false) {
           files ??= refreshFiles(sofarDir)
           const since = lastTouch(files, subject, session)
           if (since !== null) hits = hits.filter(({ entry }) => entry.ts > since)
@@ -2370,11 +2498,21 @@ function scopeNotice(
       }
       for (const { entry, tier, depth } of hits) {
         if (shown.has(entry.id)) continue
+        // A fragment told at a point of use this context is not told again; one
+        // the digest or recall holds is told only as a guard's binding.
+        let brief = false
+        if (fragments && domain === 'path') {
+          if (told.has(pointToldKey(entry.id))) continue
+          if (told.has(entryToldKey(entry.id))) {
+            if (tier !== 0) continue
+            brief = true
+          }
+        }
         shown.add(entry.id)
         notices.push(
           tier === 2
             ? { tier, memory: entry as ScopedMemory, depth, rendered, domain }
-            : { tier, decision: entry as ScopedDecision, depth, rendered, domain },
+            : { tier, decision: entry as ScopedDecision, depth, rendered, domain, ...(brief ? { brief } : {}) },
         )
       }
     }
@@ -2392,6 +2530,11 @@ function scopeNotice(
     }
     while (kept > 1 && lengthOf(kept) > SCOPE_NOTICE_BUDGET) kept -= 1
     const over = overflowLine(ordered.slice(kept))
+    if (fragments) {
+      for (const n of ordered.slice(0, kept)) {
+        if (n.domain === 'path') tell.push(entryToldKey(noticeEntry(n).id), pointToldKey(noticeEntry(n).id))
+      }
+    }
     addTold(sofarDir, session, tell)
     return over === null ? rendered.slice(0, kept) : [...rendered.slice(0, kept), over]
   } catch {
@@ -2927,8 +3070,20 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     if (engineLine !== null) lines.push(engineLine)
     lines.push(...landedNotice(rootDir, ctx.sofarDir, slug, sessionId, git))
 
+    // Told once per push epoch (r4-fixes A4): the line says something only
+    // when HEAD or the origin tip moved since this context last heard it. The
+    // epochs this prompt moves are written once, below.
+    const toldLines = toldLinesEnabled()
+    const toldNow = toldLines ? readTold(ctx.sofarDir, sessionId) : new Set<string>()
+    const moved: Array<[string, string | null]> = []
     const gitLine = gitStateLine(git)
-    if (gitLine !== null) lines.push(gitLine)
+    if (gitLine !== null && git !== null) {
+      if (!toldLines) lines.push(gitLine)
+      else if (fragmentEpoch(toldNow, PUSH_FRAGMENT) !== pushEpoch(git)) {
+        lines.push(gitLine)
+        moved.push([PUSH_FRAGMENT, pushEpoch(git)])
+      }
+    }
 
     // YOUR debt, not the record's (drift-signal 1.2) — the same number the
     // Stop gate will enforce, so the warning and the block always agree. The
@@ -2938,7 +3093,17 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // Silent in the quick lane (r1-fixes 2.6, D14): there is no write-back to
     // nudge toward, and the Stop gate the line warns about never fires there.
     const debt = slug === QUICK_LANE ? 0 : sessionDebt(state, me)
-    if (debt >= NUDGE_DRIFT_MIN) {
+    // Told once per band (r4-fixes A4): 5, 10, 20, 40 … unwritten events; a
+    // write-back below the floor forgets the band, so the next climb re-tells.
+    let nudge = debt >= NUDGE_DRIFT_MIN
+    if (toldLines) {
+      const told = fragmentEpoch(toldNow, DEBT_FRAGMENT)
+      const band = nudge ? String(debtBand(debt)) : null
+      if (band !== told) moved.push([DEBT_FRAGMENT, band])
+      nudge = band !== null && band !== told
+    }
+    updateTold(ctx.sofarDir, sessionId, [], moved)
+    if (nudge) {
       lines.push(
         `sofar: ${debt} unwritten events in THIS session — if the current batch of work ` +
           `is complete, write back now with sofar_end_session (summary + next action) while context ` +
@@ -2961,10 +3126,19 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
  * one still gets its block.
  */
 function promptRecall(sofarDir: string, state: InitiativeState, session: string, prompt: string): string | null {
-  if (readTold(sofarDir, session).has(RECALL_TOLD_KEY)) return null
-  const block = recallBlock(state, prompt, retireEnabled())
-  if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY])
-  return block
+  const told = readTold(sofarDir, session)
+  if (told.has(RECALL_TOLD_KEY)) return null
+  if (recallV034()) {
+    const block = recallBlock(state, prompt, retireEnabled())
+    if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY])
+    return block
+  }
+  // Capped, and never what the digest already said (r4-fixes A4): the ids it
+  // renders join the told set, so a notice names their path, not their text.
+  const held = new Set([...told].filter((key) => key.startsWith('@')).map((key) => key.slice(1)))
+  const block = cappedRecallBlock(state, prompt, retireEnabled(), held)
+  if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY, ...block.ids.map(entryToldKey)])
+  return block?.text ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -3393,6 +3567,12 @@ export const SUBCOMMANDS: ReadonlyArray<{
     description:
       'PostToolUseFailure hook: append the same mechanical event with ok:false (and exit when the host gives one); the error text goes to the private diagnostics store, never the record',
     handler: forHost('post-tool-failure', handlePostToolFailure),
+  },
+  {
+    name: 'post-tool-batch',
+    description:
+      'PostToolBatch hook (Claude Code): the read-time surfacing of a whole batch of parallel calls as one block, told once per session context; its PostToolUse calls then only capture',
+    handler: handlePostToolBatch,
   },
   {
     name: 'drive-await',

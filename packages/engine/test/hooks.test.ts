@@ -561,7 +561,8 @@ describe('session title (session-naming D1) — the slug and focus task, handed 
     expect(context(nudged)).toContain('unwritten events in THIS session')
     const settled = handleUserPrompt(fixture.root, hookStdin({ prompt: 'hi', session_title: 'demo 1.1 #clau' }))
     expect(settled.stdout.startsWith('{')).toBe(false)
-    expect(settled.stdout).toContain('unwritten events in THIS session')
+    // Told once per debt band (r4-fixes A4): the same band is not told twice.
+    expect(settled.stdout).not.toContain('unwritten events in THIS session')
   })
 
   it('sessions on one record and one task never share a name (session-naming D2): each ends in its own id tag', () => {

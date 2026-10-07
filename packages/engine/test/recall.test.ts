@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { handleSessionStart, handleUserPrompt } from '../src/cli/event'
 import { runShow } from '../src/cli/show'
 import { makeEvent } from '../src/core/envelope'
@@ -97,8 +97,13 @@ describe('recall at the prompt hook (D25)', () => {
     const ask = 'How do percent coupons stack with fixed ones when the provider marks them stackable?'
     expect(bare(prompt(root, 's1', ask))).toContain('- [D1] rule: "Percent coupons come off before fixed coupons."')
     expect(prompt(root, 's1', ask)).not.toContain('sofar: what this record holds')
+    // A compaction re-arms it; the digest the compaction re-injects holds
+    // every entry here, and the block never repeats the digest (r4-fixes A4),
+    // so the re-armed block shows under SOFAR_TOLD_LINES=off, which seeds nothing.
+    vi.stubEnv('SOFAR_TOLD_LINES', 'off')
     handleSessionStart(root, JSON.stringify({ session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'compact' }))
     expect(prompt(root, 's1', ask)).toContain('sofar: what this record holds')
+    vi.unstubAllEnvs()
     // A registered session gets it too, on its first prompt.
     emit(root, 'session_started', { tool: 'claude-code' }, 's2')
     expect(prompt(root, 's2', ask)).toContain('sofar: what this record holds')

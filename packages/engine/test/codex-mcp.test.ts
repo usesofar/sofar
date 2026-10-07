@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import {
   CODEX_CONFIG,
+  CODEX_DEFAULT_TOOLS,
   CODEX_DIRECT_KEY,
   CODEX_DIRECT_TABLE,
   CODEX_MCP_ADD,
@@ -11,13 +12,20 @@ import {
   CODEX_TOOLS_APPROVAL,
   codexDirectState,
   codexMcpState,
+  codexMcpTable,
+  parseCodexTools,
   codexSofarToolsApprovalSet,
   codexUserConfigPath,
   withoutSofarDirect,
   withoutSofarServer,
   withSofarDirect,
   withSofarServer,
+  withSofarTable,
 } from '../src/cli/codex-config'
+import { TOOL_NAMES } from '@sofar/schema/tool-inputs'
+
+/** The table a default init writes (r4-fixes A2): only the write-back listed. */
+const DEFAULT_TABLE = codexMcpTable(CODEX_DEFAULT_TOOLS)
 import { runDoctor } from '../src/cli/doctor'
 import { CODEX_MCP_USER_STEP_HINT, CODEX_TRUST_HINT, runInit, wiredAgents } from '../src/cli/init'
 import { runUninit } from '../src/cli/uninit'
@@ -100,6 +108,47 @@ describe('the table init writes', () => {
     expect(CODEX_TOOLS_APPROVAL).toBe('default_tools_approval_mode = "approve"')
     expect(CODEX_MCP_ADD).toBe(`codex mcp add sofar -- ${[command, ...args].join(' ')}`)
     expect((mcp.cli_add as string).split('<NAME>')[0]).toBe('codex mcp add ')
+  })
+})
+
+describe('the tools Codex lists (r4-fixes A2)', () => {
+  it('keeps only the write-back by default, with keys a Codex server table takes', () => {
+    const [header, ...pairs] = DEFAULT_TABLE.trimEnd().split('\n')
+    expect(header).toBe('[mcp_servers.sofar]')
+    const keys = pairs.map((line) => line.split(' = ')[0])
+    expect(keys).toEqual(['command', 'args', 'default_tools_approval_mode', 'enabled_tools', 'env'])
+    // `env` is in the 0.154.0 contract; `enabled_tools` (with `enabled` and
+    // `disabled_tools`) is read from the codex 0.136.0 binary's
+    // RawMcpServerConfig strings, and R4-RESEARCH lane 1.2 (section 2.2) cites it for 0.160.0.
+    for (const key of keys.filter((k) => k !== 'enabled_tools')) expect(mcp.server_struct_fields_seen).toContain(key)
+    expect(DEFAULT_TABLE).toContain('enabled_tools = ["sofar_end_session"]\nenv = { SOFAR_MCP_TOOLS = "sofar_end_session" }\n')
+    expect(codexMcpTable([])).toContain('enabled_tools = []\n')
+  })
+
+  it('parses --codex-tools, and refuses a tool sofar does not have', () => {
+    expect(parseCodexTools(undefined, TOOL_NAMES)).toEqual(['sofar_end_session'])
+    expect(parseCodexTools('all', TOOL_NAMES)).toBeNull()
+    expect(parseCodexTools('none', TOOL_NAMES)).toEqual([])
+    expect(parseCodexTools('end_session,log_decision', TOOL_NAMES)).toEqual(['sofar_end_session', 'sofar_log_decision'])
+    expect(parseCodexTools('sofar_nope', TOOL_NAMES)).toHaveProperty('error')
+  })
+
+  it("swaps only sofar's own whole table, never a user's", () => {
+    expect(withSofarTable(`a = 1\n\n${CODEX_MCP_TABLE}`, DEFAULT_TABLE)).toBe(`a = 1\n\n${DEFAULT_TABLE}`)
+    expect(withSofarTable(`${DEFAULT_TABLE}\n[x]\ny = 2\n`, CODEX_MCP_TABLE)).toBe(`${CODEX_MCP_TABLE}\n[x]\ny = 2\n`)
+    expect(withSofarTable(DEFAULT_TABLE, DEFAULT_TABLE)).toBeNull()
+    // A key the user added under 0.34's table: the table is no longer sofar's alone.
+    expect(withSofarTable(`${CODEX_MCP_TABLE}startup_timeout_sec = 20\n`, DEFAULT_TABLE)).toBeNull()
+  })
+
+  it('init --codex-tools all writes the 0.34 table, and SOFAR_PAYLOAD=v034 does too', () => {
+    const all = freshRepo()
+    expect(runInit(all, { agents: ['codex'], codexTools: null, home: home(all) }, plain, plain).exitCode).toBe(0)
+    expect(config(all).startsWith(CODEX_MCP_TABLE)).toBe(true)
+    expect(config(all)).not.toContain('enabled_tools')
+    const legacy = freshRepo()
+    runInit(legacy, { agents: ['codex'], env: { SOFAR_PAYLOAD: 'v034' }, home: home(legacy) }, plain, plain)
+    expect(config(legacy)).not.toContain('enabled_tools')
   })
 })
 
@@ -193,7 +242,7 @@ describe('sofar init --agents codex and .codex/config.toml', () => {
     expect(result.stdout).toContain('created .codex/config.toml')
     expect(result.stdout).toContain(CODEX_TRUST_HINT)
     expect(result.stdout).not.toContain(CODEX_MCP_USER_STEP_HINT)
-    expect(config(root)).toBe(`${CODEX_MCP_TABLE}\n${CODEX_DIRECT_TABLE}`)
+    expect(config(root)).toBe(`${DEFAULT_TABLE}\n${CODEX_DIRECT_TABLE}`)
 
     const again = init(root)
     expect(again.stdout).toContain('unchanged .codex/config.toml')
@@ -221,7 +270,7 @@ describe('sofar init --agents codex and .codex/config.toml', () => {
     const result = init(root)
     expect(result.stdout).toContain('updated .codex/config.toml')
     expect(result.stdout).toContain(CODEX_TRUST_HINT) // hooks.json is new too, but the note is the same
-    expect(config(root)).toBe(`${mine}\n${CODEX_MCP_TABLE}\n${CODEX_DIRECT_TABLE}`)
+    expect(config(root)).toBe(`${mine}\n${DEFAULT_TABLE}\n${CODEX_DIRECT_TABLE}`)
 
     expect(runUninit(root, { purge: true }, plain, plain).exitCode).toBe(0)
     expect(config(root)).toBe(mine)
@@ -314,7 +363,8 @@ describe('direct tool calls under Codex code mode (r3-fixes 2.7)', () => {
     const root = freshRepo(`${CODEX_MCP_TABLE}`) // an older init's file
     const result = init(root)
     expect(result.stdout).toContain("updated .codex/config.toml (Codex calls sofar's tools directly)")
-    expect(config(root)).toBe(`${CODEX_MCP_TABLE}\n${CODEX_DIRECT_TABLE}`)
+    // …and 0.34's own table, byte for byte, now lists only the write-back (r4-fixes A2).
+    expect(config(root)).toBe(`${DEFAULT_TABLE}\n${CODEX_DIRECT_TABLE}`)
     expect(init(root).stdout).not.toContain('directly')
 
     const clash = freshRepo('[features]\ncode_mode = true\n')
@@ -322,7 +372,7 @@ describe('direct tool calls under Codex code mode (r3-fixes 2.7)', () => {
     expect(out).toContain(
       `skipped direct tool calls in .codex/config.toml (its features.code_mode is not a [features.code_mode] table) — add \`${CODEX_DIRECT_KEY}\` under [features.code_mode] by hand`,
     )
-    expect(config(clash)).toBe(`[features]\ncode_mode = true\n\n${CODEX_MCP_TABLE}`)
+    expect(config(clash)).toBe(`[features]\ncode_mode = true\n\n${DEFAULT_TABLE}`)
   })
 })
 

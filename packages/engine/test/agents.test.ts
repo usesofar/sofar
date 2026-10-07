@@ -264,6 +264,7 @@ describe('sofar init for a subset of agents', () => {
     const written = files(root).filter((rel) => !rel.startsWith('.git/') && !rel.startsWith('.sofar/'))
     expect(written).toEqual([
       '.claude/hooks/drive-await.sh',
+      '.claude/hooks/post-tool-batch.sh',
       '.claude/hooks/post-tool-use-failure.sh',
       '.claude/hooks/post-tool-use.sh',
       '.claude/hooks/pre-tool-use.sh',
@@ -272,6 +273,7 @@ describe('sofar init for a subset of agents', () => {
       '.claude/hooks/stop.sh',
       '.claude/hooks/user-prompt-submit.sh',
       '.claude/settings.json',
+      '.claude/skills/sofar-write/SKILL.md', // the CLI write grammar (r4-fixes A2)
       '.gitattributes',
       '.mcp.json',
       'CLAUDE.md',
@@ -285,6 +287,7 @@ describe('sofar init for a subset of agents', () => {
     expect(result.exitCode).toBe(0)
     const written = files(root).filter((rel) => !rel.startsWith('.git/') && !rel.startsWith('.sofar/'))
     expect(written).toEqual([
+      '.agents/skills/sofar-write/SKILL.md', // hooked and MCP-wired: the thin AGENTS.md (r4-fixes A2)
       '.cursor/hooks.json',
       // Cursor's own set: never the Claude-only rewake shim (drive-visibility 3.7).
       ...shimsFor('cursor').map((shim) => `.cursor/hooks/sofar/${shim.file}`).sort(),
@@ -309,6 +312,7 @@ describe('sofar init for a subset of agents', () => {
     expect(result.exitCode).toBe(0)
     const written = files(root).filter((rel) => !rel.startsWith('.git/') && !rel.startsWith('.sofar/'))
     expect(written).toEqual([
+      '.agents/skills/sofar-write/SKILL.md',
       '.codex/config.toml',
       '.codex/hooks.json',
       ...CODEX_SHIMS.map((shim) => `.codex/hooks/sofar/${shim.file}`).sort(),
@@ -368,8 +372,8 @@ describe('sofar init for a subset of agents', () => {
     const settings = readJSON(join(root, '.claude', 'settings.json')) as {
       hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>
     }
-    for (const shim of SHIMS) {
-      const entries = moved.hooks[CURSOR_HOOKS[shim.event].event] ?? []
+    for (const shim of SHIMS.filter((s) => s.claudeOnly !== true)) {
+      const entries = moved.hooks[CURSOR_HOOKS[shim.event]!.event] ?? []
       expect(entries.map((e) => e.command)).toEqual([settings.hooks[shim.event]?.[0]?.hooks[0]?.command])
     }
     expect(moved.hooks.stop?.[0]).toEqual({ command: hookCommand('stop.sh'), loop_limit: 1, timeout: 30 })

@@ -30,6 +30,22 @@ export function recallEnabled(env: Readonly<Record<string, string | undefined>> 
   return !(v === 'off' || v === '0' || v === 'false')
 }
 
+/** `SOFAR_RECALL=v034`: 0.34's block — 8,000 chars, whole entries, digest ids included (r4-fixes A4's ablation arm). */
+export function recallV034(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return env[RECALL_ENV]?.trim().toLowerCase() === 'v034'
+}
+
+/**
+ * The capped block (r4-fixes A4; R4-RESEARCH 1.1 #6): round 4's 6.7k-char,
+ * 22-id block was cited 25% (Claude) and 14% (Codex), and 21% of its ids were
+ * the digest's. At most RECALL_CAP_ENTRIES entries in RECALL_CAP_BUDGET chars,
+ * none the session's context already holds, each one line — the rule when the
+ * entry has one — since `sofar show` prints any entry whole.
+ */
+export const RECALL_CAP_BUDGET = 2_500
+export const RECALL_CAP_ENTRIES = 8
+export const RECALL_CAP_LINE = 280
+
 /** The told key that marks a session context as recalled. */
 export const RECALL_TOLD_KEY = 'recall prompt'
 
@@ -61,6 +77,10 @@ function clip(text: string, max: number): string {
 interface Entry {
   handle: string
   line: string
+  /** The entry's one line in the capped block: its rule, else its choice, else the memory. */
+  short: string
+  /** The event id that filed it — the told set's key (r4-fixes A4). */
+  entryId: string
 }
 
 interface RecallDoc extends LexicalDoc, Entry {}
@@ -95,12 +115,15 @@ function recallDocs(state: InitiativeState, retire: boolean): RecallDoc[] {
     const handle = `D${ordinal}`
     const prose = [d.rule ?? '', d.chose, d.over, d.quote ?? '', d.because].join('\n')
     // Matched by the bare ordinal, printed check-suffixed (r4-fixes U5).
-    docs.push(doc(`decision:${ordinal}`, d.ts, prose, { handle, line: decisionLine(suffixedHandle(ordinal, d.id), d) }))
+    const shown = suffixedHandle(ordinal, d.id)
+    const short = d.rule !== undefined ? `- [${shown}] rule: "${flat(d.rule)}"` : `- [${shown}] chose ${flat(d.chose)}`
+    docs.push(doc(`decision:${ordinal}`, d.ts, prose, { handle, line: decisionLine(shown, d), short, entryId: d.id }))
   })
   state.memories.forEach((m, i) => {
     if (m.superseded_by !== undefined) return
     const handle = `M${i + 1}`
-    docs.push(doc(`memory:${i + 1}`, m.ts, m.text, { handle, line: `- [${handle}] memory: ${flat(m.text)}` }))
+    const line = `- [${handle}] memory: ${flat(m.text)}`
+    docs.push(doc(`memory:${i + 1}`, m.ts, m.text, { handle, line, short: line, entryId: m.id }))
   })
   return docs
 }
@@ -126,15 +149,12 @@ function bareNamed(state: InitiativeState, handle: string): string | null {
   return r !== null && r.ok ? `D${r.ordinal}` : null
 }
 
-/**
- * The recall block for a prompt, or null when the record holds nothing it
- * names. Pure: the caller decides whether this session context has had one.
- */
-export function recallBlock(state: InitiativeState, prompt: string, retire = true): string | null {
+/** The entries a prompt recalls, strongest first: the handles it names, then the BM25 ranking over what is left. */
+function recallChosen(state: InitiativeState, prompt: string, retire: boolean, skip: ReadonlySet<string>): RecallDoc[] {
   const query = prompt.slice(0, RECALL_PROMPT_CHARS)
-  if (query.trim().length === 0) return null
+  if (query.trim().length === 0) return []
   const docs = recallDocs(state, retire)
-  if (docs.length === 0) return null
+  if (docs.length === 0) return []
   const byHandle = new Map(docs.map((d) => [d.handle, d]))
   const byId = new Map(docs.map((d) => [d.id, d]))
 
@@ -142,7 +162,7 @@ export function recallBlock(state: InitiativeState, prompt: string, retire = tru
   for (const named of namedHandles(query)) {
     const handle = bareNamed(state, named)
     const d = handle === null ? undefined : byHandle.get(handle)
-    if (d !== undefined && !chosen.includes(d)) chosen.push(d)
+    if (d !== undefined && !chosen.includes(d) && !skip.has(d.entryId)) chosen.push(d)
   }
   const ranked = rankLexical(docs, query, docs.length).matches
   const minTerms = docs.length < RECALL_SMALL_RECORD ? RECALL_MIN_TERMS_SMALL : RECALL_MIN_TERMS
@@ -151,16 +171,54 @@ export function recallBlock(state: InitiativeState, prompt: string, retire = tru
   for (const m of ranked) {
     if (m.terms.length < minTerms || m.score < top * RECALL_SHARE) continue
     const d = byId.get(m.id)
-    if (d === undefined || chosen.includes(d)) continue
+    if (d === undefined || chosen.includes(d) || skip.has(d.entryId)) continue
     if (d.id.startsWith('memory:')) {
       if (memories >= RECALL_MEMORIES_MAX) continue
       memories += 1
     }
     chosen.push(d)
   }
+  return chosen
+}
+
+const RECALL_HEADER = 'sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):'
+
+/**
+ * The capped recall block (r4-fixes A4) and the event ids it told, or null
+ * when the record holds nothing the prompt names that `told` does not already
+ * hold. `told` is the entry set (`@<id>` keys' ids) the session start seeded
+ * from the digest. Pure: the caller marks the session.
+ */
+export function cappedRecallBlock(
+  state: InitiativeState,
+  prompt: string,
+  retire: boolean,
+  told: ReadonlySet<string>,
+): { text: string; ids: string[] } | null {
+  const lines = [RECALL_HEADER]
+  const ids: string[] = []
+  let used = RECALL_HEADER.length
+  for (const d of recallChosen(state, prompt, retire, told)) {
+    if (ids.length >= RECALL_CAP_ENTRIES) break
+    const line = clip(d.short, RECALL_CAP_LINE)
+    if (used + 1 + line.length > RECALL_CAP_BUDGET) break
+    lines.push(line)
+    ids.push(d.entryId)
+    used += 1 + line.length
+  }
+  return ids.length > 0 ? { text: lines.join('\n'), ids } : null
+}
+
+/**
+ * The recall block for a prompt, or null when the record holds nothing it
+ * names — 0.34's, kept for `SOFAR_RECALL=v034`. Pure: the caller decides
+ * whether this session context has had one.
+ */
+export function recallBlock(state: InitiativeState, prompt: string, retire = true): string | null {
+  const chosen = recallChosen(state, prompt, retire, new Set())
   if (chosen.length === 0) return null
 
-  const header = 'sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):'
+  const header = RECALL_HEADER
   const lines = [header]
   let used = header.length
   let whole = 0

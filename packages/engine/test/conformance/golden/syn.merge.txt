@@ -14,7 +14,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"sess-18","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"<ROOT>/src/db.ts"},"tool_response":{}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/db.ts is governed by [D3·xj0r], a standing rule: \"Append migrations; never re-chain them.\" (guard: path:src/db.ts). Work against it needs a decision that supersedes D3·xj0r.\nsofar: [M3] names src/db.ts (repo memory): Migrations in src/db.ts run in array order on a fresh database at app start."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/db.ts is governed by [D3·xj0r] (guard: path:src/db.ts), the standing rule in your context. Work against it needs a decision that supersedes D3·xj0r."}}
 --- stderr
 (empty)
 
@@ -91,7 +91,7 @@ stdin: {"session_id":"sess-19","transcript_path":"<ROOT>/transcript.jsonl","cwd"
 env: {"SOFAR_SURFACE_MEMORIES":"off"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/db.ts is governed by [D3·xj0r], a standing rule: \"Append migrations; never re-chain them.\" (guard: path:src/db.ts). Work against it needs a decision that supersedes D3·xj0r."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/db.ts is governed by [D3·xj0r] (guard: path:src/db.ts), the standing rule in your context. Work against it needs a decision that supersedes D3·xj0r."}}
 --- stderr
 (empty)
 

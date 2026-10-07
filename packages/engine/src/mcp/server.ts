@@ -68,10 +68,34 @@ export const ALWAYS_LOADED_TOOLS = ['sofar_end_session', 'sofar_log_decision'] a
  * (r1-fixes 2.4, D13) names the three operations that left the tool list for
  * the CLI.
  */
-export function serverInstructions(adopted: boolean, mode: WritebackMode = writebackMode()): string {
+export function serverInstructions(
+  adopted: boolean,
+  tools: readonly string[] | null = null,
+  mode: WritebackMode = writebackMode(),
+): string {
   // The in-band write-back (r4-fixes A1): the final reply's ```sofar block is
   // the write-back, so neither a start call nor the tool is needed for it.
   const inline = mode === 'inline'
+  // A client that lists only some tools (Codex `enabled_tools`, r4-fixes A2)
+  // is never sent to one it hides: the write-back takes the session id itself.
+  if (tools !== null && !tools.includes('sofar_start_session')) {
+    const endSession = tools.includes('sofar_end_session')
+    return [
+      "sofar keeps this repo's work record. The SessionStart hook already injected it (goal, next action, decisions, rejected approaches, next D/M ids): do not call sofar_get_state to re-read it.",
+      ...(inline
+        ? [
+            endSession
+              ? "Write back once, at wrap-up: end your final reply with one ```sofar block of sofar_end_session's arguments — sofar's hooks file it — or call sofar_end_session: pass the session_id from the injected \"Session:\" line."
+              : "Write back once, at wrap-up: end your final reply with one ```sofar block — summary, next_action, and the session's tasks, decisions, memories and notes; sofar's hooks file it.",
+          ]
+        : endSession
+          ? [
+              "Write back once, at wrap-up, with sofar_end_session — pass the session_id from the injected \"Session:\" line; it carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes.",
+            ]
+          : []),
+      'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.',
+    ].join('\n')
+  }
   return [
     "sofar keeps this repo's work record. The SessionStart hook already injected it (goal, next action, decisions, rejected approaches, next D/M ids): do not call sofar_get_state to re-read it.",
     adopted
@@ -84,6 +108,16 @@ export function serverInstructions(adopted: boolean, mode: WritebackMode = write
       : "Write back once, at wrap-up: sofar_end_session carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed.",
     'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.',
   ].join('\n')
+}
+
+/**
+ * The tools the client lists, from the env the Codex table passes
+ * (`SOFAR_MCP_TOOLS`, r4-fixes A2); null — every tool — when unset.
+ */
+export function listedTools(env: Readonly<Record<string, string | undefined>> = process.env): readonly string[] | null {
+  const raw = env.SOFAR_MCP_TOOLS
+  if (raw === undefined) return null
+  return raw.split(',').map((t) => t.trim()).filter((t) => t.length > 0)
 }
 
 /** The instructions of a server with no host session to adopt. */
@@ -194,7 +228,7 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
 
   const server = new Server(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { capabilities: { tools: {} }, instructions: serverInstructions(hostSessionId !== undefined) },
+    { capabilities: { tools: {} }, instructions: serverInstructions(hostSessionId !== undefined, listedTools()) },
   )
   const alwaysLoaded: readonly string[] = ALWAYS_LOADED_TOOLS
 

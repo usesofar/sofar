@@ -8,7 +8,7 @@ import { runRead } from '../src/cli/read'
 import { makeEvent } from '../src/core/envelope'
 import { foldLog } from '../src/core/fold'
 import { appendEvent } from '../src/core/log'
-import { rewriteRawRead } from '../src/core/read-rewrite'
+import { rewriteRawRead, rewriteRawReadSegments } from '../src/core/read-rewrite'
 import { regenerateProjections } from '../src/projections/generator'
 
 /**
@@ -24,6 +24,21 @@ const table = JSON.parse(
 describe('rewriteRawRead (D42)', () => {
   it.each(table)('$cmd (cwd $cwd)', ({ cmd, cwd, root, session, rewrite }) => {
     expect(rewriteRawRead(cmd, cwd, root, session)).toBe(rewrite)
+  })
+})
+
+// r4-fixes A4: the per-segment rewrite, with its own table shared with the core
+// (crates/sofar-core/tests/fixtures/js-read-rewrite-segments.json).
+const segmentTable = JSON.parse(
+  readFileSync(join(__dirname, '..', '..', '..', 'crates', 'sofar-core', 'tests', 'fixtures', 'js-read-rewrite-segments.json'), 'utf8'),
+) as Array<{ cmd: string; cwd: string; root: string; session: string; rewrite: string | null }>
+
+describe('rewriteRawReadSegments (A4)', () => {
+  it.each(segmentTable)('$cmd', ({ cmd, cwd, root, session, rewrite }) => {
+    expect(rewriteRawReadSegments(cmd, cwd, root, session)).toBe(rewrite)
+  })
+  it('agrees with the whole-command rewrite wherever that one rewrites', () => {
+    for (const { cmd, cwd, root, session, rewrite } of table) if (rewrite !== null) expect(rewriteRawReadSegments(cmd, cwd, root, session)).toBe(rewrite)
   })
 })
 
@@ -100,11 +115,20 @@ describe('the pre-tool hook (D39)', () => {
     `sed -n 1,80p ${P}/plan.md`,
   ]
   const compound = [
-    `cat ${P}/decisions.md | head -150`,
     `cd ${P} && cat plan.md`,
-    `cat ${P}/plan.md; cat ${P}/memory.md`,
     `(cat ${P}/plan.md)`,
     `bash -c "cat ${P}/plan.md"`,
+    `cat ${P}/plan.md > /tmp/x; ls`,
+    `echo \`cat ${P}/plan.md\``,
+  ]
+  // r4-fixes A4: a whole-file read that heads a pipeline inside a compound
+  // command is rewritten on its own; every other byte stays.
+  const segments: Array<[string, string]> = [
+    [`cat ${P}/decisions.md | head -150`, `sofar read --session 'S' '${P}/decisions.md' | head -150`],
+    [`cat ${P}/plan.md; cat ${P}/memory.md`, `sofar read --session 'S' '${P}/plan.md'; sofar read --session 'S' '${P}/memory.md'`],
+    [`ls; cat lib/x.ts; cat ${P}/memory.md | head -80`, `ls; cat lib/x.ts; sofar read --session 'S' '${P}/memory.md' | head -80`],
+    [`cat ${P}/memory.md 2>/dev/null && ls`, `sofar read --session 'S' '${P}/memory.md' 2>/dev/null && ls`],
+    [`grep -n x ${P}/plan.md | cat ${P}/plan.md`, `grep -n x ${P}/plan.md | cat ${P}/plan.md`],
   ]
   for (const host of ['claude', 'codex', 'cursor'] as const) {
     const shell = host === 'cursor' ? 'Shell' : 'Bash'
@@ -117,6 +141,20 @@ describe('the pre-tool hook (D39)', () => {
       expect(read(root, { tool_name: 'Read', tool_input: { file_path, offset: 10, limit: 25 } }, host)).toBe('')
       expect(read(root, { tool_name: 'Read', tool_input: { file_path, limit: 25 } }, host)).toBe('')
       expect(read(root, { tool_name: 'Read', tool_input: { file_path } }, host)).toBe('')
+    })
+    it.each(segments)(`${host}: rewrites the read segments of \`%s\``, (command, want) => {
+      const out = read(repo(), { tool_name: shell, tool_input: { command } }, host)
+      const session = host === 'cursor' ? 'c1' : 's1'
+      if (want === command) expect(out).toBe('')
+      else expect(out).toContain(JSON.stringify(want.replaceAll("'S'", `'${session}'`)).slice(1, -1))
+    })
+    it(`${host}: SOFAR_TOLD_LINES=off rewrites only a whole command, as 0.34.1`, () => {
+      process.env.SOFAR_TOLD_LINES = 'off'
+      try {
+        expect(read(repo(), { tool_name: shell, tool_input: { command: segments[0]![0] } }, host)).toBe('')
+      } finally {
+        delete process.env.SOFAR_TOLD_LINES
+      }
     })
     it(`${host}: a whole-file cat is still rewritten`, () => {
       const out = read(repo(), { tool_name: shell, tool_input: { command: `cat ${P}/plan.md` } }, host)

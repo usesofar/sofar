@@ -37,6 +37,10 @@ Commands:
                                mechanical event with ok:false (and exit when the
                                host gives one); the error text goes to the
                                private diagnostics store, never the record
+  post-tool-batch [options]    PostToolBatch hook (Claude Code): the read-time
+                               surfacing of a whole batch of parallel calls as
+                               one block, told once per session context; its
+                               PostToolUse calls then only capture
   drive-await [options]        PostToolUse hook (Claude Code, asyncRewake):
                                after a Bash call that started a detached run,
                                wait on it and wake this session with one line

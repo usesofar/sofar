@@ -114,6 +114,7 @@ fn closing_hook(
     mirror(&for_host(hook, &input, |input| handler(&root, input)))
 }
 
+#[allow(clippy::too_many_lines, reason = "one arm per owned argv shape")]
 fn main() -> ExitCode {
     match dispatch(std::env::args_os().skip(1)) {
         Dispatch::Owned(Owned::Fold { args }) => mirror(&run_fold(&args)),
@@ -157,6 +158,16 @@ fn main() -> ExitCode {
             mirror(&for_host(Hook::PostToolFailure, &read_stdin(), |input| {
                 handle_post_tool_failure(&root, input)
             }))
+        }
+        Dispatch::Owned(Owned::Event {
+            hook: Hook::PostToolBatch,
+            root,
+        }) => {
+            let root = resolve_root(root.as_deref());
+            mirror(&sofar_core::post_tool::handle_post_tool_batch(
+                &root,
+                &read_stdin(),
+            ))
         }
         Dispatch::Owned(Owned::Event {
             hook: Hook::PreTool,

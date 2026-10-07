@@ -1053,6 +1053,56 @@ and quote any context it received, the model quoted `sofar: [probe D1]
 allowing UTF-8 in notes.` from a system reminder, and no quick lane was
 created. The payload is test/fixtures/cursor/hook-payloads.cursor-agent-2026.09.18.json.
 
+### Told set and hook-line epochs (r4-fixes A4)
+Every hook line is a FRAGMENT told once per validity epoch, not once per hook
+call (R4-RESEARCH 1.2 O5, O6; 1.1 #4–#6). Round 4's Codex sessions carried
+10.5 notices a session, 38% of them naming only rules already shown (one rule
+×8, once per test file read); its recall block re-sent 21% of the digest.
+The session's told set (core/told, in the derived index) holds:
+- `@<event id>` — an entry (decision or memory) whose text the context holds:
+  SEEDED at SessionStart with every `- [D<n>…]` / `- [M<n>]` line of the
+  block it rendered, and added by the recall block and by every notice;
+- `!<event id>` — an entry a notice told at the point of use;
+- `push=<branch>@<head>:<origin tip or ->` — the push state, seeded from the
+  block's Git line;
+- `debt=<band>` — the debt nudge's band (5–9 → 5, 10–19 → 10, 20–39 → 20, …);
+- `batch=1` — this session's PostToolBatch has run (below).
+SessionStart `compact` / `clear` deletes the set, so every epoch re-arms.
+
+RULES, while `SOFAR_TOLD_LINES` is not `off`:
+- NOTICES (path subjects): an entry with `!` is not told again, on any path;
+  one with only `@` is told only as a guard's BINDING — `sofar: <path> is
+  governed by [<handle>] (guard: <globs>), the standing rule in your context.
+  Work against it needs a decision that supersedes <handle>.` — and a mention
+  or memory with `@` is dropped. A rendered notice adds `@` and `!`. The rule
+  head is the epoch: a supersession is a new id, told afresh. `cmd:` subjects
+  are unchanged (each run is its own act).
+- The prompt hook's push line renders only when the push epoch moved; the debt
+  nudge only when the band differs from the one told, and a debt under the
+  floor forgets the band.
+- RECALL: at most 8 entries in 2,500 chars, none with `@`, each ONE line clipped
+  to 280 — `- [D<n>·xxxx] rule: "<rule>"`, else `- [D<n>·xxxx] chose
+  <chose>`, else `- [M<n>] memory: <text>` — and each adds `@`.
+  `SOFAR_RECALL=v034` restores 0.34's block.
+- READS: PreToolUse rewrites, inside a compound command, every simple command
+  that heads a pipeline and is itself a whole-file read (the U4 rule, plus a
+  trailing `2>/dev/null`), keeping every other byte; a command holding a
+  backtick, `$(`, `<<` or a backslash is not split. `sofar read` caps a
+  projection over 2,000 chars at that: decisions.md and memory.md keep the
+  newest entries that fit, leaving out those with `@` and the replaced ones,
+  under a header naming what was left out; plan.md keeps its head and every
+  open phase; brief.md one ≤100-char head per paragraph, numbered as `sofar
+  show brief¶<k>`.
+- POSTTOOLBATCH (Claude Code, `.claude/hooks/post-tool-batch.sh`, no
+  matcher): the calls of one parallel batch (Edit, Write, MultiEdit, Bash,
+  Read, Grep), surfaced as ONE `hookSpecificOutput` block, without the
+  last-touch test (the batch's edits are already appended); its first run
+  sets `batch=1`, after which that session's PostToolUse captures and stays
+  quiet. A host that never fires the event never sets it.
+`SOFAR_TOLD_LINES=off` restores 0.34.1: per-(entry, path) keys, stateless push
+and debt lines, no seeding, the whole-command rewrite, uncapped reads, and a
+silent PostToolBatch.
+
 ### Merges (r3-fixes 2.11, D19)
 A merge is the riskiest moment in a branch's life and the one no event
 records. The block, the receipt and the Stop ask below are DERIVED, as push
@@ -1292,6 +1342,39 @@ each with min(preferred, 6,000 − everything measured so far − 2), a
 non-positive budget rendering nothing. If the unprotected text still exceeds
 6,000 − the protected text − 3, it is cut to fit with `…truncated — run sofar
 status for full detail` on its own line, and the protected end follows whole.
+
+### Host-compiled payloads (r4-fixes A2)
+One fold, sized per host to what an always-on byte costs there (R4-RESEARCH
+1.2 O2): a token carried for a session costs ~3 input units on Claude Code,
+~4.3 on Codex and ~17 on Cursor.
+- DIGEST CAP PER HOST: the SessionStart block's hard cap (the 6,000 above) is
+  the host's: Claude Code 6,000, Codex 4,000, Cursor 3,000; any other host
+  6,000. Under a smaller cap L the brief, next-task title, next-action,
+  standing-constraint and other-records'-rules budgets scale to
+  ⌊budget × L / 6,000⌋, every 6,000 in YIELD reads L, and the identity block
+  (Session and Git lines) is PROTECTED, so a capped block never loses the id
+  a write-back passes. At 6,000 the block is byte-identical to before.
+- AGENTS.md: when every AGENTS.md reader init has wired (Cursor, Codex) runs
+  sofar's hooks AND reaches its MCP server (Codex: the project's or the
+  user's config.toml), init writes the THIN block (≤1,500 chars: the three
+  clauses, INJECTED, the one write-back naming every field it carries, and a
+  pointer to `sofar help write`) and the `sofar-write` skill in
+  `.agents/skills/sofar-write/SKILL.md`; any other repo keeps the full CLI
+  block. Each block refreshes the other (both are in the other's ledger), and
+  doctor judges the block by the same rule. Claude Code gets the skill in
+  `.claude/skills/sofar-write/SKILL.md`; its CLAUDE.md block is unchanged.
+  `sofar help write` prints the grammar the skill holds: the full block's CLI
+  loop and prohibitions, cut from the block itself.
+- CODEX TOOLS: the `[mcp_servers.sofar]` table init writes lists only
+  `sofar_end_session` (`enabled_tools`), and passes the list to the server
+  (`env = { SOFAR_MCP_TOOLS = … }`), whose instructions then never name a
+  hidden tool. `sofar init --codex-tools end_session|all|none|<list>` picks
+  the set; a table sofar wrote byte for byte is swapped to it on any later
+  init, a user's is never touched.
+- `SOFAR_PAYLOAD=v034` is the ablation arm: every host's cap 6,000, the full
+  AGENTS.md block, no skill, every Codex tool.
+- CACHE GUARD: `tools/list` is pinned by hash in the suite
+  (test/host-payloads.test.ts).
 
 ## Record graph (repo-wide adjacency derivation — record-graph 1.1)
 `buildGraph(rootDir)` (core/graph.ts) is ONE mechanical, read-side adjacency

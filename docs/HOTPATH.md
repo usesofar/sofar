@@ -862,6 +862,27 @@ commit in `golden/MANIFEST.md`. Contract deltas the core reproduces:
 - `--host codex` (agents-parity 2.1) is not an owned shape: the core
   returns exit 64 and TypeScript serves Codex.
 
+## Wave A deltas (r4-fixes A2, A4; 0.35.0)
+
+Contract deltas the core reproduces, as SPEC states them in
+SPEC §Host-compiled payloads (r4-fixes A2) and
+SPEC §Told set and hook-line epochs (r4-fixes A4):
+- §session-start: the digest's cap is the host's (Claude Code 6,000, Cursor
+  3,000; Codex's 4,000 is TypeScript's, `--host codex` being handed back);
+  the long sections scale to it and the Session/Git lines are protected
+  under a smaller cap; `SOFAR_PAYLOAD=v034` restores 6,000. The told set is
+  seeded with the block's entries (`@<id>`) and its push epoch.
+- §user-prompt: the push line once per push epoch, the debt nudge once per
+  band; the recall block capped (8 one-line entries, 2,500 units, nothing
+  the told set holds; `SOFAR_RECALL=v034` restores 0.34's).
+- §post-tool: an entry is told once per context on any path (`!<id>`); one
+  the digest or recall holds is told only as a guard's binding.
+- `event post-tool-batch` is an owned shape (Claude Code's PostToolBatch):
+  one surfacing block for the batch, no last-touch test; its first run marks
+  the session, whose PostToolUse then only captures.
+- pre-tool: whole-file read segments inside compound commands are rewritten.
+- `SOFAR_TOLD_LINES=off` restores 0.34.1 on all of the above.
+
 ## SPEC gaps
 
 Found while inventorying; each needs either a SPEC edit or a Decision

@@ -534,8 +534,8 @@ describe('less bookkeeping (r1-fixes 2.1, D10)', () => {
     // The in-band write-back (r4-fixes A1) needs no start call; 0.34's line is the tool arm's.
     expect(instructions).toContain('the write-back block needs no call')
     expect(instructions).toContain('end your final reply with one ```sofar block')
-    expect(serverInstructions(false, 'tool')).toContain('Call sofar_start_session first')
-    expect(serverInstructions(false, 'tool')).not.toContain('```sofar')
+    expect(serverInstructions(false, null, 'tool')).toContain('Call sofar_start_session first')
+    expect(serverInstructions(false, null, 'tool')).not.toContain('```sofar')
     expect(instructions).toContain('Write back once, at wrap-up')
     for (const tool of ALWAYS_LOADED_TOOLS) expect(TOOL_NAMES).toContain(tool)
     expect(instructions!.length).toBeLessThan(900)

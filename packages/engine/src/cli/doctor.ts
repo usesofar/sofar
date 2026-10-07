@@ -31,7 +31,7 @@ import {
   codexUserConfigPath,
 } from './codex-config'
 import {
-  agentsProtocolBlock,
+  agentsBlockFor,
   classifyProtocolBlock,
   CODEX_SHIM_DIR,
   CODEX_SHIMS,
@@ -44,7 +44,6 @@ import {
   shimHomeFor,
   SHIMS,
   shimsFor,
-  shippedAgentsProtocolBlocks,
   shippedProtocolBlocks,
   wiredAgents,
 } from './init'
@@ -511,7 +510,7 @@ function auditWiring(rootDir: string, userHome: string | undefined, journalEnv?:
     // Cursor's set excludes the Claude-only rewake shim (3.7).
     const missingCursorHooks = shimsFor('cursor')
       .filter((shim) => !fileHas(cursorHooksPath, hookCommand(shim.file, home)))
-      .map((shim) => CURSOR_HOOKS[shim.event].event)
+      .map((shim) => CURSOR_HOOKS[shim.event]!.event)
     findings.push(
       missingCursorHooks.length === 0
         ? { id: 'cursor-hooks', level: 'ok', text: '.cursor/hooks.json hooks wired' }
@@ -607,9 +606,10 @@ function auditWiring(rootDir: string, userHome: string | undefined, journalEnv?:
   // repo reveals it — `sofar upgrade` replaces the binary, not repo wiring.
   const blocks = [
     ...(claude ? [{ file: 'CLAUDE.md', template: protocolBlock(), shipped: shippedProtocolBlocks() }] : []),
-    ...(cursor || wired.has('codex')
-      ? [{ file: 'AGENTS.md', template: agentsProtocolBlock(), shipped: shippedAgentsProtocolBlocks() }]
-      : []),
+    // The thin block when every reader is hooked and MCP-wired, else the full
+    // CLI loop (r4-fixes A2), each in the write-back mode's form (A1) — the
+    // choice init makes, so the two agree.
+    ...(cursor || wired.has('codex') ? [{ file: 'AGENTS.md', ...agentsBlockFor(rootDir, userHome) }] : []),
   ]
   for (const { file, template, shipped } of blocks) {
     const path = join(rootDir, file)

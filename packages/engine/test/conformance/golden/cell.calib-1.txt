@@ -99,7 +99,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, pushed (in sync with origin/main).","sessionTitle":"boopada-planner P3-trips #conf"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"boopada-planner P3-trips #conf"}}
 --- stderr
 (empty)
 

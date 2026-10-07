@@ -173,10 +173,20 @@ const DRIVEN_LINE_BUDGET = 300
 const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`
 
 /** Hard cap: anything over the limit is cut to fit, marker included. */
-export function enforceStatusLimit(text: string): string {
-  if (text.length <= STATUS_CHAR_LIMIT) return text
+export function enforceStatusLimit(text: string, limit: number = STATUS_CHAR_LIMIT): string {
+  if (text.length <= limit) return text
   const marker = `\n${STATUS_TRUNCATION_MARKER}\n`
-  return text.slice(0, STATUS_CHAR_LIMIT - marker.length) + marker
+  return text.slice(0, limit - marker.length) + marker
+}
+
+/**
+ * A section budget scaled to a host's cap (r4-fixes A2): `base` at the
+ * 6,000-char cap, proportionally less under a smaller one, so a Codex or Cursor
+ * digest keeps every section and only shortens the long ones. Integer floor,
+ * as the native core computes it.
+ */
+export function scaledBudget(base: number, limit: number): number {
+  return limit >= STATUS_CHAR_LIMIT ? base : Math.floor((base * limit) / STATUS_CHAR_LIMIT)
 }
 
 function lastWithSummary(sessions: readonly SessionState[]): SessionState | undefined {
@@ -441,11 +451,11 @@ function pendingLinkLines(state: InitiativeState, retired: ReadonlySet<number>):
   ]
 }
 
-/** The digest's brief block: header, then the text clipped to BRIEF_BUDGET with a pointer to brief.md. */
-function briefLines(state: InitiativeState): string[] {
+/** The digest's brief block: header, then the text clipped to the brief's budget with a pointer to brief.md. */
+function briefLines(state: InitiativeState, budget: number = BRIEF_BUDGET): string[] {
   const text = state.brief
-  if (text.length <= BRIEF_BUDGET) return [BRIEF_HEADER, ...text.split('\n')]
-  return [BRIEF_HEADER, ...text.slice(0, BRIEF_BUDGET).split('\n'), briefTruncationMarker(state.slug)]
+  if (text.length <= budget) return [BRIEF_HEADER, ...text.split('\n')]
+  return [BRIEF_HEADER, ...text.slice(0, budget).split('\n'), briefTruncationMarker(state.slug)]
 }
 
 function phaseMark(phase: { name: string; status: string }, staleNames: ReadonlySet<string>): string {
@@ -530,6 +540,13 @@ export interface StatusOptions {
    * the switch is read by the hook, never here (templates read no env).
    */
   activity?: boolean
+  /**
+   * The block's hard cap (r4-fixes A2): the host's digest budget, from
+   * core/host-payload's digestLimit — read by the hook, never here. Default
+   * STATUS_CHAR_LIMIT (Claude Code's, and every host's under
+   * `SOFAR_PAYLOAD=v034`), which renders exactly as before.
+   */
+  limit?: number
 }
 
 /** How the lane works — static, so it sits in the cached head (D12). */
@@ -590,6 +607,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   // leaves. The constraints, read-back and footer are PROTECTED: when fixed
   // sections alone overrun the cap, the cut lands before them, never in them.
   const lane = options?.lane === true
+  const limit = Math.min(options?.limit ?? STATUS_CHAR_LIMIT, STATUS_CHAR_LIMIT)
   const retire = retireEnabled()
   const retired = retire ? retiredOrdinals(state) : new Set<number>()
   const stalePhases = staleActivePhases(state)
@@ -610,7 +628,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
 
   // (1b) The plan's brief (r1-fixes 4.6, L36), fixed: never rendered before
   // one was recorded, so every earlier digest is byte-identical.
-  if (state.brief.length > 0 && !lane) fixed([...briefLines(state), ''])
+  if (state.brief.length > 0 && !lane) fixed([...briefLines(state, scaledBudget(BRIEF_BUDGET, limit)), ''])
 
   // (2) The next task's spec. Plan tasks carry their spec in the title, so the
   // title renders whole up to its budget — round 1's S9 opened plan.md for a
@@ -620,7 +638,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
     const { task, phase } = focus
     const label = task.status === 'active' ? 'Current task' : 'Next task'
     const lines = [
-      `${label}: ${clip(`${task.id} ${task.title}`, NEXT_TASK_TITLE_BUDGET)}`,
+      `${label}: ${clip(`${task.id} ${task.title}`, scaledBudget(NEXT_TASK_TITLE_BUDGET, limit))}`,
       `  in ${clip(phase.name, PHASE_LINE_BUDGET)} ${phaseMark(phase, staleNames)} ${phaseFraction(taskProgress([phase]))}`,
     ]
     if (task.status === 'active') {
@@ -647,7 +665,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   // (3) Next action and the drift beside it.
   const stateLines: string[] = []
   if (!lane && state.current.next_action !== null) {
-    stateLines.push(`Next action: ${clip(state.current.next_action, NEXT_ACTION_BUDGET)}`)
+    stateLines.push(`Next action: ${clip(state.current.next_action, scaledBudget(NEXT_ACTION_BUDGET, limit))}`)
   }
   // Parallel write-backs (task 12.4): the next_action above is last-writer-
   // wins; concurrent sessions' differing next actions render directly under it.
@@ -849,7 +867,8 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   // each field is cut at its first clause boundary past MINUTIAE_MIN chars.
   // The standing constraints (10) are built now so the window can mark the
   // decisions whose rule renders below.
-  const rules = standingConstraintLines(state.decisions, STANDING_LEDGER_BUDGET, retire, focusTerms)
+  const standingBudget = scaledBudget(STANDING_LEDGER_BUDGET, limit)
+  const rules = standingConstraintLines(state.decisions, standingBudget, retire, focusTerms)
   const shownRules = new Set(rules.map((line) => /^- \[D(\d+)(?:·[0-9a-z]{4})?\]/.exec(line)?.[1]).filter((n): n is string => n !== undefined))
   if (state.decisions.length > 0) {
     const inForce = state.decisions.map((d, i) => ({ d, ordinal: i + 1 })).filter((x) => !retired.has(x.ordinal))
@@ -949,7 +968,10 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
           : `differs from origin/${git.branch} (${git.upstream}) — unpushed work`
     identity.push(`Git: ${clip(`${git.branch} @ ${git.head} — ${sync}`, GOAL_BUDGET)}`)
   }
-  if (identity.length > 0) fixed([...identity, ''])
+  // Under a host's smaller cap (r4-fixes A2) the identity lines are protected:
+  // the Session line is the id a write-back passes, and a Codex or Cursor
+  // block reaches its cap on records Claude Code's never does.
+  if (identity.length > 0) blocks.push({ lines: [...identity, ''], ...(limit < STATUS_CHAR_LIMIT ? { protected: true } : {}) })
   // Hook notices (r1-fixes D12) — each already budgeted by its builder.
   for (const notice of (options?.notices ?? []).filter((n) => n.trim().length > 0)) fixed([notice, ''])
 
@@ -963,7 +985,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   const ownUsed = rules.reduce((n, line) => n + line.length + 1, 0)
   const elsewhere = repoRuleLines(
     options?.repoRules ?? [],
-    Math.min(REPO_RULES_BUDGET, STANDING_LEDGER_BUDGET - ownUsed),
+    Math.min(scaledBudget(REPO_RULES_BUDGET, limit), standingBudget - ownUsed),
     focusTerms,
     state.decisions.filter((_, i) => !retired.has(i + 1)),
   )
@@ -979,7 +1001,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   }
   protect(['(generated by sofar — full detail in plan.md, decisions.md, sessions/)'])
 
-  return enforceStatusLimit(assemble(blocks, STATUS_CHAR_LIMIT))
+  return enforceStatusLimit(assemble(blocks, limit), limit)
 }
 
 /** A section: fixed lines, or a yielding renderer handed what the cap leaves. */

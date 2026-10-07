@@ -32,16 +32,22 @@ import {
 } from './agents'
 import {
   CODEX_CONFIG,
+  CODEX_DEFAULT_TOOLS,
   CODEX_DIRECT_KEY,
   CODEX_MCP_ADD,
   CODEX_TOOLS_APPROVAL,
   codexConfigRegistersSofar,
   codexDirectState,
   codexMcpState,
+  codexMcpTable,
   codexUserConfigPath,
   withSofarDirect,
   withSofarServer,
+  withSofarTable,
+  parseCodexTools,
 } from './codex-config'
+import { TOOL_NAMES } from '@sofar/schema/tool-inputs'
+import { payloadV034 } from '../core/host-payload'
 import { detectFormatterHazards, hostShapedJSON } from './formatters'
 import type { HookName } from './host'
 import { detectTailwindV4, SOURCE_NOT_SINCE } from './scanners'
@@ -67,6 +73,7 @@ import preToolUseShim from '../hooks/pre-tool-use.sh'
 import stopShim from '../hooks/stop.sh'
 import sessionEndShim from '../hooks/session-end.sh'
 import driveAwaitShim from '../hooks/drive-await.sh'
+import postToolBatchShim from '../hooks/post-tool-batch.sh'
 import { AWAIT_HOOK_TIMEOUT_SEC } from '../core/run-await'
 import prepareCommitMsgShim from '../hooks/prepare-commit-msg.sh'
 import preCommitShim from '../hooks/pre-commit.sh'
@@ -1982,6 +1989,116 @@ export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [
   AGENTS_PROTOCOL_BLOCK_V13,
 ]
 
+/**
+ * r4-fixes A2 (R4-RESEARCH 1.2 O2, N2 part 1): the AGENTS.md block for a repo
+ * whose AGENTS.md readers — Cursor and Codex — all run sofar's hooks AND its
+ * MCP server. Codex carries AGENTS.md in the prefix of EVERY call (≈2.3k
+ * tokens of the 9.2k-char CLI manual, ×~180 calls a chain), and Cursor pays
+ * ~17 input units per always-on token, while a hooked, MCP-wired session
+ * needs three clauses, the injected record and one write-back. The CLI loop
+ * moves behind `sofar help write` and the `sofar-write` skill, one load away.
+ *
+ * Every write-back field stays reachable (the static check in
+ * test/host-payloads.test.ts): the block names each one, because Codex's
+ * `enabled_tools` keeps only sofar_end_session, whose `decisions` items are
+ * shaped by sofar_log_decision's schema it no longer lists.
+ *
+ * An unwired reader — no hooks or no MCP — keeps AGENTS_PROTOCOL_BLOCK, the
+ * whole CLI loop, as does every host under `SOFAR_PAYLOAD=v034`.
+ */
+export const AGENTS_THIN_PROTOCOL_BLOCK = `${PROTOCOL_START}
+## Sofar protocol (jurisdiction is total)
+
+This repo's work memory lives in sofar records under \`.sofar/\`: ALL work
+state goes there, never in tool memory, scratch files or notes. Work that
+matches no initiative needs \`sofar new <slug>\` first. The current git
+branch's binding (\`.sofar/bindings.json\`) picks the record.
+
+- INJECTED: sofar's hooks loaded the record — the "# Sofar status" block
+  with a "Session:" line. Orient from it; do not re-read it with
+  \`sofar status\` or \`.sofar/\` files. \`sofar show D<n>\` prints one entry.
+- WRITE BACK ONCE, at the end, with \`sofar_end_session\`: \`session_id\`
+  (the Session line's), \`summary\`, \`next_action\`, and this session's
+  \`tasks\` (with \`title\` to add one), \`phases\`, \`memories\` (facts every
+  later session needs), \`notes\`, \`brief_append\` and \`decisions\`, each
+  {chose, over, because} plus, when it binds every later session, a \`rule\`
+  in the operator's words with their \`quote\`, \`supersedes\` ("D<n>" or
+  "none"), and a \`guard\`, \`check\` or \`until\`. Prose is WHY. It is
+  MANDATORY: where sofar's Stop hook runs it blocks a session without it,
+  and where it cannot (headless Cursor) the next session starts blind.
+- No \`sofar_*\` tools? \`sofar help write\` (the \`sofar-write\` skill) is
+  the same loop on the CLI.
+- Never hand-edit \`.sofar/\` files: corrections are new events.
+${PROTOCOL_END}
+`
+
+/**
+ * The thin block under the in-band write-back (r4-fixes A1 on A2's block):
+ * a hooked, MCP-wired reader is exactly the session whose hooks file a
+ * ```sofar block, so the write-back clause teaches the block first and keeps
+ * sofar_end_session as the other way. AGENTS_THIN_PROTOCOL_BLOCK is what
+ * SOFAR_WRITEBACK=tool installs.
+ */
+export const AGENTS_THIN_PROTOCOL_BLOCK_INLINE = AGENTS_THIN_PROTOCOL_BLOCK.replace(
+  `- WRITE BACK ONCE, at the end, with \`sofar_end_session\`: \`session_id\`
+  (the Session line's), \`summary\`, \`next_action\`, and this session's`,
+  `- WRITE BACK ONCE: end your final reply with ONE fenced \`sofar\` JSON
+  block — sofar's hooks file it — or call \`sofar_end_session\` with the
+  Session line's \`session_id\`. It holds \`summary\`, \`next_action\`,
+  and this session's`,
+).replace(
+  `MANDATORY: where sofar's Stop hook runs it blocks a session without it,
+  and where it cannot (headless Cursor) the next session starts blind.`,
+  `MANDATORY: sofar's Stop hook blocks a session without it (headless
+  Cursor: sessionEnd files the block), and without it the next session
+  starts blind.`,
+)
+
+/** Every AGENTS.md block of either mode, thin or full, that init may replace. */
+const AGENTS_CURRENT_BLOCKS: readonly string[] = [
+  AGENTS_PROTOCOL_BLOCK,
+  AGENTS_THIN_PROTOCOL_BLOCK,
+  AGENTS_THIN_PROTOCOL_BLOCK_INLINE,
+]
+
+
+/**
+ * The CLI write grammar (r4-fixes A2) — what `sofar help write` prints and the
+ * `sofar-write` skill holds: AGENTS_PROTOCOL_BLOCK's CLI loop and
+ * prohibitions, cut from the block itself so the two can never drift.
+ */
+export const WRITE_GRAMMAR = ((): string => {
+  const loop = AGENTS_PROTOCOL_BLOCK.indexOf('Session loop on the CLI:')
+  const end = AGENTS_PROTOCOL_BLOCK.indexOf(PROTOCOL_END)
+  return [
+    '# Writing to the sofar record from the shell (`sofar help write`)',
+    '',
+    "Every write is one `sofar event append` call. A session with sofar's MCP",
+    'tools writes back with ONE `sofar_end_session` call instead.',
+    '',
+    AGENTS_PROTOCOL_BLOCK.slice(loop, end).trimEnd(),
+    '',
+  ].join('\n')
+})()
+
+/** The skill's name, and where each host reads it (Claude Code: .claude/skills/; Codex and Cursor: .agents/skills/). */
+export const WRITE_SKILL_NAME = 'sofar-write'
+export const WRITE_SKILL_PATHS = {
+  claude: `.claude/skills/${WRITE_SKILL_NAME}/SKILL.md`,
+  agents: `.agents/skills/${WRITE_SKILL_NAME}/SKILL.md`,
+} as const
+
+/** The `sofar-write` skill: only its frontmatter rides every request; the grammar loads on use. */
+export const WRITE_SKILL = `---
+name: ${WRITE_SKILL_NAME}
+description: The sofar record's CLI write grammar (sofar event append) — plan, task and phase status, decisions and rules, notes, memories, the write-back — for a session without sofar_* tools.
+---
+
+${WRITE_GRAMMAR}`
+
+/** Superseded `sofar-write` skills, oldest first — APPEND only, as the protocol ledgers. */
+export const SHIPPED_WRITE_SKILLS: readonly string[] = []
+
 // REPO_MD_STUB moved to ./shared (ui-free) so event.ts can import it without
 // transitively reaching cli/ui through this module; re-exported here for the
 // existing importers (init is where the stub is written to disk).
@@ -2106,6 +2223,14 @@ export interface InitOptions {
    * (r4-fixes A11) — named in the report and the journal line.
    */
   skipped?: readonly AgentId[]
+  /**
+   * The tools Codex lists from sofar's server (r4-fixes A2): a list for
+   * `enabled_tools`, null for every tool (0.34's table). Absent: only
+   * sofar_end_session, or every tool under `SOFAR_PAYLOAD=v034`.
+   */
+  codexTools?: readonly string[] | null
+  /** The environment init reads `SOFAR_PAYLOAD` from — tests only. */
+  env?: Readonly<Record<string, string | undefined>>
 }
 
 export interface InitJournalContext {
@@ -2235,7 +2360,7 @@ export function uninstallStatusline(
 
 interface ShimSpec {
   file: string
-  event: 'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'Stop' | 'SessionEnd'
+  event: 'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'PostToolBatch' | 'PostToolUseFailure' | 'Stop' | 'SessionEnd'
   /** The `sofar event` subcommand the shim runs. */
   hook: HookName
   matcher?: string
@@ -2286,6 +2411,15 @@ export const SHIMS: readonly ShimSpec[] = [
     // The timeout is explicit because the DEFAULT is 600 s and a hook killed
     // at its timeout wakes nobody; the watch stops itself before this (D-3.5).
     entry: { asyncRewake: true, timeout: AWAIT_HOOK_TIMEOUT_SEC },
+  },
+  {
+    // One surfacing block per parallel batch (r4-fixes A4): Claude Code's own
+    // event, so Cursor and Codex never receive the shim or its entry.
+    file: 'post-tool-batch.sh',
+    event: 'PostToolBatch',
+    hook: 'post-tool-batch',
+    text: postToolBatchShim,
+    claudeOnly: true,
   },
   {
     file: 'post-tool-use-failure.sh',
@@ -2434,6 +2568,48 @@ export function wiredAgents(rootDir: string): AgentId[] {
       codexConfigRegistersSofar(join(rootDir, CODEX_CONFIG)),
   }
   return AGENTS.filter((id) => wired[id])
+}
+
+/**
+ * r4-fixes A2: does every AGENTS.md reader wired here — Cursor, Codex — run
+ * sofar's hooks AND reach its MCP server? Only then does AGENTS.md shrink to
+ * AGENTS_THIN_PROTOCOL_BLOCK; a reader missing either half needs the CLI loop
+ * in front of it. False when no reader is wired. Codex's server may be the
+ * user's own registration (D7), which reaches every project on the machine.
+ */
+export function agentsReadersWired(rootDir: string, home?: string): boolean {
+  const readers = wiredAgents(rootDir).filter((agent) => agent === 'cursor' || agent === 'codex')
+  if (readers.length === 0) return false
+  return readers.every((agent) => {
+    if (agent === 'cursor') {
+      const hooks = readText(join(rootDir, '.cursor', 'hooks.json'))
+      return (runsShimFrom(hooks, 'claude') || runsShimFrom(hooks, 'cursor')) && mcpRegistersSofar(join(rootDir, '.cursor', 'mcp.json'))
+    }
+    const hooks = readText(join(rootDir, '.codex', 'hooks.json'))
+    return (
+      CODEX_SHIMS.some((shim) => hooks.includes(`${CODEX_SHIM_DIR}/${shim.file}`)) &&
+      (codexConfigRegistersSofar(join(rootDir, CODEX_CONFIG)) || codexConfigRegistersSofar(codexUserConfigPath(home)))
+    )
+  })
+}
+
+/** The AGENTS.md block this repo should carry, and the blocks it may replace (r4-fixes A2). Shared by init and doctor. */
+export function agentsBlockFor(
+  rootDir: string,
+  home?: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): { template: string; shipped: readonly string[]; thin: boolean } {
+  const thin = !payloadV034(env) && agentsReadersWired(rootDir, home)
+  const mode = writebackMode(env as NodeJS.ProcessEnv)
+  // Each mode's thin or full block (A1 × A2); the rest of every current block,
+  // in either mode, is a predecessor, so switching mode or wiring refreshes.
+  const template = thin
+    ? mode === 'inline'
+      ? AGENTS_THIN_PROTOCOL_BLOCK_INLINE
+      : AGENTS_THIN_PROTOCOL_BLOCK
+    : agentsProtocolBlock(mode)
+  const shipped = [...SHIPPED_AGENTS_PROTOCOL_BLOCKS, ...AGENTS_CURRENT_BLOCKS.filter((b) => b !== template)]
+  return { template, shipped, thin }
 }
 
 /**
@@ -2831,7 +3007,7 @@ function mergeMcpJson(rootDir: string, rel: string, report: string[]): Change {
  * once, never loop it.
  */
 export const CURSOR_HOOKS: Readonly<
-  Record<ShimSpec['event'], { event: string; matcher?: string; loop_limit?: number }>
+  Partial<Record<ShimSpec['event'], { event: string; matcher?: string; loop_limit?: number }>>
 > = {
   SessionStart: { event: 'sessionStart' },
   UserPromptSubmit: { event: 'beforeSubmitPrompt' },
@@ -2869,7 +3045,7 @@ function mergeCursorHooks(rootDir: string, home: ShimHome, add: boolean, report:
   let moved = 0
   let widened = 0
   for (const shim of shimsFor('cursor')) {
-    const { event, matcher, loop_limit } = CURSOR_HOOKS[shim.event]
+    const { event, matcher, loop_limit } = CURSOR_HOOKS[shim.event]!
     const existing = hooks[event]
     if (existing !== undefined && !Array.isArray(existing)) {
       throw new InitAbort(`${rel} hooks.${event} is not an array — refusing to modify it.`)
@@ -2977,6 +3153,7 @@ function mergeCodexHooks(rootDir: string, report: string[]): Change {
 function mergeCodexMcp(
   rootDir: string,
   home: string | undefined,
+  table: string,
   report: string[],
 ): { change: Change; userStep: boolean } {
   const path = join(rootDir, CODEX_CONFIG)
@@ -2984,12 +3161,20 @@ function mergeCodexMcp(
   const text = exists ? readFileSync(path, 'utf8') : ''
   const state = codexMcpState(text)
   if (state === 'registered') {
-    report.push(`unchanged ${CODEX_CONFIG}`) // user may have customized the entry — theirs wins
+    // A table sofar wrote, byte for byte, follows the tool set this run picks
+    // (r4-fixes A2); any other sofar entry is the user's, and theirs wins.
+    const swapped = withSofarTable(text, table)
+    if (swapped !== null) {
+      put(path, swapped)
+      report.push(`updated ${CODEX_CONFIG} (the tools Codex lists from sofar)`)
+      return { change: 'unchanged', userStep: false }
+    }
+    report.push(`unchanged ${CODEX_CONFIG}`)
     return { change: 'unchanged', userStep: false }
   }
   if (state === 'absent') {
     mkdirSync(dirname(path), { recursive: true })
-    const { text: next, skipped } = directMerged(withSofarServer(text))
+    const { text: next, skipped } = directMerged(withSofarServer(text, table))
     put(path, next)
     const change = exists ? 'updated' : 'created'
     report.push(`${change} ${CODEX_CONFIG}`)
@@ -3129,6 +3314,32 @@ export function classifyProtocolBlock(
 }
 
 /**
+ * The `sofar-write` skill at `rel` (r4-fixes A2): created when missing,
+ * refreshed when it holds a skill sofar shipped, left alone when edited — a
+ * hand-changed skill is the user's, like a customized protocol block.
+ */
+function installWriteSkill(rootDir: string, rel: string, report: string[]): void {
+  const path = join(rootDir, rel)
+  if (!existsSync(path)) {
+    mkdirSync(dirname(path), { recursive: true })
+    put(path, WRITE_SKILL)
+    report.push(`created ${rel}`)
+    return
+  }
+  const current = readText(path)
+  if (current === WRITE_SKILL) {
+    report.push(`unchanged ${rel}`)
+    return
+  }
+  if (SHIPPED_WRITE_SKILLS.includes(current)) {
+    put(path, WRITE_SKILL)
+    report.push(`updated ${rel} (skill refreshed)`)
+    return
+  }
+  report.push(`unchanged ${rel} (customized — sofar will not refresh it)`)
+}
+
+/**
  * Install a marker-delimited protocol block into a repo-root file — one
  * discipline for CLAUDE.md and AGENTS.md: create the file if missing, append
  * the block if the markers are absent, and refresh an installed block ONLY
@@ -3214,6 +3425,7 @@ export function runInit(
 ): CmdResult {
   const statusline = options.statusline === true
   const picked = new Set(options.agents ?? AGENTS)
+  const v034 = payloadV034(options.env)
   const claude = picked.has('claude-code')
   const cursor = picked.has('cursor')
   const codex = picked.has('codex')
@@ -3254,13 +3466,17 @@ export function runInit(
     if (cursor) cursorMcp = mergeMcpJson(rootDir, '.cursor/mcp.json', report)
     if (codex) {
       codexHooks = mergeCodexHooks(rootDir, report)
-      const mcp = mergeCodexMcp(rootDir, options.home, report)
+      const tools = options.codexTools !== undefined ? options.codexTools : v034 ? null : CODEX_DEFAULT_TOOLS
+      const mcp = mergeCodexMcp(rootDir, options.home, codexMcpTable(tools), report)
       codexMcp = mcp.change
       codexUserStep = mcp.userStep
       if (mcp.change === 'unchanged' && !mcp.userStep) mergeCodexDirect(rootDir, report)
     }
     if (claude) {
       appendProtocolBlock(rootDir, 'CLAUDE.md', protocolBlock(), shippedProtocolBlocks(), report)
+      // The CLI loop as a skill (r4-fixes A2): a session whose MCP server is
+      // not approved yet has nothing else to write with.
+      if (!v034) installWriteSkill(rootDir, WRITE_SKILL_PATHS.claude, report)
     }
     if (options.promptCapture !== undefined && options.promptCapture !== promptCaptureEnabled(rootDir)) {
       setPromptCapture(rootDir, options.promptCapture)
@@ -3268,14 +3484,12 @@ export function runInit(
     }
     // AGENTS.md is the file Cursor always reads and the only protocol file
     // Codex reads (D36).
+    // With every reader hooked and MCP-wired it is the thin block, and the CLI
+    // loop moves to the skill (r4-fixes A2).
     if (cursor || codex) {
-      appendProtocolBlock(
-        rootDir,
-        'AGENTS.md',
-        agentsProtocolBlock(),
-        shippedAgentsProtocolBlocks(),
-        report,
-      )
+      const agentsBlock = agentsBlockFor(rootDir, options.home, options.env)
+      appendProtocolBlock(rootDir, 'AGENTS.md', agentsBlock.template, agentsBlock.shipped, report)
+      if (agentsBlock.thin) installWriteSkill(rootDir, WRITE_SKILL_PATHS.agents, report)
     }
   } catch (err) {
     aborted = true
@@ -3483,6 +3697,8 @@ export interface InitCommandOptions {
   root?: string
   statusline?: boolean
   promptCapture?: boolean
+  /** `--codex-tools` (r4-fixes A2): end_session (default), all, none, or a list. */
+  codexTools?: string
 }
 
 export interface InitCommandContext extends AgentPrompt {
@@ -3498,6 +3714,8 @@ export interface InitCommandContext extends AgentPrompt {
 
 /** `sofar init` end to end: the root, the agents (or a refusal), the wiring, the journal line. */
 export async function runInitCommand(opts: InitCommandOptions, ctx: InitCommandContext): Promise<CmdResult> {
+  const codexTools = opts.codexTools === undefined ? undefined : parseCodexTools(opts.codexTools, TOOL_NAMES)
+  if (codexTools !== undefined && codexTools !== null && 'error' in codexTools) return fail(`sofar init: ${codexTools.error}`)
   const root = initRoot(ctx.cwd, opts.root)
   const command = opts.root === undefined ? 'sofar init' : `sofar init --root ${shellQuote(opts.root)}`
   const consent = readConsent(root, ctx.journalEnv)
@@ -3515,6 +3733,7 @@ export async function runInitCommand(opts: InitCommandOptions, ctx: InitCommandC
     agents: choice.agents,
     ...(choice.skipped === undefined ? {} : { skipped: choice.skipped }),
     ...(opts.promptCapture === undefined ? {} : { promptCapture: opts.promptCapture }),
+    ...(codexTools === undefined ? {} : { codexTools: codexTools as readonly string[] | null }),
     ...(ctx.home === undefined ? {} : { home: ctx.home }),
     journal: {
       argv: ctx.argv,

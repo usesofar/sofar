@@ -547,6 +547,66 @@ fn engine_changed_line(was: Option<&str>) -> Option<String> {
     ))
 }
 
+/// The push-state fragment and its epoch (r4-fixes A4): branch, HEAD, origin tip.
+pub const PUSH_FRAGMENT: &str = "push";
+/// The debt nudge's fragment (r4-fixes A4).
+pub const DEBT_FRAGMENT: &str = "debt";
+
+#[must_use]
+pub fn push_epoch(git: &GitState) -> String {
+    format!(
+        "{}@{}:{}",
+        git.branch,
+        git.head,
+        git.upstream.as_deref().unwrap_or("-")
+    )
+}
+
+/// The push line and whether the debt nudge renders (r4-fixes A4): each told
+/// once per epoch — push state, debt band — or every prompt under
+/// `SOFAR_TOLD_LINES=off`.
+fn told_state_lines(
+    layout: &Layout,
+    session_id: &str,
+    git: Option<&GitState>,
+    debt: u64,
+) -> (Option<String>, bool) {
+    let told_lines = crate::told::told_lines_enabled();
+    let told = if told_lines {
+        crate::told::read_told(layout, session_id)
+    } else {
+        Vec::new()
+    };
+    let mut moved: Vec<(&str, Option<String>)> = Vec::new();
+    let mut push = None;
+    if let (Some(line), Some(g)) = (git_state_line(git), git) {
+        if told_lines {
+            let epoch = push_epoch(g);
+            if crate::told::fragment_epoch(&told, PUSH_FRAGMENT).as_deref() != Some(epoch.as_str())
+            {
+                push = Some(line);
+                moved.push((PUSH_FRAGMENT, Some(epoch)));
+            }
+        } else {
+            push = Some(line);
+        }
+    }
+    // Below the floor the band is forgotten, so the next climb re-tells.
+    let mut nudge = debt >= NUDGE_DRIFT_MIN;
+    if told_lines {
+        let told_band = crate::told::fragment_epoch(&told, DEBT_FRAGMENT);
+        let band = nudge.then(|| crate::told::debt_band(debt).to_string());
+        if band != told_band {
+            moved.push((DEBT_FRAGMENT, band.clone()));
+        }
+        nudge = band.is_some() && band != told_band;
+        let fragments: Vec<(&str, Option<&str>)> =
+            moved.iter().map(|(n, e)| (*n, e.as_deref())).collect();
+        crate::told::update_told(layout, session_id, &[], &fragments);
+    }
+    (push, nudge)
+}
+
 /// `gitStateLine`.
 fn git_state_line(git: Option<&GitState>) -> Option<String> {
     let git = git?;
@@ -800,15 +860,14 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         lines.push(line);
     }
     lines.extend(landed_notice(&layout, &slug, session_id, git.as_ref()));
-    if let Some(line) = git_state_line(git.as_ref()) {
-        lines.push(line);
-    }
     let debt = if slug == QUICK_LANE {
         0
     } else {
         session_debt(&state, me)
     };
-    if debt >= NUDGE_DRIFT_MIN {
+    let (push, nudge) = told_state_lines(&layout, session_id, git.as_ref(), debt);
+    lines.extend(push);
+    if nudge {
         lines.push(format!(
             "sofar: {debt} unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop."
         ));

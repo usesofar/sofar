@@ -8,7 +8,7 @@ import { registerFoldCommand } from './fold'
 import { registerEventCommand } from './event'
 import { registerReviewCommand } from './review'
 import { runAdopt } from './adopt'
-import { runInitCommand } from './init'
+import { runInitCommand, WRITE_GRAMMAR } from './init'
 import { stderrCaps } from './ui'
 import { runAbandon } from './abandon'
 import { parseAgents } from './agents'
@@ -94,9 +94,13 @@ program
   // neither is passed and a plain re-run changes nothing (r3-fixes 2.9, D6).
   .option('--prompt-capture', 'turn prompt capture back on for this clone')
   .option('--no-prompt-capture', "don't keep this clone's prompts in the private buffer that briefs are kept from by id")
+  .option(
+    '--codex-tools <set>',
+    "the sofar tools Codex lists: end_session (default — the write-back carries every other write), all, none, or a comma list",
+  )
   .option('--root <dir>', 'repo root (default: the git toplevel of the current directory, else the current directory)')
   .action(
-    async (opts: { agents?: string; refresh?: boolean; statusline?: boolean; root?: string; promptCapture?: boolean }) => {
+    async (opts: { agents?: string; refresh?: boolean; statusline?: boolean; root?: string; promptCapture?: boolean; codexTools?: string }) => {
       const caps = stderrCaps()
       const result = await runInitCommand(opts, {
         cwd: process.cwd(),
@@ -946,4 +950,11 @@ registerCommitTrailerCommand(program, rootOf)
 registerReviewCommand(program, rootOf)
 registerStatuslineCommand(program, rootOf)
 
-await program.parseAsync(process.argv)
+// `sofar help write` (r4-fixes A2): the CLI write grammar the thin AGENTS.md
+// block points at — a topic, not a command, so commander's own `help <command>`
+// never sees it.
+if (process.argv[2] === 'help' && process.argv[3] === 'write' && process.argv.length === 4) {
+  emit(ok(WRITE_GRAMMAR))
+} else {
+  await program.parseAsync(process.argv)
+}

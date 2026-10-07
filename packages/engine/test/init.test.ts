@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -16,6 +17,8 @@ import {
   BRIEF_BY_REFERENCE,
   LINK_DISPOSITION,
   AGENTS_PROTOCOL_BLOCK,
+  AGENTS_THIN_PROTOCOL_BLOCK,
+  AGENTS_THIN_PROTOCOL_BLOCK_INLINE,
   AGENTS_PROTOCOL_BLOCK_V3,
   AGENTS_PROTOCOL_BLOCK_V4,
   classifyProtocolBlock,
@@ -48,6 +51,8 @@ import {
   agentsProtocolBlock,
   shippedProtocolBlocks,
   shippedAgentsProtocolBlocks,
+  WRITE_SKILL,
+  WRITE_SKILL_PATHS,
 } from '../src/cli/init'
 import { runDoctor } from '../src/cli/doctor'
 
@@ -168,6 +173,8 @@ describe('sofar init on a fresh repo', () => {
           ],
         },
       ],
+      // One surfacing block per parallel batch (r4-fixes A4), Claude Code only.
+      PostToolBatch: [{ hooks: [{ type: 'command', command: '$CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-batch.sh' }] }],
       PostToolUseFailure: [
         {
           matcher: 'Edit|Write|MultiEdit|Bash',
@@ -208,10 +215,22 @@ describe('sofar init on a fresh repo', () => {
     expect(claudeMd).toContain('There is no start call: sofar\'s hooks know this session')
     expect(PROTOCOL_BLOCK_V13).toContain('On Claude Code, sofar\'s tools adopt this session')
 
+    // r4-fixes A2: every AGENTS.md reader here (Cursor, Codex) runs the hooks
+    // and the MCP server, so AGENTS.md is the thin block and the CLI loop is a
+    // skill, for each host where its skills live.
+    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)
+    expect(AGENTS_THIN_PROTOCOL_BLOCK_INLINE.length).toBeLessThanOrEqual(1_500)
+    expect(readFileSync(join(root, WRITE_SKILL_PATHS.claude), 'utf8')).toBe(WRITE_SKILL)
+    expect(readFileSync(join(root, WRITE_SKILL_PATHS.agents), 'utf8')).toBe(WRITE_SKILL)
+
     // AGENTS.md convention dialect: same markers, same three BD19 clauses,
-    // but a CLI-only loop (no MCP assumptions — task 5.1, BD31)
-    const agentsMd = readFileSync(join(root, 'AGENTS.md'), 'utf8')
+    // but a CLI-only loop (no MCP assumptions — task 5.1, BD31) — the block
+    // under SOFAR_PAYLOAD=v034, and for a reader without hooks or MCP.
+    const legacy = freshRepo()
+    runInit(legacy, { env: { SOFAR_PAYLOAD: 'v034' } })
+    const agentsMd = readFileSync(join(legacy, 'AGENTS.md'), 'utf8')
     expect(agentsMd).toBe(AGENTS_PROTOCOL_BLOCK)
+    expect(existsSync(join(legacy, WRITE_SKILL_PATHS.agents))).toBe(false)
     expect(agentsMd).toContain(PROTOCOL_START)
     expect(agentsMd).toContain(PROTOCOL_END)
     expect(agentsMd).toMatch(/never in tool memory/i) // (a) total jurisdiction
@@ -320,7 +339,7 @@ describe('sofar init merges — never clobbers — user files', () => {
     const appended = readFileSync(join(root, 'AGENTS.md'), 'utf8')
     expect(appended.startsWith(userContent)).toBe(true) // merge, not clobber
     expect(appended).toContain(PROTOCOL_START)
-    expect(appended.endsWith(AGENTS_PROTOCOL_BLOCK)).toBe(true)
+    expect(appended.endsWith(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)).toBe(true)
 
     // hand-edit INSIDE the markers → re-init leaves the whole file alone
     const edited = appended.replace('jurisdiction is total', 'jurisdiction is total (amended)')
@@ -402,7 +421,7 @@ describe('sofar init --statusline (opt-in rent-meter wiring, D4 informed re-test
 
     const settings = readJSON(join(root, '.claude', 'settings.json'))
     expect(settings.statusLine).toEqual(STATUSLINE_SETTINGS_ENTRY)
-    expect(Object.keys(settings.hooks as object)).toHaveLength(7) // hooks untouched by the flag
+    expect(Object.keys(settings.hooks as object)).toHaveLength(8) // hooks untouched by the flag
   })
 
   it('is byte-level idempotent: a second --statusline run changes no file', () => {
@@ -548,7 +567,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
     expect(result.exitCode).toBe(0)
     // The report block ends at the blank line before the (unstyled) hint.
     const lines = (result.stdout.split('\n\n')[0] ?? '').split('\n')
-    expect(lines.at(-1)).toBe('\x1b[32m✓\x1b[39m sofar init: done (27 changes)')
+    expect(lines.at(-1)).toBe('\x1b[32m✓\x1b[39m sofar init: done (30 changes)')
     expect(lines[0]).toBe('\x1b[2m  └ created .sofar/repo.md\x1b[22m')
     for (const line of lines.slice(0, -1)) {
       expect(line.startsWith('\x1b[2m  └ ')).toBe(true)
@@ -568,6 +587,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .claude/hooks/pre-tool-use.sh',
         'created .claude/hooks/post-tool-use.sh',
         'created .claude/hooks/drive-await.sh',
+        'created .claude/hooks/post-tool-batch.sh',
         'created .claude/hooks/post-tool-use-failure.sh',
         'created .claude/hooks/stop.sh',
         'created .claude/hooks/session-end.sh',
@@ -586,8 +606,10 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .codex/hooks.json',
         'created .codex/config.toml',
         'created CLAUDE.md (sofar protocol block)',
+        'created .claude/skills/sofar-write/SKILL.md',
         'created AGENTS.md (sofar protocol block)',
-        'sofar init: done (27 changes)',
+        'created .agents/skills/sofar-write/SKILL.md',
+        'sofar init: done (30 changes)',
         '',
         STATUSLINE_HINT,
         '',
@@ -851,7 +873,7 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     expect(claude).toContain('- RE-HOME the moment')
     expect(claude).toContain('sofar drive <slug> --detach')
     expect(claude.split(PROTOCOL_START).length - 1).toBe(1)
-    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_PROTOCOL_BLOCK)
+    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)
   })
 })
 
@@ -871,7 +893,7 @@ describe('Cursor wiring (r1-fixes 6.2/6.6, D34)', () => {
     // asyncRewake has no Cursor equivalent.
     expect(shimsFor('cursor').some((shim) => shim.file === 'drive-await.sh')).toBe(false)
     for (const shim of shimsFor('cursor')) {
-      const spec = CURSOR_HOOKS[shim.event]
+      const spec = CURSOR_HOOKS[shim.event]!
       const [entry] = cursor.hooks[spec.event] ?? []
       expect(entry?.command, spec.event).toBe(hookCommand(shim.file))
       expect(entry?.command).toBe(claude.hooks[shim.event]?.[0]?.hooks[0]?.command)

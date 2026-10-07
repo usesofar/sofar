@@ -278,14 +278,28 @@ pub fn stale_active_phases(state: &InitiativeState) -> Vec<StalePhase> {
 /// `enforceStatusLimit`: anything over the limit is cut to fit, marker included.
 #[must_use]
 pub fn enforce_status_limit(text: &str) -> String {
-    if utf16_len(text) <= STATUS_CHAR_LIMIT {
+    enforce_status_limit_at(text, STATUS_CHAR_LIMIT)
+}
+
+/// `enforceStatusLimit(text, limit)`: the host's cap (r4-fixes A2).
+#[must_use]
+pub fn enforce_status_limit_at(text: &str, limit: usize) -> String {
+    if utf16_len(text) <= limit {
         return text.to_owned();
     }
     let marker = format!("\n{STATUS_TRUNCATION_MARKER}\n");
-    format!(
-        "{}{marker}",
-        utf16_prefix(text, STATUS_CHAR_LIMIT - utf16_len(&marker))
-    )
+    format!("{}{marker}", utf16_prefix(text, limit - utf16_len(&marker)))
+}
+
+/// `scaledBudget`: a section budget scaled to a host's cap (r4-fixes A2) —
+/// `base` at the 6,000-char cap, proportionally less under a smaller one.
+#[must_use]
+pub fn scaled_budget(base: usize, limit: usize) -> usize {
+    if limit >= STATUS_CHAR_LIMIT {
+        base
+    } else {
+        base * limit / STATUS_CHAR_LIMIT
+    }
 }
 
 fn last_with_summary(sessions: &[SessionState]) -> Option<&SessionState> {
@@ -417,6 +431,9 @@ pub struct StatusOptions {
     /// The links tier's input to the travel block (linked-context 5.2);
     /// empty renders zero bytes.
     pub travel: crate::travel::TravelInput,
+    /// The block's hard cap (r4-fixes A2): the host's digest budget from
+    /// `host_payload::digest_limit`; `None` is `STATUS_CHAR_LIMIT`.
+    pub limit: Option<usize>,
 }
 
 impl Default for StatusOptions {
@@ -433,6 +450,7 @@ impl Default for StatusOptions {
             activity: None,
             retire: true,
             travel: crate::travel::TravelInput::default(),
+            limit: None,
         }
     }
 }
@@ -563,13 +581,13 @@ fn pending_link_lines(state: &InitiativeState, retired: &[usize]) -> Vec<String>
 }
 
 /// `briefLines`: the header, then the brief clipped to `BRIEF_BUDGET` UTF-16 units with the plan.md pointer.
-fn brief_lines(state: &InitiativeState) -> Vec<String> {
+fn brief_lines(state: &InitiativeState, budget: usize) -> Vec<String> {
     let mut lines = vec![BRIEF_HEADER.to_owned()];
-    if utf16_len(&state.brief) <= BRIEF_BUDGET {
+    if utf16_len(&state.brief) <= budget {
         lines.extend(state.brief.split('\n').map(str::to_owned));
     } else {
         lines.extend(
-            utf16_prefix(&state.brief, BRIEF_BUDGET)
+            utf16_prefix(&state.brief, budget)
                 .split('\n')
                 .map(str::to_owned),
         );
@@ -951,6 +969,10 @@ fn handle_ordinal(line: &str, letter: char) -> Option<usize> {
 )]
 pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String {
     let lane = options.lane;
+    let limit = options
+        .limit
+        .unwrap_or(STATUS_CHAR_LIMIT)
+        .min(STATUS_CHAR_LIMIT);
     let retire = options.retire;
     let retired: Vec<usize> = if retire {
         retired_ordinals(state)
@@ -1024,7 +1046,7 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     // (1b) The plan's brief (r1-fixes 4.6, L36), fixed; never rendered before
     // one was recorded.
     if !state.brief.is_empty() && !lane {
-        let mut lines = brief_lines(state);
+        let mut lines = brief_lines(state, scaled_budget(BRIEF_BUDGET, limit));
         lines.push(String::new());
         fixed(&mut blocks, lines);
     }
@@ -1041,7 +1063,7 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
                 "{label}: {}",
                 clip(
                     &format!("{} {}", task.id, task.title),
-                    NEXT_TASK_TITLE_BUDGET
+                    scaled_budget(NEXT_TASK_TITLE_BUDGET, limit)
                 )
             ),
             format!(
@@ -1103,7 +1125,7 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     if !lane && let Some(next_action) = &state.current.next_action {
         state_lines.push(format!(
             "Next action: {}",
-            clip(next_action, NEXT_ACTION_BUDGET)
+            clip(next_action, scaled_budget(NEXT_ACTION_BUDGET, limit))
         ));
     }
     let parallel = if lane {
@@ -1528,9 +1550,10 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     }
 
     // (8) The decision index with minutiae dropped — yielding (precedence 3).
+    let standing_budget = scaled_budget(STANDING_LEDGER_BUDGET, limit);
     let rules = standing_constraint_lines(
         &state.decisions,
-        Some(STANDING_LEDGER_BUDGET),
+        Some(standing_budget),
         retire,
         Some(&focus_terms),
     );
@@ -1766,7 +1789,12 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     }
     if !identity.is_empty() {
         identity.push(String::new());
-        fixed(&mut blocks, identity);
+        // Protected under a host's smaller cap (r4-fixes A2): the Session line
+        // is the id a write-back passes.
+        blocks.push(Block::Fixed {
+            lines: identity,
+            protected: limit < STATUS_CHAR_LIMIT,
+        });
     }
     for notice in options.notices.iter().filter(|n| !js_trim(n).is_empty()) {
         fixed(&mut blocks, vec![notice.clone(), String::new()]);
@@ -1783,7 +1811,8 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     #[allow(clippy::cast_possible_wrap, reason = "line lengths are small")]
     let own_used: i64 = rules.iter().map(|l| utf16_len(l) as i64 + 1).sum();
     #[allow(clippy::cast_possible_wrap, reason = "budgets are small")]
-    let elsewhere_budget = (REPO_RULES_BUDGET as i64).min(STANDING_LEDGER_BUDGET as i64 - own_used);
+    let elsewhere_budget =
+        (scaled_budget(REPO_RULES_BUDGET, limit) as i64).min(standing_budget as i64 - own_used);
     let own_in_force: Vec<&DecisionState> = state
         .decisions
         .iter()
@@ -1820,8 +1849,8 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         protected: true,
     });
 
-    let text = assemble(blocks, STATUS_CHAR_LIMIT);
-    enforce_status_limit(&text)
+    let text = assemble(blocks, limit);
+    enforce_status_limit_at(&text, limit)
 }
 
 /// A string field of the run surface, as `${s.x}` prints it (`undefined` when absent).

@@ -24,6 +24,10 @@ import {
   SHIM_HOMES,
   SHIMS,
   wiredAgents,
+  SHIPPED_WRITE_SKILLS,
+  WRITE_SKILL,
+  WRITE_SKILL_NAME,
+  WRITE_SKILL_PATHS,
 } from './init'
 import {
   appendWiringEntry,
@@ -434,6 +438,29 @@ function stripGitattributes(rootDir: string, purge: boolean, report: string[]): 
   report.push('updated .gitattributes (sofar union-merge rules removed)')
 }
 
+/**
+ * The `sofar-write` skill init wrote (r4-fixes A2), only while it holds the
+ * bytes a sofar shipped — an edited skill is the user's — then the skill's
+ * directories, each only if that left it empty. True when a file went.
+ */
+function removeWriteSkills(rootDir: string, report: string[]): boolean {
+  let removed = false
+  for (const rel of Object.values(WRITE_SKILL_PATHS)) {
+    const path = join(rootDir, rel)
+    if (!existsSync(path)) continue
+    const text = readFileSync(path, 'utf8')
+    if (text !== WRITE_SKILL && !SHIPPED_WRITE_SKILLS.includes(text)) continue
+    unlinkSync(path)
+    report.push(`removed ${rel}`)
+    removed = true
+    const skills = rel.slice(0, rel.indexOf('/skills/') + '/skills'.length)
+    if (removeDirIfEmpty(rootDir, `${skills}/${WRITE_SKILL_NAME}`, report) && removeDirIfEmpty(rootDir, skills, report)) {
+      if (skills.startsWith('.agents/')) removeDirIfEmpty(rootDir, '.agents', report)
+    }
+  }
+  return removed
+}
+
 /** Remove a directory ONLY when it exists and is empty. */
 function removeDirIfEmpty(rootDir: string, rel: string, report: string[]): boolean {
   const path = join(rootDir, rel)
@@ -512,11 +539,12 @@ export function runUninit(
     stripGitattributes(rootDir, purge, report)
     stripProtocolBlock(rootDir, 'CLAUDE.md', purge, report, warnings)
     stripProtocolBlock(rootDir, 'AGENTS.md', purge, report, warnings)
+    const skillsRemoved = removeWriteSkills(rootDir, report)
 
     // Directory cleanup — only dirs THIS run may have emptied, never a dir
     // that was already empty before uninit touched anything.
     const hooksDirRemoved = shimsRemoved > 0 && removeDirIfEmpty(rootDir, '.claude/hooks', report)
-    if (hooksDirRemoved || settingsDeleted) removeDirIfEmpty(rootDir, '.claude', report)
+    if (hooksDirRemoved || settingsDeleted || skillsRemoved) removeDirIfEmpty(rootDir, '.claude', report)
     const cursorShimDirRemoved =
       cursorShimsRemoved > 0 &&
       removeDirIfEmpty(rootDir, SHIM_HOMES.cursor.dir, report) &&

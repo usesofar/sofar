@@ -5,7 +5,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"adopt Rust for the hot path incrementally, run owner said yes"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [D1·1x01] chose Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 (\"yes do it\"). SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions: - \"TypeScript s (matched: rust, incrementally, yes, hot, adopt, owner, path, run; full text in…\nsofar: rust-core @ 7535e75, never pushed.\nsofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D1·1x01] rule: \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.\"; chose Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 (\"yes do it\"). SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions: - \"TypeScript strict mode; Node ≥18; ES modules\"; - \"Dependencies: … Nothing else without logging a Decision\". Rust crates are limited to serde, se…","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [D1·1x01] chose Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 (\"yes do it\"). SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions: - \"TypeScript s (matched: rust, incrementally, yes, hot, adopt, owner, path, run; full text in…\nsofar: rust-core @ 7535e75, never pushed.\nsofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D1·1x01] rule: \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.\"","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 --- artifact
@@ -44,14 +44,14 @@ lexicon-p30.json 2b602644a9380e15 15308
 lexicon-p31.json 2e74da5c3cb7e8b0 14548
 lexicon.json 6d9defab4fbecb3e 49171
 gens: one
-told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","01M2JWH2A0SZXMRPGH4P3HEV05 prompt"]}
+told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","@01M2JWH2A0SZXMRPGH4P3HEV05","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","push=rust-core@7535e75:-"]}
 
 ## step 2: the same prompt: told once, nothing
 argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"adopt Rust for the hot path incrementally, run owner said yes"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [bench-refresh D21·xc4t] chose Adopt the external Codex audit of r1-fixes (session codex-r1-audit-20260915-01, record r1-fixes) at program level. Ruled by the run owner 2026-09-15 by sharing it with \"yes do it\". (1) RELEASE ORDER:  (matched: yes, rust, adopt, owner, run; full text in bench-refr…\nsofar: noted before — [bench-refresh note 2026-09-15] RUN-OWNER QUESTION (2026-09-15): move sofar to Rust for lead performance? Evidence against a rewrite now: - Engine plus schema is 27,593 lines of TS, with 34,197 lines of tests (109 engine test files) (matched: rust, hot, owner, path, run)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [bench-refresh D21·xc4t] chose Adopt the external Codex audit of r1-fixes (session codex-r1-audit-20260915-01, record r1-fixes) at program level. Ruled by the run owner 2026-09-15 by sharing it with \"yes do it\". (1) RELEASE ORDER:  (matched: yes, rust, adopt, owner, run; full text in bench-refr…\nsofar: noted before — [bench-refresh note 2026-09-15] RUN-OWNER QUESTION (2026-09-15): move sofar to Rust for lead performance? Evidence against a rewrite now: - Engine plus schema is 27,593 lines of TS, with 34,197 lines of tests (109 engine test files) (matched: rust, hot, owner, path, run)","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -60,7 +60,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2·ea2q] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: lengths, rust, ryu, formatting, number, char; full text in decisions/D2.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2·ea2q] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: lengths, rust, ryu, formatting, number, char; full text in decisions/D2.md)","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -69,7 +69,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -79,7 +79,7 @@ stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<
 env: {"SOFAR_LESSONS":"fold"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2·ea2q] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: formatting, lengths, number, char, ryu, rust; full text in decisions/D2.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2·ea2q] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: formatting, lengths, number, char, ryu, rust; full text in decisions/D2.md)","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -89,7 +89,7 @@ stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<
 env: {"SOFAR_LESSONS":"off"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -98,7 +98,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"port it with localeCompare and Intl collation for sorting slugs"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [note 2026-09-15] 1.1 inventory landed as docs/HOTPATH.md (hand-written, §-citable). Surface: six fast-path argv shapes (5 hooks + statusline) plus event append and plain/styled status; per-command stdin fields, reads, (matched: collation, localecompare, port)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [note 2026-09-15] 1.1 inventory landed as docs/HOTPATH.md (hand-written, §-citable). Surface: six fast-path argv shapes (5 hooks + statusline) plus event append and plain/styled status; per-command stdin fields, reads, (matched: collation, localecompare, port)","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 --- artifact
@@ -137,7 +137,7 @@ lexicon-p30.json 2b602644a9380e15 15308
 lexicon-p31.json 2e74da5c3cb7e8b0 14548
 lexicon.json 6d9defab4fbecb3e 49171
 gens: one
-told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","01M2JWHSEFKVFNTSK7FWY1WSYQ prompt","01M2JVK1ZHGYQ5N3RV2BX2CT7J prompt","01M2JXCZVHG875341GTKC59B04 prompt","01M2JXD7EBY8QWWECF92Z4RJ6X prompt"]}
+told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","@01M2JWH2A0SZXMRPGH4P3HEV05","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","push=rust-core@7535e75:-","01M2JWHSEFKVFNTSK7FWY1WSYQ prompt","01M2JVK1ZHGYQ5N3RV2BX2CT7J prompt","01M2JXCZVHG875341GTKC59B04 prompt","01M2JXD7EBY8QWWECF92Z4RJ6X prompt"]}
 
 ## record delta
 (no change)

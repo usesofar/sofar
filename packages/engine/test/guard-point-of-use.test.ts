@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { makeEvent } from '../src/core/envelope'
 import { foldLog, sessionGuardViolations } from '../src/core/fold'
 import { indexDir } from '../src/core/index-store'
@@ -281,13 +281,22 @@ describe('3.2 it says each rule once per subject', () => {
     expect(context(edit(f.root, 'T', file))).toContain(MARK)
   })
 
-  it('warns about the next file, having gone quiet about the first', () => {
+  it('tells a rule once per context, whatever the file (r4-fixes A4); per file with SOFAR_TOLD_LINES=off', () => {
     const f = fx()
     rule(f.root, 'security', { rule: 'R', guard: 'path:**/*.ts' })
 
     edit(f.root, 'S', join(f.root, 'a.ts'))
     expect(edit(f.root, 'S', join(f.root, 'a.ts'))).toBe('')
-    expect(context(edit(f.root, 'S', join(f.root, 'b.ts')))).toContain(MARK)
+    expect(edit(f.root, 'S', join(f.root, 'b.ts'))).toBe('')
+
+    vi.stubEnv('SOFAR_TOLD_LINES', 'off')
+    try {
+      edit(f.root, 'T', join(f.root, 'a.ts'))
+      expect(edit(f.root, 'T', join(f.root, 'a.ts'))).toBe('')
+      expect(context(edit(f.root, 'T', join(f.root, 'b.ts')))).toContain(MARK)
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('warns about a rule declared AFTER the file was already touched', () => {
@@ -412,7 +421,8 @@ describe('3.2 the index is derived, never truth (D1)', () => {
     for (const name of ['guards.json', 'meta-guards.json', 'graph.json', 'meta-graph.json']) {
       writeFileSync(join(dir, name), '{not json at all')
     }
-    expect(context(edit(f.root, 'S', join(f.root, 'b.ts')))).toContain(MARK)
+    // Another session: S was told the rule on a.ts, once for its context (A4).
+    expect(context(edit(f.root, 'T', join(f.root, 'b.ts')))).toContain(MARK)
   })
 
   it('is silent, never wrong, when the record itself is unreadable', () => {

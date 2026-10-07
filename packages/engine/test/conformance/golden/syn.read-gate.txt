@@ -36,16 +36,44 @@ exit: 0
 --- stderr
 (empty)
 
-## step 5: a pipe is left alone
+## step 5: a read piped to head: its read segment rewritten
 argv: ["event","pre-tool"]
 stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .sofar/initiatives/baseline/plan.md | head -5"}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"sofar read --session 'sess-g' '.sofar/initiatives/baseline/plan.md' | head -5"}}}
+--- stderr
+(empty)
+
+## step 6: a compound command: each read segment rewritten, the code read kept
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls; cat src/a.ts && cat .sofar/initiatives/baseline/memory.md 2>/dev/null\ncat '.sofar/initiatives/baseline/decisions.md' | tail -3"}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"ls; cat src/a.ts && sofar read --session 'sess-g' '.sofar/initiatives/baseline/memory.md' 2>/dev/null\nsofar read --session 'sess-g' '.sofar/initiatives/baseline/decisions.md' | tail -3"}}}
+--- stderr
+(empty)
+
+## step 7: a compound command with a substitution is left alone
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .sofar/initiatives/baseline/plan.md; echo $(date)"}}
 exit: 0
 --- stdout
 (empty)
 --- stderr
 (empty)
 
-## step 6: the Read tool is left alone
+## step 8: SOFAR_TOLD_LINES=off: a pipe is left alone, as 0.34.1
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .sofar/initiatives/baseline/plan.md | head -5"}}
+env: {"SOFAR_TOLD_LINES":"off"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 9: the Read tool is left alone
 argv: ["event","pre-tool"]
 stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"file_path":"<ROOT>/.sofar/initiatives/baseline/plan.md"}}
 exit: 0
@@ -54,7 +82,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 7: SOFAR_READ_GATE=off
+## step 10: SOFAR_READ_GATE=off
 argv: ["event","pre-tool"]
 stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat .sofar/initiatives/baseline/plan.md"}}
 env: {"SOFAR_READ_GATE":"off"}
@@ -64,7 +92,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 8: head -n 40 from a subdirectory: passed through
+## step 11: head -n 40 from a subdirectory: passed through
 argv: ["event","pre-tool"]
 stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>/src","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"head -n 40 ../.sofar/initiatives/baseline/events.jsonl"}}
 exit: 0
@@ -73,7 +101,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 9: tail -25: passed through
+## step 12: tail -25: passed through
 argv: ["event","pre-tool"]
 stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"tail -25 .sofar/initiatives/baseline/plan.md"}}
 exit: 0
@@ -82,7 +110,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 10: Cursor: head -c passed through
+## step 13: Cursor: head -c passed through
 argv: ["event","pre-tool"]
 stdin: {"conversation_id":"conv-g","cursor_version":"2026.10.01","cwd":"<ROOT>","hook_event_name":"preToolUse","tool_name":"Shell","tool_input":{"command":"head -c 20000 .sofar/initiatives/baseline/decisions.md"}}
 exit: 0
@@ -91,7 +119,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 11: a Read with offset and limit is left alone
+## step 14: a Read with offset and limit is left alone
 argv: ["event","pre-tool"]
 stdin: {"session_id":"sess-g","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"file_path":"<ROOT>/.sofar/initiatives/baseline/plan.md","offset":10,"limit":25}}
 exit: 0
