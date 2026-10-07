@@ -539,7 +539,8 @@ export interface BranchRebound {
  *    on an unbound branch already gets a block telling it to switch.
  *  - Never onto a CLOSED or dropped record — pointing new sessions at a
  *    finished one is the mistake closedBanner exists to name.
- *  - Never INTRODUCES a slug to the routing table (no-bind-durability D1). The
+ *  - Never INTRODUCES a slug to the committed routing table (no-bind-durability
+ *    D1; since r4-fixes H2 the untracked last home follows every record). The
  *    rebind moves a branch BETWEEN initiatives the operator has already routed
  *    to; a slug appearing nowhere among bindings.json's values is one no branch
  *    was ever pointed at, and `sofar new --no-bind` is precisely how that state
@@ -577,15 +578,16 @@ function rebindBranch(
     const committed = bindings[branch]
     if (typeof committed !== 'string' || committed.length === 0) return undefined // move-only
     if (isClosedInitiativeStatus(state.status)) return undefined
-    if (!Object.values(bindings).includes(slug)) return undefined // never introduces
     if (!lastHomeEnabled()) {
       // SOFAR_LASTHOME=committed: the pre-A10 rebind of the committed file.
+      if (!Object.values(bindings).includes(slug)) return undefined // never introduces
       if (committed === slug) return undefined
       if (!writeBinding(bindingsPath, branch, slug)) return undefined
       return { branch, from: committed, to: slug }
     }
     // r4-fixes A10 (R11 (b)): the move lands in THAT worktree's untracked
-    // last home, never in the committed bindings.json.
+    // last home, never in the committed bindings.json — so it may name a
+    // --no-bind record (r4-fixes H2): the flag guards the committed route.
     const from = lastHomeOf(sofarDir, branch) ?? committed
     if (from === slug) return undefined
     if (!setLastHome(sofarDir, branch, slug, sessionId)) return undefined

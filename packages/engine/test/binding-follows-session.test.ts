@@ -252,17 +252,29 @@ describe('a write-back never introduces an initiative to the routing table (no-b
   /** `sofar new beta --no-bind` from main: beta exists, no branch points at it. */
   const noBind = `${JSON.stringify({ main: 'alpha' }, null, 2)}\n`
 
-  it('leaves --no-bind standing on a branch that is bound elsewhere', () => {
+  it('leaves --no-bind standing in the committed table; the untracked last home follows (r4-fixes H2)', () => {
     const { root, sofar } = repo(noBind)
     const result = wrapUp(root, 'MINE')
 
     expect(readBindings(sofar)).toEqual({ main: 'alpha' })
-    expect(result.rebound).toBeUndefined()
-    // The write-back itself still lands in beta and still succeeds — only the
-    // ROUTING of future sessions is withheld, the same shape the closed-record
-    // guard takes.
     expect(result.ok).toBe(true)
-    expect(record(root, 'SOMEONE-ELSE')).toContain('alpha')
+    // A fresh tab in this worktree opens where the operator last stopped.
+    expect(lastHome(sofar, 'main')).toBe('beta')
+    expect(result.rebound).toEqual({ branch: 'main', from: 'alpha', to: 'beta' })
+    expect(record(root, 'SOMEONE-ELSE')).toContain('beta')
+  })
+
+  it('SOFAR_LASTHOME=committed keeps the guard: no route to a --no-bind record', () => {
+    const { root, sofar } = repo(noBind)
+    process.env.SOFAR_LASTHOME = 'committed'
+    try {
+      const result = wrapUp(root, 'MINE')
+      expect(readBindings(sofar)).toEqual({ main: 'alpha' })
+      expect(result.rebound).toBeUndefined()
+      expect(record(root, 'SOMEONE-ELSE')).toContain('alpha')
+    } finally {
+      delete process.env.SOFAR_LASTHOME
+    }
   })
 
   it('resumes the move once an explicit bind puts beta in the table', () => {
