@@ -751,12 +751,12 @@ export const CASES: ConformanceCase[] = [
     name: 'syn.inline-writeback',
     fixture: synthetic('baseline', { branch: 'main', head: CELL_SHA, upstream: CELL_OLD }),
     steps: [
-      s('a block that is not JSON: one repair ask, nothing filed', ['event', 'stop'], stop({ session_id: 'sess-open', last_assistant_message: inlineReply('{"summary": "half a block",') })),
-      s('the repaired block, on the held Stop: filed', ['event', 'stop'], stop({ session_id: 'sess-open', stop_hook_active: true, last_assistant_message: inlineReply(INLINE_OK) })),
-      s('the same reply at SessionEnd files nothing twice', ['event', 'session-end'], end({ session_id: 'sess-open', last_assistant_message: inlineReply(INLINE_OK) })),
+      s('a block that is not JSON: one repair ask, nothing filed', ['event', 'stop'], stop({ session_id: 'sess-open', last_assistant_message: inlineReply('{"summary": "half a block",') }), { env: { SOFAR_WRITEBACK: 'inline' } }),
+      s('the repaired block, on the held Stop: filed', ['event', 'stop'], stop({ session_id: 'sess-open', stop_hook_active: true, last_assistant_message: inlineReply(INLINE_OK) }), { env: { SOFAR_WRITEBACK: 'inline' } }),
+      s('the same reply at SessionEnd files nothing twice', ['event', 'session-end'], end({ session_id: 'sess-open', last_assistant_message: inlineReply(INLINE_OK) }), { env: { SOFAR_WRITEBACK: 'inline' } }),
       s('an edit registers a second session, owing', ['event', 'post-tool'], edit('<ROOT>/src/module/file-3.ts', { session_id: 'sess-tool' })),
       s('SOFAR_WRITEBACK=tool: the block is not read, the hold names the tool', ['event', 'stop'], stop({ session_id: 'sess-tool', last_assistant_message: inlineReply(INLINE_OK) }), { env: { SOFAR_WRITEBACK: 'tool' } }),
-      s('inline, no block: the hold asks for one', ['event', 'stop'], stop({ session_id: 'sess-tool', last_assistant_message: 'Done.' })),
+      s('inline, no block: the hold asks for one', ['event', 'stop'], stop({ session_id: 'sess-tool', last_assistant_message: 'Done.' }), { env: { SOFAR_WRITEBACK: 'inline' } }),
       s('a Cursor edit registers its chat', ['event', 'post-tool'], hook('postToolUse', { session_id: 'cursor-chat', conversation_id: 'cursor-chat', cursor_version: '2026.10.01-e373342', tool_name: 'Write', tool_input: { file_path: '<ROOT>/src/module/file-4.ts', content: 'x' }, tool_output: '' })),
       s('Cursor sessionEnd files the block its transcript ends with', ['event', 'session-end'], end({ session_id: 'cursor-chat', conversation_id: 'cursor-chat', cursor_version: '2026.10.01-e373342', hook_event_name: 'sessionEnd', reason: 'completed', transcript_path: '<ROOT>/cursor-transcript.jsonl' }), {
         before: (m) => {

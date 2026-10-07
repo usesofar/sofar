@@ -14,6 +14,7 @@ import {
   parseBlock,
   stashPath,
   TRANSCRIPT_TAIL_BYTES,
+  writebackModeFor,
 } from '../src/core/inline-block'
 import { capturePrompt } from '../src/core/prompt-buffer'
 import { codexStopMessage, handleSessionEnd, handleStop, runAppend, STOP_BLOCK_MESSAGE, STOP_BLOCK_MESSAGE_TOOL, SUBCOMMANDS } from '../src/cli/event'
@@ -37,7 +38,7 @@ beforeEach(() => {
   const home = mkdtempSync(join(tmpdir(), 'sofar-inline-home-'))
   roots.push(home)
   vi.stubEnv('HOME', home)
-  vi.stubEnv('SOFAR_WRITEBACK', undefined)
+  vi.stubEnv('SOFAR_WRITEBACK', 'inline') // the block path; Claude Code's default is the tool (r4-fixes H5)
 })
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -242,6 +243,20 @@ describe('Stop files the block', () => {
     expect(r.stderr).toBe(STOP_BLOCK_MESSAGE)
     expect(STOP_BLOCK_MESSAGE).toMatch(/end your reply with a ```sofar block/)
     expect(codexStopMessage(SLUG, 's1')).toMatch(/```sofar block .* session_id s1 \(or `sofar event append inline --type session_ended --source codex --session s1`\)\.$/)
+  })
+
+  it('unset, Claude Code writes back through the tool and Codex keeps the block (r4-fixes H5)', () => {
+    vi.stubEnv('SOFAR_WRITEBACK', undefined)
+    expect(writebackModeFor('claude-code')).toBe('tool')
+    expect(writebackModeFor('codex')).toBe('inline')
+    expect(writebackModeFor('cursor')).toBe('inline')
+    expect(writebackModeFor('claude-code', { SOFAR_WRITEBACK: 'inline' })).toBe('inline')
+    expect(writebackModeFor('codex', { SOFAR_WRITEBACK: 'tool' })).toBe('tool')
+    const root = repo()
+    const before = events(root).length
+    const r = stop(root, reply(WRITEBACK)) // a Claude Code payload: its block is not read
+    expect(r).toEqual({ exitCode: 2, stdout: '', stderr: STOP_BLOCK_MESSAGE_TOOL })
+    expect(events(root).length).toBe(before)
   })
 
   it('SOFAR_WRITEBACK=tool is 0.34: the block is ignored and the hold names the tool', () => {

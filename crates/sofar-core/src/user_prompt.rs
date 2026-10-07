@@ -979,8 +979,9 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
             stderr: held.join("\n"),
         };
     }
-    // The in-band write-back (r4-fixes A1) asks for the block first; SOFAR_WRITEBACK=tool is 0.34's line.
-    let mut lines = vec![if crate::inline::writeback_inline() {
+    // The in-band write-back (r4-fixes A1) asks for the block first; SOFAR_WRITEBACK=tool is 0.34's
+    // line, and Claude Code's by default (r4-fixes H5).
+    let mut lines = vec![if crate::inline::writeback_inline_for(crate::host::hook_host(&hook).tool) {
         crate::inline::STOP_BLOCK_MESSAGE_INLINE.to_owned()
     } else {
         STOP_BLOCK_MESSAGE.to_owned()

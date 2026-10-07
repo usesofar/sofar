@@ -8,7 +8,7 @@ import {
   handleSessionEnd,
   handleSessionStart,
   handleStop,
-  STOP_BLOCK_MESSAGE,
+  STOP_BLOCK_MESSAGE_TOOL,
 } from '../src/cli/event'
 import { STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
 import { callTool, connectServer, makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
@@ -162,7 +162,7 @@ describe('acceptance 1+2+4 — two interleaved sessions on ONE initiative', () =
     expect(handleStop(fixture.root, stopStdin(A))).toEqual({ exitCode: 0, stdout: '', stderr: '' })
     const blockedB = handleStop(fixture.root, stopStdin(B))
     expect(blockedB.exitCode).toBe(2)
-    expect(blockedB.stderr).toBe(STOP_BLOCK_MESSAGE)
+    expect(blockedB.stderr).toBe(STOP_BLOCK_MESSAGE_TOOL)
     // Each server still holds its OWN session and only its own — the write-back
     // no longer clears A's box (4.5), and it never reached across to B's.
     expect(serverA.handle.getActiveSession()!.id).toBe(A)

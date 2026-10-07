@@ -15,7 +15,7 @@ import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { effectiveHooksDir } from '../core/attribution'
 import { commonGitDir, gitToplevel } from '../core/git'
-import { writebackMode, type WritebackMode } from '../core/inline-block'
+import { writebackMode, writebackModeFor, type WritebackMode } from '../core/inline-block'
 import { promptCaptureEnabled, setPromptCapture } from '../core/prompt-buffer'
 import { mcpRegistration } from '../mcp/register'
 import {
@@ -946,13 +946,13 @@ export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V13.replace(...INLINE_WRITEBACK.cla
   .replace(...INLINE_WRITEBACK.claude.during)
   .replace(...INLINE_WRITEBACK.claude.finish)
 
-/** The CLAUDE.md block for a write-back mode: 0.34's V13 under SOFAR_WRITEBACK=tool. */
-export function protocolBlock(mode: WritebackMode = writebackMode()): string {
+/** The CLAUDE.md block for a write-back mode: 0.34's V13 under the tool write-back, Claude Code's default (r4-fixes H5). */
+export function protocolBlock(mode: WritebackMode = writebackModeFor('claude-code')): string {
   return mode === 'inline' ? PROTOCOL_BLOCK : PROTOCOL_BLOCK_V13
 }
 
 /** Blocks init may refresh in a mode: the ledger, plus the other mode's current block. */
-export function shippedProtocolBlocks(mode: WritebackMode = writebackMode()): readonly string[] {
+export function shippedProtocolBlocks(mode: WritebackMode = writebackModeFor('claude-code')): readonly string[] {
   return mode === 'inline' ? SHIPPED_PROTOCOL_BLOCKS : [...SHIPPED_PROTOCOL_BLOCKS, PROTOCOL_BLOCK]
 }
 

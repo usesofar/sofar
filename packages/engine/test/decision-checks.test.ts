@@ -21,7 +21,7 @@ import { refreshGuards } from '../src/core/index-tier1'
 import { appendEvent } from '../src/core/log'
 import { runBind } from '../src/cli/bind'
 import { runCheck, STAGED_REFUSE_EXIT } from '../src/cli/check'
-import { handlePostTool, handleStop, STOP_BLOCK_MESSAGE } from '../src/cli/event'
+import { handlePostTool, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
 import { createToolContext } from '../src/mcp/context'
 import { gatePathspecs } from '../src/core/checks'
 import { GIT_HOOKS } from '../src/cli/init'
@@ -321,7 +321,7 @@ describe('Stop: failures ride the write-back block, never cause one', () => {
     const r = stop(root, 's1')
     expect(r.exitCode).toBe(2)
     const lines = r.stderr.split('\n')
-    expect(lines[0]).toBe(STOP_BLOCK_MESSAGE.split('\n')[0])
+    expect(lines[0]).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
     expect(bare(r.stderr)).toContain('sofar: check for [demo D1] failed (exit 2): nope — rule: "Never hard-delete anything the traveller made." — fix: restore soft delete')
     expect(bare(r.stderr)).toContain('[demo D2] `touch never.txt`')
     expect(existsSync(join(root, 'never.txt'))).toBe(false)
@@ -537,7 +537,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
     edited(root, 's1')
     const owed = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 1)
-    expect(owed.stderr.split('\n')[0]).toBe(STOP_BLOCK_MESSAGE.split('\n')[0])
+    expect(owed.stderr.split('\n')[0]).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
     expect(owed.stderr).toContain('no covering test passed since your last edit')
     wroteBack(root, 's1')
     process.env.SOFAR_ENFORCE = 'off'

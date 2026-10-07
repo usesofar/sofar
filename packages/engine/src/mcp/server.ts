@@ -1,5 +1,5 @@
 import { withActivityGuidance } from '../core/derived'
-import { writebackMode, type WritebackMode } from '../core/inline-block'
+import { writebackMode, writebackModeFor, type WritebackMode } from '../core/inline-block'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
@@ -239,7 +239,12 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
 
   const server = new Server(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { capabilities: { tools: {} }, instructions: serverInstructions(hostSessionId !== undefined, listedTools()) },
+    {
+      capabilities: { tools: {} },
+      // A server handed a Claude Code session id is that session's child, so it
+      // teaches Claude Code's write-back (r4-fixes H5).
+      instructions: serverInstructions(hostSessionId !== undefined, listedTools(), writebackModeFor(hostSessionId !== undefined ? 'claude-code' : undefined)),
+    },
   )
   const alwaysLoaded: readonly string[] = ALWAYS_LOADED_TOOLS
 

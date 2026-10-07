@@ -4873,10 +4873,17 @@ ends with ONE fenced block whose info string is `sofar`, and the hooks file it
 round trip per sofar MCP call: 37–39 a chain on Codex, 138 in 3 reps on
 Claude, two per first use on Cursor (the schema fetch, then the call).
 
-- SWITCH: `SOFAR_WRITEBACK=inline` (the default) or `tool`. `tool` is 0.34
-  exactly — no block is read, the Stop hold names the tool, no grammar repair
-  below applies — and is the ablation arm. Under `inline` the tool path is
-  KEPT: sofar_end_session and every other tool work as before.
+- SWITCH: `SOFAR_WRITEBACK=inline` or `tool`. `tool` is 0.34 exactly — no
+  block is read, the Stop hold names the tool, no grammar repair below
+  applies — and is the ablation arm. Under `inline` the tool path is KEPT:
+  sofar_end_session and every other tool work as before.
+- HOST DEFAULT (r4-fixes H5): unset, Codex and Cursor run `inline` and Claude
+  Code runs `tool`. Claude Code shows the final reply as the operator's last
+  screen and collapses a tool call, so there the block replaced the
+  operator's answer with JSON. Claude Code is known by the hook payload (no
+  `cursor_version`, no declared host) and, for the MCP server's instructions
+  and the CLAUDE.md block, by the CLAUDE_CODE_SESSION_ID it hands its server.
+  The variable, set either way, decides for every host.
 - GRAMMAR (core/inline-block.ts): an opening line that is exactly
   ```` ```sofar ```` (surrounding whitespace aside), the body, and the first
   later line that is exactly ```` ``` ````; the LAST such block in the text

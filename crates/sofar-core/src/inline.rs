@@ -42,6 +42,22 @@ pub fn writeback_inline() -> bool {
     std::env::var_os("SOFAR_WRITEBACK").is_none_or(|v| v != "tool")
 }
 
+/// `writebackModeFor` (r4-fixes H5): Claude Code writes back through
+/// sofar_end_session by default, every other host in band;
+/// `SOFAR_WRITEBACK=tool` or `=inline` decides for every host.
+#[must_use]
+pub fn writeback_inline_for(tool: &str) -> bool {
+    inline_for(tool, std::env::var_os("SOFAR_WRITEBACK").as_deref())
+}
+
+fn inline_for(tool: &str, set: Option<&std::ffi::OsStr>) -> bool {
+    match set {
+        Some(v) if v == "tool" => false,
+        Some(v) if v == "inline" => true,
+        _ => tool != crate::host::CLAUDE_CODE,
+    }
+}
+
 /// `stashName`: a host session id as a file name — every UTF-16 unit outside
 /// `[A-Za-z0-9._-]` becomes `_`, as JavaScript's replace does.
 #[must_use]
@@ -94,12 +110,15 @@ fn tail_holds_fence(path: &str) -> bool {
 /// its payload names — or an earlier ask left a stash for its session.
 #[must_use]
 pub fn hands_back(hook: Hook, root: &Path, input: &str) -> bool {
-    if !matches!(hook, Hook::Stop | Hook::SessionEnd) || !writeback_inline() {
+    if !matches!(hook, Hook::Stop | Hook::SessionEnd) {
         return false;
     }
     let Ok(Json::Obj(payload)) = json::parse(input) else {
         return false;
     };
+    if !writeback_inline_for(crate::host::hook_host(&payload).tool) {
+        return false;
+    }
     let text = |key: &str| payload.get(key).and_then(Json::as_str);
     let Some(session) = text("session_id").or_else(|| text("conversation_id")) else {
         return false;
@@ -193,9 +212,20 @@ mod tests {
     }
 
     #[test]
+    fn claude_code_writes_back_through_the_tool_by_default() {
+        use std::ffi::OsStr;
+        assert!(!inline_for(crate::host::CLAUDE_CODE, None));
+        assert!(inline_for(crate::host::CURSOR, None));
+        assert!(inline_for("codex", None));
+        assert!(inline_for(crate::host::CLAUDE_CODE, Some(OsStr::new("inline"))));
+        assert!(!inline_for(crate::host::CURSOR, Some(OsStr::new("tool"))));
+    }
+
+    #[test]
     fn hands_back_only_what_may_carry_a_block() {
         let dir = crate::testing::scratch_dir("inline-hands-back");
-        let stop = |extra: &str| format!("{{\"session_id\":\"s1\"{extra}}}");
+        // A host that writes back in band (r4-fixes H5: not Claude Code by default).
+        let stop = |extra: &str| format!("{{\"session_id\":\"s1\",\"cursor_version\":\"1\"{extra}}}");
         assert!(!hands_back(Hook::Stop, &dir, &stop("")));
         assert!(!hands_back(
             Hook::Stop,
@@ -220,8 +250,15 @@ mod tests {
         assert!(!hands_back(
             Hook::SessionEnd,
             &dir,
-            "{\"session_id\":\"s2\"}"
+            "{\"session_id\":\"s2\",\"cursor_version\":\"1\"}"
         ));
+        // Claude Code writes back through the tool: a block or a stash is never handed back.
+        assert!(!hands_back(
+            Hook::Stop,
+            &dir,
+            "{\"session_id\":\"s1\",\"last_assistant_message\":\"```sofar\\n{}\\n```\"}"
+        ));
+        assert!(!hands_back(Hook::SessionEnd, &dir, "{\"session_id\":\"s1\"}"));
         // Cursor: the transcript the payload names.
         let transcript = dir.join("t.jsonl");
         std::fs::write(&transcript, "{\"role\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"```sofar\\n{}\\n```\"}]}}\n").unwrap();

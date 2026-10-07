@@ -1,5 +1,12 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **writeback-host-default** (from release/0.35.0 rc.2) for
+r4-fixes H5 from the TypeScript reference: Claude Code writes back through
+sofar_end_session by default. The ten Stop holds A1 re-recorded go back to
+0.34's line, and `syn.inline-writeback` names `SOFAR_WRITEBACK=inline` on
+its four Claude-shaped block steps. The Rust core passes them unchanged
+(`SOFAR_CORE=target/release/sofar-core`, 54/54).
+
 Re-recorded on **release/0.35.0** for rc.2 (r4-fixes H1/H2) from the
 TypeScript reference. The version bump is the whole diff: `argv.fast-path`
 (`--version` is `0.35.0-rc.2`) and `open.O2-update-segment` ("you have

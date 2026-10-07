@@ -196,7 +196,7 @@ describe('sofar init on a fresh repo', () => {
 
     // CLAUDE.md protocol block: markers + the three BD19 clauses + the loop
     const claudeMd = readFileSync(join(root, 'CLAUDE.md'), 'utf8')
-    expect(claudeMd).toBe(PROTOCOL_BLOCK)
+    expect(claudeMd).toBe(PROTOCOL_BLOCK_V13) // Claude Code writes back through the tool (r4-fixes H5)
     expect(claudeMd).toContain(PROTOCOL_START)
     expect(claudeMd).toContain(PROTOCOL_END)
     expect(claudeMd).toMatch(/never in tool memory/i) // (a) total jurisdiction
@@ -212,8 +212,8 @@ describe('sofar init on a fresh repo', () => {
     // …but start_session is NOT optional: it sets the server's active
     // session, and without it writes follow the branch binding and appends
     // stamp session "cli" (the record-integrity misroute class).
-    expect(claudeMd).toContain('There is no start call: sofar\'s hooks know this session')
-    expect(PROTOCOL_BLOCK_V13).toContain('On Claude Code, sofar\'s tools adopt this session')
+    expect(claudeMd).toContain('On Claude Code, sofar\'s tools adopt this session')
+    expect(PROTOCOL_BLOCK).toContain('There is no start call: sofar\'s hooks know this session') // the in-band block (SOFAR_WRITEBACK=inline)
 
     // r4-fixes A2: every AGENTS.md reader here (Cursor, Codex) runs the hooks
     // and the MCP server, so AGENTS.md is the thin block and the CLI loop is a

@@ -12,7 +12,7 @@ import {
   guardViolationLines,
   handleStop,
   handleUserPrompt,
-  STOP_BLOCK_MESSAGE,
+  STOP_BLOCK_MESSAGE_TOOL,
 } from '../src/cli/event'
 import { hookContext } from './helpers/hook-output'
 
@@ -316,7 +316,7 @@ describe('gate surface (5.2) — guards ride the block, never cause one', () => 
   it('Stop names the crossed rule alongside the write-back demand', () => {
     const result = handleStop(crossedRepo(), hookStdin())
     expect(result.exitCode).toBe(2)
-    expect(result.stderr).toContain(STOP_BLOCK_MESSAGE)
+    expect(result.stderr).toContain(STOP_BLOCK_MESSAGE_TOOL)
     expect(result.stderr).toMatch(/\[D1·[0-9a-z]{4}\] guard crossed/)
     expect(result.stderr).toContain(`"${RULE}"`)
   })
@@ -341,7 +341,7 @@ describe('gate surface (5.2) — guards ride the block, never cause one', () => 
     expect(handleStop(root, hookStdin())).toEqual({
       exitCode: 2,
       stdout: '',
-      stderr: STOP_BLOCK_MESSAGE, // byte-identical to the pre-guard message
+      stderr: STOP_BLOCK_MESSAGE_TOOL, // byte-identical to the pre-guard message
     })
   })
 })
