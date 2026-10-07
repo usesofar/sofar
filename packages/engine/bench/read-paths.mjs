@@ -101,7 +101,8 @@
  * run; a change there exits 5 (SOFAR_CANARY=warn reports it without failing).
  *
  * Exits: 0 within budget on every leg; 1 over budget; 2 usage or setup;
- * 3 load changed by more than 50% (repeat); 4 refused (engines differ);
+ * 3 load changed by more than 50% of max(start load, 1) (repeat); 4 refused
+ * (engines differ);
  * 5 the HOME canary changed (a hook wrote outside its scratch HOME).
  *
  * Not a vitest test on purpose: a timing assertion flakes under load and
@@ -604,7 +605,11 @@ for (const record of refused ? [] : legRecords) {
 }
 for (const record of legRecords) record.verdict ??= 'not-run'
 const loadEnd = loadavg()[0]
-const drift = loadStart > 0 ? Math.abs(loadEnd - loadStart) / loadStart : loadEnd > 0 ? 1 : 0
+// Relative to the start load, floored at 1.0: on an idle runner (load ~0.5
+// on 4 CPUs) the bench's own spawns lift the average by more than half, and
+// voided two clean 0.35.0-rc.1 CI runs (0.41 → 0.70, 0.60 → 1.06) with every
+// hook inside budget. A swing a timing could notice — 1 → 2, 4 → 7 — still voids.
+const drift = Math.abs(loadEnd - loadStart) / Math.max(loadStart, 1)
 console.log(`load avg ${loadStart.toFixed(2)} → ${loadEnd.toFixed(2)}${drift > 0.5 ? ' — changed by more than 50% during the run: REPEAT' : ''}`)
 if (args.record !== undefined) {
   const out = {
