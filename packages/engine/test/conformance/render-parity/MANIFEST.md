@@ -152,6 +152,17 @@ retirement, D25; 5.2 code-unit order, D26), merged into rust-core after 2.4.
   indexes, and the digests point at shards. The rest have no decision,
   memory, brief or closed phase, and are byte-unchanged.
 
+- r4-fixes A9 (0.35.0 Wave A, branch wave-a-a9): 6 goldens re-recorded, every
+  digest variant's Standing constraints reordered so the rules whose `path:`
+  guard binds the focus files lead, oldest first (docs/SPEC.md §Digest
+  composition, item 10), and with it the decision index's `(rule below)`
+  marks and its count pointer where the rendered set changed:
+  `fold-parity.cases.FP-03-guards-and-orphans`,
+  `records.repo.commit-attribution`, `records.repo.record-citations`,
+  `records.smoke-4-sofar.boopada`, `synthetic.guards.guards`,
+  `synthetic.surfacing.surf`. The full status, plan.md, decisions.md,
+  memory.md and the session files are byte-unchanged.
+
 Re-record (`RENDER_PARITY_RECORD=1 npx vitest run render-parity`) only when a
 template changes on purpose; add a row per changed golden with the commit and
 the reason.

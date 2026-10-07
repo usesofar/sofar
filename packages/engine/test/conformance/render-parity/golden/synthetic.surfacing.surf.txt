@@ -195,10 +195,10 @@ Earlier rejected approaches — do NOT re-propose (1 older):
 Next ids: D9 (decision), M1 (memory)
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 - [D8·k6kg] Keep lint green.
 - [D7·wy1x] Run the suite before committing.
 - [D2·41jn] The fold never reads the clock.
-- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -243,10 +243,10 @@ Recent work elsewhere: surfacing touched 2 files 3h ago (see sofar status surfac
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 - [D8·k6kg] Keep lint green.
 - [D7·wy1x] Run the suite before committing.
 - [D2·41jn] The fold never reads the clock.
-- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 Repo-wide rules from other records (4 of 4, most relevant first):
 - [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
 - [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"
@@ -320,10 +320,10 @@ Next ids: D9 (decision), M1 (memory)
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 - [D8·k6kg] Keep lint green.
 - [D7·wy1x] Run the suite before committing.
 - [D2·41jn] The fold never reads the clock.
-- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -363,10 +363,10 @@ NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim; where a rule quotes the operator, the quote decides (4):
+- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 - [D8·k6kg] Keep lint green.
 - [D7·wy1x] Run the suite before committing.
 - [D2·41jn] The fold never reads the clock.
-- [D1·984a] Never edit files under src/legacy/. — operator: "leave src/legacy alone" (not in the operator's words: src/legacy/)
 Repo-wide rules from other records (4 of 4, most relevant first):
 - [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
 - [gamma D7·sahh] Never edit generated files by hand. — operator: "no hand edits to generated files"

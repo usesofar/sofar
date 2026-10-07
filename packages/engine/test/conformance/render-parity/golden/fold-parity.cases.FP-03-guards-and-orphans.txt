@@ -193,8 +193,8 @@ Recent decisions (2; full text in decisions/D<n>.md):
 Next ids: D3 (decision), M1 (memory)
 
 Standing constraints — obey verbatim (2):
-- [D2·qt30] Never push unattended.
 - [D1·196w] Never put shapes in the engine.
+- [D2·qt30] Never push unattended.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -233,8 +233,8 @@ Recent work elsewhere: cases touched 2 files 3h ago (see sofar status cases).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (2):
-- [D2·qt30] Never push unattended.
 - [D1·196w] Never put shapes in the engine.
+- [D2·qt30] Never push unattended.
 Repo-wide rules from other records (3 of 4, most relevant first):
 - [zeta D9·yytw] Name the FP-03-guards-and-orphans record's goal before its tasks.
 - [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.
@@ -300,8 +300,8 @@ Next ids: D3 (decision), M1 (memory)
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (2):
-- [D2·qt30] Never push unattended.
 - [D1·196w] Never put shapes in the engine.
+- [D2·qt30] Never push unattended.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -340,8 +340,8 @@ NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (2):
-- [D2·qt30] Never push unattended.
 - [D1·196w] Never put shapes in the engine.
+- [D2·qt30] Never push unattended.
 Repo-wide rules from other records (3 of 4, most relevant first):
 - [zeta D9·yytw] Name the FP-03-guards-and-orphans record's goal before its tasks.
 - [alpha D3·vgmk, beta D1·mgat] Always run the full suite before pushing.

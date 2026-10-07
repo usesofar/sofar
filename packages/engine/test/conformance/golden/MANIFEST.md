@@ -1,5 +1,25 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED at the **0.35.0 integration** (release/0.35.0, A9 onto A1–A4, A8,
+A10): three goldens recorded on other branches move for one reason, A9's
+ranking (guarded rules on the focus task's files lead Standing constraints):
+`syn.check-bound` (A8), `syn.told-lines` (A4) and `syn.copies` each list
+D1·984a first. The Rust core reproduces every one (`SOFAR_CORE=… vitest run
+test/conformance`: 54 passed). No other golden moved.
+
+RE-RECORDED and ADDED for **r4-fixes A9** (0.35.0 Wave A, branch
+wave-a-a9; docs/SPEC.md §Cursor host and §Digest composition), from the
+TypeScript reference. Four goldens moved, each only in a SessionStart digest's
+Standing constraints order, byte length unchanged: the rules whose `path:`
+guard binds the focus files now lead, oldest first (`cell.smoke-4-sofar` D3
+before D6; `syn.copies` and `syn.surfacing` D1 first; `syn.guards` D1 first).
+One case ADDED, `syn.cursor-debt`: a Cursor read of a guarded file (the
+notice), its edit (the bound line, the rule in its words), the same path
+again (nothing), `SOFAR_CURSOR_DEBT=off` and Claude Code (the notice alone),
+a Cursor sessionEnd filing the test gate's ask as a note and then the close,
+a second sessionEnd (nothing), Claude's SessionEnd (the close alone), and the
+next digest showing the note under `Notes since write-back`.
+
 RE-RECORDED at the **0.35.0 integration** (release/0.35.0, A8 onto A4):
 `syn.check-bound`, recorded by A8 on v0.34.1, moves by two lines and for one
 reason: A4's told set is seeded from the SessionStart digest (r4-fixes D10),

@@ -45,8 +45,10 @@ import { hasRealAlternative, MAX_DECISIONS, UNWRITTEN_SIBLING_CAP } from './stat
  * Every other `over` keeps only whether it is a real alternative. Both halves
  * of a supersession that keeps its rule, quote and until keep chose, over,
  * because and guard whole, so the re-log test (core/handle relogAliases)
- * answers on the cut as on the state. because, guard and check are otherwise
- * never rendered.
+ * answers on the cut as on the state. A standing rule keeps its guard, which
+ * ranks it against the focus files (r4-fixes A9, core/rule-focus); those files
+ * are task_files and the newest active session's activity, both already kept.
+ * because, check and every other guard are never rendered.
  *
  * renderStatus(digestState(s), o) === renderStatus(s, o) is a CONTRACT, pinned
  * by test/digest-state.test.ts over this repo's real logs, team-shaped records
@@ -189,7 +191,8 @@ function cutDecision(d: DecisionState, i: number, kept: { window: Set<number>; o
   }
   if (d.rule !== undefined) cut.rule = d.rule
   if (d.quote !== undefined) cut.quote = d.quote
-  if (whole && d.guard !== undefined) cut.guard = d.guard
+  // A standing rule's guard ranks it against the focus files (r4-fixes A9).
+  if (d.guard !== undefined && (whole || d.rule !== undefined)) cut.guard = d.guard
   if (d.supersedes !== undefined) cut.supersedes = d.supersedes
   if (d.until !== undefined) cut.until = d.until
   if (d.superseded_by !== undefined) cut.superseded_by = d.superseded_by

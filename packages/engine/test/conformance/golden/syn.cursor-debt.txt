@@ -1,0 +1,293 @@
+# conformance golden: syn.cursor-debt
+
+## step 1: Cursor reads the guarded file: the notice gives the rule
+argv: ["event","post-tool"]
+stdin: {"conversation_id":"sess-cur","generation_id":"gen-1","model":"default","session_id":"sess-cur","hook_event_name":"postToolUse","cursor_version":"2026.10.01-e373342","workspace_roots":["<ROOT>"],"user_email":null,"transcript_path":null,"tool_name":"Read","tool_input":{"file_path":"<ROOT>/src/order/caps.ts"},"tool_output":"{}","duration":1,"tool_use_id":"call-1"}
+exit: 0
+--- stdout
+{"additional_context":"sofar: src/order/caps.ts is governed by [D3·q58n], a standing rule: \"Cap an order at 12 cases.\" (guard: path:src/order/**). Work against it needs a decision that supersedes D3·q58n."}
+--- stderr
+(empty)
+
+## step 2: Cursor edits it: the bound line names the rule in its words
+argv: ["event","post-tool"]
+stdin: {"conversation_id":"sess-cur","generation_id":"gen-1","model":"default","session_id":"sess-cur","hook_event_name":"postToolUse","cursor_version":"2026.10.01-e373342","workspace_roots":["<ROOT>"],"user_email":null,"transcript_path":null,"tool_name":"Write","tool_input":{"file_path":"<ROOT>/src/order/caps.ts","content":"export const CAP = 12\n"},"tool_output":"{}","duration":1,"tool_use_id":"call-1"}
+exit: 0
+--- stdout
+{"additional_context":"sofar: Cursor runs no Stop gate, so no test holds this edit — src/order/caps.ts is governed by 1 standing rule: [D3·q58n] \"Cap an order at 12 cases.\"."}
+--- stderr
+(empty)
+
+## step 3: the same path again: nothing more
+argv: ["event","post-tool"]
+stdin: {"conversation_id":"sess-cur","generation_id":"gen-1","model":"default","session_id":"sess-cur","hook_event_name":"postToolUse","cursor_version":"2026.10.01-e373342","workspace_roots":["<ROOT>"],"user_email":null,"transcript_path":null,"tool_name":"Write","tool_input":{"file_path":"<ROOT>/src/order/caps.ts","content":"export const CAP = 12\n"},"tool_output":"{}","duration":1,"tool_use_id":"call-1"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 4: SOFAR_CURSOR_DEBT=off: the notice alone
+argv: ["event","post-tool"]
+stdin: {"conversation_id":"sess-off","generation_id":"gen-1","model":"default","session_id":"sess-off","hook_event_name":"postToolUse","cursor_version":"2026.10.01-e373342","workspace_roots":["<ROOT>"],"user_email":null,"transcript_path":null,"tool_name":"Write","tool_input":{"file_path":"<ROOT>/src/order/caps.ts","content":"export const CAP = 12\n"},"tool_output":"{}","duration":1,"tool_use_id":"call-1"}
+env: {"SOFAR_CURSOR_DEBT":"off"}
+exit: 0
+--- stdout
+{"additional_context":"sofar: src/order/caps.ts is governed by [D3·q58n], a standing rule: \"Cap an order at 12 cases.\" (guard: path:src/order/**). Work against it needs a decision that supersedes D3·q58n."}
+--- stderr
+(empty)
+
+## step 5: Claude Code edits it: the notice alone
+argv: ["event","post-tool"]
+stdin: {"session_id":"sess-claude","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/src/order/caps.ts","old_string":"a","new_string":"b"},"tool_response":{}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/order/caps.ts is governed by [D3·q58n], a standing rule: \"Cap an order at 12 cases.\" (guard: path:src/order/**). Work against it needs a decision that supersedes D3·q58n."}}
+--- stderr
+(empty)
+
+## step 6: Cursor sessionEnd: the gate's ask, filed as a note, then the close
+argv: ["event","session-end"]
+stdin: {"conversation_id":"sess-cur","generation_id":"sess-cur","model":"default","reason":"completed","duration_ms":1000,"is_background_agent":false,"final_status":"completed","session_id":"sess-cur","hook_event_name":"sessionEnd","cursor_version":"2026.10.01-e373342","workspace_roots":["<ROOT>"],"user_email":null,"transcript_path":null}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 7: a second sessionEnd files nothing
+argv: ["event","session-end"]
+stdin: {"conversation_id":"sess-cur","generation_id":"sess-cur","model":"default","reason":"completed","duration_ms":1000,"is_background_agent":false,"final_status":"completed","session_id":"sess-cur","hook_event_name":"sessionEnd","cursor_version":"2026.10.01-e373342","workspace_roots":["<ROOT>"],"user_email":null,"transcript_path":null}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 8: Claude Code SessionEnd: the close alone
+argv: ["event","session-end"]
+stdin: {"session_id":"sess-claude","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionEnd","reason":"exit"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 9: the next digest shows the note
+argv: ["event","session-start"]
+stdin: {"session_id":"sess-next","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionStart","source":"startup"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Sofar status: baseline\n\nGoal: a small healthy record for the hook lifecycle\n\nCurrent task: 1.2 second task\n  in Build [active] 1/3\n  files: <ROOT>/src/order/caps.ts, src/module/file-4.ts, src/module/file-3.ts, src/module/file-2.ts, src/module/file-1.ts, src/module/file-0.ts\n  - 1.3 third task\n\nNext action: implement 1.2 against the fixture\n⚠ next action may be stale: 11 events since write-back (9 files, 1 note, 1 decision)\nNotes since write-back:\n- <DATE> Unverified edits on rule-bound paths (Cursor session sess-cur ended with no Stop gate to hold it): [baseline D3·q58n] \"Cap an order at 12 cases.\" bear on files you edited, and no covering …\n\nLast session (claude-code, ended 2026-09-01T10:09:00.000Z):\n  finished 1.1 and set 1.2 active\n\nLast session (claude-code, closed: exit) ended without write-back — derived: 1 file (<ROOT>/src/order/caps.ts)\n  (details in sessions/sess-claude.md)\n\n⚠ 3 other session(s) did work without writing back: sess-off, sess-cur, sess-open\n\nPhases:\n- Build [active] 1/3\n- Ship [pending] 0/1\nProgress: 1/4 tasks done (25%) across 2 phase(s)\n\nMemory (1; full text in memory/M<n>.md):\n- [M1] Test command: npm test (vitest).\n\nRepo memory (.sofar/repo.md):\n# Repo memory\n\n- Test command: npm test\n- Build: npm run build\n\nRecent decisions (3; full text in decisions/D<n>.md):\n- [D1·984a] 2026-09-01 vitest — over jest\n- [D2·41jn] 2026-09-01 (rule below) append-only log — over a mutable state file\n- [D3·q58n] 2026-09-20 (rule below) cap an order at 12 cases — over no cap\n\nNext ids: D4 (decision), M2 (memory)\n\nSession: sess-next — adopted on Claude Code; else pass to sofar_start_session.\nGit: main @ ce11ce1 — no origin ref — never pushed\n\nStanding constraints — obey verbatim (2):\n- [D3·q58n] Cap an order at 12 cases.\n- [D2·41jn] Never rewrite events.jsonl; unknown lines are skipped with a warning.\n\nRead-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.\n\n(generated by sofar — full detail in plan.md, decisions.md, sessions/)\n","sessionTitle":"baseline 1.2 #sess"}}
+--- stderr
+(empty)
+
+## record delta
+=== .sofar/initiatives/baseline/decisions.md (added, 451 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Decisions: baseline
+
+One line per decision, in log order. Its full text — chose, over, because, the operator's words — is in decisions/D<n>.md, or `sofar show D<n>`.
+
+- D1·984a 2026-09-01 — chose vitest
+- D2·41jn 2026-09-01 — rule: Never rewrite events.jsonl; unknown lines are skipped with a warning.
+- D3·q58n 2026-09-20 — rule: Cap an order at 12 cases.
+=== .sofar/initiatives/baseline/decisions/D1.md (added, 162 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+D1·984a — 2026-09-01
+chose: vitest
+over: jest
+because: already in the workspace
+=== .sofar/initiatives/baseline/decisions/D2.md (added, 261 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+D2·41jn — 2026-09-01
+rule: Never rewrite events.jsonl; unknown lines are skipped with a warning.
+chose: append-only log
+over: a mutable state file
+because: history is the product
+=== .sofar/initiatives/baseline/decisions/D3.md (added, 271 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+D3·q58n — 2026-09-20
+rule: Cap an order at 12 cases.
+chose: cap an order at 12 cases
+over: no cap
+because: the warehouse said so
+guard: path:src/order/**
+check: bun test tests/caps.test.ts
+=== .sofar/initiatives/baseline/events.jsonl (appended 2958 bytes after 4613 unchanged)
+{"v":1,"id":"01M2Z2B0000000000000000031","ts":"2026-09-20T10:01:00.000Z","initiative":"baseline","session":"wt-caps","source":"claude-code","actor":"agent","user":"fixture@example.invalid","type":"decision_logged","payload":{"chose":"cap an order at 12 cases","over":"no cap","because":"the warehouse said so","rule":"Cap an order at 12 cases.","guard":"path:src/order/**","check":{"cmd":"bun test tests/caps.test.ts"}}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-cur","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"cursor"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-cur","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"write","path":"<ROOT>/src/order/caps.ts"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-cur","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"write","path":"<ROOT>/src/order/caps.ts"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-off","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"cursor"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-off","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"write","path":"<ROOT>/src/order/caps.ts"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-claude","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_started","payload":{"tool":"claude-code"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-claude","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"edit","path":"<ROOT>/src/order/caps.ts"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-cur","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"note_added","payload":{"text":"Unverified edits on rule-bound paths (Cursor session sess-cur ended with no Stop gate to hold it): [baseline D3·q58n] \"Cap an order at 12 cases.\" bear on files you edited, and no covering test passed since your last edit — run `bun test tests/caps.test.ts` and fix any failure before stopping (fix: make the work hold the rule, or log a decision that supersedes it)"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-cur","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_closed","payload":{"reason":"completed"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"baseline","session":"sess-claude","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"session_closed","payload":{"reason":"exit"}}
+=== .sofar/initiatives/baseline/memory.md (added, 397 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Promoted to repo memory: baseline
+
+Cite these in .sofar/repo.md by qualified handle — `baseline M<n>` —
+which is how `sofar doctor` sees that a promoted fact reached repo memory.
+One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
+
+- M1 2026-09-01 — Test command: npm test (vitest).
+=== .sofar/initiatives/baseline/memory/M1.md (added, 130 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+M1 — 2026-09-01
+Test command: npm test (vitest).
+=== .sofar/initiatives/baseline/plan.md (added, 406 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Plan: baseline
+
+Goal: a small healthy record for the hook lifecycle
+
+Progress: 1/4 tasks done (25%)
+
+## Build [active] — 1/3 done
+
+- [x] 1.1 first task
+- [ ] 1.2 second task (active)
+- [ ] 1.3 third task
+
+## Ship [pending] — 0/1 done
+
+- [ ] 2.1 release
+
+Active phase: Build
+Next action: implement 1.2 against the fixture
+=== .sofar/initiatives/baseline/sessions/sess-claude.md (added, 457 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session sess-claude
+
+- Initiative: baseline
+- Tool: claude-code
+- Started: <TS>
+- Ended: <TS> (closed: exit)
+
+## Summary
+
+(none recorded — ended without write-back; derived resume point below)
+
+## Next action
+
+(none recorded)
+
+## Activity (derived from mechanical events)
+
+- Derived: 1 file (<ROOT>/src/order/caps.ts)
+- Files:
+  - <ROOT>/src/order/caps.ts
+- Commands run: 0
+=== .sofar/initiatives/baseline/sessions/sess-cur.md (added, 454 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session sess-cur
+
+- Initiative: baseline
+- Tool: cursor
+- Started: <TS>
+- Ended: <TS> (closed: completed)
+
+## Summary
+
+(none recorded — ended without write-back; derived resume point below)
+
+## Next action
+
+(none recorded)
+
+## Activity (derived from mechanical events)
+
+- Derived: 1 file (<ROOT>/src/order/caps.ts)
+- Files:
+  - <ROOT>/src/order/caps.ts
+- Commands run: 0
+=== .sofar/initiatives/baseline/sessions/sess-done.md (added, 469 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session sess-done
+
+- Initiative: baseline
+- Tool: claude-code
+- Model: claude-fable-5
+- Started: 2026-09-01T10:07:00.000Z
+- Ended: 2026-09-01T10:09:00.000Z
+
+## Summary
+
+finished 1.1 and set 1.2 active
+
+## Next action
+
+implement 1.2 against the fixture
+
+## Activity (derived from mechanical events)
+
+- Derived: task changes: 1.1 → done
+- Commands run: 0
+- Task changes:
+  - 1.1 → done
+=== .sofar/initiatives/baseline/sessions/sess-off.md (added, 436 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session sess-off
+
+- Initiative: baseline
+- Tool: cursor
+- Started: <TS>
+- Ended: (in progress)
+
+## Summary
+
+(none recorded — no write-back yet; derived resume point below)
+
+## Next action
+
+(none recorded)
+
+## Activity (derived from mechanical events)
+
+- Derived: 1 file (<ROOT>/src/order/caps.ts)
+- Files:
+  - <ROOT>/src/order/caps.ts
+- Commands run: 0
+=== .sofar/initiatives/baseline/sessions/sess-open.md (added, 654 bytes)
+<!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
+
+# Session sess-open
+
+- Initiative: baseline
+- Tool: claude-code
+- Started: 2026-09-01T10:10:00.000Z
+- Ended: (in progress)
+
+## Summary
+
+(none recorded — no write-back yet; derived resume point below)
+
+## Next action
+
+(none recorded)
+
+## Activity (derived from mechanical events)
+
+- Derived: 5 files (src/module/file-0.ts, src/module/file-1.ts, src/module/file-2.ts, src/module/file-3.ts, src/module/file-4.ts), 1 command
+- Files:
+  - src/module/file-0.ts
+  - src/module/file-1.ts
+  - src/module/file-2.ts
+  - src/module/file-3.ts
+  - src/module/file-4.ts
+- Commands run: 1

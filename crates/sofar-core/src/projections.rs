@@ -586,12 +586,13 @@ pub fn standing_constraint_lines(
     budget: Option<usize>,
     retire: bool,
     focus: Option<&[String]>,
+    lead: &[usize],
 ) -> Vec<String> {
     // The digest passes a focus (memory-lead D4): most relevant first, so the
     // budget drops the least relevant rules instead of the newest.
     let in_order = standing_rules(decisions, retire);
-    let standing: Vec<(usize, &DecisionState)> = match focus {
-        None => in_order,
+    let ranked: Vec<(usize, &DecisionState)> = match focus {
+        None => in_order.clone(),
         Some(focus) => rank_by_relevance(&in_order, focus, |d| {
             format!(
                 "{} {}",
@@ -599,6 +600,17 @@ pub fn standing_constraint_lines(
                 d.quote.as_deref().unwrap_or("")
             )
         }),
+    };
+    // The guarded rules on the focus files lead, oldest first (r4-fixes A9).
+    let standing: Vec<(usize, &DecisionState)> = if lead.is_empty() {
+        ranked
+    } else {
+        in_order
+            .iter()
+            .filter(|(o, _)| lead.contains(o))
+            .chain(ranked.iter().filter(|(o, _)| !lead.contains(o)))
+            .copied()
+            .collect()
     };
     if standing.is_empty() {
         return Vec::new();

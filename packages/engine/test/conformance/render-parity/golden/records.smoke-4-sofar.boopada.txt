@@ -245,8 +245,8 @@ Earlier rejected approaches — do NOT re-propose (3 older):
 Next ids: D9 (decision), M4 (memory)
 
 Standing constraints — obey verbatim (4):
-- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
 - [D2·fxww] Interests are only provider activity categories; reject any other value.
 
@@ -312,8 +312,8 @@ Recent work elsewhere: smoke-4-sofar touched 2 files 3h ago (see sofar status sm
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (4):
-- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
 - [D2·fxww] Interests are only provider activity categories; reject any other value.
 Repo-wide rules from other records (4 of 4, most relevant first):
@@ -417,8 +417,8 @@ Next ids: D9 (decision), M4 (memory)
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (4):
-- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
 - [D2·fxww] Interests are only provider activity categories; reject any other value.
 
@@ -461,8 +461,8 @@ NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (4):
-- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - [D3·jb2a] Add schema changes only as new entries appended to MIGRATIONS; never edit a shipped migration or import sqlite modules statically.
+- [D6·4q3v] Never hard-delete traveller-made rows or add confirm dialogs: soft-delete via lib/server/deletions.ts (register the table in SOFT_DELETE_TABLES) and filter `deleted_at IS NULL` in every list, total and suggestion.
 - [D1·v5bq] Never expose or accept money in the API as anything but { amount_minor: integer, currency }; convert provider decimal strings with lib/money.ts, never parseFloat.
 - [D2·fxww] Interests are only provider activity categories; reject any other value.
 Repo-wide rules from other records (4 of 4, most relevant first):

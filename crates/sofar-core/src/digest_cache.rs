@@ -18,7 +18,8 @@ use crate::snapshot::current_version;
 
 const DIGEST_DIR: &str = "digest";
 // 5: the cut keeps decision ids and re-log pairs whole (r4-fixes U5).
-const DIGEST_CACHE_VERSION: f64 = 5.0;
+// 6: a standing rule keeps its guard (r4-fixes A9).
+const DIGEST_CACHE_VERSION: f64 = 6.0;
 
 fn digest_file(layout: &Layout, slug: &str) -> PathBuf {
     layout
@@ -152,7 +153,7 @@ mod tests {
         assert_eq!(cached_digest_state(&layout, "x"), want, "hit");
         for bad in [
             "nope".to_owned(),
-            good.replace("\"v\":5", "\"v\":6"),
+            good.replace("\"v\":6", "\"v\":7"),
             good.replace("\"sessions\":[", "\"sessions\":7,\"x\":["),
         ] {
             assert_ne!(bad, good);

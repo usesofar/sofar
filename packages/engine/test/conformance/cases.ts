@@ -283,6 +283,40 @@ const read = (path: string, fields: Record<string, unknown> = {}) =>
 const grep = (path: string, filenames: string[], fields: Record<string, unknown> = {}) =>
   hook('PostToolUse', { tool_name: 'Grep', tool_input: { pattern: 'x', path }, tool_response: { mode: 'files_with_matches', filenames, numFiles: filenames.length }, ...fields })
 
+/** A Cursor tool call, in Cursor's own postToolUse dialect (cursor-agent 2026.10.01). */
+const cursorTool = (session: string, tool: 'Read' | 'Write', path: string): Record<string, unknown> => ({
+  conversation_id: session,
+  generation_id: 'gen-1',
+  model: 'default',
+  session_id: session,
+  hook_event_name: 'postToolUse',
+  cursor_version: '2026.10.01-e373342',
+  workspace_roots: ['<ROOT>'],
+  user_email: null,
+  transcript_path: null,
+  tool_name: tool,
+  tool_input: tool === 'Write' ? { file_path: path, content: 'export const CAP = 12\n' } : { file_path: path },
+  tool_output: '{}',
+  duration: 1,
+  tool_use_id: 'call-1',
+})
+/** A print-mode Cursor sessionEnd (the shape of hook-payloads.cursor-agent-2026.09.15.json's session-end.print). */
+const cursorEnd = (session: string): Record<string, unknown> => ({
+  conversation_id: session,
+  generation_id: session,
+  model: 'default',
+  reason: 'completed',
+  duration_ms: 1000,
+  is_background_agent: false,
+  final_status: 'completed',
+  session_id: session,
+  hook_event_name: 'sessionEnd',
+  cursor_version: '2026.10.01-e373342',
+  workspace_roots: ['<ROOT>'],
+  user_email: null,
+  transcript_path: null,
+})
+
 function statusline(fields: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     hook_event_name: 'Status',
@@ -951,6 +985,26 @@ export const CASES: ConformanceCase[] = [
       s('the next digest lists both, apart', ['event', 'session-start'], start({ session_id: 'sess-next' })),
       // The handle the gate printed before the merge, as an agent would copy it.
       s('a prompt citing the pre-merge handle recalls the branch rule', ['event', 'user-prompt'], prompt({ session_id: 'sess-cite', prompt: `Is D3·${CAPS_SFX} still the cap we agreed on for orders?` })),
+    ],
+  },
+  {
+    // r4-fixes A9 on the hot path: Cursor without a Stop gate. An edit of a
+    // rule-bound path names every governing rule (once per path, a rule's
+    // words once per session), and sessionEnd files what the test gate would
+    // have asked as a note for the next session, once. Never on Claude Code,
+    // never under SOFAR_CURSOR_DEBT=off.
+    name: 'syn.cursor-debt',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('Cursor reads the guarded file: the notice gives the rule', ['event', 'post-tool'], cursorTool('sess-cur', 'Read', '<ROOT>/src/order/caps.ts'), { before: capsBranch }),
+      s('Cursor edits it: the bound line names the rule in its words', ['event', 'post-tool'], cursorTool('sess-cur', 'Write', '<ROOT>/src/order/caps.ts')),
+      s('the same path again: nothing more', ['event', 'post-tool'], cursorTool('sess-cur', 'Write', '<ROOT>/src/order/caps.ts')),
+      s('SOFAR_CURSOR_DEBT=off: the notice alone', ['event', 'post-tool'], cursorTool('sess-off', 'Write', '<ROOT>/src/order/caps.ts'), { env: { SOFAR_CURSOR_DEBT: 'off' } }),
+      s('Claude Code edits it: the notice alone', ['event', 'post-tool'], edit('<ROOT>/src/order/caps.ts', { session_id: 'sess-claude' })),
+      s('Cursor sessionEnd: the gate\'s ask, filed as a note, then the close', ['event', 'session-end'], cursorEnd('sess-cur')),
+      s('a second sessionEnd files nothing', ['event', 'session-end'], cursorEnd('sess-cur')),
+      s('Claude Code SessionEnd: the close alone', ['event', 'session-end'], end({ session_id: 'sess-claude' })),
+      s('the next digest shows the note', ['event', 'session-start'], start({ session_id: 'sess-next' })),
     ],
   },
   {
