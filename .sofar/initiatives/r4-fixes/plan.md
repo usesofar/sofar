@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 23 done, 3 dropped, 34 remaining
+Progress: 24 done, 3 dropped, 33 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -61,9 +61,9 @@ Progress: 23 done, 3 dropped, 34 remaining
 - [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
 - [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
 
-## Phase 3 — Release candidate [pending] — 0/2 done
+## Phase 3 — Release candidate [pending] — 1/2 done
 
-- [ ] 3.1 Cut rc 0.35.0 (Wave A): integrate the wave-a/* branches onto release/0.35.0, full gates (TS, cargo, conformance, parity:real, D18 two legs vs 0.34.1, every item's replay), CI, stage cores, operator publishes to next (active)
+- [x] 3.1 Cut rc 0.35.0 (Wave A): integrate the wave-a/* branches onto release/0.35.0, full gates (TS, cargo, conformance, parity:real, D18 two legs vs 0.34.1, every item's replay), CI, stage cores, operator publishes to next
 - [ ] 3.2 Cut rc 0.36.0 (Wave B items whose replay passed) as round 5's frozen build; merge back to main after each cut
 
 ## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/6 done
@@ -75,4 +75,4 @@ Progress: 23 done, 3 dropped, 34 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Operator: merge stop-gate-attribution into release/0.35.0 and cut rc.2. Then rule on H3.
+Next action: Operator rules on rc.2: merge stop-gate-attribution (H1/H2, peer 30eca1a0) into release/0.35.0 under D7 gates, then H3/H4; after that Wave B (B1–B16) one item at a time against 0.35.0-rc.1.
