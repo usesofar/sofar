@@ -1242,7 +1242,7 @@ fn stop_gate_for(
         .map(|t| t.cmd.as_str());
     let tests = activity.map_or(&[][..], |a| a.tests_since_edit.as_slice());
     let probe = crate::checks::root_probe(root);
-    crate::checks::stop_gate(
+    let gate = crate::checks::stop_gate(
         &index,
         &files,
         tests,
@@ -1250,7 +1250,60 @@ fn stop_gate_for(
         edited_at,
         &probe,
         outcomes_known,
-    )
+    );
+    let loss = if crate::checks::test_guard_enabled() {
+        stop_test_loss(root, layout, session, &index, &files, &probe)
+    } else {
+        Vec::new()
+    };
+    if loss.is_empty() {
+        return gate;
+    }
+    let mut lines = loss;
+    lines.extend(gate.lines);
+    crate::checks::StopGate {
+        lines,
+        blocks: true,
+    }
+}
+
+/// `stopTestLoss` (r4-fixes B3, D20): once per session and test, a test file
+/// a ruled check runs that this session's work left with fewer assertion
+/// lines than it began with. Git is asked only when the session edited such
+/// a file: one bounded log for its base, one diff of those files. Fails open.
+fn stop_test_loss(
+    root: &Path,
+    layout: &Layout,
+    session: &SessionState,
+    index: &crate::index_tier1::GuardIndex,
+    files: &[String],
+    probe: crate::checks::PathProbe<'_>,
+) -> Vec<String> {
+    let asked = crate::wrote::read_loss_asked(layout, &session.id);
+    let bound: Vec<crate::checks::BoundTest> =
+        crate::checks::bound_tests_touched(index, files, root, probe)
+            .into_iter()
+            .filter(|b| !asked.contains(&format!("{}\0{}", b.path, b.handle)))
+            .collect();
+    if bound.is_empty() {
+        return Vec::new();
+    }
+    let Some(base) = crate::checks::session_base(root, &session.started) else {
+        return Vec::new();
+    };
+    let mut paths: Vec<String> = Vec::new();
+    for b in &bound {
+        if !paths.contains(&b.path) {
+            paths.push(b.path.clone());
+        }
+    }
+    let Some(diff) = crate::checks::diff_from(root, &base, &paths) else {
+        return Vec::new();
+    };
+    let (lines, keys) =
+        crate::checks::test_loss_lines(&bound, &crate::checks::assertion_delta(&diff));
+    crate::wrote::mark_loss_asked(layout, &session.id, &keys);
+    lines
 }
 
 /// `cursorDebtNote` (r4-fixes A9): Stop's test gate as Stop would run it for

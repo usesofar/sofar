@@ -882,6 +882,31 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   the rule, write it now and run \`sofar bind D<n> "<the command that runs
   it>"\`.` In round 3, 11 of the 14 guarded violations at S30 never passed:
   no test held the rule.
+- TEST LOSS (r4-fixes B3, D19, D20). A test edited to assert less still
+  passes the gate, so Stop also asks when the work left a BOUND test — a file
+  (never a directory) that an in-force ruled check's test-shaped command
+  names, and that this session edited — with fewer assertion lines than it
+  began with. Base: the newest commit on HEAD before the session started
+  (`git log -1 --format=%H --before=<started> HEAD`); then one `git diff -U0
+  <base> -- <those files>` against the working tree. Both spawns happen only
+  when such a file was edited. An assertion line is a removed or added diff
+  line holding a word (`[A-Za-z_][A-Za-z0-9_]*`) that is `expect`, `should`,
+  `raises`, or starts with `assert` and is not `asserts`, `asserted`,
+  `asserting`, `assertion` or `assertions`. A file whose removed assertion
+  lines outnumber its added ones gives one line before the gate's own, and
+  the stop holds: `sofar: <path> lost <n> assertion line(s) this session, and
+  it is the test that proves [<slug> D<n>·<sfx>] "<rule>"; … — if the
+  operator changed that rule, file a rule that supersedes it, with their
+  words; if not, the test must still assert it`. Once per session and (file,
+  rule): what was asked is kept in `.sofar/.index/wrote/<session>.loss.json`,
+  and a lost file asks once more. A rule the session superseded is no longer
+  in force, so it asks nothing. No base (no git, no commit before the
+  session) asks nothing. The Cursor sessionEnd debt note carries the line
+  too. `SOFAR_TEST_GUARD=off` (also `0`, `false`) is the ablation arm. Why the
+  line leads with the supersession: in round 4 the ask would have fired 3
+  times in 3 reps, every time on an operator's change (Chain M T4 v3, U3 v2)
+  that a Codex session wrote into the tests but never linked. The broader,
+  file-level form asked 79 times for those 3 (D19).
 
 ### Read-time surfacing (memory-lead 2.1, D6)
 The point-of-use push of §Decision guards (drift-hardening D3), extended from

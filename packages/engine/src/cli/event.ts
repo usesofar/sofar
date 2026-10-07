@@ -39,7 +39,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, stopGate, suiteOf, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
+import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -100,7 +100,7 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
-import { cacheChanges, cachedChanges, markWrote, pathspecKey, readWrote } from '../core/wrote'
+import { cacheChanges, cachedChanges, markLossAsked, markWrote, pathspecKey, readLossAsked, readWrote } from '../core/wrote'
 import { readGateEnabled, rewriteRawRead, rewriteRawReadSegments } from '../core/read-rewrite'
 import { cappedRecallBlock, RECALL_TOLD_KEY, recallBlock, recallEnabled, recallV034 } from '../core/recall'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
@@ -1679,9 +1679,36 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     if (files.length === 0) return none
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
-    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, rootProbe(rootDir), outcomesKnown)
+    const probe = rootProbe(rootDir)
+    const gate = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown)
+    const loss = testGuardEnabled() ? stopTestLoss(rootDir, sofarDir, session, index, files, probe) : []
+    return loss.length === 0 ? gate : { lines: [...loss, ...gate.lines], blocks: true }
   } catch {
     return none
+  }
+}
+
+/**
+ * The test-loss ask (r4-fixes B3, D20), once per session and test: a test
+ * file a ruled check runs that this session's work left with fewer assertion
+ * lines than it began with. Git is asked only when the session edited such a
+ * file: one bounded log for the commit it began from, one diff of those files.
+ * Fails open, like the gate.
+ */
+function stopTestLoss(rootDir: string, sofarDir: string, session: SessionState, index: GuardIndex, files: readonly string[], probe: PathProbe): string[] {
+  try {
+    const asked = new Set(readLossAsked(sofarDir, session.id))
+    const bound = boundTestsTouched(index, files, rootDir, probe).filter((b) => !asked.has(`${b.path}\0${b.handle}`))
+    if (bound.length === 0) return []
+    const base = sessionBase(rootDir, session.started)
+    if (base === null) return []
+    const diff = diffFrom(rootDir, base, [...new Set(bound.map((b) => b.path))])
+    if (diff === null) return []
+    const { lines, keys } = testLossLines(bound, assertionDelta(diff))
+    markLossAsked(sofarDir, session.id, keys)
+    return lines
+  } catch {
+    return []
   }
 }
 

@@ -787,3 +787,152 @@ export function stopGate(
   if (lines.length > STOP_GATE_LINES) shown.push(`sofar: +${lines.length - STOP_GATE_LINES} more test requirement(s) bear on this session's edits — \`sofar check\` lists the rules`)
   return { lines: shown, blocks: lines.length > (unverified === null ? 0 : 1) }
 }
+
+// ---------------------------------------------------------------------------
+// The test-loss ask (r4-fixes B3, D19, D20): a bound test that lost assertions.
+// ---------------------------------------------------------------------------
+
+/**
+ * `SOFAR_TEST_GUARD=off` (also `0`, `false`) is the ask's ablation arm. The
+ * gate above already demands a passing run after an edit to a check's test
+ * file; a test edited to assert less passes it, so this asks about the loss.
+ */
+export const TEST_GUARD_ENV = 'SOFAR_TEST_GUARD'
+
+export function testGuardEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const v = env[TEST_GUARD_ENV]?.trim().toLowerCase()
+  return !(v === 'off' || v === '0' || v === 'false')
+}
+
+/** A test file an in-force ruled check runs, and the rule it proves. */
+export interface BoundTest {
+  /** Repo-relative, as the check's command names it. */
+  path: string
+  /** `<slug> D<n>·<sfx>`, as every line prints a check (U5). */
+  handle: string
+  rule: string
+}
+
+/** A path relative to `rootDir`, or null for one outside it. */
+function repoRelative(path: string, rootDir: string): string | null {
+  if (!isAbsolute(path)) return normalPath(path)
+  const root = rootDir.endsWith('/') ? rootDir : `${rootDir}/`
+  return path.startsWith(root) ? normalPath(path.slice(root.length)) : null
+}
+
+/**
+ * The files this session edited that an in-force ruled check names as FILES
+ * (never a directory: a suite run binds no one test) in its test-shaped
+ * command. By check order, each (path, rule) once.
+ */
+export function boundTestsTouched(index: GuardIndex, files: readonly string[], rootDir: string, probe: PathProbe = NO_TREE): BoundTest[] {
+  const edited = new Set<string>()
+  for (const f of files) {
+    if (f.startsWith('+')) continue // the overflow sentinel
+    const rel = repoRelative(f, rootDir)
+    if (rel !== null && rel.length > 0) edited.add(rel)
+  }
+  if (edited.size === 0) return []
+  const out: BoundTest[] = []
+  for (const c of checksInForce(index)) {
+    const seg = testShapedCommand(c.check.cmd)
+    if (seg === null) continue
+    for (const o of testSpec(seg, probe).operands) {
+      if (o.dir || !edited.has(o.path) || out.some((b) => b.path === o.path && b.handle === c.shown)) continue
+      out.push({ path: o.path, handle: c.shown, rule: c.rule })
+    }
+  }
+  return out
+}
+
+const WORD = /[A-Za-z_][A-Za-z0-9_]*/g
+/** Prose that starts like an assertion: a test's title, never a call. */
+const ASSERT_PROSE = new Set(['asserts', 'asserted', 'asserting', 'assertion', 'assertions'])
+
+/**
+ * Whether a line of a test asserts something, in any common runner: a word
+ * `expect`, `should` or `raises`, or one starting `assert` (`assert`,
+ * `assertEqual`, `assert_eq`, `assertThat`) that is not prose (`asserts`,
+ * `assertion`). Words, never a regex over syntax, so both engines read a
+ * line alike.
+ */
+export function isAssertionLine(text: string): boolean {
+  for (const w of text.match(WORD) ?? []) {
+    if (w === 'expect' || w === 'should' || w === 'raises') return true
+    const lower = w.toLowerCase()
+    if (lower.startsWith('assert') && !ASSERT_PROSE.has(lower)) return true
+  }
+  return false
+}
+
+/** Assertion lines a `git diff -U0` removed and added, per repo-relative path (the new name; the old for a deletion). */
+export function assertionDelta(diff: string): Map<string, { removed: number; added: number }> {
+  const out = new Map<string, { removed: number; added: number }>()
+  let header = false
+  let oldPath: string | null = null
+  let path: string | null = null
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('diff --git ')) {
+      header = true
+      oldPath = path = null
+      continue
+    }
+    if (header) {
+      if (line.startsWith('--- ')) oldPath = line.startsWith('--- a/') ? line.slice(6) : null
+      else if (line.startsWith('+++ ')) path = line.startsWith('+++ b/') ? line.slice(6) : oldPath
+      else if (line.startsWith('@@')) header = false
+      continue
+    }
+    if (path === null || line.startsWith('@@')) continue
+    const removed = line.startsWith('-')
+    if (!removed && !line.startsWith('+')) continue
+    if (!isAssertionLine(line.slice(1))) continue
+    const d = out.get(path) ?? { removed: 0, added: 0 }
+    if (removed) d.removed += 1
+    else d.added += 1
+    out.set(path, d)
+  }
+  return out
+}
+
+/**
+ * One line per bound test file that lost more assertion lines than it gained
+ * since `base`, naming every rule it proves. The ask leads with the
+ * supersession (D20): in the replay every such loss was an operator's change
+ * the agent never linked. The keys are what `markLossAsked` stores.
+ */
+export function testLossLines(bound: readonly BoundTest[], delta: ReadonlyMap<string, { removed: number; added: number }>): { lines: string[]; keys: string[] } {
+  const byPath = new Map<string, BoundTest[]>()
+  for (const b of bound) {
+    const d = delta.get(b.path)
+    if (d === undefined || d.removed <= d.added) continue
+    byPath.set(b.path, [...(byPath.get(b.path) ?? []), b])
+  }
+  const lines: string[] = []
+  const keys: string[] = []
+  for (const [path, rules] of byPath) {
+    const d = delta.get(path)!
+    const net = d.removed - d.added
+    const named = namedRules(rules.map((r) => ({ handle: r.handle, rule: r.rule })))
+    lines.push(
+      `sofar: ${path} lost ${net} assertion line(s) this session, and it is the test that proves ${named} — if the operator changed that rule, file a rule that supersedes it, with their words; if not, the test must still assert it`,
+    )
+    for (const r of rules) keys.push(`${path}\0${r.handle}`)
+  }
+  return { lines, keys }
+}
+
+/**
+ * The commit this session's work began from: the newest on HEAD committed
+ * before it started, in one bounded spawn. Null without git or history.
+ */
+export function sessionBase(rootDir: string, started: string): string | null {
+  const out = git(rootDir, ['log', '-1', '--format=%H', `--before=${started}`, 'HEAD'])
+  const sha = out?.trim() ?? ''
+  return /^[0-9a-f]{40,64}$/.test(sha) ? sha : null
+}
+
+/** `git diff -U0` of these paths from `base` to the working tree; null without git. */
+export function diffFrom(rootDir: string, base: string, paths: readonly string[]): string | null {
+  return git(rootDir, ['-c', 'core.quotePath=false', 'diff', '-U0', '--no-color', '--no-ext-diff', '--no-renames', base, '--', ...paths])
+}
