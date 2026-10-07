@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 27 done, 4 dropped, 30 remaining
+Progress: 28 done, 4 dropped, 29 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -32,13 +32,13 @@ Progress: 27 done, 4 dropped, 30 remaining
 - [ ] H4 Read-only sessions move the last home too: set it at Stop when a registered session's home differs (one write, only on change)
 - [x] H5 Per-host write-back default: Claude Code through sofar_end_session, Codex/Cursor in-band block (rc.2 turned every Claude completion summary into JSON)
 
-## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 2/16 (1 dropped) done
+## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 3/16 (1 dropped) done
 
 - [x] B1 B1 Work maps: ≤1.5k-char focus-task map (files, last test cmd+exit, entry points) ranked by PageRank+BM25F, stamped verified-at-sha (SOFAR_WORKMAP). PREDICT Claude −0.05 to −0.10
 - [-] B2 B2 Rules compiled to checks: opt-in forbid, PreToolUse deny + check --staged + Stop gate (SOFAR_FORBID; R13 Decision vs drift-hardening D3 first). PREDICT GV −0.5 to −1 (dropped)
 - [x] B3 B3 Rule-test integrity: bound tests guarded (ask once), fail-then-pass proof, quote-verified supersession of guarded rules (R14, R15). PREDICT GV −1 to −1.5
-- [ ] B4 B4 Claims and a ready frontier: derived claims, kernel-flock liveness, fencing epoch, sofar next --ready (R16, R22). PREDICT duplicate work −80%
-- [ ] B5 B5 Here-vs-elsewhere digest: in-force rules from this checkout's ancestry only, plus a ≤400-char elsewhere block (SOFAR_ELSEWHERE)
+- [ ] B4 B4 Claims and a ready frontier: derived claims, kernel-flock liveness, fencing epoch, sofar next --ready (R16, R22). PREDICT duplicate work −80% (blocked)
+- [ ] B5 B5 Here-vs-elsewhere digest: in-force rules from this checkout's ancestry only, plus a ≤400-char elsewhere block (SOFAR_ELSEWHERE) (blocked)
 - [ ] B6 B6 Merge-time currency: decision forks in the merge block, rule-set ETag re-tells moved rules. PREDICT T-FORK ≤10%, SR −2 to −5 pts in merge segments
 - [ ] B7 B7 sofar diff base..head for PRs: decision/rule/guard/fork diff as Markdown; flags bidi and zero-width chars
 - [ ] B8 B8 Deterministic staleness: flag rules and memories whose cited files or guard paths are missing (never delete)
@@ -47,7 +47,7 @@ Progress: 27 done, 4 dropped, 30 remaining
 - [ ] B11 B11 Engine hygiene: spawn-free TS hot path, union-merge fold idempotence, read-only sofar fsck, local SOFAR_TRACE and sofar explain
 - [ ] B12 Redesign A5 for the surfaces agents read: retired rules marked current-only in shards and events reads (A5 measured ~0; needs an operator ruling)
 - [ ] B13 Redesign A6 sweep and A7 tripwire to clear their replay gates (A6 P/R ~0.5, median 6 sites; A7 precision 0.13, 0/27; Bash heredoc writes unseen)
-- [ ] B14 A10 first-prompt carrier: a first prompt naming an open record re-homes the fresh session (~10 of 33 misfiles)
+- [x] B14 A10 first-prompt carrier: a first prompt naming an open record re-homes the fresh session (~10 of 33 misfiles)
 - [ ] B15 Hermetic handoff-bench runner: process groups and orphan sweep for proc.ts (Bun spawn), as A13 did for vitest
 - [ ] B16 A14's 24h abandoned rule on hot-path notices, not only doctor
 
@@ -76,4 +76,5 @@ Progress: 27 done, 4 dropped, 30 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Confirm main CI 37662770544 green on 5d238835; then the operator rules on H3 and H4.
+Next action: Run B6's replay (merge-time currency) under D24; build only on a measured loss.
+Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).
