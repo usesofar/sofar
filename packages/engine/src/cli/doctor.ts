@@ -17,7 +17,7 @@ import { commonGitDir } from '../core/git'
 import { crossConflictsFromStates } from '../core/cross-conflicts'
 import { buildGraph, extractCitations, repoGeneral } from '../core/graph'
 import { clip } from '../projections/templates/shared'
-import { AGENT_LABELS, AGENTS } from './agents'
+import { AGENT_LABELS, AGENTS, type AgentId } from './agents'
 import {
   CODEX_CONFIG,
   CODEX_DIRECT_KEY,
@@ -59,6 +59,16 @@ import {
   type TailwindV4Detection,
 } from './scanners'
 import { CORE_PACKAGE, resolveCore, type ResolvedCore } from './core'
+import type { StateEnv } from '../core/state-dir'
+import {
+  appendWiringEntry,
+  consentOf,
+  journalPath,
+  readWiringJournalLines,
+  sha256Hex,
+  type WiringFile,
+  wiringJournalPath,
+} from './wiring-journal'
 import { activateCore, type Activation } from './core-store'
 import { planUpgrade } from './update-cache'
 import { detectFormatterHazards } from './formatters'
@@ -151,6 +161,12 @@ export interface DoctorOptions {
   liveSessions?: ReadonlySet<string>
   /** Environment for SOFAR_ABANDON — tests only. */
   env?: Record<string, string | undefined>
+  /**
+   * Who ran this doctor, for the wiring journal (r4-fixes A11): a `--fix`
+   * that writes is journaled, and the journal is where each wired host's
+   * choice is read from. `env` overrides the state dir — tests only.
+   */
+  journal?: { argv: readonly string[]; cwd: string; tty: boolean; env?: StateEnv; now?: () => string }
 }
 
 /** Progress channel for the tree-scan spinner — injectable for tests. */
@@ -388,7 +404,44 @@ function shimsCurrent(
   }
 }
 
-function auditWiring(rootDir: string, userHome: string | undefined): Section {
+/**
+ * The wiring journal entry behind each wired host (r4-fixes A11): the line
+ * that chose it (or adopted it), cited as `<journal>:<line>` so "who wired
+ * this?" is one look. A wired host no line chose is a WARN — init leaves it
+ * as it is — with the two ways out; a clone whose journal predates consent
+ * gets one line saying so.
+ */
+function auditJournal(rootDir: string, wired: readonly AgentId[], findings: Finding[], env: StateEnv | undefined): void {
+  if (wired.length === 0) return
+  const path = wiringJournalPath(rootDir, env)
+  if (path === null) return
+  const consent = consentOf(readWiringJournalLines(rootDir, env))
+  if (!consent.recorded) {
+    findings.push({
+      level: 'ok',
+      text: `wiring journal: no choice recorded yet for ${wired.map((id) => AGENT_LABELS[id]).join(', ')} (wired before the journal) — the next init that writes records ${wired.length === 1 ? 'it' : 'them'} as chosen`,
+    })
+    return
+  }
+  for (const id of wired) {
+    const by = consent.chosen.get(id)
+    if (by === undefined) {
+      findings.push({
+        level: 'warn',
+        text: `${AGENT_LABELS[id]} is wired here, but this clone's wiring journal records no choice of it — init leaves it as it is`,
+        hint: `\`sofar init --agents ${id}\` records the choice and refreshes it; \`sofar uninit --agent ${id}\` removes what sofar wrote`,
+      })
+      continue
+    }
+    const run = `sofar ${by.entry.argv.join(' ')}`.trim()
+    findings.push({
+      level: 'ok',
+      text: `${AGENT_LABELS[id]} ${by.how} by \`${run}\` (${by.entry.tty ? 'terminal' : 'no terminal'}, ${by.entry.ts}) — ${path}:${by.line}`,
+    })
+  }
+}
+
+function auditWiring(rootDir: string, userHome: string | undefined, journalEnv?: StateEnv): Section {
   const findings: Finding[] = []
 
   // Per agent (r1-fixes 7.1, D36): a repo is checked only for the agents it is
@@ -599,6 +652,7 @@ function auditWiring(rootDir: string, userHome: string | undefined): Section {
     }
   }
 
+  auditJournal(rootDir, [...wired], findings, journalEnv)
   auditAttribution(rootDir, findings)
   auditGitattributes(rootDir, findings)
   auditCore(findings)
@@ -1422,7 +1476,7 @@ function sourceNotUnavailableHint(
   return `${found}; \`@source not\` needs >= ${SOURCE_NOT_SINCE}, so --fix would break your build — upgrade tailwindcss and rerun, or narrow the scan base by hand: \`${sofarScanBaseDirective(cssFile, rootDir)}\` (relative to this stylesheet; templates outside it stop being scanned)`
 }
 
-function auditScanners(rootDir: string, fix: boolean, progress: ScanProgress): Section {
+function auditScanners(rootDir: string, fix: boolean, progress: ScanProgress, writes: WiringFile[] = []): Section {
   const findings: Finding[] = []
   const tw = detectTailwindV4(rootDir)
   if (!tw.v4) {
@@ -1459,6 +1513,7 @@ function auditScanners(rootDir: string, fix: boolean, progress: ScanProgress): S
       if (changed) {
         try {
           writeFileSync(entry, next, 'utf8')
+          writes.push({ path: entry, op: 'write', sha256: sha256Hex(next) })
         } catch (err) {
           findings.push({ id: 'tailwind-scan', level: 'fail', text: `${rel}: fix failed — ${errMessage(err)}` })
           continue
@@ -1499,7 +1554,7 @@ function auditScanners(rootDir: string, fix: boolean, progress: ScanProgress): S
  * touch the record. Writes are withheld, with the exact line named, when the
  * config cannot be round-tripped (comments) or Biome's dialect is unknown.
  */
-function auditFormatters(rootDir: string, fix: boolean): Section {
+function auditFormatters(rootDir: string, fix: boolean, writes: WiringFile[] = []): Section {
   const findings: Finding[] = []
   const hazards = detectFormatterHazards(rootDir)
   if (hazards.length === 0) {
@@ -1518,6 +1573,8 @@ function auditFormatters(rootDir: string, fix: boolean): Section {
     if (fix && h.apply !== undefined) {
       try {
         h.apply()
+        const file = join(rootDir, h.file)
+        writes.push({ path: file, op: 'write', sha256: sha256Hex(readFileSync(file, 'utf8')) })
       } catch (err) {
         findings.push({ id: 'formatter-scan', level: 'fail', text: `${h.label}: fix failed — ${errMessage(err)}` })
         continue
@@ -1804,16 +1861,17 @@ export function runDoctor(
   const abandoned = triage
     ? abandonedSessions(rootDir, folded, options.now ?? new Date(), options.liveSessions ?? liveSessionIds())
     : new Map<string, number>()
+  const writes: WiringFile[] = []
   const sections = [
-    auditWiring(rootDir, options.home),
+    auditWiring(rootDir, options.home, options.journal?.env),
     auditRecords(folded),
     auditLifecycle(rootDir, folded),
     auditSplitSessions(folded, abandoned),
     auditConcurrency(folded, abandoned),
     auditGuards(rootDir, folded),
     auditRepoMemory(rootDir, folded),
-    auditScanners(rootDir, fix, { caps: progress.caps ?? stderrCaps(), stream: progress.stream }),
-    auditFormatters(rootDir, fix),
+    auditScanners(rootDir, fix, { caps: progress.caps ?? stderrCaps(), stream: progress.stream }, writes),
+    auditFormatters(rootDir, fix, writes),
   ]
   if (triage) {
     const marks = listAbandoned(rootDir, env)
@@ -1830,6 +1888,27 @@ export function runDoctor(
         ],
       })
     }
+  }
+
+  // `doctor --fix` writes outside .sofar/, so it is journaled like init (r4-fixes A11).
+  const j = options.journal
+  if (j !== undefined && writes.length > 0) {
+    appendWiringEntry(
+      rootDir,
+      {
+        ts: (j.now ?? (() => new Date().toISOString()))(),
+        sofar: CURRENT_VERSION,
+        root: rootDir,
+        cwd: j.cwd,
+        argv: [...j.argv],
+        tty: j.tty,
+        command: 'doctor --fix',
+        agents: wiredAgents(rootDir),
+        result: 'ok',
+        files: writes.map((w) => ({ ...w, path: journalPath(rootDir, w.path) })),
+      },
+      j.env,
+    )
   }
 
   const tally = tallyOf(sections, triage)

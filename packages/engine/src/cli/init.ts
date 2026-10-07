@@ -47,8 +47,12 @@ import { detectTailwindV4, SOURCE_NOT_SINCE } from './scanners'
 import { fail, ok, REPO_MD_STUB, type CmdResult } from './shared'
 import {
   appendWiringEntry,
+  type Consent,
+  consentedWired,
   journalPath,
+  readConsent,
   sha256Hex,
+  type WiringFile,
   type WiringSelection,
 } from './wiring-journal'
 import type { StateEnv } from '../core/state-dir'
@@ -1976,6 +1980,11 @@ export interface InitOptions {
    * always passes it; a run without it journals nothing.
    */
   journal?: InitJournalContext
+  /**
+   * Wired agents this run leaves as they are, for want of a recorded choice
+   * (r4-fixes A11) — named in the report and the journal line.
+   */
+  skipped?: readonly AgentId[]
 }
 
 export interface InitJournalContext {
@@ -2337,11 +2346,14 @@ class InitAbort extends Error {}
  * (r4-fixes R12); null outside a run. Every write and removal below goes
  * through put/drop, so the journal cannot miss one.
  */
-let runWrites: Array<{ path: string; op: 'write' | 'remove'; sha256?: string }> | null = null
+let runWrites: WiringFile[] | null = null
 
 function put(path: string, content: string): void {
+  // r4-fixes A11: a write that brings a file into being is marked, so
+  // `uninit --agent` may delete it again when reversing leaves it empty.
+  const created = runWrites !== null && !existsSync(path)
   writeFileSync(path, content, 'utf8')
-  runWrites?.push({ path, op: 'write', sha256: sha256Hex(content) })
+  runWrites?.push({ path, op: 'write', sha256: sha256Hex(content), ...(created ? { created: true as const } : {}) })
 }
 
 function drop(path: string): void {
@@ -3091,6 +3103,11 @@ export function runInit(
   let codexMcp: Change = 'unchanged'
   let codexUserStep = false
   let codexShimsUpdated = false
+  // The consent set before this run (r4-fixes A11): its journal line adopts
+  // the wired set when it is the clone's first consent-era line, and an
+  // explicit choice that writes nothing is still recorded when it grants.
+  const consentBefore: Consent | null = options.journal === undefined ? null : readConsent(rootDir, options.journal.env)
+  const wiredBefore = consentBefore === null ? [] : wiredAgents(rootDir)
   runWrites = []
   let aborted = false
   try {
@@ -3146,8 +3163,12 @@ export function runInit(
   } finally {
     const writes = runWrites ?? []
     runWrites = null
-    if (options.journal !== undefined && writes.length > 0) {
-      const j = options.journal
+    const j = options.journal
+    const explicit = j?.selection === 'flag' || j?.selection === 'picker'
+    const grants =
+      consentBefore !== null && explicit && (consentBefore.recorded ? [...picked].some((id) => !consentBefore.chosen.has(id)) : false)
+    if (j !== undefined && consentBefore !== null && (writes.length > 0 || grants)) {
+      const skipped = orderAgents(options.skipped ?? [])
       appendWiringEntry(
         rootDir,
         {
@@ -3157,8 +3178,11 @@ export function runInit(
           cwd: j.cwd,
           argv: [...j.argv],
           tty: j.tty,
+          command: 'init',
           selection: j.selection,
           agents: orderAgents(picked),
+          ...(consentBefore.recorded ? {} : { adopted: wiredBefore }),
+          ...(skipped.length > 0 ? { skipped } : {}),
           result: aborted ? 'aborted' : 'ok',
           files: writes.map((w) => ({ ...w, path: journalPath(rootDir, w.path) })),
         },
@@ -3172,6 +3196,9 @@ export function runInit(
       ? 'sofar init: already initialized — nothing to do'
       : `sofar init: done (${changed} change${changed === 1 ? '' : 's'})`
   const lines = [renderReport(report, result, caps)]
+  // r4-fixes A11: a wired agent with no recorded choice is never rewritten
+  // by a run that did not name it; say so, with both ways out.
+  for (const id of orderAgents(options.skipped ?? [])) lines.push('', unchosenNote(id))
   // Opt-in nudge (init-statusline D1): when the project settings carry no
   // statusLine and the flag was not passed, point at it. Unstyled, like the
   // scanner hint — and always BEFORE it: the scanner hint keeps the final
@@ -3217,13 +3244,19 @@ export interface AgentPrompt {
   machine?: MachineProbe
 }
 
-export type AgentChoice = { agents: AgentId[] } | { error: string } | { cancelled: true }
+export type AgentChoice =
+  /** `skipped`: wired agents left as they are for want of a recorded choice (r4-fixes A11). */
+  | { agents: AgentId[]; skipped?: AgentId[] }
+  | { error: string }
+  | { cancelled: true }
 
 export interface AgentResolution {
   /** `--refresh`: rewire exactly the wired set, never ask (r4-fixes R12). */
   refresh?: boolean
   /** The command a refusal tells the operator to run — `sofar init` plus any `--root`. */
   command?: string
+  /** This clone's consent set (r4-fixes A11); read from its wiring journal when absent. */
+  consent?: Consent
 }
 
 /**
@@ -3239,6 +3272,11 @@ export interface AgentResolution {
  *   on this machine (every agent when none is). With no terminal it refuses —
  *   never "all" (r1-fixes D36's default, superseded) — naming the agents found
  *   and the exact command to run.
+ * - The wired set means the wired agents this clone CHOSE (r4-fixes A11): a
+ *   wired agent no journal line records choosing is left as it is — skipped,
+ *   and named — so a host arrives in this clone's writes only by an explicit
+ *   choice. A clone whose journal predates consent has every wired agent
+ *   standing as chosen (wiring-journal.ts, the bridge).
  */
 export async function resolveInitAgents(
   rootDir: string,
@@ -3252,7 +3290,20 @@ export async function resolveInitAgents(
   }
   if (flag !== undefined) return parseAgents(flag)
   const wired = wiredAgents(rootDir)
-  if (wired.length > 0 && (how.refresh === true || !prompt.interactive)) return { agents: wired }
+  const chosen = consentedWired(wired, how.consent ?? readConsent(rootDir))
+  const unchosen = wired.filter((id) => !chosen.includes(id))
+  if (wired.length > 0 && (how.refresh === true || !prompt.interactive)) {
+    if (chosen.length === 0) {
+      return {
+        error: [
+          `${unchosen.map((id) => AGENT_LABELS[id]).join(', ')} ${unchosen.length === 1 ? 'is' : 'are'} wired here, but this clone's wiring journal records no choice of ${unchosen.length === 1 ? 'it' : 'them'}, so nothing was written`,
+          `  keep ${unchosen.length === 1 ? 'it' : 'them'} current: ${command} --agents ${unchosen.join(',')}`,
+          `  or remove what sofar wrote: ${unchosen.map((id) => `sofar uninit --agent ${id}`).join('; ')}`,
+        ].join('\n'),
+      }
+    }
+    return unchosen.length > 0 ? { agents: chosen, skipped: unchosen } : { agents: chosen }
+  }
   const machine = agentsOnMachine(prompt.machine)
   if (how.refresh === true) {
     return { error: firstInitRefusal('--refresh found no agent wired here to refresh, so nothing was written', machine, command) }
@@ -3267,9 +3318,20 @@ export async function resolveInitAgents(
     }
   }
   const found = orderAgents([...machine, ...wired])
-  const preselected = wired.length > 0 ? wired : machine.length > 0 ? machine : [...AGENTS]
+  // Enter confirms only what this clone chose; an unchosen wired agent is
+  // listed, unselected, for the operator to take or leave (A11).
+  const preselected = wired.length > 0 ? (chosen.length > 0 ? chosen : wired) : machine.length > 0 ? machine : [...AGENTS]
   const agents = await pickAgents(preselected, found, prompt.input, prompt.output, prompt.caps)
   return agents === null ? { cancelled: true } : { agents }
+}
+
+/** The note for a wired agent a run left as it is (r4-fixes A11). */
+export function unchosenNote(id: AgentId): string {
+  return [
+    `note: left ${AGENT_LABELS[id]} as it is — it is wired here, but this clone's wiring journal`,
+    '  records no choice of it, and a run that names no agents writes only chosen ones.',
+    `  Keep it current: sofar init --agents ${id}   Remove what sofar wrote: sofar uninit --agent ${id}`,
+  ].join('\n')
 }
 
 /** The refusal a first init without a choice prints: what is on this machine, and the command that names it. */
@@ -3317,9 +3379,11 @@ export interface InitCommandContext extends AgentPrompt {
 export async function runInitCommand(opts: InitCommandOptions, ctx: InitCommandContext): Promise<CmdResult> {
   const root = initRoot(ctx.cwd, opts.root)
   const command = opts.root === undefined ? 'sofar init' : `sofar init --root ${shellQuote(opts.root)}`
+  const consent = readConsent(root, ctx.journalEnv)
   const choice = await resolveInitAgents(root, opts.agents, ctx, {
     refresh: opts.refresh === true,
     command,
+    consent,
   })
   if ('error' in choice) return fail(`sofar init: ${choice.error}`)
   if ('cancelled' in choice) return fail('sofar init: cancelled — nothing written')
@@ -3328,6 +3392,7 @@ export async function runInitCommand(opts: InitCommandOptions, ctx: InitCommandC
   return runInit(root, {
     statusline: opts.statusline === true,
     agents: choice.agents,
+    ...(choice.skipped === undefined ? {} : { skipped: choice.skipped }),
     ...(opts.promptCapture === undefined ? {} : { promptCapture: opts.promptCapture }),
     ...(ctx.home === undefined ? {} : { home: ctx.home }),
     journal: {

@@ -4,6 +4,9 @@ import { version as CURRENT_VERSION } from '../../package.json'
 import { errMessage, fail, ok, type CmdResult } from './shared'
 import { type Caps, createSpinner, stderrCaps, type SpinnerStream } from './ui'
 import { readAutoUpgrade } from './user-config'
+import type { StateEnv } from '../core/state-dir'
+import { wiredAgents } from './init'
+import { appendWiringEntry } from './wiring-journal'
 
 /**
  * `sofar upgrade [version]` — self-update the globally-installed sofar.
@@ -162,6 +165,12 @@ export interface UpgradeDeps {
   spinnerStream?: SpinnerStream
   /** Override the auto-upgrade preference read (tests). */
   readAuto?: () => boolean
+  /**
+   * The clone this upgrade was run from, for its wiring journal (r4-fixes
+   * A11): an upgrade changes the sofar that writes every repo's hooks, so the
+   * clone it was run in records it. `root` null: not run inside a clone.
+   */
+  journal?: { root: string | null; argv: readonly string[]; cwd: string; tty: boolean; env?: StateEnv; now?: () => string }
 }
 
 export async function runUpgrade(
@@ -203,6 +212,26 @@ export async function runUpgrade(
   }
   if (code === 0) {
     spinner?.succeed()
+    const j = deps.journal
+    if (j !== undefined && j.root !== null) {
+      appendWiringEntry(
+        j.root,
+        {
+          ts: (j.now ?? (() => new Date().toISOString()))(),
+          sofar: CURRENT_VERSION,
+          root: j.root,
+          cwd: j.cwd,
+          argv: [...j.argv],
+          tty: j.tty,
+          command: 'upgrade',
+          agents: wiredAgents(j.root),
+          upgrade: { from: CURRENT_VERSION, to: decision.target },
+          result: 'ok',
+          files: [],
+        },
+        j.env,
+      )
+    }
     return ok(
       `\nsofar upgraded (${decision.target}). ` +
         `Reconnect the sofar MCP server (/mcp) or restart your agent to load it.\n` +

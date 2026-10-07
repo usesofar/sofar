@@ -6185,7 +6185,18 @@ subdirectory, against 33 of 33 from the root.
   is, and the terminal picker pre-selects it alone — an agent merely installed
   on the machine is never added by Enter (the Cursor incident, r3-fixes 2.15).
   `--refresh` with `--agents` exits 1, and `--refresh` with nothing wired
-  refuses like a first init. A FIRST init (nothing wired), when stdin and
+  refuses like a first init. CONSENT (r4-fixes A11): of the wired set, a run
+  that names no agents rewrites only the agents this clone CHOSE — those a
+  wiring-journal line records choosing (`--agents`, or a picker confirmation)
+  and no later uninit removed; a wired agent no line chose (its files came by
+  a teammate's commit, another tool, an older sofar) is left byte for byte and
+  named in a `note: left <Agent> as it is` with `sofar init --agents <id>` and
+  `sofar uninit --agent <id>`, and when every wired agent is unchosen the run
+  exits 1, writes nothing and names both commands; the picker pre-selects the
+  chosen ones (the whole wired set when none is). A clone whose journal holds
+  no consent-era line yet has every wired agent standing as chosen, and its
+  first line records that set as `adopted`. `SOFAR_CONSENT=off` (the
+  ablation switch) restores the whole wired set. A FIRST init (nothing wired), when stdin and
   stderr are a terminal (not CI, not TERM=dumb), asks with a multi-select drawn on
   stderr — arrows or j/k move, space toggles, `a` toggles all, enter
   confirms (never on an empty selection), esc or ctrl-c exits 1 with nothing
@@ -6202,14 +6213,20 @@ subdirectory, against 33 of 33 from the root.
   nearest ancestor with a `.git` entry), else the working directory — never
   the record found by r3-fixes D12's walk-up, so a run from `packages/x/`
   wires the repo, and a `.sofar/` under `packages/x/` is not where it lands.
-  WIRING JOURNAL (r4-fixes R12): every run that wrote anything appends one
-  JSON line to `<state>/wiring/<cloneKey>.jsonl` (outside the repo, never
-  committed; nothing when the state dir resolves inside the clone): `ts`,
-  `sofar` (version), `root`, `cwd`, `argv`, `tty`, `selection` (`flag`,
-  `refresh`, `wired` or `picker`), `agents`, `result` (`ok` or `aborted`)
-  and `files`, each `{path, op: write|remove, sha256}` with the path
-  root-relative when inside it. It is an audit trail, not a selection store:
-  nothing reads it to decide what to wire. Builds before 7.1 (0.32.0,
+  WIRING JOURNAL (r4-fixes R12, A11): every init, uninit, `doctor --fix` and
+  upgrade run that wrote anything appends one JSON line to
+  `<state>/wiring/<cloneKey>.jsonl` (outside the repo, never committed;
+  nothing when the state dir resolves inside the clone): `ts`, `sofar`
+  (version), `root`, `cwd`, `argv`, `tty`, `command` (`init`, `uninit`,
+  `doctor --fix` or `upgrade`; absent on 0.34.1's lines, all init), init's
+  `selection` (`flag`, `refresh`, `wired` or `picker`), `agents`, `adopted`
+  and `skipped` when set, an upgrade's `upgrade: {from, to}`, `result` (`ok`
+  or `aborted`) and `files`, each `{path, op: write|remove, sha256}` (plus
+  `created: true` when the write brought the file into being) with the path
+  root-relative when inside it. An init that writes nothing still appends
+  when its explicit choice grants an agent the clone had not chosen. It is
+  an audit trail and the consent set above (R12 amends r1-fixes D36's "no
+  stored selection" for exactly that); it never ADDS an agent to a run. Builds before 7.1 (0.32.0,
   0.33.0-rc.1) reject `--agents` as an unknown option (exit 1). Re-running
   with another agent adds that agent's files and leaves the others' bytes
   alone. The shims live in `.claude/hooks/` whenever Claude Code is picked or
@@ -6327,6 +6344,11 @@ subdirectory, against 33 of 33 from the root.
   `sofar init --agents <id>`, a wired repo's repair hint (and the stale
   protocol block's) names `sofar init --refresh`, which rewires exactly the
   wired set (r4-fixes R12), and a record with no agent wired at all FAILs.
+  WIRING JOURNAL (r4-fixes A11): one line per wired host naming the journal
+  line that chose (or adopted) it — the command, terminal or not, the time
+  and `<journal path>:<line>`; a wired host no line chose WARNs with `sofar
+  init --agents <id>` and `sofar uninit --agent <id>`; a clone whose journal
+  predates consent gets one ok line saying so.
   The HOT PATH line names the implementation hooks run on, and the per-user
   path when the core was activated for this user (r4-fixes A12, §Hooks); when
   this is a global npm install whose own `bin/sofar-core` is still the
@@ -6522,6 +6544,20 @@ subdirectory, against 33 of 33 from the root.
   branch, lists the marks. A name git would refuse as a branch is refused;
   a branch that does not exist is marked with a note. `SOFAR_ABANDON=off`
   ignores every mark.
+- `sofar uninit --agent <id>` (r4-fixes A11) — one agent's wiring, reversed
+  exactly as this clone's wiring journal records sofar writing it, and
+  nothing else: each of the agent's own files (Claude Code: .claude/settings.json,
+  .mcp.json, CLAUDE.md; Cursor: .cursor/hooks.json, .cursor/mcp.json;
+  Codex: .codex/hooks.json, .codex/config.toml; AGENTS.md with the last of
+  Cursor and Codex) that a journal line wrote is stripped surgically as by
+  `sofar uninit`, and deleted when that leaves it empty and a journaled write
+  created it; a shim goes only when no hook config left in the repo runs its
+  directory and its bytes are still the journaled ones; a directory goes only
+  when this run emptied it. A file of the agent the journal never names, and
+  a shim changed since, are left and listed; when nothing could be removed
+  the run exits 1 and changes no byte. .sofar/, .gitattributes, the git
+  hooks and the other agents' files are never touched; `--purge` with
+  `--agent` exits 1. The run is journaled and withdraws the agent's choice.
 - `sofar uninit [--purge]` — exact inverse of init, surgical: remove the
   hook shims from either home (`.claude/hooks/`, or `.cursor/hooks/sofar/`
   for a repo set up without Claude Code — r1-fixes 7.1) and Codex's from
@@ -8987,6 +9023,22 @@ stay the underlying derivation's, and exit codes are styling-independent.
   repoint an already-wired Cursor onto Claude Code's shims), that a refusal
   exits 1 and changes no byte, that nothing lands under the subdirectory, and
   that the wiring journal names exactly the files each writing run changed.
+- **Wiring consent (r4-fixes A11):** a property test over (wired set × the
+  consent set a journal line records × `--agents` none or each × terminal or
+  not × `--refresh`), every wired agent's own files stale, holds that the
+  hosts written are within `--agents` ?? the chosen wired agents (the picker's
+  Enter choosing the wired set when none is chosen) ?? a refusal that changes
+  no byte, that each unchosen wired agent a nameless run left is named, and
+  that writes to unselected hosts total 0. A Claude Code repo given Cursor and
+  then `sofar uninit --agent cursor` is byte-identical to before, a user's
+  AGENTS.md text kept; Codex added to and removed from a Claude Code + Cursor
+  repo likewise; `--agent claude-code` keeps the shims Cursor runs; files the
+  journal never names make `--agent` exit 1 with no byte changed; a changed
+  shim is left. An explicit choice that writes nothing is journaled; a clone
+  with only 0.34.1 lines adopts its wired set on its first writing run;
+  doctor cites `<journal>:<line>` for a chosen host and WARNs for an unchosen
+  one; `doctor --fix` and an upgrade journal their runs and leave consent
+  alone. Tests: test/wiring-consent.test.ts, test/init-selection.test.ts.
   A Claude-only repo on a machine with `~/.cursor` (a scratch HOME) gains no
   `.cursor/*` after a non-TTY `sofar init`, an interactive Enter, `sofar init`
   from `packages/x/` (also with a `.sofar/` there), or `sofar upgrade`

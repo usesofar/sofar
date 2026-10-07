@@ -8,7 +8,10 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
+import { version as SOFAR_VERSION } from '../../package.json'
 import { commonGitDir } from '../core/git'
+import type { StateEnv } from '../core/state-dir'
+import { AGENT_LABELS, AGENTS, type AgentId } from './agents'
 import { CODEX_CONFIG, codexMcpState, withoutSofarDirect, withoutSofarServer } from './codex-config'
 import {
   CODEX_SHIM_DIR,
@@ -20,7 +23,17 @@ import {
   PROTOCOL_START,
   SHIM_HOMES,
   SHIMS,
+  wiredAgents,
 } from './init'
+import {
+  appendWiringEntry,
+  consentOf,
+  journalPath,
+  readWiringJournalLines,
+  sha256Hex,
+  type WiringFile,
+  writtenFiles,
+} from './wiring-journal'
 import { hostShapedJSON } from './formatters'
 import { fail, ok, type CmdResult } from './shared'
 import { type Caps, createStyle, stderrCaps, stdoutCaps, symbolsFor } from './ui'
@@ -60,11 +73,47 @@ import { type Caps, createStyle, stderrCaps, stdoutCaps, symbolsFor } from './ui
  * Unparseable user JSON aborts with exit 1 (init's caution, mirrored):
  * a file we cannot parse might still carry our entries, and guessing risks
  * user config.
+ *
+ * `--agent <id>` (r4-fixes A11) reverses one agent's wiring and only what this
+ * clone's wiring journal says sofar wrote for it: a file the journal never
+ * names is left (and listed), a shim whose bytes changed since is left, an
+ * emptied file is deleted only when a journaled write created it, and the
+ * shared files — .sofar/, .gitattributes, the git hooks, AGENTS.md while
+ * the other agent reading it stays, a shim dir another agent still runs — are
+ * never touched. Every uninit that changes something is journaled, and it
+ * withdraws its agents' choice from the consent set.
  */
 
 export interface UninitOptions {
   /** Also delete .sofar/ (the record) and files this run emptied. */
   purge?: boolean
+  /** Reverse only this agent's journaled writes (r4-fixes A11). */
+  agent?: AgentId
+  /** Who is running this uninit, for the wiring journal (r4-fixes A11); the CLI always passes it. */
+  journal?: UninitJournalContext
+}
+
+export interface UninitJournalContext {
+  argv: readonly string[]
+  cwd: string
+  tty: boolean
+  /** State-dir environment override — tests only. */
+  env?: StateEnv
+  /** Clock override — tests only. */
+  now?: () => string
+}
+
+/** The files this uninit run changed, for the wiring journal (A11); null outside a run. */
+let runChanges: WiringFile[] | null = null
+
+function put(path: string, content: string): void {
+  writeFileSync(path, content, 'utf8')
+  runChanges?.push({ path, op: 'write', sha256: sha256Hex(content) })
+}
+
+function drop(path: string): void {
+  unlinkSync(path)
+  runChanges?.push({ path, op: 'remove' })
 }
 
 class UninitAbort extends Error {}
@@ -118,7 +167,7 @@ function removeShims(rootDir: string, dir: string, report: string[], shims = SHI
   for (const shim of shims) {
     const path = join(rootDir, dir, shim.file)
     if (!existsSync(path)) continue
-    unlinkSync(path)
+    drop(path)
     report.push(`removed ${dir}/${shim.file}`)
     removed++
   }
@@ -149,7 +198,7 @@ function removeGitHook(rootDir: string, report: string[]): void {
       continue
     }
     if (!content.includes(hook.marker)) continue // yours — left alone
-    unlinkSync(path)
+    drop(path)
     report.push(`removed .git/hooks/${hook.name}`)
   }
 }
@@ -203,11 +252,11 @@ function stripSettings(rootDir: string, purge: boolean, report: string[]): boole
   if (removedParts.length === 0) return false
   const what = `sofar ${removedParts.join(' + ')} removed`
   if (purge && Object.keys(settings).length === 0) {
-    unlinkSync(path)
+    drop(path)
     report.push(`removed .claude/settings.json (nothing left after ${what})`)
     return true
   }
-  writeFileSync(path, stableJSON(rootDir, '.claude/settings.json', settings), 'utf8')
+  put(path, stableJSON(rootDir, '.claude/settings.json', settings))
   report.push(`updated .claude/settings.json (${what})`)
   return false
 }
@@ -222,11 +271,11 @@ function stripMcp(rootDir: string, rel: string, purge: boolean, report: string[]
   delete config.mcpServers.sofar
   if (Object.keys(config.mcpServers).length === 0) delete config.mcpServers
   if (purge && Object.keys(config).length === 0) {
-    unlinkSync(path)
+    drop(path)
     report.push(`removed ${rel} (nothing left after sofar server entry removed)`)
     return true
   }
-  writeFileSync(path, stableJSON(rootDir, rel, config), 'utf8')
+  put(path, stableJSON(rootDir, rel, config))
   report.push(`updated ${rel} (sofar server entry removed)`)
   return false
 }
@@ -259,11 +308,11 @@ function stripCursorHooks(rootDir: string, purge: boolean, report: string[]): bo
   if (Object.keys(hooks).length === 0) delete config.hooks
   const leftover = Object.keys(config).filter((key) => key !== 'version')
   if (purge && leftover.length === 0) {
-    unlinkSync(path)
+    drop(path)
     report.push(`removed ${rel} (nothing left after sofar hook entries removed)`)
     return true
   }
-  writeFileSync(path, stableJSON(rootDir, rel, config), 'utf8')
+  put(path, stableJSON(rootDir, rel, config))
   report.push(`updated ${rel} (sofar hook entries removed)`)
   return false
 }
@@ -276,11 +325,11 @@ function stripCodexHooks(rootDir: string, purge: boolean, report: string[]): boo
   const config = readJSONObject(path, rel)
   if (!stripHookGroups(config)) return false
   if (purge && Object.keys(config).length === 0) {
-    unlinkSync(path)
+    drop(path)
     report.push(`removed ${rel} (nothing left after sofar hook entries removed)`)
     return true
   }
-  writeFileSync(path, stableJSON(rootDir, rel, config), 'utf8')
+  put(path, stableJSON(rootDir, rel, config))
   report.push(`updated ${rel} (sofar hook entries removed)`)
   return false
 }
@@ -313,11 +362,11 @@ function stripCodexMcp(rootDir: string, purge: boolean, report: string[], warnin
   }
   if (stripped === text) return false
   if (purge && stripped.length === 0) {
-    unlinkSync(path)
+    drop(path)
     report.push(`removed ${CODEX_CONFIG} (nothing left after sofar server entry removed)`)
     return true
   }
-  writeFileSync(path, stripped, 'utf8')
+  put(path, stripped)
   report.push(`updated ${CODEX_CONFIG} (sofar server entry removed)`)
   return false
 }
@@ -354,11 +403,11 @@ function stripProtocolBlock(
   const result = before + content.slice(end)
 
   if (purge && result.length === 0) {
-    unlinkSync(path)
+    drop(path)
     report.push(`removed ${file} (contained only the sofar protocol block)`)
     return
   }
-  writeFileSync(path, result, 'utf8')
+  put(path, result)
   report.push(`updated ${file} (sofar protocol block removed)`)
 }
 
@@ -377,11 +426,11 @@ function stripGitattributes(rootDir: string, purge: boolean, report: string[]): 
   const result = kept.join('\n')
 
   if (purge && result.length === 0) {
-    unlinkSync(path)
+    drop(path)
     report.push('removed .gitattributes (contained only the sofar union-merge rules)')
     return
   }
-  writeFileSync(path, result, 'utf8')
+  put(path, result)
   report.push('updated .gitattributes (sofar union-merge rules removed)')
 }
 
@@ -434,10 +483,20 @@ export function runUninit(
   caps: Caps = stdoutCaps(),
   errCaps: Caps = stderrCaps(),
 ): CmdResult {
+  if (options.agent !== undefined) {
+    if (options.purge === true) {
+      return fail(renderFailure('sofar uninit: --purge deletes the record, --agent removes one agent — pass one, not both', errCaps))
+    }
+    return runUninitAgent(rootDir, options.agent, options, caps, errCaps)
+  }
   const purge = options.purge === true
   const report: string[] = []
   const warnings: string[] = []
   const notes: string[] = []
+  const lines = options.journal === undefined ? [] : readWiringJournalLines(rootDir, options.journal.env)
+  const consent = consentOf(lines)
+  runChanges = []
+  let aborted = false
 
   try {
     const shimsRemoved = removeShims(rootDir, SHIM_HOMES.claude.dir, report)
@@ -475,6 +534,7 @@ export function runUninit(
     if (existsSync(sofarDir)) {
       if (purge) {
         rmSync(sofarDir, { recursive: true, force: true })
+        runChanges.push({ path: sofarDir, op: 'remove' })
         report.push('removed .sofar/ (record deleted)')
         warnings.push(
           'warning: --purge deleted the sofar record (.sofar/) — this is irreversible; `sofar export` before purging is the backup path.',
@@ -484,10 +544,14 @@ export function runUninit(
       }
     }
   } catch (err) {
+    aborted = true
     if (err instanceof UninitAbort) {
       return fail(renderFailure(`sofar uninit: ${err.message}`, errCaps))
     }
     throw err
+  } finally {
+    // Every agent's wiring goes, so every agent's choice is withdrawn.
+    journalUninit(rootDir, options, [...AGENTS], aborted, consent.chosen.size > 0 && !aborted, null)
   }
 
   const changes = report.length
@@ -499,4 +563,168 @@ export function runUninit(
     `${renderReport([...report, ...notes], result, caps)}\n`,
     renderWarnings(warnings, errCaps),
   )
+}
+
+// ---------------------------------------------------------------------------
+// The journal line every uninit that changes something leaves (r4-fixes A11).
+// ---------------------------------------------------------------------------
+
+/**
+ * Append this run's line: the agents whose wiring it removed (and whose choice
+ * it withdraws), and every file it rewrote or removed. `force` journals a run
+ * that changed no file but withdrew a standing choice.
+ */
+function journalUninit(
+  rootDir: string,
+  options: UninitOptions,
+  agents: AgentId[],
+  aborted: boolean,
+  force: boolean,
+  adopted: AgentId[] | null,
+): void {
+  const changes = runChanges ?? []
+  runChanges = null
+  const j = options.journal
+  if (j === undefined || (changes.length === 0 && !force)) return
+  appendWiringEntry(
+    rootDir,
+    {
+      ts: (j.now ?? (() => new Date().toISOString()))(),
+      sofar: SOFAR_VERSION,
+      root: rootDir,
+      cwd: j.cwd,
+      argv: [...j.argv],
+      tty: j.tty,
+      command: 'uninit',
+      agents,
+      // The clone's first consent-era line keeps the other wired agents chosen.
+      ...(adopted === null ? {} : { adopted }),
+      result: aborted ? 'aborted' : 'ok',
+      files: changes.map((c) => ({ ...c, path: journalPath(rootDir, c.path) })),
+    },
+    j.env,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// `sofar uninit --agent <id>` (r4-fixes A11): the journal's writes, reversed.
+// ---------------------------------------------------------------------------
+
+/** Each agent's own config files; AGENTS.md is Cursor's and Codex's both. */
+const AGENT_FILES: Record<AgentId, readonly string[]> = {
+  'claude-code': ['.claude/settings.json', '.mcp.json', 'CLAUDE.md'],
+  cursor: ['.cursor/hooks.json', '.cursor/mcp.json', 'AGENTS.md'],
+  codex: ['.codex/hooks.json', CODEX_CONFIG, 'AGENTS.md'],
+}
+
+/** The shim dirs an agent's hooks may run: Cursor runs Claude Code's whenever Claude Code is wired (D36). */
+const AGENT_SHIM_DIRS: Record<AgentId, readonly string[]> = {
+  'claude-code': [SHIM_HOMES.claude.dir],
+  cursor: [SHIM_HOMES.cursor.dir, SHIM_HOMES.claude.dir],
+  codex: [CODEX_SHIM_DIR],
+}
+
+/** Dirs an agent's files sit in, deepest first: each goes only if this run emptied it. */
+const AGENT_DIRS: Record<AgentId, readonly string[]> = {
+  'claude-code': [SHIM_HOMES.claude.dir, '.claude'],
+  cursor: [SHIM_HOMES.cursor.dir, '.cursor/hooks', SHIM_HOMES.claude.dir, '.claude', '.cursor'],
+  codex: [CODEX_SHIM_DIR, '.codex/hooks', '.codex'],
+}
+
+function readTextOr(path: string): string {
+  try {
+    return readFileSync(path, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+/** Does a hook config left in this repo still run a shim from `dir`? */
+function shimDirInUse(rootDir: string, dir: string): boolean {
+  return ['.claude/settings.json', '.cursor/hooks.json', '.codex/hooks.json'].some((rel) =>
+    readTextOr(join(rootDir, rel)).includes(`${dir}/`),
+  )
+}
+
+function runUninitAgent(rootDir: string, agent: AgentId, options: UninitOptions, caps: Caps, errCaps: Caps): CmdResult {
+  const lines = readWiringJournalLines(rootDir, options.journal?.env)
+  const ledger = writtenFiles(lines)
+  const consent = consentOf(lines)
+  const wiredBefore = wiredAgents(rootDir)
+  const remaining = new Set(wiredBefore.filter((id) => id !== agent))
+  const label = AGENT_LABELS[agent]
+  const report: string[] = []
+  const warnings: string[] = []
+  const left: string[] = []
+  const journaled = (rel: string): boolean => ledger.has(rel)
+  const created = (rel: string): boolean => ledger.get(rel)?.created === true
+  const chosen = consent.recorded ? consent.chosen.has(agent) : wiredBefore.includes(agent)
+  runChanges = []
+  let aborted = false
+
+  try {
+    for (const rel of AGENT_FILES[agent]) {
+      // AGENTS.md goes with the last agent reading it.
+      if (rel === 'AGENTS.md' && (remaining.has('cursor') || remaining.has('codex'))) continue
+      if (!existsSync(join(rootDir, rel))) continue
+      if (!journaled(rel)) {
+        const text = readTextOr(join(rootDir, rel))
+        if (text.includes('sofar') || SHIM_PATH_SUBSTRINGS.some((path) => text.includes(path))) left.push(rel)
+        continue
+      }
+      const purge = created(rel)
+      if (rel === '.claude/settings.json') stripSettings(rootDir, purge, report)
+      else if (rel === '.mcp.json' || rel === '.cursor/mcp.json') stripMcp(rootDir, rel, purge, report)
+      else if (rel === '.cursor/hooks.json') stripCursorHooks(rootDir, purge, report)
+      else if (rel === '.codex/hooks.json') stripCodexHooks(rootDir, purge, report)
+      else if (rel === CODEX_CONFIG) stripCodexMcp(rootDir, purge, report, warnings)
+      else stripProtocolBlock(rootDir, rel, purge, report, warnings)
+    }
+    // A shim goes only when no hook config left here runs its dir, and only
+    // while its bytes are still the ones the journal says sofar wrote.
+    for (const dir of AGENT_SHIM_DIRS[agent]) {
+      if (shimDirInUse(rootDir, dir)) continue
+      for (const shim of dir === CODEX_SHIM_DIR ? CODEX_SHIMS : SHIMS) {
+        const rel = `${dir}/${shim.file}`
+        const path = join(rootDir, rel)
+        if (!existsSync(path)) continue
+        const written = ledger.get(rel)
+        if (written === undefined || written.sha256 !== sha256Hex(readTextOr(path))) {
+          left.push(rel)
+          continue
+        }
+        drop(path)
+        report.push(`removed ${rel}`)
+      }
+    }
+    const touched = (runChanges ?? []).map((c) => journalPath(rootDir, c.path))
+    for (const dir of AGENT_DIRS[agent]) {
+      if (touched.some((rel) => rel.startsWith(`${dir}/`))) removeDirIfEmpty(rootDir, dir, report)
+    }
+  } catch (err) {
+    aborted = true
+    if (err instanceof UninitAbort) return fail(renderFailure(`sofar uninit --agent ${agent}: ${err.message}`, errCaps))
+    throw err
+  } finally {
+    journalUninit(rootDir, options, [agent], aborted, chosen && !aborted, consent.recorded ? null : wiredBefore)
+  }
+
+  const leftLines = left.map((rel) => `left ${rel} — this clone's wiring journal records no sofar write to it as it stands`)
+  if (report.length === 0) {
+    if (!wiredBefore.includes(agent) && left.length === 0) {
+      return ok(`${renderReport([], `sofar uninit --agent ${agent}: ${label} is not wired here — nothing to remove`, caps)}\n`)
+    }
+    return fail(
+      renderFailure(
+        [
+          `sofar uninit --agent ${agent}: this clone's wiring journal records nothing sofar wrote for ${label}, so nothing was removed`,
+          ...leftLines.map((line) => `  ${line}`),
+          '  `sofar uninit` removes every agent\'s wiring, journaled or not',
+        ].join('\n'),
+        errCaps,
+      ),
+    )
+  }
+  const result = `sofar uninit --agent ${agent}: done (${report.length} change${report.length === 1 ? '' : 's'})`
+  return ok(`${renderReport([...report, ...leftLines], result, caps)}\n`, renderWarnings(warnings, errCaps))
 }
