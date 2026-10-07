@@ -75,4 +75,4 @@ Progress: 24 done, 3 dropped, 33 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Push release/0.35.0, then cut rc.2 (H1+H2) once CI is green.
+Next action: Operator publishes the six rc.2 tarballs from scratchpad/pack2 with --tag next (cores first, `npm whoami` first); then verify shasums and merge release/0.35.0 back into main.
