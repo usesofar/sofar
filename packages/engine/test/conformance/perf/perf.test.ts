@@ -589,7 +589,13 @@ function selected<T extends { name: string }>(cells: readonly T[]): T[] {
   return ONLY.size === 0 ? [...cells] : cells.filter((c) => ONLY.has(c.name))
 }
 
-describe.skipIf(!PERF)('perf baseline (rust-core 1.3)', () => {
+// Refused on battery (r4-fixes A13): vitest.config.ts names the reason, and
+// the skipped suite's title repeats it.
+const REFUSED = process.env.SOFAR_TEST_BATTERY_REFUSAL
+
+const TITLE = REFUSED !== undefined && PERF ? `perf baseline (rust-core 1.3) — ${REFUSED}` : 'perf baseline (rust-core 1.3)'
+
+describe.skipIf(!PERF || REFUSED !== undefined)(TITLE, () => {
   const report: PerfReport = {
     implementation: '',
     command: [],

@@ -10,6 +10,7 @@ import { serializeEvent } from '../src/core/log'
 import { cloneKey, stateBase } from '../src/core/state-dir'
 import { createToolContext } from '../src/mcp/context'
 import { writeCorpus, BOUND, type CorpusSpec } from './conformance/perf/corpus'
+import { scaled } from './helpers/tracked'
 
 /**
  * rust-core 4.4, decision 01M39ED9: the edge-free checkpoint is derived only.
@@ -89,7 +90,7 @@ describe('edge-free fold checkpoint (rust-core 4.4, 01M39ED9)', () => {
     }
     expect(resumedCount).toBeGreaterThan(100)
     expect(refused).toBeLessThan(resumedCount / 10)
-  }, 300_000)
+  }, scaled(300_000))
 
   it('a team-shaped record resumes exactly at several tail lengths', () => {
     const src = tempRoot()
@@ -103,7 +104,7 @@ describe('edge-free fold checkpoint (rust-core 4.4, 01M39ED9)', () => {
       expect(resumed(root, BOUND), `tail ${k}`).toEqual(want)
       expect(fold(root, BOUND)).toEqual(want)
     }
-  }, 120_000)
+  }, scaled(120_000))
 
   describe('refuses, and foldState still answers from the log', () => {
     function seeded(): { root: string; slug: string; base: string[] } {
@@ -233,5 +234,5 @@ describe('edge-free fold checkpoint (rust-core 4.4, 01M39ED9)', () => {
     const dir = join(stateBase(), 'folds', cloneKey(root))
     expect(readdirSync(dir).filter((f) => f.startsWith(BOUND))).toEqual([`${BOUND}.ts.json`])
     expect(resumed(root, BOUND)).toEqual(refold(root, BOUND))
-  }, 120_000)
+  }, scaled(120_000))
 })

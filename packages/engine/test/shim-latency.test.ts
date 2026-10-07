@@ -218,7 +218,13 @@ function spawnShim(subcommand: string, stdin: Record<string, unknown>): { ms: nu
   return { ms, status: result.status }
 }
 
-describe(`shim latency budget (speed T2) — every hook shim <${SHIM_LATENCY_BUDGET_MS}ms end-to-end`, () => {
+// Refused on battery (r4-fixes A13): a latency pin timed under timer
+// coalescing measures the power plan, not the shim.
+const REFUSED = process.env.SOFAR_TEST_BATTERY_REFUSAL
+
+const TITLE = `shim latency budget (speed T2) — every hook shim <${SHIM_LATENCY_BUDGET_MS}ms end-to-end`
+
+describe.skipIf(REFUSED !== undefined)(REFUSED !== undefined ? `${TITLE} — ${REFUSED}` : TITLE, () => {
   it('spawn + boot + fold + append/render stays inside the budget on a realistic record', () => {
     // warmup: amortize the OS-level cold start (file cache, first V8 parse)
     spawnShim('stop', { session_id: 'warmup-unregistered', stop_hook_active: false })

@@ -81,6 +81,7 @@ Three consequences run through every design decision in the codebase:
 | `core/cursor.ts` | Export/import cursors: the entire sync interface. |
 | `core/session-pointer.ts` | The live-session pointer (r1-fixes 4.1.3, D30): `.sofar/.index/session.json` names the session hooks registered (or a hookless `session_started` minted), so a CLI append with no `--session` joins it instead of splitting the launch into two ids. Derived and per-worktree; whether that session ended is read from the record. |
 | `core/native-memory.ts` | Claude Code auto memory as an import source (memory-lead 2.4, D13/D14): where the store is (as Claude resolves it), its topic files and their frontmatter types, which entries may be offered (project and reference only, not already imported, not declined), the review's secret flag, and the per-clone decline file. Reads native memory; never writes it. |
+| `core/abandoned.ts` | Branches the operator marked abandoned (r4-fixes A14): `<state>/abandoned/<key>.json` keyed by the clone's common git dir, so every worktree shares it. `record-copies.ts` leaves a marked branch out of every copy surface — the SessionStart hint, the write guard, the union fold — and the native core reads the same file. Files only; `SOFAR_ABANDON=off` ignores the marks. |
 | `core/state-dir.ts` | Per-clone state OUTSIDE the repo: `$XDG_STATE_HOME/sofar`, keyed by a hash of the clone's real path. Shared by sync cursors and the diagnostics store; `resolvesInside` is the one refusal of a state dir under the clone. |
 | `core/run-lock.ts` | The run lock (drive-visibility D2, D3): an empty flock-semantics file lock at `<state base>/runs/<run id>.lock` a driver holds for its life — macOS `O_EXLOCK` descriptor, Linux `flock(1)` child on a pipe. `probeRunLock` reads held / free / absent with a shared non-blocking lock; never a pid, never unlinked. |
 | `core/run-progress.ts` | The run's progress file (drive-reach 1.1): `<state base>/runs/<run id>.json` beside the lock — slug, worktree, launching session, next task, done/total, last handoff, running/stopped — written atomically by the driver at each turn, handoff and stop so a session that cannot fold the run's record still sees it. Derived state; liveness stays the lock's. |
@@ -208,7 +209,8 @@ a commit.
 | `cli/status.ts` | `sofar status` — the digest. |
 | `cli/next.ts` | `sofar next` — the single next action. |
 | `cli/list.ts` | `sofar list` — the portfolio. |
-| `cli/doctor.ts` | `sofar doctor` — the audit: records, lifecycle, split sessions, concurrency, guards, repo memory, scanners, formatters. |
+| `cli/doctor.ts` | `sofar doctor` — the audit: records, lifecycle, split sessions, concurrency, guards, repo memory, scanners, formatters. Triaged (r4-fixes A14): every finding has a stable check id (`--explain <id>`) and a tier; act-now findings are listed and alone set the exit code, history is one count line (`--history` lists it, `--json` carries both); an open session idle more than 24 h with no live host process is abandoned, not live. `SOFAR_ABANDON=off` restores the flat report. |
+| `cli/abandon.ts` | `sofar abandon <branch>` / `--undo` / `--list` (r4-fixes A14) — the operator's disposition for a branch whose record copies keep being named; writes the mark through `core/abandoned.ts`, never the repo. |
 | `cli/drive.ts` | `sofar drive` — the CLI skin on the driver loop: builds the adapter, streams progress to stderr, and mirrors the run back through `describeRun`. Exit 0 for every stop the record can explain; 1 for `error` and for a preflight that refused to start. `--detach` re-spawns the command detached and answers its caller over IPC once the run is certain to start; `--stop` appends `run_stop_requested` and watches for the stop (in-session-drive D1/D2). |
 | `cli/check.ts` | `sofar check` — run the checks that bear on your changes, `--approve` one (terminal only), `--block-commits on\|off`; `--staged` is the pre-commit hook. |
 | `cli/graph.ts` | `sofar graph` — cross-record queries. |
@@ -302,6 +304,21 @@ three-call adapter and the driver never becomes an agent loop of its own.
 | `driver/progress-judge.ts` | Driver progress judge (typed-judge 4.1, D8, catalogue B1/B2): after each resolved handoff, and only with a cloud judge provider configured, a `task_done` noul and an `outcome` choice (task_done, partial, stalled, blocked_on_user, wrong_task, scope_creep, unclear) over the task, status before → after, write-back, diff stat since launch and the check line, never the fold's reason. Model answers become `judgement_recorded` (producer sofar-cloud) and a progress line, plus a warning when they disagree with the fold. The handoff reason stays the fold's (session-driver D5). |
 | `driver/keep-awake.ts` | Keeping the Mac awake for a run (drive-visibility D5): `caffeinate -i -w <driver pid>` from the moment the run is taken, so the assertion ends with the driver by any path and no pid is stored. The run's flag wins, else the saved `drive.keep_awake`, which a flagless run reads again before every launch; unset is off and stated as a warning in the opening lines, never prompted for here. Inert, and said so, elsewhere than macOS. |
 | `driver/drive.ts` | The `sofar drive` loop: fold → next task (active-first, then plan order) → launch → wait → handoff, until a stop rule fires. Reasons are read from the record (D5) — `needs_user` is the named task in `blocked`, `task_done` needs a write-back plus a resolved task, everything else stalls. One launch directory per run, verified by realpath to serve the same log (D6). A stop request is honoured before each launch from the fold and during a session by `watchStopRequests`, which reads only appended bytes (in-session-drive D2). |
+
+### Test and bench hygiene (outside `packages/*/src`)
+
+`tools/hermetic.mjs` (r4-fixes A13) is shared by `vitest.config.ts`, the
+vitest global setup (`packages/engine/test/global-setup.ts`), the test helper
+`packages/engine/test/helpers/tracked.ts` and the bench scripts
+(`packages/engine/bench/read-paths.mjs`, `bench/find.mjs`,
+`scripts/parity-real.mjs`). It points HOME, USERPROFILE, every XDG_* dir,
+CODEX_HOME and CLAUDE_CONFIG_DIR into one scratch root; snapshots the real
+home's agent and sofar dirs before a run and fails the run on a change the
+hosts' own live sessions cannot explain (the HOME canary); measures a machine
+speed factor that scales test timeouts; refuses the latency pin and the perf
+baseline on battery; and sweeps the processes a run left behind. Tests spawn
+long-lived children with `spawnTracked`: their own process group, a
+parent-death pipe on stdin, killed by group after every test.
 
 ---
 

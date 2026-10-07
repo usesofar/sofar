@@ -59,8 +59,13 @@
  *   --json <file>      write the full result as JSON
  *   --keep             leave the scratch directory on disk
  *
+ * Every leg already runs under its own scratch HOME and XDG dirs. The real
+ * home's agent and sofar dirs are also snapshotted before and compared after
+ * the run (r4-fixes A13, tools/hermetic.mjs): a change there exits 5
+ * (SOFAR_CANARY=warn reports it without failing).
+ *
  * Exit 0 when every record passes (FLAKY included unless --strict), 1 on any
- * FAIL, 2 on a usage error.
+ * FAIL, 2 on a usage error, 5 when the HOME canary changed.
  */
 
 import { spawn, spawnSync } from 'node:child_process'
@@ -81,6 +86,7 @@ import {
 import { availableParallelism, homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { canaryDiff, canaryMode, canaryReport, canarySnapshot } from '../tools/hermetic.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SESSION = 'parity-session'
@@ -178,8 +184,12 @@ function childEnv(home, core) {
   return {
     PATH: process.env.PATH,
     HOME: home,
+    USERPROFILE: home,
     XDG_CONFIG_HOME: join(home, '.config'),
     XDG_STATE_HOME: join(home, '.local', 'state'),
+    XDG_DATA_HOME: join(home, '.local', 'share'),
+    XDG_CACHE_HOME: join(home, '.cache'),
+    CODEX_HOME: join(home, '.codex'),
     CLAUDE_CONFIG_DIR: join(home, '.claude'),
     GIT_CONFIG_NOSYSTEM: '1',
     SOFAR_NO_UPDATE_CHECK: '1',
@@ -611,6 +621,7 @@ function describeDiff(d) {
 
 async function main() {
   const o = parseArgs(process.argv.slice(2))
+  const canaryBefore = canaryMode() === 'off' ? null : canarySnapshot()
   const roots = rootsFor(o)
   const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'sofar-parity-real-')))
   const started = Date.now()
@@ -659,7 +670,9 @@ async function main() {
   if (!o.keep) rmSync(scratch, { recursive: true, force: true })
   else process.stdout.write(`scratch kept: ${scratch}\n`)
   const bad = records.some((r) => r.verdict === 'FAIL' || (o.strict && r.verdict === 'FLAKY')) || tips.some((t) => t.verdict !== 'PASS')
-  process.exit(bad ? 1 : 0)
+  const changes = canaryBefore === null ? [] : canaryDiff(canaryBefore, canarySnapshot())
+  if (changes.length > 0) process.stderr.write(`\n${canaryReport(changes)}\n`)
+  process.exit(bad ? 1 : changes.length > 0 && canaryMode() === 'fail' ? 5 : 0)
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

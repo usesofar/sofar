@@ -8,6 +8,7 @@ import { ATTRIBUTION_CACHE_VERSION, cachedAttribution, readAttribution, TRAILER_
 import { makeEvent } from '../src/core/envelope'
 import { headSha } from '../src/core/git'
 import { appendEvent } from '../src/core/log'
+import { scaled } from './helpers/tracked'
 
 /**
  * rust-core 4.4, L1: the SessionStart attribution walk is cached under the
@@ -219,5 +220,5 @@ describe('session-start attribution cache (rust-core 4.4, L1)', () => {
     const good = JSON.parse(readFileSync(cacheFile(root), 'utf8')) as { commits: Array<Record<string, unknown>> }
     writeFileSync(cacheFile(root), JSON.stringify({ ...good, commits: [{ ...good.commits[0], subject: '9.9: forged under the live key' }] }))
     expect(rust(root)).toContain('9.9')
-  }, 120_000)
+  }, scaled(120_000))
 })

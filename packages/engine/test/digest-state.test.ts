@@ -6,6 +6,7 @@ import { digestState } from '../src/projections/templates/digest-state'
 import { renderStatus, type StatusOptions } from '../src/projections/templates/status'
 import { initiativeText, shapes, TEAM100, TEAM_CELLS, type CorpusSpec } from './conformance/perf/corpus'
 import { sortKeysDeep } from '../src/core/snapshot'
+import { scaled } from './helpers/tracked'
 
 /**
  * rust-core 4.4 (session-start B): renderStatus(digestState(s), o) must equal
@@ -157,7 +158,7 @@ describe('digestState renders exactly what the full state renders (rust-core 4.4
           expect(rOff, `${name} / ${label} / reachability ${k} (retire off)`).toBe(off)
         }
       }
-    }, 300_000)
+    }, scaled(300_000))
   }
 
   it('actually cuts: a synthetic team record shrinks', () => {

@@ -3,6 +3,7 @@ import { chmodSync, cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { scaled } from '../../helpers/tracked'
 
 /**
  * The real-record parity checker (r3-fixes 4.0) checks itself: run against a
@@ -61,20 +62,20 @@ describe('parity-real checker (r3-fixes 4.0)', () => {
     expect(r.out).toMatch(/^PASS {2}boopada-planner$/m)
     expect(r.out).toMatch(/records: 1 {2}pass 1 {2}fail 0 {2}flaky 0/)
     expect(r.exit).toBe(0)
-  }, 240_000)
+  }, scaled(240_000))
 
   it('fails on one flipped byte of the status surface and names it', () => {
     const r = check(core('flip-status', 'status', 10))
     expect(r.exit).toBe(1)
     expect(r.out).toMatch(/^FAIL {2}boopada-planner$/m)
     expect(r.out).toMatch(/step \d+ \[status\] status \(bound\): stdout differs at byte 10 /)
-  }, 240_000)
+  }, scaled(240_000))
 
   it('fails on one flipped byte of the SessionStart digest', () => {
     const r = check(core('flip-start', 'event session-start', 200))
     expect(r.exit).toBe(1)
     expect(r.out).toMatch(/\[session-start\] startup, fresh session: stdout differs at byte 200 /)
-  }, 240_000)
+  }, scaled(240_000))
 })
 
 describe('parity-real N4: relative ages one unit apart (r4-fixes 0.35 int)', () => {

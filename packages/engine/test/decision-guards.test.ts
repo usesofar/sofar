@@ -283,7 +283,7 @@ function crossedRepo(): string {
 
 describe('doctor axis (5.2)', () => {
   it('reports the crossing at WARN, naming the decision and quoting the rule', () => {
-    const r = runDoctor(crossedRepo())
+    const r = runDoctor(crossedRepo(), { history: true })
     expect(r.stdout).toContain('Decision guards:')
     expect(r.stdout).toContain('  WARN  demo: [D1] guard crossed — /repo/.sofar/initiatives/demo/plan.md')
     expect(r.stdout).toContain(`"${RULE}"`)
@@ -296,19 +296,19 @@ describe('doctor axis (5.2)', () => {
       guardDecision(),
       ev('file_touched', { path: '/repo/src/a.ts', op: 'edit' }),
     ])
-    expect(runDoctor(clean).exitCode).toBe(0)
-    expect(runDoctor(crossedRepo()).exitCode).toBe(0)
+    expect(runDoctor(clean, { history: true }).exitCode).toBe(0)
+    expect(runDoctor(crossedRepo(), { history: true }).exitCode).toBe(0)
   })
 
   it('distinguishes "no guards" from "guards, none crossed"', () => {
     const none = repoWithLog([ev('initiative_created', { slug: 'demo', goal: 'g' })])
-    expect(runDoctor(none).stdout).toContain('no decision carries a guard')
+    expect(runDoctor(none, { history: true }).stdout).toContain('no decision carries a guard')
     const clean = repoWithLog([
       ev('initiative_created', { slug: 'demo', goal: 'g' }),
       guardDecision(),
       ev('file_touched', { path: '/repo/src/a.ts', op: 'edit' }),
     ])
-    expect(runDoctor(clean).stdout).toContain('no work crosses any of the 1 guarded rule(s)')
+    expect(runDoctor(clean, { history: true }).stdout).toContain('no work crosses any of the 1 guarded rule(s)')
   })
 })
 

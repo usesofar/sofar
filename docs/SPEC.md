@@ -4228,6 +4228,12 @@ target's stamped event id, not its handle (memory-lead 2.8, D12).
 - Never this checkout: its file is "here" and is read as it always was. Any
   failure (no git, an unborn HEAD, an unreadable checkout) degrades to fewer
   copies, never to an error.
+- Never a branch the operator marked abandoned (`sofar abandon`, r4-fixes
+  A14), as a worktree or as a ref: its work was seen and dropped, and naming
+  it again only repeats a settled question (round 4 raised one abandoned
+  branch in 18 final messages). Every surface below, the SessionStart hint and
+  the write guard included, inherits the omission. `SOFAR_ABANDON=off`
+  ignores the marks.
 
 **The union fold.** This checkout's lines come first and verbatim, so the
 line numbers and warnings for them are exactly those of a single-copy fold.
@@ -4293,7 +4299,10 @@ recent-work-elsewhere notice: `` ⚠ N event(s) of this record live on other
 worktrees, not on this checkout: +n on <branch> (worktree <path>), …, +K
 more. This block folds this checkout's copy alone; `sofar status` folds them
 in. They reach this branch only by a merge. `` It names two worktrees at most
-and is clipped to 360 characters. `worktreeLeads` in `core/record-copies.ts`
+and is clipped to 360 characters. When a named lead is on a branch (not
+detached), the line then ends `` If the operator dropped a branch, `sofar
+abandon <branch>` stops naming it. ``, appended after the clip so a long
+path never cuts it (r4-fixes A14; `SOFAR_ABANDON=off` drops it). `worktreeLeads` in `core/record-copies.ts`
 computes it from files alone, with no subprocess, to fit the hook budget,
 so branches with no checkout are out of its reach. A copy no longer than
 this log whose last 4,096 bytes equal this log's bytes at the same offset
@@ -6304,7 +6313,7 @@ subdirectory, against 33 of 33 from the root.
   and doctor's JSON fixes rewrite in the same shape; a file OUTSIDE the repo
   (the personal `~/.claude/settings.json`) always takes the plain form, since
   no repo formatter runs on it.
-- `sofar doctor [--fix]` — audit a host repo across eight axes: (1) wiring
+- `sofar doctor [--fix] [--history] [--json] [--explain <id>]` — audit a host repo across eight axes: (1) wiring
   integrity (init's shims/settings/.mcp.json/protocol blocks intact) PER
   AGENT (r1-fixes 7.1, D36): only the agents the repo is wired for are
   checked — Claude Code when settings.json runs a shim, .mcp.json registers
@@ -6386,7 +6395,12 @@ subdirectory, against 33 of 33 from the root.
   carries a self-evident misplacement marker, and a permanently failing audit
   trains people to ignore it. Derived from FoldResult.unregistered_sessions
   plus each state's registered ids; deterministic, sessions sorted by id and
-  footprints by slug;
+  footprints by slug. An OPEN session whose newest event is more than 24 h
+  old and that no host reports a live process for (Claude Code's own session
+  registry; Codex and Cursor keep none, so idleness alone decides) is
+  ABANDONED, not live (r4-fixes A14): it never received a SessionEnd, nothing
+  tears it any more, and its split reports `(torn, abandoned)` at WARN as
+  history;
   (4) concurrency — no file under concurrent edit by ≥2 OPEN sessions (a live
   clobber risk), reported in two scopes: WITHIN each initiative, and ACROSS
   initiatives (cross-initiative-conflicts 3.1), the latter naming every
@@ -6439,8 +6453,33 @@ subdirectory, against 33 of 33 from the root.
   markdownlint-cli2, an `ignores` pattern in its config — otherwise FAIL.
   Absent altogether is one OK line. Record-health, concurrency and
   repo-memory findings
-  are WARN (surfaced, non-fatal); exit 1 only when a FAIL-level finding remains,
-  0 on a clean repo. `--fix` performs only deterministic, safe repairs: (a)
+  are WARN (surfaced, non-fatal).
+  TRIAGE (r4-fixes A14). Every finding carries a stable check id and a tier.
+  ACT NOW: wiring (every check of axis 1, the hot path included), a log that
+  cannot be read, a closed record still bound or a missing successor, a split
+  session that is live, files under concurrent edit by live sessions (an
+  abandoned session holds none), unapproved decision checks, and scanner and
+  formatter hazards. HISTORY: fold warnings, stub sessions, stale phases,
+  dropped tasks citing no decision, untracked work, orphan task events, a
+  finished record left open, a split session that has ended or is abandoned,
+  past guard crossings, and unnamed repo memory. The report lists each axis's
+  act-now findings (an axis with none prints `ok  nothing to act on (N in
+  history)`), then ONE count line — `History: N finding(s) that need no
+  action now — <n> <axis>, … (\`sofar doctor --history\` lists them)` — and
+  the summary, which counts act-now problems and warnings and adds `N in
+  history`. `--history` lists the history after the act-now report under
+  `History (settled — never sets the exit code):`. Exit 1 only when an
+  ACT-NOW finding is at FAIL, 0 otherwise; history never moves the exit code
+  (record-integrity D3: a permanently red doctor trains people to ignore it;
+  on this repo the flat report was 467 WARN, 31 FAIL and exit 1). `--json`
+  prints `{version: 1, root, triage, exit_code, summary: {act_now: {fail,
+  warn}, history, fixes_applied}, findings: [{section, id, tier, level, text,
+  hint?, fixed?}]}` with the same exit code. `--explain <id>` prints what one
+  check looks at, its tier and how to clear it (ids are listed when the id is
+  unknown; exit 1). With branches marked abandoned (`sofar abandon`), a
+  history line names them. `SOFAR_ABANDON=off` restores the flat report, the
+  liveness without the abandoned disposition, and the exit code on any FAIL,
+  byte for byte (the A14 ablation switch). `--fix` performs only deterministic, safe repairs: (a)
   inserting `@source not "<path-relative-to-stylesheet>/.sofar";` after the
   `@import "tailwindcss"` line in each unprotected entry (idempotent); (b)
   writing each formatter's documented exclusion — Biome 2 `"!**/.sofar"`
@@ -6471,6 +6510,18 @@ subdirectory, against 33 of 33 from the root.
   to `.sofar` or an ancestor, and a `source(...)` base that excludes it (or
   `source(none)`). The concurrent-edit signal also surfaces in the SessionStart
   context and `sofar status` (rendered only when open sessions overlap, D-P11).
+- `sofar abandon [branch] [--undo] [--list]` — the operator's disposition for a
+  branch whose record copies keep being named (r4-fixes A14), see
+  §Record copies across branches. It marks the branch abandoned for this clone, so the SessionStart
+  hint, the write guard, `sofar status`, `sofar list`, `sofar next` and
+  get_state view:"initiatives" stop naming it, as a worktree or as an
+  unmerged branch. Per-user state, `$XDG_STATE_HOME/sofar/abandoned/<key>.json`
+  keyed by the clone's COMMON git dir (every worktree shares it), never in the
+  repo, and read as files only, in both engines. The branch and its record
+  copy are untouched. `--undo <branch>` clears the mark; `--list`, or no
+  branch, lists the marks. A name git would refuse as a branch is refused;
+  a branch that does not exist is marked with a note. `SOFAR_ABANDON=off`
+  ignores every mark.
 - `sofar uninit [--purge]` — exact inverse of init, surgical: remove the
   hook shims from either home (`.claude/hooks/`, or `.cursor/hooks/sofar/`
   for a repo set up without Claude Code — r1-fixes 7.1) and Codex's from

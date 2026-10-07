@@ -497,7 +497,7 @@ describe('doctor names the npm setting when the install script did not run (r4-f
     ]) {
       const findings: Finding[] = []
       auditCore(findings, { core: pkgCore, ...probe })
-      expect(findings).toEqual([{ level: 'ok', text: expect.stringContaining('hot path: native core') }])
+      expect(findings).toEqual([{ id: 'hot-path', level: 'ok', text: expect.stringContaining('hot path: native core') }])
     }
   })
 

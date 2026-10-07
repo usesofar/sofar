@@ -93,8 +93,16 @@
  * under the OS temp dir on every run, so a scale-only regression cannot hide
  * behind a small-record pass.
  *
+ * HERMETIC (r4-fixes A13): every hook the bench spawns runs with HOME,
+ * USERPROFILE, every XDG_* dir, CODEX_HOME and CLAUDE_CONFIG_DIR pointed into
+ * a scratch root (tools/hermetic.mjs), so a timed hook writes its per-clone
+ * state there and never into the operator's ~/.local/state/sofar. The real
+ * home's agent and sofar dirs are snapshotted before and compared after the
+ * run; a change there exits 5 (SOFAR_CANARY=warn reports it without failing).
+ *
  * Exits: 0 within budget on every leg; 1 over budget; 2 usage or setup;
- * 3 load changed by more than 50% (repeat); 4 refused (engines differ).
+ * 3 load changed by more than 50% (repeat); 4 refused (engines differ);
+ * 5 the HOME canary changed (a hook wrote outside its scratch HOME).
  *
  * Not a vitest test on purpose: a timing assertion flakes under load and
  * would gate every commit on a number. Run it by hand on a quiet machine,
@@ -108,6 +116,7 @@ import { delimiter, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import { buildI1000 } from './i1000.mjs'
+import { canaryDiff, canaryMode, canaryReport, canarySnapshot, scratchEnv } from '../../../tools/hermetic.mjs'
 
 // `npm run` moves cwd to the workspace; INIT_CWD is where the operator typed
 // the command, and that is what a relative path in their argument means.
@@ -127,8 +136,25 @@ const USAGE =
 
 /** Temp dirs this run made; removed on every exit after setup. */
 const made = []
+
+// The scratch home every spawned hook runs under, and the canary over the
+// real one (r4-fixes A13).
+const hermetic = scratchEnv('sofar-bench-')
+made.push(hermetic.root)
+const canary = canaryMode()
+const canaryBefore = canary === 'off' ? null : canarySnapshot()
+
 function finish(code) {
   for (const dir of new Set(made)) rmSync(dir, { recursive: true, force: true })
+  if (canaryBefore !== null) {
+    const changes = canaryDiff(canaryBefore, canarySnapshot())
+    if (changes.length > 0) {
+      console.error(`\n${canaryReport(changes)}`)
+      if (canary === 'fail' && code === 0) code = 5
+    } else {
+      console.log('HOME canary: green (no change under the real home)')
+    }
+  }
   process.exit(code)
 }
 function fail(message) {
@@ -149,8 +175,8 @@ const baselineBin = at(args.baseline) ?? (arm ? candidateBin : undefined)
 if (!baselineBin || !candidateBin) fail(USAGE)
 const SIDES = ['baseline', 'candidate']
 const envOf = {
-  baseline: arm ? { ...process.env, [arm[1]]: arm[2] } : { ...process.env },
-  candidate: arm ? { ...process.env, [arm[1]]: arm[3] } : { ...process.env },
+  baseline: arm ? { ...process.env, ...hermetic.env, [arm[1]]: arm[2] } : { ...process.env, ...hermetic.env },
+  candidate: arm ? { ...process.env, ...hermetic.env, [arm[1]]: arm[3] } : { ...process.env, ...hermetic.env },
 }
 for (const [label, bin] of [['baseline', baselineBin], ['candidate', candidateBin]]) {
   if (!existsSync(bin)) fail(`${label} not found: ${bin}`)

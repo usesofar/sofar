@@ -161,7 +161,7 @@ and the result still reads correctly.
 | `sofar drive [name]` | Work the plan unattended: a fresh agent session per task, each handoff recorded, until a task needs you or the work runs out. `--detach` starts it from inside an agent, `--await` waits for it to need you, `--follow` narrates it, `--stop` ends it |
 | `sofar remember <text>` | Keep an operational fact — a release command, a failure mode — where later sessions will find it. `-` reads stdin (a quoted heredoc keeps every quote), `@<file>` a file; `--supersedes <slug> M<n>` replaces an outdated one |
 | `sofar statusline --install` | Put the status line in Claude Code's status bar — this repo, or `--user` for every project (`--uninstall` takes it back off) |
-| `sofar doctor` | Check the setup and the record for problems |
+| `sofar doctor` | Check the setup and the record: what to fix now (the exit code), and one line counting the history — `--history` lists it, `--json` for scripts, `--explain <id>` for one check |
 | `sofar upgrade` | Update sofar itself — sofar tells you when there is something to update to |
 
 Less often needed:
@@ -169,6 +169,7 @@ Less often needed:
 | Command | What it does |
 | --- | --- |
 | `sofar update-check` | Inspect the update check — what it knows, when it last ran, whether auto-install is on |
+| `sofar abandon <branch>` | Stop naming a branch you dropped: its copy of the record leaves the session-start notice, `status` and `list` (`--undo` brings it back, `--list` shows the marks) |
 | `sofar export` / `sofar import` | Move events between copies of a record |
 | `sofar login`, `link`, `push`, `pull` | Cloud sync, if you turn it on |
 | `sofar serve` | Local server with the record as JSON |

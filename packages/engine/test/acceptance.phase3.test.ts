@@ -17,6 +17,7 @@ import {
 } from '../src/projections/templates/status'
 import { hookContext } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
+import { scaled } from './helpers/tracked'
 
 /**
  * Phase 3 acceptance (SPEC §Acceptance criteria):
@@ -288,7 +289,7 @@ describe('acceptance 2+3+4 — end-to-end smoke through the built CLI', () => {
     expect(state.current.next_action).toBe('phase 4')
     expect(existsSync(join(fixture.initiativeDir, 'plan.md'))).toBe(true)
     expect(existsSync(join(fixture.initiativeDir, 'sessions', `${SESSION}.md`))).toBe(true)
-  }, 60_000)
+  }, scaled(60_000))
 
   it('a session that did nothing leaves NO trace (lazy registration, record-hygiene D2)', () => {
     const fixture = fx()
@@ -300,7 +301,7 @@ describe('acceptance 2+3+4 — end-to-end smoke through the built CLI', () => {
     // ended, and no sessions/<id>.md minted for a session that only read
     expect(logEvents(fixture.eventsPath)).toEqual([])
     expect(existsSync(join(fixture.initiativeDir, 'sessions', `${SESSION}.md`))).toBe(false)
-  }, 60_000)
+  }, scaled(60_000))
 
   it('session-end without write-back appends the mechanical session_closed once the session did work', () => {
     const fixture = fx()
@@ -321,7 +322,7 @@ describe('acceptance 2+3+4 — end-to-end smoke through the built CLI', () => {
     const { state } = foldLog(fixture.eventsPath)
     expect(state.sessions[0]!.ended).toBeDefined()
     expect(state.sessions[0]!.summary).toBeUndefined()
-  }, 60_000)
+  }, scaled(60_000))
 
   it('a foreign repo (no .sofar) is never touched or blocked by any subcommand', () => {
     const fixture = fx({ bind: false })
@@ -334,5 +335,5 @@ describe('acceptance 2+3+4 — end-to-end smoke through the built CLI', () => {
       expect(proc.stderr).toBe('')
     }
     expect(existsSync(join(fixture.root, '.sofar'))).toBe(false)
-  }, 60_000)
+  }, scaled(60_000))
 })

@@ -96,6 +96,7 @@ import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
 import { newestEvent } from '../core/warmth'
 import { worktreeLeads } from '../core/record-copies'
+import { abandonEnabled } from '../core/abandoned'
 import { worktreeLeadsNotice } from '../projections/templates/copies'
 import { copyLagGuard } from '../mcp/copy-lag'
 import {
@@ -648,7 +649,7 @@ function agoLabel(ms: number): string {
 export function otherWorktreesNotice(rootDir: string, slug: string, logPath: string): string | null {
   if (slug === QUICK_LANE) return null
   try {
-    return worktreeLeadsNotice(worktreeLeads(rootDir, slug, logPath), homedir())
+    return worktreeLeadsNotice(worktreeLeads(rootDir, slug, logPath), homedir(), abandonEnabled())
   } catch {
     return null
   }
