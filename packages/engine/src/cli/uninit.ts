@@ -645,6 +645,13 @@ const AGENT_FILES: Record<AgentId, readonly string[]> = {
   codex: ['.codex/hooks.json', CODEX_CONFIG, 'AGENTS.md'],
 }
 
+/** The `sofar-write` skill an agent reads (r4-fixes A2): Claude Code's own, or the one Cursor and Codex share. */
+const AGENT_SKILL: Record<AgentId, keyof typeof WRITE_SKILL_PATHS> = {
+  'claude-code': 'claude',
+  cursor: 'agents',
+  codex: 'agents',
+}
+
 /** The shim dirs an agent's hooks may run: Cursor runs Claude Code's whenever Claude Code is wired (D36). */
 const AGENT_SHIM_DIRS: Record<AgentId, readonly string[]> = {
   'claude-code': [SHIM_HOMES.claude.dir],
@@ -707,6 +714,24 @@ function runUninitAgent(rootDir: string, agent: AgentId, options: UninitOptions,
       else if (rel === '.codex/hooks.json') stripCodexHooks(rootDir, purge, report)
       else if (rel === CODEX_CONFIG) stripCodexMcp(rootDir, purge, report, warnings)
       else stripProtocolBlock(rootDir, rel, purge, report, warnings)
+    }
+    // The sofar-write skill (A2) goes with the last agent reading it, under
+    // the shims' rule: only while its bytes are the ones the journal records.
+    const skillKey = AGENT_SKILL[agent]
+    const skill = WRITE_SKILL_PATHS[skillKey]
+    const skillShared = skillKey === 'agents' && (remaining.has('cursor') || remaining.has('codex'))
+    if (!skillShared && existsSync(join(rootDir, skill))) {
+      const written = ledger.get(skill)
+      if (written === undefined || written.sha256 !== sha256Hex(readTextOr(join(rootDir, skill)))) left.push(skill)
+      else {
+        drop(join(rootDir, skill))
+        report.push(`removed ${skill}`)
+        const dir = skill.slice(0, skill.lastIndexOf('/'))
+        const skills = dir.slice(0, dir.lastIndexOf('/'))
+        if (removeDirIfEmpty(rootDir, dir, report) && removeDirIfEmpty(rootDir, skills, report) && skills.startsWith('.agents/')) {
+          removeDirIfEmpty(rootDir, '.agents', report)
+        }
+      }
     }
     // A shim goes only when no hook config left here runs its dir, and only
     // while its bytes are still the ones the journal says sofar wrote.

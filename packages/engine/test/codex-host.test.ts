@@ -10,7 +10,7 @@ import { parseHookFlags } from '../src/cli/fast'
 import { patchedFiles, toCodex, type HookName } from '../src/cli/host'
 import {
   AGENTS_PROTOCOL_BLOCK,
-  AGENTS_THIN_PROTOCOL_BLOCK,
+  AGENTS_THIN_PROTOCOL_BLOCK_INLINE,
   CODEX_HOOKS,
   CODEX_SHIM_CHANGE_HINT,
   CODEX_SHIM_DIR,
@@ -327,7 +327,7 @@ describe('the AGENTS.md block a Codex session reads (agents-parity 2.3, D8)', ()
     expect(runDoctor(root, {}, plain).stdout).toContain('AGENTS.md protocol block is from an older sofar')
     expect(runInit(root, { agents: ['codex'] }, plain, plain).stdout).toContain('updated AGENTS.md (protocol block refreshed)')
     // Hooked and MCP-wired, so the thin block (r4-fixes A2).
-    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_THIN_PROTOCOL_BLOCK)
+    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)
   })
 })
 

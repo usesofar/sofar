@@ -377,7 +377,12 @@ describe('`sofar uninit --agent` reverses exactly what the journal says was writ
     expect(wiredAgents(root)).toEqual(['claude-code'])
     const last = readWiringJournal(root, env).at(-1)!
     expect(last).toMatchObject({ command: 'uninit', agents: ['cursor'], result: 'ok' })
-    expect(last.files.map((f) => `${f.op} ${f.path}`).sort()).toEqual(['remove .cursor/hooks.json', 'remove .cursor/mcp.json', 'write AGENTS.md'])
+    expect(last.files.map((f) => `${f.op} ${f.path}`).sort()).toEqual([
+      'remove .agents/skills/sofar-write/SKILL.md',
+      'remove .cursor/hooks.json',
+      'remove .cursor/mcp.json',
+      'write AGENTS.md',
+    ])
     expect([...readConsent(root, env).chosen.keys()]).toEqual(['claude-code'])
   })
 
