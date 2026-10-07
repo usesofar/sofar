@@ -530,6 +530,32 @@ export function buildCases(): FoldParityCase[] {
     l.ev('decision_logged', { chose: 'one key per invoice', over: 'per attempt', because: 'the provider dedupes', rule: 'Every invoice carries one key.', supersedes: 'D11', supersedes_id: d11 }, { session: 'A' }) // D12 replaces D11 (alias D10)
     cases.push({ id: 'FP-24-bind-relog', lines: l.lines, sidecar: { tail_at: 6, seeds: [71, 72, 73], order_independence: true, note: 'r4-fixes U5: bind re-logs — a decision re-filed word for word but its check supersedes the one it copies (stamped), a chain of two, a plain re-log, a changed because (a real supersession), and an aliased entry a real change replaced. The fold marks each as any supersession; the render folds a re-log into its replacer as an alias. The tail starts at the second re-log' } })
   }
+  {
+    // r4-fixes A8: `sofar bind` appends check_bound instead of re-filing the
+    // rule. The rule keeps its ordinal and takes the check; a re-bind replaces
+    // it; one naming a plain decision or an unfolded id binds nothing, with a
+    // warning; one with no check is an invalid line; a rule that replaces a
+    // bound one keeps nothing of its check; and none of it is drift (the
+    // write-back before the last two binds stays current).
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('session_started', { tool: 'claude-code' }, { session: 'A' })
+    const soft = { chose: 'soft delete', over: 'hard delete', because: 'undo', rule: 'Never hard-delete anything the traveller made.', quote: 'never hard-delete', guard: 'path:src/db/**' }
+    const d1 = l.ev('decision_logged', soft, { session: 'A' })
+    const cli = { session: 'cli', source: 'cli', actor: 'human' }
+    l.ev('check_bound', { decision: 'D1', decision_id: d1, check: { cmd: 'bun test test/store.test.ts' } }, cli)
+    const d2 = l.ev('decision_logged', { chose: 'queue retries', over: 'cron', because: 'simpler' }, { session: 'A' })
+    l.ev('check_bound', { decision: 'D2', decision_id: d2, check: { cmd: 'bun test test/queue.test.ts' } }, cli) // a plain decision: nothing bound
+    l.ev('check_bound', { decision: 'D9', decision_id: '01ARZ3NDEKTSV4RRFFQ69G5FAV', check: { cmd: 'bun test' } }, cli) // never folded: skipped
+    l.ev('check_bound', { decision: 'D1', decision_id: d1, check: { cmd: 'bun test test/store.test.ts -t soft', hint: 'restore the soft delete' } }, cli) // re-bind replaces
+    l.ev('check_bound', { decision: 'D1', decision_id: d1 }, cli) // no check: an invalid line
+    const cents = { chose: 'integer cents', over: 'floats', because: 'rounding', rule: 'Store money as integer cents.' }
+    const d3 = l.ev('decision_logged', cents, { session: 'A' })
+    l.ev('session_ended', { summary: 'logged cents', next_action: 'bind cents' }, { session: 'A' })
+    l.ev('check_bound', { decision: 'D3', decision_id: d3, check: { cmd: 'bun test test/money.test.ts', timeout_ms: 30000 } }, cli)
+    l.ev('decision_logged', { chose: 'hard delete after 30 days', over: 'never', because: 'storage', rule: 'Hard-delete only what is 30 days in the bin.', supersedes: 'D1', supersedes_id: d1 }, cli) // D4 replaces bound D1
+    cases.push({ id: 'FP-25-check-bound', lines: l.lines, sidecar: { tail_at: 4, seeds: [74, 75, 76], order_independence: true, note: 'r4-fixes A8: check_bound sets a rule\'s check by its id and mints no decision — the ordinal stays; a re-bind replaces the check; one naming a plain decision or an unfolded id binds nothing, with a warning; one with no check is an invalid line; a rule replacing a bound one takes nothing of its check; never drift. The tail starts at the first bind' } })
+  }
   return cases
 }
 

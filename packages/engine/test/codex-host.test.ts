@@ -10,11 +10,15 @@ import { parseHookFlags } from '../src/cli/fast'
 import { patchedFiles, toCodex, type HookName } from '../src/cli/host'
 import {
   AGENTS_PROTOCOL_BLOCK,
+  AGENTS_THIN_PROTOCOL_BLOCK_INLINE,
   CODEX_HOOKS,
+  CODEX_SHIM_CHANGE_HINT,
   CODEX_SHIM_DIR,
   CODEX_SHIMS,
+  CODEX_TRUST_HINT,
   codexHookCommand,
   PROTOCOL_BLOCK,
+  PROTOCOL_BLOCK_V13,
   runInit,
   SHIPPED_AGENTS_PROTOCOL_BLOCKS,
 } from '../src/cli/init'
@@ -280,7 +284,8 @@ describe('the AGENTS.md block a Codex session reads (agents-parity 2.3, D8)', ()
     expect(preamble).toContain("Codex loads them from a trusted\n  project's `.codex/config.toml`")
     expect(preamble).toContain('Their Stop hook blocks a session that ends without writing back.')
     // CLAUDE.md states the same gate, so a session loading both hears one answer.
-    expect(PROTOCOL_BLOCK).toContain('The Stop hook blocks sessions\n  that skip this.')
+    expect(PROTOCOL_BLOCK.replace(/\n\s+/g, ' ')).toContain('the Stop hook blocks a session that writes back neither way')
+    expect(PROTOCOL_BLOCK_V13).toContain('The Stop hook blocks sessions\n  that skip this.')
     expect(cliLoop).toBeDefined()
     expect(cliLoop).not.toContain('sofar_')
   })
@@ -321,7 +326,8 @@ describe('the AGENTS.md block a Codex session reads (agents-parity 2.3, D8)', ()
     writeFileSync(join(root, 'AGENTS.md'), v8)
     expect(runDoctor(root, {}, plain).stdout).toContain('AGENTS.md protocol block is from an older sofar')
     expect(runInit(root, { agents: ['codex'] }, plain, plain).stdout).toContain('updated AGENTS.md (protocol block refreshed)')
-    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_PROTOCOL_BLOCK)
+    // Hooked and MCP-wired, so the thin block (r4-fixes A2).
+    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)
   })
 })
 
@@ -398,9 +404,29 @@ describe('the .codex/hooks.json init writes', () => {
     for (const shim of CODEX_SHIMS) {
       const text = readFileSync(join(root, CODEX_SHIM_DIR, shim.file), 'utf8')
       expect(text.startsWith('#!/bin/sh\n')).toBe(true)
-      expect(text).toContain(`exec sofar event ${shim.hook} --host codex --root "$(dirname "$0")/../../.."\n`)
+      expect(text).toContain('root="$(dirname "$0")/../../.."\n')
+      expect(text).toContain(`exec sofar event ${shim.hook} --host codex --root "$root"\n`)
+      // r4-fixes A12: the activated core first, its exit 64 handed to the CLI.
+      expect(text).toContain(`SOFAR_CORE_DISPATCHED=1 "$core" event ${shim.hook} --host codex --root "$root"\n`)
+      expect(text).toContain(`SOFAR_CORE=0 exec sofar event ${shim.hook} --host codex --root "$root"\n`)
     }
     expect(CODEX_SHIMS.map((shim) => shim.hook)).not.toContain('post-tool-failure')
+  })
+
+  it('a refresh that rewrites older Codex shims keeps hooks.json byte-stable and says why Codex may ask for trust once (r4-fixes A12)', () => {
+    const root = freshRepo()
+    runInit(root, { agents: ['codex'] }, plain, plain)
+    const hooksBefore = readFileSync(join(root, '.codex', 'hooks.json'), 'utf8')
+    // A 0.34.1 shim: exec sofar, no activated core.
+    const stop = join(root, CODEX_SHIM_DIR, 'stop.sh')
+    writeFileSync(stop, '#!/bin/sh\nexec sofar event stop --host codex --root "$(dirname "$0")/../../.."\n')
+    const out = runInit(root, { agents: ['codex'] }, plain, plain).stdout
+    expect(out).toContain(`updated ${CODEX_SHIM_DIR}/stop.sh`)
+    expect(out).toContain(CODEX_SHIM_CHANGE_HINT)
+    expect(out).not.toContain(CODEX_TRUST_HINT)
+    expect(readFileSync(join(root, '.codex', 'hooks.json'), 'utf8')).toBe(hooksBefore)
+    // A run that changes nothing says nothing about trust.
+    expect(runInit(root, { agents: ['codex'] }, plain, plain).stdout).not.toContain(CODEX_SHIM_CHANGE_HINT)
   })
 
   it('merges beside the user’s own hooks and shims, and uninit removes only sofar’s', () => {

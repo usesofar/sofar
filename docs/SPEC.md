@@ -237,9 +237,15 @@ decision_linked (decision — `D<n>`, decision_id — its event id,
 supersedes? — `D<m>` it replaces, absent = "replaces nothing",
 supersedes_id? — that decision's event id, required with `supersedes`; both
 ids stamped by `sofar supersedes`; never drift; r3-fixes 2.5, D15) ·
+check_bound (decision — `D<n>`, decision_id — its event id, check —
+{cmd, hint?, timeout_ms?} as on decision_logged; what `sofar bind` appends:
+the rule keeps its ordinal and takes the check, replacing any it had; mints
+no decision and no id; never drift; see §Decision checks; r4-fixes A8) ·
 session_started (tool, model?, rehome? — `true` only: a deliberate re-home
 back into a log that already registered this session, folded silently;
-binding-follows-session D5) · session_ended (summary, next_action) ·
+binding-follows-session D5; continues? — the parent session id a lineage
+carrier traced this NEW id to, on its first registration only, in the
+parent's home; r4-fixes A10, R11 (a); the fold ignores it) · session_ended (summary, next_action) ·
 session_closed (reason — mechanical close from the SessionEnd hook; never
 carries summary/next_action, added Phase 3, BD21) ·
 file_touched (path, op, ok?) · command_run (cmd, ok?, exit?) — `ok` is what the
@@ -669,7 +675,31 @@ on every ruled entry, and the command's file tokens join the entry's
 mentions, so reading or editing the check's own script surfaces the decision
 (§Read-time surfacing). Agents edit tests to pass them (ImpossibleBench);
 the command itself lives in the append-only record and changes only through
-a ruled superseder.
+a ruled superseder or a `check_bound`.
+
+BOUND AFTER THE FACT (r4-fixes A8). `sofar bind` appends `check_bound`
+{decision, decision_id, check}: the fold finds the decision by
+`decision_id` and sets its check, replacing any it had; it mints no
+decision, so the rule keeps its ordinal and its handle. One naming no folded
+decision (`check_bound names D<n> (<id>), which this record never folded —
+skipped`) or a decision with no rule (`check_bound D<n> names a decision with
+no rule — a check belongs to a rule, so nothing is bound`) binds nothing,
+with a warning; one with no valid check is an invalid line. A rule that
+later replaces a bound one carries only its own check. The scope tier
+mirrors it (the entry takes the check; the command's file tokens join its
+mentions after the ones it had), and `check_bound` refreshes the declared
+index at write time like a decision. Never drift: bookkeeping on a rule
+counted when it was filed, as decision_linked is. Before 0.35 a bind
+re-filed the rule word for word with `check` and `supersedes` itself: 13–24%
+of a round-4 rep's decisions were such copies, each bind moved the rule's
+ordinal ("D73 into D76"), and a bind on each of two worktrees minted the
+same `D<n>` twice. A record holding those re-logs still lists each pair as
+one entry (§Merge-stable handles, RE-LOGS). OLDER READERS: 0.34.x skips
+`check_bound` with `line <n>: unknown event type "check_bound" — skipped`
+(FORMAT.md §8; verified on 0.34.1's TypeScript and native folds): the rule
+keeps its ordinal and renders without its check, the Stop gate does not
+hold on it, `sofar status` prints the warning on stderr, and the
+SessionStart block carries none.
 
 IN FORCE: a ruled decision carrying `check` that no later rule of its own
 record replaced — checks are repo-wide, like the rules they belong to.
@@ -1053,6 +1083,56 @@ and quote any context it received, the model quoted `sofar: [probe D1]
 allowing UTF-8 in notes.` from a system reminder, and no quick lane was
 created. The payload is test/fixtures/cursor/hook-payloads.cursor-agent-2026.09.18.json.
 
+### Told set and hook-line epochs (r4-fixes A4)
+Every hook line is a FRAGMENT told once per validity epoch, not once per hook
+call (R4-RESEARCH 1.2 O5, O6; 1.1 #4–#6). Round 4's Codex sessions carried
+10.5 notices a session, 38% of them naming only rules already shown (one rule
+×8, once per test file read); its recall block re-sent 21% of the digest.
+The session's told set (core/told, in the derived index) holds:
+- `@<event id>` — an entry (decision or memory) whose text the context holds:
+  SEEDED at SessionStart with every `- [D<n>…]` / `- [M<n>]` line of the
+  block it rendered, and added by the recall block and by every notice;
+- `!<event id>` — an entry a notice told at the point of use;
+- `push=<branch>@<head>:<origin tip or ->` — the push state, seeded from the
+  block's Git line;
+- `debt=<band>` — the debt nudge's band (5–9 → 5, 10–19 → 10, 20–39 → 20, …);
+- `batch=1` — this session's PostToolBatch has run (below).
+SessionStart `compact` / `clear` deletes the set, so every epoch re-arms.
+
+RULES, while `SOFAR_TOLD_LINES` is not `off`:
+- NOTICES (path subjects): an entry with `!` is not told again, on any path;
+  one with only `@` is told only as a guard's BINDING — `sofar: <path> is
+  governed by [<handle>] (guard: <globs>), the standing rule in your context.
+  Work against it needs a decision that supersedes <handle>.` — and a mention
+  or memory with `@` is dropped. A rendered notice adds `@` and `!`. The rule
+  head is the epoch: a supersession is a new id, told afresh. `cmd:` subjects
+  are unchanged (each run is its own act).
+- The prompt hook's push line renders only when the push epoch moved; the debt
+  nudge only when the band differs from the one told, and a debt under the
+  floor forgets the band.
+- RECALL: at most 8 entries in 2,500 chars, none with `@`, each ONE line clipped
+  to 280 — `- [D<n>·xxxx] rule: "<rule>"`, else `- [D<n>·xxxx] chose
+  <chose>`, else `- [M<n>] memory: <text>` — and each adds `@`.
+  `SOFAR_RECALL=v034` restores 0.34's block.
+- READS: PreToolUse rewrites, inside a compound command, every simple command
+  that heads a pipeline and is itself a whole-file read (the U4 rule, plus a
+  trailing `2>/dev/null`), keeping every other byte; a command holding a
+  backtick, `$(`, `<<` or a backslash is not split. `sofar read` caps a
+  projection over 2,000 chars at that: decisions.md and memory.md keep the
+  newest entries that fit, leaving out those with `@` and the replaced ones,
+  under a header naming what was left out; plan.md keeps its head and every
+  open phase; brief.md one ≤100-char head per paragraph, numbered as `sofar
+  show brief¶<k>`.
+- POSTTOOLBATCH (Claude Code, `.claude/hooks/post-tool-batch.sh`, no
+  matcher): the calls of one parallel batch (Edit, Write, MultiEdit, Bash,
+  Read, Grep), surfaced as ONE `hookSpecificOutput` block, without the
+  last-touch test (the batch's edits are already appended); its first run
+  sets `batch=1`, after which that session's PostToolUse captures and stays
+  quiet. A host that never fires the event never sets it.
+`SOFAR_TOLD_LINES=off` restores 0.34.1: per-(entry, path) keys, stateless push
+and debt lines, no seeding, the whole-command rewrite, uncapped reads, and a
+silent PostToolBatch.
+
 ### Merges (r3-fixes 2.11, D19)
 A merge is the riskiest moment in a branch's life and the one no event
 records. The block, the receipt and the Stop ask below are DERIVED, as push
@@ -1259,7 +1339,17 @@ one blank line):
    hook notices — as before.
 10. STANDING CONSTRAINTS (PROTECTED): standingConstraintLines with a focus —
     ranked by RELEVANCE, ties newest (highest ordinal) first — under the
-    2,000-char whole-entry budget, the first entry always whole. Then, in
+    2,000-char whole-entry budget, the first entry always whole. Ahead of
+    that ranking (r4-fixes A9, not in the lane) come the rules BOUND to the
+    FOCUS FILES, oldest first: every standing rule whose `path:` guard
+    matches one of them (core/rule-focus). The focus files are the focus
+    task's `task_files`; when it has none, or there is no focus task, every
+    file the newest 5 sessions with activity touched (LANE_RECENT_SESSIONS).
+    Round 4's rep-1 Cursor S18 read back the four newest rules and broke G1
+    (D7, guarding `lib/inventory/**`, planted at S2), which recency ranked
+    18th of 22. `SOFAR_RANK=v034` (read at render time) restores 0.34's
+    order. digestState keeps a standing rule's `guard` (digest cache v6).
+    Then, in
     the same block, REPO-WIDE RULES (memory-lead 2.2, D8): every OTHER
     record's in-force rule from the decision-scope tier (§Derived index),
     under `Repo-wide rules from other records (<shown> of <N>, most relevant
@@ -1292,6 +1382,39 @@ each with min(preferred, 6,000 − everything measured so far − 2), a
 non-positive budget rendering nothing. If the unprotected text still exceeds
 6,000 − the protected text − 3, it is cut to fit with `…truncated — run sofar
 status for full detail` on its own line, and the protected end follows whole.
+
+### Host-compiled payloads (r4-fixes A2)
+One fold, sized per host to what an always-on byte costs there (R4-RESEARCH
+1.2 O2): a token carried for a session costs ~3 input units on Claude Code,
+~4.3 on Codex and ~17 on Cursor.
+- DIGEST CAP PER HOST: the SessionStart block's hard cap (the 6,000 above) is
+  the host's: Claude Code 6,000, Codex 4,000, Cursor 3,000; any other host
+  6,000. Under a smaller cap L the brief, next-task title, next-action,
+  standing-constraint and other-records'-rules budgets scale to
+  ⌊budget × L / 6,000⌋, every 6,000 in YIELD reads L, and the identity block
+  (Session and Git lines) is PROTECTED, so a capped block never loses the id
+  a write-back passes. At 6,000 the block is byte-identical to before.
+- AGENTS.md: when every AGENTS.md reader init has wired (Cursor, Codex) runs
+  sofar's hooks AND reaches its MCP server (Codex: the project's or the
+  user's config.toml), init writes the THIN block (≤1,500 chars: the three
+  clauses, INJECTED, the one write-back naming every field it carries, and a
+  pointer to `sofar help write`) and the `sofar-write` skill in
+  `.agents/skills/sofar-write/SKILL.md`; any other repo keeps the full CLI
+  block. Each block refreshes the other (both are in the other's ledger), and
+  doctor judges the block by the same rule. Claude Code gets the skill in
+  `.claude/skills/sofar-write/SKILL.md`; its CLAUDE.md block is unchanged.
+  `sofar help write` prints the grammar the skill holds: the full block's CLI
+  loop and prohibitions, cut from the block itself.
+- CODEX TOOLS: the `[mcp_servers.sofar]` table init writes lists only
+  `sofar_end_session` (`enabled_tools`), and passes the list to the server
+  (`env = { SOFAR_MCP_TOOLS = … }`), whose instructions then never name a
+  hidden tool. `sofar init --codex-tools end_session|all|none|<list>` picks
+  the set; a table sofar wrote byte for byte is swapped to it on any later
+  init, a user's is never touched.
+- `SOFAR_PAYLOAD=v034` is the ablation arm: every host's cap 6,000, the full
+  AGENTS.md block, no skill, every Codex tool.
+- CACHE GUARD: `tools/list` is pinned by hash in the suite
+  (test/host-payloads.test.ts).
 
 ## Record graph (repo-wide adjacency derivation — record-graph 1.1)
 `buildGraph(rootDir)` (core/graph.ts) is ONE mechanical, read-side adjacency
@@ -2933,14 +3056,43 @@ and carry no `.claude/`; adding Claude Code later repoints them to the
 `$CLAUDE_PROJECT_DIR/.claude/hooks/` form, restoring the byte-identical rule.
 
 **Limits stated, not worked around.** Headless `cursor-agent -p` fires no
-stop, beforeSubmitPrompt or afterAgentResponse hook, so no write-back gate
-reaches a print-mode session. It does fire sessionStart, postToolUse,
-postToolUseFailure (Shell and Write) and sessionEnd, as seen live in r1-fixes
-6.9. A driven Cursor session's write-back is judged
-from the fold, as for every adapter (session-driver D3). A resumed chat
-(`--resume`) gets no sessionStart context. The MCP server cannot learn the
-conversation id from its environment, so `sofar_start_session` still takes
-the id from the injected Session line.
+stop or beforeSubmitPrompt hook, so no write-back gate reaches a print-mode
+session. It does fire sessionStart, postToolUse, postToolUseFailure (Shell
+and Write) and sessionEnd, as seen live in r1-fixes 6.9. On cursor-agent
+2026.10.01-e373342 (r4-fixes R18 probe, no model call): stop and
+beforeSubmitPrompt never fired in round 4's 9 print-mode sessions; the
+bundle fires sessionEnd from the shutdown both modes share, and afterFileEdit
+beside postToolUse in the Write executor (observe-only: its output carries no
+context); afterAgentResponse fires only from the interactive UI and is
+unshown headless. The verdict and its evidence:
+`packages/engine/test/fixtures/cursor/README.md`. A driven Cursor session's
+write-back is judged from the fold, as for every adapter (session-driver D3).
+A resumed chat (`--resume`) gets no sessionStart context. The MCP server
+cannot learn the conversation id from its environment, so
+`sofar_start_session` still takes the id from the injected Session line.
+
+**Cursor without a Stop gate (r4-fixes A9).** The test gate's two jobs move
+to the hooks print mode fires; `SOFAR_CURSOR_DEBT=off` (also `0`, `false`)
+turns both off.
+- EDIT: a Cursor postToolUse that captures an edit of a path some in-force
+  rule guards (`path:` glob) adds one line, once per path a session edits:
+  `sofar: Cursor runs no Stop gate, so no test holds this edit — <path> is
+  governed by <n> standing rule(s): [<handle>] "<rule>"; …`. It names EVERY
+  governing rule, in the read notice's guard order; a rule's words appear
+  once per session (a rule this call's notice or an earlier bound line gave
+  renders as `[<handle>]`, and so does every rule past 3,000 chars of rule
+  text). The read notice still names at most three guards and tells each
+  (decision, path) once, so before this an edit after a read said nothing:
+  round 4's rep-1 S18 was told D1 and D2 and "…and 7 more", never D7.
+  Keys `#bound <path>` and `<id> #bound` in the told set.
+- END: a Cursor sessionEnd runs Stop's test gate for the session (as Stop
+  would, edits and outcomes known), written back or not, and when it asks
+  anything appends `note_added` {text: `Unverified edits on rule-bound paths
+  (Cursor session <id8> ended with no Stop gate to hold it): <the gate's
+  lines, "sofar: " dropped>`}, source `hook`, once per session (a note with
+  that head already in the window is not repeated). The next session's
+  digest shows it under `Notes since write-back`. Not in the quick lane, not
+  under `SOFAR_ENFORCE=off`.
 
 **Which `sofar` Cursor runs (live finding, r1-fixes M6).** Cursor rebuilds
 PATH from the user's login shell for its hooks, ignoring the PATH it was
@@ -4228,6 +4380,12 @@ target's stamped event id, not its handle (memory-lead 2.8, D12).
 - Never this checkout: its file is "here" and is read as it always was. Any
   failure (no git, an unborn HEAD, an unreadable checkout) degrades to fewer
   copies, never to an error.
+- Never a branch the operator marked abandoned (`sofar abandon`, r4-fixes
+  A14), as a worktree or as a ref: its work was seen and dropped, and naming
+  it again only repeats a settled question (round 4 raised one abandoned
+  branch in 18 final messages). Every surface below, the SessionStart hint and
+  the write guard included, inherits the omission. `SOFAR_ABANDON=off`
+  ignores the marks.
 
 **The union fold.** This checkout's lines come first and verbatim, so the
 line numbers and warnings for them are exactly those of a single-copy fold.
@@ -4293,7 +4451,10 @@ recent-work-elsewhere notice: `` ⚠ N event(s) of this record live on other
 worktrees, not on this checkout: +n on <branch> (worktree <path>), …, +K
 more. This block folds this checkout's copy alone; `sofar status` folds them
 in. They reach this branch only by a merge. `` It names two worktrees at most
-and is clipped to 360 characters. `worktreeLeads` in `core/record-copies.ts`
+and is clipped to 360 characters. When a named lead is on a branch (not
+detached), the line then ends `` If the operator dropped a branch, `sofar
+abandon <branch>` stops naming it. ``, appended after the clip so a long
+path never cuts it (r4-fixes A14; `SOFAR_ABANDON=off` drops it). `worktreeLeads` in `core/record-copies.ts`
 computes it from files alone, with no subprocess, to fit the hook budget,
 so branches with no checkout are out of its reach. A copy no longer than
 this log whose last 4,096 bytes equal this log's bytes at the same offset
@@ -4548,6 +4709,32 @@ rule (D25), and asking every unlinked decision would spend 264 of round 3's
   and ride the write-back block of one that owes it.
 - ABLATION: `SOFAR_LINK_ASK=off` drops the digest block and the Stop ask;
   the stamp and the write result stay.
+- SLOT-DIFF (r4-fixes A8, core/slot-diff.ts; r4-research 1.3 #7, N6): the
+  stamped candidates are re-ordered so the ones that look like the rule this
+  one is a new version of come first, best score first, the rest in BM25
+  order. For the new decision N and a candidate C, each compared on its rule
+  (else what it chose), over the content words (the lexicon's fold, stop words
+  out, plural and tense endings stripped alike): FRAME = |LCS| ÷ the shorter
+  text's words, 0 below 2 words in common; OVER = the share of N's `over`
+  words (decision handles dropped) that C's rule and chose carry, each word
+  weighted ln(1 + (n + 1) ÷ (df + 1)) over the n decisions folded so far.
+  VERSION-LIKE when max(FRAME, OVER) ≥ 0.4. The write result's line then
+  reads `… it may replace D<m> "<rule, 80>"[, or …] — D<n> looks like a new
+  version of D<m>[ (\`<old>\` → \`<new>\`[, …])]. If it does, …`, naming
+  the first version-like candidate; the changed slots are named only when the
+  match is EXACT (N6 as written: FRAME ≥ 0.6 and every differing word a slot
+  value — a number, an identifier-shaped or quoted token, or a word in at most
+  3 of the record's decisions), at most 3. It never links on its own. The
+  digest and Stop render the stamped order, so both engines show it with no
+  render change. REPLAY (round 3's 48 versions and 339 other decisions, through
+  the shipped ranker): 36 of 48 versions flagged, 8 of 339 others (all rules,
+  8 of the 75 non-version rules); the true target first among the stamped
+  candidates for 27 of 34 where it is known, against 24 by BM25 alone, and
+  for 36 of round 4's 48 linked rule changes, against 32 (held out). N6 as
+  written flagged 0 of 48: agents restate a changed rule in new words far more
+  than they swap one value. ABLATION: `SOFAR_SLOTDIFF=off` (also `0`,
+  `false`) keeps BM25 order, the hold below without its slot key, and no
+  version clause.
 
 ## Supersede-target integrity
 r3-fixes 2.6, adopted as D18. Round 3 retired the wrong entry twice in 3
@@ -4594,6 +4781,19 @@ what the decision's own words match. A disagreement is HELD, never refused.
   is` per offer, and `\`sofar supersedes D<n> none\` if it replaces
   nothing`, comma-joined. `sofar supersedes` answers a held link exactly as
   a pending one (§Link disposition) and is not itself held.
+- SLOT KEY (r4-fixes A8; not under `SOFAR_SLOTDIFF=off`), checked after (b)
+  and before (c): a RULE that names a PLAIN decision T is HELD when T is not
+  version-like for it (§Link disposition, SLOT-DIFF) while one of its link
+  candidates (the in-force rules §Link disposition would stamp) is, with a
+  higher score — offered: those candidates, best score first, at most two. A
+  rule's predecessor is a rule. Round 4's r2 S18 named D52, the recordCount
+  details (cosine 0.182, over the 0.16 floor), and left D51 "any variance is
+  applied at once" in force beside its replacement for 10 sessions; D51's
+  OVER score was 0.60 to D52's 0.33. Over round 3's 51 and round 4's 92 links
+  it holds that one and round 3's r2 S30 link (already held by (c)), with no
+  false hold. (c)'s offers are re-ordered the same way, version-like first.
+  The <why> stays `its words match D<a> … far more`; the write result adds
+  the SLOT-DIFF version clause after it.
 - ECHO: a decision whose `supersedes` is taken names what it retired — the
   result's `retires: "D<T> \"<rule or chose, 80>\""` (sofar_log_decision,
   `sofar event append`) or `retires: ["D<n> retires D<T> \"…\""]`
@@ -4656,13 +4856,107 @@ different rule on main. Render only: no event, payload or fold change.
   `alias <old>` as its mark; the digest window marks the replacer `alias
   <old>` where it said `supersedes <old>`, and its `retired` count leaves
   aliases out; the alias's shard says `re-logged as <new>, the same
-  decision`. `sofar bind` says `bound <slug> <old>: check \`<cmd>\` — the
-  same rule, now listed as <new> (alias <old>)`.
+  decision`. Since r4-fixes A8 `sofar bind` mints no re-log (it appends
+  `check_bound`, §Decision checks) and says `bound <slug> <handle>: check
+  \`<cmd>\` — the same rule, the same handle`; the alias rendering stays
+  for the re-logs records already hold.
 - BUDGET: the digest's decision window is 1,025 chars (MAX_DECISIONS × the
   5-char suffix over 1,000), so it holds the same lines it held with bare
   handles; the other budgets are unchanged. The digest cache's cut keeps every
   decision's id and both halves of a supersession whose rule, quote and until
   agree whole (DIGEST_CACHE_VERSION 5).
+
+## In-band write-back
+r4-fixes A1 (1.2 O1/N1, O8 folded in; ruling R10). The agent's final reply
+ends with ONE fenced block whose info string is `sofar`, and the hooks file it
+— no sofar tool call anywhere in the session. Round 4 paid one full-context
+round trip per sofar MCP call: 37–39 a chain on Codex, 138 in 3 reps on
+Claude, two per first use on Cursor (the schema fetch, then the call).
+
+- SWITCH: `SOFAR_WRITEBACK=inline` (the default) or `tool`. `tool` is 0.34
+  exactly — no block is read, the Stop hold names the tool, no grammar repair
+  below applies — and is the ablation arm. Under `inline` the tool path is
+  KEPT: sofar_end_session and every other tool work as before.
+- GRAMMAR (core/inline-block.ts): an opening line that is exactly
+  ```` ```sofar ```` (surrounding whitespace aside), the body, and the first
+  later line that is exactly ```` ``` ````; the LAST such block in the text
+  counts, and an unclosed one runs to the end. The body is one JSON object:
+  sofar_end_session's arguments (summary, next_action, tasks, phases,
+  decisions, memories, notes, brief_append), judged by the same input
+  validator. A `session_id` other than the hook's is an error, never a
+  redirect; an `initiative` follows r4-fixes U6. No `start_session` is needed
+  on any host: the hook's payload names the session, and the events take its
+  registered tool as their source.
+- WHERE THE TEXT COMES FROM: Stop's `last_assistant_message` (Claude Code,
+  Codex). Cursor's payloads carry no reply text, so on Cursor the last
+  assistant entry of the JSONL transcript the payload's `transcript_path`
+  names, from its last 256 KiB — read at Stop (interactive UI only) and at
+  sessionEnd. Claude Code's transcript may lag its Stop, so it is never read.
+  The R18 probe (static, cursor-agent 2026.09.28-64d2043 and
+  2026.10.01-e373342; no model call): `stop`, `beforeSubmitPrompt` and
+  `afterAgentResponse` are fired by the interactive UI (`src/ui.tsx`) and by
+  nothing in the headless runner (`src/headless.ts`), and the probe runs saw
+  no `stop` headless; `sessionStart`, `sessionEnd` and the tool hooks fire in
+  both, and every payload but the tab hooks' carries `transcript_path`. So
+  sofar adds NO Cursor hook entry: headless Cursor files the block at
+  sessionEnd, which cannot hold, so a Cursor block that does not file whole
+  gets no repair ask — it is filed final (below) at once.
+- ONE ASK, NOTHING LOST (mcp/inline-writeback.ts): a first filing that would
+  leave anything out — bad JSON, a bad field, an entry the write-back planner
+  refuses (the tool's `not_filed`), another initiative — files NOTHING, exits
+  2 with `sofar: your ```sofar write-back did not file — nothing from it is in
+  the record yet. End your reply with the corrected block, whole:` and one
+  `- <error>` line per problem, and stashes the block
+  (`.sofar/.index/inline/<session>.json`). The next filing is FINAL: a Stop
+  with `stop_hook_active`, any later Stop or SessionEnd of the session (a
+  stash is asked about once), or a Cursor sessionEnd. It files the repaired
+  block if the reply carries one, else the stash: every entry that can file
+  does; each entry or top-level field that cannot rides the same write-back as
+  a note, `From this session's in-band write-back, <what> did not file (<why>);
+  kept verbatim: <json>`; a block with no usable summary or next_action files
+  its entries with no session_ended made up (the half it has is kept as such a
+  note); a body that is not a JSON object, or names another initiative, is
+  itself the note. A block whose summary and next_action already are the
+  session's write-back files nothing again (a Stop and a SessionEnd reading
+  one reply).
+- FILED THROUGH sofar_end_session'S PATH (mcp/write-back.ts, judge-free so a
+  hook reaches it; the write-time judges stay on the MCP server's path): the
+  same arguments file the same events, payloads and projections as the tool.
+  What the tool would have returned — warnings, `not_filed`, parallel
+  write-backs — is printed for the operator as Stop's `systemMessage`, or
+  rides a hold's stderr when the gate holds anyway.
+- GRAMMAR REPAIRS (every write-back while `inline`, the tool's included,
+  except the cap): a BLOCK's decision `because` over 280 chars is filed as the
+  writer's own whole sentences from the start that fit, else the words that
+  fit and `…`, with a `warnings` line naming it by handle (the reversal check
+  reads the words as written); the tool path keeps `because` whole (r4-fixes
+  D11), so no record loses reasoning to it; a decision's `quote` that is a `P<n>`
+  this session captured is the prompt itself through redactProse, then cut as
+  any quote (r3-fixes 2.8); one never captured files the decision without a
+  quote and a `warnings` line. Round 4's 94 write-backs held 200 decisions,
+  17 of them over the cap.
+- THE HOLD: a session that owes a write-back and whose reply has no block is
+  held with `Write back to the sofar record before finishing: end your reply
+  with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks,
+  decisions, memories, notes — or call sofar_end_session.` (Codex: the same,
+  ending `or call sofar_end_session with session_id <id>.`) — the
+  continuation's reply is then the write-back. Under `tool` the 0.34 lines.
+- BOTH ENGINES: filing is TypeScript's. The native core hands a Stop or
+  SessionEnd to it — after reading stdin, so not by exit 64 — when the
+  switch is `inline` and the payload may carry a block: a
+  `last_assistant_message` containing ```` ```sofar ````, a Cursor
+  transcript tail containing it, or a stash for the session (a superset of
+  what TypeScript acts on; elsewhere TypeScript's answer is the core's). It
+  runs `<cli> event <hook> --root <root>` with `SOFAR_CORE=0` and the same
+  stdin, and mirrors exit, stdout and stderr byte for byte; `<cli>` is
+  `SOFAR_CLI` (the stub names itself when it dispatches), else the sofar.sh
+  package's `dist/cli.js` beside the binary, else `sofar` on PATH. A CLI that
+  cannot run leaves the hook to the core. Every other Stop and SessionEnd
+  stays native.
+- VISIBLE (R10): the block is part of the reply the operator reads, and of
+  `claude -p`'s result; a harness parsing that result skips it. The protocol
+  blocks (CLAUDE.md, AGENTS.md, the Cursor rule) teach it: last, compact, one
+  block, `because` ≤ 280 chars, quotes by prompt id.
 
 ## MCP tools (server name: sofar)
 
@@ -4676,9 +4970,13 @@ with the injected session id; the session writes back ONCE, at wrap-up, and
 sofar_end_session carries its decisions, task changes (a new task with its
 title), phase changes, memories and notes, with sofar_log_decision mid-session
 only for a decision a concurrent session must see first; review, close and
-find are CLI. SERVER_INSTRUCTIONS is the non-adopted text. The protocol block
-carries the loop itself; instructions ride every initialize, so they stay
-short.
+find are CLI. SERVER_INSTRUCTIONS is the non-adopted text. Under the in-band
+write-back (§In-band write-back, the default) the non-adopted line asks for
+sofar_start_session only before a sofar tool, since the write-back block
+needs no call, and the write-back sentence names the ```` ```sofar ```` block
+first and sofar_end_session as the alternative; `SOFAR_WRITEBACK=tool` keeps
+the text above. The protocol block carries the loop itself; instructions ride
+every initialize, so they stay short (≤800 chars).
 
 **Write guard (branch-visibility 3.4).** Every write tool's result, bare
 `{ok, event_id}` ones included, may add a `warnings` line when the record it
@@ -4692,13 +4990,32 @@ passes CLAUDE_CODE_SESSION_ID (set by Claude Code ≥2.1.154 on its stdio MCP
 servers, ≥2.1.163 on resume — the id its hooks receive) to
 createSofarServer as `hostSessionId`; the serve daemon and tests never do.
 Before any tool other than sofar_start_session runs while no session is
-active, the server calls adoptHostSession: the session's HOME initiative
-(homeInitiative) wins, the branch binding is the fallback, a known id is
+active, the server calls adoptHostSession: the session resolves through
+resolveSessionFirst — its HOME initiative (homeInitiative) wins, then the
+lineage SessionStart traced for an unregistered id, then the worktree's route
+(its last home over the committed binding; r4-fixes A10) — a known id is
 pinned with no append and an unknown one is registered through
-registerSession with {tool: "claude-code"} — exactly sofar_start_session
-with that id and no `initiative`. Best-effort: when neither home nor branch
-resolves, nothing is pinned and the tool raises its own typed error. An
-explicit sofar_start_session always wins and re-homes. tools/list carries
+registerSession with {tool: "claude-code"} (plus `continues` when lineage
+placed it) — exactly sofar_start_session with that id and no `initiative`.
+Best-effort: when nothing resolves, nothing is pinned and the tool raises its
+own typed error. An explicit sofar_start_session always wins and re-homes.
+**Worktree adoption (r4-fixes A3; 1.2 O4).** A host that gives its MCP
+server no session id (Codex, Cursor) still hands the id to its hooks, which
+leave the newest one in the worktree's session pointer
+(`.sofar/.index/session.json`, writer `hook`). `sofar mcp` with no
+CLAUDE_CODE_SESSION_ID passes `adoptWorktree: true`, and before any tool but
+sofar_start_session, with no session active, the server adopts the pointer's
+session through adoptHostSession (so through the same resolver), recording
+the MCP client's name as the tool (`codex`, `cursor`, `claude-code`, else
+`mcp`), when ALL hold: the pointer's writer is `hook`; the server did not
+start more than 10 minutes before the pointer's ts (it would be an earlier
+session's server); that session did not write back or close before the
+server started; and no OTHER session appended an event to this worktree's
+logs at or after the pointer's ts whose newest event is not its
+`session_ended`/`session_closed` (core/worktree-sessions.ts). Otherwise
+nothing is pinned and the agent is asked to call sofar_start_session, as
+before. The serve daemon never passes the flag; tests opt in. Off by
+`SOFAR_ADOPT=off`. tools/list carries
 `_meta: {"anthropic/alwaysLoad": true}` on ALWAYS_LOADED_TOOLS —
 sofar_end_session and sofar_log_decision — which Claude Code honours by
 skipping tool-search deferral for that tool (verified in 2.1.270–2.1.274,
@@ -4866,7 +5183,8 @@ sofar_start_session.`
   and next action (typed-judge 3.2, see §Judge for both); each is omitted
   when empty, so a write-back with no batch, a concrete next action and
   nothing flagged in its summary is byte-identical to before. `rebound` names the
-  branch binding this write-back moved ({branch, from, to}), omitted when
+  branch route this write-back moved ({branch, from, to}) — in the worked
+  worktree's last home since r4-fixes A10, never the committed file — omitted when
   none moved — the rebind contract and its four guards are stated with the
   session-before-branch precedence below (binding-follows-session D1,
   no-bind-durability D1).
@@ -5173,7 +5491,64 @@ re-home beats a stale registration. A session registered nowhere falls back
 to the branch and registers there (lazy registration, D2 — unchanged). An
 UNBOUND branch is a miss rather than an error for a registered session,
 which also ends the silent event drop unbound branches used to cause.
-THE WRITE-BACK BINDS THE BRANCH (binding-follows-session D1). end_session,
+SESSION IDENTITY BEFORE ANY ROUTE (r4-fixes A10; rulings R11, R15, R22).
+A home now resolves in this order, in both engines: (1) the explicit pin —
+start_session's `initiative`, and a registration in the logs (the home
+above); (2) LINEAGE, for an id no log registered: SessionStart traces a new
+host-minted id to the session it continues and writes the verdict to
+`.sofar/.index/lineage/<id>.json` (never an append — SessionStart still
+writes no event). Carriers, in order, the first naming an OPEN record (exists,
+not done/dropped/superseded) winning: the `/clear` baton — SessionEnd with
+reason `clear` writes `.sofar/.index/baton/<host pid>.json` = {from, home,
+ts, procStart} from the host registry's entry for the ending id, and a
+SessionStart with source `clear`/`fork` takes the one baton whose registry
+file still carries the same procStart and names either id, within 60 s; the
+session TITLE, whose first space-delimited token is an open record's exact
+slug (sofar's own titles start with it and survive `/clear`; `/rename <slug>`
+is the operator's gesture; session-naming D1 still forbids writing the
+registry); the PROMPT FINGERPRINT (R15, local only), on source
+`resume`/`fork`: the first operator prompt in the first 256 KiB of
+`transcript_path` (Claude's first non-meta, non-tool-result `user` line not
+opening with `<`; Codex's first `user_message`) equals, at ≥20 UTF-16 units,
+the FIRST captured prompt of exactly one other session in r3-fixes D6's
+buffer — no carrier when capture is off; and the host REGISTRY's
+`formerNames` for this id, the latest `until` naming another id. (3) The
+worktree's ROUTE: the committed binding for the branch, overlaid by this
+worktree's last home (`.sofar/.index/last-home.json`) when the committed
+table routes the branch and the record exists; (4) the quick lane, as
+before. Lineage is identity, not inference (R11 (a)): the session is not
+fresh — the host renamed it — so it outranks every route, refining
+binding-follows-session D1's "never infer a fresh session's record" and
+record-integrity D9's "the branch may seed the candidate" (a lineage home is
+not a branch seed; a registered home still wins over it). The first
+registration in the lineage home carries `continues: <parent>`. Off by
+`SOFAR_LINEAGE=off`. A session that resolved with NO carrier (unregistered,
+no lineage) on a branch whose live sessions in this worktree are homed in
+another record gets one volatile-tail line first among the SessionStart
+notices: `⚠ <branch> serves N live record(s): a (2 sessions), b (1
+session). This session opened <slug> by the branch's route; if this work is
+<other>, call sofar_start_session with initiative "<other>".` (≤400 chars;
+ranked by count, then slug by code unit). Liveness is the host registry's
+pid (Claude Code peers whose cwd is this worktree or below), which R11 (c)
+allows here and only here: binding-follows-session D2 is NARROWED to the
+recent-work notice, which still never weighs liveness.
+THE WRITE-BACK BINDS THE BRANCH (binding-follows-session D1) — IN THE
+WORKTREE, SINCE r4-fixes A10. R11 (b) supersedes D1's committed rebind, D4's
+and D5's target file and no-bind-durability D1's write side: the move below
+lands in the worked worktree's untracked `.sofar/.index/last-home.json`
+(branch → {slug, session, ts}), and a write-back NEVER modifies the committed
+bindings.json. All four guards still read the committed table, unchanged;
+`rebound.from` is the route before the move (that last home, else the
+committed binding). Only `sofar new` (binding) and `sofar switch` write a
+branch into the committed file — both also forget this worktree's last home
+for that branch, so an explicit route always wins — and closing removes
+committed bindings and every last home naming the record in the closing
+worktree. Concurrent write-backs still flip a branch's route (last to finish
+wins), but only in their own worktree's untracked file, so nothing reaches
+git. `SOFAR_LASTHOME=committed` restores the committed rebind and stops the
+overlay. The paragraphs that follow argue for the committed file and stand as
+the history of D1/D4/D5; read "bindings.json" there as the last home.
+end_session,
 after appending session_ended, points the current branch at the initiative
 that write-back landed in, and returns `rebound: {branch, from, to}` when it
 moved (omitted otherwise, the parallel_writebacks shape). This changes NO
@@ -5404,6 +5779,23 @@ a headless Cursor session. Codex runs its own six copies from .codex/hooks.json,
 context carriers). Codex runs them only in a project it trusts, and only
 after the operator trusts each entry in `/hooks`; anywhere else nothing below
 fires, and a Codex session is Tier 3 (§Host tiers).
+
+Every shim routes before it execs, and only routes (BD4): to the native core
+activated for this user when `SOFAR_CORE` is unset (r4-fixes A12:
+`$XDG_DATA_HOME/sofar/core/current/sofar-core`, `~/.local/share` when
+XDG_DATA_HOME is unset or relative; Git Bash on Windows reads the path from
+`%LOCALAPPDATA%\sofar\core\current.txt`), else to `sofar-core` on PATH, else
+to `sofar event <hook>` (the order and the activation in detail:
+docs/HOTPATH.md §Entry points and dispatch). Any TypeScript boot of sofar with `SOFAR_CORE` unset
+activates that core when the install left `bin/sofar-core` as the JavaScript
+stub (npm 12, pnpm, bun skip install scripts) or the store names another
+version: it copies the binary out of the installed
+`@sofar.sh/core-<platform>-<arch>` package, verifies the copy's sha256 and
+size against the digests embedded at build, renames it into place and
+re-points `current` atomically. No network, no new dependency. A Codex shim
+runs the activated core with `SOFAR_CORE_DISPATCHED=1` and hands its exit 64
+to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
+(agents-parity D5).
 - PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, Cursor
   `preToolUse` matcher `Shell`, Codex `PreToolUse` matcher `Bash`, its entry
   added under D39, which supersedes agents-parity D5 for it alone) → `sofar
@@ -6027,13 +6419,18 @@ fires, and a Codex session is Tier 3 (§Host tiers).
   paths and secrets, and the record is committed and synced. No guard notice
   and no stdout: the notice comments on an edit just made, and this call made
   none. Best-effort per BD22: every failure path is exit 0 and silence.
-- Stop shim → reads stdin JSON; if stop_hook_active is true → exit 0
+- Stop shim → reads stdin JSON; under the in-band write-back (the default,
+  §In-band write-back) first files the block the final reply ends with, or
+  asks once for its repair. Then if stop_hook_active is true → exit 0
   (loop guard; Claude Code and Codex set it on a turn Stop already
   continued, Codex once per turn with no loop key of its own, and Cursor's
   `loop_count` converts to it — §Cursor host, §Codex host). Else if no session_ended event exists for this session_id
   AND gate-relevant drift is nonzero → exit 2 with stderr: "Write back to
+  the sofar record before finishing: end your reply with a ```sofar block —
+  {"summary":"…","next_action":"…"} plus any tasks, decisions, memories,
+  notes — or call sofar_end_session." (`SOFAR_WRITEBACK=tool`: "Write back to
   the sofar record before finishing: call sofar_end_session (or append
-  session_ended via `sofar event append`)." Else exit 0.
+  session_ended via `sofar event append`).") Else exit 0.
   Gate-relevant drift (drift-signal 1.2, superseding speed T1) =
   sessionDebt(state, session): the stopping session's OWN unwritten
   mutations plus freshness.unattributed_mutations. Read-side, zero new
@@ -6054,8 +6451,12 @@ fires, and a Codex session is Tier 3 (§Host tiers).
   the block (fail closed — never a silent skip); every other resolution
   failure keeps exiting 0 (BD22). The gate only ever converts an exit-2
   into an exit-0 — no today-exit-0 path becomes blocking.
-- SessionEnd shim → appends mechanical session-close marker (fallback only;
-  cannot feed back to the agent).
+- SessionEnd shim → files an in-band write-back with no ask left (a stash a
+  Stop asked about; on Cursor the transcript's final reply —
+  §In-band write-back); on Cursor it also files the test gate's asks as a
+  note for the next session (r4-fixes A9, §Cursor host); then appends the
+  mechanical session-close marker unless the session has ended (fallback
+  only; cannot feed back to the agent).
 - pre-commit shim → `.git/hooks/pre-commit` (memory-lead 2.3, D9): runs
   `sofar check --staged` and exits 1 only when that returned 10, else 0 —
   so no sofar, an older sofar without `check`, or a crash never fails a
@@ -6159,7 +6560,18 @@ subdirectory, against 33 of 33 from the root.
   is, and the terminal picker pre-selects it alone — an agent merely installed
   on the machine is never added by Enter (the Cursor incident, r3-fixes 2.15).
   `--refresh` with `--agents` exits 1, and `--refresh` with nothing wired
-  refuses like a first init. A FIRST init (nothing wired), when stdin and
+  refuses like a first init. CONSENT (r4-fixes A11): of the wired set, a run
+  that names no agents rewrites only the agents this clone CHOSE — those a
+  wiring-journal line records choosing (`--agents`, or a picker confirmation)
+  and no later uninit removed; a wired agent no line chose (its files came by
+  a teammate's commit, another tool, an older sofar) is left byte for byte and
+  named in a `note: left <Agent> as it is` with `sofar init --agents <id>` and
+  `sofar uninit --agent <id>`, and when every wired agent is unchosen the run
+  exits 1, writes nothing and names both commands; the picker pre-selects the
+  chosen ones (the whole wired set when none is). A clone whose journal holds
+  no consent-era line yet has every wired agent standing as chosen, and its
+  first line records that set as `adopted`. `SOFAR_CONSENT=off` (the
+  ablation switch) restores the whole wired set. A FIRST init (nothing wired), when stdin and
   stderr are a terminal (not CI, not TERM=dumb), asks with a multi-select drawn on
   stderr — arrows or j/k move, space toggles, `a` toggles all, enter
   confirms (never on an empty selection), esc or ctrl-c exits 1 with nothing
@@ -6176,14 +6588,20 @@ subdirectory, against 33 of 33 from the root.
   nearest ancestor with a `.git` entry), else the working directory — never
   the record found by r3-fixes D12's walk-up, so a run from `packages/x/`
   wires the repo, and a `.sofar/` under `packages/x/` is not where it lands.
-  WIRING JOURNAL (r4-fixes R12): every run that wrote anything appends one
-  JSON line to `<state>/wiring/<cloneKey>.jsonl` (outside the repo, never
-  committed; nothing when the state dir resolves inside the clone): `ts`,
-  `sofar` (version), `root`, `cwd`, `argv`, `tty`, `selection` (`flag`,
-  `refresh`, `wired` or `picker`), `agents`, `result` (`ok` or `aborted`)
-  and `files`, each `{path, op: write|remove, sha256}` with the path
-  root-relative when inside it. It is an audit trail, not a selection store:
-  nothing reads it to decide what to wire. Builds before 7.1 (0.32.0,
+  WIRING JOURNAL (r4-fixes R12, A11): every init, uninit, `doctor --fix` and
+  upgrade run that wrote anything appends one JSON line to
+  `<state>/wiring/<cloneKey>.jsonl` (outside the repo, never committed;
+  nothing when the state dir resolves inside the clone): `ts`, `sofar`
+  (version), `root`, `cwd`, `argv`, `tty`, `command` (`init`, `uninit`,
+  `doctor --fix` or `upgrade`; absent on 0.34.1's lines, all init), init's
+  `selection` (`flag`, `refresh`, `wired` or `picker`), `agents`, `adopted`
+  and `skipped` when set, an upgrade's `upgrade: {from, to}`, `result` (`ok`
+  or `aborted`) and `files`, each `{path, op: write|remove, sha256}` (plus
+  `created: true` when the write brought the file into being) with the path
+  root-relative when inside it. An init that writes nothing still appends
+  when its explicit choice grants an agent the clone had not chosen. It is
+  an audit trail and the consent set above (R12 amends r1-fixes D36's "no
+  stored selection" for exactly that); it never ADDS an agent to a run. Builds before 7.1 (0.32.0,
   0.33.0-rc.1) reject `--agents` as an unknown option (exit 1). Re-running
   with another agent adds that agent's files and leaves the others' bytes
   alone. The shims live in `.claude/hooks/` whenever Claude Code is picked or
@@ -6287,7 +6705,7 @@ subdirectory, against 33 of 33 from the root.
   and doctor's JSON fixes rewrite in the same shape; a file OUTSIDE the repo
   (the personal `~/.claude/settings.json`) always takes the plain form, since
   no repo formatter runs on it.
-- `sofar doctor [--fix]` — audit a host repo across eight axes: (1) wiring
+- `sofar doctor [--fix] [--history] [--json] [--explain <id>]` — audit a host repo across eight axes: (1) wiring
   integrity (init's shims/settings/.mcp.json/protocol blocks intact) PER
   AGENT (r1-fixes 7.1, D36): only the agents the repo is wired for are
   checked — Claude Code when settings.json runs a shim, .mcp.json registers
@@ -6301,12 +6719,22 @@ subdirectory, against 33 of 33 from the root.
   `sofar init --agents <id>`, a wired repo's repair hint (and the stale
   protocol block's) names `sofar init --refresh`, which rewires exactly the
   wired set (r4-fixes R12), and a record with no agent wired at all FAILs.
-  The HOT PATH line names the implementation hooks run on; when this is a
-  global npm install whose own `bin/sofar-core` is still the JavaScript stub
-  — its install script did not run, npm 12's default — it WARNs that node
-  boots before the native core on every hook and names `npm config set
+  WIRING JOURNAL (r4-fixes A11): one line per wired host naming the journal
+  line that chose (or adopted) it — the command, terminal or not, the time
+  and `<journal path>:<line>`; a wired host no line chose WARNs with `sofar
+  init --agents <id>` and `sofar uninit --agent <id>`; a clone whose journal
+  predates consent gets one ok line saying so.
+  The HOT PATH line names the implementation hooks run on, and the per-user
+  path when the core was activated for this user (r4-fixes A12, §Hooks); when
+  this is a global npm install whose own `bin/sofar-core` is still the
+  JavaScript stub — its install script did not run, npm 12's default — and no
+  core could be activated, it WARNs that node boots before the native core on
+  every hook, says why activation did not happen (no digest in this build, a
+  refused copy, an unwritable store), and names `npm config set
   allow-scripts=sofar.sh --location=user` and `npm install -g sofar.sh
-  --allow-scripts=sofar.sh` (r4-fixes U9; Windows keeps the stub by design). A passing Codex
+  --allow-scripts=sofar.sh` (r4-fixes U9; Windows keeps the stub by design).
+  Shims present but not this release's bytes WARN, naming them, with
+  `sofar init --refresh` as the repair. A passing Codex
   check means wired, not running: doctor cannot see whether Codex trusts the
   project or sofar's hooks, because the file holding that state is
   unverified (§Codex host). Plus the MERGE-RULES check (r3-fixes 2.14):
@@ -6364,7 +6792,12 @@ subdirectory, against 33 of 33 from the root.
   carries a self-evident misplacement marker, and a permanently failing audit
   trains people to ignore it. Derived from FoldResult.unregistered_sessions
   plus each state's registered ids; deterministic, sessions sorted by id and
-  footprints by slug;
+  footprints by slug. An OPEN session whose newest event is more than 24 h
+  old and that no host reports a live process for (Claude Code's own session
+  registry; Codex and Cursor keep none, so idleness alone decides) is
+  ABANDONED, not live (r4-fixes A14): it never received a SessionEnd, nothing
+  tears it any more, and its split reports `(torn, abandoned)` at WARN as
+  history;
   (4) concurrency — no file under concurrent edit by ≥2 OPEN sessions (a live
   clobber risk), reported in two scopes: WITHIN each initiative, and ACROSS
   initiatives (cross-initiative-conflicts 3.1), the latter naming every
@@ -6417,8 +6850,33 @@ subdirectory, against 33 of 33 from the root.
   markdownlint-cli2, an `ignores` pattern in its config — otherwise FAIL.
   Absent altogether is one OK line. Record-health, concurrency and
   repo-memory findings
-  are WARN (surfaced, non-fatal); exit 1 only when a FAIL-level finding remains,
-  0 on a clean repo. `--fix` performs only deterministic, safe repairs: (a)
+  are WARN (surfaced, non-fatal).
+  TRIAGE (r4-fixes A14). Every finding carries a stable check id and a tier.
+  ACT NOW: wiring (every check of axis 1, the hot path included), a log that
+  cannot be read, a closed record still bound or a missing successor, a split
+  session that is live, files under concurrent edit by live sessions (an
+  abandoned session holds none), unapproved decision checks, and scanner and
+  formatter hazards. HISTORY: fold warnings, stub sessions, stale phases,
+  dropped tasks citing no decision, untracked work, orphan task events, a
+  finished record left open, a split session that has ended or is abandoned,
+  past guard crossings, and unnamed repo memory. The report lists each axis's
+  act-now findings (an axis with none prints `ok  nothing to act on (N in
+  history)`), then ONE count line — `History: N finding(s) that need no
+  action now — <n> <axis>, … (\`sofar doctor --history\` lists them)` — and
+  the summary, which counts act-now problems and warnings and adds `N in
+  history`. `--history` lists the history after the act-now report under
+  `History (settled — never sets the exit code):`. Exit 1 only when an
+  ACT-NOW finding is at FAIL, 0 otherwise; history never moves the exit code
+  (record-integrity D3: a permanently red doctor trains people to ignore it;
+  on this repo the flat report was 467 WARN, 31 FAIL and exit 1). `--json`
+  prints `{version: 1, root, triage, exit_code, summary: {act_now: {fail,
+  warn}, history, fixes_applied}, findings: [{section, id, tier, level, text,
+  hint?, fixed?}]}` with the same exit code. `--explain <id>` prints what one
+  check looks at, its tier and how to clear it (ids are listed when the id is
+  unknown; exit 1). With branches marked abandoned (`sofar abandon`), a
+  history line names them. `SOFAR_ABANDON=off` restores the flat report, the
+  liveness without the abandoned disposition, and the exit code on any FAIL,
+  byte for byte (the A14 ablation switch). `--fix` performs only deterministic, safe repairs: (a)
   inserting `@source not "<path-relative-to-stylesheet>/.sofar";` after the
   `@import "tailwindcss"` line in each unprotected entry (idempotent); (b)
   writing each formatter's documented exclusion — Biome 2 `"!**/.sofar"`
@@ -6449,6 +6907,32 @@ subdirectory, against 33 of 33 from the root.
   to `.sofar` or an ancestor, and a `source(...)` base that excludes it (or
   `source(none)`). The concurrent-edit signal also surfaces in the SessionStart
   context and `sofar status` (rendered only when open sessions overlap, D-P11).
+- `sofar abandon [branch] [--undo] [--list]` — the operator's disposition for a
+  branch whose record copies keep being named (r4-fixes A14), see
+  §Record copies across branches. It marks the branch abandoned for this clone, so the SessionStart
+  hint, the write guard, `sofar status`, `sofar list`, `sofar next` and
+  get_state view:"initiatives" stop naming it, as a worktree or as an
+  unmerged branch. Per-user state, `$XDG_STATE_HOME/sofar/abandoned/<key>.json`
+  keyed by the clone's COMMON git dir (every worktree shares it), never in the
+  repo, and read as files only, in both engines. The branch and its record
+  copy are untouched. `--undo <branch>` clears the mark; `--list`, or no
+  branch, lists the marks. A name git would refuse as a branch is refused;
+  a branch that does not exist is marked with a note. `SOFAR_ABANDON=off`
+  ignores every mark.
+- `sofar uninit --agent <id>` (r4-fixes A11) — one agent's wiring, reversed
+  exactly as this clone's wiring journal records sofar writing it, and
+  nothing else: each of the agent's own files (Claude Code: .claude/settings.json,
+  .mcp.json, CLAUDE.md; Cursor: .cursor/hooks.json, .cursor/mcp.json;
+  Codex: .codex/hooks.json, .codex/config.toml; AGENTS.md with the last of
+  Cursor and Codex) that a journal line wrote is stripped surgically as by
+  `sofar uninit`, and deleted when that leaves it empty and a journaled write
+  created it; a shim goes only when no hook config left in the repo runs its
+  directory and its bytes are still the journaled ones; a directory goes only
+  when this run emptied it. A file of the agent the journal never names, and
+  a shim changed since, are left and listed; when nothing could be removed
+  the run exits 1 and changes no byte. .sofar/, .gitattributes, the git
+  hooks and the other agents' files are never touched; `--purge` with
+  `--agent` exits 1. The run is journaled and withdraws the agent's choice.
 - `sofar uninit [--purge]` — exact inverse of init, surgical: remove the
   hook shims from either home (`.claude/hooks/`, or `.cursor/hooks/sofar/`
   for a repo set up without Claude Code — r1-fixes 7.1) and Codex's from
@@ -6787,13 +7271,16 @@ subdirectory, against 33 of 33 from the root.
   pinned by test to pass validatePayload and to append through `event
   append`.
 - `sofar bind <D<n>> <cmd> [--hint <text>] [--initiative <slug>]` (r3-fixes
-  2.10c) — give a standing rule the test that proves it. It re-files D<n>
-  exactly as recorded (chose, over, because, rule, quote, guard), plus
-  `check: {cmd, hint?}` and `supersedes: D<n>`, through the same validated
-  append. It prints `bound <slug> D<m> (supersedes D<n>): check \`<cmd>\``,
-  adding a note when the command is not test-shaped, because the Stop gate
-  cannot read such a command. It refuses a non-handle, a missing decision, a
-  decision with no rule, and a retired one (naming its replacement).
+  2.10c; r4-fixes A8) — give a standing rule the test that proves it. It
+  appends `check_bound` {decision: `D<n>`, decision_id, check: {cmd, hint?}}
+  through the same validated append (§Decision checks), so the rule keeps its
+  handle. It prints `bound <slug> D<n>·<sfx>: check \`<cmd>\`[ (it replaces
+  \`<old cmd>\`)] — the same rule, the same handle`, adding a note when the
+  command is not test-shaped, because the Stop gate cannot read such a
+  command; when the rule already carries that exact check it appends nothing
+  and says `<slug> D<n>·<sfx> already carries check \`<cmd>\` — nothing to
+  bind`. It refuses a non-handle, a missing decision, a decision with no
+  rule, and a replaced one (naming its replacement).
 - `sofar read <paths…> [--session <id>] [--full]` (memory-lead 4.3 part C,
   D42, D45) — what a rewritten whole-file read runs. A record's plan.md,
   decisions.md, memory.md and brief.md print as written (the first three are
@@ -7402,7 +7889,12 @@ stay the underlying derivation's, and exit codes are styling-independent.
   baseline's installed `@sofar.sh/core-<platform>-<arch>` package, a
   checkout's own `target/release/sofar-core` and never the published
   package its node_modules may hold; `--baseline-core` /
-  `--candidate-core` name one). Before a leg is timed an engine witness
+  `--candidate-core` name one). A third leg, `installed` (r4-fixes A12),
+  is named only: `SOFAR_CORE` unset, each side's shims routing by themselves
+  on a PATH holding that install's own bin dir (`--baseline-bin` /
+  `--candidate-bin`, else an npm prefix's `bin/`), each side with its own
+  XDG_DATA_HOME; the install's first hook is timed apart and printed, and
+  the engines are printed, not compared. Before a leg is timed an engine witness
   runs every hook once per side and records which engine answered; when a
   hook ran different engines on the two sides, or not the leg's, the
   script refuses to compare and exits 4 — a delta between two engines is
@@ -8909,6 +9401,22 @@ stay the underlying derivation's, and exit codes are styling-independent.
   repoint an already-wired Cursor onto Claude Code's shims), that a refusal
   exits 1 and changes no byte, that nothing lands under the subdirectory, and
   that the wiring journal names exactly the files each writing run changed.
+- **Wiring consent (r4-fixes A11):** a property test over (wired set × the
+  consent set a journal line records × `--agents` none or each × terminal or
+  not × `--refresh`), every wired agent's own files stale, holds that the
+  hosts written are within `--agents` ?? the chosen wired agents (the picker's
+  Enter choosing the wired set when none is chosen) ?? a refusal that changes
+  no byte, that each unchosen wired agent a nameless run left is named, and
+  that writes to unselected hosts total 0. A Claude Code repo given Cursor and
+  then `sofar uninit --agent cursor` is byte-identical to before, a user's
+  AGENTS.md text kept; Codex added to and removed from a Claude Code + Cursor
+  repo likewise; `--agent claude-code` keeps the shims Cursor runs; files the
+  journal never names make `--agent` exit 1 with no byte changed; a changed
+  shim is left. An explicit choice that writes nothing is journaled; a clone
+  with only 0.34.1 lines adopts its wired set on its first writing run;
+  doctor cites `<journal>:<line>` for a chosen host and WARNs for an unchosen
+  one; `doctor --fix` and an upgrade journal their runs and leave consent
+  alone. Tests: test/wiring-consent.test.ts, test/init-selection.test.ts.
   A Claude-only repo on a machine with `~/.cursor` (a scratch HOME) gains no
   `.cursor/*` after a non-TTY `sofar init`, an interactive Enter, `sofar init`
   from `packages/x/` (also with a `.sofar/` there), or `sofar upgrade`
@@ -8922,6 +9430,25 @@ stay the underlying derivation's, and exit codes are styling-independent.
   when a global install's `bin/sofar-core` is still the JavaScript stub, and
   not for the binary, a source checkout or Windows; the README installs with
   `--allow-scripts=sofar.sh`.
+- **Self-activating core (r4-fixes A12):** with a fake core, a TypeScript boot
+  built with its digest copies it into `$XDG_DATA_HOME/sofar/core/<version>/`
+  (mode 755, no staging debris), points `current` at it by a relative symlink,
+  and the next boot only looks; `SOFAR_CORE` set to anything, a build with no
+  digest for the platform, no platform package, or a size or sha256 mismatch
+  (remembered, not re-hashed) activates nothing; an install whose
+  `bin/sofar-core` is the binary needs no store unless a `current` on another
+  version would shadow it, which is refreshed; an upgrade keeps only the
+  version it replaced; an unwritable store keeps the old `current`; Windows
+  writes `%LOCALAPPDATA%\sofar\core\<version>\sofar-core.exe` and
+  `current.txt`. On a PATH with neither node nor sofar, every Claude Code and
+  Cursor shim execs the activated core with stdin whole after one boot, and
+  `SOFAR_CORE=0` still forces the CLI; the Codex shim's exit-64 hand-off
+  reaches `sofar` with `SOFAR_CORE=0` and stdin whole. Through the real
+  channel: `npm install -g --ignore-scripts` of a sofar.sh built with the
+  local core's digest plus its platform package leaves the stub, one `sofar
+  init` activates the core, the stop shim answers on `PATH=/usr/bin:/bin`, and
+  doctor names the activated path. Tests: test/core-store.test.ts,
+  test/packaging.test.ts.
 - **Codex hooks (agents-parity 2.1):** `.codex/hooks.json` uses only keys and
   events codex 0.154.0 parses (contract fixture `config_shape`). On the 0.154.0
   payload fixtures dispatched with `--host codex`:
@@ -9041,6 +9568,21 @@ stay the underlying derivation's, and exit codes are styling-independent.
   - Filed. What the run settles is written into §Cursor host and §Driver,
     whichever way it went. It settled: print mode's hook set, the chat id's
     identity across stream and hooks, and `inputTokens` excluding cache reads.
+- **Cursor without a Stop gate; guarded rules first (r4-fixes A9):** both
+  engines, byte for byte (conformance `syn.cursor-debt`). A Cursor
+  postToolUse edit of a path two or more rules guard adds the bound line
+  naming every one, each rule's words once per session, once per path, also
+  after a read whose notice folded some into "…and N more"; Claude Code and
+  `SOFAR_CURSOR_DEBT=off` get the notice alone. A Cursor sessionEnd for a
+  session whose rule-bound edit has no covering pass after it appends one
+  `note_added` with the gate's lines, written back or not, never twice; a
+  covering pass, Claude Code, `SOFAR_CURSOR_DEBT=off` or `SOFAR_ENFORCE=off`
+  files none. The digest leads Standing constraints with the rules whose
+  `path:` guard binds the focus files, oldest first, `SOFAR_RANK=v034`
+  restoring 0.34's order, and renderStatus(digestState(s)) still equals
+  renderStatus(s). Replayed on round 4's Cursor S18–S20 (3 reps): G1 is
+  named in the digest and at S18's first `lib/inventory` edit in every rep
+  where G1 carries a guard.
 - **Rule fidelity (memory-lead 1.2):** decision_logged accepts `quote` with a
   `rule` up to 300 chars and rejects it without one, empty, or longer. The
   round-1 pair (rule "…reject anything else with 4xx.", quote "Reject
@@ -9229,6 +9771,22 @@ stay the underlying derivation's, and exit codes are styling-independent.
   session_ended follows the session's home without a slug and is refused
   with a slug naming another record. Round 4's 5 refused payloads file with
   none refused whole. Tests: test/writeback-isolation.test.ts.
+- **In-band write-back (r4-fixes A1):** a final reply ending with a
+  ```` ```sofar ```` block of sofar_end_session's arguments files, at Stop
+  (Claude Code, Codex) or Cursor's sessionEnd, exactly the events the tool
+  files from the same arguments, under the hook's session and its registered
+  tool, with no sofar tool call. Replaying round 4's 94 write-backs (65
+  Claude, 29 Codex) as blocks against the record each was filed into folds
+  to the tool path's state, 100% (three Codex payloads named a session sofar
+  minted for an argless sofar_start_session; an inline session makes no
+  start call, so their blocks carry no session_id, and the tool leg files
+  the same arguments). Each of 20 malformed blocks gets one repair
+  ask and nothing filed; answered with the same block, every entry is filed
+  or kept verbatim as a note — 0 lost. `SOFAR_WRITEBACK=tool` is 0.34
+  byte for byte. The native core hands such a Stop or SessionEnd to
+  TypeScript, so both engines answer it identically. Tests:
+  test/inline-writeback.test.ts, test/inline-replay.test.ts (private data),
+  sofar-core `inline` unit tests.
 - **Index and shards (memory-lead 4.3 part A, D45):** decisions.md lists
   every decision as one line, a replaced one as its handle and successor and a
   retired one as its handle and task; decisions/D<n>.md holds it whole and
@@ -9271,9 +9829,14 @@ stay the underlying derivation's, and exit codes are styling-independent.
   `make`, editors, `cat a | sh`, `python3 - <<EOF` and `sed 's/a/b/w out'`
   mark; `cat … | grep`, `git status`, `git add -A && git commit`, `sofar
   event append`, `sed -n 5,9p` and a plain `cat <<EOF` do not.
-- **Binding (r3-fixes 2.10c):** `sofar bind D1 'bun test test/store.test.ts'`
-  files D2 with D1's rule, quote and guard plus the check, retires D1, and a
-  session that edits the guarded file is then asked to run that test. It
+- **Binding (r3-fixes 2.10c; r4-fixes A8):** `sofar bind D1 'bun test
+  test/store.test.ts'` appends `check_bound` and D1 keeps its handle and
+  takes the check (no D2), a session that edits the guarded file is then
+  asked to run that test, the same bind again appends nothing, and another
+  command replaces the check. fold-parity `FP-25-check-bound` pins the fold
+  in both engines: the ordinal stays, a re-bind replaces, a plain decision
+  or an unfolded id binds nothing with a warning, a missing check is an
+  invalid line, never drift. It
   refuses `twelve`, a missing D9, a rule-less decision and a retired one. A
   rule naming `src/db/store.ts` with no check is nudged with `sofar bind D1`;
   one with a test-shaped check, and one naming no file, are not.

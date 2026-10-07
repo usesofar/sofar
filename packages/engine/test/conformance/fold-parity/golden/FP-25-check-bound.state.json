@@ -1,0 +1,101 @@
+{
+  "state": {
+    "brief": "",
+    "current": {
+      "active_phase": null,
+      "next_action": "bind cents"
+    },
+    "cursor": "01KDVDNPP8RQA1CVY50ZJ9M36D",
+    "decisions": [
+      {
+        "because": "undo",
+        "check": {
+          "cmd": "bun test test/store.test.ts -t soft",
+          "hint": "restore the soft delete"
+        },
+        "chose": "soft delete",
+        "guard": "path:src/db/**",
+        "id": "01KDVDNCXRPXRQA1CVY50ZJ9M3",
+        "over": "hard delete",
+        "quote": "never hard-delete",
+        "rule": "Never hard-delete anything the traveller made.",
+        "superseded_by": 4,
+        "ts": "2026-01-01T00:00:03.000Z"
+      },
+      {
+        "because": "simpler",
+        "chose": "queue retries",
+        "id": "01KDVDNEW8GF2S4KPXRQA1CVY5",
+        "over": "cron",
+        "ts": "2026-01-01T00:00:05.000Z"
+      },
+      {
+        "because": "rounding",
+        "check": {
+          "cmd": "bun test test/money.test.ts",
+          "timeout_ms": 30000
+        },
+        "chose": "integer cents",
+        "id": "01KDVDNKRG1CVY50ZJ9M36D87T",
+        "over": "floats",
+        "rule": "Store money as integer cents.",
+        "ts": "2026-01-01T00:00:10.000Z"
+      },
+      {
+        "because": "storage",
+        "chose": "hard delete after 30 days",
+        "id": "01KDVDNPP8RQA1CVY50ZJ9M36D",
+        "over": "never",
+        "rule": "Hard-delete only what is 30 days in the bin.",
+        "supersedes": "D1",
+        "ts": "2026-01-01T00:00:13.000Z"
+      }
+    ],
+    "drop_notes": {},
+    "files_touched": [],
+    "freshness": {
+      "events_since_writeback": {
+        "commands": 0,
+        "decisions": 1,
+        "files": 0,
+        "memories": 0,
+        "notes": 0,
+        "phases": 0,
+        "reviews": 0,
+        "tasks": 0
+      },
+      "last_writeback_ts": "2026-01-01T00:00:11.000Z",
+      "notes": [],
+      "unattributed_mutations": 1
+    },
+    "goal": "g",
+    "guard_violations": [],
+    "memories": [],
+    "phases": [],
+    "reviews": [],
+    "runs": [],
+    "sessions": [
+      {
+        "ended": "2026-01-01T00:00:11.000Z",
+        "id": "A",
+        "next_action": "bind cents",
+        "started": "2026-01-01T00:00:02.000Z",
+        "summary": "logged cents",
+        "tool": "claude-code",
+        "unwritten": 0
+      }
+    ],
+    "slug": "demo",
+    "status": "active",
+    "status_note": null,
+    "status_overrides": [],
+    "status_ts": null,
+    "successor": null,
+    "task_files": {}
+  },
+  "warnings": [
+    "line 6: check_bound D2 names a decision with no rule — a check belongs to a rule, so nothing is bound",
+    "line 7: check_bound names D9 (01ARZ3NDEKTSV4RRFFQ69G5FAV), which this record never folded — skipped",
+    "line 9: invalid check_bound payload (check: must be {cmd, hint?, timeout_ms?}) — skipped"
+  ]
+}

@@ -6,6 +6,7 @@ import { appendToCheckpoint, countLines, decodeLines, finalizeFold, replayDecode
 import { regenerateProjections } from '../src/projections/generator'
 import { renderSession } from '../src/projections/templates/session'
 import { initiativeText, shapes, type CorpusSpec } from './conformance/perf/corpus'
+import { scaled } from './helpers/tracked'
 
 /**
  * rust-core 4.4, decision 01M39M4B: dirty-only session projections must stay
@@ -115,7 +116,7 @@ describe('dirty-only session projections (rust-core 4.4, 01M39M4B)', () => {
       steps += replayAndCompare(slug, lines, lines.length <= 300 ? 1 : Math.ceil(lines.length / 150))
     }
     expect(steps).toBeGreaterThan(1000)
-  }, 600_000)
+  }, scaled(600_000))
 
   it('a team-shaped record: many writers, open and unwritten sessions, in batches', () => {
     const spec: CorpusSpec = { name: 'dirty', initiatives: 2, writers: 24, events: 8_000, humanShare: 0.3, tail: 1, seed: 31 }
@@ -123,7 +124,7 @@ describe('dirty-only session projections (rust-core 4.4, 01M39M4B)', () => {
     const text = initiativeText(spec, shape!, 0)
     const lines = text.text.split('\n').filter((l, i, a) => !(i === a.length - 1 && l === ''))
     expect(replayAndCompare(text.slug, lines, 40)).toBeGreaterThan(50)
-  }, 600_000)
+  }, scaled(600_000))
 
   describe('a clean session is rewritten whenever the file or the key moved', () => {
     function seeded(): { dir: string; state: InitiativeState; file: string } {

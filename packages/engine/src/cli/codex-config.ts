@@ -40,11 +40,72 @@ export const CODEX_TOOLS_APPROVAL = 'default_tools_approval_mode = "approve"'
 export const CODEX_DIRECT_KEY = 'direct_only_tool_namespaces = ["mcp__sofar"]'
 export const CODEX_DIRECT_TABLE = `[features.code_mode]\n${CODEX_DIRECT_KEY}\n`
 
-/** The table init appends: the same server `.mcp.json` registers, in TOML. */
-export const CODEX_MCP_TABLE = ((): string => {
+/**
+ * The tools Codex lists from sofar's server (r4-fixes A2; R4-RESEARCH 1.2 O2):
+ * `enabled_tools` keeps only the write-back. The nine tools are 8,850 chars of
+ * `tools/list` (~2.2k tokens) on every Codex call, and the write-back carries
+ * every other write. `sofar init --codex-tools` picks another set: `all` (no
+ * key, as 0.34), `none` (`[]`, for an inline write-back), or a list.
+ */
+export const CODEX_DEFAULT_TOOLS: readonly string[] = ['sofar_end_session']
+
+/**
+ * The server's own copy of the list (r4-fixes A2), passed in the table's
+ * `env`: `enabled_tools` filters the client, so only this tells the server
+ * that its instructions must not send the agent to a tool Codex hides.
+ */
+export const MCP_TOOLS_ENV = 'SOFAR_MCP_TOOLS'
+
+/** The table init appends: the same server `.mcp.json` registers, in TOML; `tools` null lists every tool (0.34's table). */
+export function codexMcpTable(tools: readonly string[] | null): string {
   const { command, args } = mcpRegistration().mcpServers.sofar
-  return `[mcp_servers.sofar]\ncommand = ${JSON.stringify(command)}\nargs = [${args.map((arg) => JSON.stringify(arg)).join(', ')}]\n${CODEX_TOOLS_APPROVAL}\n`
-})()
+  const head = `[mcp_servers.sofar]\ncommand = ${JSON.stringify(command)}\nargs = [${args.map((arg) => JSON.stringify(arg)).join(', ')}]\n${CODEX_TOOLS_APPROVAL}\n`
+  if (tools === null) return head
+  return `${head}enabled_tools = [${tools.map((t) => JSON.stringify(t)).join(', ')}]\nenv = { ${MCP_TOOLS_ENV} = ${JSON.stringify(tools.join(','))} }\n`
+}
+
+/** 0.34's table, every tool listed — still what `SOFAR_PAYLOAD=v034` and `--codex-tools all` write. */
+export const CODEX_MCP_TABLE = codexMcpTable(null)
+
+/**
+ * The tables a sofar init has written, byte for byte: one of them in a
+ * config.toml is sofar's own and may be swapped for another; anything else
+ * in a `[mcp_servers.sofar]` table is the user's.
+ */
+export const CODEX_KNOWN_TABLES: readonly string[] = [codexMcpTable(null), codexMcpTable(CODEX_DEFAULT_TOOLS), codexMcpTable([])]
+
+/**
+ * The file with sofar's own table swapped for `wanted`, or null when it holds
+ * none of CODEX_KNOWN_TABLES (a user's table is never touched) or already
+ * holds `wanted`.
+ */
+export function withSofarTable(text: string, wanted: string): string | null {
+  // Longest first: the 0.34 table is a prefix of the other two. A known table
+  // counts only as the WHOLE table — followed by the end, a blank line or the
+  // next header — so a key the user added under it is never duplicated.
+  for (const known of [...CODEX_KNOWN_TABLES].sort((a, b) => b.length - a.length)) {
+    const at = text.indexOf(known)
+    if (at === -1 || (at > 0 && text[at - 1] !== '\n')) continue
+    const rest = text.slice(at + known.length)
+    if (rest.length > 0 && !rest.startsWith('\n') && !rest.startsWith('[')) continue
+    return known === wanted ? null : `${text.slice(0, at)}${wanted}${rest}`
+  }
+  return null
+}
+
+/** `--codex-tools`: `end_session` (the default), `all`, `none`, or a comma list of tool names; an error string for anything else. */
+export function parseCodexTools(value: string | undefined, known: readonly string[]): readonly string[] | null | { error: string } {
+  const v = (value ?? 'end_session').trim()
+  if (v === 'end_session') return CODEX_DEFAULT_TOOLS
+  if (v === 'all') return null
+  if (v === 'none') return []
+  const names = v.split(',').map((n) => n.trim()).filter((n) => n.length > 0).map((n) => (n.startsWith('sofar_') ? n : `sofar_${n}`))
+  const unknown = names.filter((n) => !known.includes(n))
+  if (names.length === 0 || unknown.length > 0) {
+    return { error: `--codex-tools takes end_session, all, none or a list of sofar's tools (got "${value ?? ''}")` }
+  }
+  return [...new Set(names)]
+}
 
 /** The one user-level step when the project file cannot take the table: `codex mcp add` writes the user's config.toml (binary). */
 export const CODEX_MCP_ADD = ((): string => {
@@ -359,9 +420,9 @@ export function codexConfigRegistersSofar(path: string): boolean {
 }
 
 /** Append the table after the file's own bytes, a blank line between. Only for an `absent` file. */
-export function withSofarServer(text: string): string {
+export function withSofarServer(text: string, table: string = CODEX_MCP_TABLE): string {
   const separator = text.length === 0 ? '' : text.endsWith('\n') ? '\n' : '\n\n'
-  return `${text}${separator}${CODEX_MCP_TABLE}`
+  return `${text}${separator}${table}`
 }
 
 /**

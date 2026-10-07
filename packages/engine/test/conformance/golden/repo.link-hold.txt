@@ -12,7 +12,7 @@ exit: 0
 argv: ["event","append","--type","decision_logged","--session","hold-sess","--source","cursor","--payload","{\"chose\":\"Projections are pinned by render-parity goldens too\",\"over\":\"hook goldens only\",\"because\":\"templates drift\",\"rule\":\"Hot-path projections must match the render-parity goldens on both implementations\",\"supersedes\":\"D1\"}"]
 exit: 0
 --- stdout
-{"ok":true,"event_id":"<ULID>","warnings":["D4·<SFX> names D1·1x01 \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the con…\" as what it replaces, but D1·1x01 was already replaced by D3·<SFX> \"Hot-path hook output must match the conformance goldens on both implementations\". The link is held and D1·1x01 stays in force until it is answered: `sofar supersedes D4·<SFX> D3·<SFX>` if D3·<SFX> is, `sofar supersedes D4·<SFX> none` if it replaces nothing. Until then the digest shows it and Stop asks."]}
+{"ok":true,"event_id":"<ULID>","warnings":["D4·<SFX> names D1·1x01 \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the con…\" as what it replaces, but D1·1x01 was already replaced by D3·<SFX> \"Hot-path hook output must match the conformance goldens on both implementations\" — D4·<SFX> looks like a new version of D3·<SFX> (`hook output` → `projections`, `conformance` → `render-parity`). The link is held and D1·1x01 stays in force until it is answered: `sofar supersedes D4·<SFX> D3·<SFX>` if D3·<SFX> is, `sofar supersedes D4·<SFX> none` if it replaces nothing. Until then the digest shows it and Stop asks."]}
 --- stderr
 (empty)
 

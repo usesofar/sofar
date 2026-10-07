@@ -69,19 +69,18 @@ const stop = (root: string, id: string) =>
   handleStop(root, JSON.stringify({ session_id: id, hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 0)
 
 describe('a bind re-log renders as one entry, the old handle its alias', () => {
-  it('decisions.md, the digest, the shards and the bind result all say one rule', () => {
+  /** What `sofar bind` appended before 0.35 (r4-fixes U5): the rule re-filed word for word, plus its check, superseding itself. */
+  const relog = (root: string, of: DecisionState, ordinal: number, cmd: string): string =>
+    emit(root, 'decision_logged', { chose: of.chose, over: of.over, because: of.because, rule: of.rule, ...(of.guard !== undefined ? { guard: of.guard } : {}), check: { cmd }, supersedes: `D${ordinal}`, supersedes_id: of.id }, 'cli')
+
+  it('a legacy re-log: decisions.md, the digest and the shards all say one rule', () => {
     const root = repo()
     emit(root, 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'undo', rule: SOFT, guard: 'path:src/db/**' })
     const before = foldLog(logOf(root)).state
     const d1 = suffixedHandle(1, before.decisions[0]!.id)
-
-    // Bound by its suffixed handle, as every line prints it.
-    const r = runBind(root, d1, 'bun test test/store.test.ts', {}, plain, plain)
-    expect(r.exitCode).toBe(0)
+    relog(root, before.decisions[0]!, 1, 'bun test test/store.test.ts')
     const state = foldLog(logOf(root)).state
     const d2 = suffixedHandle(2, state.decisions[1]!.id)
-    expect(r.stdout).toContain(`bound demo ${d1}: check \`bun test test/store.test.ts\` — the same rule, now listed as ${d2} (alias ${d1})`)
-    expect(r.stdout).not.toContain('supersedes')
 
     // The fold is unchanged: a supersession, stamped.
     expect(state.decisions[0]!.superseded_by).toBe(2)
@@ -109,21 +108,43 @@ describe('a bind re-log renders as one entry, the old handle its alias', () => {
     expect(renderStatus(digestState(state))).toBe(digest)
   })
 
-  it('a replaced or retired bind target is refused by its suffixed handle, naming the one to bind', () => {
+  it('a bind now keeps the handle (r4-fixes A8): one decision, its check, no alias', () => {
+    const root = repo()
+    emit(root, 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'undo', rule: SOFT, guard: 'path:src/db/**' })
+    const d1 = suffixedHandle(1, foldLog(logOf(root)).state.decisions[0]!.id)
+    // Bound by its suffixed handle, as every line prints it.
+    const r = runBind(root, d1, 'bun test test/store.test.ts', {}, plain, plain)
+    expect(r.exitCode).toBe(0)
+    expect(r.stdout).toContain(`bound demo ${d1}: check \`bun test test/store.test.ts\` — the same rule, the same handle`)
+    expect(r.stdout).not.toContain('supersedes')
+    expect(r.stdout).not.toContain('alias')
+    const state = foldLog(logOf(root)).state
+    expect(state.decisions).toHaveLength(1)
+    expect(renderDecisions(state).split('\n').filter((l) => l.startsWith('- D'))).toEqual([`- ${d1} ${state.decisions[0]!.ts.slice(0, 10)} — rule: ${SOFT}`])
+    expect(decisionEntry(state, 1)).toContain('\ncheck: bun test test/store.test.ts')
+    expect(renderStatus(state)).toContain(`- [${d1}] ${SOFT}`)
+    expect(renderStatus(digestState(state))).toBe(renderStatus(state))
+  })
+
+  it('a replaced bind target is refused by its suffixed handle, naming the one to bind; a legacy chain folds whole', () => {
     const root = repo()
     emit(root, 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'undo', rule: SOFT })
-    runBind(root, 'D1', 'bun test a.test.ts', {}, plain, plain)
+    relog(root, foldLog(logOf(root)).state.decisions[0]!, 1, 'bun test a.test.ts')
     const state = foldLog(logOf(root)).state
     const r = runBind(root, 'D1', 'bun test b.test.ts', {}, plain, plain)
     expect(r.exitCode).toBe(1)
     expect(r.stderr).toContain(`demo ${suffixedHandle(1, state.decisions[0]!.id)} was replaced by ${suffixedHandle(2, state.decisions[1]!.id)} — bind that one`)
-    // Binding the replacement again chains: one entry, both aliases.
-    expect(runBind(root, suffixedHandle(2, state.decisions[1]!.id), 'bun test b.test.ts', {}, plain, plain).exitCode).toBe(0)
+    // A second legacy re-log chains: one entry, both aliases.
+    relog(root, state.decisions[1]!, 2, 'bun test b.test.ts')
     const after = foldLog(logOf(root)).state
     const md = renderDecisions(after).split('\n').filter((l) => l.startsWith('- D'))
     expect(md).toEqual([
       `- ${suffixedHandle(3, after.decisions[2]!.id)} ${after.decisions[2]!.ts.slice(0, 10)} — (alias ${suffixedHandle(1, after.decisions[0]!.id)}, ${suffixedHandle(2, after.decisions[1]!.id)}) rule: ${SOFT}`,
     ])
+    // Binding the entry in force now keeps its handle.
+    expect(runBind(root, suffixedHandle(3, after.decisions[2]!.id), 'bun test c.test.ts', {}, plain, plain).exitCode).toBe(0)
+    expect(foldLog(logOf(root)).state.decisions).toHaveLength(3)
+    expect(foldLog(logOf(root)).state.decisions[2]!.check).toEqual({ cmd: 'bun test c.test.ts' })
   })
 
   it('sofar check finds a check by its suffixed handle, bare or qualified', async () => {

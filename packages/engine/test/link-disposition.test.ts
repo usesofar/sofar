@@ -87,9 +87,25 @@ describe('stamping', () => {
     const d1 = fold(f).decisions[0]!
     expect(lastPayload(f).link_candidates).toEqual([d1.id])
     expect(fold(f).decisions[2]!.link_pending).toEqual({ session: 'cli', candidates: [1] })
+    // The version clause is slot-diff's (r4-fixes A8): the same frame, the count changed.
     expect(result.warnings?.map(bare)).toContain(
-      'D3 is a rule that names nothing it replaces; it may replace D1 "Retry a failed charge at most three times, one day apart". If it does, answer `sofar supersedes D3 D1`; if not, `sofar supersedes D3 none`. Until then the digest shows it and Stop asks.',
+      'D3 is a rule that names nothing it replaces; it may replace D1 "Retry a failed charge at most three times, one day apart" — D3 looks like a new version of D1 (`three` → `five`). If it does, answer `sofar supersedes D3 D1`; if not, `sofar supersedes D3 none`. Until then the digest shows it and Stop asks.',
     )
+  })
+
+  it('SOFAR_SLOTDIFF=off asks without the version clause (r4-fixes A8 ablation arm)', () => {
+    const f = fx()
+    logDecision(f.ctx, RETRY)
+    logDecision(f.ctx, TAX)
+    process.env.SOFAR_SLOTDIFF = 'off'
+    try {
+      const result = logDecision(f.ctx, RETRY_V2)
+      expect(result.warnings?.map(bare)).toContain(
+        'D3 is a rule that names nothing it replaces; it may replace D1 "Retry a failed charge at most three times, one day apart". If it does, answer `sofar supersedes D3 D1`; if not, `sofar supersedes D3 none`. Until then the digest shows it and Stop asks.',
+      )
+    } finally {
+      delete process.env.SOFAR_SLOTDIFF
+    }
   })
 
   it('"supersedes":"none" is stripped and stamps nothing; a plain decision and an unrelated rule are never asked', () => {

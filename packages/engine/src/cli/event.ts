@@ -73,8 +73,23 @@ import {
   type ScopedMemory,
 } from '../core/index-tier1'
 import { rankByRelevance, refreshRelevance, relevance, type RelevanceRow } from '../core/index-relevance'
-import { addTold, clearTold, readTold, toldKey } from '../core/told'
-import { resolvePeers, type Peer } from '../core/peers'
+import {
+  addTold,
+  clearTold,
+  debtBand,
+  entryToldKey,
+  fragmentEpoch,
+  pointToldKey,
+  readTold,
+  renderedEntryIds,
+  setFragment,
+  toldKey,
+  toldLinesEnabled,
+  updateTold,
+} from '../core/told'
+import { BOUND_TOLD, boundLine, cursorDebtEnabled, debtNoteHead, debtNoteText } from '../core/cursor-debt'
+import { livePeers, resolvePeers, type Peer } from '../core/peers'
+import { continuesFor, lineageEnabled, readLineage, resolveLineage, writeBaton, writeLineage } from '../core/lineage'
 import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
 import { nextTask } from '../core/drive-queue'
 import { noteDriveSeen } from '../core/drive-seen'
@@ -86,8 +101,8 @@ import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
 import { cacheChanges, cachedChanges, markWrote, pathspecKey, readWrote } from '../core/wrote'
-import { readGateEnabled, rewriteRawRead } from '../core/read-rewrite'
-import { RECALL_TOLD_KEY, recallBlock, recallEnabled } from '../core/recall'
+import { readGateEnabled, rewriteRawRead, rewriteRawReadSegments } from '../core/read-rewrite'
+import { cappedRecallBlock, RECALL_TOLD_KEY, recallBlock, recallEnabled, recallV034 } from '../core/recall'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes, handleAt, qualifiedHandle, suffixedHandle } from '../core/handle'
@@ -96,12 +111,16 @@ import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
 import { newestEvent } from '../core/warmth'
 import { worktreeLeads } from '../core/record-copies'
+import { abandonEnabled } from '../core/abandoned'
 import { worktreeLeadsNotice } from '../projections/templates/copies'
 import { copyLagGuard } from '../mcp/copy-lag'
+import { fileInlineWriteback } from '../mcp/inline-writeback'
+import { finalReplyText, writebackMode, type WritebackMode } from '../core/inline-block'
 import {
   createToolContext,
   homeInitiative,
   initiativeSlugs,
+  recordOpen,
   registrationIn,
   resolveSessionFirst,
   toSource,
@@ -116,7 +135,9 @@ import {
   minutiaeHead,
   renderStatus,
   sessionIdLine,
+  STATUS_CHAR_LIMIT,
 } from '../projections/templates/status'
+import { digestLimit } from '../core/host-payload'
 import { REPO_MD_STUB, readInput } from './shared'
 import {
   DECLARED_HOSTS,
@@ -153,8 +174,21 @@ export interface HookResult {
 
 const OK: HookResult = { exitCode: 0, stdout: '', stderr: '' }
 
-export const STOP_BLOCK_MESSAGE =
+/** The hold as 0.34 worded it — SOFAR_WRITEBACK=tool, the ablation arm (r4-fixes A1). */
+export const STOP_BLOCK_MESSAGE_TOOL =
   'Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).'
+
+/**
+ * The hold under the in-band write-back (r4-fixes A1, the default): the
+ * cheapest repair is the block itself — the continuation's reply ends with
+ * it and the next Stop files it, with no tool call. The tool path still works.
+ */
+export const STOP_BLOCK_MESSAGE =
+  'Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.'
+
+export function stopBlockMessage(mode: WritebackMode = writebackMode()): string {
+  return mode === 'inline' ? STOP_BLOCK_MESSAGE : STOP_BLOCK_MESSAGE_TOOL
+}
 
 /**
  * The same hold as a Codex session reads it (agents-parity 3.3): it names the
@@ -162,7 +196,10 @@ export const STOP_BLOCK_MESSAGE =
  * answered the generic line with a bare `sofar event append`, and that landed
  * under `cli`, so the gate never saw its own session write back.
  */
-export function codexStopMessage(slug: string, session: string): string {
+export function codexStopMessage(slug: string, session: string, mode: WritebackMode = writebackMode()): string {
+  if (mode === 'inline') {
+    return `Write back to the sofar record before finishing: end your reply with a \`\`\`sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session with session_id ${session} (or \`sofar event append ${slug} --type session_ended --source codex --session ${session}\`).`
+  }
   return `Write back to the sofar record before finishing: call sofar_end_session with session_id ${session} (or \`sofar event append ${slug} --type session_ended --source codex --session ${session}\`).`
 }
 
@@ -648,7 +685,7 @@ function agoLabel(ms: number): string {
 export function otherWorktreesNotice(rootDir: string, slug: string, logPath: string): string | null {
   if (slug === QUICK_LANE) return null
   try {
-    return worktreeLeadsNotice(worktreeLeads(rootDir, slug, logPath), homedir())
+    return worktreeLeadsNotice(worktreeLeads(rootDir, slug, logPath), homedir(), abandonEnabled())
   } catch {
     return null
   }
@@ -809,6 +846,80 @@ function sessionMergeNotice(rootDir: string, slug: string, state: InitiativeStat
   }
 }
 
+/**
+ * Trace a new session id to the session it continues (r4-fixes A10,
+ * core/lineage.ts) and leave the answer where every later hook reads it.
+ * Only for an id no log registered and no earlier SessionStart traced; never
+ * an append. True when the session resolves by lineage (now or before).
+ */
+function traceLineage(rootDir: string, hook: Obj, sessionId: string): boolean {
+  try {
+    if (!lineageEnabled() || sessionId === 'cli') return false
+    const ctx = createToolContext(rootDir)
+    if (!existsSync(ctx.sofarDir)) return false
+    if (readLineage(ctx.sofarDir, sessionId) !== null) return true
+    // Carriers first, the registration scan only once one fires: a fresh
+    // startup has none, and SessionStart then pays no extra scan of the logs.
+    const lineage = resolveLineage({
+      rootDir,
+      sofarDir: ctx.sofarDir,
+      sessionId,
+      source: strField(hook, 'source'),
+      title: strField(hook, 'session_title'),
+      transcriptPath: strField(hook, 'transcript_path'),
+      isOpen: (slug) => recordOpen(ctx, slug),
+      homeOf: (id) => homeInitiative(ctx.sofarDir, id, null),
+      nowMs: Date.now(),
+    })
+    if (lineage === null || homeInitiative(ctx.sofarDir, sessionId, null) !== null) return false
+    return writeLineage(ctx.sofarDir, sessionId, lineage)
+  } catch {
+    return false
+  }
+}
+
+/** Character budget for the contested-branch line (r4-fixes A10). */
+export const CONTESTED_BUDGET = 400
+
+/**
+ * A branch serving more than one live record (r4-fixes A10; 1.4 O2 (b); R11
+ * (c), narrowing binding-follows-session D2 to the recent-work notice): a
+ * session that resolved with no carrier — no registration, no lineage — is
+ * told which records the LIVE sessions in this worktree are homed in, when
+ * that is not just the one it opened. Liveness is the host registry's pid
+ * (core/peers.ts), so only Claude Code peers count; the record alone cannot
+ * tell a live sibling from a crashed one, which is why D2's notice still
+ * never weighs it. Shows the multi-value instead of resolving it.
+ */
+export function contestedNotice(ctx: ToolContext, rootDir: string, slug: string, sessionId: string | null): string | null {
+  try {
+    if (sessionId === null) return null
+    const branch = currentBranch(rootDir)
+    if (branch === null) return null
+    const root = resolve(rootDir)
+    const peers = livePeers().filter((p) => p.sessionId !== sessionId && (p.cwd === root || p.cwd.startsWith(`${root}/`)))
+    if (peers.length === 0) return null
+    if (homeInitiative(ctx.sofarDir, sessionId, slug) !== null) return null
+    const counts = new Map<string, number>()
+    for (const peer of peers) {
+      const home = homeInitiative(ctx.sofarDir, peer.sessionId, null)
+      if (home !== null) counts.set(home, (counts.get(home) ?? 0) + 1)
+    }
+    if (counts.size === 0 || new Set([...counts.keys(), slug]).size < 2) return null
+    const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || byCodeUnit(a[0], b[0]))
+    const other = ranked.find(([s]) => s !== slug)![0]
+    const list = ranked.map(([s, n]) => `${s} (${n} ${n === 1 ? 'session' : 'sessions'})`).join(', ')
+    const records = ranked.length === 1 ? 'record' : 'records'
+    return clipTo(
+      `⚠ ${branch} serves ${ranked.length} live ${records}: ${list}. This session opened ${slug} by the branch's route; ` +
+        `if this work is ${other}, call sofar_start_session with initiative "${other}".`,
+      CONTESTED_BUDGET,
+    )
+  } catch {
+    return null
+  }
+}
+
 export function handleSessionStart(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
@@ -817,6 +928,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // Hand the host's id to CLI appends that omit --session (r1-fixes 4.1.3, D29)
     // — before resolution, because an unbound session's appends name a slug.
     if (sessionId !== null) writeSessionPointer(rootDir, sessionId, 'hook')
+    // A new id for old work (r4-fixes A10): trace its lineage before anything
+    // resolves, so this block and every later hook follow the parent's home.
+    const traced = sessionId !== null ? traceLineage(rootDir, hook, sessionId) : false
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK, stdout: unboundNotice(rootDir, sessionId) }
     const { ctx, slug, via } = bound
@@ -882,6 +996,7 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // the cap on a long record never takes it.
     const merge = mergeBlockEnabled() ? sessionMergeNotice(rootDir, slug, state, scope) : null
     const notices = [
+      traced ? null : contestedNotice(ctx, rootDir, slug, sessionId),
       recentWorkElsewhereNotice(ctx.sofarDir, slug, via),
       otherWorktreesNotice(rootDir, slug, ctx.eventsPath(slug)),
       closedBanner(state),
@@ -902,6 +1017,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
       ...(merge !== null ? { merge } : {}),
       ...(slug === QUICK_LANE ? { lane: true } : {}),
       ...(activity ? {} : { activity: false }),
+      // The host's digest budget (r4-fixes A2): Claude Code 6,000, Codex
+      // 4,000, Cursor 3,000; every host 6,000 under SOFAR_PAYLOAD=v034.
+      ...(digestLimit(host.tool) !== STATUS_CHAR_LIMIT ? { limit: digestLimit(host.tool) } : {}),
     })
     // The size half of a memory-use signal (self-improve 1.2): how many bytes
     // this hook put in front of the model, and how many of them were repo
@@ -924,9 +1042,92 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // the host to its registry — the address peers message. Only Claude Code
     // reads the key, and only an absent, derived or sofar-owned title is
     // replaced; otherwise the block goes out plain, byte-identical.
+    // The told set starts from what this block told (r4-fixes A4): its
+    // entries, and the push state its Git line gave.
+    if (sessionId !== null && toldLinesEnabled()) seedTold(ctx.sofarDir, sessionId, state, status, git)
     const title =
       host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
     return withSessionTitle('session-start', { ...OK, stdout: status }, title)
+  } catch {
+    return { ...OK }
+  }
+}
+
+/**
+ * Seed the session's told set from the block just rendered (r4-fixes A4): an
+ * entry the digest holds is never re-sent by the recall block, and a notice
+ * about it names the path, not the rule again; the Git line is the push
+ * state's first telling. A failed write re-tells, never silences.
+ */
+function seedTold(
+  sofarDir: string,
+  session: string,
+  state: InitiativeState,
+  status: string,
+  git: ReturnType<typeof readGitState>,
+): void {
+  updateTold(sofarDir, session, renderedEntryIds(state, status).map(entryToldKey), git === null ? [] : [[PUSH_FRAGMENT, pushEpoch(git)]])
+}
+
+/** The push-state fragment and its epoch: branch, HEAD and the origin tip (r4-fixes A4). */
+export const PUSH_FRAGMENT = 'push'
+function pushEpoch(git: NonNullable<ReturnType<typeof readGitState>>): string {
+  return `${git.branch}@${git.head}:${git.upstream ?? '-'}`
+}
+/** The debt nudge's fragment (r4-fixes A4). */
+export const DEBT_FRAGMENT = 'debt'
+
+/** The told-set fragment PostToolBatch sets on its first run in a session context (r4-fixes A4). */
+export const BATCH_FRAGMENT = 'batch'
+
+/** Does this session's PostToolBatch carry its surfacing? Claude Code only, and only once that hook has run. */
+function batchSurfaces(sofarDir: string, session: string, host: HookHost): boolean {
+  return host.tool === 'claude-code' && session !== 'cli' && toldLinesEnabled() && fragmentEpoch(readTold(sofarDir, session), BATCH_FRAGMENT) !== null
+}
+
+/** The tools PostToolUse's matcher sends it, and so the calls a batch surfaces for. */
+const SURFACED_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'Bash', 'Read', 'Grep'])
+
+/**
+ * PostToolBatch (r4-fixes A4; Claude Code, which fires it once after every
+ * call of a parallel batch resolved): the batch's read-time surfacing as ONE
+ * block, told once per context. Its PostToolUse calls ran concurrently, each
+ * reading a told set none had written yet, so a rule bearing on four files
+ * read at once was told four times. The first run marks the session; from
+ * then on its PostToolUse captures and this hook tells. A Claude Code without
+ * the event never marks it, so PostToolUse keeps surfacing.
+ * `SOFAR_TOLD_LINES=off` turns it off.
+ */
+export function handlePostToolBatch(rootDir: string, input: string): HookResult {
+  try {
+    if (!toldLinesEnabled()) return { ...OK }
+    const hook = parseHook(input)
+    const session = strField(hook, 'session_id')
+    if (session === null) return { ...OK }
+    const bound = resolveBound(rootDir, session)
+    if (bound === null) return { ...OK }
+    const { ctx, slug } = bound
+    if (fragmentEpoch(readTold(ctx.sofarDir, session), BATCH_FRAGMENT) === null) setFragment(ctx.sofarDir, session, BATCH_FRAGMENT, '1')
+    const subjects: NoticeSubject[] = []
+    const batch = Array.isArray(hook.tool_calls) ? hook.tool_calls : []
+    for (const raw of batch) {
+      if (!isObj(raw) || !SURFACED_TOOLS.has(strField(raw, 'tool_name') ?? '')) continue
+      const one: Obj = { ...raw, session_id: session, ...(typeof hook.cwd === 'string' ? { cwd: hook.cwd } : {}) }
+      const calls = classifyToolCall(one)
+      const edited = new Set(calls.filter((c) => c.domain === 'path').map((c) => resolve(rootDir, c.subject)))
+      subjects.push(
+        ...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })),
+        ...readPaths(one, rootDir)
+          .filter((p) => !edited.has(p))
+          .map((p) => ({ domain: 'path' as const, subject: p, edit: false })),
+      )
+    }
+    const lines = scopeNotice(ctx.sofarDir, rootDir, slug, session, subjects, { lastTouch: false })
+    if (lines.length === 0) return { ...OK }
+    return {
+      ...OK,
+      stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolBatch', additionalContext: lines.join('\n') } })}\n`,
+    }
   } catch {
     return { ...OK }
   }
@@ -1035,7 +1236,10 @@ export function handlePreTool(rootDir: string, input: string, declared?: HookHos
     const toolInput = isObj(hook.tool_input) ? hook.tool_input : null
     const cmd = toolInput === null ? null : strField(toolInput, 'command')
     if (session === null || toolInput === null || cmd === null) return { ...OK }
-    const rewritten = rewriteRawRead(cmd, strField(hook, 'cwd') ?? rootDir, rootDir, session)
+    // Per segment inside compound commands (r4-fixes A4); the whole command
+    // only, as 0.34.1, under SOFAR_TOLD_LINES=off.
+    const rewrite = toldLinesEnabled() ? rewriteRawReadSegments : rewriteRawRead
+    const rewritten = rewrite(cmd, strField(hook, 'cwd') ?? rootDir, rootDir, session)
     if (rewritten === null) return { ...OK }
     const updated = { ...toolInput, command: rewritten }
     const out =
@@ -1066,7 +1270,10 @@ function markShellWrites(sofarDir: string, session: string, calls: readonly Clas
  * session recorded as claude-code misattributes every event it carries.
  */
 function registerLazily(ctx: ToolContext, slug: string, session: string, host: HookHost): void {
-  if (session !== 'cli') ctx.registerSession(slug, session, { tool: host.tool }, { source: 'hook' })
+  if (session === 'cli') return
+  // A session lineage traced to a parent says so on its first line (r4-fixes A10).
+  const parent = continuesFor(ctx.sofarDir, session, slug)
+  ctx.registerSession(slug, session, { tool: host.tool, ...(parent !== null ? { continues: parent } : {}) }, { source: 'hook' })
 }
 
 /**
@@ -1206,10 +1413,19 @@ export function handlePostTool(rootDir: string, input: string, declared?: HookHo
 
     // Before the append, never after: the notice asks what this session has
     // already been told, and the current edit is not yet part of that history.
-    const notice = scopeNotice(ctx.sofarDir, rootDir, slug, session, [
-      ...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })),
-      ...readSubjects,
-    ])
+    // A Claude Code session whose PostToolBatch has run gets its surfacing
+    // there, once per batch (r4-fixes A4); Cursor's edits carry the bound
+    // line (A9).
+    const notice = batchSurfaces(ctx.sofarDir, session, host)
+      ? []
+      : scopeNotice(
+          ctx.sofarDir,
+          rootDir,
+          slug,
+          session,
+          [...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })), ...readSubjects],
+          { bound: host.tool === 'cursor' && cursorDebtEnabled() },
+        )
     const [call] = calls
     if (call === undefined) return injected([...driven, ...notice])
     const { head } = call
@@ -1321,7 +1537,12 @@ export function handleStop(
 ): HookResult {
   try {
     const hook = parseHook(input)
-    if (hook.stop_hook_active === true) return { ...OK }
+    const held = hook.stop_hook_active === true
+    // The in-band write-back (r4-fixes A1) files even on a Stop that already
+    // held once — the continuation's reply is where a repaired block arrives —
+    // and never holds that Stop again. SOFAR_WRITEBACK=tool is 0.34's gate.
+    const inline = writebackMode() === 'inline'
+    if (held && !inline) return { ...OK }
 
     const sessionId = strField(hook, 'session_id')
     if (sessionId === null) return { ...OK }
@@ -1334,6 +1555,15 @@ export function handleStop(
     // summary, the decision line is the why, and a gate here would be the
     // ceremony the lane exists to remove.
     if (slug === QUICK_LANE) return { ...OK }
+
+    // The block the final reply ends with, filed before the gate reads the
+    // session, so a write-back made this way owes nothing below. A block that
+    // cannot file whole files nothing and holds once with its repair ask.
+    const filing = inline
+      ? fileInlineWriteback(ctx, slug, sessionId, finalReplyText(hook, (host ?? hookHost(hook)).tool === 'cursor'), held)
+      : null
+    const told = filing?.lines ?? []
+    if (held) return told.length > 0 ? { exitCode: 0, stdout: JSON.stringify({ systemMessage: told.join('\n') }), stderr: '' } : { ...OK }
 
     const state = ctx.foldState(slug)
     const session = state.sessions.find((s) => s.id === sessionId)
@@ -1361,8 +1591,8 @@ export function handleStop(
     // nothing — it wrote back, or it never mutated the record. NaN or a
     // throw is NOT zero — both enforce (fail closed, never a silent skip
     // of the gate).
-    let owes = session.summary === undefined // write-back done owes nothing
-    if (owes) {
+    let owes = session.summary === undefined || filing?.ask !== undefined // write-back done owes nothing
+    if (owes && filing?.ask === undefined) {
       try {
         if (computeDrift(state, session) === 0) owes = false
       } catch {
@@ -1370,11 +1600,13 @@ export function handleStop(
       }
     }
     if (!owes) {
-      const held = [...merge, ...links]
-      if (gate?.blocks === true || held.length > 0) return { exitCode: 2, stdout: '', stderr: [...(gate?.lines ?? []), ...held].join('\n') }
+      const asks = [...merge, ...links]
+      // The write-back's own lines ride a hold to the agent, else reach the operator.
+      if (gate?.blocks === true || asks.length > 0) return { exitCode: 2, stdout: '', stderr: [...(gate?.lines ?? []), ...asks, ...told].join('\n') }
       // A line the gate does not hold for (an unverifiable ask, U1b) holds
       // nothing on its own: it reaches the operator, and rides any block.
-      return gate !== null && gate.lines.length > 0 ? { exitCode: 0, stdout: JSON.stringify({ systemMessage: gate.lines.join('\n') }), stderr: '' } : { ...OK }
+      const said = [...(gate?.lines ?? []), ...told]
+      return said.length > 0 ? { exitCode: 0, stdout: JSON.stringify({ systemMessage: said.join('\n') }), stderr: '' } : { ...OK }
     }
 
     // Guard crossings RIDE the block; they never cause one (D3). By the time
@@ -1399,7 +1631,7 @@ export function handleStop(
     return {
       exitCode: 2,
       stdout: '',
-      stderr: [host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : STOP_BLOCK_MESSAGE, ...crossings, ...checks, ...merge, ...links].join('\n'),
+      stderr: [filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : stopBlockMessage()), ...crossings, ...checks, ...merge, ...links].join('\n'),
     }
   } catch {
     return { ...OK }
@@ -1549,6 +1781,10 @@ function stopCheckLines(
  * else (BD21 — fabricating a session_ended here would clobber the
  * fold-derived current.next_action). Skipped when the session is unknown
  * (nothing to close) or already ended (write-back or a prior close won).
+ *
+ * On Cursor, which fires no stop hook headless (r4-fixes A9), it first files
+ * what Stop's test gate would have asked as a note for the next session,
+ * written back or not, once per session (core/cursor-debt).
  */
 export function handleSessionEnd(rootDir: string, input: string): HookResult {
   try {
@@ -1560,9 +1796,30 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK }
     const { ctx, slug } = bound
+    // `/clear` mints a new id in this same process: hand it this home
+    // (r4-fixes A10, the baton carrier in core/lineage.ts).
+    if (strField(hook, 'reason') === 'clear') writeBaton(ctx.sofarDir, sessionId, slug)
 
-    const session = ctx.foldState(slug).sessions.find((s) => s.id === sessionId)
-    if (session === undefined || session.ended !== undefined) return { ...OK }
+    // The in-band write-back's last chance (r4-fixes A1), with no ask left: a
+    // block a Stop asked about, or — on Cursor, whose headless runs never fire
+    // stop — the block its final reply ends with, read from the transcript the
+    // payload names. Filed before the close, so a write-back closes nothing.
+    if (writebackMode() === 'inline' && slug !== QUICK_LANE) {
+      try {
+        fileInlineWriteback(ctx, slug, sessionId, finalReplyText(hook, hookHost(hook).tool === 'cursor'), true)
+      } catch {
+        // Best-effort (BD22): the close below still lands.
+      }
+    }
+
+    const state = ctx.foldState(slug)
+    const session = state.sessions.find((s) => s.id === sessionId)
+    if (session === undefined) return { ...OK }
+    if (hookHost(hook).tool === 'cursor' && cursorDebtEnabled() && slug !== QUICK_LANE && enforceEnabled()) {
+      const note = cursorDebtNote(rootDir, ctx.sofarDir, slug, state, session)
+      if (note !== null) ctx.appendAndProject(slug, 'note_added', { text: note }, { session: sessionId, source: 'hook' })
+    }
+    if (session.ended !== undefined) return { ...OK }
 
     ctx.appendAndProject(slug, 'session_closed', { reason: strField(hook, 'reason') ?? 'unknown' }, {
       session: sessionId,
@@ -1575,14 +1832,30 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
 }
 
 /**
+ * The note a Cursor sessionEnd files (r4-fixes A9): Stop's test gate, run as
+ * Stop would run it for this session, its lines as the note's body. Null when
+ * the gate asks nothing, or when this session already filed one (a host that
+ * fires sessionEnd twice must not file it twice).
+ */
+function cursorDebtNote(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState): string | null {
+  const gate = stopGateFor(rootDir, sofarDir, slug, state, session, true)
+  if (gate.lines.length === 0) return null
+  const head = debtNoteHead(session.id)
+  if (state.freshness.notes.some((n) => n.text.startsWith(head))) return null
+  return debtNoteText(session.id, gate.lines)
+}
+
+/**
  * UserPromptSubmit (felt-cost 4.1/4.2, D5) — the batch-complete nudge.
  * When the session is registered and the initiative has accumulated ≥5
  * mechanical events since the last write-back, stdout (exit 0 =
  * additionalContext for this hook) carries ONE line nudging an in-flow
  * sofar_end_session — a write-back while context is warm makes the Stop
- * gate a fallback instead of a forced extra turn. Stateless: it re-fires
- * on every prompt until the write-back resets drift (staleness-line
- * precedent). Best-effort per BD22 — every failure path is silence.
+ * gate a fallback instead of a forced extra turn. Told once per debt band
+ * (5, 10, 20, 40 … — r4-fixes A4), re-armed when a write-back takes the debt
+ * under the floor or a compaction clears the told set; `SOFAR_TOLD_LINES=off`
+ * re-fires it on every prompt. Best-effort per BD22 — every failure path is
+ * silence.
  */
 export const NUDGE_DRIFT_MIN = 5
 
@@ -1686,10 +1959,12 @@ function clipTo(text: string, max: number): string {
  * which is exactly the hand-reasoning 4.2 set out to abolish.
  *
  * Unbinding it is nearly free. The state is refs-only (no subprocess, no
- * commit-graph walk), the line is bounded by construction, and it re-fires
- * statelessly like the drift nudge beside it — repeating a true fact stays
- * cheaper than storing one, and D5 already rejected an "already told you"
- * marker for this family of lines.
+ * commit-graph walk) and the line is bounded by construction. It once
+ * re-fired statelessly on every prompt (D5 rejected an "already told you"
+ * marker for this family); since r4-fixes A4 it is a fragment told once per
+ * push epoch — branch, HEAD and origin tip — because a repeat carried for
+ * the rest of the session costs more than one small told-set key, and a
+ * moved epoch still tells it at once. `SOFAR_TOLD_LINES=off` re-fires it.
  *
  * Repo-level by design: it reports HEAD against origin, never "your
  * commits". Attributing commits to sessions needs the graph walk core/git.ts
@@ -2179,6 +2454,12 @@ type ScopeNotice = {
   depth: number
   rendered: string
   domain: GuardDomain
+  /**
+   * A guard whose rule this context already holds from the digest or the
+   * recall block (r4-fixes A4): the notice names the path's binding, not the
+   * rule again.
+   */
+  brief?: boolean
 } & ({ decision: ScopedDecision; memory?: undefined } | { memory: ScopedMemory; decision?: undefined })
 
 /** What a notice speaks for: its decision, or its memory. */
@@ -2212,6 +2493,9 @@ export function scopeNoticeLine(n: ScopeNotice, slug: string): string {
   }
   const d = n.decision
   const handle = scopeHandle(d, slug)
+  if (n.tier === 0 && n.brief === true) {
+    return `sofar: ${n.rendered} is governed by [${handle}] (guard: ${d.guard}), the standing rule in your context. Work against it needs a decision that supersedes ${handle}.`
+  }
   if (n.tier === 0) {
     return (
       `sofar: ${n.rendered} is governed by [${handle}], a standing rule: ${scopeRuleText(d)} ` +
@@ -2285,6 +2569,7 @@ function scopeNotice(
   slug: string,
   session: string,
   subjects: readonly NoticeSubject[],
+  options: { lastTouch?: boolean; bound?: boolean } = {},
 ): string[] {
   try {
     const index = refreshGuards(sofarDir)
@@ -2292,17 +2577,30 @@ function scopeNotice(
     if ((index.scoped.length === 0 && memories.length === 0) || subjects.length === 0) return []
     const retire = retireEnabled()
     const told = readTold(sofarDir, session)
+    // Told once per context per entry, whatever path (r4-fixes A4); 0.34's
+    // per-(entry, path) set under SOFAR_TOLD_LINES=off.
+    const fragments = toldLinesEnabled() && session !== 'cli'
     let files: FileIndex | null = null
 
     const notices: ScopeNotice[] = []
     const shown = new Set<string>()
     const tell: string[] = []
+    // Cursor's bound line (r4-fixes A9): an edited path's governing rules,
+    // taken before the told filter, since a read may already have told some.
+    const boundPaths: Array<{ rendered: string; rules: ScopedDecision[] }> = []
     for (const { domain, subject, edit } of subjects) {
       let hits: Array<{ entry: ScopedDecision | ScopedMemory; tier: ScopeNotice['tier']; depth: number }> = scopeHitsForSubject(index, domain, subject)
         // An until-scoped decision is never a candidate (task resolution is not
         // indexed); a superseded one is out while retirement is on.
         .filter(({ decision: d }) => d.until === undefined && !(retire && d.superseded_by !== undefined))
         .map(({ decision, guarded, depth }) => ({ entry: decision, tier: guarded ? 0 : decision.rule !== undefined ? 1 : 3, depth }))
+      if (options.bound === true && edit && domain === 'path' && session !== 'cli') {
+        const rules = hits.filter((h) => h.tier === 0 && (h.entry as ScopedDecision).rule !== undefined).map((h) => h.entry as ScopedDecision)
+        const rendered = renderSubject(domain, subject, rootDir)
+        if (rules.length > 0 && !told.has(toldKey(BOUND_TOLD, rendered)) && !boundPaths.some((b) => b.rendered === rendered)) {
+          boundPaths.push({ rendered, rules })
+        }
+      }
       // A memory names a path or nothing (r3-fixes D20), and a replaced one is
       // never told: it is the fact the record withdrew.
       if (domain === 'path' && memories.length > 0) {
@@ -2314,7 +2612,10 @@ function scopeNotice(
       const rendered = renderSubject(domain, subject, rootDir)
       if (domain === 'path' && session !== 'cli') {
         hits = hits.filter(({ entry }) => !told.has(toldKey(entry.id, rendered)))
-        if (edit && hits.length > 0) {
+        // A batch's edits are appended before PostToolBatch runs, so its own
+        // touch would read as an earlier one (r4-fixes A4): the told set's
+        // fragments answer instead.
+        if (edit && hits.length > 0 && options.lastTouch !== false) {
           files ??= refreshFiles(sofarDir)
           const since = lastTouch(files, subject, session)
           if (since !== null) hits = hits.filter(({ entry }) => entry.ts > since)
@@ -2323,15 +2624,25 @@ function scopeNotice(
       }
       for (const { entry, tier, depth } of hits) {
         if (shown.has(entry.id)) continue
+        // A fragment told at a point of use this context is not told again; one
+        // the digest or recall holds is told only as a guard's binding.
+        let brief = false
+        if (fragments && domain === 'path') {
+          if (told.has(pointToldKey(entry.id))) continue
+          if (told.has(entryToldKey(entry.id))) {
+            if (tier !== 0) continue
+            brief = true
+          }
+        }
         shown.add(entry.id)
         notices.push(
           tier === 2
             ? { tier, memory: entry as ScopedMemory, depth, rendered, domain }
-            : { tier, decision: entry as ScopedDecision, depth, rendered, domain },
+            : { tier, decision: entry as ScopedDecision, depth, rendered, domain, ...(brief ? { brief } : {}) },
         )
       }
     }
-    if (notices.length === 0) return []
+    if (notices.length === 0 && boundPaths.length === 0) return []
 
     const ordered = orderNotices(notices, slug, storedRelevance(sofarDir, index, notices))
     const rendered = ordered.slice(0, SCOPE_DECISIONS_MAX).map((n) => scopeNoticeLine(n, slug))
@@ -2345,8 +2656,30 @@ function scopeNotice(
     }
     while (kept > 1 && lengthOf(kept) > SCOPE_NOTICE_BUDGET) kept -= 1
     const over = overflowLine(ordered.slice(kept))
+    const lines = over === null ? rendered.slice(0, kept) : [...rendered.slice(0, kept), over]
+    if (fragments) {
+      for (const n of ordered.slice(0, kept)) {
+        if (n.domain === 'path') tell.push(entryToldKey(noticeEntry(n).id), pointToldKey(noticeEntry(n).id))
+      }
+    }
+    // A rule this call already gave in full, or a bound line earlier this
+    // session, is named by its handle alone.
+    const given = new Set(ordered.slice(0, kept).filter((n) => n.decision !== undefined && n.tier <= 1).map((n) => n.decision!.id))
+    for (const { rendered: path, rules } of boundPaths) {
+      const sorted = [...rules].sort((x, y) => {
+        if ((x.initiative === slug) !== (y.initiative === slug)) return x.initiative === slug ? 1 : -1
+        return x.initiative === y.initiative ? x.ordinal - y.ordinal : byCodeUnit(x.initiative, y.initiative)
+      })
+      const parts = sorted.map((d) => ({ handle: scopeHandle(d, slug), rule: d.rule!, told: given.has(d.id) || told.has(toldKey(d.id, BOUND_TOLD)) }))
+      lines.push(boundLine(path, parts))
+      tell.push(toldKey(BOUND_TOLD, path))
+      for (const d of sorted) {
+        if (!given.has(d.id) && !told.has(toldKey(d.id, BOUND_TOLD))) tell.push(toldKey(d.id, BOUND_TOLD))
+        given.add(d.id)
+      }
+    }
     addTold(sofarDir, session, tell)
-    return over === null ? rendered.slice(0, kept) : [...rendered.slice(0, kept), over]
+    return lines
   } catch {
     return []
   }
@@ -2880,8 +3213,20 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     if (engineLine !== null) lines.push(engineLine)
     lines.push(...landedNotice(rootDir, ctx.sofarDir, slug, sessionId, git))
 
+    // Told once per push epoch (r4-fixes A4): the line says something only
+    // when HEAD or the origin tip moved since this context last heard it. The
+    // epochs this prompt moves are written once, below.
+    const toldLines = toldLinesEnabled()
+    const toldNow = toldLines ? readTold(ctx.sofarDir, sessionId) : new Set<string>()
+    const moved: Array<[string, string | null]> = []
     const gitLine = gitStateLine(git)
-    if (gitLine !== null) lines.push(gitLine)
+    if (gitLine !== null && git !== null) {
+      if (!toldLines) lines.push(gitLine)
+      else if (fragmentEpoch(toldNow, PUSH_FRAGMENT) !== pushEpoch(git)) {
+        lines.push(gitLine)
+        moved.push([PUSH_FRAGMENT, pushEpoch(git)])
+      }
+    }
 
     // YOUR debt, not the record's (drift-signal 1.2) — the same number the
     // Stop gate will enforce, so the warning and the block always agree. The
@@ -2891,7 +3236,17 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // Silent in the quick lane (r1-fixes 2.6, D14): there is no write-back to
     // nudge toward, and the Stop gate the line warns about never fires there.
     const debt = slug === QUICK_LANE ? 0 : sessionDebt(state, me)
-    if (debt >= NUDGE_DRIFT_MIN) {
+    // Told once per band (r4-fixes A4): 5, 10, 20, 40 … unwritten events; a
+    // write-back below the floor forgets the band, so the next climb re-tells.
+    let nudge = debt >= NUDGE_DRIFT_MIN
+    if (toldLines) {
+      const told = fragmentEpoch(toldNow, DEBT_FRAGMENT)
+      const band = nudge ? String(debtBand(debt)) : null
+      if (band !== told) moved.push([DEBT_FRAGMENT, band])
+      nudge = band !== null && band !== told
+    }
+    updateTold(ctx.sofarDir, sessionId, [], moved)
+    if (nudge) {
       lines.push(
         `sofar: ${debt} unwritten events in THIS session — if the current batch of work ` +
           `is complete, write back now with sofar_end_session (summary + next action) while context ` +
@@ -2914,10 +3269,19 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
  * one still gets its block.
  */
 function promptRecall(sofarDir: string, state: InitiativeState, session: string, prompt: string): string | null {
-  if (readTold(sofarDir, session).has(RECALL_TOLD_KEY)) return null
-  const block = recallBlock(state, prompt, retireEnabled())
-  if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY])
-  return block
+  const told = readTold(sofarDir, session)
+  if (told.has(RECALL_TOLD_KEY)) return null
+  if (recallV034()) {
+    const block = recallBlock(state, prompt, retireEnabled())
+    if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY])
+    return block
+  }
+  // Capped, and never what the digest already said (r4-fixes A4): the ids it
+  // renders join the told set, so a notice names their path, not their text.
+  const held = new Set([...told].filter((key) => key.startsWith('@')).map((key) => key.slice(1)))
+  const block = cappedRecallBlock(state, prompt, retireEnabled(), held)
+  if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY, ...block.ids.map(entryToldKey)])
+  return block?.text ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -3346,6 +3710,12 @@ export const SUBCOMMANDS: ReadonlyArray<{
     description:
       'PostToolUseFailure hook: append the same mechanical event with ok:false (and exit when the host gives one); the error text goes to the private diagnostics store, never the record',
     handler: forHost('post-tool-failure', handlePostToolFailure),
+  },
+  {
+    name: 'post-tool-batch',
+    description:
+      'PostToolBatch hook (Claude Code): the read-time surfacing of a whole batch of parallel calls as one block, told once per session context; its PostToolUse calls then only capture',
+    handler: handlePostToolBatch,
   },
   {
     name: 'drive-await',

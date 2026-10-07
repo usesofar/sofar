@@ -150,7 +150,7 @@ describe('the two-key hold', () => {
 
     const res = logDecision(f.ctx, { ...RETRY_V2, supersedes: 'D2' })
     expect(res.retires).toBeUndefined()
-    expect(bare(res.warnings?.join('\n') ?? '')).toContain(`D3 names D2 "${TAX.rule}" as what it replaces, but its words match D1 "${RETRY.rule}" far more. The link is held and D2 stays in force`)
+    expect(bare(res.warnings?.join('\n') ?? '')).toContain(`D3 names D2 "${TAX.rule}" as what it replaces, but its words match D1 "${RETRY.rule}" far more — D3 looks like a new version of D1 (\`three\` → \`five\`). The link is held and D2 stays in force`)
     expect(bare(res.warnings?.join('\n') ?? '')).toContain('`sofar supersedes D3 D2` if D2 is right, `sofar supersedes D3 D1` if D1 is, `sofar supersedes D3 none` if it replaces nothing')
     const p = lastPayload(f)
     expect(p.supersedes).toBeUndefined()
@@ -202,7 +202,7 @@ describe('the two-key hold', () => {
     logDecision(f.ctx, RETRY)
     logDecision(f.ctx, { ...RETRY_V2, supersedes: 'D1' })
     const res = logDecision(f.ctx, { ...RETRY_V3, supersedes: 'D1' })
-    expect(bare(res.warnings?.join('\n') ?? '')).toContain(`D3 names D1 "${RETRY.rule}" as what it replaces, but D1 was already replaced by D2 "${RETRY_V2.rule}". The link is held and D1 stays in force until it is answered: \`sofar supersedes D3 D2\` if D2 is`)
+    expect(bare(res.warnings?.join('\n') ?? '')).toContain(`D3 names D1 "${RETRY.rule}" as what it replaces, but D1 was already replaced by D2 "${RETRY_V2.rule}" — D3 looks like a new version of D2 (\`five\` → \`four\`). The link is held and D1 stays in force until it is answered: \`sofar supersedes D3 D2\` if D2 is`)
     const state = fold(f)
     // Not re-pointed: D2 still holds the replacement.
     expect(state.decisions[0]!.superseded_by).toBe(2)

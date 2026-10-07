@@ -33,9 +33,11 @@
  *       derived cache whose bytes are each implementation's own (the same
  *       exclusion the conformance harness makes;
  *       docs/HOTPATH.md, §Derived index on the hot path)
- * Relative ages (`1m ago`) are NOT normalised. The legs run seconds apart, so
- * a live record can cross a minute boundary between them; a failing record is
- * therefore re-run from scratch (up to 3 attempts), and one that is then
+ *   N4  a relative age (`5m ago`) that differs between the legs by at most
+ *       one unit, paired in order → `<AGE:m>` (see reconcileAges)
+ * The legs run seconds apart, so a live record can still cross a boundary N4
+ * does not cover; a failing record is therefore re-run from scratch (up to 3
+ * attempts), and one that is then
  * byte-identical is reported as FLAKY with the first attempt's difference
  * printed. FLAKY passes the gate — the later attempt IS a byte-identical run —
  * unless `--strict`. A real divergence reproduces on every attempt: FAIL.
@@ -57,8 +59,13 @@
  *   --json <file>      write the full result as JSON
  *   --keep             leave the scratch directory on disk
  *
+ * Every leg already runs under its own scratch HOME and XDG dirs. The real
+ * home's agent and sofar dirs are also snapshotted before and compared after
+ * the run (r4-fixes A13, tools/hermetic.mjs): a change there exits 5
+ * (SOFAR_CANARY=warn reports it without failing).
+ *
  * Exit 0 when every record passes (FLAKY included unless --strict), 1 on any
- * FAIL, 2 on a usage error.
+ * FAIL, 2 on a usage error, 5 when the HOME canary changed.
  */
 
 import { spawn, spawnSync } from 'node:child_process'
@@ -79,6 +86,7 @@ import {
 import { availableParallelism, homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { canaryDiff, canaryMode, canaryReport, canarySnapshot } from '../tools/hermetic.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SESSION = 'parity-session'
@@ -172,12 +180,19 @@ function run(command, args, { cwd, env, input = '' }) {
 }
 
 /** The child's environment from nothing but PATH (the conformance harness's childEnv). */
-function childEnv(home, core) {
+function childEnv(home, core, cli) {
   return {
+    // The core hands an in-band write-back to TypeScript (r4-fixes A1): the
+    // reference under test, as the stub names itself when it dispatches.
+    ...(cli !== undefined ? { SOFAR_CLI: cli } : {}),
     PATH: process.env.PATH,
     HOME: home,
+    USERPROFILE: home,
     XDG_CONFIG_HOME: join(home, '.config'),
     XDG_STATE_HOME: join(home, '.local', 'state'),
+    XDG_DATA_HOME: join(home, '.local', 'share'),
+    XDG_CACHE_HOME: join(home, '.cache'),
+    CODEX_HOME: join(home, '.codex'),
     CLAUDE_CONFIG_DIR: join(home, '.claude'),
     GIT_CONFIG_NOSYSTEM: '1',
     SOFAR_NO_UPDATE_CHECK: '1',
@@ -192,6 +207,9 @@ function childEnv(home, core) {
 // ---------------------------------------------------------------------------
 // Steps: the surfaces, in the order a session meets them.
 // ---------------------------------------------------------------------------
+
+/** A final reply ending with an in-band write-back block (r4-fixes A1, SPEC §In-band write-back). */
+const INLINE_REPLY = `Done.\n\n\`\`\`sofar\n${JSON.stringify({ summary: 'parity: filed from the reply', next_action: 'compare the legs', notes: ['parity note'] })}\n\`\`\`\n`
 
 function hook(root, name, fields) {
   return JSON.stringify({ session_id: SESSION, transcript_path: join(root, 'transcript.jsonl'), cwd: root, hook_event_name: name, ...fields })
@@ -254,6 +272,8 @@ function stepsFor(slug, root, logText, lines) {
     s('post-tool-failure', 'Bash failure', ['event', 'post-tool-failure'], hook(root, 'PostToolUseFailure', { tool_name: 'Bash', tool_input: { command: 'npm test', description: 'x' }, error: 'Exit code 1', is_interrupt: false })),
     s('user-prompt', 'long prompt after drift', ['event', 'user-prompt'], hook(root, 'UserPromptSubmit', { prompt: LONG_PROMPT })),
     s('stop', 'stop on the unwritten session', ['event', 'stop'], hook(root, 'Stop', { stop_hook_active: false })),
+    // r4-fixes A1: the core hands an in-band write-back to TypeScript; both legs file it alike.
+    s('stop', 'stop with an in-band write-back', ['event', 'stop'], hook(root, 'Stop', { stop_hook_active: false, last_assistant_message: INLINE_REPLY })),
     s('stop', 'stop_hook_active', ['event', 'stop'], hook(root, 'Stop', { stop_hook_active: true })),
     s('session-end', 'session-end', ['event', 'session-end'], hook(root, 'SessionEnd', { reason: 'exit' })),
     s('session-start', 'resume the registered session', ['event', 'session-start'], hook(root, 'SessionStart', { source: 'resume' })),
@@ -334,7 +354,7 @@ function recordDelta(snapshot, sofar) {
 }
 
 // ---------------------------------------------------------------------------
-// Normalisation (N1, N2) — by shape, inside the leg's own run window only.
+// Normalisation (N1, N2; N4 is pairwise, in compareLegs) — by shape, inside the leg's own run window only.
 // ---------------------------------------------------------------------------
 
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
@@ -356,6 +376,31 @@ function normalise(buf, win) {
   return Buffer.from(out, 'utf8')
 }
 
+const AGE_RE = /\b(\d+)([mhd]) ago\b/g
+
+/**
+ * N4: the legs read the wall clock seconds apart, so a relative age can tick
+ * one unit between them (`5m ago` → `6m ago`) on every attempt when a leg is
+ * slow (CI: 380 s for the fast run). Pair the two streams' ages in order;
+ * when both hold the same count and each pair shares a unit and differs by at
+ * most 1, both become `<AGE:unit>`. Anything else — a count mismatch, a unit
+ * change, a gap of 2 or more — stays raw, so a real divergence still FAILs.
+ */
+export function reconcileAges(a, b) {
+  const at = [...a.toString('utf8').matchAll(AGE_RE)]
+  const bt = [...b.toString('utf8').matchAll(AGE_RE)]
+  if (at.length === 0 || at.length !== bt.length) return [a, b]
+  const ok = at.map((m, i) => m[2] === bt[i][2] && Math.abs(Number(m[1]) - Number(bt[i][1])) <= 1)
+  const mask = (buf) => {
+    let i = 0
+    return Buffer.from(
+      buf.toString('utf8').replace(AGE_RE, (whole, _n, unit) => (ok[i++] ? `<AGE:${unit}> ago` : whole)),
+      'utf8',
+    )
+  }
+  return [mask(a), mask(b)]
+}
+
 // ---------------------------------------------------------------------------
 // One leg, one record.
 // ---------------------------------------------------------------------------
@@ -366,7 +411,7 @@ async function runLeg(leg, o, base, snapshot, slug, logText, lines) {
   const from = Date.now()
   const results = []
   for (const step of steps) {
-    const env = childEnv(home, leg === 'ts' ? '0' : o.core)
+    const env = leg === 'ts' ? childEnv(home, '0') : childEnv(home, o.core, o.ts)
     const r =
       leg === 'ts'
         ? await run(process.execPath, [o.ts, ...step.argv], { cwd: root, env, input: step.stdin })
@@ -421,7 +466,8 @@ function compareLegs(ts, core, priv) {
       diffs.push({ step: i + 1, surface: a.surface, title: a.title, stream: 'exit', ts: a.exit, core: b.exit })
     }
     for (const stream of ['stdout', 'stderr']) {
-      const at = firstDiff(a[stream], b[stream])
+      const [sa, sb] = reconcileAges(a[stream], b[stream])
+      const at = firstDiff(sa, sb)
       if (at === -1) continue
       ok = false
       diffs.push({
@@ -583,6 +629,7 @@ function describeDiff(d) {
 
 async function main() {
   const o = parseArgs(process.argv.slice(2))
+  const canaryBefore = canaryMode() === 'off' ? null : canarySnapshot()
   const roots = rootsFor(o)
   const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'sofar-parity-real-')))
   const started = Date.now()
@@ -631,7 +678,9 @@ async function main() {
   if (!o.keep) rmSync(scratch, { recursive: true, force: true })
   else process.stdout.write(`scratch kept: ${scratch}\n`)
   const bad = records.some((r) => r.verdict === 'FAIL' || (o.strict && r.verdict === 'FLAKY')) || tips.some((t) => t.verdict !== 'PASS')
-  process.exit(bad ? 1 : 0)
+  const changes = canaryBefore === null ? [] : canaryDiff(canaryBefore, canarySnapshot())
+  if (changes.length > 0) process.stderr.write(`\n${canaryReport(changes)}\n`)
+  process.exit(bad ? 1 : changes.length > 0 && canaryMode() === 'fail' ? 5 : 0)
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

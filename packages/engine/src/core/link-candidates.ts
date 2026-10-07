@@ -2,6 +2,7 @@ import type { InitiativeState } from './fold'
 import { handleAt } from './handle'
 import { lexicalCounts, rankLexical, type LexicalDoc } from './lexicon'
 import { retiredOrdinals } from './retire'
+import { SLOT_VERSION_MIN, slotCorpus, slotDiffEnabled, slotMatch, slotPairsText } from './slot-diff'
 
 /**
  * The link disposition (r3-fixes 2.5, D15): a rule filed naming nothing it
@@ -54,10 +55,27 @@ export function linkCandidates(state: InitiativeState, draft: { chose: string; o
     return { id: String(ordinal), ts: decision.ts, terms, tokens: Object.values(terms).reduce((a, b) => a + b, 0) }
   })
   const query = [draft.rule, draft.chose, draft.over, draft.because].join(' ')
-  return rankLexical(docs, query, docs.length)
+  const ordinals = rankLexical(docs, query, docs.length)
     .matches.filter((m) => m.terms.length >= LINK_MIN_SHARED)
     .slice(0, LINK_CANDIDATES_MAX)
-    .map((m) => state.decisions[Number(m.id) - 1]!.id)
+    .map((m) => Number(m.id))
+  return bySlots(state, draft, ordinals).map((n) => state.decisions[n - 1]!.id)
+}
+
+/**
+ * Candidates re-ordered by slot-diff (r4-fixes A8): the version-like ones
+ * first, best score first, the rest in the order given. Unchanged under
+ * SOFAR_SLOTDIFF=off. The true target first for 27 of round 3's 34 versions
+ * whose target is known (24 by BM25 alone), and for 36 of round 4's 48 linked
+ * rule changes (32).
+ */
+function bySlots(state: InitiativeState, draft: Draft, ordinals: readonly number[]): number[] {
+  if (!slotDiffEnabled() || ordinals.length < 2) return [...ordinals]
+  const corpus = slotCorpus(state.decisions)
+  const scored = ordinals.map((n, i) => ({ n, i, m: slotMatch(draft, state.decisions[n - 1]!, corpus) }))
+  return scored
+    .sort((a, b) => Number(b.m.version) - Number(a.m.version) || (a.m.version ? b.m.score - a.m.score : 0) || a.i - b.i)
+    .map((s) => s.n)
 }
 
 /**
@@ -106,6 +124,8 @@ export function linkHold(state: InitiativeState, draft: Draft, target: number): 
   }
   const retired = retiredOrdinals(state)
   if (retired.has(target)) return []
+  const slotted = slotHold(state, draft, target)
+  if (slotted !== null) return slotted
   const scores = relatedness(state, draft)
   const score = scores[target - 1]!
   if (score >= HOLD_NAMED_MAX) return null
@@ -117,10 +137,57 @@ export function linkHold(state: InitiativeState, draft: Draft, target: number): 
     if (scores[i]! >= bar) better.push({ ordinal, score: scores[i]! })
   })
   if (better.length === 0) return null
-  return better
-    .sort((a, b) => b.score - a.score || a.ordinal - b.ordinal)
-    .slice(0, LINK_CANDIDATES_MAX - 1)
-    .map((b) => b.ordinal)
+  const ordered = better.sort((a, b) => b.score - a.score || a.ordinal - b.ordinal).map((b) => b.ordinal)
+  return bySlots(state, draft, ordered).slice(0, LINK_CANDIDATES_MAX - 1)
+}
+
+/**
+ * The slot key of the hold (r4-fixes A8): a RULE that names a PLAIN decision
+ * as what it replaces, while an in-force rule among its link candidates looks
+ * like the rule it is a new version of — by slot-diff, and more than the
+ * named decision does. A rule's predecessor is a rule. r2 S18 (round 4, the
+ * U10 triage) named D52, the recordCount details, and kept D51 "any variance
+ * is applied at once" in force beside its replacement for 10 sessions: D52's
+ * cosine (0.182) cleared the first key's floor, but D51's over echo was 0.60
+ * to D52's 0.33. Over round 3's 51 and round 4's 92 links this holds 2, both
+ * known wrong targets, with the true one offered first. Null when it does not
+ * apply; the offers otherwise, best first.
+ */
+function slotHold(state: InitiativeState, draft: Draft, target: number): number[] | null {
+  if (!slotDiffEnabled() || draft.rule === undefined) return null
+  const named = state.decisions[target - 1]!
+  if (named.rule !== undefined) return null
+  const corpus = slotCorpus(state.decisions)
+  const own = slotMatch(draft, named, corpus).score
+  if (own >= SLOT_VERSION_MIN) return null
+  const rule = { chose: draft.chose, over: draft.over, because: draft.because, rule: draft.rule }
+  const offers = linkCandidates(state, rule)
+    .map((id) => state.decisions.findIndex((d) => d.id === id) + 1)
+    .filter((n) => n !== target)
+    .map((n) => ({ n, m: slotMatch(draft, state.decisions[n - 1]!, corpus) }))
+    .filter((o) => o.m.version && o.m.score > own)
+    .sort((a, b) => b.m.score - a.m.score || a.n - b.n)
+    .map((o) => o.n)
+  return offers.length > 0 ? offers.slice(0, LINK_CANDIDATES_MAX - 1) : null
+}
+
+/**
+ * ` — D42 looks like a new version of D17 (\`FIFO\` → \`FEFO\`)` for the write
+ * result (r4-fixes A8), naming the first candidate slot-diff finds
+ * version-like; '' when none is, or under SOFAR_SLOTDIFF=off.
+ */
+function versionClause(state: InitiativeState, ordinal: number, candidates: readonly number[]): string {
+  if (!slotDiffEnabled()) return ''
+  const d = state.decisions[ordinal - 1]
+  if (d === undefined) return ''
+  const corpus = slotCorpus(state.decisions.slice(0, ordinal - 1))
+  for (const n of candidates) {
+    const older = state.decisions[n - 1]
+    if (older === undefined) continue
+    const m = slotMatch(d, older, corpus)
+    if (m.version) return ` — ${handleAt(state.decisions, ordinal)} looks like a new version of ${handleAt(state.decisions, n)}${slotPairsText(m)}`
+  }
+  return ''
 }
 
 /** TF-IDF cosine of the draft's words against every folded decision, by index. */
@@ -208,10 +275,10 @@ export function pendingLinkLine(state: InitiativeState, ordinal: number): string
     const live = (n: number): boolean => state.decisions[n - 1] !== undefined && !retired.has(n)
     const h = pending.held
     const { why, answers } = heldAsk(state, ordinal, pending, live, true)
-    return `${H(ordinal)} names ${H(h)} "${clip(text(state, h), 80)}" as what it replaces, but ${why}. The link is held and ${H(h)} stays in force until it is answered: ${answers.join(', ')}. Until then the digest shows it and Stop asks.`
+    return `${H(ordinal)} names ${H(h)} "${clip(text(state, h), 80)}" as what it replaces, but ${why}${versionClause(state, ordinal, pending.candidates.filter(live))}. The link is held and ${H(h)} stays in force until it is answered: ${answers.join(', ')}. Until then the digest shows it and Stop asks.`
   }
   const named = pending.candidates.map((n) => `${H(n)} "${clip(state.decisions[n - 1]?.rule ?? '', 80)}"`)
-  const may = named.length > 0 ? `it may replace ${named.join(', or ')}` : 'no rule in force shares its words'
+  const may = named.length > 0 ? `it may replace ${named.join(', or ')}${versionClause(state, ordinal, pending.candidates)}` : 'no rule in force shares its words'
   const first = pending.candidates[0]
   return `${H(ordinal)} is a rule that names nothing it replaces; ${may}. If it does, answer \`sofar supersedes ${H(ordinal)} ${first !== undefined ? H(first) : 'D<n>'}\`; if not, \`sofar supersedes ${H(ordinal)} none\`. Until then the digest shows it and Stop asks.`
 }

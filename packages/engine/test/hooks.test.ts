@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
-import { rmSync } from 'node:fs'
+import { rmSync, symlinkSync } from 'node:fs'
 import { makeEvent, type EventEnvelope } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { foldLog, freshnessTotal } from '../src/core/fold'
@@ -17,7 +17,7 @@ import {
   handleStop,
   handleUserPrompt,
   NUDGE_DRIFT_MIN,
-  STOP_BLOCK_MESSAGE,
+  STOP_BLOCK_MESSAGE, STOP_BLOCK_MESSAGE_TOOL,
 } from '../src/cli/event'
 import { NUDGE_ENV } from '../src/driver/nudge'
 import { sessionTitle } from '../src/cli/host'
@@ -118,10 +118,20 @@ describe('hook shims (3.1) — routing only, exec the core or the CLI (BD4, rust
       expect(lines[0]).toBe('#!/bin/sh')
       // no behaviour: the shebang, comments, and exactly the routing lines —
       // SOFAR_CORE=0 forces the CLI, SOFAR_CORE=<path> names the core, the
-      // default is whichever `sofar-core` PATH finds, else the CLI.
+      // default is the core activated for this user (r4-fixes A12), else
+      // whichever `sofar-core` PATH finds, else the CLI.
       const codeLines = lines.filter((l) => l.trim() !== '' && !l.startsWith('#'))
       expect(codeLines).toEqual([
         'core="${SOFAR_CORE-}"',
+        'if [ -z "${SOFAR_CORE+set}" ]; then',
+        '  if [ "${OS-}" = Windows_NT ]; then',
+        '    read -r core 2>/dev/null <"${LOCALAPPDATA-}/sofar/core/current.txt"',
+        '  else',
+        '    case "${XDG_DATA_HOME-}" in /*) core="$XDG_DATA_HOME" ;; *) core="${HOME-}/.local/share" ;; esac',
+        '    core="$core/sofar/core/current/sofar-core"',
+        '  fi',
+        '  [ -x "$core" ] || core=',
+        'fi',
         'if [ "$core" != 0 ] && command -v "${core:-sofar-core}" >/dev/null 2>&1; then',
         `  exec "\${core:-sofar-core}" event ${subcommand}`,
         'fi',
@@ -149,6 +159,21 @@ describe('hook shims (3.1) — routing only, exec the core or the CLI (BD4, rust
     expect(run({ SOFAR_CORE: '0' })).toBe('cli: event stop\n')
     expect(run({ SOFAR_CORE: named })).toBe('named: event stop\n')
     expect(run({ SOFAR_CORE: join(dir, 'missing') })).toBe('cli: event stop\n')
+    // The core activated for this user (r4-fixes A12) goes first, from
+    // XDG_DATA_HOME or ~/.local/share; any SOFAR_CORE skips it.
+    const store = join(dir, 'data', 'sofar', 'core')
+    mkdirSync(join(store, '9.9.9'), { recursive: true })
+    writeFileSync(join(store, '9.9.9', 'sofar-core'), '#!/bin/sh\necho activated: "$@"\n')
+    chmodSync(join(store, '9.9.9', 'sofar-core'), 0o755)
+    symlinkSync('9.9.9', join(store, 'current'))
+    expect(run({ XDG_DATA_HOME: join(dir, 'data') })).toBe('activated: event stop\n')
+    mkdirSync(join(dir, 'home', '.local', 'share'), { recursive: true })
+    symlinkSync(join(dir, 'data', 'sofar'), join(dir, 'home', '.local', 'share', 'sofar'))
+    expect(run({ HOME: join(dir, 'home') })).toBe('activated: event stop\n')
+    expect(run({ HOME: join(dir, 'home'), XDG_DATA_HOME: 'relative' })).toBe('activated: event stop\n')
+    expect(run({ XDG_DATA_HOME: join(dir, 'data'), SOFAR_CORE: '0' })).toBe('cli: event stop\n')
+    expect(run({ XDG_DATA_HOME: join(dir, 'data'), SOFAR_CORE: named })).toBe('named: event stop\n')
+    expect(run({ XDG_DATA_HOME: join(dir, 'data'), SOFAR_CORE: '' })).toBe('core: event stop\n')
     rmSync(dir, { recursive: true, force: true })
   })
 })
@@ -536,7 +561,8 @@ describe('session title (session-naming D1) — the slug and focus task, handed 
     expect(context(nudged)).toContain('unwritten events in THIS session')
     const settled = handleUserPrompt(fixture.root, hookStdin({ prompt: 'hi', session_title: 'demo 1.1 #clau' }))
     expect(settled.stdout.startsWith('{')).toBe(false)
-    expect(settled.stdout).toContain('unwritten events in THIS session')
+    // Told once per debt band (r4-fixes A4): the same band is not told twice.
+    expect(settled.stdout).not.toContain('unwritten events in THIS session')
   })
 
   it('sessions on one record and one task never share a name (session-naming D2): each ends in its own id tag', () => {
@@ -765,7 +791,11 @@ describe('sofar event stop — write-back enforcement (3.4, BD2)', () => {
     const result = handleStop(fixture.root, stopStdin())
     expect(result.exitCode).toBe(2)
     expect(result.stderr).toBe(STOP_BLOCK_MESSAGE)
+    // The in-band write-back (r4-fixes A1) asks for the block first; 0.34's line is SOFAR_WRITEBACK=tool's.
     expect(result.stderr).toBe(
+      'Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.',
+    )
+    expect(STOP_BLOCK_MESSAGE_TOOL).toBe(
       'Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).',
     )
     expect(result.stdout).toBe('')

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { EventEnvelope } from '../src/core/envelope'
 import { STOP_BLOCK_MESSAGE } from '../src/cli/event'
+import { scaled } from './helpers/tracked'
 
 /**
  * Phase 5 — automated simulation of the docs/opencode-adapter.md §3 manual
@@ -233,5 +234,5 @@ describe('acceptance — opencode-adapter.md manual checklist, simulated against
       'decision_logged',
       'session_ended',
     ])
-  }, 60_000)
+  }, scaled(60_000))
 })

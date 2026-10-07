@@ -34,6 +34,8 @@ import { withFileLock } from '../core/lock'
 import { EdgeAccumulator } from '../core/adjacency'
 import { extendPrefix, prefixOf, resumeFoldCheckpoint, saveFoldCheckpoint } from '../core/fold-checkpoint'
 import { cachedRegistrationIn } from '../core/registrations'
+import { lastHomeEnabled, lastHomeOf } from '../core/last-home'
+import { lineageEnabled, readLineage } from '../core/lineage'
 import { regenerateProjections } from '../projections/generator'
 
 // Branch → initiative resolution reads git; the reader itself lives in core/
@@ -298,9 +300,30 @@ export function resolveSessionFirst(
   if (sessionId != null && sessionId.length > 0) {
     const home = homeInitiative(ctx.sofarDir, sessionId, branchSlug)
     if (home !== null) return { slug: home, via: home === branchSlug ? branchVia() : 'session' }
+    // Lineage (r4-fixes A10): an unregistered id the SessionStart hook traced
+    // to a parent session (core/lineage.ts) resolves to that parent's home,
+    // ahead of every route — identity, not inference (R11 (a)).
+    const lineage = lineageEnabled() ? readLineage(ctx.sofarDir, sessionId) : null
+    if (lineage !== null && existsSync(ctx.initiativeDir(lineage.home))) {
+      return { slug: lineage.home, via: lineage.home === branchSlug ? branchVia() : 'session' }
+    }
   }
   if (branchSlug === null) return null
   return { slug: branchSlug, via: branchVia() }
+}
+
+/**
+ * A record a lineage carrier may name (r4-fixes A10): it exists and is not
+ * done, dropped or superseded. A carrier never routes new work into a
+ * finished record — the same guard the write-back rebind has.
+ */
+export function recordOpen(ctx: ToolContext, slug: string): boolean {
+  try {
+    if (!/^[a-z0-9-]+$/.test(slug) || !existsSync(ctx.eventsPath(slug))) return false
+    return !isClosedInitiativeStatus(ctx.foldState(slug).status)
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -388,7 +411,7 @@ export interface ToolContext {
 }
 
 /** Event types that can change the declared index (r3-fixes D23). */
-const DECLARED_TYPES = new Set(['decision_logged', 'decision_linked', 'memory_promoted', 'correction'])
+const DECLARED_TYPES = new Set(['decision_logged', 'decision_linked', 'check_bound', 'memory_promoted', 'correction'])
 
 export function createToolContext(rootDir: string): ToolContext {
   const sofarDir = join(rootDir, '.sofar')
@@ -492,7 +515,11 @@ export function createToolContext(rootDir: string): ToolContext {
         }
         slug = QUICK_LANE
       } else {
-        slug = bound
+        // The worktree's last home (r4-fixes A10, R11 (b)): a branch the
+        // committed table routes is routed to where this worktree last
+        // finished, so concurrent write-backs no longer rewrite a committed,
+        // shared file. Only a routed branch: an unbound one stays unbound.
+        slug = (lastHomeEnabled() ? lastHomeOf(sofarDir, branch) : null) ?? bound
       }
     }
     assertContained(slug)

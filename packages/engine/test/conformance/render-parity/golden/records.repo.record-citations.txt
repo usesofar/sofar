@@ -169,8 +169,8 @@ Recent decisions (2; full text in decisions/D<n>.md):
 Next ids: D3 (decision), M2 (memory)
 
 Standing constraints — obey verbatim (2):
-- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 - [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -225,8 +225,8 @@ Recent work elsewhere: repo touched 2 files 3h ago (see sofar status repo).
 3 commits of this record are unverified — no origin ref to compare.
 
 Standing constraints — obey verbatim (2):
-- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 - [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -292,8 +292,8 @@ Next ids: D3 (decision), M2 (memory)
 Session: quiet-session — adopted on Claude Code; else pass to sofar_start_session.
 
 Standing constraints — obey verbatim (2):
-- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 - [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 
@@ -330,8 +330,8 @@ NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 …truncated — run sofar status for full detail
 
 Standing constraints — obey verbatim (2):
-- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 - [D1·64pm] § cites a section of a HAND-WRITTEN document only (docs/SPEC.md, docs/FORMAT.md, CLAUDE.md), named verbatim and whole, kept on one line, and closed by comma or parens whenever the next word could read as part of the heading. Tasks, phases and decisions are cited by id, never with §.
+- [D2·z5zv] Repo-hygiene checks that encode THIS repo's house conventions belong in the test suite, never in `sofar doctor` — doctor ships to every repo that installs sofar, so each axis it grows must be true of any repo with a .sofar/ directory.
 
 Read-back: before acting, restate goal, next action, and standing constraints in one sentence each — if your restatement disagrees with this block, trust the block and say so.
 

@@ -51,6 +51,8 @@ export type HookName =
   | 'session-end'
   /** Claude Code only (drive-visibility 3.7): the asyncRewake watch on a detached run. */
   | 'drive-await'
+  /** Claude Code only (r4-fixes A4): one surfacing block for a parallel batch of calls. */
+  | 'post-tool-batch'
 
 /** Which agent fired a hook — recorded on session registration and diagnostics rows. */
 export interface HookHost {

@@ -11,6 +11,7 @@ import { appendEvents } from '../src/core/log'
 import { digestState } from '../src/projections/templates/digest-state'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
 import { initiativeText, shapes, type CorpusSpec } from './conformance/perf/corpus'
+import { scaled } from './helpers/tracked'
 
 /** rust-core 4.4 (session-start B): the digest cache changes no byte of the hook's output. */
 
@@ -109,7 +110,8 @@ describe('session-start digest cache (rust-core 4.4)', () => {
     const want = ts()
     const tsBytes = readFileSync(file, 'utf8')
     expect(JSON.parse(tsBytes).v).toBe(DIGEST_CACHE_VERSION)
-    expect(DIGEST_CACHE_VERSION).toBe(5)
+    // 6 (r4-fixes A9): a standing rule keeps its guard, so a v5 file is a miss.
+    expect(DIGEST_CACHE_VERSION).toBe(6)
     expect(rust(), 'rust warm on the TypeScript file').toBe(want)
     rmSync(file)
     expect(rust(), 'rust cold').toBe(want)
@@ -122,10 +124,12 @@ describe('session-start digest cache (rust-core 4.4)', () => {
     const v2 = JSON.stringify({ ...good, v: 2 })
     // v4 (r3-fixes D19): the cut carries merge_facts, so a v3 file is a miss.
     const v3 = JSON.stringify({ ...good, v: 3 })
+    const v5 = JSON.stringify({ ...good, v: 5 })
     for (const [label, bad] of [
       ['v1 file', v1],
       ['v2 file', v2],
       ['v3 file', v3],
+      ['v5 file', v5],
       ['garbage', 'nope'],
       ['truncated', tsBytes.slice(0, 200)],
       ['state null', JSON.stringify({ ...good, state: null })],
@@ -138,7 +142,7 @@ describe('session-start digest cache (rust-core 4.4)', () => {
       expect(ts(), `typescript ${label}`).toBe(want)
       expect(readFileSync(file, 'utf8'), `typescript rewrites after ${label}`).toBe(tsBytes)
     }
-  }, 120_000)
+  }, scaled(120_000))
 
   it.skipIf(!existsSync(core))('every real record and a team-shaped one: TypeScript and Rust write the same v4 bytes', () => {
     const dir = join(__dirname, '..', '..', '..', '.sofar', 'initiatives')
@@ -164,5 +168,5 @@ describe('session-start digest cache (rust-core 4.4)', () => {
       checked += 1
     }
     expect(checked).toBeGreaterThan(30)
-  }, 300_000)
+  }, scaled(300_000))
 })

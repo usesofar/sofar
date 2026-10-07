@@ -82,7 +82,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-u","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: feature/ünïcode @ ce11ce1, never pushed.","sessionTitle":"unicode 1.2 #sess"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"unicode 1.2 #sess"}}
 --- stderr
 (empty)
 

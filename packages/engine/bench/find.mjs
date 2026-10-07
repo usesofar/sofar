@@ -29,12 +29,31 @@
  * tenth of the siblings touch, so hops fan out.
  *
  * Not a vitest test, for read-paths' reason: timings flake under load.
+ *
+ * Hermetic like read-paths (r4-fixes A13): each spawn runs under a scratch
+ * HOME and XDG dirs, and a change under the real home exits 5.
  */
 import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { cpus, loadavg, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { BOUND, SHARED_PATH, buildI1000 } from './i1000.mjs'
+import { canaryDiff, canaryMode, canaryReport, canarySnapshot, removeScratch, scratchEnv } from '../../../tools/hermetic.mjs'
+
+const hermetic = scratchEnv('sofar-bench-find-')
+const canaryBefore = canaryMode() === 'off' ? null : canarySnapshot()
+/** Remove the scratch home and compare the canary: exit 5 on a change when the run itself passed. */
+function finish(code) {
+  removeScratch(hermetic.root)
+  if (canaryBefore !== null) {
+    const changes = canaryDiff(canaryBefore, canarySnapshot())
+    if (changes.length > 0) {
+      console.error(`\n${canaryReport(changes)}`)
+      if (canaryMode() === 'fail' && code === 0) code = 5
+    }
+  }
+  process.exit(code)
+}
 
 const from = process.env.INIT_CWD ?? process.cwd()
 const at = (p) => (p === undefined ? undefined : resolve(from, p))
@@ -47,7 +66,7 @@ const args = Object.fromEntries(
 const cli = at(args.cli ?? 'packages/engine/dist/cli.js')
 if (!existsSync(cli)) {
   console.error(`cli not found: ${cli} (npm run build first)`)
-  process.exit(2)
+  finish(2)
 }
 const n = Number(args.n ?? 25)
 const fixture = args.fixture ?? 'repo'
@@ -67,20 +86,20 @@ if (fixture === 'i1000-10mb') {
   const r = spawnSync('git', ['clone', '--quiet', '--local', src, root], { encoding: 'utf8' })
   if (r.status !== 0) {
     console.error(`git clone ${src}: ${r.stderr.trim()}`)
-    process.exit(2)
+    finish(2)
   }
   seed = args.seed ?? 'record-index D2'
   home = seed.split(' ')[0]
   console.log(`fixture repo: clone of ${src} at ${root}`)
 } else {
   console.error(`unknown --fixture ${fixture} (repo | i1000-10mb)`)
-  process.exit(2)
+  finish(2)
 }
 const index = join(root, '.sofar', '.index')
 const log = join(root, '.sofar', 'initiatives', home, 'events.jsonl')
 if (!existsSync(log)) {
   console.error(`the stale case appends to ${log}, which does not exist — pass a --seed whose record does`)
-  process.exit(2)
+  finish(2)
 }
 
 // Monotonic ulids for the appended lines: later than anything in the log.
@@ -124,11 +143,11 @@ function run(name) {
   prepare()
   const t0 = performance.now()
   const argv = hops === null ? ['--version'] : ['find', seed, '--hops', String(hops)]
-  const r = spawnSync('node', [cli, ...argv], { cwd: root, encoding: 'utf8' })
+  const r = spawnSync('node', [cli, ...argv], { cwd: root, encoding: 'utf8', env: { ...process.env, ...hermetic.env } })
   const ms = performance.now() - t0
   if (r.status !== 0) {
     console.error(`${name}: exit ${r.status} — ${(r.stderr || r.stdout).trim().split('\n')[0] ?? ''}`)
-    process.exit(2)
+    finish(2)
   }
   bytes[name] = Buffer.byteLength(r.stdout)
   return ms
@@ -175,4 +194,4 @@ if (args.record !== undefined) {
   console.log(`recorded ${at(args.record)}`)
 }
 rmSync(root, { recursive: true, force: true })
-process.exit(drift > 0.5 ? 3 : 0)
+finish(drift > 0.5 ? 3 : 0)

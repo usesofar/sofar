@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -16,6 +17,8 @@ import {
   BRIEF_BY_REFERENCE,
   LINK_DISPOSITION,
   AGENTS_PROTOCOL_BLOCK,
+  AGENTS_THIN_PROTOCOL_BLOCK,
+  AGENTS_THIN_PROTOCOL_BLOCK_INLINE,
   AGENTS_PROTOCOL_BLOCK_V3,
   AGENTS_PROTOCOL_BLOCK_V4,
   classifyProtocolBlock,
@@ -40,6 +43,16 @@ import {
   shimsFor,
   STATUSLINE_HINT,
   STATUSLINE_SETTINGS_ENTRY,
+  AGENTS_PROTOCOL_BLOCK_V13,
+  PROTOCOL_BLOCK_V13,
+  INLINE_WRITEBACK,
+  INLINE_WRITEBACK_AGENTS,
+  protocolBlock,
+  agentsProtocolBlock,
+  shippedProtocolBlocks,
+  shippedAgentsProtocolBlocks,
+  WRITE_SKILL,
+  WRITE_SKILL_PATHS,
 } from '../src/cli/init'
 import { runDoctor } from '../src/cli/doctor'
 
@@ -160,6 +173,8 @@ describe('sofar init on a fresh repo', () => {
           ],
         },
       ],
+      // One surfacing block per parallel batch (r4-fixes A4), Claude Code only.
+      PostToolBatch: [{ hooks: [{ type: 'command', command: '$CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-batch.sh' }] }],
       PostToolUseFailure: [
         {
           matcher: 'Edit|Write|MultiEdit|Bash',
@@ -197,12 +212,25 @@ describe('sofar init on a fresh repo', () => {
     // …but start_session is NOT optional: it sets the server's active
     // session, and without it writes follow the branch binding and appends
     // stamp session "cli" (the record-integrity misroute class).
-    expect(claudeMd).toContain('On Claude Code, sofar\'s tools adopt this session')
+    expect(claudeMd).toContain('There is no start call: sofar\'s hooks know this session')
+    expect(PROTOCOL_BLOCK_V13).toContain('On Claude Code, sofar\'s tools adopt this session')
+
+    // r4-fixes A2: every AGENTS.md reader here (Cursor, Codex) runs the hooks
+    // and the MCP server, so AGENTS.md is the thin block and the CLI loop is a
+    // skill, for each host where its skills live.
+    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)
+    expect(AGENTS_THIN_PROTOCOL_BLOCK_INLINE.length).toBeLessThanOrEqual(1_500)
+    expect(readFileSync(join(root, WRITE_SKILL_PATHS.claude), 'utf8')).toBe(WRITE_SKILL)
+    expect(readFileSync(join(root, WRITE_SKILL_PATHS.agents), 'utf8')).toBe(WRITE_SKILL)
 
     // AGENTS.md convention dialect: same markers, same three BD19 clauses,
-    // but a CLI-only loop (no MCP assumptions — task 5.1, BD31)
-    const agentsMd = readFileSync(join(root, 'AGENTS.md'), 'utf8')
+    // but a CLI-only loop (no MCP assumptions — task 5.1, BD31) — the block
+    // under SOFAR_PAYLOAD=v034, and for a reader without hooks or MCP.
+    const legacy = freshRepo()
+    runInit(legacy, { env: { SOFAR_PAYLOAD: 'v034' } })
+    const agentsMd = readFileSync(join(legacy, 'AGENTS.md'), 'utf8')
     expect(agentsMd).toBe(AGENTS_PROTOCOL_BLOCK)
+    expect(existsSync(join(legacy, WRITE_SKILL_PATHS.agents))).toBe(false)
     expect(agentsMd).toContain(PROTOCOL_START)
     expect(agentsMd).toContain(PROTOCOL_END)
     expect(agentsMd).toMatch(/never in tool memory/i) // (a) total jurisdiction
@@ -311,7 +339,7 @@ describe('sofar init merges — never clobbers — user files', () => {
     const appended = readFileSync(join(root, 'AGENTS.md'), 'utf8')
     expect(appended.startsWith(userContent)).toBe(true) // merge, not clobber
     expect(appended).toContain(PROTOCOL_START)
-    expect(appended.endsWith(AGENTS_PROTOCOL_BLOCK)).toBe(true)
+    expect(appended.endsWith(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)).toBe(true)
 
     // hand-edit INSIDE the markers → re-init leaves the whole file alone
     const edited = appended.replace('jurisdiction is total', 'jurisdiction is total (amended)')
@@ -393,7 +421,7 @@ describe('sofar init --statusline (opt-in rent-meter wiring, D4 informed re-test
 
     const settings = readJSON(join(root, '.claude', 'settings.json'))
     expect(settings.statusLine).toEqual(STATUSLINE_SETTINGS_ENTRY)
-    expect(Object.keys(settings.hooks as object)).toHaveLength(7) // hooks untouched by the flag
+    expect(Object.keys(settings.hooks as object)).toHaveLength(8) // hooks untouched by the flag
   })
 
   it('is byte-level idempotent: a second --statusline run changes no file', () => {
@@ -539,7 +567,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
     expect(result.exitCode).toBe(0)
     // The report block ends at the blank line before the (unstyled) hint.
     const lines = (result.stdout.split('\n\n')[0] ?? '').split('\n')
-    expect(lines.at(-1)).toBe('\x1b[32m✓\x1b[39m sofar init: done (27 changes)')
+    expect(lines.at(-1)).toBe('\x1b[32m✓\x1b[39m sofar init: done (30 changes)')
     expect(lines[0]).toBe('\x1b[2m  └ created .sofar/repo.md\x1b[22m')
     for (const line of lines.slice(0, -1)) {
       expect(line.startsWith('\x1b[2m  └ ')).toBe(true)
@@ -559,6 +587,7 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .claude/hooks/pre-tool-use.sh',
         'created .claude/hooks/post-tool-use.sh',
         'created .claude/hooks/drive-await.sh',
+        'created .claude/hooks/post-tool-batch.sh',
         'created .claude/hooks/post-tool-use-failure.sh',
         'created .claude/hooks/stop.sh',
         'created .claude/hooks/session-end.sh',
@@ -577,8 +606,10 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .codex/hooks.json',
         'created .codex/config.toml',
         'created CLAUDE.md (sofar protocol block)',
+        'created .claude/skills/sofar-write/SKILL.md',
         'created AGENTS.md (sofar protocol block)',
-        'sofar init: done (27 changes)',
+        'created .agents/skills/sofar-write/SKILL.md',
+        'sofar init: done (30 changes)',
         '',
         STATUSLINE_HINT,
         '',
@@ -715,10 +746,11 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     // Only LINKS and the brief wording (r3-fixes 2.9) were added: the block
     // minus both is the one shipped before it, byte for byte.
     const [shipped, now] = BRIEF_BY_REFERENCE.claude
-    const unbriefed = PROTOCOL_BLOCK.replace(now, shipped).replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
-    expect(unbriefed.replace(links(unbriefed), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-1))
-    const v12 = SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)!
-    expect(v12.replace(links(v12), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2))
+    // (V13 is that block as 0.34 shipped it; r4-fixes A1's inline edits sit on top — see below.)
+    const unbriefed = PROTOCOL_BLOCK_V13.replace(now, shipped).replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
+    expect(unbriefed.replace(links(unbriefed), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-2))
+    const v12 = SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2)!
+    expect(v12.replace(links(v12), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-3))
   })
 
   it('teaches the CLI dialect to name what a decision replaces (r3-fixes 2.7)', () => {
@@ -730,10 +762,10 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     ].join('\n')
     expect(AGENTS_PROTOCOL_BLOCK).toContain(sentence)
     // Only that sentence and the brief wording (r3-fixes 2.9) were added: the
-    // current block minus both is V12, byte for byte.
+    // 0.34 block (V13) minus both is V12, byte for byte.
     const [shipped, now] = BRIEF_BY_REFERENCE.agents
-    const undisposed = AGENTS_PROTOCOL_BLOCK.replace(LINK_DISPOSITION.agents[1], LINK_DISPOSITION.agents[0])
-    expect(undisposed.replace(sentence, '').replace(now, shipped)).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
+    const undisposed = AGENTS_PROTOCOL_BLOCK_V13.replace(LINK_DISPOSITION.agents[1], LINK_DISPOSITION.agents[0])
+    expect(undisposed.replace(sentence, '').replace(now, shipped)).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2))
   })
 
   const driving = (b: string): string => /- DRIVING:[\s\S]*?(?=\n- BEFORE FINISHING)/.exec(b)![0]
@@ -772,11 +804,31 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     // 4.6 added the PLAN bullet alone (the brief, L36), once r3-fixes 2.5's
     // link disposition in DURING is set aside.
     const plan = (b: string): string => /- PLAN:[\s\S]*?(?=\n- DURING)/.exec(b)![0]
-    const block = PROTOCOL_BLOCK.replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
+    const block = PROTOCOL_BLOCK_V13.replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
     expect(block.replace(`${plan(block)}\n`, '')).toBe(v11)
     expect(v11).not.toContain('brief')
     expect(flat(v10)).toContain('Then run `sofar drive <slug> --await` in a background shell: silent until the run stops')
     expect(classifyProtocolBlock(v10, PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS)).toBe('stale')
+  })
+
+  it('the in-band write-back (r4-fixes A1) edits only START, DURING and BEFORE FINISHING; 0.34 is V13, in the ledger and the tool arm', () => {
+    const flat = (b: string): string => b.replace(/\s+/g, ' ')
+    const back = (b: string, edits: ReadonlyArray<readonly [string, string]>): string => edits.reduce((x, [old, now]) => x.replace(now, old), b)
+    const claude = INLINE_WRITEBACK.claude
+    expect(back(PROTOCOL_BLOCK, [claude.start, claude.during, claude.finish])).toBe(PROTOCOL_BLOCK_V13)
+    expect(back(AGENTS_PROTOCOL_BLOCK, [INLINE_WRITEBACK_AGENTS.block, INLINE_WRITEBACK_AGENTS.finish])).toBe(AGENTS_PROTOCOL_BLOCK_V13)
+    expect(SHIPPED_PROTOCOL_BLOCKS.at(-1)).toBe(PROTOCOL_BLOCK_V13)
+    expect(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)).toBe(AGENTS_PROTOCOL_BLOCK_V13)
+    expect(protocolBlock('tool')).toBe(PROTOCOL_BLOCK_V13)
+    expect(agentsProtocolBlock('tool')).toBe(AGENTS_PROTOCOL_BLOCK_V13)
+    // Either arm refreshes the other's untouched block.
+    expect(classifyProtocolBlock(PROTOCOL_BLOCK_V13, protocolBlock('inline'), shippedProtocolBlocks('inline'))).toBe('stale')
+    expect(classifyProtocolBlock(PROTOCOL_BLOCK, protocolBlock('tool'), shippedProtocolBlocks('tool'))).toBe('stale')
+    expect(classifyProtocolBlock(AGENTS_PROTOCOL_BLOCK, agentsProtocolBlock('tool'), shippedAgentsProtocolBlocks('tool'))).toBe('stale')
+    // The example in each block is itself a block the hook would file.
+    for (const b of [PROTOCOL_BLOCK, AGENTS_PROTOCOL_BLOCK]) expect(b).toContain('```sofar')
+    expect(flat(PROTOCOL_BLOCK)).toContain('no sofar tool call is needed')
+    expect(flat(AGENTS_PROTOCOL_BLOCK)).toContain('no `sofar_start_session`, no `session_started` append')
   })
 
   it('keeps every block sofar ever shipped classifiable as stale, in both dialects', () => {
@@ -821,7 +873,7 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     expect(claude).toContain('- RE-HOME the moment')
     expect(claude).toContain('sofar drive <slug> --detach')
     expect(claude.split(PROTOCOL_START).length - 1).toBe(1)
-    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_PROTOCOL_BLOCK)
+    expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)
   })
 })
 
@@ -841,7 +893,7 @@ describe('Cursor wiring (r1-fixes 6.2/6.6, D34)', () => {
     // asyncRewake has no Cursor equivalent.
     expect(shimsFor('cursor').some((shim) => shim.file === 'drive-await.sh')).toBe(false)
     for (const shim of shimsFor('cursor')) {
-      const spec = CURSOR_HOOKS[shim.event]
+      const spec = CURSOR_HOOKS[shim.event]!
       const [entry] = cursor.hooks[spec.event] ?? []
       expect(entry?.command, spec.event).toBe(hookCommand(shim.file))
       expect(entry?.command).toBe(claude.hooks[shim.event]?.[0]?.hooks[0]?.command)

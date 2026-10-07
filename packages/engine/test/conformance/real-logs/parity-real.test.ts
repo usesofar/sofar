@@ -3,6 +3,7 @@ import { chmodSync, cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { scaled } from '../../helpers/tracked'
 
 /**
  * The real-record parity checker (r3-fixes 4.0) checks itself: run against a
@@ -61,18 +62,46 @@ describe('parity-real checker (r3-fixes 4.0)', () => {
     expect(r.out).toMatch(/^PASS {2}boopada-planner$/m)
     expect(r.out).toMatch(/records: 1 {2}pass 1 {2}fail 0 {2}flaky 0/)
     expect(r.exit).toBe(0)
-  }, 240_000)
+  }, scaled(240_000))
 
   it('fails on one flipped byte of the status surface and names it', () => {
     const r = check(core('flip-status', 'status', 10))
     expect(r.exit).toBe(1)
     expect(r.out).toMatch(/^FAIL {2}boopada-planner$/m)
     expect(r.out).toMatch(/step \d+ \[status\] status \(bound\): stdout differs at byte 10 /)
-  }, 240_000)
+  }, scaled(240_000))
 
   it('fails on one flipped byte of the SessionStart digest', () => {
     const r = check(core('flip-start', 'event session-start', 200))
     expect(r.exit).toBe(1)
     expect(r.out).toMatch(/\[session-start\] startup, fresh session: stdout differs at byte 200 /)
-  }, 240_000)
+  }, scaled(240_000))
+})
+
+describe('parity-real N4: relative ages one unit apart (r4-fixes 0.35 int)', () => {
+  const b = (s: string): Buffer => Buffer.from(s, 'utf8')
+  const pair = async (x: string, y: string): Promise<[string, string]> => {
+    const { reconcileAges } = (await import(CHECKER)) as { reconcileAges: (a: Buffer, b: Buffer) => [Buffer, Buffer] }
+    const [p, q] = reconcileAges(b(x), b(y))
+    return [p.toString('utf8'), q.toString('utf8')]
+  }
+
+  it('masks a one-unit tick between the legs (CI run 37509117594, bench-refresh step 3)', async () => {
+    const [p, q] = await pair('r4-fixes (last event 5m ago) vs x (6d ago)', 'r4-fixes (last event 6m ago) vs x (6d ago)')
+    expect(p).toBe(q)
+    expect(p).toBe('r4-fixes (last event <AGE:m> ago) vs x (<AGE:d> ago)')
+  })
+
+  it('leaves a gap of 2 or more raw, so a real divergence still fails', async () => {
+    const [p, q] = await pair('last event 5m ago', 'last event 7m ago')
+    expect(p).not.toBe(q)
+  })
+
+  it('leaves a unit change and a count mismatch raw', async () => {
+    const [p, q] = await pair('last event 89m ago', 'last event 2h ago')
+    expect(p).not.toBe(q)
+    const [r, s] = await pair('5m ago and 3h ago', '5m ago')
+    expect(r).toBe('5m ago and 3h ago')
+    expect(s).toBe('5m ago')
+  })
 })

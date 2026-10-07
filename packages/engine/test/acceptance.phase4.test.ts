@@ -21,6 +21,7 @@ import { runInit } from '../src/cli/init'
 import { runNew } from '../src/cli/new'
 import { runStatus } from '../src/cli/status'
 import { callTool, connectServer } from './helpers/mcp'
+import { scaled } from './helpers/tracked'
 
 /**
  * Phase 4 acceptance (SPEC §Acceptance criteria):
@@ -265,5 +266,5 @@ describe('acceptance 2 + packaging — the BUILT CLI: init idempotency and .sh t
     expect(exportedB.status).toBe(0)
     expect(cli(repoA, ['import', '-'], exportedB.stdout).status).toBe(0)
     expect(cli(repoA, ['status']).stdout).toContain('Goal: replica')
-  }, 60_000)
+  }, scaled(60_000))
 })

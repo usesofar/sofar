@@ -4,7 +4,7 @@
 argv: ["event","append","--type","decision_logged","--session","link-sess","--source","claude-code","--payload","{\"chose\":\"Hook output is pinned by the conformance goldens on both implementations\",\"over\":\"Unit tests per implementation\",\"because\":\"one suite judges both\",\"rule\":\"Hot-path hook output must match the conformance goldens on both implementations\"}"]
 exit: 0
 --- stdout
-{"ok":true,"event_id":"<ULID>","warnings":["D3·<SFX> is a rule that names nothing it replaces; it may replace D1·1x01 \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the con…\", or D2·ea2q \"Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTP…\". If it does, answer `sofar supersedes D3·<SFX> D1·1x01`; if not, `sofar supersedes D3·<SFX> none`. Until then the digest shows it and Stop asks."]}
+{"ok":true,"event_id":"<ULID>","warnings":["D3·<SFX> is a rule that names nothing it replaces; it may replace D1·1x01 \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the con…\", or D2·ea2q \"Hot-path Rust code reproduces the JavaScript text semantics pinned in docs/HOTP…\" — D3·<SFX> looks like a new version of D1·1x01. If it does, answer `sofar supersedes D3·<SFX> D1·1x01`; if not, `sofar supersedes D3·<SFX> none`. Until then the digest shows it and Stop asks."]}
 --- stderr
 (empty)
 

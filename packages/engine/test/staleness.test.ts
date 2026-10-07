@@ -416,7 +416,7 @@ describe('doctor stale-phase parity (4.3)', () => {
         },
       }),
     ])
-    const r = runDoctor(root)
+    const r = runDoctor(root, { history: true })
     expect(r.exitCode).toBe(0) // WARN-level, never fails the run
     expect(r.stdout).toContain(
       '  WARN  demo: phase "Phase A" — all 2 tasks done but phase still active\n' +
@@ -436,6 +436,6 @@ describe('doctor stale-phase parity (4.3)', () => {
         },
       }),
     ])
-    expect(runDoctor(root).stdout).not.toContain('but phase still')
+    expect(runDoctor(root, { history: true }).stdout).not.toContain('but phase still')
   })
 })

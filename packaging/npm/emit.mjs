@@ -16,11 +16,19 @@
 //   node packaging/npm/emit.mjs --local          copy target/release/sofar-core into
 //                                                THIS machine's package (packaging test)
 //
+// Staging (`--binaries`, `--local`) also records each staged binary's sha256
+// and size in core-digests.json beside this script, keyed by sofar.sh's
+// version (r4-fixes A12). sofar.sh's build embeds them, and self-activation
+// copies a core into the per-user store only when the copy hashes to the
+// digest this build shipped with. The file is a release artefact, never
+// committed, like the binaries; a build for another version ignores it.
+//
 // The version is sofar.sh's, always: a platform package is never published
 // on its own, and sofar.sh pins each at that exact version so an upgrade of
 // one is an upgrade of all.
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -56,6 +64,29 @@ export function packageDir(p) {
 
 export function binaryName(p) {
   return p.platform === 'win32' ? 'sofar-core.exe' : 'sofar-core'
+}
+
+/**
+ * The staged cores' digests (r4-fixes A12): `{ version, cores: { "<platform>-<arch>": { sha256, size } } }`.
+ * SOFAR_CORE_DIGESTS_FILE moves it — the packaging test stages into its own
+ * scratch dir, so a test run never leaves digests for the next build to embed.
+ */
+export const DIGESTS_PATH = process.env.SOFAR_CORE_DIGESTS_FILE ?? join(here, 'core-digests.json')
+
+/** A binary's sha256 and size, the pair self-activation checks a copy against. */
+export function digestOf(path) {
+  return { sha256: createHash('sha256').update(readFileSync(path)).digest('hex'), size: statSync(path).size }
+}
+
+/** The digests staged for `version`, keyed `<platform>-<arch>`; empty when none were staged for it. */
+export function coreDigests(version, path = DIGESTS_PATH) {
+  try {
+    const staged = JSON.parse(readFileSync(path, 'utf8'))
+    if (staged.version !== version || typeof staged.cores !== 'object' || staged.cores === null) return {}
+    return staged.cores
+  } catch {
+    return {}
+  }
 }
 
 function manifest(p, version) {
@@ -137,10 +168,14 @@ function main(argv) {
     return
   }
 
+  // Digests of what is staged now; a `--local` run keeps the other
+  // platforms' entries when they were staged for this same version.
+  const digests = { ...coreDigests(version) }
   const stage = (p, from) => {
     const to = join(here, packageDir(p), binaryName(p))
     copyFileSync(from, to)
     if (p.platform !== 'win32') chmodSync(to, 0o755)
+    digests[`${p.platform}-${p.arch}`] = digestOf(to)
     console.log(`staged ${from} → ${to}`)
   }
   if (binaries !== undefined) {
@@ -156,6 +191,10 @@ function main(argv) {
     const from = join(repo, 'target', 'release', binaryName(p))
     if (!existsSync(from)) throw new Error(`build it first: cargo build --release -p sofar-core (${from})`)
     stage(p, from)
+  }
+  if (binaries !== undefined || local) {
+    writeFileSync(DIGESTS_PATH, `${JSON.stringify({ version, cores: digests }, null, 2)}\n`)
+    console.log(`core digests for ${version}: ${Object.keys(digests).sort().join(', ') || 'none'} → ${DIGESTS_PATH}`)
   }
   console.log(`packaging/npm: ${PLATFORMS.length} platform packages at ${version}${drift.length > 0 ? ` (${drift.length} file(s) written)` : ' (up to date)'}`)
 }

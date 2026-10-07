@@ -80,15 +80,45 @@ appended if absent, and sets `process.exitCode` (never `process.exit`).
 stdin: read to EOF as UTF-8; if stdin is a TTY, treated as empty string.
 
 The hook shims (`src/hooks/*.sh`) route before they exec (rust-core 3.2,
-D32): `sofar-core event <hook>` when `command -v sofar-core` finds one —
+D32): first the core activated for this user (r4-fixes A12, below), then
+`sofar-core event <hook>` when `command -v sofar-core` finds one —
 sofar.sh's own `bin/sofar-core`, which its postinstall (`install.mjs`)
 replaces with the platform package's binary, so the hook is one exec of
 native code with no node in front — else `sofar event <hook>`, the stub.
-`SOFAR_CORE=0` sends the shim to the CLI, `SOFAR_CORE=<path>` names the core;
+`SOFAR_CORE=0` sends the shim to the CLI, `SOFAR_CORE=<path>` names the core,
+and either (or an empty `SOFAR_CORE`) skips the activated core;
 where postinstall could not run (`--ignore-scripts`, no platform package,
 Windows) `bin/sofar-core` stays a JavaScript shim that IS `sofar`, so the
 bytes are the same and only node's boot is paid. `sofar doctor` reports which
-implementation the hot path runs on under "Wiring integrity". `fold` is
+implementation the hot path runs on under "Wiring integrity".
+
+Self-activation (r4-fixes A12, `cli/core-store.ts`). npm 12, pnpm, bun and
+Claude Code plugin installs skip install scripts, so postinstall never runs;
+the platform package is still installed. Every TypeScript boot (the stub
+before it dispatches: a hook on the stub, the MCP server, any command) with
+`SOFAR_CORE` unset copies that package's binary to
+`$XDG_DATA_HOME/sofar/core/<version>/sofar-core` (`~/.local/share` when
+XDG_DATA_HOME is unset or relative; Windows
+`%LOCALAPPDATA%\sofar\core\<version>\sofar-core.exe`), hashes the COPY
+against the sha256 and size embedded at build (`__SOFAR_CORE_DIGESTS__`, from
+`packaging/npm/emit.mjs`'s staging), renames it into place, and re-points
+`current` by renaming a staged relative symlink over it (Windows: a staged
+`current.txt` holding the path in forward slashes). The shims test
+`current/sofar-core` with `[ -x ]` (Windows/Git Bash: `read` of
+`current.txt`) — shell builtins, no fork — and exec it. It activates only when
+`bin/sofar-core` is still the stub or an existing `current` names another
+version (the skew guard: a stale store must not shadow a newer core on PATH);
+a build with no digest for the platform, no platform package, a size or
+sha256 mismatch (remembered in `<version>/.refused` so it is not re-hashed per
+boot) or an unwritable store leaves the previous `current` and the stub in
+place. Steady state: a readlink and a stat per boot. Nothing is fetched; the
+version directory it replaced is kept (a hook may be running it) and older
+ones are pruned. The Codex shim tries the activated core too, with
+`SOFAR_CORE_DISPATCHED=1`: the core's exit 64 (it owns no `--host` shape yet)
+hands the unread stdin to `SOFAR_CORE=0 sofar`, so the stub does not spawn it
+a second time; .codex/hooks.json stays byte-stable (agents-parity D5), and
+init prints a note on the run that rewrites existing Codex shims in case Codex
+asks for hook trust again. `fold` is
 reached only by invoking the binary itself
 (`SOFAR_CONFORMANCE_BIN=target/release/sofar-core npx vitest run fold-parity`).
 The unfiltered proof of the mixed install is the reference suite with the
@@ -150,11 +180,19 @@ exist → else `unknown_initiative` with the `available initiatives: a, b …
 (details: sofar list)` suffix (≤10 named, `, …+N more`), or `no initiatives
 exist yet — create one with \`sofar new <slug>\`` when none.
 
+Since r4-fixes A10 a branch the committed table routes is routed to this
+worktree's last home when `.sofar/.index/last-home.json` names an existing
+record for it (`{<branch>: {slug, session, ts}}`; slug `[a-z0-9-]+`; any read
+failure = no entry; off under `SOFAR_LASTHOME=committed`). An unbound branch
+is untouched (lane, unbound notice as before).
+
 `resolveSessionFirst(ctx, sessionId)` (every hook, the statusline):
 1. `branchSlug = resolveInitiative()` or null on any throw.
 2. If sessionId non-empty: `home = homeInitiative(sofarDir, sessionId,
-   branchSlug)`; if non-null → `{slug: home, via: home === branchSlug ?
-   'branch' : 'session'}`.
+   branchSlug)`; if null and `SOFAR_LINEAGE` is not `off`, `home =`
+   `.sofar/.index/lineage/<safe id>.json`'s `home` when that record's
+   directory exists (r4-fixes A10); if non-null → `{slug: home, via: home ===
+   branchSlug ? 'branch' : 'session'}`.
 3. Else `{slug: branchSlug, via: 'branch'}`, or null when both miss.
 
 `homeInitiative`: `cli` and empty ids → null. Read `preferred`'s log first
@@ -186,7 +224,33 @@ allowed here by commit-attribution D6, forbidden per prompt); no identity
 spawn, because this hook never calls `makeEvent`.
 Writes: `shipwatch.json` (noteUpstream mark, when session_id and git state
 both resolve); `guards.json`/`graph.json` + their meta files (refreshNeighbours);
-NEVER events.jsonl (lazy registration, record-hygiene D2).
+`lineage/<safe id>.json` (r4-fixes A10, below); NEVER events.jsonl (lazy
+registration, record-hygiene D2).
+
+Lineage (r4-fixes A10; `SOFAR_LINEAGE=off` skips it): BEFORE resolution, for
+a session_id other than `cli` that no log registers
+(`homeInitiative(id, null)`) and that has no lineage file yet, the first
+carrier naming an OPEN record (`events.jsonl` exists, status not
+done/dropped/superseded) is written as `{home, parent?, carrier, ts}`:
+`baton` (source `clear`|`fork`: exactly one `baton/<pid>.json` with ts within
+60,000 ms of now, `from` ≠ id, whose registry `<pid>.json` has the same
+`procStart` and `sessionId` ∈ {id, from}); `title` (JS-trimmed
+`session_title`, first `' '`-token `[a-z0-9-]+`); `fingerprint` (source
+`resume`|`fork`, capture on: the transcript's first 262,144 bytes, whole lines,
+first prompt ≥20 UTF-16 units equal to the first row's `text` of exactly one
+other `*.jsonl` in the prompt buffer, names sorted by code unit; parent = the
+file stem; home = homeInitiative(parent, null)); `registry` (the registry
+file, sorted by name, ≤128, whose `sessionId` is the id; parent = the
+`formerNames[].sessionId` ≠ id with the greatest finite `until`). Registry
+files parse as in peers (`pid` positive integer, `sessionId` non-empty).
+Contested line (r4-fixes A10): when no carrier placed the session and it is
+unregistered, the first notice is `⚠ <branch> serves <N> live record(s):
+<slug> (<n> session(s)), …. This session opened <slug> by the branch's route;
+if this work is <other>, call sofar_start_session with initiative
+"<other>".` over live registry peers (pid alive) other than this id whose
+`cwd` is the root or under it, counted by `homeInitiative(peer, null)`;
+emitted only when those homes plus the opened slug are ≥2 distinct; ranked
+count desc then code unit; clipped to 400.
 
 stdout, exit 0 always:
 - Nothing resolves AND repo has no `.sofar/initiatives` entries → empty.
@@ -315,24 +379,49 @@ session's "silent" prompt is `{"hookSpecificOutput":{"hookEventName":"UserPrompt
 
 ### stop
 
-Reads: stdin; resolution; bound log (fold). Writes: nothing. Spawns: none.
+Reads: stdin; resolution; bound log (fold). Writes: nothing, unless it files
+an in-band write-back. Spawns: none, unless it hands one back.
+- IN-BAND WRITE-BACK (r4-fixes A1, SPEC §In-band write-back), unless
+  `SOFAR_WRITEBACK=tool`: the core hands the hook to the TypeScript CLI —
+  `<cli> event stop --root <root>` with `SOFAR_CORE=0` and the same stdin,
+  exit, stdout and stderr mirrored byte for byte — when the payload names a
+  session and `last_assistant_message` contains ```` ```sofar ````, or (a
+  payload with a string `cursor_version`) the last 256 KiB of the file
+  `transcript_path` names contains it, or
+  `.sofar/.index/inline/<session sanitized per UTF-16 unit to
+  [A-Za-z0-9._-]>.json` exists. `<cli>`: `SOFAR_CLI` (the stub sets it to
+  itself when it dispatches), else `<canonical exe>/../../dist/cli.js`, else
+  `sofar` on PATH; a `.js` path runs under `node`. A CLI that cannot run, or
+  dies by a signal, leaves the hook to the core. TypeScript then files the
+  block (or asks once for its repair, exit 2) before the rest below; with
+  `stop_hook_active` it files and never holds.
 - `stop_hook_active === true` → 0.
 - no session_id / unresolved / session not registered / `session.summary`
   set → 0.
 - `sessionDebt(state, session) === 0` → 0. A throw or NaN inside the debt
   computation FAILS CLOSED (block).
 - else exit 2, stdout empty, stderr = `Write back to the sofar record before
-  finishing: call sofar_end_session (or append session_ended via \`sofar
-  event append\`).` followed by guard-crossing lines (same renderer as
-  user-prompt), `\n`-joined.
+  finishing: end your reply with a ```sofar block — {"summary":"…",
+  "next_action":"…"} plus any tasks, decisions, memories, notes — or call
+  sofar_end_session.` (one line; under `SOFAR_WRITEBACK=tool`: `Write back
+  to the sofar record before finishing: call sofar_end_session (or append
+  session_ended via \`sofar event append\`).`) followed by guard-crossing
+  lines (same renderer as user-prompt), `\n`-joined.
 
 ### session-end
 
 Reads: stdin; resolution; bound log (fold). Writes: `events.jsonl` +
-projections when it appends. Spawns: `git config user.email` on append.
+projections when it appends. Spawns: `git config user.email` on append; the
+TypeScript CLI on the in-band write-back's hand-back, by stop's rule (a
+stash, a Cursor transcript holding the fence, or a `last_assistant_message`
+holding it), which files the block with no ask left before the close below.
 No session_id / unresolved / session unknown / `session.ended` set → 0,
 nothing. Else append `session_closed {reason: hook.reason ?? 'unknown'}`
-with `{session, source: 'hook'}`. Exit 0 always.
+with `{session, source: 'hook'}`. Exit 0 always. Before that, once resolved,
+`reason === 'clear'` writes `.sofar/.index/baton/<pid>.json` = `{from, home,
+ts, procStart}` (r4-fixes A10) from the registry entry whose `sessionId` is
+this id; none → nothing. A lazy registration (post-tool) whose slug equals
+the lineage file's home adds `continues: <parent>` to `session_started`.
 
 ### event append
 
@@ -667,7 +756,11 @@ message file (commit-trailer).
 | `SOFAR_CORE` | boot stub (rust-core 3.1): path of the native core; `0`/empty = TypeScript; unset = the platform package |
 | `SOFAR_RETIRE` | `off`/`0`/`false` renders every decision as if none were retired (r1-fixes D25) |
 | `SOFAR_CORE_DISPATCHED` | set by the stub for the core it spawns: exit-64 diagnostics stay silent |
+| `SOFAR_WRITEBACK` | `tool` turns the in-band write-back off (r4-fixes A1): stop and session-end never hand back, and the hold names the tool |
+| `SOFAR_CLI` | set by the stub for the core it spawns: the TypeScript CLI an in-band write-back is handed back to |
 | `CLAUDE_CODE_SESSION_ID` | commit-trailer only |
+| `SOFAR_LINEAGE` | `off` (trimmed, any case): no lineage carriers, no lineage read (r4-fixes A10) |
+| `SOFAR_LASTHOME` | `committed` (trimmed, any case): no last-home overlay (r4-fixes A10) |
 | `GIT_CONFIG_*`, git's own env | inherited by the `git config user.email` spawn |
 | `XDG_CONFIG_HOME` | refresh child only (auto-upgrade preference) |
 
@@ -680,6 +773,7 @@ message file (commit-trailer).
 | `git log … --max-count=100 <prev>..<upstream>` (or `<tip> --not --exclude=origin/<b> --remotes=origin` on a first push) | user-prompt, ONLY when the mark says origin/<b> moved |
 | `node <dir>/cli.js update-check --refresh` (detached) | statusline / status, ≤ once per 24 h (from the stub when the core rendered them) |
 | `sofar-core <argv>` (stdio inherited) | boot stub, every `event` / `statusline` / `status` when a core is present (rust-core 3.1) |
+| `<cli> event stop\|session-end --root <root>` with `SOFAR_CORE=0` (stdin piped) | the core, on stop or session-end, ONLY when the payload may carry an in-band write-back or a stash waits (r4-fixes A1) |
 | `kill(pid, 0)` | user-prompt peer liveness (not a spawn) |
 | `/bin/sh -c <check cmd>` (per check ≤30 s, all ≤45 s; `kill -TERM` on timeout) | stop, ONLY when the session is already blocked and a decision check is approved on this clone (memory-lead 2.3) |
 | `git for-each-ref --no-merged=HEAD …` and one `git cat-file --batch` | plain `status`, to fold the record's unmerged branch copies (branch-visibility 1.1) — never a hook |
@@ -807,6 +901,27 @@ commit in `golden/MANIFEST.md`. Contract deltas the core reproduces:
   (branch-visibility 1.1–2.3).
 - `--host codex` (agents-parity 2.1) is not an owned shape: the core
   returns exit 64 and TypeScript serves Codex.
+
+## Wave A deltas (r4-fixes A2, A4; 0.35.0)
+
+Contract deltas the core reproduces, as SPEC states them in
+SPEC §Host-compiled payloads (r4-fixes A2) and
+SPEC §Told set and hook-line epochs (r4-fixes A4):
+- §session-start: the digest's cap is the host's (Claude Code 6,000, Cursor
+  3,000; Codex's 4,000 is TypeScript's, `--host codex` being handed back);
+  the long sections scale to it and the Session/Git lines are protected
+  under a smaller cap; `SOFAR_PAYLOAD=v034` restores 6,000. The told set is
+  seeded with the block's entries (`@<id>`) and its push epoch.
+- §user-prompt: the push line once per push epoch, the debt nudge once per
+  band; the recall block capped (8 one-line entries, 2,500 units, nothing
+  the told set holds; `SOFAR_RECALL=v034` restores 0.34's).
+- §post-tool: an entry is told once per context on any path (`!<id>`); one
+  the digest or recall holds is told only as a guard's binding.
+- `event post-tool-batch` is an owned shape (Claude Code's PostToolBatch):
+  one surfacing block for the batch, no last-touch test; its first run marks
+  the session, whose PostToolUse then only captures.
+- pre-tool: whole-file read segments inside compound commands are rewritten.
+- `SOFAR_TOLD_LINES=off` restores 0.34.1 on all of the above.
 
 ## SPEC gaps
 

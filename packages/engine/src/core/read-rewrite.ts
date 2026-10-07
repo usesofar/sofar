@@ -67,3 +67,76 @@ export function rewriteRawRead(cmd: string, cwd: string, rootDir: string, sessio
   if (files.length === 0) return null
   return `sofar read --session ${quote(session)} ${files.map(quote).join(' ')}`
 }
+
+/**
+ * Per segment (r4-fixes A4; R4-RESEARCH 1.1 #4, extending U4): round 4's raw
+ * reads were 145 of 172 compound — `ls; cat lib/x.ts; cat .sofar/…/memory.md
+ * | head -80` — which the whole-command rewrite skips by construction. Here
+ * every simple command that heads a pipeline and is itself a whole-file read
+ * (the same rule as above: `cat`/`less`/`more`, only projections, `cat -n`
+ * allowed, plus a trailing `2>/dev/null`) becomes `sofar read`, and every
+ * other byte of the command is kept: a `| head -80` after it still limits
+ * what `sofar read` prints, and a limited read (`head`, `tail`, `sed -n`)
+ * still passes through. A command holding a backtick, `$(`, a heredoc or a
+ * backslash is not split at all. Null when no segment is rewritten.
+ *
+ * Under `SOFAR_TOLD_LINES=off` only the whole-command form above runs.
+ */
+export function rewriteRawReadSegments(cmd: string, cwd: string, rootDir: string, session: string): string | null {
+  const whole = rewriteRawRead(cmd, cwd, rootDir, session)
+  if (whole !== null) return whole
+  if (/[`\\]|\$\(|<</.test(cmd)) return null
+  // Spans of simple commands, and whether each heads its pipeline.
+  const spans: Array<{ start: number; end: number; heads: boolean }> = []
+  let quote: '"' | "'" | null = null
+  let start = 0
+  let heads = true
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i]!
+    if (quote !== null) {
+      if (c === quote) quote = null
+      continue
+    }
+    if (c === '"' || c === "'") {
+      quote = c
+      continue
+    }
+    const two = cmd.slice(i, i + 2)
+    let width = 0
+    let pipe = false
+    if (two === '&&' || two === '||') width = 2
+    else if (c === '|') {
+      width = 1
+      pipe = true
+    } else if (c === ';' || c === '\n' || c === '&') width = 1
+    if (width === 0) continue
+    spans.push({ start, end: i, heads })
+    heads = !pipe
+    start = i + width
+    i += width - 1
+  }
+  if (quote !== null) return null
+  spans.push({ start, end: cmd.length, heads })
+  let out = ''
+  let at = 0
+  let changed = false
+  for (const span of spans) {
+    if (!span.heads) continue
+    const text = cmd.slice(span.start, span.end)
+    const lead = /^\s*/.exec(text)![0]
+    const trail = /\s*$/.exec(text)![0]
+    let body = text.slice(lead.length, text.length - trail.length)
+    let redirect = ''
+    if (body.endsWith(' 2>/dev/null')) {
+      redirect = ' 2>/dev/null'
+      body = body.slice(0, -redirect.length).trimEnd()
+    }
+    if (/[<>]/.test(body)) continue
+    const rewritten = rewriteRawRead(body, cwd, rootDir, session)
+    if (rewritten === null) continue
+    out += cmd.slice(at, span.start) + lead + rewritten + redirect + trail
+    at = span.end
+    changed = true
+  }
+  return changed ? out + cmd.slice(at) : null
+}

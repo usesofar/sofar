@@ -132,7 +132,7 @@ describe('sofar doctor: record-health deepening', () => {
         },
       }),
     ])
-    const r = runDoctor(root)
+    const r = runDoctor(root, { history: true })
     expect(r.exitCode).toBe(0) // WARN-level, does not fail the exit code
     expect(r.stdout).toContain('all 2 tasks done but phase still active')
   })
@@ -144,7 +144,7 @@ describe('sofar doctor: record-health deepening', () => {
         plan: { phases: [{ name: 'Phase A', status: 'done', tasks: [{ id: 'a1', title: 't', status: 'done' }] }] },
       }),
     ])
-    expect(runDoctor(root).stdout).not.toContain('but phase still')
+    expect(runDoctor(root, { history: true }).stdout).not.toContain('but phase still')
   })
 
   it('11.3 flags a wrapped session with file work but no task changes', () => {
@@ -157,7 +157,7 @@ describe('sofar doctor: record-health deepening', () => {
       ev('file_touched', { path: 'src/f3.ts', op: 'edit' }, { session: 'work-1' }),
       ev('session_ended', { summary: 's', next_action: 'n' }, { session: 'work-1' }),
     ])
-    const r = runDoctor(root)
+    const r = runDoctor(root, { history: true })
     expect(r.exitCode).toBe(0)
     expect(r.stdout).toContain('touched 3 files but changed no plan tasks')
   })
@@ -173,12 +173,12 @@ describe('sofar doctor: record-health deepening', () => {
       ev('task_status_changed', { id: 'a1', status: 'done' }, { session: 'work-1' }),
       ev('session_ended', { summary: 's', next_action: 'n' }, { session: 'work-1' }),
     ])
-    expect(runDoctor(root).stdout).not.toContain('changed no plan tasks')
+    expect(runDoctor(root, { history: true }).stdout).not.toContain('changed no plan tasks')
   })
 
   it('11.2 flags a file under concurrent edit by two open sessions', () => {
     const root = repoWithLog('demo', twoOpenSessions())
-    const r = runDoctor(root)
+    const r = runDoctor(root, { history: true })
     expect(r.exitCode).toBe(0)
     expect(r.stdout).toContain('Concurrency')
     expect(r.stdout).toContain('src/shared.ts — touched by 2 open sessions')
@@ -190,6 +190,6 @@ describe('sofar doctor: record-health deepening', () => {
       ev('session_started', { tool: 'claude-code' }, { session: 'solo' }),
       ev('file_touched', { path: 'src/x.ts', op: 'edit' }, { session: 'solo' }),
     ])
-    expect(runDoctor(root).stdout).toContain('no files under concurrent edit')
+    expect(runDoctor(root, { history: true }).stdout).toContain('no files under concurrent edit')
   })
 })

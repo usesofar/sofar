@@ -1,4 +1,5 @@
 import { withActivityGuidance } from '../core/derived'
+import { writebackMode, type WritebackMode } from '../core/inline-block'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
@@ -19,7 +20,7 @@ import { version } from '../../package.json'
 import { createToolContext, ToolError, type ActiveSession, type ToolContext } from './context'
 import { recordDiagnostic } from '../core/diagnostics'
 import { getState } from './get-state'
-import { adoptHostSession, startSession } from './start-session'
+import { adoptHostSession, adoptWorktreeSession, startSession, toolOfClient } from './start-session'
 import { endSessionJudged } from './end-session'
 import { updateTaskJudged } from './update-task'
 import { updatePhase } from './update-phase'
@@ -67,15 +68,56 @@ export const ALWAYS_LOADED_TOOLS = ['sofar_end_session', 'sofar_log_decision'] a
  * (r1-fixes 2.4, D13) names the three operations that left the tool list for
  * the CLI.
  */
-export function serverInstructions(adopted: boolean): string {
+export function serverInstructions(
+  adopted: boolean,
+  tools: readonly string[] | null = null,
+  mode: WritebackMode = writebackMode(),
+): string {
+  // The in-band write-back (r4-fixes A1): the final reply's ```sofar block is
+  // the write-back, so neither a start call nor the tool is needed for it.
+  const inline = mode === 'inline'
+  // A client that lists only some tools (Codex `enabled_tools`, r4-fixes A2)
+  // is never sent to one it hides: the write-back takes the session id itself.
+  if (tools !== null && !tools.includes('sofar_start_session')) {
+    const endSession = tools.includes('sofar_end_session')
+    return [
+      "sofar keeps this repo's work record. The SessionStart hook already injected it (goal, next action, decisions, rejected approaches, next D/M ids): do not call sofar_get_state to re-read it.",
+      ...(inline
+        ? [
+            endSession
+              ? "Write back once, at wrap-up: end your final reply with one ```sofar block of sofar_end_session's arguments — sofar's hooks file it — or call sofar_end_session: pass the session_id from the injected \"Session:\" line."
+              : "Write back once, at wrap-up: end your final reply with one ```sofar block — summary, next_action, and the session's tasks, decisions, memories and notes; sofar's hooks file it.",
+          ]
+        : endSession
+          ? [
+              "Write back once, at wrap-up, with sofar_end_session — pass the session_id from the injected \"Session:\" line; it carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes.",
+            ]
+          : []),
+      'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.',
+    ].join('\n')
+  }
   return [
     "sofar keeps this repo's work record. The SessionStart hook already injected it (goal, next action, decisions, rejected approaches, next D/M ids): do not call sofar_get_state to re-read it.",
     adopted
       ? "This session is adopted from Claude Code's session id: call sofar_start_session only to re-home into another initiative."
-      : 'Call sofar_start_session first, with the session_id from the injected "Session:" line.',
-    "Write back once, at wrap-up: sofar_end_session carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed.",
+      : inline
+        ? 'Before a sofar tool, call sofar_start_session with the session_id from the injected "Session:" line; the write-back block needs no call.'
+        : 'Call sofar_start_session first, with the session_id from the injected "Session:" line.',
+    inline
+      ? "Write back once, at wrap-up: end your final reply with one ```sofar block of sofar_end_session's arguments — the Stop hook files it — or call sofar_end_session. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed."
+      : "Write back once, at wrap-up: sofar_end_session carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed.",
     'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.',
   ].join('\n')
+}
+
+/**
+ * The tools the client lists, from the env the Codex table passes
+ * (`SOFAR_MCP_TOOLS`, r4-fixes A2); null — every tool — when unset.
+ */
+export function listedTools(env: Readonly<Record<string, string | undefined>> = process.env): readonly string[] | null {
+  const raw = env.SOFAR_MCP_TOOLS
+  if (raw === undefined) return null
+  return raw.split(',').map((t) => t.trim()).filter((t) => t.length > 0)
 }
 
 /** The instructions of a server with no host session to adopt. */
@@ -163,6 +205,15 @@ export interface CreateSofarServerOptions {
    * Claude Code session whose id must not leak into fixtures.
    */
   hostSessionId?: string
+  /**
+   * Adopt the worktree's newest hook-registered session when it is the only
+   * live one (r4-fixes A3). Only `sofar mcp` passes it, and only without a
+   * host session id: that server is a stdio child of ONE agent process. The
+   * serve daemon is shared and never adopts; tests opt in.
+   */
+  adoptWorktree?: boolean
+  /** When this server started (epoch ms) — the A3 lead guard; default now. */
+  startedAtMs?: number
 }
 
 export interface SofarServerHandle {
@@ -183,10 +234,12 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
   const rootDir = resolve(options.rootDir ?? recordRoot(process.cwd()))
   const context = createToolContext(rootDir)
   const hostSessionId = options.hostSessionId?.trim() || undefined
+  const adoptWorktree = hostSessionId === undefined && options.adoptWorktree === true
+  const startedAtMs = options.startedAtMs ?? Date.now()
 
   const server = new Server(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { capabilities: { tools: {} }, instructions: serverInstructions(hostSessionId !== undefined) },
+    { capabilities: { tools: {} }, instructions: serverInstructions(hostSessionId !== undefined, listedTools()) },
   )
   const alwaysLoaded: readonly string[] = ALWAYS_LOADED_TOOLS
 
@@ -221,6 +274,10 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
       // the explicit start (D3) — once per process, whatever tool comes first.
       if (hostSessionId !== undefined && name !== 'sofar_start_session' && context.session.get() === null) {
         adoptHostSession(context, hostSessionId)
+      }
+      // No id from the host: the worktree's only live hook session (A3).
+      if (adoptWorktree && name !== 'sofar_start_session' && context.session.get() === null) {
+        adoptWorktreeSession(context, toolOfClient(server.getClientVersion()?.name), startedAtMs)
       }
       // Runtime-validated above; the registry's per-tool arg types are
       // narrower than `unknown`, hence the cast.

@@ -380,7 +380,7 @@ describe('split-session detection (2.1/2.2)', () => {
 
     // Exit code is not the assertion here — the bare fixture has no wiring, so
     // auditWiring fails regardless. The routing finding's LEVEL is the subject.
-    const r = runDoctor(f.root)
+    const r = runDoctor(f.root, { history: true })
     expect(r.stdout).toContain('FAIL  session sess-torn spans 2 initiatives (torn, live)')
     expect(r.stdout).toContain('still OPEN')
   })
@@ -394,7 +394,7 @@ describe('split-session detection (2.1/2.2)', () => {
       endSession(f.root, slug, 'sess-torn')
     }
 
-    const r = runDoctor(f.root)
+    const r = runDoctor(f.root, { history: true })
     // WARN, not FAIL: settled history must never fail the audit forever.
     expect(r.stdout).toContain('WARN  session sess-torn spans 2 initiatives (torn, history)')
     expect(r.stdout).not.toContain('FAIL  session sess-torn')
@@ -417,7 +417,7 @@ describe('split-session detection (2.1/2.2)', () => {
       }),
     )
 
-    const r = runDoctor(f.root)
+    const r = runDoctor(f.root, { history: true })
     expect(r.stdout).toContain('FAIL  session sess-leak spans 2 initiatives (leaked, live)')
     expect(r.stdout).toContain('events also landed in beta')
   })
@@ -428,7 +428,7 @@ describe('split-session detection (2.1/2.2)', () => {
     register(f.root, 'alpha', 'sess-a')
     register(f.root, 'beta', 'sess-b')
 
-    expect(runDoctor(f.root).stdout).toContain('no session spans more than one initiative')
+    expect(runDoctor(f.root, { history: true }).stdout).toContain('no session spans more than one initiative')
   })
 })
 
@@ -903,7 +903,7 @@ describe('regression guard', () => {
     handlePostTool(f.root, bashStdin('sess-1', 'npm test'))
     handleSessionEnd(f.root, JSON.stringify({ session_id: 'sess-1', reason: 'clear' }))
 
-    const r = runDoctor(f.root)
+    const r = runDoctor(f.root, { history: true })
     expect(r.stdout).toContain('no session spans more than one initiative')
     expect(foldLog(f.eventsPath).unregistered_sessions).toEqual([])
 

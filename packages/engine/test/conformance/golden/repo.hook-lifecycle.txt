@@ -50,7 +50,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"MultiEdit","tool_input":{"file_path":"<ROOT>/packages/engine/src/cli/event.ts","edits":[]}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/cli/event.ts is governed by [architecture-map D1·msya], a standing rule: \"Every module added under packages/*/src must get a line in docs/ARCHITECTURE.md in the same change — the suite fails until it does, and that failure is the cheapest moment to write it.\" (guard: path:packages/engine/src/**,packages/schema/src/**). Work against it needs a decision that supersedes architecture-map D1·msya.\nsofar: packages/engine/src/cli/event.ts is governed by [commit-attribution D15·186a], a standing rule: \"The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.\" (guard: path:packages/engine/src/core/shipwatch.ts,packages/engine/src/cli/event.ts). Work against it needs a decision that supersedes commit-attribution D15·186a.\nsofar: …and 5 more decision(s) and 5 more memories on packages/engine/src/cli/event.ts (in commit-attribution, record-integrity, repo-memory-capture, session-orientation, record-index, record-graph, initiative-lifecycle) — sofar find packages/engine/src/cli/event.ts."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: packages/engine/src/cli/event.ts is governed by [commit-attribution D15·186a], a standing rule: \"The live shipping line is edge-triggered: mark the ref on every look and announce only a transition — never restate it statelessly, and never treat a missing upstream ref as unwatchable.\" (guard: path:packages/engine/src/core/shipwatch.ts,packages/engine/src/cli/event.ts). Work against it needs a decision that supersedes commit-attribution D15·186a.\nsofar: packages/engine/src/cli/event.ts is governed by [commit-attribution D17·k0ac], a standing rule: \"On the first appearance of origin/&lt;branch&gt;, subtract every other origin ref from the walk — never report bare reachability from the new tip as newly landed.\" (guard: path:packages/engine/src/core/attribution.ts,packages/engine/src/cli/event.ts). Work against it needs a decision that supersedes commit-attribution D17·k0ac.\nsofar: …and 4 more decision(s) and 5 more memories on packages/engine/src/cli/event.ts (in commit-attribution, record-integrity, repo-memory-capture, session-orientation, record-index, record-graph, initiative-lifecycle) — sofar find packages/engine/src/cli/event.ts."}}
 --- stderr
 (empty)
 
@@ -124,7 +124,7 @@ exit: 2
 --- stdout
 (empty)
 --- stderr
-Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
+Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.
 
 ## step 15: stop_hook_active short-circuits
 argv: ["event","stop"]
@@ -175,7 +175,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #conf"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #conf"}}
 --- stderr
 (empty)
 

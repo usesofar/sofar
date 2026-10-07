@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import { makeEvent, validateEnvelope } from '../src/core/envelope'
 import { appendEvent, appendEvents, serializeEvent } from '../src/core/log'
+import { scaled } from './helpers/tracked'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 const scratch = mkdtempSync(join(tmpdir(), 'sofar-log-'))
@@ -133,5 +134,5 @@ describe('concurrent appends (Phase 1 acceptance)', () => {
     for (const [, seen] of perWorker) {
       expect(seen.size).toBe(PER_WORKER)
     }
-  }, 60_000)
+  }, scaled(60_000))
 })

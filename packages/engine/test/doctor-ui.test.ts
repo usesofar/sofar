@@ -47,7 +47,7 @@ describe('sofar doctor: plain path stays byte-identical', () => {
   it('renders the legacy markers and no escapes when color is off', () => {
     const root = tmpRepo()
     runInit(root)
-    const r = runDoctor(root, {}, PLAIN, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, PLAIN, { caps: INERT, stream: capture() })
     expect(r.exitCode).toBe(0)
     expect(r.stdout.startsWith(`sofar doctor — ${root}\n\nWiring integrity:\n  ok    `)).toBe(true)
     expect(r.stdout).toContain('\nsofar doctor: no problems found\n')
@@ -61,8 +61,8 @@ describe('sofar doctor: plain path stays byte-identical', () => {
     // stdoutCaps()/stderrCaps() path is deterministically plain here.
     vi.stubEnv('NO_COLOR', '1')
     try {
-      const dflt = runDoctor(root)
-      const plain = runDoctor(root, {}, PLAIN, { caps: INERT, stream: capture() })
+      const dflt = runDoctor(root, { history: true })
+      const plain = runDoctor(root, { history: true }, PLAIN, { caps: INERT, stream: capture() })
       expect(dflt.stdout).toBe(plain.stdout)
       expect(dflt.exitCode).toBe(plain.exitCode)
     } finally {
@@ -79,7 +79,7 @@ describe('sofar doctor: plain path stays byte-identical', () => {
       { color: false, unicode: true, animate: true },
       { caps: INERT, stream: capture() },
     )
-    const plain = runDoctor(root, {}, PLAIN, { caps: INERT, stream: capture() })
+    const plain = runDoctor(root, { history: true }, PLAIN, { caps: INERT, stream: capture() })
     expect(noColorTty.stdout).toBe(plain.stdout)
   })
 
@@ -87,7 +87,7 @@ describe('sofar doctor: plain path stays byte-identical', () => {
     const root = tmpRepo()
     runInit(root)
     unlinkSync(join(root, '.claude', 'hooks', 'stop.sh'))
-    const r = runDoctor(root, {}, PLAIN, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, PLAIN, { caps: INERT, stream: capture() })
     expect(r.exitCode).toBe(1)
     expect(r.stdout).toContain(
       '  FAIL  hook shims missing: stop.sh\n          run `sofar init --refresh` to (re)install it',
@@ -99,7 +99,7 @@ describe('sofar doctor: styled path', () => {
   it('renders bold sections, green ✓ marks, bold summary with green count on a clean repo', () => {
     const root = tmpRepo()
     runInit(root)
-    const r = runDoctor(root, {}, STYLED, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, STYLED, { caps: INERT, stream: capture() })
     expect(r.exitCode).toBe(0)
     expect(r.stdout.startsWith('\x1b[1msofar doctor\x1b[22m \x1b[2m— ')).toBe(true)
     expect(r.stdout).toContain('\x1b[1mWiring integrity:\x1b[22m')
@@ -112,7 +112,7 @@ describe('sofar doctor: styled path', () => {
     const root = tmpRepo()
     runInit(root)
     unlinkSync(join(root, '.claude', 'hooks', 'stop.sh'))
-    const r = runDoctor(root, {}, STYLED, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, STYLED, { caps: INERT, stream: capture() })
     expect(r.exitCode).toBe(1)
     expect(r.stdout).toContain('  \x1b[31m✗\x1b[39m hook shims missing: stop.sh')
     expect(r.stdout).toContain('\x1b[2m    └ run `sofar init --refresh` to (re)install it\x1b[22m')
@@ -123,7 +123,7 @@ describe('sofar doctor: styled path', () => {
     const root = tmpRepo()
     runInit(root)
     pkg(root, { tailwindcss: '^4.1.0' }) // v4 with no entry stylesheet → WARN
-    const r = runDoctor(root, {}, STYLED, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, STYLED, { caps: INERT, stream: capture() })
     expect(r.exitCode).toBe(0)
     expect(r.stdout).toContain('  \x1b[33m⚠\x1b[39m Tailwind v4 present')
     expect(r.stdout).toContain('\x1b[33m1 warning\x1b[39m')
@@ -134,7 +134,7 @@ describe('sofar doctor: styled path', () => {
     runInit(root)
     pkg(root, { tailwindcss: '^4.1.0' })
     css(root, 'src/app.css', '@import "tailwindcss";\nbody{}\n')
-    const r = runDoctor(root, { fix: true }, STYLED, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { fix: true, history: true }, STYLED, { caps: INERT, stream: capture() })
     expect(r.exitCode).toBe(0)
     expect(r.stdout).toContain('\x1b[32m1 fix applied\x1b[39m')
   })
@@ -144,7 +144,7 @@ describe('sofar doctor: styled path', () => {
     runInit(root)
     pkg(root, { tailwindcss: '^4.1.0' }) // adds one WARN (with hint) among the OKs
     const ascii: Caps = { color: true, unicode: false, animate: false }
-    const r = runDoctor(root, {}, ascii, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, ascii, { caps: INERT, stream: capture() })
     expect(r.stdout).toContain('  \x1b[32m√\x1b[39m  .sofar/bindings.json present') // √ padded to !! width
     expect(r.stdout).toContain('  \x1b[33m!!\x1b[39m Tailwind v4 present')
     expect(r.stdout).toContain('\x1b[2m     `- if you add one') // ascii elbow hint, dim
@@ -194,7 +194,7 @@ describe('sofar doctor: scan spinner', () => {
     const root = tmpRepo()
     runInit(root)
     const out = capture()
-    runDoctor(root, {}, PLAIN, {
+    runDoctor(root, { history: true }, PLAIN, {
       caps: { color: true, unicode: true, animate: true },
       stream: out,
     })
@@ -231,7 +231,7 @@ describe('sofar doctor: fold warnings are listed, not sampled', () => {
     const root = tmpRepo()
     runInit(root)
     warnRecord(root, 'noisy', 3)
-    const r = runDoctor(root, {}, PLAIN, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, PLAIN, { caps: INERT, stream: capture() })
 
     expect(r.stdout).toContain('noisy: 3 fold warning(s)')
     for (let i = 0; i < 3; i++) expect(r.stdout).toContain(`unknown_type_${i}`)
@@ -242,7 +242,7 @@ describe('sofar doctor: fold warnings are listed, not sampled', () => {
     const root = tmpRepo()
     runInit(root)
     warnRecord(root, 'very-noisy', 8)
-    const r = runDoctor(root, {}, PLAIN, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, PLAIN, { caps: INERT, stream: capture() })
 
     expect(r.stdout).toContain('very-noisy: 8 fold warning(s)')
     expect(r.stdout).toContain('+3 more')
@@ -254,7 +254,7 @@ describe('sofar doctor: fold warnings are listed, not sampled', () => {
     const root = tmpRepo()
     runInit(root)
     warnRecord(root, 'noisy', 2)
-    const r = runDoctor(root, {}, STYLED, { caps: INERT, stream: capture() })
+    const r = runDoctor(root, { history: true }, STYLED, { caps: INERT, stream: capture() })
 
     const out = r.stdout.split('\n')
     expect(out.find((l) => l.includes('unknown_type_0'))).toContain('└')

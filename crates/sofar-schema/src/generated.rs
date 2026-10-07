@@ -7,6 +7,13 @@
 pub struct BriefAppendedPayload {
     pub text: ::std::string::String,
 }
+#[doc = "`check_bound` (r4-fixes A8): a standing rule given the test that proves it, after the fact — what `sofar bind` appends. It mints no decision and no id: the rule keeps its handle and gains the check. Until 0.35 a bind re-filed the rule word for word with `check` and `supersedes` itself, so 13–24% of a round-4 rep's decisions were such copies, every bind moved the rule's ordinal (\"D73 into D76\"), and a bind on each of two worktrees minted the same `D<n>` twice. `decision` is the bare `D<n>` the writer read and `decision_id` its event id, which decides (as decision_linked's). The fold sets that decision's check, replacing any it had; one naming no folded decision, or a decision with no rule, is skipped with a warning. Readers before 0.35 skip the type with a warning (FORMAT.md §8) and see the rule without its check. Never drift: bookkeeping on a decision already counted."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
+pub struct CheckBoundPayload {
+    pub check: DecisionCheck,
+    pub decision: ::std::string::String,
+    pub decision_id: ::std::string::String,
+}
 #[doc = "`CommandRunPayload`"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct CommandRunPayload {
@@ -284,6 +291,7 @@ pub struct JudgementRecordedPayload {
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct KnownEventPayloads {
     pub brief_appended: BriefAppendedPayload,
+    pub check_bound: CheckBoundPayload,
     pub command_run: CommandRunPayload,
     pub correction: CorrectionPayload,
     pub decision_linked: DecisionLinkedPayload,
@@ -763,9 +771,11 @@ pub struct SessionEndedPayload {
     pub session_id: ::std::option::Option<::std::string::String>,
     pub summary: ::std::string::String,
 }
-#[doc = "`rehome` (binding-follows-session 3.1, D5): this is a DELIBERATE re-home — sofar_start_session naming this initiative for a session already registered here but homed elsewhere since. The session's home is the log holding its LATEST session_started, so without a new line a session could never return to a record it had left. The fold accepts the repeat silently; a repeat WITHOUT it is still the racing double-registration it warns about."]
+#[doc = "`continues` (r4-fixes A10, R11 (a)): the session this one continues — a `/clear` baton, a resumed transcript's prompt fingerprint or the host registry's former session id named it at SessionStart. Lineage is identity, not inference: the new id is the same work under a host-minted name, so it registers in the parent's home and says which parent."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct SessionStartedPayload {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub continues: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub model: ::std::option::Option<::std::string::String>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]

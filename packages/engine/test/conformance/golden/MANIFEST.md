@@ -1,5 +1,122 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.35.0** for the rc cut (r4-fixes 3.1) from the
+TypeScript reference. The version bump is the whole diff: two goldens changed,
+each by one string. `argv.fast-path` (`--version` is now `0.35.0-rc.1`) and
+`open.O2-update-segment` ("you have 0.35.0-rc.1").
+
+RE-RECORDED at the **0.35.0 integration** (release/0.35.0, A9 onto A1–A4, A8,
+A10): three goldens recorded on other branches move for one reason, A9's
+ranking (guarded rules on the focus task's files lead Standing constraints):
+`syn.check-bound` (A8), `syn.told-lines` (A4) and `syn.copies` each list
+D1·984a first. The Rust core reproduces every one (`SOFAR_CORE=… vitest run
+test/conformance`: 54 passed). No other golden moved.
+
+RE-RECORDED and ADDED for **r4-fixes A9** (0.35.0 Wave A, branch
+wave-a-a9; docs/SPEC.md §Cursor host and §Digest composition), from the
+TypeScript reference. Four goldens moved, each only in a SessionStart digest's
+Standing constraints order, byte length unchanged: the rules whose `path:`
+guard binds the focus files now lead, oldest first (`cell.smoke-4-sofar` D3
+before D6; `syn.copies` and `syn.surfacing` D1 first; `syn.guards` D1 first).
+One case ADDED, `syn.cursor-debt`: a Cursor read of a guarded file (the
+notice), its edit (the bound line, the rule in its words), the same path
+again (nothing), `SOFAR_CURSOR_DEBT=off` and Claude Code (the notice alone),
+a Cursor sessionEnd filing the test gate's ask as a note and then the close,
+a second sessionEnd (nothing), Claude's SessionEnd (the close alone), and the
+next digest showing the note under `Notes since write-back`.
+
+RE-RECORDED at the **0.35.0 integration** (release/0.35.0, A8 onto A4):
+`syn.check-bound`, recorded by A8 on v0.34.1, moves by two lines and for one
+reason: A4's told set is seeded from the SessionStart digest (r4-fixes D10),
+which already showed both guarded rules, so steps 3 and 6's PostToolUse lines
+name each rule by handle as "the standing rule in your context" instead of
+quoting it again. The Rust core reproduces it (`SOFAR_CORE=… vitest run
+test/conformance`: 53 passed). No other golden moved.
+
+RE-RECORDED and ADDED for **r4-fixes A8** (Wave A, branch wave-a-a5-a8 off
+v0.34.1; docs/SPEC.md §Decision checks, §Link disposition, §Supersede-target
+integrity), from the TypeScript reference. One new case, `syn.check-bound`:
+the guards fixture's D1 takes its check by `check_bound` (what `sofar bind`
+appends), keeps its handle, the Stop gate asks `[guards D1·984a]` to run the
+bound test after an edit it governs and is covered once it passes, and the next
+digest still says `Next ids: D4`. Four goldens moved, for these reasons only:
+- `repo.link-disposition`, `repo.link-hold`: the write result's pending/held
+  line gains slot-diff's version clause (`— D3·<SFX> looks like a new version
+  of D1·1x01`, with the changed slots when the match is exact).
+- `repo.lessons`, `syn.lessons-cut`: the lexicon tier's artifact hashes, same
+  sizes — every index file embeds INDEX_SCHEMA_VERSION, bumped 12 → 13 so a
+  tier built before `check_bound` existed is rebuilt.
+A5 (current-only agent views) touches no hot-path surface. No previous set is
+kept.
+
+ADDED for **r4-fixes A10** (session identity and binding stability, branch
+wave-a-a10-a3) from the TypeScript reference; the Rust core reproduces it
+(`SOFAR_CORE=… vitest run test/conformance`). One new case, `syn.lineage`, on
+the `many` fixture (main → rec-03; sess-elsewhere homed in rec-10; rec-13
+done): a title naming an open record routes an unregistered id there and its
+first edit registers it with no parent; a done record's title and
+`SOFAR_LINEAGE=off` leave the branch's route; `/clear` leaves a baton at
+SessionEnd and the new id takes it, its first registration carrying
+`continues`; the registry's `formerNames` and a resumed transcript's prompt
+fingerprint each place a new id in the parent's home; the worktree's
+`last-home.json` outranks the committed binding (and `SOFAR_LASTHOME=committed`
+does not); and two live registry peers homed apart give the contested line.
+Every other golden is byte-identical. No previous set is kept.
+
+
+RE-RECORDED and ADDED on **wave-a-a2-a4** for **r4-fixes A4** (the told set,
+hook-line epochs, the recall cap, PostToolBatch, per-segment reads) from the
+TypeScript reference; the Rust core reproduces every golden. One new case,
+`syn.told-lines`: the digest seeds the told set, a PostToolBatch tells two
+reads as one block and marks the session so its PostToolUse only captures,
+the same rule on another file is not told again, another session gets the
+rule whole once, `SOFAR_TOLD_LINES=off` is 0.34's, and a compaction re-arms
+the push and debt lines. 19 goldens moved, for these reasons and no other:
+- (a) the prompt hook's push line is told once per push epoch, and the
+  session start's Git line is its first telling, so a first prompt after a
+  session start no longer repeats it (cell.calib-1, cell.round-1-sofar,
+  cell.smoke-4-drive, cell.smoke-4-sofar, repo.branch-elsewhere,
+  repo.drive-reach, repo.hook-lifecycle, syn.driven, syn.many,
+  syn.merge-handles, syn.unicode, syn.lessons-cut); the debt nudge is told
+  once per band (syn.lessons-cut);
+- (b) an entry is told once per context on any path, and a guard the digest
+  holds is told as its binding without the rule's text again (syn.guards,
+  syn.surfacing, syn.merge, repo.hook-lifecycle);
+- (c) the recall block is capped — one line an entry, the rule only, nothing
+  the digest holds (syn.recall), and the told files the lessons cases dump
+  carry the new keys (repo.lessons);
+- (d) a whole-file read heading a pipeline inside a compound command is
+  rewritten on its own (syn.read-gate: the old "a pipe is left alone" step,
+  three new steps around it);
+- (e) `sofar event --help` lists the new `post-tool-batch` subcommand
+  (argv.fast-path).
+Every other golden is byte-identical. No previous set is kept.
+
+RE-RECORDED on **wave-a-a2-a4** for **r4-fixes A2** (host-compiled
+payloads, 0.35.0 Wave A) from the TypeScript reference; the Rust core
+reproduces it. One golden moved: `repo.session-start`, the step "a Cursor
+payload never gets a title" — Cursor's digest is now capped at 3,000 chars
+(Claude Code keeps 6,000), so its block keeps less of the record and its
+Session and Git lines are protected at the cut. Every Claude Code step is
+byte-identical. No previous set is kept.
+
+RE-RECORDED and ADDED for **r4-fixes A1** (0.35.0, branch wave-a-a1; docs/SPEC.md
+§In-band write-back), from the TypeScript reference; the Rust core reproduces
+every one (`SOFAR_CORE=… vitest run test/conformance`: 292 passed). Ten goldens
+moved, each by one line and for one reason: the Stop hold of a session that
+owes a write-back now asks for the block first — `Write back to the sofar
+record before finishing: end your reply with a ```sofar block —
+{"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes —
+or call sofar_end_session.` (cell.calib-1, cell.round-1-sofar,
+cell.smoke-4-drive, cell.smoke-4-sofar, repo.hook-lifecycle, syn.baseline,
+syn.corrupt, syn.guards, syn.merge, syn.surfacing). One new case,
+`syn.inline-writeback`: a block that is not JSON gets one repair ask and files
+nothing; the held Stop files the repaired block; the same reply at SessionEnd
+files nothing twice; `SOFAR_WRITEBACK=tool` reads no block and holds with
+0.34's line; a Cursor sessionEnd files the block its transcript ends with. On
+the native leg every step that may carry a block is the TypeScript engine's,
+handed back by the core. No previous set is kept.
+
 Re-recorded on **main** at the 0.34.1 merge-back (r4-fixes 0.1, U2). Main's
 engine version is `0.35.0-dev+trunk` (r1-fixes M7's `+trunk`, on the next
 minor's pre-release so the pinned `@sofar.sh/core-*` resolve to nothing

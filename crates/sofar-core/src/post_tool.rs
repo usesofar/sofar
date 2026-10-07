@@ -6,6 +6,7 @@
 use std::path::Path;
 
 use crate::append::{append_and_project, ensure_lane, register_lazily};
+use crate::cursor_debt::{BOUND_TOLD, BoundRule, bound_line, cursor_debt_enabled};
 use crate::diagnostics::{RowInput, record_diagnostic};
 use crate::fold_cli::CmdResult;
 use crate::guards::GuardDomain;
@@ -285,6 +286,9 @@ struct ScopeNotice<'a> {
     depth: usize,
     rendered: String,
     domain: GuardDomain,
+    /// A guard whose rule the context holds from the digest or recall
+    /// (r4-fixes A4): the notice names the binding, not the rule again.
+    brief: bool,
 }
 
 /// `memoryNoticeText`: one line, cut at `MEMORY_NOTICE_MAX` UTF-16 units.
@@ -345,6 +349,11 @@ fn scope_notice_line(n: &ScopeNotice<'_>, slug: &str) -> String {
     };
     let handle = scope_handle(d, slug);
     match n.tier {
+        0 if n.brief => format!(
+            "sofar: {} is governed by [{handle}] (guard: {}), the standing rule in your context. Work against it needs a decision that supersedes {handle}.",
+            n.rendered,
+            d.guard.as_deref().unwrap_or("undefined")
+        ),
         0 => format!(
             "sofar: {} is governed by [{handle}], a standing rule: {} (guard: {}). Work against it needs a decision that supersedes {handle}.",
             n.rendered,
@@ -519,6 +528,21 @@ fn scope_notice(
     slug: &str,
     session: &str,
     subjects: &[NoticeSubject],
+    bound: bool,
+) -> Vec<String> {
+    scope_notice_with(layout, slug, session, subjects, true, bound)
+}
+
+/// `scopeNotice` with `lastTouch` (r4-fixes A4): `false` for a batch, whose
+/// edits are appended before `PostToolBatch` runs.
+#[allow(clippy::too_many_lines, reason = "a verbatim port of one handler")]
+fn scope_notice_with(
+    layout: &Layout,
+    slug: &str,
+    session: &str,
+    subjects: &[NoticeSubject],
+    use_last_touch: bool,
+    bound: bool,
 ) -> Vec<String> {
     let index = refresh_guards(layout);
     let memories_on = memory_surfacing_enabled() && !index.memories.is_empty();
@@ -527,35 +551,30 @@ fn scope_notice(
     }
     let retire = retire_enabled();
     let told = read_told(layout, session);
+    // Told once per context per entry, whatever path (r4-fixes A4).
+    let fragments = crate::told::told_lines_enabled() && session != "cli";
     let mut files: Option<crate::index_tier1::FileIndex> = None;
     let mut notices: Vec<ScopeNotice<'_>> = Vec::new();
     let mut shown: Vec<&str> = Vec::new();
     let mut tell: Vec<String> = Vec::new();
+    // Cursor's bound line (r4-fixes A9): an edited path's governing rules,
+    // taken before the told filter, since a read may already have told some.
+    let mut bound_paths: Vec<(String, Vec<&ScopedDecision>)> = Vec::new();
     for NoticeSubject {
         domain,
         subject,
         edit,
     } in subjects
     {
-        // (entry, tier, depth): an until-scoped decision is never a candidate,
-        // a superseded one is out while retirement is on.
-        let mut hits: Vec<(Entry<'_>, usize, usize)> =
-            scope_hits_for_subject(&index, *domain, subject)
-                .into_iter()
-                .filter(|h| {
-                    h.decision.until.is_none() && !(retire && h.decision.superseded_by.is_some())
-                })
-                .map(|h| {
-                    let tier = if h.guarded {
-                        0
-                    } else if h.decision.rule.is_some() {
-                        1
-                    } else {
-                        3
-                    };
-                    (Entry::Decision(h.decision), tier, h.depth)
-                })
-                .collect();
+        let mut hits = decision_hits(&index, *domain, subject, retire);
+        if bound && *edit && *domain == GuardDomain::Path && session != "cli" {
+            collect_bound(
+                &hits,
+                render_subject(*domain, subject, &layout.root),
+                &told,
+                &mut bound_paths,
+            );
+        }
         // A memory names a path or nothing (r3-fixes D20), and a replaced one
         // is never told.
         if *domain == GuardDomain::Path && memories_on {
@@ -571,7 +590,7 @@ fn scope_notice(
         let rendered = render_subject(*domain, subject, &layout.root);
         if *domain == GuardDomain::Path && session != "cli" {
             hits.retain(|(e, _, _)| !told.contains(&told_key(e.id(), &rendered)));
-            if *edit && !hits.is_empty() {
+            if *edit && !hits.is_empty() && use_last_touch {
                 let files = files.get_or_insert_with(|| refresh_files(layout));
                 if let Some(since) = last_touch(files, subject, session) {
                     hits.retain(|(e, _, _)| cmp_utf16(e.ts(), &since).is_gt());
@@ -585,6 +604,18 @@ fn scope_notice(
             if shown.contains(&entry.id()) {
                 continue;
             }
+            let mut brief = false;
+            if fragments && *domain == GuardDomain::Path {
+                if told.contains(&crate::told::point_told_key(entry.id())) {
+                    continue;
+                }
+                if told.contains(&crate::told::entry_told_key(entry.id())) {
+                    if tier != 0 {
+                        continue;
+                    }
+                    brief = true;
+                }
+            }
             shown.push(entry.id());
             notices.push(ScopeNotice {
                 tier,
@@ -592,10 +623,11 @@ fn scope_notice(
                 depth,
                 rendered: rendered.clone(),
                 domain: *domain,
+                brief,
             });
         }
     }
-    if notices.is_empty() {
+    if notices.is_empty() && bound_paths.is_empty() {
         return Vec::new();
     }
     let rows = stored_relevance(layout, &index, &notices);
@@ -621,9 +653,121 @@ fn scope_notice(
         kept -= 1;
     }
     let over = overflow_line(&ordered[kept..]);
-    add_told(layout, session, &tell);
+    if fragments {
+        for n in &ordered[..kept] {
+            if n.domain == GuardDomain::Path {
+                tell.push(crate::told::entry_told_key(n.entry.id()));
+                tell.push(crate::told::point_told_key(n.entry.id()));
+            }
+        }
+    }
     let mut lines: Vec<String> = rendered[..kept].to_vec();
     lines.extend(over);
+    // A rule this call already gave in full, or a bound line earlier this
+    // session, is named by its handle alone.
+    let given: Vec<&str> = ordered[..kept]
+        .iter()
+        .filter_map(|n| match n.entry {
+            Entry::Decision(d) if n.tier <= 1 => Some(d.id.as_str()),
+            _ => None,
+        })
+        .collect();
+    lines.extend(bound_lines(bound_paths, slug, given, &told, &mut tell));
+    add_told(layout, session, &tell);
+    lines
+}
+
+/// (entry, tier, depth) per decision bearing on a subject: an until-scoped
+/// decision is never a candidate, a superseded one is out while retirement is
+/// on. Tier 0 guard, 1 ruled mention, 3 unruled mention.
+fn decision_hits<'a>(
+    index: &'a GuardIndex,
+    domain: GuardDomain,
+    subject: &str,
+    retire: bool,
+) -> Vec<(Entry<'a>, usize, usize)> {
+    scope_hits_for_subject(index, domain, subject)
+        .into_iter()
+        .filter(|h| h.decision.until.is_none() && !(retire && h.decision.superseded_by.is_some()))
+        .map(|h| {
+            let tier = if h.guarded {
+                0
+            } else if h.decision.rule.is_some() {
+                1
+            } else {
+                3
+            };
+            (Entry::Decision(h.decision), tier, h.depth)
+        })
+        .collect()
+}
+
+/// Cursor's bound line (r4-fixes A9): an edited path's guarded rules, taken
+/// before the told filter (a read may already have told some), once per path.
+fn collect_bound<'a>(
+    hits: &[(Entry<'a>, usize, usize)],
+    rendered: String,
+    told: &[String],
+    bound_paths: &mut Vec<(String, Vec<&'a ScopedDecision>)>,
+) {
+    let rules: Vec<&ScopedDecision> = hits
+        .iter()
+        .filter_map(|(e, tier, _)| match e {
+            Entry::Decision(d) if *tier == 0 && d.rule.is_some() => Some(*d),
+            _ => None,
+        })
+        .collect();
+    if !rules.is_empty()
+        && !told.contains(&told_key(BOUND_TOLD, &rendered))
+        && !bound_paths.iter().any(|(p, _)| *p == rendered)
+    {
+        bound_paths.push((rendered, rules));
+    }
+}
+
+/// The bound lines for the edited paths, in the guard notices' order; each
+/// rule's words once per session, its handle alone after.
+fn bound_lines<'a>(
+    bound_paths: Vec<(String, Vec<&'a ScopedDecision>)>,
+    slug: &str,
+    mut given: Vec<&'a str>,
+    told: &[String],
+    tell: &mut Vec<String>,
+) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (path, mut rules) in bound_paths {
+        rules.sort_by(|x, y| {
+            let (xm, ym) = (x.initiative == slug, y.initiative == slug);
+            if xm != ym {
+                return if xm {
+                    std::cmp::Ordering::Greater
+                } else {
+                    std::cmp::Ordering::Less
+                };
+            }
+            if x.initiative == y.initiative {
+                x.ordinal.total_cmp(&y.ordinal)
+            } else {
+                by_code_unit(&x.initiative, &y.initiative)
+            }
+        });
+        let parts: Vec<BoundRule> = rules
+            .iter()
+            .map(|d| BoundRule {
+                handle: scope_handle(d, slug),
+                rule: d.rule.clone().unwrap_or_default(),
+                told: given.contains(&d.id.as_str()) || told.contains(&told_key(&d.id, BOUND_TOLD)),
+            })
+            .collect();
+        lines.push(bound_line(&path, &parts));
+        tell.push(told_key(BOUND_TOLD, &path));
+        for d in &rules {
+            if !given.contains(&d.id.as_str()) && !told.contains(&told_key(&d.id, BOUND_TOLD)) {
+                tell.push(told_key(&d.id, BOUND_TOLD));
+            }
+            given.push(&d.id);
+        }
+    }
     lines
 }
 
@@ -773,6 +917,94 @@ pub(crate) fn post_tool_proves_success(host_tool: &str) -> bool {
     host_tool != "codex"
 }
 
+/// `BATCH_FRAGMENT`: set by `PostToolBatch` on its first run (r4-fixes A4).
+pub const BATCH_FRAGMENT: &str = "batch";
+
+fn batch_surfaces(layout: &Layout, session: &str, host_tool: &str) -> bool {
+    host_tool == crate::host::CLAUDE_CODE
+        && session != "cli"
+        && crate::told::told_lines_enabled()
+        && crate::told::fragment_epoch(&read_told(layout, session), BATCH_FRAGMENT).is_some()
+}
+
+/// `SURFACED_TOOLS`: what `PostToolUse`'s matcher sends it.
+const SURFACED_TOOLS: &[&str] = &["Edit", "Write", "MultiEdit", "Bash", "Read", "Grep"];
+
+/// `handlePostToolBatch` (r4-fixes A4): Claude Code's batch of parallel calls,
+/// surfaced as ONE block, told once per context; the first run marks the
+/// session so its `PostToolUse` calls only capture.
+#[must_use]
+pub fn handle_post_tool_batch(root: &Path, input: &str) -> CmdResult {
+    if !crate::told::told_lines_enabled() {
+        return silent();
+    }
+    let layout = Layout::new(root);
+    let root_str = root.to_string_lossy().into_owned();
+    let hook = parse_hook(input);
+    let Some(session) = str_field(&hook, "session_id") else {
+        return silent();
+    };
+    let Some(slug) = resolve_bound(&layout, session) else {
+        return silent();
+    };
+    if crate::told::fragment_epoch(&read_told(&layout, session), BATCH_FRAGMENT).is_none() {
+        crate::told::set_fragment(&layout, session, BATCH_FRAGMENT, Some("1"));
+    }
+    let mut subjects: Vec<NoticeSubject> = Vec::new();
+    if let Some(batch) = hook.get("tool_calls").and_then(Json::as_arr) {
+        for raw in batch {
+            let Some(call) = raw.as_obj() else {
+                continue;
+            };
+            if !call
+                .get("tool_name")
+                .and_then(Json::as_str)
+                .is_some_and(|n| SURFACED_TOOLS.contains(&n))
+            {
+                continue;
+            }
+            let mut one = call.clone();
+            one.insert("session_id", Json::Str(session.to_owned()));
+            if let Some(cwd) = hook.get("cwd").and_then(Json::as_str) {
+                one.insert("cwd", Json::Str(cwd.to_owned()));
+            }
+            let calls = classify_tool_call(&one);
+            let edited: Vec<String> = calls
+                .iter()
+                .filter(|c| c.domain == GuardDomain::Path)
+                .map(|c| crate::resolve::posix_resolve(&root_str, &c.subject))
+                .collect();
+            subjects.extend(calls.iter().map(|c| NoticeSubject {
+                domain: c.domain,
+                subject: c.subject.clone(),
+                edit: c.event_type == "file_touched",
+            }));
+            subjects.extend(
+                read_paths(&one, &root_str)
+                    .into_iter()
+                    .filter(|p| !edited.contains(p))
+                    .map(|subject| NoticeSubject {
+                        domain: GuardDomain::Path,
+                        subject,
+                        edit: false,
+                    }),
+            );
+        }
+    }
+    let lines = scope_notice_with(&layout, &slug, session, &subjects, false, false);
+    if lines.is_empty() {
+        return silent();
+    }
+    let mut specific = Object::with_capacity(2);
+    specific.insert("hookEventName", Json::Str("PostToolBatch".to_owned()));
+    specific.insert("additionalContext", Json::Str(lines.join("\n")));
+    let mut out = Object::with_capacity(1);
+    out.insert("hookSpecificOutput", Json::Obj(specific));
+    let mut stdout = json::stringify(&Json::Obj(out));
+    stdout.push('\n');
+    ok(stdout)
+}
+
 /// `handlePostTool`: mechanical events for every edit and command, and the
 /// read-time notice for every path the call edited or read (memory-lead 2.1).
 #[must_use]
@@ -828,7 +1060,7 @@ pub fn handle_post_tool(root: &Path, input: &str) -> CmdResult {
         let read_only = calls.is_empty() && layout.initiatives_root().exists();
         let mut lines = driven;
         if read_only {
-            lines.extend(scope_notice(&layout, "", session, &read_subjects));
+            lines.extend(scope_notice(&layout, "", session, &read_subjects, false));
         }
         return injected(lines);
     };
@@ -844,7 +1076,20 @@ pub fn handle_post_tool(root: &Path, input: &str) -> CmdResult {
         })
         .collect();
     subjects.extend(read_subjects);
-    let notice = scope_notice(&layout, &slug, session, &subjects);
+    // A Claude Code session whose PostToolBatch has run gets its surfacing
+    // there, once per batch (r4-fixes A4); Cursor's edits carry the bound
+    // line (A9).
+    let notice = if batch_surfaces(&layout, session, host.tool) {
+        Vec::new()
+    } else {
+        scope_notice(
+            &layout,
+            &slug,
+            session,
+            &subjects,
+            host.tool == "cursor" && cursor_debt_enabled(),
+        )
+    };
     let Some(call) = calls.first() else {
         let mut lines = driven;
         lines.extend(notice);

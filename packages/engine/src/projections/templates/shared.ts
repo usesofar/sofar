@@ -181,17 +181,25 @@ export function describeFreshness(counts: FreshnessState['events_since_writeback
  * clip by other means). Whitespace is collapsed to keep the list shape — that
  * is normalization, not clipping. `retire` (r1-fixes 3.2, D25) is
  * `SOFAR_RETIRE`'s value: false renders rules a later rule replaced.
+ * `lead` (r4-fixes A9, core/rule-focus) holds the ordinals of the guarded
+ * rules bearing on the focus files: they render first, oldest first, ahead
+ * of the focus ranking.
  */
 export function standingConstraintLines(
   decisions: readonly DecisionState[],
   budget?: number,
   retire = true,
   focus?: ReadonlySet<string>,
+  lead?: ReadonlySet<number>,
 ): string[] {
   // The digest passes a focus (memory-lead D4): most relevant first, so the
   // budget drops the least relevant rules instead of the newest.
   const inOrder = standingRules(decisions, retire)
-  const standing = focus === undefined ? inOrder : rankByRelevance(inOrder, focus, (d) => `${d.rule} ${d.quote ?? ''}`)
+  const ranked = focus === undefined ? inOrder : rankByRelevance(inOrder, focus, (d) => `${d.rule} ${d.quote ?? ''}`)
+  const standing =
+    lead === undefined || lead.size === 0
+      ? ranked
+      : [...inOrder.filter((d) => lead.has(d.ordinal)), ...ranked.filter((d) => !lead.has(d.ordinal))]
   if (standing.length === 0) return []
   // A quoted rule has a source that outranks its wording (memory-lead D2);
   // the header says so only when one exists, so quote-less records render

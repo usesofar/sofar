@@ -9,6 +9,7 @@ import { detectCaps } from '../src/cli/ui'
 import { readEvents } from '../src/core/cursor'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvents } from '../src/core/log'
+import { scaled } from './helpers/tracked'
 
 /**
  * LIVE E2E (sync-client 5.2, SPEC §Acceptance criteria) — runs only when
@@ -86,7 +87,7 @@ describe.runIf(apiUrl !== null)(`live sync E2E against ${apiUrl ?? '(unset)'}`, 
       body: JSON.stringify({ slug: orgSlug, name: `E2E ${stamp}` }),
     })
     expect(org.status).toBe(201)
-  }, 30_000)
+  }, scaled(30_000))
 
   const writer = freshClone('writer')
 
@@ -103,7 +104,7 @@ describe.runIf(apiUrl !== null)(`live sync E2E against ${apiUrl ?? '(unset)'}`, 
     const credential = readCredential(api, writer.env)
     expect(credential?.token).toMatch(/^sfr_/)
     expect(result.stdout).not.toContain(credential!.token)
-  }, 60_000)
+  }, scaled(60_000))
 
   it('links, pushes, and round-trips into a fresh clone with zero-diff status', async () => {
     const link = await runLink(writer.root, { org: orgSlug, name: `repo-${stamp}`, api }, { env: writer.env }, plain, plain)
@@ -140,7 +141,7 @@ describe.runIf(apiUrl !== null)(`live sync E2E against ${apiUrl ?? '(unset)'}`, 
       readEvents(log).events,
     )
     expect(runStatus(clone.root, 'live').stdout).toBe(runStatus(writer.root, 'live').stdout)
-  }, 60_000)
+  }, scaled(60_000))
 
   it('a push reaches a live watcher — by doorbell ring, or by gap catch-up if the SSE channel is unusable', async () => {
     // Known server gap (surfaced Jul 2026): Bun.serve's default 10s
@@ -177,5 +178,5 @@ describe.runIf(apiUrl !== null)(`live sync E2E against ${apiUrl ?? '(unset)'}`, 
     controller.abort()
     expect(await watch).toBeUndefined()
     expect(readEvents(watcherLog).events.length).toBe(3)
-  }, 40_000)
+  }, scaled(40_000))
 })

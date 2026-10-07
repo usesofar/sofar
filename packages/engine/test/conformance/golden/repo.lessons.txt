@@ -5,53 +5,53 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"adopt Rust for the hot path incrementally, run owner said yes"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [D1·1x01] chose Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 (\"yes do it\"). SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions: - \"TypeScript s (matched: rust, incrementally, yes, hot, adopt, owner, path, run; full text in…\nsofar: rust-core @ 7535e75, never pushed.\nsofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D1·1x01] rule: \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.\"; chose Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 (\"yes do it\"). SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions: - \"TypeScript strict mode; Node ≥18; ES modules\"; - \"Dependencies: … Nothing else without logging a Decision\". Rust crates are limited to serde, se…","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [D1·1x01] chose Adopt Rust for sofar's HOT PATH, incrementally, starting now. Ruled by the run owner 2026-09-15 (\"yes do it\"). SUPERSEDES, for the hot path only, the CLAUDE.md engineering conventions: - \"TypeScript s (matched: rust, incrementally, yes, hot, adopt, owner, path, run; full text in…\nsofar: rust-core @ 7535e75, never pushed.\nsofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D1·1x01] rule: \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.\"","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 --- artifact
-lexicon-h.json 7a0c7997c8b85da6 148334
-lexicon-p00.json 4138053adbe84713 15483
-lexicon-p01.json 90fd871adc5a3ae3 11258
-lexicon-p02.json 187072d1f5a5507e 13089
-lexicon-p03.json db3e7ba58e668a40 17878
-lexicon-p04.json ad6cda9baeed30f8 16548
-lexicon-p05.json 1ea7887e414ed325 14948
-lexicon-p06.json f09775932d49254e 12473
-lexicon-p07.json a8f14ad2f93b92dc 13720
-lexicon-p08.json fd4ecbaa97e4d815 14240
-lexicon-p09.json 257bea00e5c2589c 15871
-lexicon-p10.json a9bb7d8b4dbd93a9 15291
-lexicon-p11.json 05cb31020c7fc92b 12811
-lexicon-p12.json 91016310ae2732db 15362
-lexicon-p13.json 639d680e63d1cace 12109
-lexicon-p14.json bb0fd237f690ebfa 11513
-lexicon-p15.json 4508806072c3c573 17472
-lexicon-p16.json 71710534ab040dc1 12663
-lexicon-p17.json 3dc999c156fbd75a 14262
-lexicon-p18.json de0f3e0653fb7e46 16291
-lexicon-p19.json ba3b2e4fdd9872f1 13703
-lexicon-p20.json 88b5bbf72c7534a5 17387
-lexicon-p21.json fa918f1c8c10396f 12646
-lexicon-p22.json cc49515393aefd78 14190
-lexicon-p23.json 6de643d4720eee70 15817
-lexicon-p24.json 74369ea5b8d24a43 18206
-lexicon-p25.json 2df6999da366dfdd 11656
-lexicon-p26.json f75517765f634230 12368
-lexicon-p27.json 53af99dbe28ab3b2 12443
-lexicon-p28.json 12ba805825e5b8a1 16658
-lexicon-p29.json ee63f01bd9fb0c06 15951
-lexicon-p30.json 2b602644a9380e15 15308
-lexicon-p31.json 2e74da5c3cb7e8b0 14548
-lexicon.json 6d9defab4fbecb3e 49171
+lexicon-h.json aef0eac7dcc2a1b5 148334
+lexicon-p00.json 973c3b81add83030 15483
+lexicon-p01.json e6afa57c7b107b81 11258
+lexicon-p02.json 3233d04aba29de7e 13089
+lexicon-p03.json eeef1d4a52adb6f2 17878
+lexicon-p04.json 63ae841b94fa86bc 16548
+lexicon-p05.json c2df7fdb92898d90 14948
+lexicon-p06.json 6a2d379acf9d4875 12473
+lexicon-p07.json 4b01c87857ef6a5c 13720
+lexicon-p08.json 40e666bbbf06d95d 14240
+lexicon-p09.json ef4a7829701925f7 15871
+lexicon-p10.json d37a7e679f996014 15291
+lexicon-p11.json 8b3d1b078a91e0e9 12811
+lexicon-p12.json 8eb4e9a091979721 15362
+lexicon-p13.json ca67ac5b6508d179 12109
+lexicon-p14.json 1330d7a20dd1e0b8 11513
+lexicon-p15.json 0e975ee7158f0c2d 17472
+lexicon-p16.json fe32e4628d2b1794 12663
+lexicon-p17.json dd54b81a84f3276c 14262
+lexicon-p18.json 3f059676f0a706ab 16291
+lexicon-p19.json dce3bd0095d8a7b6 13703
+lexicon-p20.json 5d42af9eb086cf3c 17387
+lexicon-p21.json 05364017e17ab093 12646
+lexicon-p22.json 39b6333dcef0d861 14190
+lexicon-p23.json 0f25471b6ff57492 15817
+lexicon-p24.json 6eb2dd78ff434171 18206
+lexicon-p25.json 919ecee56388355b 11656
+lexicon-p26.json f8cd64924ad949e9 12368
+lexicon-p27.json 39ca98223342eb15 12443
+lexicon-p28.json f332eb25b5bafe15 16658
+lexicon-p29.json 772639deb91c442d 15951
+lexicon-p30.json a1917d68eaa568d2 15308
+lexicon-p31.json 1ff2892d517d2508 14548
+lexicon.json b2ae7b6eea9a03de 49171
 gens: one
-told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","01M2JWH2A0SZXMRPGH4P3HEV05 prompt"]}
+told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","@01M2JWH2A0SZXMRPGH4P3HEV05","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","push=rust-core@7535e75:-"]}
 
 ## step 2: the same prompt: told once, nothing
 argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"adopt Rust for the hot path incrementally, run owner said yes"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [bench-refresh D21·xc4t] chose Adopt the external Codex audit of r1-fixes (session codex-r1-audit-20260915-01, record r1-fixes) at program level. Ruled by the run owner 2026-09-15 by sharing it with \"yes do it\". (1) RELEASE ORDER:  (matched: yes, rust, adopt, owner, run; full text in bench-refr…\nsofar: noted before — [bench-refresh note 2026-09-15] RUN-OWNER QUESTION (2026-09-15): move sofar to Rust for lead performance? Evidence against a rewrite now: - Engine plus schema is 27,593 lines of TS, with 34,197 lines of tests (109 engine test files) (matched: rust, hot, owner, path, run)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: decided before — [bench-refresh D21·xc4t] chose Adopt the external Codex audit of r1-fixes (session codex-r1-audit-20260915-01, record r1-fixes) at program level. Ruled by the run owner 2026-09-15 by sharing it with \"yes do it\". (1) RELEASE ORDER:  (matched: yes, rust, adopt, owner, run; full text in bench-refr…\nsofar: noted before — [bench-refresh note 2026-09-15] RUN-OWNER QUESTION (2026-09-15): move sofar to Rust for lead performance? Evidence against a rewrite now: - Engine plus schema is 27,593 lines of TS, with 34,197 lines of tests (109 engine test files) (matched: rust, hot, owner, path, run)","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -60,7 +60,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2·ea2q] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: lengths, rust, ryu, formatting, number, char; full text in decisions/D2.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2·ea2q] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: lengths, rust, ryu, formatting, number, char; full text in decisions/D2.md)","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -69,7 +69,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"use ryu number formatting and char lengths in the rust port"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -79,7 +79,7 @@ stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<
 env: {"SOFAR_LESSONS":"fold"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2·ea2q] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: formatting, lengths, number, char, ryu, rust; full text in decisions/D2.md)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: ruled out before — [D2·ea2q] Rust-native defaults (char/byte lengths, Unicode-aware regex classes, ryu number formatting) with SPEC amended to tolerate the drift between implementations. (matched: formatting, lengths, number, char, ryu, rust; full text in decisions/D2.md)","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -89,7 +89,7 @@ stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<
 env: {"SOFAR_LESSONS":"off"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 
@@ -98,46 +98,46 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"38d26db0-c497-44bf-b41d-11623a8486f5","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"port it with localeCompare and Intl collation for sorting slugs"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [note 2026-09-15] 1.1 inventory landed as docs/HOTPATH.md (hand-written, §-citable). Surface: six fast-path argv shapes (5 hooks + statusline) plus event append and plain/styled status; per-command stdin fields, reads, (matched: collation, localecompare, port)\nsofar: rust-core @ 7535e75, never pushed.","sessionTitle":"rust-core 1.2 #38d2"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [note 2026-09-15] 1.1 inventory landed as docs/HOTPATH.md (hand-written, §-citable). Surface: six fast-path argv shapes (5 hooks + statusline) plus event append and plain/styled status; per-command stdin fields, reads, (matched: collation, localecompare, port)","sessionTitle":"rust-core 1.2 #38d2"}}
 --- stderr
 (empty)
 --- artifact
-lexicon-h.json 7a0c7997c8b85da6 148334
-lexicon-p00.json 4138053adbe84713 15483
-lexicon-p01.json 90fd871adc5a3ae3 11258
-lexicon-p02.json 187072d1f5a5507e 13089
-lexicon-p03.json db3e7ba58e668a40 17878
-lexicon-p04.json ad6cda9baeed30f8 16548
-lexicon-p05.json 1ea7887e414ed325 14948
-lexicon-p06.json f09775932d49254e 12473
-lexicon-p07.json a8f14ad2f93b92dc 13720
-lexicon-p08.json fd4ecbaa97e4d815 14240
-lexicon-p09.json 257bea00e5c2589c 15871
-lexicon-p10.json a9bb7d8b4dbd93a9 15291
-lexicon-p11.json 05cb31020c7fc92b 12811
-lexicon-p12.json 91016310ae2732db 15362
-lexicon-p13.json 639d680e63d1cace 12109
-lexicon-p14.json bb0fd237f690ebfa 11513
-lexicon-p15.json 4508806072c3c573 17472
-lexicon-p16.json 71710534ab040dc1 12663
-lexicon-p17.json 3dc999c156fbd75a 14262
-lexicon-p18.json de0f3e0653fb7e46 16291
-lexicon-p19.json ba3b2e4fdd9872f1 13703
-lexicon-p20.json 88b5bbf72c7534a5 17387
-lexicon-p21.json fa918f1c8c10396f 12646
-lexicon-p22.json cc49515393aefd78 14190
-lexicon-p23.json 6de643d4720eee70 15817
-lexicon-p24.json 74369ea5b8d24a43 18206
-lexicon-p25.json 2df6999da366dfdd 11656
-lexicon-p26.json f75517765f634230 12368
-lexicon-p27.json 53af99dbe28ab3b2 12443
-lexicon-p28.json 12ba805825e5b8a1 16658
-lexicon-p29.json ee63f01bd9fb0c06 15951
-lexicon-p30.json 2b602644a9380e15 15308
-lexicon-p31.json 2e74da5c3cb7e8b0 14548
-lexicon.json 6d9defab4fbecb3e 49171
+lexicon-h.json aef0eac7dcc2a1b5 148334
+lexicon-p00.json 973c3b81add83030 15483
+lexicon-p01.json e6afa57c7b107b81 11258
+lexicon-p02.json 3233d04aba29de7e 13089
+lexicon-p03.json eeef1d4a52adb6f2 17878
+lexicon-p04.json 63ae841b94fa86bc 16548
+lexicon-p05.json c2df7fdb92898d90 14948
+lexicon-p06.json 6a2d379acf9d4875 12473
+lexicon-p07.json 4b01c87857ef6a5c 13720
+lexicon-p08.json 40e666bbbf06d95d 14240
+lexicon-p09.json ef4a7829701925f7 15871
+lexicon-p10.json d37a7e679f996014 15291
+lexicon-p11.json 8b3d1b078a91e0e9 12811
+lexicon-p12.json 8eb4e9a091979721 15362
+lexicon-p13.json ca67ac5b6508d179 12109
+lexicon-p14.json 1330d7a20dd1e0b8 11513
+lexicon-p15.json 0e975ee7158f0c2d 17472
+lexicon-p16.json fe32e4628d2b1794 12663
+lexicon-p17.json dd54b81a84f3276c 14262
+lexicon-p18.json 3f059676f0a706ab 16291
+lexicon-p19.json dce3bd0095d8a7b6 13703
+lexicon-p20.json 5d42af9eb086cf3c 17387
+lexicon-p21.json 05364017e17ab093 12646
+lexicon-p22.json 39b6333dcef0d861 14190
+lexicon-p23.json 0f25471b6ff57492 15817
+lexicon-p24.json 6eb2dd78ff434171 18206
+lexicon-p25.json 919ecee56388355b 11656
+lexicon-p26.json f8cd64924ad949e9 12368
+lexicon-p27.json 39ca98223342eb15 12443
+lexicon-p28.json f332eb25b5bafe15 16658
+lexicon-p29.json 772639deb91c442d 15951
+lexicon-p30.json a1917d68eaa568d2 15308
+lexicon-p31.json 1ff2892d517d2508 14548
+lexicon.json b2ae7b6eea9a03de 49171
 gens: one
-told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","01M2JWHSEFKVFNTSK7FWY1WSYQ prompt","01M2JVK1ZHGYQ5N3RV2BX2CT7J prompt","01M2JXCZVHG875341GTKC59B04 prompt","01M2JXD7EBY8QWWECF92Z4RJ6X prompt"]}
+told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","@01M2JWH2A0SZXMRPGH4P3HEV05","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","push=rust-core@7535e75:-","01M2JWHSEFKVFNTSK7FWY1WSYQ prompt","01M2JVK1ZHGYQ5N3RV2BX2CT7J prompt","01M2JXCZVHG875341GTKC59B04 prompt","01M2JXD7EBY8QWWECF92Z4RJ6X prompt"]}
 
 ## record delta
 (no change)

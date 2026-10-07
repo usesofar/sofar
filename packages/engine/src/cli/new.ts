@@ -3,6 +3,7 @@ import { createToolContext, currentBranch, initiativeSlugs, ToolError, type Tool
 import { applyClose } from '../mcp/close-initiative'
 import { declareWaitsOn } from '../mcp/waits-on'
 import { BindingsAbort, writeBinding } from '../core/bindings'
+import { forgetLastHome } from '../core/last-home'
 import { QUICK_LANE } from '../core/lane'
 import { lexicalCounts, rankLexical, type LexicalDoc } from '../core/lexicon'
 import { clip } from '../projections/templates/shared'
@@ -203,6 +204,8 @@ export function runNew(
     if (bind && branch !== null) {
       mkdirSync(ctx.sofarDir, { recursive: true })
       writeBinding(ctx.bindingsPath, branch, slug)
+      // An explicit route beats a remembered one (r4-fixes A10).
+      forgetLastHome(ctx.sofarDir, { branch })
       report.push(`bound branch "${branch}" → ${slug}`)
     }
     // Bind first, close second: closing unbinds every branch on a
@@ -303,7 +306,11 @@ export function runSwitch(
       report.push(`reopened ${slug} (was ${state.status}) — working on it again is what revives it`)
     }
 
-    const changed = writeBinding(ctx.bindingsPath, branch, slug)
+    // An explicit route beats a remembered one (r4-fixes A10): forgetting
+    // this worktree's last home for the branch is part of the switch, so a
+    // switch onto the committed binding it already names still takes effect.
+    const forgot = forgetLastHome(ctx.sofarDir, { branch }) > 0
+    const changed = writeBinding(ctx.bindingsPath, branch, slug) || forgot
     report.push(
       changed
         ? `bound branch "${branch}" → ${slug}`

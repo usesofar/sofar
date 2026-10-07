@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { neighbourRecords, refreshNeighbours, refreshTier1 } from '../src/core/index-tier1'
 import { indexDir } from '../src/core/index-store'
 import { writeCorpus, type CorpusSpec } from './conformance/perf/corpus'
+import { scaled } from './helpers/tracked'
 
 /**
  * record-index 01M37PM7 (rust-core 4.4): neighbours/<slug>.json is derived only.
@@ -186,5 +187,5 @@ describe('neighbours cache (record-index 01M37PM7)', () => {
     const cached = file.overlaps.map(([initiative, paths]) => ({ initiative, paths })).sort(byName)
     expect(cached).toEqual(want.map(({ initiative, paths }) => ({ initiative, paths })).sort(byName))
     expect(refreshNeighbours(sofar, bound)).toEqual(want)
-  }, 120_000)
+  }, scaled(120_000))
 })

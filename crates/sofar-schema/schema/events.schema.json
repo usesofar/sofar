@@ -35,6 +35,9 @@
         "decision_linked": {
           "$ref": "#/definitions/DecisionLinkedPayload"
         },
+        "check_bound": {
+          "$ref": "#/definitions/CheckBoundPayload"
+        },
         "session_started": {
           "$ref": "#/definitions/SessionStartedPayload"
         },
@@ -107,6 +110,7 @@
         "task_status_changed",
         "decision_logged",
         "decision_linked",
+        "check_bound",
         "session_started",
         "session_ended",
         "session_closed",
@@ -525,6 +529,26 @@
       ],
       "description": "A decision's supersession, answered after it was filed (r3-fixes 2.5, D15): `sofar link D<n> <D<m>|none>`. `supersedes` absent means \"checked, it replaces nothing\". The handles are as the writer read them; the ids, stamped by the writer, decide — a merge renumbers handles, never ids. The fold clears the decision's pending link and retires the target under D25's law: a rule is replaced only by a rule, and only an earlier decision can be replaced."
     },
+    "CheckBoundPayload": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string"
+        },
+        "decision_id": {
+          "type": "string"
+        },
+        "check": {
+          "$ref": "#/definitions/DecisionCheck"
+        }
+      },
+      "required": [
+        "decision",
+        "decision_id",
+        "check"
+      ],
+      "description": "`check_bound` (r4-fixes A8): a standing rule given the test that proves it, after the fact — what `sofar bind` appends. It mints no decision and no id: the rule keeps its handle and gains the check. Until 0.35 a bind re-filed the rule word for word with `check` and `supersedes` itself, so 13–24% of a round-4 rep's decisions were such copies, every bind moved the rule's ordinal (\"D73 into D76\"), and a bind on each of two worktrees minted the same `D<n>` twice. `decision` is the bare `D<n>` the writer read and `decision_id` its event id, which decides (as decision_linked's). The fold sets that decision's check, replacing any it had; one naming no folded decision, or a decision with no rule, is skipped with a warning. Readers before 0.35 skip the type with a warning (FORMAT.md §8) and see the rule without its check. Never drift: bookkeeping on a decision already counted."
+    },
     "SessionStartedPayload": {
       "type": "object",
       "properties": {
@@ -537,12 +561,15 @@
         "rehome": {
           "type": "boolean",
           "const": true
+        },
+        "continues": {
+          "type": "string"
         }
       },
       "required": [
         "tool"
       ],
-      "description": "`rehome` (binding-follows-session 3.1, D5): this is a DELIBERATE re-home — sofar_start_session naming this initiative for a session already registered here but homed elsewhere since. The session's home is the log holding its LATEST session_started, so without a new line a session could never return to a record it had left. The fold accepts the repeat silently; a repeat WITHOUT it is still the racing double-registration it warns about."
+      "description": "`continues` (r4-fixes A10, R11 (a)): the session this one continues — a `/clear` baton, a resumed transcript's prompt fingerprint or the host registry's former session id named it at SessionStart. Lineage is identity, not inference: the new id is the same work under a host-minted name, so it registers in the parent's home and says which parent."
     },
     "SessionEndedPayload": {
       "type": "object",

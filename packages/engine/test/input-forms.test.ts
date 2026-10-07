@@ -136,11 +136,11 @@ describe('sofar remember --supersedes (r1-fixes 1.5, D8)', () => {
     const shard = readFileSync(join(root, '.sofar', 'initiatives', 'alpha', 'memory', 'M1.md'), 'utf8')
     expect(shard).toContain('— replaced by alpha M2\ndeploy with make ship')
 
-    const doctor = runDoctor(root, {}, PLAIN, { caps: PLAIN })
+    const doctor = runDoctor(root, { history: true }, PLAIN, { caps: PLAIN })
     expect(doctor.stdout).not.toContain('alpha M1 was promoted')
     expect(doctor.stdout).toContain('alpha M2 was promoted to repo memory but .sofar/repo.md never names it')
     writeFileSync(join(root, '.sofar', 'repo.md'), '# Repo memory\n\n- deploy with npm run release (alpha M2)\n')
-    expect(runDoctor(root, {}, PLAIN, { caps: PLAIN }).stdout).toContain('all 1 promoted memory named in .sofar/repo.md')
+    expect(runDoctor(root, { history: true }, PLAIN, { caps: PLAIN }).stdout).toContain('all 1 promoted memory named in .sofar/repo.md')
   })
 
   it('accepts the qualified form and resolves across initiatives', () => {
@@ -152,7 +152,7 @@ describe('sofar remember --supersedes (r1-fixes 1.5, D8)', () => {
     expect(lastEvent(root, 'beta').payload.supersedes).toBe('alpha M1')
     // Cross-record: the old record cannot know, but doctor folds both.
     expect(foldLog(logPath(root)).state.memories[0]!.superseded_by).toBeUndefined()
-    const doctor = runDoctor(root, {}, PLAIN, { caps: PLAIN })
+    const doctor = runDoctor(root, { history: true }, PLAIN, { caps: PLAIN })
     expect(doctor.stdout).not.toContain('alpha M1 was promoted')
     expect(doctor.stdout).toContain('beta M1 was promoted')
   })

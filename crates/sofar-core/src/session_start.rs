@@ -14,7 +14,7 @@ use crate::diagnostics::{RowInput, record_diagnostic};
 use crate::digest_cache::cached_digest_state;
 use crate::fold::InitiativeState;
 use crate::fold_cli::CmdResult;
-use crate::git::read_git_state;
+use crate::git::{GitState, read_git_state};
 use crate::home::{LaneAvailability, ResolvedVia, lane_availability, resolve_session_first};
 use crate::hook::{clip_to, parse_hook, str_field};
 use crate::host::{CLAUDE_CODE, hook_host, session_title, title_to_apply, with_session_title};
@@ -22,7 +22,7 @@ use crate::index_tier1::{refresh_guards, refresh_neighbours, repo_rules};
 use crate::json::{Json, Object, number_to_string};
 use crate::layout::{Layout, initiative_slugs};
 use crate::projections::retire_enabled;
-use crate::record_copies::{home_dir, worktree_leads, worktree_leads_notice};
+use crate::record_copies::{abandon_enabled, home_dir, worktree_leads, worktree_leads_notice};
 use crate::session_pointer::write_session_pointer;
 use crate::shipwatch::note_upstream;
 use crate::status::{
@@ -414,7 +414,11 @@ fn other_worktrees_notice(root: &Path, slug: &str, log_path: &Path) -> Option<St
     if slug == QUICK_LANE {
         return None;
     }
-    worktree_leads_notice(&worktree_leads(root, slug, log_path), home_dir().as_deref())
+    worktree_leads_notice(
+        &worktree_leads(root, slug, log_path),
+        home_dir().as_deref(),
+        abandon_enabled(),
+    )
 }
 
 /// `sessionMergeNotice` (r3-fixes D19): the merge block for this start, or
@@ -465,8 +469,126 @@ fn session_merge_notice(
     )
 }
 
+/// `seedTold` (r4-fixes A4): the block's entries and the push state its Git
+/// line gave.
+fn seed_told(
+    layout: &Layout,
+    session: &str,
+    state: &InitiativeState,
+    status: &str,
+    git: Option<&GitState>,
+) {
+    let keys: Vec<String> = crate::told::rendered_entry_ids(state, status)
+        .iter()
+        .map(|id| crate::told::entry_told_key(id))
+        .collect();
+    let epoch = git.map(crate::user_prompt::push_epoch);
+    let fragments: Vec<(&str, Option<&str>)> = epoch
+        .as_deref()
+        .map(|e| vec![(crate::user_prompt::PUSH_FRAGMENT, Some(e))])
+        .unwrap_or_default();
+    crate::told::update_told(layout, session, &keys, &fragments);
+}
+
+/// `traceLineage` (r4-fixes A10): trace a new session id to the session it
+/// continues and leave the answer where every later hook reads it. Only for
+/// an id no log registered and no earlier `SessionStart` traced; never an
+/// append. True when the session resolves by lineage (now or before).
+fn trace_lineage(root: &Path, layout: &Layout, hook: &Object, session_id: &str) -> bool {
+    use crate::lineage::{
+        LineageInput, lineage_enabled, read_lineage, resolve_lineage, write_lineage,
+    };
+    if !lineage_enabled() || session_id == "cli" || !layout.sofar_dir.exists() {
+        return false;
+    }
+    if read_lineage(layout, session_id).is_some() {
+        return true;
+    }
+    // Carriers first, the registration scan only once one fires.
+    let is_open = |slug: &str| crate::home::record_open(layout, slug);
+    let home_of = |id: &str| crate::home::home_initiative(layout, id, None);
+    let input = LineageInput {
+        root,
+        layout,
+        session_id,
+        source: str_field(hook, "source"),
+        title: str_field(hook, "session_title"),
+        transcript_path: str_field(hook, "transcript_path"),
+        is_open: &is_open,
+        home_of: &home_of,
+        now_ms: now_ms(),
+    };
+    let Some(lineage) = resolve_lineage(&input) else {
+        return false;
+    };
+    if crate::home::home_initiative(layout, session_id, None).is_some() {
+        return false;
+    }
+    write_lineage(layout, session_id, &lineage)
+}
+
+/// Character budget for the contested-branch line (r4-fixes A10).
+pub const CONTESTED_BUDGET: usize = 400;
+
+/// `contestedNotice` (r4-fixes A10; R11 (c)): a session that resolved with no
+/// carrier is told which records the LIVE Claude Code sessions in this
+/// worktree are homed in, when that is not just the one it opened.
+#[must_use]
+pub fn contested_notice(layout: &Layout, slug: &str, session_id: Option<&str>) -> Option<String> {
+    let sid = session_id?;
+    let branch = crate::git::current_branch(&layout.root)?;
+    let root = layout.root.to_string_lossy().into_owned();
+    let prefix = format!("{root}/");
+    // Filtered by cwd BEFORE the liveness probe, so a registry holding no
+    // session of this worktree costs no `ps`.
+    let peers = crate::peers::live_peers_where(|session, cwd| {
+        session != sid && (cwd == root || cwd.starts_with(&prefix))
+    });
+    if peers.is_empty() || crate::home::home_initiative(layout, sid, Some(slug)).is_some() {
+        return None;
+    }
+    let mut counts: Vec<(String, usize)> = Vec::new();
+    for peer in peers {
+        if let Some(home) = crate::home::home_initiative(layout, &peer.session_id, None) {
+            match counts.iter_mut().find(|(s, _)| *s == home) {
+                Some((_, n)) => *n += 1,
+                None => counts.push((home, 1)),
+            }
+        }
+    }
+    if counts.is_empty() || (counts.len() == 1 && counts[0].0 == slug) {
+        return None;
+    }
+    counts.sort_by(|a, b| {
+        b.1.cmp(&a.1)
+            .then_with(|| crate::text::cmp_utf16(&a.0, &b.0))
+    });
+    let other = counts.iter().find(|(s, _)| s != slug)?.0.clone();
+    let list = counts
+        .iter()
+        .map(|(s, n)| format!("{s} ({n} {})", if *n == 1 { "session" } else { "sessions" }))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let records = if counts.len() == 1 {
+        "record"
+    } else {
+        "records"
+    };
+    Some(clip_to(
+        &format!(
+            "⚠ {branch} serves {} live {records}: {list}. This session opened {slug} by the branch's route; if this work is {other}, call sofar_start_session with initiative \"{other}\".",
+            counts.len()
+        ),
+        CONTESTED_BUDGET,
+    ))
+}
+
 /// `handleSessionStart`.
 #[must_use]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one hook, read top to bottom like handleSessionStart"
+)]
 pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let layout = Layout::new(root);
     let hook = parse_hook(input);
@@ -476,6 +598,9 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     if let Some(sid) = session_id {
         let _ = write_session_pointer(&layout, sid, "hook");
     }
+    // A new id for old work (r4-fixes A10): trace its lineage before anything
+    // resolves, so this block and every later hook follow the parent's home.
+    let traced = session_id.is_some_and(|sid| trace_lineage(root, &layout, &hook, sid));
     let Some((slug, via)) = resolve_session_first(&layout, session_id) else {
         return ok(unbound_notice(&layout, session_id));
     };
@@ -494,6 +619,7 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let state = cached_digest_state(&layout, &slug);
     let repo_memory = read_repo_memory(&layout);
     let git = read_git_state(root);
+    let git_for_told = git.clone();
     if let (Some(sid), Some(g)) = (session_id, &git) {
         note_upstream(&layout, sid, &g.branch, g.upstream_full.as_deref());
     }
@@ -515,6 +641,11 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
         None
     };
     let notices: Vec<String> = [
+        if traced {
+            None
+        } else {
+            contested_notice(&layout, &slug, session_id)
+        },
         recent_work_elsewhere_notice(&layout, &slug, via, now),
         other_worktrees_notice(root, &slug, &events_path),
         closed_banner(&state),
@@ -543,8 +674,17 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             activity: if activity { None } else { Some(false) },
             retire: retire_enabled(),
             travel,
+            // The host's digest budget (r4-fixes A2): Cursor 3,000, Claude
+            // Code 6,000; every host 6,000 under SOFAR_PAYLOAD=v034.
+            limit: Some(crate::host_payload::digest_limit(hook_host(&hook).tool)),
         },
     );
+    // The told set starts from what this block told (r4-fixes A4).
+    if let Some(sid) = session_id
+        && crate::told::told_lines_enabled()
+    {
+        seed_told(&layout, sid, &state, &status, git_for_told.as_ref());
+    }
     // The session's name (session-naming D1): the slug and the focus task the
     // block leads with, handed to Claude Code as a title. Only an absent,
     // derived or sofar-owned title is replaced; otherwise the block goes out

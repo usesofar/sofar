@@ -9,42 +9,42 @@ exit: 0
 --- stderr
 (empty)
 --- artifact
-lexicon-h.json 46dd917f59009831 350
-lexicon-p00.json 043d1b3bf0f0e398 101
-lexicon-p01.json deae85555666874d 74
-lexicon-p02.json 64832ed89175bbf6 85
-lexicon-p03.json 5b93ff39f75ead88 73
-lexicon-p04.json f68eea70f69396bb 114
-lexicon-p05.json dc609db6bdbe541f 46
-lexicon-p06.json dc609db6bdbe541f 46
-lexicon-p07.json dc609db6bdbe541f 46
-lexicon-p08.json 4f7869e533c6491e 86
-lexicon-p09.json e23487da25d94deb 76
-lexicon-p10.json dc609db6bdbe541f 46
-lexicon-p11.json b69886d36b4d7b29 85
-lexicon-p12.json ec6ecf70cd66ca8d 75
-lexicon-p13.json dc609db6bdbe541f 46
-lexicon-p14.json 906c4cb4aa4794ef 72
-lexicon-p15.json d8d2b2dd73e30662 101
-lexicon-p16.json e8100c9a706d2dec 73
-lexicon-p17.json 154c26e8964c400e 99
-lexicon-p18.json 4634b8068513ba57 86
-lexicon-p19.json dc609db6bdbe541f 46
-lexicon-p20.json 5cee5c3797b9d5db 72
-lexicon-p21.json c58cce2cb8e2088f 84
-lexicon-p22.json 52ad2496f93c6a5b 90
-lexicon-p23.json fbe4a3eadc15631a 75
-lexicon-p24.json dc609db6bdbe541f 46
-lexicon-p25.json a124c5b5ff2c71ab 72
-lexicon-p26.json dc609db6bdbe541f 46
-lexicon-p27.json dc609db6bdbe541f 46
-lexicon-p28.json 2c6ec45c5c87e88b 103
-lexicon-p29.json cb5168007340cb93 125
-lexicon-p30.json 2dbed664595677b8 79
-lexicon-p31.json f235fd0941021348 103
-lexicon.json 7b1ab004e4d9c22c 836
+lexicon-h.json 431ae44969278dd5 350
+lexicon-p00.json 2b45c828818c7b6c 101
+lexicon-p01.json 36d35cace6b5b7c9 74
+lexicon-p02.json aee1ad6905a9f963 85
+lexicon-p03.json 653e768453965640 73
+lexicon-p04.json c659bed57c386c33 114
+lexicon-p05.json 20066fa9a759165b 46
+lexicon-p06.json 20066fa9a759165b 46
+lexicon-p07.json 20066fa9a759165b 46
+lexicon-p08.json 452514a4cd230632 86
+lexicon-p09.json 04562366bebd03bc 76
+lexicon-p10.json 20066fa9a759165b 46
+lexicon-p11.json b4c9ff78d743a022 85
+lexicon-p12.json ca3047804653bf91 75
+lexicon-p13.json 20066fa9a759165b 46
+lexicon-p14.json 8a84de81692dcc54 72
+lexicon-p15.json 60dbd32cb08c1f4e 101
+lexicon-p16.json 2ecaff2a91dfa4f1 73
+lexicon-p17.json 7c591e4591788830 99
+lexicon-p18.json 4b11fc673d7240d8 86
+lexicon-p19.json 20066fa9a759165b 46
+lexicon-p20.json 30ff6994fa4f6b53 72
+lexicon-p21.json f905f0c1c749c939 84
+lexicon-p22.json 1e1b45025585fe0b 90
+lexicon-p23.json c08b01ab92471802 75
+lexicon-p24.json 20066fa9a759165b 46
+lexicon-p25.json f2f3b5e8e9f2cfd1 72
+lexicon-p26.json 20066fa9a759165b 46
+lexicon-p27.json 20066fa9a759165b 46
+lexicon-p28.json cdd5b8afa7e2d52d 103
+lexicon-p29.json 1dcfe170971cd9d4 125
+lexicon-p30.json 13afcd55a25c9138 79
+lexicon-p31.json e067f0d0cc84512f 103
+lexicon.json db313717c42222d7 836
 gens: one
-told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt"]}
+told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5"]}
 
 ## step 2: the subject outweighs the over: decided before
 argv: ["event","user-prompt"]
@@ -60,7 +60,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-done","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"quokka"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.","sessionTitle":"baseline 1.2 #sess"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"baseline 1.2 #sess"}}
 --- stderr
 (empty)
 
@@ -69,94 +69,94 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"zanzibar quokka"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: main @ ce11ce1, never pushed.\nsofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"baseline 1.2 #sess"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"baseline 1.2 #sess"}}
 --- stderr
 (empty)
 --- artifact
-lexicon-h.json 46dd917f59009831 350
-lexicon-p00.json 043d1b3bf0f0e398 101
-lexicon-p01.json deae85555666874d 74
-lexicon-p02.json 64832ed89175bbf6 85
-lexicon-p03.json 5b93ff39f75ead88 73
-lexicon-p04.json f68eea70f69396bb 114
-lexicon-p05.json dc609db6bdbe541f 46
-lexicon-p06.json dc609db6bdbe541f 46
-lexicon-p07.json dc609db6bdbe541f 46
-lexicon-p08.json 4f7869e533c6491e 86
-lexicon-p09.json e23487da25d94deb 76
-lexicon-p10.json dc609db6bdbe541f 46
-lexicon-p11.json b69886d36b4d7b29 85
-lexicon-p12.json ec6ecf70cd66ca8d 75
-lexicon-p13.json dc609db6bdbe541f 46
-lexicon-p14.json 906c4cb4aa4794ef 72
-lexicon-p15.json d8d2b2dd73e30662 101
-lexicon-p16.json e8100c9a706d2dec 73
-lexicon-p17.json 154c26e8964c400e 99
-lexicon-p18.json 4634b8068513ba57 86
-lexicon-p19.json dc609db6bdbe541f 46
-lexicon-p20.json 5cee5c3797b9d5db 72
-lexicon-p21.json c58cce2cb8e2088f 84
-lexicon-p22.json 52ad2496f93c6a5b 90
-lexicon-p23.json fbe4a3eadc15631a 75
-lexicon-p24.json dc609db6bdbe541f 46
-lexicon-p25.json a124c5b5ff2c71ab 72
-lexicon-p26.json dc609db6bdbe541f 46
-lexicon-p27.json dc609db6bdbe541f 46
-lexicon-p28.json 2c6ec45c5c87e88b 103
-lexicon-p29.json cb5168007340cb93 125
-lexicon-p30.json 2dbed664595677b8 79
-lexicon-p31.json f235fd0941021348 103
+lexicon-h.json 431ae44969278dd5 350
+lexicon-p00.json 2b45c828818c7b6c 101
+lexicon-p01.json 36d35cace6b5b7c9 74
+lexicon-p02.json aee1ad6905a9f963 85
+lexicon-p03.json 653e768453965640 73
+lexicon-p04.json c659bed57c386c33 114
+lexicon-p05.json 20066fa9a759165b 46
+lexicon-p06.json 20066fa9a759165b 46
+lexicon-p07.json 20066fa9a759165b 46
+lexicon-p08.json 452514a4cd230632 86
+lexicon-p09.json 04562366bebd03bc 76
+lexicon-p10.json 20066fa9a759165b 46
+lexicon-p11.json b4c9ff78d743a022 85
+lexicon-p12.json ca3047804653bf91 75
+lexicon-p13.json 20066fa9a759165b 46
+lexicon-p14.json 8a84de81692dcc54 72
+lexicon-p15.json 60dbd32cb08c1f4e 101
+lexicon-p16.json 2ecaff2a91dfa4f1 73
+lexicon-p17.json 7c591e4591788830 99
+lexicon-p18.json 4b11fc673d7240d8 86
+lexicon-p19.json 20066fa9a759165b 46
+lexicon-p20.json 30ff6994fa4f6b53 72
+lexicon-p21.json f905f0c1c749c939 84
+lexicon-p22.json 1e1b45025585fe0b 90
+lexicon-p23.json c08b01ab92471802 75
+lexicon-p24.json 20066fa9a759165b 46
+lexicon-p25.json f2f3b5e8e9f2cfd1 72
+lexicon-p26.json 20066fa9a759165b 46
+lexicon-p27.json 20066fa9a759165b 46
+lexicon-p28.json cdd5b8afa7e2d52d 103
+lexicon-p29.json 1dcfe170971cd9d4 125
+lexicon-p30.json 13afcd55a25c9138 79
+lexicon-p31.json e067f0d0cc84512f 103
 lexicon.json absent
 gens: one
-told/sess-done.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt"]}
-told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt"]}
+told/sess-done.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-"]}
+told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5"]}
 
 ## step 5: the next prompt rebuilds every part
 argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"copper kettle violet"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [cutoff note 2026-09-02] copper kettle violet orchard pebble (matched: copper, kettle, violet)\nsofar: main @ ce11ce1, never pushed.\nsofar: 5 unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop.","sessionTitle":"baseline 1.2 #sess"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: noted before — [cutoff note 2026-09-02] copper kettle violet orchard pebble (matched: copper, kettle, violet)","sessionTitle":"baseline 1.2 #sess"}}
 --- stderr
 (empty)
 --- artifact
-lexicon-h.json 46dd917f59009831 350
-lexicon-p00.json 043d1b3bf0f0e398 101
-lexicon-p01.json deae85555666874d 74
-lexicon-p02.json 64832ed89175bbf6 85
-lexicon-p03.json 5b93ff39f75ead88 73
-lexicon-p04.json f68eea70f69396bb 114
-lexicon-p05.json dc609db6bdbe541f 46
-lexicon-p06.json dc609db6bdbe541f 46
-lexicon-p07.json dc609db6bdbe541f 46
-lexicon-p08.json 4f7869e533c6491e 86
-lexicon-p09.json e23487da25d94deb 76
-lexicon-p10.json dc609db6bdbe541f 46
-lexicon-p11.json b69886d36b4d7b29 85
-lexicon-p12.json ec6ecf70cd66ca8d 75
-lexicon-p13.json dc609db6bdbe541f 46
-lexicon-p14.json 906c4cb4aa4794ef 72
-lexicon-p15.json d8d2b2dd73e30662 101
-lexicon-p16.json e8100c9a706d2dec 73
-lexicon-p17.json 154c26e8964c400e 99
-lexicon-p18.json 4634b8068513ba57 86
-lexicon-p19.json dc609db6bdbe541f 46
-lexicon-p20.json 5cee5c3797b9d5db 72
-lexicon-p21.json c58cce2cb8e2088f 84
-lexicon-p22.json 52ad2496f93c6a5b 90
-lexicon-p23.json fbe4a3eadc15631a 75
-lexicon-p24.json dc609db6bdbe541f 46
-lexicon-p25.json a124c5b5ff2c71ab 72
-lexicon-p26.json dc609db6bdbe541f 46
-lexicon-p27.json dc609db6bdbe541f 46
-lexicon-p28.json 2c6ec45c5c87e88b 103
-lexicon-p29.json cb5168007340cb93 125
-lexicon-p30.json 2dbed664595677b8 79
-lexicon-p31.json f235fd0941021348 103
-lexicon.json 7b1ab004e4d9c22c 836
+lexicon-h.json 431ae44969278dd5 350
+lexicon-p00.json 2b45c828818c7b6c 101
+lexicon-p01.json 36d35cace6b5b7c9 74
+lexicon-p02.json aee1ad6905a9f963 85
+lexicon-p03.json 653e768453965640 73
+lexicon-p04.json c659bed57c386c33 114
+lexicon-p05.json 20066fa9a759165b 46
+lexicon-p06.json 20066fa9a759165b 46
+lexicon-p07.json 20066fa9a759165b 46
+lexicon-p08.json 452514a4cd230632 86
+lexicon-p09.json 04562366bebd03bc 76
+lexicon-p10.json 20066fa9a759165b 46
+lexicon-p11.json b4c9ff78d743a022 85
+lexicon-p12.json ca3047804653bf91 75
+lexicon-p13.json 20066fa9a759165b 46
+lexicon-p14.json 8a84de81692dcc54 72
+lexicon-p15.json 60dbd32cb08c1f4e 101
+lexicon-p16.json 2ecaff2a91dfa4f1 73
+lexicon-p17.json 7c591e4591788830 99
+lexicon-p18.json 4b11fc673d7240d8 86
+lexicon-p19.json 20066fa9a759165b 46
+lexicon-p20.json 30ff6994fa4f6b53 72
+lexicon-p21.json f905f0c1c749c939 84
+lexicon-p22.json 1e1b45025585fe0b 90
+lexicon-p23.json c08b01ab92471802 75
+lexicon-p24.json 20066fa9a759165b 46
+lexicon-p25.json f2f3b5e8e9f2cfd1 72
+lexicon-p26.json 20066fa9a759165b 46
+lexicon-p27.json 20066fa9a759165b 46
+lexicon-p28.json cdd5b8afa7e2d52d 103
+lexicon-p29.json 1dcfe170971cd9d4 125
+lexicon-p30.json 13afcd55a25c9138 79
+lexicon-p31.json e067f0d0cc84512f 103
+lexicon.json db313717c42222d7 836
 gens: one
-told/sess-done.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt"]}
-told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","01M1E7ZZ000000000000000002 prompt"]}
+told/sess-done.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-"]}
+told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5","01M1E7ZZ000000000000000002 prompt"]}
 
 ## record delta
 === .sofar/initiatives/cutoff/events.jsonl (added, 1567 bytes)

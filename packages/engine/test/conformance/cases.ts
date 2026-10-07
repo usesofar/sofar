@@ -98,6 +98,23 @@ const promptBuffer =
     return existsSync(file) ? readFileSync(file, 'utf8') : 'no buffer file\n'
   }
 
+/** r4-fixes A10: a first prompt long enough to fingerprint a session. */
+const LINEAGE_PROMPT = 'Build the session identity item from the research plan, then run the gates.'
+/** A Claude Code registry file (`~/.claude/sessions/<pid>.json`) as the host writes it. */
+function registryEntry(
+  m: Materialized,
+  file: number,
+  sessionId: string,
+  cwd: string,
+  formerNames: Array<Record<string, unknown>> = [],
+  pid: number = file,
+): void {
+  const dir = join(m.home, '.claude', 'sessions')
+  mkdirSync(dir, { recursive: true })
+  const entry = { pid, sessionId, cwd, procStart: 'Mon Oct  5 10:00:00 2026', name: `peer ${file}`, nameSource: 'hook', status: 'busy', ...(formerNames.length > 0 ? { formerNames } : {}) }
+  writeFileSync(join(dir, `${file}.json`), `${JSON.stringify(entry)}\n`)
+}
+
 /** A registered session in the repo record's `speed` initiative (homeInitiative routing). */
 const SPEED_SESSION = 'aefa6315-3725-4e4d-9f9a-224ff6f86ddb'
 /** The last written-back session on `rust-core` at the snapshot. */
@@ -266,6 +283,40 @@ const read = (path: string, fields: Record<string, unknown> = {}) =>
 const grep = (path: string, filenames: string[], fields: Record<string, unknown> = {}) =>
   hook('PostToolUse', { tool_name: 'Grep', tool_input: { pattern: 'x', path }, tool_response: { mode: 'files_with_matches', filenames, numFiles: filenames.length }, ...fields })
 
+/** A Cursor tool call, in Cursor's own postToolUse dialect (cursor-agent 2026.10.01). */
+const cursorTool = (session: string, tool: 'Read' | 'Write', path: string): Record<string, unknown> => ({
+  conversation_id: session,
+  generation_id: 'gen-1',
+  model: 'default',
+  session_id: session,
+  hook_event_name: 'postToolUse',
+  cursor_version: '2026.10.01-e373342',
+  workspace_roots: ['<ROOT>'],
+  user_email: null,
+  transcript_path: null,
+  tool_name: tool,
+  tool_input: tool === 'Write' ? { file_path: path, content: 'export const CAP = 12\n' } : { file_path: path },
+  tool_output: '{}',
+  duration: 1,
+  tool_use_id: 'call-1',
+})
+/** A print-mode Cursor sessionEnd (the shape of hook-payloads.cursor-agent-2026.09.15.json's session-end.print). */
+const cursorEnd = (session: string): Record<string, unknown> => ({
+  conversation_id: session,
+  generation_id: session,
+  model: 'default',
+  reason: 'completed',
+  duration_ms: 1000,
+  is_background_agent: false,
+  final_status: 'completed',
+  session_id: session,
+  hook_event_name: 'sessionEnd',
+  cursor_version: '2026.10.01-e373342',
+  workspace_roots: ['<ROOT>'],
+  user_email: null,
+  transcript_path: null,
+})
+
 function statusline(fields: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     hook_event_name: 'Status',
@@ -286,6 +337,16 @@ function statusline(fields: Record<string, unknown> = {}): Record<string, unknow
 const transcript = (bytes: number) => (m: Materialized) => {
   writeFileSync(join(m.root, 'transcript.jsonl'), `${'{"type":"assistant","text":"padding"}\n'.repeat(Math.ceil(bytes / 40))}`)
 }
+
+/** A final reply ending with an in-band write-back block (r4-fixes A1). */
+const inlineReply = (body: string): string => `Done: the module is in.\n\n\`\`\`sofar\n${body}\n\`\`\`\n`
+const INLINE_OK = JSON.stringify({
+  summary: 'Filed from the reply.',
+  next_action: 'Carry on from the record.',
+  decisions: [{ chose: 'the reply carries the write-back', over: 'a tool call', because: 'no round trip', supersedes: 'none' }],
+  memories: ['The write-back is the last block of the final reply.'],
+  notes: ['Filed by the Stop hook.'],
+})
 
 const s = (title: string, argv: string[], stdin?: Step['stdin'], rest: Partial<Step> = {}): Step => ({
   title,
@@ -681,6 +742,31 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes A1 (SPEC §In-band write-back): a Stop or SessionEnd that may
+    // carry a ```sofar block is filed by the TypeScript engine — the native
+    // core hands it back after reading stdin — so both legs print and write
+    // the same bytes. One ask, then the held Stop files the repaired block;
+    // the tool arm reads no block; Cursor's comes from its transcript at
+    // sessionEnd.
+    name: 'syn.inline-writeback',
+    fixture: synthetic('baseline', { branch: 'main', head: CELL_SHA, upstream: CELL_OLD }),
+    steps: [
+      s('a block that is not JSON: one repair ask, nothing filed', ['event', 'stop'], stop({ session_id: 'sess-open', last_assistant_message: inlineReply('{"summary": "half a block",') })),
+      s('the repaired block, on the held Stop: filed', ['event', 'stop'], stop({ session_id: 'sess-open', stop_hook_active: true, last_assistant_message: inlineReply(INLINE_OK) })),
+      s('the same reply at SessionEnd files nothing twice', ['event', 'session-end'], end({ session_id: 'sess-open', last_assistant_message: inlineReply(INLINE_OK) })),
+      s('an edit registers a second session, owing', ['event', 'post-tool'], edit('<ROOT>/src/module/file-3.ts', { session_id: 'sess-tool' })),
+      s('SOFAR_WRITEBACK=tool: the block is not read, the hold names the tool', ['event', 'stop'], stop({ session_id: 'sess-tool', last_assistant_message: inlineReply(INLINE_OK) }), { env: { SOFAR_WRITEBACK: 'tool' } }),
+      s('inline, no block: the hold asks for one', ['event', 'stop'], stop({ session_id: 'sess-tool', last_assistant_message: 'Done.' })),
+      s('a Cursor edit registers its chat', ['event', 'post-tool'], hook('postToolUse', { session_id: 'cursor-chat', conversation_id: 'cursor-chat', cursor_version: '2026.10.01-e373342', tool_name: 'Write', tool_input: { file_path: '<ROOT>/src/module/file-4.ts', content: 'x' }, tool_output: '' })),
+      s('Cursor sessionEnd files the block its transcript ends with', ['event', 'session-end'], end({ session_id: 'cursor-chat', conversation_id: 'cursor-chat', cursor_version: '2026.10.01-e373342', hook_event_name: 'sessionEnd', reason: 'completed', transcript_path: '<ROOT>/cursor-transcript.jsonl' }), {
+        before: (m) => {
+          const line = { role: 'assistant', message: { content: [{ type: 'text', text: inlineReply(INLINE_OK) }] } }
+          writeFileSync(join(m.root, 'cursor-transcript.jsonl'), `${JSON.stringify(line)}\n{"type":"turn_ended","status":"success"}\n`)
+        },
+      }),
+    ],
+  },
+  {
     name: 'syn.corrupt',
     fixture: synthetic('corrupt'),
     steps: [
@@ -835,6 +921,31 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes A8 on the hot path: a check bound after the fact. The fixture's
+    // guarded D1 takes its check by check_bound (what `sofar bind` appends) and
+    // keeps its handle; the gate then holds an edit it governs until that test
+    // passed, and the next digest still names D1 with D4 the next id.
+    name: 'syn.check-bound',
+    fixture: synthetic('guards'),
+    steps: [
+      s('session-start: the tree the check names', ['event', 'session-start'], start({ session_id: 'sess-b' }), {
+        before: (m) => {
+          for (const rel of ['src/legacy/a.ts', 'tests/legacy.test.ts']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+          }
+        },
+      }),
+      s('bind D1 its test: no decision minted', ['event', 'append', '--type', 'check_bound', '--session', 'sess-b', '--source', 'claude-code', '--payload', JSON.stringify({ decision: 'D1', decision_id: '01M1E6R3100000000000000003', check: { cmd: 'bun test tests/legacy.test.ts', hint: 'leave src/legacy/ as it is' } })]),
+      s('Edit a file the guarded rule governs', ['event', 'post-tool'], edit('<ROOT>/src/legacy/a.ts', { session_id: 'sess-b' })),
+      s('sess-b writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-b', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('stop: the bound check is asked by D1', ['event', 'stop'], stop({ session_id: 'sess-b' })),
+      s('the bound test passes', ['event', 'post-tool'], bash('bun test tests/legacy.test.ts', { session_id: 'sess-b' })),
+      s('stop: covered, nothing held', ['event', 'stop'], stop({ session_id: 'sess-b' })),
+      s('session-start: D1 keeps its handle, D4 is next', ['event', 'session-start'], start({ session_id: 'sess-c' })),
+    ],
+  },
+  {
     // r3-fixes 2.11 (D19, D20) on the hot path: round 3's S18 merge in
     // miniature, in a real repo with pinned dates — wt-15 merged clean, wt-16
     // and wt-17 conflicting on src/db.ts, the conflict committed as the
@@ -877,6 +988,26 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes A9 on the hot path: Cursor without a Stop gate. An edit of a
+    // rule-bound path names every governing rule (once per path, a rule's
+    // words once per session), and sessionEnd files what the test gate would
+    // have asked as a note for the next session, once. Never on Claude Code,
+    // never under SOFAR_CURSOR_DEBT=off.
+    name: 'syn.cursor-debt',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('Cursor reads the guarded file: the notice gives the rule', ['event', 'post-tool'], cursorTool('sess-cur', 'Read', '<ROOT>/src/order/caps.ts'), { before: capsBranch }),
+      s('Cursor edits it: the bound line names the rule in its words', ['event', 'post-tool'], cursorTool('sess-cur', 'Write', '<ROOT>/src/order/caps.ts')),
+      s('the same path again: nothing more', ['event', 'post-tool'], cursorTool('sess-cur', 'Write', '<ROOT>/src/order/caps.ts')),
+      s('SOFAR_CURSOR_DEBT=off: the notice alone', ['event', 'post-tool'], cursorTool('sess-off', 'Write', '<ROOT>/src/order/caps.ts'), { env: { SOFAR_CURSOR_DEBT: 'off' } }),
+      s('Claude Code edits it: the notice alone', ['event', 'post-tool'], edit('<ROOT>/src/order/caps.ts', { session_id: 'sess-claude' })),
+      s('Cursor sessionEnd: the gate\'s ask, filed as a note, then the close', ['event', 'session-end'], cursorEnd('sess-cur')),
+      s('a second sessionEnd files nothing', ['event', 'session-end'], cursorEnd('sess-cur')),
+      s('Claude Code SessionEnd: the close alone', ['event', 'session-end'], end({ session_id: 'sess-claude' })),
+      s('the next digest shows the note', ['event', 'session-start'], start({ session_id: 'sess-next' })),
+    ],
+  },
+  {
     // memory-lead 4.3 part B (D25) on the hot path: recall at the first
     // prompt, once per session context, never on Cursor.
     name: 'syn.recall',
@@ -900,7 +1031,11 @@ export const CASES: ConformanceCase[] = [
       s('cat from a subdirectory', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', cwd: '<ROOT>/src', tool_name: 'Bash', tool_input: { command: 'cat ../.sofar/initiatives/baseline/events.jsonl' } })),
       s('Cursor: its own preToolUse form', ['event', 'pre-tool'], { conversation_id: 'conv-g', cursor_version: '2026.10.01', cwd: '<ROOT>', hook_event_name: 'preToolUse', tool_name: 'Shell', tool_input: { command: 'cat .sofar/initiatives/baseline/decisions.md' } }),
       s('a grep is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'grep -n rule .sofar/initiatives/baseline/decisions.md' } })),
-      s('a pipe is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md | head -5' } })),
+      // r4-fixes A4: a whole-file read heading a pipeline is rewritten on its own, the rest kept.
+      s('a read piped to head: its read segment rewritten', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md | head -5' } })),
+      s('a compound command: each read segment rewritten, the code read kept', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: "ls; cat src/a.ts && cat .sofar/initiatives/baseline/memory.md 2>/dev/null\ncat '.sofar/initiatives/baseline/decisions.md' | tail -3" } })),
+      s('a compound command with a substitution is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md; echo $(date)' } })),
+      s('SOFAR_TOLD_LINES=off: a pipe is left alone, as 0.34.1', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md | head -5' } }), { env: { SOFAR_TOLD_LINES: 'off' } }),
       s('the Read tool is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Read', tool_input: { file_path: '<ROOT>/.sofar/initiatives/baseline/plan.md' } })),
       s('SOFAR_READ_GATE=off', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'cat .sofar/initiatives/baseline/plan.md' } }), { env: { SOFAR_READ_GATE: 'off' } }),
       // r4-fixes U4: a read with a line or byte limit passes through on every host.
@@ -908,6 +1043,45 @@ export const CASES: ConformanceCase[] = [
       s('tail -25: passed through', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'tail -25 .sofar/initiatives/baseline/plan.md' } })),
       s('Cursor: head -c passed through', ['event', 'pre-tool'], { conversation_id: 'conv-g', cursor_version: '2026.10.01', cwd: '<ROOT>', hook_event_name: 'preToolUse', tool_name: 'Shell', tool_input: { command: 'head -c 20000 .sofar/initiatives/baseline/decisions.md' } }),
       s('a Read with offset and limit is left alone', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-g', tool_name: 'Read', tool_input: { file_path: '<ROOT>/.sofar/initiatives/baseline/plan.md', offset: 10, limit: 25 } })),
+    ],
+  },
+  {
+    // r4-fixes A4: the told set seeded from the digest and the recall block,
+    // hook lines as fragments told once per epoch, and Claude Code's
+    // PostToolBatch carrying a batch's surfacing as one block.
+    name: 'syn.told-lines',
+    fixture: synthetic('surfacing'),
+    steps: [
+      s('session-start: the digest seeds the told set', ['event', 'session-start'], start({ session_id: 'sess-t' }), {
+        before: (m) => {
+          for (const rel of ['src/core/fold.ts', 'src/legacy/old.ts', 'src/legacy/new.ts', 'docs/SPEC.md']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+          }
+        },
+      }),
+      s('prompt: the push line the digest gave is not repeated; recall leaves out what the digest holds', ['event', 'user-prompt'], prompt({ session_id: 'sess-t', prompt: 'the fold must not read the clock; split fold.ts and leave the legacy tree alone' })),
+      s('PostToolBatch: two reads, one block, the guard told as its binding', ['event', 'post-tool-batch'], hook('PostToolBatch', {
+        session_id: 'sess-t',
+        tool_calls: [
+          { tool_name: 'Read', tool_input: { file_path: '<ROOT>/src/core/fold.ts' }, tool_use_id: 'tu-1', tool_response: {} },
+          { tool_name: 'Read', tool_input: { file_path: '<ROOT>/src/legacy/old.ts' }, tool_use_id: 'tu-2', tool_response: {} },
+        ],
+      })),
+      s('PostToolUse after a batch ran: it captures, the batch tells', ['event', 'post-tool'], edit('<ROOT>/src/legacy/new.ts', { session_id: 'sess-t' })),
+      s('PostToolBatch: the same rule on another file is not told again', ['event', 'post-tool-batch'], hook('PostToolBatch', {
+        session_id: 'sess-t',
+        tool_calls: [{ tool_name: 'Edit', tool_input: { file_path: '<ROOT>/src/legacy/new.ts', old_string: 'a', new_string: 'b' }, tool_use_id: 'tu-3', tool_response: {} }],
+      })),
+      s('another session, no digest, no batch: the rule whole on its first file', ['event', 'post-tool'], read('<ROOT>/src/legacy/old.ts', { session_id: 'sess-u' })),
+      s('…and nothing on its second', ['event', 'post-tool'], read('<ROOT>/src/legacy/new.ts', { session_id: 'sess-u' })),
+      s('SOFAR_TOLD_LINES=off: per file, as 0.34', ['event', 'post-tool'], read('<ROOT>/src/legacy/new.ts', { session_id: 'sess-v' }), { env: { SOFAR_TOLD_LINES: 'off' } }),
+      s('SOFAR_TOLD_LINES=off: PostToolBatch is silent', ['event', 'post-tool-batch'], hook('PostToolBatch', {
+        session_id: 'sess-v',
+        tool_calls: [{ tool_name: 'Read', tool_input: { file_path: '<ROOT>/src/core/fold.ts' }, tool_use_id: 'tu-4', tool_response: {} }],
+      }), { env: { SOFAR_TOLD_LINES: 'off' } }),
+      s('compact: the set is cleared and seeded again', ['event', 'session-start'], start({ session_id: 'sess-t', source: 'compact' })),
+      s('…so the first prompt after it is quiet on the push state too', ['event', 'user-prompt'], prompt({ session_id: 'sess-t' })),
     ],
   },
   {
@@ -988,6 +1162,12 @@ export const CASES: ConformanceCase[] = [
       s('status of a record whose other copy adds nothing', ['status', 'other']),
       s('status of a record held only on another worktree', ['status', 'elsewhere']),
       s('status of a slug held nowhere', ['status', 'nowhere']),
+      // r4-fixes A14: the operator drops `feature`; the hint and the union
+      // leave it out, and SOFAR_ABANDON=off restores the 0.34 line.
+      s('abandon: the operator drops feature', ['abandon', 'feature']),
+      s('session-start: an abandoned branch is not raised again', ['event', 'session-start'], start({ session_id: 'sess-b' })),
+      s('session-start with SOFAR_ABANDON=off: every branch, no hint', ['event', 'session-start'], start({ session_id: 'sess-c' }), { env: { SOFAR_ABANDON: 'off' } }),
+      s('status: the abandoned branch folds no more', ['status', 'surf']),
     ],
   },
   {
@@ -1059,6 +1239,59 @@ export const CASES: ConformanceCase[] = [
       s('conflicting edit across records', ['event', 'post-tool'], edit('<ROOT>/src/shared.ts')),
       s('prompt reports the cross-record conflict', ['event', 'user-prompt'], prompt()),
       s('statusline', ['statusline', '--no-color'], statusline()),
+    ],
+  },
+  {
+    // r4-fixes A10: session identity. An unregistered id is traced to the
+    // session it continues — title, /clear baton, prompt fingerprint, host
+    // registry — and resolves to that session's home ahead of every route; a
+    // worktree's last home outranks the committed binding; a branch whose
+    // live sessions hold other records says so. main → rec-03; the parent is
+    // sess-elsewhere, homed in rec-10; rec-13 is done.
+    name: 'syn.lineage',
+    fixture: synthetic('many'),
+    steps: [
+      s('a title naming an open record: lineage by title', ['event', 'session-start'], start({ session_id: 'lin-title', session_title: 'rec-10 2.1 #lint' })),
+      s('its first edit registers it there, with no parent named', ['event', 'post-tool'], edit('<ROOT>/src/title.ts', { session_id: 'lin-title' })),
+      s('a title naming a done record: ignored, the branch routes', ['event', 'session-start'], start({ session_id: 'lin-done', session_title: 'rec-13 1.1' })),
+      s('SOFAR_LINEAGE=off: the title is inert', ['event', 'session-start'], start({ session_id: 'lin-off', session_title: 'rec-10 2.1' }), { env: { SOFAR_LINEAGE: 'off' } }),
+      s('/clear: SessionEnd leaves the baton', ['event', 'session-end'], end({ session_id: 'sess-elsewhere', reason: 'clear' }), {
+        before: (m) => registryEntry(m, 4242, 'sess-elsewhere', '/elsewhere'),
+      }),
+      s('/clear: the new id takes the baton', ['event', 'session-start'], start({ session_id: 'lin-clear', source: 'clear' }), {
+        before: (m) => registryEntry(m, 4242, 'lin-clear', '/elsewhere'),
+      }),
+      s('its first edit registers it in the parent home, continuing it', ['event', 'post-tool'], edit('<ROOT>/src/clear.ts', { session_id: 'lin-clear' })),
+      s('the registry names a former session id', ['event', 'session-start'], start({ session_id: 'lin-reg' }), {
+        before: (m) => registryEntry(m, 4343, 'lin-reg', '/elsewhere', [{ name: 'old name', until: 1_790_000_000_000, sessionId: 'sess-elsewhere' }]),
+      }),
+      s('a resumed transcript whose first prompt the buffer knows', ['event', 'session-start'], start({ session_id: 'lin-fork', source: 'resume', transcript_path: '<ROOT>/fork.jsonl' }), {
+        before: (m) => {
+          mkdirSync(promptDir(m), { recursive: true })
+          writeFileSync(join(promptDir(m), 'sess-elsewhere.jsonl'), `${JSON.stringify({ id: 'P1', ts: '2026-09-01T11:33:00.000Z', text: LINEAGE_PROMPT })}\n`)
+          writeFileSync(
+            join(m.root, 'fork.jsonl'),
+            `${JSON.stringify({ type: 'custom-title', customTitle: 'rec-10 2.1' })}\n${JSON.stringify({ type: 'user', isMeta: true, message: { role: 'user', content: 'meta' } })}\n${JSON.stringify({ type: 'user', message: { role: 'user', content: LINEAGE_PROMPT } })}\n`,
+          )
+        },
+      }),
+      s('the worktree last home outranks the committed binding', ['event', 'session-start'], start({ session_id: 'lin-route' }), {
+        before: (m) => {
+          mkdirSync(join(m.root, '.sofar', '.index'), { recursive: true })
+          writeFileSync(join(m.root, '.sofar', '.index', 'last-home.json'), `${JSON.stringify({ main: { slug: 'rec-07', session: 'x', ts: '2026-09-01T12:00:00.000Z' } })}\n`)
+        },
+      }),
+      s('SOFAR_LASTHOME=committed: the committed binding routes', ['event', 'session-start'], start({ session_id: 'lin-route' }), { env: { SOFAR_LASTHOME: 'committed' } }),
+      s('statusline follows the last home', ['statusline', '--no-color'], statusline({ session_id: 'lin-route' })),
+      s('a plain session registers on the route', ['event', 'post-tool'], edit('<ROOT>/src/plain.ts', { session_id: 'lin-plain' }), {
+        before: (m) => rmSync(join(m.root, '.sofar', '.index', 'last-home.json'), { force: true }),
+      }),
+      s('live sessions here hold two records: the contested line', ['event', 'session-start'], start({ session_id: 'lin-new' }), {
+        before: (m) => {
+          registryEntry(m, 5001, 'sess-elsewhere', realpathSync(m.root), [], process.pid)
+          registryEntry(m, 5002, 'lin-plain', realpathSync(m.root), [], process.pid)
+        },
+      }),
     ],
   },
   {

@@ -343,7 +343,7 @@ describe('orienting surfaces (4.1/4.2/4.3)', () => {
       join(root, '.sofar', 'bindings.json'),
       `${JSON.stringify({ 'feat/z': 'demo' }, null, 2)}\n`,
     )
-    expect(runDoctor(root, {}, PLAIN).stdout).toMatch(
+    expect(runDoctor(root, { history: true }, PLAIN).stdout).toMatch(
       /demo: closed \(done\) but still bound to "feat\/z"/,
     )
 
@@ -359,7 +359,7 @@ describe('orienting surfaces (4.1/4.2/4.3)', () => {
       ],
       { stdio: 'ignore' },
     )
-    expect(runDoctor(open, {}, PLAIN).stdout).toMatch(
+    expect(runDoctor(open, { history: true }, PLAIN).stdout).toMatch(
       /live: all 1 phase\(s\) resolved but the initiative is still active/,
     )
   })

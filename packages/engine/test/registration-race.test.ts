@@ -10,6 +10,7 @@ import { runNew } from '../src/cli/new'
 import type { Caps } from '../src/cli/ui'
 import { createToolContext } from '../src/mcp/context'
 import { startSession } from '../src/mcp/start-session'
+import { scaled } from './helpers/tracked'
 
 /**
  * r1-fixes 1.2 — one session, one session_started, however many writers race.
@@ -96,7 +97,7 @@ describe('parallel hook registration (r1-fixes 1.2)', () => {
     expect(touches).toHaveLength(N)
     expect(touches.every(({ i }) => i > startAt)).toBe(true)
     expect(state.sessions.map((s) => s.id)).toEqual(['cursor-conv'])
-  }, 30_000)
+  }, scaled(30_000))
 
   it('leaves no lock behind, and none inside the committed record', async () => {
     const root = boundRepo()
@@ -104,7 +105,7 @@ describe('parallel hook registration (r1-fixes 1.2)', () => {
     const locks = join(root, '.sofar', '.index', 'locks')
     expect(existsSync(locks) ? readdirSync(locks) : []).toEqual([])
     expect(readdirSync(join(root, '.sofar', 'initiatives', 'demo')).some((f) => f.includes('lock'))).toBe(false)
-  }, 30_000)
+  }, scaled(30_000))
 })
 
 describe('every registration path is idempotent (r1-fixes 1.2)', () => {

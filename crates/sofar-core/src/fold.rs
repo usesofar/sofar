@@ -1151,6 +1151,27 @@ fn apply_event(
                 )),
             }
         }
+        "check_bound" => {
+            // r4-fixes A8: a rule given its test after the fact (`sofar
+            // bind`). No new decision and no new ordinal: the rule keeps its
+            // handle and takes the check, replacing any it had. The id
+            // decides; a plain decision takes none.
+            let handle = req_str(p, "decision");
+            let id = req_str(p, "decision_id");
+            let Some(at) = state.decisions.iter().position(|d| d.id == id) else {
+                warnings.push(format!(
+                    "line {line_no}: check_bound names {handle} ({id}), which this record never folded — skipped"
+                ));
+                return;
+            };
+            if state.decisions[at].rule.is_none() {
+                warnings.push(format!(
+                    "line {line_no}: check_bound {handle} names a decision with no rule — a check belongs to a rule, so nothing is bound"
+                ));
+                return;
+            }
+            state.decisions[at].check = p.get("check").and_then(Json::as_obj).map(decision_check);
+        }
         "memory_promoted" => {
             let supersedes = opt_str(p, "supersedes");
             state.memories.push(MemoryState {
@@ -1918,6 +1939,9 @@ fn record_freshness(
         // (2.5): bookkeeping on a decision already counted.
         | "brief_appended"
         | "decision_linked"
+        // A check bound after the fact (r4-fixes A8): bookkeeping on a rule
+        // counted when it was filed, like a link answered after the fact.
+        | "check_bound"
         | "suggestion_proposed"
         | "suggestion_approved"
         | "suggestion_rejected"

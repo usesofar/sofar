@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { Command } from 'commander'
 import { version } from '../../package.json'
 import { createSofarServer } from '../mcp/server'
@@ -8,9 +8,11 @@ import { registerFoldCommand } from './fold'
 import { registerEventCommand } from './event'
 import { registerReviewCommand } from './review'
 import { runAdopt } from './adopt'
-import { runInitCommand } from './init'
+import { runInitCommand, WRITE_GRAMMAR } from './init'
 import { stderrCaps } from './ui'
-import { runDoctor } from './doctor'
+import { runAbandon } from './abandon'
+import { parseAgents } from './agents'
+import { explainCheck, runDoctor } from './doctor'
 import { runUninit } from './uninit'
 import { runNew, runSwitch } from './new'
 import { runClose } from './close'
@@ -82,7 +84,7 @@ program
   )
   .option(
     '--refresh',
-    'rewire exactly the agents this repo is already wired for (protocol blocks, hook shims) — never asks, never adds an agent',
+    'rewire the agents this repo is already wired for and this clone chose (protocol blocks, hook shims) — never asks, never adds an agent; a wired agent no choice was recorded for is left and named',
   )
   .option(
     '--statusline',
@@ -92,9 +94,13 @@ program
   // neither is passed and a plain re-run changes nothing (r3-fixes 2.9, D6).
   .option('--prompt-capture', 'turn prompt capture back on for this clone')
   .option('--no-prompt-capture', "don't keep this clone's prompts in the private buffer that briefs are kept from by id")
+  .option(
+    '--codex-tools <set>',
+    "the sofar tools Codex lists: end_session (default — the write-back carries every other write), all, none, or a comma list",
+  )
   .option('--root <dir>', 'repo root (default: the git toplevel of the current directory, else the current directory)')
   .action(
-    async (opts: { agents?: string; refresh?: boolean; statusline?: boolean; root?: string; promptCapture?: boolean }) => {
+    async (opts: { agents?: string; refresh?: boolean; statusline?: boolean; root?: string; promptCapture?: boolean; codexTools?: string }) => {
       const caps = stderrCaps()
       const result = await runInitCommand(opts, {
         cwd: process.cwd(),
@@ -108,31 +114,74 @@ program
     },
   )
 
+/** Who ran a wiring command, for the wiring journal (r4-fixes A11). */
+function journalContext(): { argv: string[]; cwd: string; tty: boolean } {
+  return { argv: process.argv.slice(2), cwd: process.cwd(), tty: process.stdin.isTTY === true && process.stdout.isTTY === true }
+}
+
 program
   .command('uninit')
   .description(
     'exact inverse of init: remove hook shims, settings hook entries, the .mcp.json server entry, and the protocol blocks; .sofar/ is kept unless --purge',
   )
   .option('--purge', 'also delete the .sofar/ record (irreversible)')
+  .option(
+    '--agent <id>',
+    "remove one agent's wiring (claude-code, cursor or codex): exactly what this clone's wiring journal says sofar wrote for it, and nothing else",
+  )
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action((opts: { purge?: boolean; root?: string }) => {
-    emit(runUninit(rootOf(opts), { purge: opts.purge === true }))
+  .action((opts: { purge?: boolean; agent?: string; root?: string }) => {
+    let agent: ReturnType<typeof parseAgents> | undefined
+    if (opts.agent !== undefined) {
+      agent = parseAgents(opts.agent)
+      if ('error' in agent || agent.agents.length !== 1) {
+        emit(fail(`sofar uninit: --agent takes one agent — claude-code, cursor or codex${'error' in agent ? ` (${agent.error.replace(/^--agents /, '')})` : ''}`))
+        return
+      }
+    }
+    emit(
+      runUninit(rootOf(opts), {
+        purge: opts.purge === true,
+        ...(agent !== undefined && 'agents' in agent ? { agent: agent.agents[0]! } : {}),
+        journal: journalContext(),
+      }),
+    )
   })
 
 program
   .command('doctor')
   .description(
-    'audit this repo: wiring integrity, record health, and tree-wide tool hazards (Tailwind v4, Biome, Prettier, markdownlint reaching .sofar); --fix writes each tool\'s .sofar exclusion',
+    'audit this repo: what to act on now (wiring, the hot path, record integrity, live sessions, tool hazards — the only findings that set the exit code), then one line counting the history; --history lists it, --fix writes each tool\'s .sofar exclusion',
   )
   .option(
     '--fix',
     'apply the safe fixes: insert `@source not "…/.sofar"` after the tailwindcss import; add the .sofar exclusion to biome.json, .prettierignore, .markdownlintignore',
   )
+  .option('--history', 'also list the history: settled sessions, unnamed repo memory, past guard crossings, record hygiene')
+  .option('--json', 'every finding as JSON, with its check id and tier')
+  .option('--explain <id>', 'what one check looks at, why it matters, and how to clear it')
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action((opts: { fix?: boolean; root?: string }) => {
+  .action((opts: { fix?: boolean; history?: boolean; json?: boolean; explain?: string; root?: string }) => {
+    if (opts.explain !== undefined) {
+      emit(explainCheck(opts.explain))
+      return
+    }
     // withUpdateNotice touches stderr only — doctor's exit code is its verdict
     // on the RECORD, and a new release must never be able to change it (D1).
-    emit(withUpdateNotice(runDoctor(rootOf(opts), { fix: opts.fix === true })))
+    const result = runDoctor(rootOf(opts), { fix: opts.fix === true, history: opts.history === true, json: opts.json === true, journal: journalContext() })
+    emit(opts.json === true ? result : withUpdateNotice(result))
+  })
+
+program
+  .command('abandon [branch]')
+  .description(
+    "mark a branch abandoned on this clone: its record copies stop being named at SessionStart, in the write guard, `sofar status` and `sofar list` (r4-fixes A14); per-user state, the branch itself is untouched",
+  )
+  .option('--undo', 'clear the mark, so the branch is named again')
+  .option('--list', 'list the branches marked abandoned (also the default with no branch)')
+  .option('--root <dir>', 'repo root (default: the record above the current directory)')
+  .action((branch: string | undefined, opts: { undo?: boolean; list?: boolean; root?: string }) => {
+    emit(runAbandon(rootOf(opts), branch, { undo: opts.undo === true, list: opts.list === true }))
   })
 
 program
@@ -395,7 +444,7 @@ program
 
 program
   .command('bind <decision> <cmd>')
-  .description("give a standing rule the test that proves it: re-file D<n> as recorded, plus check {cmd}, superseding it (r3-fixes 2.10c)")
+  .description('give a standing rule the test that proves it: D<n> takes check {cmd} and keeps its handle (r3-fixes 2.10c, r4-fixes A8)')
   .option('--hint <text>', 'the fix a failure shows')
   .option('--initiative <slug>', 'record to bind in (default: the bound one)')
   .option('--root <dir>', 'repo root (default: the record above the current directory)')
@@ -830,7 +879,7 @@ program
   .option('--root <dir>', 'repo root containing .sofar/ (default: current directory)')
   .action(async (opts: { root?: string }) => {
     // A stdio child of one Claude Code session adopts that session (memory-lead D3).
-    const handle = createSofarServer({ rootDir: opts.root, hostSessionId: process.env.CLAUDE_CODE_SESSION_ID })
+    const handle = createSofarServer({ rootDir: opts.root, hostSessionId: process.env.CLAUDE_CODE_SESSION_ID, adoptWorktree: true })
     await handle.connectStdio()
     // stdio transport keeps the process alive until the client disconnects
   })
@@ -869,13 +918,18 @@ program
         )
         return
       }
+      // The clone this was run from, if any, journals the upgrade (r4-fixes A11).
+      const clone = recordRoot(process.cwd())
       emit(
-        await runUpgrade({
-          ...(version !== undefined ? { version } : {}),
-          check: opts.check === true,
-          dryRun: opts.dryRun === true,
-          force: opts.force === true,
-        }),
+        await runUpgrade(
+          {
+            ...(version !== undefined ? { version } : {}),
+            check: opts.check === true,
+            dryRun: opts.dryRun === true,
+            force: opts.force === true,
+          },
+          { journal: { ...journalContext(), root: existsSync(join(clone, '.sofar')) ? resolve(clone) : null } },
+        ),
       )
     },
   )
@@ -896,4 +950,11 @@ registerCommitTrailerCommand(program, rootOf)
 registerReviewCommand(program, rootOf)
 registerStatuslineCommand(program, rootOf)
 
-await program.parseAsync(process.argv)
+// `sofar help write` (r4-fixes A2): the CLI write grammar the thin AGENTS.md
+// block points at — a topic, not a command, so commander's own `help <command>`
+// never sees it.
+if (process.argv[2] === 'help' && process.argv[3] === 'write' && process.argv.length === 4) {
+  emit(ok(WRITE_GRAMMAR))
+} else {
+  await program.parseAsync(process.argv)
+}

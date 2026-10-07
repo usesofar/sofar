@@ -19,6 +19,7 @@ import {
   type Fixture,
   type FixtureOptions,
 } from './helpers/mcp'
+import { scaled } from './helpers/tracked'
 
 /**
  * Phase 2 acceptance (SPEC §Acceptance criteria):
@@ -430,5 +431,5 @@ describe('stdio end-to-end via `sofar mcp`', () => {
     const events = logEvents(fixture.eventsPath)
     expect(events).toHaveLength(1)
     expect(events[0]!.type).toBe('session_started')
-  }, 30_000)
+  }, scaled(30_000))
 })

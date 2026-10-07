@@ -25,7 +25,7 @@ struct RegistryEntry {
     pid: u64,
 }
 
-fn registry_dir() -> PathBuf {
+pub fn registry_dir() -> PathBuf {
     if let Some(configured) = std::env::var_os("CLAUDE_CONFIG_DIR").filter(|v| !v.is_empty()) {
         return PathBuf::from(configured).join("sessions");
     }
@@ -106,6 +106,37 @@ pub fn live_peers() -> Vec<Peer> {
     // `readdirSync` order is the directory's; it only bounds the scan.
     files.truncate(REGISTRY_SCAN_MAX);
     let read: Vec<RegistryEntry> = files.iter().filter_map(|p| read_entry(p)).collect();
+    let alive = alive_pids(&read.iter().map(|e| e.pid).collect::<Vec<_>>());
+    let live: Vec<&RegistryEntry> = read.iter().filter(|e| alive.contains(&e.pid)).collect();
+    live.iter()
+        .map(|e| Peer {
+            session_id: e.session_id.clone(),
+            name: e.name.clone(),
+            cwd: e.cwd.clone(),
+            ambiguous: live.iter().filter(|o| o.name == e.name).count() > 1,
+        })
+        .collect()
+}
+
+/// The live peers whose (session id, cwd) pass `keep`, probed for liveness
+/// only after the filter (r4-fixes A10's contested line). Ambiguity is
+/// judged over the kept set, which that caller never reads.
+#[must_use]
+pub fn live_peers_where(keep: impl Fn(&str, &str) -> bool) -> Vec<Peer> {
+    let Ok(entries) = std::fs::read_dir(registry_dir()) else {
+        return Vec::new();
+    };
+    let mut files: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.to_string_lossy().ends_with(".json"))
+        .collect();
+    files.truncate(REGISTRY_SCAN_MAX);
+    let read: Vec<RegistryEntry> = files
+        .iter()
+        .filter_map(|p| read_entry(p))
+        .filter(|e| keep(&e.session_id, &e.cwd))
+        .collect();
     let alive = alive_pids(&read.iter().map(|e| e.pid).collect::<Vec<_>>());
     let live: Vec<&RegistryEntry> = read.iter().filter(|e| alive.contains(&e.pid)).collect();
     live.iter()

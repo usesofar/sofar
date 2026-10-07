@@ -351,7 +351,7 @@ describe('doctor: repo-general decisions absent from repo.md (3.3)', () => {
   it('WARNs — exit 0 — naming the decision, who cites it, and the handle to write', () => {
     const root = citedDecisionRepo('# Repo memory\n\nnothing about decisions here.\n')
     const before = readFileSync(join(root, '.sofar', 'repo.md'), 'utf8')
-    const result = runDoctor(root, {}, PLAIN, { caps: PLAIN })
+    const result = runDoctor(root, { history: true }, PLAIN, { caps: PLAIN })
 
     expect(result.exitCode).toBe(0) // detection is a WARN, never a gate
     expect(result.stdout).toContain('Repo memory:')
@@ -364,7 +364,7 @@ describe('doctor: repo-general decisions absent from repo.md (3.3)', () => {
 
   it('clears once repo.md names the decision by its qualified handle', () => {
     const root = citedDecisionRepo('# Repo memory\n\n- zero model calls is law (alpha D1).\n')
-    const result = runDoctor(root, {}, PLAIN, { caps: PLAIN })
+    const result = runDoctor(root, { history: true }, PLAIN, { caps: PLAIN })
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('all 1 repo-general decision named in .sofar/repo.md')
     expect(result.stdout).not.toContain('never names it')
@@ -372,14 +372,14 @@ describe('doctor: repo-general decisions absent from repo.md (3.3)', () => {
 
   it('does not accept an unqualified handle — repo.md has no home initiative', () => {
     const root = citedDecisionRepo('# Repo memory\n\n- D1 is law.\n')
-    expect(runDoctor(root, {}, PLAIN, { caps: PLAIN }).stdout).toContain('alpha D1 is repo-general')
+    expect(runDoctor(root, { history: true }, PLAIN, { caps: PLAIN }).stdout).toContain('alpha D1 is repo-general')
   })
 
   it('reports nothing observed when no decision is cited from another initiative', () => {
     const root = citedDecisionRepo('# Repo memory\n')
     // Drop beta's citing decision: alpha D1 is then cited by nobody.
     rmSync(join(root, '.sofar', 'initiatives', 'beta'), { recursive: true, force: true })
-    const result = runDoctor(root, {}, PLAIN, { caps: PLAIN })
+    const result = runDoctor(root, { history: true }, PLAIN, { caps: PLAIN })
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('no decision cited from outside its own initiative')
     expect(result.stdout).toContain('no memory_promoted events')
@@ -404,7 +404,7 @@ describe('doctor: promoted memories absent from repo.md (repo-memory-capture D1)
   it('WARNs — exit 0 — naming the M handle and the fact to write', () => {
     const root = promotedRepo('# Repo memory\n\nnothing about releasing here.\n')
     const before = readFileSync(join(root, '.sofar', 'repo.md'), 'utf8')
-    const result = runDoctor(root, {}, PLAIN, { caps: PLAIN })
+    const result = runDoctor(root, { history: true }, PLAIN, { caps: PLAIN })
 
     expect(result.exitCode).toBe(0) // detection is a WARN, never a gate
     expect(result.stdout).toContain('WARN  alpha M1 was promoted to repo memory')
@@ -416,7 +416,7 @@ describe('doctor: promoted memories absent from repo.md (repo-memory-capture D1)
 
   it('clears once repo.md names the memory by its qualified handle', () => {
     const root = promotedRepo('# Repo memory\n\n- Release: npm publish -w sofar.sh (alpha M1).\n')
-    const result = runDoctor(root, {}, PLAIN, { caps: PLAIN })
+    const result = runDoctor(root, { history: true }, PLAIN, { caps: PLAIN })
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('all 1 promoted memory named in .sofar/repo.md')
     expect(result.stdout).not.toContain('never names it')
@@ -424,7 +424,7 @@ describe('doctor: promoted memories absent from repo.md (repo-memory-capture D1)
 
   it('does not accept an unqualified handle — repo.md has no home initiative', () => {
     const root = promotedRepo('# Repo memory\n\n- M1 covers releasing.\n')
-    expect(runDoctor(root, {}, PLAIN, { caps: PLAIN }).stdout).toContain(
+    expect(runDoctor(root, { history: true }, PLAIN, { caps: PLAIN }).stdout).toContain(
       'alpha M1 was promoted to repo memory',
     )
   })

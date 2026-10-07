@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DECISION_HANDLE_RE, parseGuard, type DecisionCheck, type GuardDomain } from '@sofar/schema'
-import type { DecisionLoggedPayload, FileTouchedPayload, MemoryPromotedPayload } from '@sofar/schema'
+import type { CheckBoundPayload, DecisionLoggedPayload, FileTouchedPayload, MemoryPromotedPayload } from '@sofar/schema'
 import { GRAPH_RESULT_CAP, matchRecordedPaths } from './adjacency'
 import { writeFileAtomic } from './atomic'
 import { fileMentions, mentionDepth } from './file-mentions'
@@ -388,6 +388,10 @@ function applyGuard(state: SlugGuardState, event: IndexedEvent, slug: string): v
     applyMemory(state, event, slug)
     return
   }
+  if (event.type === 'check_bound') {
+    applyCheckBound(state, event)
+    return
+  }
   if (event.type !== 'decision_logged') return
   const p = event.payload as unknown as DecisionLoggedPayload
   // Counted BEFORE the scope test: `D<n>` is a position among all decisions,
@@ -435,6 +439,23 @@ function applyGuard(state: SlugGuardState, event: IndexedEvent, slug: string): v
     ...(typeof p.until === 'string' ? { until: p.until } : {}),
     mentions,
   })
+}
+
+/**
+ * Apply one check_bound (r4-fixes A8), mirroring the fold: the ruled entry
+ * whose id it names takes the check, replacing any it had, and the command's
+ * file tokens join its mentions after the ones it had (a superset across a
+ * re-bind: a stale test path can surface the rule once more, never hide it).
+ * No ordinal moves. A decision with no rule is not an entry's rule, so it
+ * takes nothing, as in the fold.
+ */
+function applyCheckBound(state: SlugGuardState, event: IndexedEvent): void {
+  const p = event.payload as unknown as CheckBoundPayload
+  const entry = state.entries.find((e) => e.id === p.decision_id)
+  if (entry === undefined || entry.rule === undefined || typeof p.check?.cmd !== 'string') return
+  const check = p.check
+  entry.check = { cmd: check.cmd, ...(check.hint !== undefined ? { hint: check.hint } : {}), ...(check.timeout_ms !== undefined ? { timeout_ms: check.timeout_ms } : {}) }
+  for (const token of fileMentions(check.cmd)) if (!entry.mentions.includes(token)) entry.mentions.push(token)
 }
 
 /**
