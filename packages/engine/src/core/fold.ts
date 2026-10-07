@@ -45,6 +45,7 @@ import {
   type NoteAddedPayload,
   type PhaseStatus,
   type BriefAppendedPayload,
+  type CheckBoundPayload,
   type DecisionLinkedPayload,
   type PhaseAddedPayload,
   type PhaseStatusChangedPayload,
@@ -1232,6 +1233,12 @@ function recordFreshness(state: InitiativeState, event: EventEnvelope): void {
       // decision they complete was counted when it was filed; the answer is
       // bookkeeping on it, usually given at Stop after the write-back, and
       // counting it would make that write-back owe another.
+    case 'check_bound':
+      // A check bound after the fact (r4-fixes A8) is EXCLUDED from drift,
+      // deliberately (commit-attribution D18 requires the class decided here),
+      // like a link answered after the fact: bookkeeping on a rule counted
+      // when it was filed, usually run at Stop after the write-back, and the
+      // re-log it replaces made that write-back owe another.
     case 'brief_appended':
       // Brief additions are EXCLUDED from drift, deliberately (commit-
       // attribution D18 requires the class decided here). They are the delta
@@ -1818,6 +1825,25 @@ function applyEvent(
       }
       target.superseded_by = at + 1
       decision.supersedes = `D${t + 1}`
+      break
+    }
+    case 'check_bound': {
+      // r4-fixes A8: a rule given its test after the fact (`sofar bind`). No
+      // new decision and no new ordinal — the rule keeps its handle and takes
+      // the check, replacing any it had. The id decides, as decision_linked's;
+      // a check is the executable half of a RULE, so a plain decision takes
+      // none.
+      const p = event.payload as unknown as CheckBoundPayload
+      const decision = state.decisions.find((d) => d.id === p.decision_id)
+      if (decision === undefined) {
+        warnings.push(`line ${lineNo}: check_bound names ${p.decision} (${p.decision_id}), which this record never folded — skipped`)
+        break
+      }
+      if (decision.rule === undefined) {
+        warnings.push(`line ${lineNo}: check_bound ${p.decision} names a decision with no rule — a check belongs to a rule, so nothing is bound`)
+        break
+      }
+      decision.check = decisionCheck(p.check)
       break
     }
     case 'memory_promoted': {

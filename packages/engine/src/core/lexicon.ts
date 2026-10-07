@@ -139,6 +139,11 @@ function keep(into: Map<string, string>, word: string): void {
   if (folded !== null && !into.has(folded)) into.set(folded, word)
 }
 
+/** The stem one lower-cased word contributes, or null for a stop word or a one-letter token — the fold slot-diff matches on (r4-fixes A8). */
+export function foldWord(word: string): string | null {
+  return admit(word)
+}
+
 /** The stem a word contributes, or null when it contributes nothing. */
 function admit(word: string): string | null {
   if (word.length < MIN_TERM || STOPWORDS.has(word)) return null

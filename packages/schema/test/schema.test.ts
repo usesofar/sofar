@@ -6,6 +6,7 @@ const validPayloads: Record<string, Record<string, unknown>> = {
   initiative_status_changed: { status: 'done', note: 'v1 engine shipped' },
   brief_appended: { text: 'Next: refunds, never more than was paid.' },
   decision_linked: { decision: 'D4', decision_id: '01K0000000000000000000000D', supersedes: 'D2', supersedes_id: '01K0000000000000000000000B' },
+  check_bound: { decision: 'D4', decision_id: '01K0000000000000000000000D', check: { cmd: 'npm test -- test/store.test.ts', hint: 'restore it', timeout_ms: 30000 } },
   plan_updated: {
     plan: {
       goal: 'Build it',
@@ -109,6 +110,13 @@ describe('validatePayload', () => {
   it('rejects unknown event types', () => {
     const result = validatePayload('telemetry_emitted', {})
     expect(result.ok).toBe(false)
+  })
+
+  it('check_bound needs a bare handle, the id and a check (r4-fixes A8)', () => {
+    expect(validatePayload('check_bound', { decision: 'D4·k3fz', decision_id: 'x', check: { cmd: 'npm test' } }).ok).toBe(false)
+    expect(validatePayload('check_bound', { decision: 'D4', check: { cmd: 'npm test' } }).ok).toBe(false)
+    expect(validatePayload('check_bound', { decision: 'D4', decision_id: 'x' })).toEqual({ ok: false, errors: ['check: must be {cmd, hint?, timeout_ms?}'] })
+    expect(validatePayload('check_bound', { decision: 'D4', decision_id: 'x', check: { cmd: ' ' } }).ok).toBe(false)
   })
 
   it('rejects non-object payloads', () => {

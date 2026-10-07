@@ -411,7 +411,7 @@ export interface ToolContext {
 }
 
 /** Event types that can change the declared index (r3-fixes D23). */
-const DECLARED_TYPES = new Set(['decision_logged', 'decision_linked', 'memory_promoted', 'correction'])
+const DECLARED_TYPES = new Set(['decision_logged', 'decision_linked', 'check_bound', 'memory_promoted', 'correction'])
 
 export function createToolContext(rootDir: string): ToolContext {
   const sofarDir = join(rootDir, '.sofar')

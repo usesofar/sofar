@@ -177,6 +177,21 @@ export interface PlanUpdatedPayload { plan: PlanStructure }
  */
 export interface DecisionLinkedPayload { decision: string; decision_id: string; supersedes?: string; supersedes_id?: string }
 /**
+ * `check_bound` (r4-fixes A8): a standing rule given the test that proves it,
+ * after the fact — what `sofar bind` appends. It mints no decision and no id:
+ * the rule keeps its handle and gains the check. Until 0.35 a bind re-filed
+ * the rule word for word with `check` and `supersedes` itself, so 13–24% of a
+ * round-4 rep's decisions were such copies, every bind moved the rule's
+ * ordinal ("D73 into D76"), and a bind on each of two worktrees minted the
+ * same `D<n>` twice. `decision` is the bare `D<n>` the writer read and
+ * `decision_id` its event id, which decides (as decision_linked's). The fold
+ * sets that decision's check, replacing any it had; one naming no folded
+ * decision, or a decision with no rule, is skipped with a warning. Readers
+ * before 0.35 skip the type with a warning (FORMAT.md §8) and see the rule
+ * without its check. Never drift: bookkeeping on a decision already counted.
+ */
+export interface CheckBoundPayload { decision: string; decision_id: string; check: DecisionCheck }
+/**
  * Words added to the plan's brief without resending it (r3-fixes 2.9, D6).
  * The L36 fix keeps every session's operator words in the brief, so a
  * plan_updated that restated it grew with the chain: round 3 resent 0.70–0.81M
@@ -745,6 +760,7 @@ export interface KnownEventPayloads {
   task_status_changed: TaskStatusChangedPayload
   decision_logged: DecisionLoggedPayload
   decision_linked: DecisionLinkedPayload
+  check_bound: CheckBoundPayload
   session_started: SessionStartedPayload
   session_ended: SessionEndedPayload
   session_closed: SessionClosedPayload
@@ -775,7 +791,7 @@ export type KnownEventType = keyof KnownEventPayloads
  * a test pins it to package.json. Part of a fold snapshot's version hash —
  * bump it with any payload-shape change.
  */
-export const SCHEMA_VERSION = '0.14.0'
+export const SCHEMA_VERSION = '0.15.0'
 
 export const EVENT_TYPES = [
   'initiative_created',
@@ -788,6 +804,7 @@ export const EVENT_TYPES = [
   'task_status_changed',
   'decision_logged',
   'decision_linked',
+  'check_bound',
   'session_started',
   'session_ended',
   'session_closed',
@@ -1116,6 +1133,11 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
     }
     if (p.supersedes !== undefined && !str(p.supersedes_id)) e.push('supersedes_id: required with `supersedes` (that decision\'s event id)')
     if (p.supersedes === undefined && p.supersedes_id !== undefined) e.push('supersedes_id: requires `supersedes`')
+  },
+  check_bound(p, e) {
+    if (!(str(p.decision) && DECISION_HANDLE_RE.test(p.decision))) e.push('decision: must be the bare handle `D<n>` of the rule being bound')
+    if (!str(p.decision_id)) e.push('decision_id: must be a non-empty string (that decision\'s event id)')
+    e.push(...checkSpecErrors(p.check))
   },
   session_started(p, e) {
     if (!str(p.tool)) e.push('tool: must be a non-empty string')
@@ -1496,6 +1518,13 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
     summary: 'a decision\'s supersession, answered after it was filed',
     fields: 'decision (D<n>), decision_id (its event id), supersedes? (D<m> it replaces; absent = none), supersedes_id? (that decision\'s event id; required with supersedes)',
     example: { decision: 'D4', decision_id: '01K0000000000000000000000D', supersedes: 'D2', supersedes_id: '01K0000000000000000000000B' },
+  },
+  check_bound: {
+    writer: 'command',
+    via: 'sofar bind D<n> "<cmd>"',
+    summary: 'a standing rule given the test that proves it — the rule keeps its handle',
+    fields: 'decision (D<n>), decision_id (its event id), check {cmd, hint?, timeout_ms?}',
+    example: { decision: 'D4', decision_id: '01K0000000000000000000000D', check: { cmd: 'npm test -- test/store.test.ts' } },
   },
   session_started: {
     writer: 'agent',

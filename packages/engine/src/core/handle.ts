@@ -99,10 +99,12 @@ export function sameDecisionText(a: DecisionText, b: DecisionText): boolean {
 }
 
 /**
- * Re-logs folded into the entry that replaced them (r4-fixes U5). `sofar bind`
- * attaches a check by re-filing a rule word for word with `supersedes` (a check
- * changes only through a ruled superseder), and in round 4 13–24% of a rep's
- * decisions were such copies: agents told the operator "D73 into D76". A
+ * Re-logs folded into the entry that replaced them (r4-fixes U5). Before 0.35
+ * `sofar bind` attached a check by re-filing a rule word for word with
+ * `supersedes`, and in round 4 13–24% of a rep's decisions were such copies:
+ * agents told the operator "D73 into D76". A bind now appends `check_bound`
+ * and mints nothing (r4-fixes A8), but the records already holding re-logs
+ * keep them, so this stays. A
  * decision whose replacer carries the same words (sameDecisionText) is that
  * replacer's ALIAS: every listing renders the pair as one entry, the newer
  * handle first and the older as its alias. Chains fold whole (A re-logged as

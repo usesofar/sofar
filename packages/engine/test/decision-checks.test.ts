@@ -521,22 +521,32 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
 
 describe('binding a rule to its test (r3-fixes 2.10c)', () => {
   const plain = { color: false, unicode: false, animate: false, width: 100 } as const
-  it('sofar bind re-files the rule as recorded with the check, superseding it, and the gate reads it', () => {
+  it('sofar bind appends check_bound: the rule keeps its handle, takes the check, and the gate reads it (r4-fixes A8)', () => {
     const root = repo()
     emit(root, 'demo', 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'b', rule: SOFT, quote: 'never hard-delete', guard: 'path:src/db/**' })
     const r = runBind(root, 'D1', 'bun test test/store.test.ts', { hint: 'restore soft delete' }, plain, plain)
     expect(r.exitCode).toBe(0)
-    // One rule, re-filed with its check (r4-fixes U5): the new handle, the old as its alias.
-    expect(bare(r.stdout)).toContain('bound demo D1: check `bun test test/store.test.ts` — the same rule, now listed as D2 (alias D1)')
-    const [d1, d2] = foldLog(logOf(root)).state.decisions
-    expect(d1!.superseded_by).toBe(2)
-    expect(d2).toMatchObject({ rule: SOFT, quote: 'never hard-delete', guard: 'path:src/db/**', check: { cmd: 'bun test test/store.test.ts', hint: 'restore soft delete' }, supersedes: 'D1' })
+    expect(bare(r.stdout)).toContain('bound demo D1: check `bun test test/store.test.ts` — the same rule, the same handle')
+    const lines = readFileSync(logOf(root), 'utf8').trim().split('\n')
+    const last = JSON.parse(lines.at(-1)!) as { type: string; payload: Record<string, unknown> }
+    // No new decision, so no new ordinal: the rule is still D1.
+    expect(last.type).toBe('check_bound')
+    const { decisions } = foldLog(logOf(root)).state
+    expect(decisions).toHaveLength(1)
+    expect(last.payload).toEqual({ decision: 'D1', decision_id: decisions[0]!.id, check: { cmd: 'bun test test/store.test.ts', hint: 'restore soft delete' } })
+    expect(decisions[0]).toMatchObject({ rule: SOFT, quote: 'never hard-delete', guard: 'path:src/db/**', check: { cmd: 'bun test test/store.test.ts', hint: 'restore soft delete' } })
+    expect(decisions[0]!.superseded_by).toBeUndefined()
+    // The same bind again appends nothing; another command replaces the check.
+    expect(bare(runBind(root, 'D1', 'bun test test/store.test.ts', { hint: 'restore soft delete' }, plain, plain).stdout)).toContain('demo D1 already carries check `bun test test/store.test.ts` — nothing to bind')
+    expect(readFileSync(logOf(root), 'utf8').trim().split('\n')).toHaveLength(lines.length)
+    expect(bare(runBind(root, 'D1', 'bun test test/db', {}, plain, plain).stdout)).toContain('bound demo D1: check `bun test test/db` (it replaces `bun test test/store.test.ts`) — the same rule, the same handle')
+    expect(foldLog(logOf(root)).state.decisions[0]!.check).toEqual({ cmd: 'bun test test/db' })
     emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
     emit(root, 'demo', 'file_touched', { path: 'src/db/store.ts', op: 'edit' }, 's1')
     emit(root, 'demo', 'session_ended', { session_id: 's1', summary: 's', next_action: 'n' }, 's1')
     const held = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 0)
-    expect(bare(held.stderr)).toContain('[demo D2]')
-    expect(held.stderr).toContain('run `bun test test/store.test.ts`')
+    expect(bare(held.stderr)).toContain('[demo D1]')
+    expect(held.stderr).toContain('run `bun test test/db`')
   })
 
   it('refuses what it cannot bind, and says when the command is not a test', () => {
