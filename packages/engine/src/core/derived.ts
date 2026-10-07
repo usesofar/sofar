@@ -123,7 +123,7 @@ const GIT_READ_ONLY = new Set([
 /** sofar subcommands that write nothing outside `.sofar/`; `init`, `check`, `export`, `drive`… may. */
 const SOFAR_READ_ONLY = new Set([
   'status', 'list', 'next', 'why', 'related', 'find', 'doctor', 'new', 'switch', 'close', 'remember', 'bind',
-  'supersedes', 'event', 'review', 'statusline',
+  'supersedes', 'event', 'review', 'statusline', 'show', 'read', 'help',
 ])
 
 /** Find's actions that delete, run or write. */

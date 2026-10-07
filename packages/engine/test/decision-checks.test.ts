@@ -86,6 +86,14 @@ function emit(root: string, slug: string, type: string, payload: Record<string, 
   appendEvent(join(dir, 'events.jsonl'), makeEvent({ initiative: slug, session, source: 'claude-code', actor: 'agent', type, payload }))
 }
 
+/** A session that began `agoMs` before now. */
+function startedAgo(root: string, slug: string, session: string, agoMs: number): void {
+  const dir = join(root, '.sofar', 'initiatives', slug)
+  mkdirSync(dir, { recursive: true })
+  const event = makeEvent({ initiative: slug, session, source: 'claude-code', actor: 'agent', type: 'session_started', payload: { tool: 'claude-code' } })
+  appendEvent(join(dir, 'events.jsonl'), { ...event, ts: new Date(Date.now() - agoMs).toISOString() })
+}
+
 const SOFT = 'Never hard-delete anything the traveller made.'
 function checked(root: string, slug: string, check: Record<string, unknown>, extra: Record<string, unknown> = {}): void {
   emit(root, slug, 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'b', rule: SOFT, check, ...extra })
@@ -428,7 +436,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
   it('an edit only git sees bears too, and voids a run that finished before it (r3-fixes D11)', () => {
     const root = repo()
     checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
-    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
+    startedAgo(root, 'demo', 's1', 120_000)
     wroteBack(root, 's1')
     const file = join(root, 'src', 'db', 'store.ts')
     writeFileSync(file, 'export const x = 1\n') // a Bash write: a command, no file_touched
@@ -441,6 +449,24 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     expect(stop(root, 's1').exitCode).toBe(0)
     const later = new Date(Date.now() + 60_000)
     utimesSync(file, later, later) // edited again after that run
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
+  it("a file git names that was last written before the session began is another session's edit (r4-fixes H1)", () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    const file = join(root, 'src', 'db', 'store.ts')
+    writeFileSync(file, 'export const x = 1\n') // a sibling session's edit, left uncommitted in the shared worktree
+    const before = new Date(Date.now() - 3_600_000)
+    utimesSync(file, before, before)
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
+    wroteBack(root, 's1')
+    const bash = (command: string) =>
+      handlePostTool(root, JSON.stringify({ session_id: 's1', cwd: root, hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command }, tool_response: {} }))
+    bash('echo y > notes.txt') // may write: git is asked, and names the sibling's file
+    expect(stop(root, 's1').exitCode).toBe(0)
+    writeFileSync(file, 'export const x = 2\n') // now this session writes it
+    bash('echo z > notes.txt')
     expect(stop(root, 's1').exitCode).toBe(2)
   })
 

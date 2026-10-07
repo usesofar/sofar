@@ -4,6 +4,10 @@ Re-recorded on **main** at the 0.35.0-rc.1 merge-back (r4-fixes 3.1). Main's
 engine version is `0.36.0-dev+trunk` (r4-fixes D8's rule: a pre-release at or
 above the newest tag that resolves to nothing published), and the version
 string is the whole diff: `argv.fast-path` and `open.O2-update-segment`.
+Re-recorded on **release/0.35.0** for rc.2 (r4-fixes H1/H2) from the
+TypeScript reference. The version bump is the whole diff: `argv.fast-path`
+(`--version` is `0.35.0-rc.2`) and `open.O2-update-segment` ("you have
+0.35.0-rc.2").
 
 Re-recorded on **release/0.35.0** for the rc cut (r4-fixes 3.1) from the
 TypeScript reference. The version bump is the whole diff: two goldens changed,
