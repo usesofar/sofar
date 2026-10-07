@@ -4,13 +4,13 @@
 
 Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), research best-in-class techniques across all areas (context and cost, knowledge correctness, team and multi-agent, competitors, benchmark science, engineering and product), invent where the field has nothing good enough, then build, release and prove a ≥50% lead over native memory and the best competitor on a harder held-out chain.
 
-Brief: the operator's words, 961 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 21 done, 3 dropped, 32 remaining
+Progress: 23 done, 3 dropped, 34 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
-## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 11/14 (3 dropped) done
+## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 13/18 (3 dropped) done
 
 - [x] A1 A1 In-band write-back: a fenced `sofar` block in the final reply is filed by the Stop handler (SOFAR_WRITEBACK). PREDICT Codex −0.15 to −0.20, Cursor −0.08 to −0.15, Claude −0.03 to −0.05
 - [x] A2 A2 Host-compiled payloads: AGENTS.md block ≤1.5k chars, CLI grammar moved to a skill, per-host budgets (SOFAR_PAYLOAD). PREDICT Codex −0.05 to −0.07, Cursor −0.05 to −0.10
@@ -26,6 +26,10 @@ Progress: 21 done, 3 dropped, 32 remaining
 - [x] A12 A12 Self-activating native core: copied into a per-user versioned store, sha-checked, shims try it first; works when npm, pnpm or bun skip install scripts (SOFAR_CORE=0 escape)
 - [x] A13 A13 Hermetic tests and bench: redirect HOME/USERPROFILE/XDG/CODEX_HOME, a HOME canary, process-group kill with parent-death pipe, an orphan sweep, timeouts scaled to the machine, no long suites on battery. Required before round 5
 - [x] A14 A14 Doctor triage and an "abandoned" disposition: act-now vs history, --json, --explain, abandoned sessions and branches (SOFAR_ABANDON). PREDICT 467 WARN → ≤10 act-now lines
+- [x] H1 Stop gate: never blame a session for worktree files written before it began; sofar show/read/help are read-only
+- [x] H2 Untracked last home follows write-backs to --no-bind records (fresh tab opens where the operator stopped)
+- [ ] H3 Hold close line: every Stop hold asks the agent to end on one line restating its answer, so the answer is what the operator sees last (SOFAR_HOLD_CLOSE). Changes the SPEC-pinned BD2 message and the conformance goldens; needs a Decision first
+- [ ] H4 Read-only sessions move the last home too: set it at Stop when a registered session's home differs (one write, only on change)
 
 ## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 0/16 done
 
@@ -71,4 +75,4 @@ Progress: 21 done, 3 dropped, 32 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Operator publishes the six packed tarballs from the scratchpad pack dir with --tag next (cores first); then verify dist-tags and shasums, and merge release/0.35.0 back into main.
+Next action: Operator: merge stop-gate-attribution into release/0.35.0 and cut rc.2. Then rule on H3.

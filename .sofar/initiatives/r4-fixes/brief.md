@@ -13,3 +13,11 @@ Whenever you fix anything make sure that we don't degrade. We have to only see i
 --- Operator, 2026-10-06 ---
 
 Whenever you fix anything make sure that we don't degrade. We have to only see improvement, like improvement in percentages. We need to see better results Whatever you fix just try to test it before jumping into another test. That is a good thing, right? We have to make sure it will work properly
+
+--- Operator, 2026-10-07 ---
+
+Also check the other initiatives, like the R3 fix and R4 fixes, and make sure we are not degrading any performance but we need to solve this and we have to make the user experience better too
+
+--- Operator, 2026-10-07 ---
+
+Also previously we had a feature: if I'm in a particular initiative and I'm working on it in the CLI, and I have two other tabs open with three different initiatives, when I open a new tab and open Claude again, it will automatically show the last stopped initiative. It automatically rehomes to that area but now that doesn't seem to work. For example in this initiative, it keeps a memory leak throughout every section that I opened
