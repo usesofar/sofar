@@ -537,12 +537,15 @@
         "rehome": {
           "type": "boolean",
           "const": true
+        },
+        "continues": {
+          "type": "string"
         }
       },
       "required": [
         "tool"
       ],
-      "description": "`rehome` (binding-follows-session 3.1, D5): this is a DELIBERATE re-home — sofar_start_session naming this initiative for a session already registered here but homed elsewhere since. The session's home is the log holding its LATEST session_started, so without a new line a session could never return to a record it had left. The fold accepts the repeat silently; a repeat WITHOUT it is still the racing double-registration it warns about."
+      "description": "`continues` (r4-fixes A10, R11 (a)): the session this one continues — a `/clear` baton, a resumed transcript's prompt fingerprint or the host registry's former session id named it at SessionStart. Lineage is identity, not inference: the new id is the same work under a host-minted name, so it registers in the parent's home and says which parent."
     },
     "SessionEndedPayload": {
       "type": "object",

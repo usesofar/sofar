@@ -1,6 +1,9 @@
 import { ulid } from 'ulid'
 import type { StartSessionArgs } from '@sofar/schema/tool-inputs'
-import { homeInitiative, toSource, type ToolContext } from './context'
+import { continuesFor } from '../core/lineage'
+import { readSessionPointer } from '../core/session-pointer'
+import { isFinishing, sessionsActiveSince } from '../core/worktree-sessions'
+import { homeInitiative, resolveSessionFirst, toSource, type ToolContext } from './context'
 
 /**
  * sofar_start_session — adopt-by-id (task 7.1, BD43, replacing BD20's
@@ -21,7 +24,9 @@ import { homeInitiative, toSource, type ToolContext } from './context'
  * mapped to envelope.source.
  */
 export function startSession(ctx: ToolContext, args: StartSessionArgs): { session_id: string } {
-  let slug = ctx.resolveInitiative(args.initiative)
+  // No initiative named: the A10 resolver (r4-fixes) — home, lineage, route.
+  const resolved = args.initiative === undefined && args.session_id !== undefined ? resolveSessionFirst(ctx, args.session_id) : null
+  let slug = ctx.resolveInitiative(resolved?.slug ?? args.initiative)
 
   // Home beats branch when no initiative is named (record-integrity 1.4, D1).
   // Lazy registration (D2) means the PostToolUse hook usually registers a
@@ -53,18 +58,15 @@ export function startSession(ctx: ToolContext, args: StartSessionArgs): { sessio
  * before adoption existed, raising its own typed error if it needs a record.
  * Returns whether a session is now active.
  */
-export function adoptHostSession(ctx: ToolContext, sessionId: string): boolean {
+export function adoptHostSession(ctx: ToolContext, sessionId: string, tool: string = HOST_TOOL): boolean {
   try {
-    let branchSlug: string | null = null
-    try {
-      branchSlug = ctx.resolveInitiative(undefined)
-    } catch {
-      branchSlug = null
-    }
-    const home = homeInitiative(ctx.sofarDir, sessionId, branchSlug)
-    const slug = home !== null ? ctx.resolveInitiative(home) : branchSlug
-    if (slug === null) return false
-    pinSession(ctx, slug, { tool: HOST_TOOL, session_id: sessionId }, false)
+    // The A10 resolver (r4-fixes): the home, else the lineage SessionStart
+    // traced, else this worktree's route (its last home over the committed
+    // binding) — the same answer every hook gets for this id.
+    const resolved = resolveSessionFirst(ctx, sessionId)
+    if (resolved === null) return false
+    const slug = ctx.resolveInitiative(resolved.slug)
+    pinSession(ctx, slug, { tool, session_id: sessionId }, false)
     return true
   } catch {
     return false
@@ -73,6 +75,61 @@ export function adoptHostSession(ctx: ToolContext, sessionId: string): boolean {
 
 /** The tool an adopted session is recorded under: the env var is Claude Code's. */
 export const HOST_TOOL = 'claude-code'
+
+/** `SOFAR_ADOPT=off` turns worktree adoption off (the r4-fixes A3 ablation switch). */
+export function adoptEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return (env.SOFAR_ADOPT ?? '').trim().toLowerCase() !== 'off'
+}
+
+/**
+ * A server that started this long before the pointer's session may belong to
+ * an EARLIER session of the same worktree, so it does not adopt.
+ */
+export const ADOPT_SERVER_LEAD_MS = 10 * 60 * 1000
+
+/**
+ * Worktree adoption (r4-fixes A3; 1.2 O4): a host that gives its MCP server
+ * no session id (Codex, Cursor) still hands the id to its hooks, which leave
+ * the newest one in this worktree's session pointer. The server adopts that
+ * session, through adoptHostSession and so through A10's resolver, when it is
+ * the ONLY live session here; otherwise nothing is pinned and the agent is
+ * asked to call sofar_start_session, as before. All must hold:
+ *  - the pointer was written by a hook (a CLI-minted id is not a host's);
+ *  - this server did not start more than ADOPT_SERVER_LEAD_MS before that
+ *    session, which would make it an earlier session's server;
+ *  - that session did not finish (write back or close) before this server
+ *    started — a pointer left behind by a finished session is not ours;
+ *  - no OTHER session acted in this worktree's record since the pointer's
+ *    session started and is still unfinished (core/worktree-sessions.ts).
+ * Returns the adopted id, or null.
+ */
+export function adoptWorktreeSession(ctx: ToolContext, tool: string, serverStartMs: number): string | null {
+  try {
+    if (!adoptEnabled()) return null
+    const pointer = readSessionPointer(ctx.rootDir)
+    if (pointer === null || pointer.writer !== 'hook') return null
+    const since = Date.parse(pointer.ts)
+    if (Number.isNaN(since) || serverStartMs < since - ADOPT_SERVER_LEAD_MS) return null
+    const tails = sessionsActiveSince(ctx.sofarDir, since)
+    const own = tails.get(pointer.session)
+    if (own !== undefined && isFinishing(own.lastType) && own.last < serverStartMs) return null
+    for (const [id, tail] of tails) {
+      if (id !== pointer.session && !isFinishing(tail.lastType)) return null
+    }
+    return adoptHostSession(ctx, pointer.session, tool) ? pointer.session : null
+  } catch {
+    return null
+  }
+}
+
+/** The session_started tool for an MCP client that names itself (initialize's clientInfo). */
+export function toolOfClient(name: string | undefined): string {
+  const n = (name ?? '').toLowerCase()
+  if (n.includes('codex')) return 'codex'
+  if (n.includes('cursor')) return 'cursor'
+  if (n.includes('claude')) return 'claude-code'
+  return 'mcp'
+}
 
 /**
  * Adopt a known id (pin only) or register an unknown or omitted one, then pin it.
@@ -117,6 +174,9 @@ function pinSession(ctx: ToolContext, slug: string, args: StartSessionArgs, reho
   const sessionId = args.session_id ?? ulid()
   const payload: Record<string, unknown> = { tool: args.tool }
   if (args.model !== undefined) payload.model = args.model
+  // A session lineage traced to a parent says so on its first line (r4-fixes A10).
+  const parent = args.session_id !== undefined ? continuesFor(ctx.sofarDir, sessionId, slug) : null
+  if (parent !== null) payload.continues = parent
 
   // Idempotent (r1-fixes 1.2): a PostToolUse hook racing this call may have
   // registered the same id since the check above, and then this is adoption.

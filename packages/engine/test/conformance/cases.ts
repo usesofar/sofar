@@ -98,6 +98,23 @@ const promptBuffer =
     return existsSync(file) ? readFileSync(file, 'utf8') : 'no buffer file\n'
   }
 
+/** r4-fixes A10: a first prompt long enough to fingerprint a session. */
+const LINEAGE_PROMPT = 'Build the session identity item from the research plan, then run the gates.'
+/** A Claude Code registry file (`~/.claude/sessions/<pid>.json`) as the host writes it. */
+function registryEntry(
+  m: Materialized,
+  file: number,
+  sessionId: string,
+  cwd: string,
+  formerNames: Array<Record<string, unknown>> = [],
+  pid: number = file,
+): void {
+  const dir = join(m.home, '.claude', 'sessions')
+  mkdirSync(dir, { recursive: true })
+  const entry = { pid, sessionId, cwd, procStart: 'Mon Oct  5 10:00:00 2026', name: `peer ${file}`, nameSource: 'hook', status: 'busy', ...(formerNames.length > 0 ? { formerNames } : {}) }
+  writeFileSync(join(dir, `${file}.json`), `${JSON.stringify(entry)}\n`)
+}
+
 /** A registered session in the repo record's `speed` initiative (homeInitiative routing). */
 const SPEED_SESSION = 'aefa6315-3725-4e4d-9f9a-224ff6f86ddb'
 /** The last written-back session on `rust-core` at the snapshot. */
@@ -1143,6 +1160,59 @@ export const CASES: ConformanceCase[] = [
       s('conflicting edit across records', ['event', 'post-tool'], edit('<ROOT>/src/shared.ts')),
       s('prompt reports the cross-record conflict', ['event', 'user-prompt'], prompt()),
       s('statusline', ['statusline', '--no-color'], statusline()),
+    ],
+  },
+  {
+    // r4-fixes A10: session identity. An unregistered id is traced to the
+    // session it continues — title, /clear baton, prompt fingerprint, host
+    // registry — and resolves to that session's home ahead of every route; a
+    // worktree's last home outranks the committed binding; a branch whose
+    // live sessions hold other records says so. main → rec-03; the parent is
+    // sess-elsewhere, homed in rec-10; rec-13 is done.
+    name: 'syn.lineage',
+    fixture: synthetic('many'),
+    steps: [
+      s('a title naming an open record: lineage by title', ['event', 'session-start'], start({ session_id: 'lin-title', session_title: 'rec-10 2.1 #lint' })),
+      s('its first edit registers it there, with no parent named', ['event', 'post-tool'], edit('<ROOT>/src/title.ts', { session_id: 'lin-title' })),
+      s('a title naming a done record: ignored, the branch routes', ['event', 'session-start'], start({ session_id: 'lin-done', session_title: 'rec-13 1.1' })),
+      s('SOFAR_LINEAGE=off: the title is inert', ['event', 'session-start'], start({ session_id: 'lin-off', session_title: 'rec-10 2.1' }), { env: { SOFAR_LINEAGE: 'off' } }),
+      s('/clear: SessionEnd leaves the baton', ['event', 'session-end'], end({ session_id: 'sess-elsewhere', reason: 'clear' }), {
+        before: (m) => registryEntry(m, 4242, 'sess-elsewhere', '/elsewhere'),
+      }),
+      s('/clear: the new id takes the baton', ['event', 'session-start'], start({ session_id: 'lin-clear', source: 'clear' }), {
+        before: (m) => registryEntry(m, 4242, 'lin-clear', '/elsewhere'),
+      }),
+      s('its first edit registers it in the parent home, continuing it', ['event', 'post-tool'], edit('<ROOT>/src/clear.ts', { session_id: 'lin-clear' })),
+      s('the registry names a former session id', ['event', 'session-start'], start({ session_id: 'lin-reg' }), {
+        before: (m) => registryEntry(m, 4343, 'lin-reg', '/elsewhere', [{ name: 'old name', until: 1_790_000_000_000, sessionId: 'sess-elsewhere' }]),
+      }),
+      s('a resumed transcript whose first prompt the buffer knows', ['event', 'session-start'], start({ session_id: 'lin-fork', source: 'resume', transcript_path: '<ROOT>/fork.jsonl' }), {
+        before: (m) => {
+          mkdirSync(promptDir(m), { recursive: true })
+          writeFileSync(join(promptDir(m), 'sess-elsewhere.jsonl'), `${JSON.stringify({ id: 'P1', ts: '2026-09-01T11:33:00.000Z', text: LINEAGE_PROMPT })}\n`)
+          writeFileSync(
+            join(m.root, 'fork.jsonl'),
+            `${JSON.stringify({ type: 'custom-title', customTitle: 'rec-10 2.1' })}\n${JSON.stringify({ type: 'user', isMeta: true, message: { role: 'user', content: 'meta' } })}\n${JSON.stringify({ type: 'user', message: { role: 'user', content: LINEAGE_PROMPT } })}\n`,
+          )
+        },
+      }),
+      s('the worktree last home outranks the committed binding', ['event', 'session-start'], start({ session_id: 'lin-route' }), {
+        before: (m) => {
+          mkdirSync(join(m.root, '.sofar', '.index'), { recursive: true })
+          writeFileSync(join(m.root, '.sofar', '.index', 'last-home.json'), `${JSON.stringify({ main: { slug: 'rec-07', session: 'x', ts: '2026-09-01T12:00:00.000Z' } })}\n`)
+        },
+      }),
+      s('SOFAR_LASTHOME=committed: the committed binding routes', ['event', 'session-start'], start({ session_id: 'lin-route' }), { env: { SOFAR_LASTHOME: 'committed' } }),
+      s('statusline follows the last home', ['statusline', '--no-color'], statusline({ session_id: 'lin-route' })),
+      s('a plain session registers on the route', ['event', 'post-tool'], edit('<ROOT>/src/plain.ts', { session_id: 'lin-plain' }), {
+        before: (m) => rmSync(join(m.root, '.sofar', '.index', 'last-home.json'), { force: true }),
+      }),
+      s('live sessions here hold two records: the contested line', ['event', 'session-start'], start({ session_id: 'lin-new' }), {
+        before: (m) => {
+          registryEntry(m, 5001, 'sess-elsewhere', realpathSync(m.root), [], process.pid)
+          registryEntry(m, 5002, 'lin-plain', realpathSync(m.root), [], process.pid)
+        },
+      }),
     ],
   },
   {

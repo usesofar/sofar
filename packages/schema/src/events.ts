@@ -329,7 +329,14 @@ export interface DecisionCheck {
  * to a record it had left. The fold accepts the repeat silently; a repeat
  * WITHOUT it is still the racing double-registration it warns about.
  */
-export interface SessionStartedPayload { tool: string; model?: string; rehome?: true }
+/**
+ * `continues` (r4-fixes A10, R11 (a)): the session this one continues — a
+ * `/clear` baton, a resumed transcript's prompt fingerprint or the host
+ * registry's former session id named it at SessionStart. Lineage is identity,
+ * not inference: the new id is the same work under a host-minted name, so it
+ * registers in the parent's home and says which parent.
+ */
+export interface SessionStartedPayload { tool: string; model?: string; rehome?: true; continues?: string }
 export interface SessionEndedPayload { session_id?: string; summary: string; next_action: string }
 /**
  * Mechanical session close (SessionEnd hook fallback). Deliberately has no
@@ -1114,6 +1121,7 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
     if (!str(p.tool)) e.push('tool: must be a non-empty string')
     if (!optStr(p.model)) e.push('model: must be a string')
     if (p.rehome !== undefined && p.rehome !== true) e.push('rehome: must be true when present')
+    if (p.continues !== undefined && !str(p.continues)) e.push('continues: must be a non-empty string (the parent session id) when present')
   },
   session_ended(p, e) {
     if (!optStr(p.session_id)) e.push('session_id: must be a string')

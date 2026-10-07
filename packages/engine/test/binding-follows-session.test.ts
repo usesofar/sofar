@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { writeBinding } from '../src/core/bindings'
+import { readLastHomes } from '../src/core/last-home'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { handleSessionStart } from '../src/cli/event'
@@ -96,6 +97,12 @@ function repo(
 const readBindings = (sofar: string): unknown =>
   JSON.parse(readFileSync(join(sofar, 'bindings.json'), 'utf8'))
 
+/**
+ * Where the write-back's move lands since r4-fixes A10 (R11 (b)): the worked
+ * worktree's untracked last home, never the committed bindings.json.
+ */
+const lastHome = (sofar: string, branch: string): string | undefined => readLastHomes(sofar)[branch]?.slug
+
 const wrapUp = (root: string, session: string) =>
   endSession(createToolContext(root), {
     session_id: session,
@@ -113,7 +120,9 @@ describe('the branch binding follows the write-back (binding-follows-session 1.3
     const { root, sofar } = repo()
     const result = wrapUp(root, 'MINE')
 
-    expect(readBindings(sofar)).toEqual({ main: 'beta', ...OTHERS })
+    // The committed file is untouched; the move is this worktree's (A10).
+    expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
+    expect(lastHome(sofar, 'main')).toBe('beta')
     // Reported, because an inspectable mechanism must be legible at the moment
     // it acts — that is the whole reason a binding beat an inference (D1).
     expect(result.rebound).toEqual({ branch: 'main', from: 'alpha', to: 'beta' })
@@ -185,7 +194,8 @@ describe('the branch binding follows the write-back (binding-follows-session 1.3
   it('cannot pull a live peer off its own record', () => {
     const { root, sofar } = repo()
     wrapUp(root, 'MINE')
-    expect(readBindings(sofar)).toEqual({ main: 'beta', ...OTHERS })
+    expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
+    expect(lastHome(sofar, 'main')).toBe('beta')
 
     // The peer resolves through its own home, which the moved binding only
     // ever SEEDS (mcp/context.ts:194) — so a rebind under a running session is
@@ -264,7 +274,8 @@ describe('a write-back never introduces an initiative to the routing table (no-b
 
     const result = wrapUp(root, 'MINE')
 
-    expect(readBindings(sofar)).toEqual({ main: 'beta', 'wip/beta': 'beta' })
+    expect(readBindings(sofar)).toEqual({ main: 'alpha', 'wip/beta': 'beta' })
+    expect(lastHome(sofar, 'main')).toBe('beta')
     expect(result.rebound).toEqual({ branch: 'main', from: 'alpha', to: 'beta' })
   })
 })
@@ -297,7 +308,9 @@ describe('the rebind follows the worktree the session worked in (binding-follows
     touch(sofar, join(wt, 'src', 'a.ts'), '2026-08-13T10:05:00.000Z')
     const result = wrapUp(root, 'MINE')
     expect(result.rebound).toEqual({ branch: 'feat', from: 'alpha', to: 'beta' })
-    expect(wtBindings(wt)).toMatchObject({ feat: 'beta', main: 'alpha' })
+    expect(wtBindings(wt)).toMatchObject({ feat: 'alpha', main: 'alpha' })
+    expect(lastHome(join(wt, '.sofar'), 'feat')).toBe('beta')
+    expect(lastHome(sofar, 'main')).toBeUndefined()
     expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
   })
 
@@ -305,7 +318,21 @@ describe('the rebind follows the worktree the session worked in (binding-follows
     const { root, sofar } = withWorktree()
     touch(sofar, join(root, 'src', 'a.ts'), '2026-08-13T10:05:00.000Z')
     expect(wrapUp(root, 'MINE').rebound).toEqual({ branch: 'main', from: 'alpha', to: 'beta' })
+    expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
+    expect(lastHome(sofar, 'main')).toBe('beta')
+  })
+
+  it('SOFAR_LASTHOME=committed restores the committed rebind (the A10 switch)', () => {
+    const { root, sofar } = withWorktree()
+    touch(sofar, join(root, 'src', 'a.ts'), '2026-08-13T10:05:00.000Z')
+    process.env.SOFAR_LASTHOME = 'committed'
+    try {
+      expect(wrapUp(root, 'MINE').rebound).toEqual({ branch: 'main', from: 'alpha', to: 'beta' })
+    } finally {
+      delete process.env.SOFAR_LASTHOME
+    }
     expect(readBindings(sofar)).toEqual({ main: 'beta', ...OTHERS })
+    expect(lastHome(sofar, 'main')).toBeUndefined()
   })
 
   it("files outside every worktree of this repo say nothing, so the server's branch is used as before", () => {

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { isClosedInitiativeStatus, type InitiativeStatus } from '@sofar/schema'
 import { unbindAll } from '../core/bindings'
+import { forgetLastHome } from '../core/last-home'
 import { closeoutFindings } from '../core/closeout'
 import { ToolError, type AppendOptions, type ToolContext } from './context'
 
@@ -83,5 +84,7 @@ export function applyClose(
     if (status === 'superseded') payload.successor = successor
     eventId = ctx.appendAndProject(slug, 'initiative_status_changed', payload, meta).id
   }
+  // A closed record is no worktree's last home either (r4-fixes A10).
+  forgetLastHome(ctx.sofarDir, { slug })
   return { event_id: eventId, unbound: unbindAll(ctx.bindingsPath, slug), overrides }
 }

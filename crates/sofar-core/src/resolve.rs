@@ -215,7 +215,12 @@ pub fn resolve_initiative(layout: &Layout, explicit: Option<&str>) -> Result<Str
         };
         let bindings = read_bindings(layout)?;
         if let Some((_, bound)) = bindings.into_iter().find(|(b, _)| *b == branch) {
-            bound
+            // The worktree's last home over a routed branch (r4-fixes A10).
+            if crate::last_home::last_home_enabled() {
+                crate::last_home::last_home_of(layout, &branch).unwrap_or(bound)
+            } else {
+                bound
+            }
         } else {
             if !lane_open(layout) {
                 return Err(ResolveError::UnknownInitiative(format!(
