@@ -56,7 +56,7 @@ export function fileInlineWriteback(ctx: ToolContext, slug: string, sessionId: s
     let errors = parsed.errors
     if (errors.length === 0 && value !== null) {
       try {
-        errors = planWriteBack(ctx, slug, asArgs(value, sessionId), sessionId).notFiled
+        errors = planWriteBack(ctx, slug, asArgs(value, sessionId), sessionId, true).notFiled
       } catch (err) {
         if (!(err instanceof ToolError)) throw err
         errors = err.errors !== undefined && err.errors.length > 0 ? [...err.errors] : [err.message]
@@ -66,7 +66,7 @@ export function fileInlineWriteback(ctx: ToolContext, slug: string, sessionId: s
       writeStash(ctx.sofarDir, sessionId, body)
       return { ask: repairAsk(errors), lines: [] }
     }
-    const filed = endSessionFiled(ctx, asArgs(value!, sessionId))
+    const filed = endSessionFiled(ctx, asArgs(value!, sessionId), { fromBlock: true })
     clearStash(ctx.sofarDir, sessionId)
     return { lines: resultLines(filed.result) }
   }
@@ -112,17 +112,17 @@ function fileFinal(ctx: ToolContext, slug: string, sessionId: string, body: stri
   const planned = asArgs({ ...kept, summary: whole ? kept.summary : '-', next_action: whole ? kept.next_action : '-' }, sessionId)
   let leftOut: LeftOut[]
   try {
-    leftOut = planWriteBack(ctx, slug, planned, sessionId).leftOut
+    leftOut = planWriteBack(ctx, slug, planned, sessionId, true).leftOut
   } catch (err) {
     if (!(err instanceof ToolError)) throw err
     return keepAll(err.errors !== undefined && err.errors.length > 0 ? err.errors.join('; ') : err.message)
   }
   const args = withoutLeftOut(planned, leftOut, notes)
   if (!whole) {
-    fileEntries(ctx, slug, args, sessionId)
+    fileEntries(ctx, slug, args, sessionId, true)
     return ['sofar: the ```sofar write-back had no usable summary or next_action — its entries filed, but the session has no write-back']
   }
-  return resultLines(endSessionFiled(ctx, args).result)
+  return resultLines(endSessionFiled(ctx, args, { fromBlock: true }).result)
 }
 
 /** The arguments with every left-out entry removed and kept as a note instead. */

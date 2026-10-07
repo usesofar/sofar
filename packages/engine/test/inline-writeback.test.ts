@@ -272,6 +272,21 @@ describe('Stop files the block', () => {
     expect(d.because.length).toBeLessThanOrEqual(BECAUSE_MAX)
     expect(d.quote).toBe(said)
   })
+
+  it('the tool path keeps an over-long because whole while inline is on (r4-fixes D11)', () => {
+    const root = repo()
+    const long = `${'The reason, stated once. '.repeat(15)}`.trim()
+    expect(long.length).toBeGreaterThan(BECAUSE_MAX)
+    const ctx = createToolContext(root)
+    ctx.session.set({ id: SESSION, tool: 'claude-code', initiative: SLUG })
+    const result = endSession(ctx, {
+      summary: 'ruled',
+      next_action: 'next',
+      decisions: [{ chose: 'tool write-back', over: 'a capped tool write-back', because: long }],
+    } as unknown as EndSessionArgs)
+    expect(JSON.stringify(result)).not.toMatch(/because was over 280 chars/)
+    expect(fold(root).decisions.at(-1)!.because).toBe(long)
+  })
 })
 
 describe('hosts', () => {

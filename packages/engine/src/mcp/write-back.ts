@@ -189,7 +189,7 @@ function crossInitiative(home: string, sessionId: string, where: string, initiat
  *    captured is a warning and files nothing (2.8) — the agent still holds
  *    the words and can append them.
  */
-function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, sessionId: string): PlannedBatch {
+function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, sessionId: string, fromBlock = false): PlannedBatch {
   crossInitiative(slug, sessionId, 'initiative', args.initiative)
   ;(args.decisions ?? []).forEach((d, i) => crossInitiative(slug, sessionId, `decisions[${i}].initiative`, (d as { initiative?: unknown }).initiative))
 
@@ -306,7 +306,9 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
       // Under the in-band write-back (r4-fixes A1, 1.2 O8): a quote may be a
       // prompt this session's hooks captured (`P3`), copied verbatim like
       // brief_append's; one never captured files the decision without it.
-      // And `because` keeps to BECAUSE_MAX, cut to the writer's own sentences.
+      // And a block's `because` keeps to BECAUSE_MAX, cut to the writer's own
+      // sentences; the tool path keeps the whole reasoning (r4-fixes D11:
+      // the cap would have cut 17 of round 4's 200 decisions).
       const because = d.because
       let becauseCut = false
       if (inline) {
@@ -319,7 +321,7 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
             delete d.quote
           } else d = { ...d, quote: text }
         }
-        const cut = capBecause(d.because)
+        const cut = fromBlock ? capBecause(d.because) : null
         if (cut !== null) {
           d = { ...d, because: cut }
           becauseCut = true
@@ -419,8 +421,14 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
  * so a corrected block never files twice. Throws planBatch's whole refusal
  * (another initiative) as the tool would.
  */
-export function planWriteBack(ctx: ToolContext, slug: string, args: EndSessionArgs, sessionId: string): { notFiled: string[]; leftOut: LeftOut[] } {
-  const batch = planBatch(ctx, slug, args, sessionId)
+export function planWriteBack(
+  ctx: ToolContext,
+  slug: string,
+  args: EndSessionArgs,
+  sessionId: string,
+  fromBlock = false,
+): { notFiled: string[]; leftOut: LeftOut[] } {
+  const batch = planBatch(ctx, slug, args, sessionId, fromBlock)
   return { notFiled: batch.notFiled, leftOut: batch.leftOut }
 }
 
@@ -431,8 +439,8 @@ export function planWriteBack(ctx: ToolContext, slug: string, args: EndSessionAr
  * lost with its summary. `args`' summary and next_action are never appended.
  * Returns how many events filed.
  */
-export function fileEntries(ctx: ToolContext, slug: string, args: EndSessionArgs, sessionId: string): number {
-  const batch = planBatch(ctx, slug, args, sessionId)
+export function fileEntries(ctx: ToolContext, slug: string, args: EndSessionArgs, sessionId: string, fromBlock = false): number {
+  const batch = planBatch(ctx, slug, args, sessionId, fromBlock)
   const last = batch.appends.length - 1
   batch.appends.forEach(({ type, payload }, i) => {
     ctx.appendAndProject(slug, type, payload, i < last ? { project: false } : undefined)
@@ -656,6 +664,8 @@ export function endSession(ctx: ToolContext, args: EndSessionArgs, options: File
  */
 export interface FileOptions {
   refreshReach?: (sofarDir: string) => void
+  /** The arguments came from an in-band ```sofar block (r4-fixes A1): only these keep `because` to BECAUSE_MAX (D11). */
+  fromBlock?: boolean
 }
 
 export function endSessionFiled(
@@ -686,7 +696,7 @@ export function endSessionFiled(
   // the fold the write-back is read by already counts them (task_done needs
   // both halves, session-driver D5), with ONE projection pass at the end
   // instead of one per event.
-  const batch = planBatch(ctx, slug, args, sessionId)
+  const batch = planBatch(ctx, slug, args, sessionId, options.fromBlock === true)
   const pending: string[] = []
   const linked: string[] = []
   const filed: string[] = []

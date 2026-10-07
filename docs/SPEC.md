@@ -4732,11 +4732,12 @@ Claude, two per first use on Cursor (the schema fetch, then the call).
   What the tool would have returned — warnings, `not_filed`, parallel
   write-backs — is printed for the operator as Stop's `systemMessage`, or
   rides a hold's stderr when the gate holds anyway.
-- GRAMMAR REPAIRS (every write-back while `inline`, the tool's included, so
-  both paths fold the same): a decision's `because` over 280 chars is filed
-  as the writer's own whole sentences from the start that fit, else the words
-  that fit and `…`, with a `warnings` line naming it by handle (the reversal
-  check reads the words as written); a decision's `quote` that is a `P<n>`
+- GRAMMAR REPAIRS (every write-back while `inline`, the tool's included,
+  except the cap): a BLOCK's decision `because` over 280 chars is filed as the
+  writer's own whole sentences from the start that fit, else the words that
+  fit and `…`, with a `warnings` line naming it by handle (the reversal check
+  reads the words as written); the tool path keeps `because` whole (r4-fixes
+  D11), so no record loses reasoning to it; a decision's `quote` that is a `P<n>`
   this session captured is the prompt itself through redactProse, then cut as
   any quote (r3-fixes 2.8); one never captured files the decision without a
   quote and a `warnings` line. Round 4's 94 write-backs held 200 decisions,
