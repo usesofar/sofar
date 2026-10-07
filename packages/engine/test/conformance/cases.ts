@@ -1001,6 +1001,29 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes B14 (D25) on the hot path: the branch files a fresh session
+    // into `baseline`; its first prompt names the open `r4-fixes`, so the
+    // session serves r4-fixes from that prompt on, told first with the way
+    // back. A second prompt naming it again moves nothing.
+    name: 'syn.carrier',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('session-start: the branch files the session into baseline', ['event', 'session-start'], start({ session_id: 'sess-r' }), {
+        before: (m) => {
+          const dir = join(m.root, '.sofar', 'initiatives', 'r4-fixes')
+          mkdirSync(dir, { recursive: true })
+          writeFileSync(
+            join(dir, 'events.jsonl'),
+            `${JSON.stringify({ v: 1, id: '01M4C0000000000000000000R4', ts: '2026-09-20T09:00:00.000Z', initiative: 'r4-fixes', session: 'cli', source: 'cli', actor: 'human', user: 'fixture@example.invalid', type: 'initiative_created', payload: { slug: 'r4-fixes', goal: 'Fix what round 4 lost.' } })}\n`,
+          )
+        },
+      }),
+      s('first prompt names r4-fixes: carried, told first', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'continue r4 fixes' })),
+      s('a second prompt naming it moves nothing', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'and the r4 fixes plan?' })),
+      s('status of r4-fixes: the session registered there', ['status', 'r4-fixes']),
+    ],
+  },
+  {
     // r3-fixes 2.11 (D19, D20) on the hot path: round 3's S18 merge in
     // miniature, in a real repo with pinned dates — wt-15 merged clean, wt-16
     // and wt-17 conflicting on src/db.ts, the conflict committed as the

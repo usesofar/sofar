@@ -69,6 +69,7 @@ Three consequences run through every design decision in the codebase:
 | `core/graph.ts` | The cross-record adjacency graph — facts that outlive one log. **Never on the hot path**: it reads N logs where a shim can afford one. |
 | `core/citations.ts` | The citation grammar — scan handles from prose (lexical, permanent), bind them to initiatives (current, because `sofar new` changes the answer). Below `graph.ts` so the index can reach it. |
 | `core/warmth.ts` | Has a log grown recently? Read from the log's own newest event, never filesystem mtime — `git checkout` rewrites mtime on every file. |
+| `core/carrier.ts` | The first-prompt carrier (r4-fixes B14, D25): a fresh session whose first prompt names exactly one open record (a slug with a hyphen or a digit) is homed there and told so with the way back; `SOFAR_CARRIER` switch. |
 | `core/checks.ts` | Decision checks (memory-lead 2.3, D9): the in-force checks from the scope tier, which ones bear on a set of changed paths, the per-clone trust file (approved commands and the pre-commit opt-in), and the failure line with its fix hint. Runs nothing itself; the Stop hook, `sofar check` and drive's gate pass in the runner. The test-loss ask (r4-fixes B3, D20): a bound test that lost assertion lines since the session's base commit, and the `SOFAR_TEST_GUARD` switch. |
 | `core/cross-conflicts.ts` | Files under concurrent edit by sessions in *different* initiatives. Gated on the hot path, exhaustive in `doctor`. |
 | `core/listing.ts` | `initiativeSlugs` and the portfolio listing behind `sofar list`. |

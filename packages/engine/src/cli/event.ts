@@ -40,6 +40,7 @@ import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, ty
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
 import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
+import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine } from '../core/carrier'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -3150,6 +3151,32 @@ function keepLine(rootDir: string, slug: string, sessionId: string, prompt: stri
   return id !== null && prompt.length >= PROMPT_ANNOUNCE_MIN ? promptKeepLine(id) : null
 }
 
+/**
+ * The first-prompt carrier (r4-fixes B14, D25): on a session's FIRST prompt
+ * (once per context, through the told set), while it has done nothing in the
+ * record the branch gave it, a prompt naming exactly one other open record
+ * registers the session there — its latest registration, so its home (D5) —
+ * and returns that slug. A record it already registered in is left alone: a
+ * move back is a `rehome`, the agent's to make (binding-follows-session D3).
+ */
+function carryFirstPrompt(ctx: ToolContext, from: string, sessionId: string, prompt: string, host: HookHost): string | null {
+  try {
+    if (!carrierEnabled() || from === QUICK_LANE) return null
+    const told = readTold(ctx.sofarDir, sessionId)
+    if (told.has(CARRIER_TOLD_KEY)) return null
+    addTold(ctx.sofarDir, sessionId, [CARRIER_TOLD_KEY])
+    const me = ctx.foldState(from).sessions.find((s) => s.id === sessionId)
+    if (me !== undefined && (me.summary !== undefined || (me.activity?.files.length ?? 0) > 0 || (me.activity?.commands ?? 0) > 0)) return null
+    const to = carriedRecord(prompt, initiativeSlugs(ctx.sofarDir), (slug) => recordOpen(ctx, slug))
+    if (to === null || to === from) return null
+    if (ctx.foldState(to).sessions.some((s) => s.id === sessionId)) return null
+    registerLazily(ctx, to, sessionId, host)
+    return to
+  } catch {
+    return null
+  }
+}
+
 export function handleUserPrompt(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
@@ -3160,7 +3187,13 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
 
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK }
-    const { ctx, slug } = bound
+    const { ctx } = bound
+    const prompt = strField(hook, 'prompt')
+    // The first-prompt carrier (r4-fixes B14, D25) before anything is read
+    // for this record: a fresh session the operator's prompt names into
+    // another open record serves that record from this prompt on.
+    const carried = prompt === null ? null : carryFirstPrompt(ctx, bound.slug, sessionId, prompt, host)
+    const slug = carried ?? bound.slug
 
     const state = ctx.foldState(slug)
     // The session's name follows the record's focus task (session-naming D1)
@@ -3170,15 +3203,15 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
-    const prompt = strField(hook, 'prompt')
     const keep = prompt === null ? null : keepLine(rootDir, slug, sessionId, prompt)
     // Recall (memory-lead 4.3, D25) before the registration check too: the
     // first prompt is the cue, and in a bench session it is the only one.
     // Cursor's prompt hook cannot inject, so it is never spent there.
     const recall = prompt !== null && host.tool !== 'cursor' && recallEnabled() ? promptRecall(ctx.sofarDir, state, sessionId, prompt) : null
     const me = state.sessions.find((s) => s.id === sessionId)
+    const carriedLine = carried === null ? null : carrierLine(bound.slug, carried, sessionId)
     if (me === undefined) {
-      const first = [recall, keep].filter((l): l is string => l !== null)
+      const first = [carriedLine, recall, keep].filter((l): l is string => l !== null)
       return withSessionTitle('user-prompt', first.length === 0 ? { ...OK } : { ...OK, stdout: first.join('\n') }, title) // not ours to nudge
     }
 
@@ -3289,6 +3322,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     }
     if (recall !== null) lines.push(recall)
     if (keep !== null) lines.push(keep)
+    if (carriedLine !== null) lines.unshift(carriedLine)
 
     return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)
   } catch {

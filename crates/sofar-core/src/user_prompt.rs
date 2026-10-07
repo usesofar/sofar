@@ -771,6 +771,28 @@ fn keep_line(root: &Path, slug: &str, session_id: &str, prompt: &str) -> Option<
     (utf16_len(prompt) >= PROMPT_ANNOUNCE_MIN).then(|| prompt_keep_line(&id))
 }
 
+/// The first-prompt carrier's answer for this prompt (r4-fixes B14, D25):
+/// the record the session serves from here on, and the line that says so
+/// when it moved.
+fn carried_home(
+    layout: &Layout,
+    from: String,
+    session_id: &str,
+    prompt: Option<&str>,
+    hook: &crate::json::Object,
+) -> (String, Option<String>) {
+    let carried = prompt.and_then(|p| {
+        crate::carrier::carry_first_prompt(layout, &from, session_id, p, hook_host(hook).tool)
+    });
+    match carried {
+        Some(to) => {
+            let line = crate::carrier::carrier_line(&from, &to, session_id);
+            (to, Some(line))
+        }
+        None => (from, None),
+    }
+}
+
 /// `handleUserPrompt`.
 #[must_use]
 pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
@@ -780,9 +802,12 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         return silent();
     };
     let _ = write_session_pointer(&layout, session_id, "hook"); // D29
-    let Some(slug) = resolve_bound(&layout, session_id) else {
+    let Some(from) = resolve_bound(&layout, session_id) else {
         return silent();
     };
+    let prompt = str_field(&hook, "prompt");
+    // The first-prompt carrier (B14, D25), before anything is read for the record.
+    let (slug, carried_line) = carried_home(&layout, from, session_id, prompt, &hook);
     let state = fold_state(&layout, &slug);
     // The session's name follows the record's focus task (session-naming D1)
     // — decided before the registration check, because a session's first
@@ -790,7 +815,6 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     let title = prompt_title(&hook, &slug, &state, session_id, &layout);
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
-    let prompt = str_field(&hook, "prompt");
     let keep = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
     // Recall (memory-lead 4.3, D25) before the registration check too; never
     // on Cursor, whose prompt hook cannot inject.
@@ -801,7 +825,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         _ => None,
     };
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        let first: Vec<String> = [recall, keep].into_iter().flatten().collect();
+        let first: Vec<String> = [carried_line, recall, keep].into_iter().flatten().collect();
         let result = if first.is_empty() {
             silent()
         } else {
@@ -874,6 +898,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     }
     lines.extend(recall);
     lines.extend(keep);
+    lines.splice(0..0, carried_line); // the carrier's line leads (B14)
     let result = if lines.is_empty() {
         silent()
     } else {

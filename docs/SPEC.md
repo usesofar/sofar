@@ -5557,6 +5557,33 @@ ranked by count, then slug by code unit). Liveness is the host registry's
 pid (Claude Code peers whose cwd is this worktree or below), which R11 (c)
 allows here and only here: binding-follows-session D2 is NARROWED to the
 recent-work notice, which still never weighs liveness.
+THE FIRST-PROMPT CARRIER (r4-fixes B14, D25), in both engines' UserPromptSubmit,
+before anything is read for the record: on a session's FIRST prompt (the told
+set's `%carrier` key, written whatever the outcome, so once per context), while
+the session has done nothing in the record it resolved to (no write-back, no
+captured file, no command there), a prompt that names exactly one OPEN record
+(as above) other than that one registers the session there through the lazy
+registration (`session_started` {tool}, source `hook`, `continues` when
+lineage traced one) — its latest registration, so its home from this prompt
+on, for every hook, the Stop gate and the MCP server's first-call adoption.
+NAMES: the slug's `-`-separated words in order, case-insensitive, joined by
+one or more spaces, tabs, newlines, hyphens or underscores, and neither
+preceded nor followed by `[a-z0-9_-]` (`continue r4 fixes`, `R4-fixes`;
+never `r4-fixes-2` or `r4fixes`). Only a slug holding a hyphen or a digit
+counts, and never the quick lane: in the replay a one-word slug (`speed`)
+matched "speed up my development". Directory names are matched first; only
+the matches are asked whether they are open. A record the session already
+registered in is left alone: moving back there is a `rehome`, the agent's
+(binding-follows-session D3). The hook's output then leads with: `sofar:
+your prompt names the record <to>, so this session now serves <to> (the
+branch gave it <from>). Any record block injected above is <from>'s — read
+<to>'s with sofar_get_state({"initiative":"<to>"}). If <to> is wrong,
+sofar_start_session({"session_id":"<id>","initiative":"<from>"}) moves it
+back.` — and the rest of the hook (title, recall, notices) reads <to>. It
+qualifies session-orientation D2 for this case only: the redirect is the
+operator's own words, announced, never a recency guess. Replay over this
+repo's sessions since 2026-09-01: 11 of 33 misfiles fixed, no wrong move.
+`SOFAR_CARRIER=off` (also `0`, `false`) is the ablation arm.
 THE WRITE-BACK BINDS THE BRANCH (binding-follows-session D1) — IN THE
 WORKTREE, SINCE r4-fixes A10. R11 (b) supersedes D1's committed rebind, D4's
 and D5's target file and no-bind-durability D1's write side: the move below
