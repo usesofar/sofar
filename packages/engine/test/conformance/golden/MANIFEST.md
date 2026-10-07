@@ -1,5 +1,10 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.35.0** for rc.3 (r4-fixes H5) from the
+TypeScript reference. The version bump is the whole diff: `argv.fast-path`
+(`--version` is `0.35.0-rc.3`) and `open.O2-update-segment` ("you have
+0.35.0-rc.3").
+
 Re-recorded on **writeback-host-default** (from release/0.35.0 rc.2) for
 r4-fixes H5 from the TypeScript reference: Claude Code writes back through
 sofar_end_session by default. The ten Stop holds A1 re-recorded go back to
