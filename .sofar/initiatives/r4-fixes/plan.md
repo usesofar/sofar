@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 25 done, 3 dropped, 32 remaining
+Progress: 26 done, 4 dropped, 30 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -31,11 +31,11 @@ Progress: 25 done, 3 dropped, 32 remaining
 - [ ] H3 Hold close line: every Stop hold asks the agent to end on one line restating its answer, so the answer is what the operator sees last (SOFAR_HOLD_CLOSE). Changes the SPEC-pinned BD2 message and the conformance goldens; needs a Decision first
 - [ ] H4 Read-only sessions move the last home too: set it at Stop when a registered session's home differs (one write, only on change)
 
-## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 1/16 done
+## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 2/16 (1 dropped) done
 
 - [x] B1 B1 Work maps: ≤1.5k-char focus-task map (files, last test cmd+exit, entry points) ranked by PageRank+BM25F, stamped verified-at-sha (SOFAR_WORKMAP). PREDICT Claude −0.05 to −0.10
-- [ ] B2 B2 Rules compiled to checks: opt-in forbid, PreToolUse deny + check --staged + Stop gate (SOFAR_FORBID; R13 Decision vs drift-hardening D3 first). PREDICT GV −0.5 to −1
-- [ ] B3 B3 Rule-test integrity: bound tests guarded (ask once), fail-then-pass proof, quote-verified supersession of guarded rules (R14, R15). PREDICT GV −1 to −1.5
+- [-] B2 B2 Rules compiled to checks: opt-in forbid, PreToolUse deny + check --staged + Stop gate (SOFAR_FORBID; R13 Decision vs drift-hardening D3 first). PREDICT GV −0.5 to −1 (dropped)
+- [x] B3 B3 Rule-test integrity: bound tests guarded (ask once), fail-then-pass proof, quote-verified supersession of guarded rules (R14, R15). PREDICT GV −1 to −1.5
 - [ ] B4 B4 Claims and a ready frontier: derived claims, kernel-flock liveness, fencing epoch, sofar next --ready (R16, R22). PREDICT duplicate work −80%
 - [ ] B5 B5 Here-vs-elsewhere digest: in-force rules from this checkout's ancestry only, plus a ≤400-char elsewhere block (SOFAR_ELSEWHERE)
 - [ ] B6 B6 Merge-time currency: decision forks in the merge block, rule-set ETag re-tells moved rules. PREDICT T-FORK ≤10%, SR −2 to −5 pts in merge segments
@@ -75,4 +75,4 @@ Progress: 25 done, 3 dropped, 32 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Start B2 (rules compiled to checks): it needs the R13 Decision against drift-hardening D3 first, so put that ruling to the operator.
+Next action: Run B4's pre-build replay (claims, ready frontier) before writing engine code, as B2/B3 did.
