@@ -130,6 +130,20 @@ describe('HOME canary', () => {
 })
 
 describe('child processes', () => {
+  it('an exited, unreaped process is never an orphan; a live one in the group is (0.35 integration)', () => {
+    // A synthetic table: the runner (pid 100, group 100) and three children
+    // started after the baseline, all in the run's group, parent gone.
+    const baseline = { pid: 100, pgid: 100, started: Date.now() - 60_000, preexisting: [] }
+    const row = (pid: number, command: string) => ({ pid, ppid: 1, pgid: 100, age: 5, command })
+    const table = [
+      { pid: 100, ppid: 50, pgid: 100, age: 60, command: 'node vitest run' },
+      row(201, '(esbuild)'),
+      row(202, '[esbuild] <defunct>'),
+      row(203, '/usr/local/bin/node leftover-server.mjs'),
+    ]
+    expect(findOrphans(baseline, [], table).map((r) => r.pid)).toEqual([203])
+  })
+
   it('etime parses every ps form', () => {
     expect(etimeSeconds('05')).toBe(5)
     expect(etimeSeconds('01:05')).toBe(65)

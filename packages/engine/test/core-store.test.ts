@@ -249,7 +249,7 @@ describe.skipIf(!posix)('doctor names the activated core (r4-fixes A12)', () => 
   it('ok with the store path when active; the stub warning names why it is not', () => {
     const active: Finding[] = []
     auditCore(active, { core: pkgCore, platform: 'darwin', activation: { status: 'active', path: '/d/sofar/core/9/sofar-core' } })
-    expect(active).toEqual([{ level: 'ok', text: expect.stringContaining('activated for this user at /d/sofar/core/9/sofar-core') }])
+    expect(active).toEqual([{ id: 'hot-path', level: 'ok', text: expect.stringContaining('activated for this user at /d/sofar/core/9/sofar-core') }])
 
     const prefix = join(scratch, `doctor-${seq++}`, 'lib', 'node_modules', 'sofar.sh')
     mkdirSync(join(prefix, 'bin'), { recursive: true })

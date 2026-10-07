@@ -379,6 +379,14 @@ function ancestors(byPid, pid) {
 const SELF_REAPING = [/\/esbuild(\.exe)? --service=/]
 
 /**
+ * A process that has already exited but is not yet reaped: macOS `ps` prints
+ * its command as `(name)`, Linux as `[name] <defunct>`. It holds nothing and
+ * cannot be killed; reporting it failed a clean conformance run on
+ * `22539 (esbuild)` (0.35 integration).
+ */
+const EXITED = [/^\(.+\)$/, /<defunct>$/]
+
+/**
  * Processes a run left behind: started after `baseline.started`, and either in
  * the run's own process group or carrying one of `needles` (the run's scratch
  * root) in their command line. Never a candidate: the runner, its ancestors,
@@ -397,6 +405,7 @@ export function findOrphans(baseline, needles, table = processTable()) {
     if (r.age > elapsed + 1) return false
     if (/^(ps|\/bin\/ps)\b/.test(r.command)) return false
     if (SELF_REAPING.some((re) => re.test(r.command))) return false
+    if (EXITED.some((re) => re.test(r.command))) return false
     const inGroup = baseline.pgid !== null && r.pgid === baseline.pgid
     if (!inGroup && !needles.some((n) => n.length > 0 && r.command.includes(n))) return false
     return lineage(byPid, r, baseline.pid) !== 'other'
