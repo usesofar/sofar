@@ -57,6 +57,7 @@ pub mod index_store;
 pub mod index_tail;
 pub mod index_tier0;
 pub mod index_tier1;
+pub mod inline;
 pub mod js_math;
 pub mod json;
 pub mod layout;

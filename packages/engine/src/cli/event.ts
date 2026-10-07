@@ -99,6 +99,8 @@ import { worktreeLeads } from '../core/record-copies'
 import { abandonEnabled } from '../core/abandoned'
 import { worktreeLeadsNotice } from '../projections/templates/copies'
 import { copyLagGuard } from '../mcp/copy-lag'
+import { fileInlineWriteback } from '../mcp/inline-writeback'
+import { finalReplyText, writebackMode, type WritebackMode } from '../core/inline-block'
 import {
   createToolContext,
   homeInitiative,
@@ -154,8 +156,21 @@ export interface HookResult {
 
 const OK: HookResult = { exitCode: 0, stdout: '', stderr: '' }
 
-export const STOP_BLOCK_MESSAGE =
+/** The hold as 0.34 worded it — SOFAR_WRITEBACK=tool, the ablation arm (r4-fixes A1). */
+export const STOP_BLOCK_MESSAGE_TOOL =
   'Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).'
+
+/**
+ * The hold under the in-band write-back (r4-fixes A1, the default): the
+ * cheapest repair is the block itself — the continuation's reply ends with
+ * it and the next Stop files it, with no tool call. The tool path still works.
+ */
+export const STOP_BLOCK_MESSAGE =
+  'Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.'
+
+export function stopBlockMessage(mode: WritebackMode = writebackMode()): string {
+  return mode === 'inline' ? STOP_BLOCK_MESSAGE : STOP_BLOCK_MESSAGE_TOOL
+}
 
 /**
  * The same hold as a Codex session reads it (agents-parity 3.3): it names the
@@ -163,7 +178,10 @@ export const STOP_BLOCK_MESSAGE =
  * answered the generic line with a bare `sofar event append`, and that landed
  * under `cli`, so the gate never saw its own session write back.
  */
-export function codexStopMessage(slug: string, session: string): string {
+export function codexStopMessage(slug: string, session: string, mode: WritebackMode = writebackMode()): string {
+  if (mode === 'inline') {
+    return `Write back to the sofar record before finishing: end your reply with a \`\`\`sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session with session_id ${session} (or \`sofar event append ${slug} --type session_ended --source codex --session ${session}\`).`
+  }
   return `Write back to the sofar record before finishing: call sofar_end_session with session_id ${session} (or \`sofar event append ${slug} --type session_ended --source codex --session ${session}\`).`
 }
 
@@ -1322,7 +1340,12 @@ export function handleStop(
 ): HookResult {
   try {
     const hook = parseHook(input)
-    if (hook.stop_hook_active === true) return { ...OK }
+    const held = hook.stop_hook_active === true
+    // The in-band write-back (r4-fixes A1) files even on a Stop that already
+    // held once — the continuation's reply is where a repaired block arrives —
+    // and never holds that Stop again. SOFAR_WRITEBACK=tool is 0.34's gate.
+    const inline = writebackMode() === 'inline'
+    if (held && !inline) return { ...OK }
 
     const sessionId = strField(hook, 'session_id')
     if (sessionId === null) return { ...OK }
@@ -1335,6 +1358,15 @@ export function handleStop(
     // summary, the decision line is the why, and a gate here would be the
     // ceremony the lane exists to remove.
     if (slug === QUICK_LANE) return { ...OK }
+
+    // The block the final reply ends with, filed before the gate reads the
+    // session, so a write-back made this way owes nothing below. A block that
+    // cannot file whole files nothing and holds once with its repair ask.
+    const filing = inline
+      ? fileInlineWriteback(ctx, slug, sessionId, finalReplyText(hook, (host ?? hookHost(hook)).tool === 'cursor'), held)
+      : null
+    const told = filing?.lines ?? []
+    if (held) return told.length > 0 ? { exitCode: 0, stdout: JSON.stringify({ systemMessage: told.join('\n') }), stderr: '' } : { ...OK }
 
     const state = ctx.foldState(slug)
     const session = state.sessions.find((s) => s.id === sessionId)
@@ -1362,8 +1394,8 @@ export function handleStop(
     // nothing — it wrote back, or it never mutated the record. NaN or a
     // throw is NOT zero — both enforce (fail closed, never a silent skip
     // of the gate).
-    let owes = session.summary === undefined // write-back done owes nothing
-    if (owes) {
+    let owes = session.summary === undefined || filing?.ask !== undefined // write-back done owes nothing
+    if (owes && filing?.ask === undefined) {
       try {
         if (computeDrift(state, session) === 0) owes = false
       } catch {
@@ -1371,11 +1403,13 @@ export function handleStop(
       }
     }
     if (!owes) {
-      const held = [...merge, ...links]
-      if (gate?.blocks === true || held.length > 0) return { exitCode: 2, stdout: '', stderr: [...(gate?.lines ?? []), ...held].join('\n') }
+      const asks = [...merge, ...links]
+      // The write-back's own lines ride a hold to the agent, else reach the operator.
+      if (gate?.blocks === true || asks.length > 0) return { exitCode: 2, stdout: '', stderr: [...(gate?.lines ?? []), ...asks, ...told].join('\n') }
       // A line the gate does not hold for (an unverifiable ask, U1b) holds
       // nothing on its own: it reaches the operator, and rides any block.
-      return gate !== null && gate.lines.length > 0 ? { exitCode: 0, stdout: JSON.stringify({ systemMessage: gate.lines.join('\n') }), stderr: '' } : { ...OK }
+      const said = [...(gate?.lines ?? []), ...told]
+      return said.length > 0 ? { exitCode: 0, stdout: JSON.stringify({ systemMessage: said.join('\n') }), stderr: '' } : { ...OK }
     }
 
     // Guard crossings RIDE the block; they never cause one (D3). By the time
@@ -1400,7 +1434,7 @@ export function handleStop(
     return {
       exitCode: 2,
       stdout: '',
-      stderr: [host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : STOP_BLOCK_MESSAGE, ...crossings, ...checks, ...merge, ...links].join('\n'),
+      stderr: [filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : stopBlockMessage()), ...crossings, ...checks, ...merge, ...links].join('\n'),
     }
   } catch {
     return { ...OK }
@@ -1561,6 +1595,18 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK }
     const { ctx, slug } = bound
+
+    // The in-band write-back's last chance (r4-fixes A1), with no ask left: a
+    // block a Stop asked about, or — on Cursor, whose headless runs never fire
+    // stop — the block its final reply ends with, read from the transcript the
+    // payload names. Filed before the close, so a write-back closes nothing.
+    if (writebackMode() === 'inline' && slug !== QUICK_LANE) {
+      try {
+        fileInlineWriteback(ctx, slug, sessionId, finalReplyText(hook, hookHost(hook).tool === 'cursor'), true)
+      } catch {
+        // Best-effort (BD22): the close below still lands.
+      }
+    }
 
     const session = ctx.foldState(slug).sessions.find((s) => s.id === sessionId)
     if (session === undefined || session.ended !== undefined) return { ...OK }

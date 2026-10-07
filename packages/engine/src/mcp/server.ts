@@ -1,4 +1,5 @@
 import { withActivityGuidance } from '../core/derived'
+import { writebackMode, type WritebackMode } from '../core/inline-block'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
@@ -67,13 +68,20 @@ export const ALWAYS_LOADED_TOOLS = ['sofar_end_session', 'sofar_log_decision'] a
  * (r1-fixes 2.4, D13) names the three operations that left the tool list for
  * the CLI.
  */
-export function serverInstructions(adopted: boolean): string {
+export function serverInstructions(adopted: boolean, mode: WritebackMode = writebackMode()): string {
+  // The in-band write-back (r4-fixes A1): the final reply's ```sofar block is
+  // the write-back, so neither a start call nor the tool is needed for it.
+  const inline = mode === 'inline'
   return [
     "sofar keeps this repo's work record. The SessionStart hook already injected it (goal, next action, decisions, rejected approaches, next D/M ids): do not call sofar_get_state to re-read it.",
     adopted
       ? "This session is adopted from Claude Code's session id: call sofar_start_session only to re-home into another initiative."
-      : 'Call sofar_start_session first, with the session_id from the injected "Session:" line.',
-    "Write back once, at wrap-up: sofar_end_session carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed.",
+      : inline
+        ? 'Before a sofar tool, call sofar_start_session with the session_id from the injected "Session:" line; the write-back block needs no call.'
+        : 'Call sofar_start_session first, with the session_id from the injected "Session:" line.',
+    inline
+      ? "Write back once, at wrap-up: end your final reply with one ```sofar block of sofar_end_session's arguments — the Stop hook files it — or call sofar_end_session. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed."
+      : "Write back once, at wrap-up: sofar_end_session carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed.",
     'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.',
   ].join('\n')
 }

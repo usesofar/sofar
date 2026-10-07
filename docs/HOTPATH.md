@@ -345,21 +345,42 @@ session's "silent" prompt is `{"hookSpecificOutput":{"hookEventName":"UserPrompt
 
 ### stop
 
-Reads: stdin; resolution; bound log (fold). Writes: nothing. Spawns: none.
+Reads: stdin; resolution; bound log (fold). Writes: nothing, unless it files
+an in-band write-back. Spawns: none, unless it hands one back.
+- IN-BAND WRITE-BACK (r4-fixes A1, SPEC §In-band write-back), unless
+  `SOFAR_WRITEBACK=tool`: the core hands the hook to the TypeScript CLI —
+  `<cli> event stop --root <root>` with `SOFAR_CORE=0` and the same stdin,
+  exit, stdout and stderr mirrored byte for byte — when the payload names a
+  session and `last_assistant_message` contains ```` ```sofar ````, or (a
+  payload with a string `cursor_version`) the last 256 KiB of the file
+  `transcript_path` names contains it, or
+  `.sofar/.index/inline/<session sanitized per UTF-16 unit to
+  [A-Za-z0-9._-]>.json` exists. `<cli>`: `SOFAR_CLI` (the stub sets it to
+  itself when it dispatches), else `<canonical exe>/../../dist/cli.js`, else
+  `sofar` on PATH; a `.js` path runs under `node`. A CLI that cannot run, or
+  dies by a signal, leaves the hook to the core. TypeScript then files the
+  block (or asks once for its repair, exit 2) before the rest below; with
+  `stop_hook_active` it files and never holds.
 - `stop_hook_active === true` → 0.
 - no session_id / unresolved / session not registered / `session.summary`
   set → 0.
 - `sessionDebt(state, session) === 0` → 0. A throw or NaN inside the debt
   computation FAILS CLOSED (block).
 - else exit 2, stdout empty, stderr = `Write back to the sofar record before
-  finishing: call sofar_end_session (or append session_ended via \`sofar
-  event append\`).` followed by guard-crossing lines (same renderer as
-  user-prompt), `\n`-joined.
+  finishing: end your reply with a ```sofar block — {"summary":"…",
+  "next_action":"…"} plus any tasks, decisions, memories, notes — or call
+  sofar_end_session.` (one line; under `SOFAR_WRITEBACK=tool`: `Write back
+  to the sofar record before finishing: call sofar_end_session (or append
+  session_ended via \`sofar event append\`).`) followed by guard-crossing
+  lines (same renderer as user-prompt), `\n`-joined.
 
 ### session-end
 
 Reads: stdin; resolution; bound log (fold). Writes: `events.jsonl` +
-projections when it appends. Spawns: `git config user.email` on append.
+projections when it appends. Spawns: `git config user.email` on append; the
+TypeScript CLI on the in-band write-back's hand-back, by stop's rule (a
+stash, a Cursor transcript holding the fence, or a `last_assistant_message`
+holding it), which files the block with no ask left before the close below.
 No session_id / unresolved / session unknown / `session.ended` set → 0,
 nothing. Else append `session_closed {reason: hook.reason ?? 'unknown'}`
 with `{session, source: 'hook'}`. Exit 0 always.
@@ -697,6 +718,8 @@ message file (commit-trailer).
 | `SOFAR_CORE` | boot stub (rust-core 3.1): path of the native core; `0`/empty = TypeScript; unset = the platform package |
 | `SOFAR_RETIRE` | `off`/`0`/`false` renders every decision as if none were retired (r1-fixes D25) |
 | `SOFAR_CORE_DISPATCHED` | set by the stub for the core it spawns: exit-64 diagnostics stay silent |
+| `SOFAR_WRITEBACK` | `tool` turns the in-band write-back off (r4-fixes A1): stop and session-end never hand back, and the hold names the tool |
+| `SOFAR_CLI` | set by the stub for the core it spawns: the TypeScript CLI an in-band write-back is handed back to |
 | `CLAUDE_CODE_SESSION_ID` | commit-trailer only |
 | `GIT_CONFIG_*`, git's own env | inherited by the `git config user.email` spawn |
 | `XDG_CONFIG_HOME` | refresh child only (auto-upgrade preference) |
@@ -710,6 +733,7 @@ message file (commit-trailer).
 | `git log … --max-count=100 <prev>..<upstream>` (or `<tip> --not --exclude=origin/<b> --remotes=origin` on a first push) | user-prompt, ONLY when the mark says origin/<b> moved |
 | `node <dir>/cli.js update-check --refresh` (detached) | statusline / status, ≤ once per 24 h (from the stub when the core rendered them) |
 | `sofar-core <argv>` (stdio inherited) | boot stub, every `event` / `statusline` / `status` when a core is present (rust-core 3.1) |
+| `<cli> event stop\|session-end --root <root>` with `SOFAR_CORE=0` (stdin piped) | the core, on stop or session-end, ONLY when the payload may carry an in-band write-back or a stash waits (r4-fixes A1) |
 | `kill(pid, 0)` | user-prompt peer liveness (not a spawn) |
 | `/bin/sh -c <check cmd>` (per check ≤30 s, all ≤45 s; `kill -TERM` on timeout) | stop, ONLY when the session is already blocked and a decision check is approved on this clone (memory-lead 2.3) |
 | `git for-each-ref --no-merged=HEAD …` and one `git cat-file --batch` | plain `status`, to fold the record's unmerged branch copies (branch-visibility 1.1) — never a hook |

@@ -16,6 +16,7 @@ use sofar_core::cli::{Color, Dispatch, Owned, dispatch};
 use sofar_core::fold_cli::{CmdResult, run_fold};
 use sofar_core::hook::read_stdin;
 use sofar_core::host::for_host;
+use sofar_core::inline::handed_back;
 use sofar_core::post_tool::{handle_post_tool, handle_post_tool_failure};
 use sofar_core::resolve::resolve_root;
 use sofar_core::session_start::handle_session_start;
@@ -97,6 +98,22 @@ fn not_ours(message: &str) -> ExitCode {
     ExitCode::from(64)
 }
 
+/// `Stop` and `SessionEnd`: a payload that may carry an in-band write-back is
+/// handed back to the TypeScript engine, which files it (r4-fixes A1); every
+/// other one is the core's.
+fn closing_hook(
+    hook: Hook,
+    root: Option<&std::path::Path>,
+    handler: fn(&std::path::Path, &str) -> CmdResult,
+) -> ExitCode {
+    let root = resolve_root(root);
+    let input = read_stdin();
+    if let Some(result) = handed_back(hook, &root, &input) {
+        return mirror(&result);
+    }
+    mirror(&for_host(hook, &input, |input| handler(&root, input)))
+}
+
 fn main() -> ExitCode {
     match dispatch(std::env::args_os().skip(1)) {
         Dispatch::Owned(Owned::Fold { args }) => mirror(&run_fold(&args)),
@@ -162,21 +179,11 @@ fn main() -> ExitCode {
         Dispatch::Owned(Owned::Event {
             hook: Hook::Stop,
             root,
-        }) => {
-            let root = resolve_root(root.as_deref());
-            mirror(&for_host(Hook::Stop, &read_stdin(), |input| {
-                handle_stop(&root, input)
-            }))
-        }
+        }) => closing_hook(Hook::Stop, root.as_deref(), handle_stop),
         Dispatch::Owned(Owned::Event {
             hook: Hook::SessionEnd,
             root,
-        }) => {
-            let root = resolve_root(root.as_deref());
-            mirror(&for_host(Hook::SessionEnd, &read_stdin(), |input| {
-                handle_session_end(&root, input)
-            }))
-        }
+        }) => closing_hook(Hook::SessionEnd, root.as_deref(), handle_session_end),
         Dispatch::Owned(Owned::Statusline { root, color }) => {
             // Styled by default (the status bar renders ANSI even piped);
             // `--no-color` or NO_COLOR present opts back into plain (D7).

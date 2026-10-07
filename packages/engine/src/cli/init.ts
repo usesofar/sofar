@@ -15,6 +15,7 @@ import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { effectiveHooksDir } from '../core/attribution'
 import { commonGitDir, gitToplevel } from '../core/git'
+import { writebackMode, type WritebackMode } from '../core/inline-block'
 import { promptCaptureEnabled, setPromptCapture } from '../core/prompt-buffer'
 import { mcpRegistration } from '../mcp/register'
 import {
@@ -869,7 +870,7 @@ export const LINK_DISPOSITION = {
  * r3-fixes 2.5: LINK_DISPOSITION. Everything else is V12, which stays a byte-exact literal; this block
  * inserts the bullet before DURING.
  */
-export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.claude).replace(...LINK_DISPOSITION.claude).replace(
+export const PROTOCOL_BLOCK_V13 = PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.claude).replace(...LINK_DISPOSITION.claude).replace(
   '- DURING: work; the record is written once',
   `- LINKS: name another record's task, decision or memory as \`<slug> <id>\`
   (\`billing 2.3\`, \`billing D4\`, \`billing M2\`) — a bare id means this
@@ -880,6 +881,73 @@ export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.c
   resolved.
 - DURING: work; the record is written once`,
 )
+
+/**
+ * r4-fixes A1 (SPEC §In-band write-back): the write-back is the fenced block
+ * the final reply ends with, filed by the Stop hook — no start call and no
+ * sofar tool call mid-session. V13 (0.34's block) stays whole underneath and
+ * is what SOFAR_WRITEBACK=tool installs.
+ */
+export const INLINE_WRITEBACK = {
+  claude: {
+    start: [
+      `  On Claude Code, sofar's tools adopt this session from its own id: there is
+  no start call. Elsewhere, call \`sofar_start_session\` first with the
+  \`session_id\` from the injected "Session:" line — it pins which record
+  your writes land in and attaches them to YOUR session.`,
+      `  There is no start call: sofar's hooks know this session, and the block
+  you end with (BEFORE FINISHING) files under it. Only before a sofar tool
+  on a host that has not adopted this session (anything but Claude Code),
+  call \`sofar_start_session\` with the \`session_id\` from the injected
+  "Session:" line.`,
+    ],
+    during: [
+      `  the session decides and changes — \`sofar_end_session\` carries all of it.`,
+      `  the session decides and changes — your write-back block carries all of
+  it, task status changes included, so no sofar tool call is needed.`,
+    ],
+    finish: [
+      `- BEFORE FINISHING: write back with ONE \`sofar_end_session\` call —
+  summary and next action, plus the session's \`decisions\` (each as
+  sofar_log_decision's arguments), \`tasks\` (status changes; a task the
+  plan lacks, with its \`title\`), \`phases\`, \`memories\` (operational
+  facts every later session needs: a release command, a failure mode and
+  its diagnosis, a convention) and \`notes\`. The Stop hook blocks sessions
+  that skip this.`,
+      `- BEFORE FINISHING: end your final reply with ONE fenced \`sofar\` block —
+  the write-back. The Stop hook files it; nothing else is needed:
+  \`\`\`sofar
+  {"summary":"<what happened, and why>","next_action":"<the single next step>",
+   "tasks":[{"task_id":"2.3","status":"done","note":"<evidence>"}],
+   "decisions":[{"chose":"…","over":"…","because":"<≤280 chars>"}],
+   "memories":["<operational fact>"],"notes":["<finding>"]}
+  \`\`\`
+  Its fields are \`sofar_end_session\`'s: \`decisions\` each as
+  sofar_log_decision's arguments, \`tasks\` (status changes; a task the plan
+  lacks, with its \`title\`), \`phases\`, \`memories\` (operational facts
+  every later session needs: a release command, a failure mode and its
+  diagnosis, a convention), \`notes\`, \`brief_append\`. Quote the operator by
+  prompt id (\`"quote":"P3"\`). Keep it last and compact; if sofar asks for a
+  repair, end your next reply with the corrected block, whole. One
+  \`sofar_end_session\` call does the same; the Stop hook blocks a session
+  that writes back neither way.`,
+    ],
+  },
+} as const
+
+export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V13.replace(...INLINE_WRITEBACK.claude.start)
+  .replace(...INLINE_WRITEBACK.claude.during)
+  .replace(...INLINE_WRITEBACK.claude.finish)
+
+/** The CLAUDE.md block for a write-back mode: 0.34's V13 under SOFAR_WRITEBACK=tool. */
+export function protocolBlock(mode: WritebackMode = writebackMode()): string {
+  return mode === 'inline' ? PROTOCOL_BLOCK : PROTOCOL_BLOCK_V13
+}
+
+/** Blocks init may refresh in a mode: the ledger, plus the other mode's current block. */
+export function shippedProtocolBlocks(mode: WritebackMode = writebackMode()): readonly string[] {
+  return mode === 'inline' ? SHIPPED_PROTOCOL_BLOCKS : [...SHIPPED_PROTOCOL_BLOCKS, PROTOCOL_BLOCK]
+}
 
 /** Superseded CLAUDE.md blocks, oldest first. */
 export const SHIPPED_PROTOCOL_BLOCKS: readonly string[] = [
@@ -895,6 +963,7 @@ export const SHIPPED_PROTOCOL_BLOCKS: readonly string[] = [
   PROTOCOL_BLOCK_V10,
   PROTOCOL_BLOCK_V11,
   PROTOCOL_BLOCK_V12,
+  PROTOCOL_BLOCK_V13,
 ]
 
 /**
@@ -1836,7 +1905,7 @@ export const AGENTS_PROTOCOL_BLOCK_V12 = AGENTS_PROTOCOL_BLOCK_V11.replace(
  * `supersedes`, so each old rule stayed in force beside its replacement.
  * r3-fixes 2.9: BRIEF_BY_REFERENCE; 2.5: LINK_DISPOSITION. Everything else is V12.
  */
-export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.agents).replace(
+export const AGENTS_PROTOCOL_BLOCK_V13 = AGENTS_PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFERENCE.agents).replace(
   '  Omit it for a one-off choice.\n',
   `  Omit it for a one-off choice.
   A decision that changes or replaces an earlier one names it, or the old
@@ -1844,6 +1913,57 @@ export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V12.replace(...BRIEF_
   as \`sofar status\` shows it), and a "rule" when the old one had a rule.
 `,
 ).replace(...LINK_DISPOSITION.agents)
+
+/**
+ * r4-fixes A1 for AGENTS.md (Codex, Cursor): with the record injected by
+ * sofar's hooks, the write-back is the fenced block — no start call, no
+ * session_started append, no tool. A hookless agent keeps the CLI append.
+ */
+export const INLINE_WRITEBACK_AGENTS = {
+  block: [
+    `Without MCP tools, every write is one \`sofar event append\` call:
+`,
+    `- WRITE-BACK BLOCK: with the record INJECTED, your write-back is the last
+  thing in your FINAL reply — ONE fenced \`sofar\` block (BEFORE FINISHING
+  shows it) — and sofar's hooks file it under this session: no
+  \`sofar_start_session\`, no \`session_started\` append, and no task or
+  decision call mid-session. A tool or an append is only for a write a
+  concurrent session must see before you finish.
+Without MCP tools, every write is one \`sofar event append\` call:
+`,
+  ],
+  finish: [
+    `- BEFORE FINISHING (MANDATORY): write back —
+  \`sofar event append <slug> --type session_ended --source <tool> --payload '{"summary":"<what happened>","next_action":"<single next step>"}'\`
+`,
+    `- BEFORE FINISHING (MANDATORY): write back. With the record INJECTED, end
+  your final reply with ONE fenced block; sofar's hooks file it:
+  \`\`\`sofar
+  {"summary":"<what happened, and why>","next_action":"<single next step>",
+   "tasks":[{"task_id":"<id>","status":"done","note":"<evidence>"}],
+   "decisions":[{"chose":"…","over":"…","because":"<≤280 chars>","supersedes":"none"}],
+   "memories":["<operational fact>"],"notes":["<finding>"]}
+  \`\`\`
+  Also \`phases\` and \`brief_append\`; a task the plan lacks needs its
+  \`title\`; quote the operator by prompt id (\`"quote":"P3"\`). Keep it last and compact; if sofar asks for a repair,
+  end your next reply with the corrected block, whole. Without the injected
+  record, append it:
+  \`sofar event append <slug> --type session_ended --source <tool> --payload '{"summary":"<what happened>","next_action":"<single next step>"}'\`
+`,
+  ],
+} as const
+
+export const AGENTS_PROTOCOL_BLOCK = AGENTS_PROTOCOL_BLOCK_V13.replace(...INLINE_WRITEBACK_AGENTS.block).replace(...INLINE_WRITEBACK_AGENTS.finish)
+
+/** The AGENTS.md block for a write-back mode: 0.34's V13 under SOFAR_WRITEBACK=tool. */
+export function agentsProtocolBlock(mode: WritebackMode = writebackMode()): string {
+  return mode === 'inline' ? AGENTS_PROTOCOL_BLOCK : AGENTS_PROTOCOL_BLOCK_V13
+}
+
+/** AGENTS.md blocks init may refresh in a mode: the ledger, plus the other mode's current block. */
+export function shippedAgentsProtocolBlocks(mode: WritebackMode = writebackMode()): readonly string[] {
+  return mode === 'inline' ? SHIPPED_AGENTS_PROTOCOL_BLOCKS : [...SHIPPED_AGENTS_PROTOCOL_BLOCKS, AGENTS_PROTOCOL_BLOCK]
+}
 
 /** Superseded AGENTS.md blocks, oldest first. */
 export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [
@@ -1859,6 +1979,7 @@ export const SHIPPED_AGENTS_PROTOCOL_BLOCKS: readonly string[] = [
   AGENTS_PROTOCOL_BLOCK_V10,
   AGENTS_PROTOCOL_BLOCK_V11,
   AGENTS_PROTOCOL_BLOCK_V12,
+  AGENTS_PROTOCOL_BLOCK_V13,
 ]
 
 // REPO_MD_STUB moved to ./shared (ui-free) so event.ts can import it without
@@ -3139,7 +3260,7 @@ export function runInit(
       if (mcp.change === 'unchanged' && !mcp.userStep) mergeCodexDirect(rootDir, report)
     }
     if (claude) {
-      appendProtocolBlock(rootDir, 'CLAUDE.md', PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS, report)
+      appendProtocolBlock(rootDir, 'CLAUDE.md', protocolBlock(), shippedProtocolBlocks(), report)
     }
     if (options.promptCapture !== undefined && options.promptCapture !== promptCaptureEnabled(rootDir)) {
       setPromptCapture(rootDir, options.promptCapture)
@@ -3151,8 +3272,8 @@ export function runInit(
       appendProtocolBlock(
         rootDir,
         'AGENTS.md',
-        AGENTS_PROTOCOL_BLOCK,
-        SHIPPED_AGENTS_PROTOCOL_BLOCKS,
+        agentsProtocolBlock(),
+        shippedAgentsProtocolBlocks(),
         report,
       )
     }

@@ -17,6 +17,7 @@ import {
   CODEX_TRUST_HINT,
   codexHookCommand,
   PROTOCOL_BLOCK,
+  PROTOCOL_BLOCK_V13,
   runInit,
   SHIPPED_AGENTS_PROTOCOL_BLOCKS,
 } from '../src/cli/init'
@@ -282,7 +283,8 @@ describe('the AGENTS.md block a Codex session reads (agents-parity 2.3, D8)', ()
     expect(preamble).toContain("Codex loads them from a trusted\n  project's `.codex/config.toml`")
     expect(preamble).toContain('Their Stop hook blocks a session that ends without writing back.')
     // CLAUDE.md states the same gate, so a session loading both hears one answer.
-    expect(PROTOCOL_BLOCK).toContain('The Stop hook blocks sessions\n  that skip this.')
+    expect(PROTOCOL_BLOCK.replace(/\n\s+/g, ' ')).toContain('the Stop hook blocks a session that writes back neither way')
+    expect(PROTOCOL_BLOCK_V13).toContain('The Stop hook blocks sessions\n  that skip this.')
     expect(cliLoop).toBeDefined()
     expect(cliLoop).not.toContain('sofar_')
   })

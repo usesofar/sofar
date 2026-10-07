@@ -282,6 +282,9 @@ export function childEnv(m: Materialized, extra: Record<string, string | undefin
     SOFAR_NO_UPDATE_CHECK: '1',
     // The stub's dispatch target (rust-core 3.1); absent = TypeScript throughout.
     SOFAR_CORE: CORE,
+    // A candidate run directly hands an in-band write-back back to THIS
+    // reference (r4-fixes A1); through the stub, the stub names itself.
+    SOFAR_CLI: CANDIDATE !== undefined && CANDIDATE.trim().length > 0 ? reference().command[1] : undefined,
     LANG: 'en_US.UTF-8',
     LC_ALL: 'en_US.UTF-8',
     TZ: 'UTC',

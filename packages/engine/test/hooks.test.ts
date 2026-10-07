@@ -17,7 +17,7 @@ import {
   handleStop,
   handleUserPrompt,
   NUDGE_DRIFT_MIN,
-  STOP_BLOCK_MESSAGE,
+  STOP_BLOCK_MESSAGE, STOP_BLOCK_MESSAGE_TOOL,
 } from '../src/cli/event'
 import { NUDGE_ENV } from '../src/driver/nudge'
 import { sessionTitle } from '../src/cli/host'
@@ -790,7 +790,11 @@ describe('sofar event stop — write-back enforcement (3.4, BD2)', () => {
     const result = handleStop(fixture.root, stopStdin())
     expect(result.exitCode).toBe(2)
     expect(result.stderr).toBe(STOP_BLOCK_MESSAGE)
+    // The in-band write-back (r4-fixes A1) asks for the block first; 0.34's line is SOFAR_WRITEBACK=tool's.
     expect(result.stderr).toBe(
+      'Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.',
+    )
+    expect(STOP_BLOCK_MESSAGE_TOOL).toBe(
       'Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).',
     )
     expect(result.stdout).toBe('')

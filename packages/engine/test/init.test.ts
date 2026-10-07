@@ -40,6 +40,14 @@ import {
   shimsFor,
   STATUSLINE_HINT,
   STATUSLINE_SETTINGS_ENTRY,
+  AGENTS_PROTOCOL_BLOCK_V13,
+  PROTOCOL_BLOCK_V13,
+  INLINE_WRITEBACK,
+  INLINE_WRITEBACK_AGENTS,
+  protocolBlock,
+  agentsProtocolBlock,
+  shippedProtocolBlocks,
+  shippedAgentsProtocolBlocks,
 } from '../src/cli/init'
 import { runDoctor } from '../src/cli/doctor'
 
@@ -197,7 +205,8 @@ describe('sofar init on a fresh repo', () => {
     // …but start_session is NOT optional: it sets the server's active
     // session, and without it writes follow the branch binding and appends
     // stamp session "cli" (the record-integrity misroute class).
-    expect(claudeMd).toContain('On Claude Code, sofar\'s tools adopt this session')
+    expect(claudeMd).toContain('There is no start call: sofar\'s hooks know this session')
+    expect(PROTOCOL_BLOCK_V13).toContain('On Claude Code, sofar\'s tools adopt this session')
 
     // AGENTS.md convention dialect: same markers, same three BD19 clauses,
     // but a CLI-only loop (no MCP assumptions — task 5.1, BD31)
@@ -715,10 +724,11 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     // Only LINKS and the brief wording (r3-fixes 2.9) were added: the block
     // minus both is the one shipped before it, byte for byte.
     const [shipped, now] = BRIEF_BY_REFERENCE.claude
-    const unbriefed = PROTOCOL_BLOCK.replace(now, shipped).replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
-    expect(unbriefed.replace(links(unbriefed), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-1))
-    const v12 = SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)!
-    expect(v12.replace(links(v12), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2))
+    // (V13 is that block as 0.34 shipped it; r4-fixes A1's inline edits sit on top — see below.)
+    const unbriefed = PROTOCOL_BLOCK_V13.replace(now, shipped).replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
+    expect(unbriefed.replace(links(unbriefed), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-2))
+    const v12 = SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2)!
+    expect(v12.replace(links(v12), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-3))
   })
 
   it('teaches the CLI dialect to name what a decision replaces (r3-fixes 2.7)', () => {
@@ -730,10 +740,10 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     ].join('\n')
     expect(AGENTS_PROTOCOL_BLOCK).toContain(sentence)
     // Only that sentence and the brief wording (r3-fixes 2.9) were added: the
-    // current block minus both is V12, byte for byte.
+    // 0.34 block (V13) minus both is V12, byte for byte.
     const [shipped, now] = BRIEF_BY_REFERENCE.agents
-    const undisposed = AGENTS_PROTOCOL_BLOCK.replace(LINK_DISPOSITION.agents[1], LINK_DISPOSITION.agents[0])
-    expect(undisposed.replace(sentence, '').replace(now, shipped)).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1))
+    const undisposed = AGENTS_PROTOCOL_BLOCK_V13.replace(LINK_DISPOSITION.agents[1], LINK_DISPOSITION.agents[0])
+    expect(undisposed.replace(sentence, '').replace(now, shipped)).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2))
   })
 
   const driving = (b: string): string => /- DRIVING:[\s\S]*?(?=\n- BEFORE FINISHING)/.exec(b)![0]
@@ -772,11 +782,31 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     // 4.6 added the PLAN bullet alone (the brief, L36), once r3-fixes 2.5's
     // link disposition in DURING is set aside.
     const plan = (b: string): string => /- PLAN:[\s\S]*?(?=\n- DURING)/.exec(b)![0]
-    const block = PROTOCOL_BLOCK.replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
+    const block = PROTOCOL_BLOCK_V13.replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
     expect(block.replace(`${plan(block)}\n`, '')).toBe(v11)
     expect(v11).not.toContain('brief')
     expect(flat(v10)).toContain('Then run `sofar drive <slug> --await` in a background shell: silent until the run stops')
     expect(classifyProtocolBlock(v10, PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS)).toBe('stale')
+  })
+
+  it('the in-band write-back (r4-fixes A1) edits only START, DURING and BEFORE FINISHING; 0.34 is V13, in the ledger and the tool arm', () => {
+    const flat = (b: string): string => b.replace(/\s+/g, ' ')
+    const back = (b: string, edits: ReadonlyArray<readonly [string, string]>): string => edits.reduce((x, [old, now]) => x.replace(now, old), b)
+    const claude = INLINE_WRITEBACK.claude
+    expect(back(PROTOCOL_BLOCK, [claude.start, claude.during, claude.finish])).toBe(PROTOCOL_BLOCK_V13)
+    expect(back(AGENTS_PROTOCOL_BLOCK, [INLINE_WRITEBACK_AGENTS.block, INLINE_WRITEBACK_AGENTS.finish])).toBe(AGENTS_PROTOCOL_BLOCK_V13)
+    expect(SHIPPED_PROTOCOL_BLOCKS.at(-1)).toBe(PROTOCOL_BLOCK_V13)
+    expect(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)).toBe(AGENTS_PROTOCOL_BLOCK_V13)
+    expect(protocolBlock('tool')).toBe(PROTOCOL_BLOCK_V13)
+    expect(agentsProtocolBlock('tool')).toBe(AGENTS_PROTOCOL_BLOCK_V13)
+    // Either arm refreshes the other's untouched block.
+    expect(classifyProtocolBlock(PROTOCOL_BLOCK_V13, protocolBlock('inline'), shippedProtocolBlocks('inline'))).toBe('stale')
+    expect(classifyProtocolBlock(PROTOCOL_BLOCK, protocolBlock('tool'), shippedProtocolBlocks('tool'))).toBe('stale')
+    expect(classifyProtocolBlock(AGENTS_PROTOCOL_BLOCK, agentsProtocolBlock('tool'), shippedAgentsProtocolBlocks('tool'))).toBe('stale')
+    // The example in each block is itself a block the hook would file.
+    for (const b of [PROTOCOL_BLOCK, AGENTS_PROTOCOL_BLOCK]) expect(b).toContain('```sofar')
+    expect(flat(PROTOCOL_BLOCK)).toContain('no sofar tool call is needed')
+    expect(flat(AGENTS_PROTOCOL_BLOCK)).toContain('no `sofar_start_session`, no `session_started` append')
   })
 
   it('keeps every block sofar ever shipped classifiable as stale, in both dialects', () => {

@@ -4673,6 +4673,97 @@ different rule on main. Render only: no event, payload or fold change.
   decision's id and both halves of a supersession whose rule, quote and until
   agree whole (DIGEST_CACHE_VERSION 5).
 
+## In-band write-back
+r4-fixes A1 (1.2 O1/N1, O8 folded in; ruling R10). The agent's final reply
+ends with ONE fenced block whose info string is `sofar`, and the hooks file it
+— no sofar tool call anywhere in the session. Round 4 paid one full-context
+round trip per sofar MCP call: 37–39 a chain on Codex, 138 in 3 reps on
+Claude, two per first use on Cursor (the schema fetch, then the call).
+
+- SWITCH: `SOFAR_WRITEBACK=inline` (the default) or `tool`. `tool` is 0.34
+  exactly — no block is read, the Stop hold names the tool, no grammar repair
+  below applies — and is the ablation arm. Under `inline` the tool path is
+  KEPT: sofar_end_session and every other tool work as before.
+- GRAMMAR (core/inline-block.ts): an opening line that is exactly
+  ```` ```sofar ```` (surrounding whitespace aside), the body, and the first
+  later line that is exactly ```` ``` ````; the LAST such block in the text
+  counts, and an unclosed one runs to the end. The body is one JSON object:
+  sofar_end_session's arguments (summary, next_action, tasks, phases,
+  decisions, memories, notes, brief_append), judged by the same input
+  validator. A `session_id` other than the hook's is an error, never a
+  redirect; an `initiative` follows r4-fixes U6. No `start_session` is needed
+  on any host: the hook's payload names the session, and the events take its
+  registered tool as their source.
+- WHERE THE TEXT COMES FROM: Stop's `last_assistant_message` (Claude Code,
+  Codex). Cursor's payloads carry no reply text, so on Cursor the last
+  assistant entry of the JSONL transcript the payload's `transcript_path`
+  names, from its last 256 KiB — read at Stop (interactive UI only) and at
+  sessionEnd. Claude Code's transcript may lag its Stop, so it is never read.
+  The R18 probe (static, cursor-agent 2026.09.28-64d2043 and
+  2026.10.01-e373342; no model call): `stop`, `beforeSubmitPrompt` and
+  `afterAgentResponse` are fired by the interactive UI (`src/ui.tsx`) and by
+  nothing in the headless runner (`src/headless.ts`), and the probe runs saw
+  no `stop` headless; `sessionStart`, `sessionEnd` and the tool hooks fire in
+  both, and every payload but the tab hooks' carries `transcript_path`. So
+  sofar adds NO Cursor hook entry: headless Cursor files the block at
+  sessionEnd, which cannot hold, so a Cursor block that does not file whole
+  gets no repair ask — it is filed final (below) at once.
+- ONE ASK, NOTHING LOST (mcp/inline-writeback.ts): a first filing that would
+  leave anything out — bad JSON, a bad field, an entry the write-back planner
+  refuses (the tool's `not_filed`), another initiative — files NOTHING, exits
+  2 with `sofar: your ```sofar write-back did not file — nothing from it is in
+  the record yet. End your reply with the corrected block, whole:` and one
+  `- <error>` line per problem, and stashes the block
+  (`.sofar/.index/inline/<session>.json`). The next filing is FINAL: a Stop
+  with `stop_hook_active`, any later Stop or SessionEnd of the session (a
+  stash is asked about once), or a Cursor sessionEnd. It files the repaired
+  block if the reply carries one, else the stash: every entry that can file
+  does; each entry or top-level field that cannot rides the same write-back as
+  a note, `From this session's in-band write-back, <what> did not file (<why>);
+  kept verbatim: <json>`; a block with no usable summary or next_action files
+  its entries with no session_ended made up (the half it has is kept as such a
+  note); a body that is not a JSON object, or names another initiative, is
+  itself the note. A block whose summary and next_action already are the
+  session's write-back files nothing again (a Stop and a SessionEnd reading
+  one reply).
+- FILED THROUGH sofar_end_session'S PATH (mcp/write-back.ts, judge-free so a
+  hook reaches it; the write-time judges stay on the MCP server's path): the
+  same arguments file the same events, payloads and projections as the tool.
+  What the tool would have returned — warnings, `not_filed`, parallel
+  write-backs — is printed for the operator as Stop's `systemMessage`, or
+  rides a hold's stderr when the gate holds anyway.
+- GRAMMAR REPAIRS (every write-back while `inline`, the tool's included, so
+  both paths fold the same): a decision's `because` over 280 chars is filed
+  as the writer's own whole sentences from the start that fit, else the words
+  that fit and `…`, with a `warnings` line naming it by handle (the reversal
+  check reads the words as written); a decision's `quote` that is a `P<n>`
+  this session captured is the prompt itself through redactProse, then cut as
+  any quote (r3-fixes 2.8); one never captured files the decision without a
+  quote and a `warnings` line. Round 4's 94 write-backs held 200 decisions,
+  17 of them over the cap.
+- THE HOLD: a session that owes a write-back and whose reply has no block is
+  held with `Write back to the sofar record before finishing: end your reply
+  with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks,
+  decisions, memories, notes — or call sofar_end_session.` (Codex: the same,
+  ending `or call sofar_end_session with session_id <id>.`) — the
+  continuation's reply is then the write-back. Under `tool` the 0.34 lines.
+- BOTH ENGINES: filing is TypeScript's. The native core hands a Stop or
+  SessionEnd to it — after reading stdin, so not by exit 64 — when the
+  switch is `inline` and the payload may carry a block: a
+  `last_assistant_message` containing ```` ```sofar ````, a Cursor
+  transcript tail containing it, or a stash for the session (a superset of
+  what TypeScript acts on; elsewhere TypeScript's answer is the core's). It
+  runs `<cli> event <hook> --root <root>` with `SOFAR_CORE=0` and the same
+  stdin, and mirrors exit, stdout and stderr byte for byte; `<cli>` is
+  `SOFAR_CLI` (the stub names itself when it dispatches), else the sofar.sh
+  package's `dist/cli.js` beside the binary, else `sofar` on PATH. A CLI that
+  cannot run leaves the hook to the core. Every other Stop and SessionEnd
+  stays native.
+- VISIBLE (R10): the block is part of the reply the operator reads, and of
+  `claude -p`'s result; a harness parsing that result skips it. The protocol
+  blocks (CLAUDE.md, AGENTS.md, the Cursor rule) teach it: last, compact, one
+  block, `because` ≤ 280 chars, quotes by prompt id.
+
 ## MCP tools (server name: sofar)
 
 **Server instructions (r1-fixes 2.1, D10; memory-lead 1.1, D3).** The
@@ -4685,9 +4776,13 @@ with the injected session id; the session writes back ONCE, at wrap-up, and
 sofar_end_session carries its decisions, task changes (a new task with its
 title), phase changes, memories and notes, with sofar_log_decision mid-session
 only for a decision a concurrent session must see first; review, close and
-find are CLI. SERVER_INSTRUCTIONS is the non-adopted text. The protocol block
-carries the loop itself; instructions ride every initialize, so they stay
-short.
+find are CLI. SERVER_INSTRUCTIONS is the non-adopted text. Under the in-band
+write-back (§In-band write-back, the default) the non-adopted line asks for
+sofar_start_session only before a sofar tool, since the write-back block
+needs no call, and the write-back sentence names the ```` ```sofar ```` block
+first and sofar_end_session as the alternative; `SOFAR_WRITEBACK=tool` keeps
+the text above. The protocol block carries the loop itself; instructions ride
+every initialize, so they stay short (≤800 chars).
 
 **Write guard (branch-visibility 3.4).** Every write tool's result, bare
 `{ok, event_id}` ones included, may add a `warnings` line when the record it
@@ -6053,13 +6148,18 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   paths and secrets, and the record is committed and synced. No guard notice
   and no stdout: the notice comments on an edit just made, and this call made
   none. Best-effort per BD22: every failure path is exit 0 and silence.
-- Stop shim → reads stdin JSON; if stop_hook_active is true → exit 0
+- Stop shim → reads stdin JSON; under the in-band write-back (the default,
+  §In-band write-back) first files the block the final reply ends with, or
+  asks once for its repair. Then if stop_hook_active is true → exit 0
   (loop guard; Claude Code and Codex set it on a turn Stop already
   continued, Codex once per turn with no loop key of its own, and Cursor's
   `loop_count` converts to it — §Cursor host, §Codex host). Else if no session_ended event exists for this session_id
   AND gate-relevant drift is nonzero → exit 2 with stderr: "Write back to
+  the sofar record before finishing: end your reply with a ```sofar block —
+  {"summary":"…","next_action":"…"} plus any tasks, decisions, memories,
+  notes — or call sofar_end_session." (`SOFAR_WRITEBACK=tool`: "Write back to
   the sofar record before finishing: call sofar_end_session (or append
-  session_ended via `sofar event append`)." Else exit 0.
+  session_ended via `sofar event append`).") Else exit 0.
   Gate-relevant drift (drift-signal 1.2, superseding speed T1) =
   sessionDebt(state, session): the stopping session's OWN unwritten
   mutations plus freshness.unattributed_mutations. Read-side, zero new
@@ -6080,8 +6180,10 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   the block (fail closed — never a silent skip); every other resolution
   failure keeps exiting 0 (BD22). The gate only ever converts an exit-2
   into an exit-0 — no today-exit-0 path becomes blocking.
-- SessionEnd shim → appends mechanical session-close marker (fallback only;
-  cannot feed back to the agent).
+- SessionEnd shim → files an in-band write-back with no ask left (a stash a
+  Stop asked about; on Cursor the transcript's final reply —
+  §In-band write-back), then appends the mechanical session-close marker
+  unless the session has ended (fallback only; cannot feed back to the agent).
 - pre-commit shim → `.git/hooks/pre-commit` (memory-lead 2.3, D9): runs
   `sofar check --staged` and exits 1 only when that returned 10, else 0 —
   so no sofar, an older sofar without `check`, or a crash never fails a
@@ -9378,6 +9480,22 @@ stay the underlying derivation's, and exit codes are styling-independent.
   session_ended follows the session's home without a slug and is refused
   with a slug naming another record. Round 4's 5 refused payloads file with
   none refused whole. Tests: test/writeback-isolation.test.ts.
+- **In-band write-back (r4-fixes A1):** a final reply ending with a
+  ```` ```sofar ```` block of sofar_end_session's arguments files, at Stop
+  (Claude Code, Codex) or Cursor's sessionEnd, exactly the events the tool
+  files from the same arguments, under the hook's session and its registered
+  tool, with no sofar tool call. Replaying round 4's 94 write-backs (65
+  Claude, 29 Codex) as blocks against the record each was filed into folds
+  to the tool path's state, 100% (three Codex payloads named a session sofar
+  minted for an argless sofar_start_session; an inline session makes no
+  start call, so their blocks carry no session_id, and the tool leg files
+  the same arguments). Each of 20 malformed blocks gets one repair
+  ask and nothing filed; answered with the same block, every entry is filed
+  or kept verbatim as a note — 0 lost. `SOFAR_WRITEBACK=tool` is 0.34
+  byte for byte. The native core hands such a Stop or SessionEnd to
+  TypeScript, so both engines answer it identically. Tests:
+  test/inline-writeback.test.ts, test/inline-replay.test.ts (private data),
+  sofar-core `inline` unit tests.
 - **Index and shards (memory-lead 4.3 part A, D45):** decisions.md lists
   every decision as one line, a replaced one as its handle and successor and a
   retired one as its handle and task; decisions/D<n>.md holds it whole and

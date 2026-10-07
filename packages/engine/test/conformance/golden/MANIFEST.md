@@ -1,5 +1,22 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED and ADDED for **r4-fixes A1** (0.35.0, branch wave-a-a1; docs/SPEC.md
+§In-band write-back), from the TypeScript reference; the Rust core reproduces
+every one (`SOFAR_CORE=… vitest run test/conformance`: 292 passed). Ten goldens
+moved, each by one line and for one reason: the Stop hold of a session that
+owes a write-back now asks for the block first — `Write back to the sofar
+record before finishing: end your reply with a ```sofar block —
+{"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes —
+or call sofar_end_session.` (cell.calib-1, cell.round-1-sofar,
+cell.smoke-4-drive, cell.smoke-4-sofar, repo.hook-lifecycle, syn.baseline,
+syn.corrupt, syn.guards, syn.merge, syn.surfacing). One new case,
+`syn.inline-writeback`: a block that is not JSON gets one repair ask and files
+nothing; the held Stop files the repaired block; the same reply at SessionEnd
+files nothing twice; `SOFAR_WRITEBACK=tool` reads no block and holds with
+0.34's line; a Cursor sessionEnd files the block its transcript ends with. On
+the native leg every step that may carry a block is the TypeScript engine's,
+handed back by the core. No previous set is kept.
+
 Re-recorded on **main** at the 0.34.1 merge-back (r4-fixes 0.1, U2). Main's
 engine version is `0.35.0-dev+trunk` (r1-fixes M7's `+trunk`, on the next
 minor's pre-release so the pinned `@sofar.sh/core-*` resolve to nothing

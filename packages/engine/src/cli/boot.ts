@@ -38,6 +38,10 @@
  *    platform package into the per-user store the hook shims try first. Any
  *    TypeScript boot does it — a hook through the stub, the MCP server at
  *    session start, a human command — so the hook after it runs native.
+ * 5. Name itself to the core (`SOFAR_CLI`): a hook the core must hand back
+ *    after reading stdin — a Stop or SessionEnd carrying an in-band
+ *    write-back (r4-fixes A1) — is re-run on THIS build, never whichever
+ *    `sofar` PATH holds.
  *
  * The stub must stay dependency-free: anything imported here is paid for by
  * BOTH paths. core.ts, core-store.ts and update-cache.ts are node builtins
@@ -83,7 +87,10 @@ try {
 function runCore(core: { path: string; explicit: boolean }, argv: readonly string[]): boolean {
   const result = spawnSync(core.path, argv, {
     stdio: 'inherit',
-    env: { ...process.env, SOFAR_CORE_DISPATCHED: '1' },
+    // SOFAR_CLI: this build, for the hooks the core hands back to TypeScript
+    // after reading stdin (r4-fixes A1: a Stop or SessionEnd carrying an
+    // in-band write-back), so the hand-back runs the same version.
+    env: { ...process.env, SOFAR_CORE_DISPATCHED: '1', SOFAR_CLI: fileURLToPath(import.meta.url) },
   })
   if (result.error !== undefined) {
     // A named binary that cannot run is a debugging mistake worth one line; a
