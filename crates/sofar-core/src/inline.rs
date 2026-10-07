@@ -43,7 +43,7 @@ pub fn writeback_inline() -> bool {
 }
 
 /// `writebackModeFor` (r4-fixes H5): Claude Code writes back through
-/// sofar_end_session by default, every other host in band;
+/// `sofar_end_session` by default, every other host in band;
 /// `SOFAR_WRITEBACK=tool` or `=inline` decides for every host.
 #[must_use]
 pub fn writeback_inline_for(tool: &str) -> bool {
@@ -217,7 +217,10 @@ mod tests {
         assert!(!inline_for(crate::host::CLAUDE_CODE, None));
         assert!(inline_for(crate::host::CURSOR, None));
         assert!(inline_for("codex", None));
-        assert!(inline_for(crate::host::CLAUDE_CODE, Some(OsStr::new("inline"))));
+        assert!(inline_for(
+            crate::host::CLAUDE_CODE,
+            Some(OsStr::new("inline"))
+        ));
         assert!(!inline_for(crate::host::CURSOR, Some(OsStr::new("tool"))));
     }
 
@@ -225,7 +228,8 @@ mod tests {
     fn hands_back_only_what_may_carry_a_block() {
         let dir = crate::testing::scratch_dir("inline-hands-back");
         // A host that writes back in band (r4-fixes H5: not Claude Code by default).
-        let stop = |extra: &str| format!("{{\"session_id\":\"s1\",\"cursor_version\":\"1\"{extra}}}");
+        let stop =
+            |extra: &str| format!("{{\"session_id\":\"s1\",\"cursor_version\":\"1\"{extra}}}");
         assert!(!hands_back(Hook::Stop, &dir, &stop("")));
         assert!(!hands_back(
             Hook::Stop,
@@ -258,7 +262,11 @@ mod tests {
             &dir,
             "{\"session_id\":\"s1\",\"last_assistant_message\":\"```sofar\\n{}\\n```\"}"
         ));
-        assert!(!hands_back(Hook::SessionEnd, &dir, "{\"session_id\":\"s1\"}"));
+        assert!(!hands_back(
+            Hook::SessionEnd,
+            &dir,
+            "{\"session_id\":\"s1\"}"
+        ));
         // Cursor: the transcript the payload names.
         let transcript = dir.join("t.jsonl");
         std::fs::write(&transcript, "{\"role\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"```sofar\\n{}\\n```\"}]}}\n").unwrap();

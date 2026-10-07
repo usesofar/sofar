@@ -1649,6 +1649,9 @@ export function handleStop(
  * the session's own newest test command, else the record's. Fails open: a gate
  * that cannot read the index says nothing, since it is never the write-back gate.
  */
+/** How far before a session's start a git-named file must date to be another session's (r4-fixes H1). */
+export const DIRT_SLACK_MS = 2_000
+
 function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState, outcomesKnown: boolean): StopGate {
   const none: StopGate = { lines: [], blocks: false }
   try {
@@ -1664,8 +1667,9 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     // Git names every dirty file in the worktree, and concurrent sessions
     // share one: a file last written before this session began is another
     // session's edit, never this one's (r4-fixes H1). The stat is the one the
-    // edit-time read below already paid for.
-    const started = Date.parse(session.started)
+    // edit-time read below already paid for. The slack absorbs a filesystem
+    // clock coarser than Date.now (Linux stamps mtimes from a lagging tick).
+    const started = Date.parse(session.started) - DIRT_SLACK_MS
     const files: string[] = []
     let editedAt: number | null = null
     for (const [p, fromTree] of [...captured.map((f) => [f, false] as const), ...fromGit.map((f) => [f, true] as const)]) {

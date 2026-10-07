@@ -981,11 +981,13 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     }
     // The in-band write-back (r4-fixes A1) asks for the block first; SOFAR_WRITEBACK=tool is 0.34's
     // line, and Claude Code's by default (r4-fixes H5).
-    let mut lines = vec![if crate::inline::writeback_inline_for(crate::host::hook_host(&hook).tool) {
-        crate::inline::STOP_BLOCK_MESSAGE_INLINE.to_owned()
-    } else {
-        STOP_BLOCK_MESSAGE.to_owned()
-    }];
+    let mut lines = vec![
+        if crate::inline::writeback_inline_for(crate::host::hook_host(&hook).tool) {
+            crate::inline::STOP_BLOCK_MESSAGE_INLINE.to_owned()
+        } else {
+            STOP_BLOCK_MESSAGE.to_owned()
+        },
+    ];
     lines.extend(guard_violation_lines(
         &session_guard_violations(&state, session_id, session.ended.as_deref()),
         root,
@@ -1165,6 +1167,10 @@ fn gate_index(
     index
 }
 
+/// `DIRT_SLACK_MS` (r4-fixes H1): how far before a session's start a
+/// git-named file must date to be another session's.
+const DIRT_SLACK_MS: f64 = 2_000.0;
+
 /// `stopGateFor` (r3-fixes D10, D11): the test gate's verdict for this
 /// session. Edits are the hooks' captures plus what `git status` reports,
 /// asked only when the session ran a command; a run counts only once it
@@ -1203,8 +1209,9 @@ fn stop_gate_for(
     // Git names every dirty file in the worktree, and concurrent sessions
     // share one: a file last written before this session began is another
     // session's edit, never this one's (r4-fixes H1). The stat is the one the
-    // edit-time read below already paid for.
-    let started = crate::date::js_date_parse(&session.started);
+    // edit-time read below already paid for. The slack absorbs a filesystem
+    // clock coarser than Date.now (Linux stamps mtimes from a lagging tick).
+    let started = crate::date::js_date_parse(&session.started).map(|at| at - DIRT_SLACK_MS);
     let mut files: Vec<String> = Vec::new();
     let mut edited_at: Option<f64> = None;
     let tagged = captured
