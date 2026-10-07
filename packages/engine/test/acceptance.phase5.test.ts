@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { EventEnvelope } from '../src/core/envelope'
-import { STOP_BLOCK_MESSAGE } from '../src/cli/event'
+import { STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
 import { scaled } from './helpers/tracked'
 
 /**
@@ -182,7 +182,7 @@ describe('acceptance — opencode-adapter.md manual checklist, simulated against
     // step 8 — parity probe, gate ARMED: the dialect session faces the Stop gate
     const blocked = cli(root, ['event', 'stop'], stopProbe)
     expect(blocked.status).toBe(2)
-    expect(blocked.stderr.trim()).toBe(STOP_BLOCK_MESSAGE)
+    expect(blocked.stderr.trim()).toBe(STOP_BLOCK_MESSAGE_TOOL)
 
     // step 9 — WRITE-BACK (MANDATORY): session_ended via the dialect
     expectOk(

@@ -110,7 +110,7 @@ exit: 2
 --- stdout
 (empty)
 --- stderr
-Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.
+Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
 
 ## step 9: session-end
 argv: ["event","session-end"]

@@ -1,5 +1,22 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **main** at the 0.35.0-rc.3 merge-back (r4-fixes 3.1): main
+keeps `0.36.0-dev+trunk`, and the version string is the whole diff on
+`argv.fast-path` and `open.O2-update-segment`. H5's ten Stop holds and
+`syn.inline-writeback` arrive from release/0.35.0 as recorded there.
+
+Re-recorded on **release/0.35.0** for rc.3 (r4-fixes H5) from the
+TypeScript reference. The version bump is the whole diff: `argv.fast-path`
+(`--version` is `0.35.0-rc.3`) and `open.O2-update-segment` ("you have
+0.35.0-rc.3").
+
+Re-recorded on **writeback-host-default** (from release/0.35.0 rc.2) for
+r4-fixes H5 from the TypeScript reference: Claude Code writes back through
+sofar_end_session by default. The ten Stop holds A1 re-recorded go back to
+0.34's line, and `syn.inline-writeback` names `SOFAR_WRITEBACK=inline` on
+its four Claude-shaped block steps. The Rust core passes them unchanged
+(`SOFAR_CORE=target/release/sofar-core`, 54/54).
+
 Re-recorded on **main** at the 0.35.0-rc.1 merge-back (r4-fixes 3.1). Main's
 engine version is `0.36.0-dev+trunk` (r4-fixes D8's rule: a pre-release at or
 above the newest tag that resolves to nothing published), and the version

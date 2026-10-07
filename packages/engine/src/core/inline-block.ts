@@ -28,6 +28,19 @@ export function writebackMode(env: NodeJS.ProcessEnv = process.env): WritebackMo
   return env.SOFAR_WRITEBACK === 'tool' ? 'tool' : 'inline'
 }
 
+/**
+ * The write-back a host is taught (r4-fixes H5). Claude Code renders the final
+ * reply as the operator's last screen and collapses a tool call, so the block
+ * there replaced the operator's answer with JSON: it writes back through
+ * sofar_end_session. Codex and Cursor, where A1's gain is, keep the block.
+ * SOFAR_WRITEBACK=tool or =inline decides for every host.
+ */
+export function writebackModeFor(tool: string | undefined, env: NodeJS.ProcessEnv = process.env): WritebackMode {
+  const set = env.SOFAR_WRITEBACK
+  if (set === 'tool' || set === 'inline') return set
+  return tool === 'claude-code' ? 'tool' : 'inline'
+}
+
 /** The opening fence, alone on its line. */
 export const INLINE_FENCE = '```sofar'
 

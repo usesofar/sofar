@@ -3,6 +3,7 @@
 ## step 1: a block that is not JSON: one repair ask, nothing filed
 argv: ["event","stop"]
 stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false,"last_assistant_message":"Done: the module is in.\n\n```sofar\n{\"summary\": \"half a block\",\n```\n"}
+env: {"SOFAR_WRITEBACK":"inline"}
 exit: 2
 --- stdout
 (empty)
@@ -13,6 +14,7 @@ sofar: your ```sofar write-back did not file — nothing from it is in the recor
 ## step 2: the repaired block, on the held Stop: filed
 argv: ["event","stop"]
 stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":true,"last_assistant_message":"Done: the module is in.\n\n```sofar\n{\"summary\":\"Filed from the reply.\",\"next_action\":\"Carry on from the record.\",\"decisions\":[{\"chose\":\"the reply carries the write-back\",\"over\":\"a tool call\",\"because\":\"no round trip\",\"supersedes\":\"none\"}],\"memories\":[\"The write-back is the last block of the final reply.\"],\"notes\":[\"Filed by the Stop hook.\"]}\n```\n"}
+env: {"SOFAR_WRITEBACK":"inline"}
 exit: 0
 --- stdout
 (empty)
@@ -22,6 +24,7 @@ exit: 0
 ## step 3: the same reply at SessionEnd files nothing twice
 argv: ["event","session-end"]
 stdin: {"session_id":"sess-open","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionEnd","reason":"exit","last_assistant_message":"Done: the module is in.\n\n```sofar\n{\"summary\":\"Filed from the reply.\",\"next_action\":\"Carry on from the record.\",\"decisions\":[{\"chose\":\"the reply carries the write-back\",\"over\":\"a tool call\",\"because\":\"no round trip\",\"supersedes\":\"none\"}],\"memories\":[\"The write-back is the last block of the final reply.\"],\"notes\":[\"Filed by the Stop hook.\"]}\n```\n"}
+env: {"SOFAR_WRITEBACK":"inline"}
 exit: 0
 --- stdout
 (empty)
@@ -50,6 +53,7 @@ Write back to the sofar record before finishing: call sofar_end_session (or appe
 ## step 6: inline, no block: the hold asks for one
 argv: ["event","stop"]
 stdin: {"session_id":"sess-tool","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false,"last_assistant_message":"Done."}
+env: {"SOFAR_WRITEBACK":"inline"}
 exit: 2
 --- stdout
 (empty)

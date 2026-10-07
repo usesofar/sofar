@@ -11,7 +11,7 @@ import { AGENTS, type AgentId, orderAgents } from '../src/cli/agents'
 import { runDoctor } from '../src/cli/doctor'
 import {
   CODEX_SHIM_DIR,
-  PROTOCOL_BLOCK,
+  protocolBlock,
   runInit,
   runInitCommand,
   SHIPPED_PROTOCOL_BLOCKS,
@@ -130,7 +130,7 @@ function staleOwnFiles(root: string, wired: readonly AgentId[]): void {
   for (const id of wired) {
     if (id === 'claude-code') {
       const path = join(root, 'CLAUDE.md')
-      writeFileSync(path, readFileSync(path, 'utf8').replace(PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS.at(-1)!))
+      writeFileSync(path, readFileSync(path, 'utf8').replace(protocolBlock(), SHIPPED_PROTOCOL_BLOCKS.filter((b) => b !== protocolBlock()).at(-1)!))
     } else if (id === 'cursor') {
       unlinkSync(join(root, '.cursor', 'mcp.json'))
     } else {

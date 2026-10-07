@@ -115,7 +115,7 @@ import { abandonEnabled } from '../core/abandoned'
 import { worktreeLeadsNotice } from '../projections/templates/copies'
 import { copyLagGuard } from '../mcp/copy-lag'
 import { fileInlineWriteback } from '../mcp/inline-writeback'
-import { finalReplyText, writebackMode, type WritebackMode } from '../core/inline-block'
+import { finalReplyText, writebackMode, writebackModeFor, type WritebackMode } from '../core/inline-block'
 import {
   createToolContext,
   homeInitiative,
@@ -1540,8 +1540,10 @@ export function handleStop(
     const held = hook.stop_hook_active === true
     // The in-band write-back (r4-fixes A1) files even on a Stop that already
     // held once — the continuation's reply is where a repaired block arrives —
-    // and never holds that Stop again. SOFAR_WRITEBACK=tool is 0.34's gate.
-    const inline = writebackMode() === 'inline'
+    // and never holds that Stop again. SOFAR_WRITEBACK=tool is 0.34's gate;
+    // Claude Code runs it by default (r4-fixes H5).
+    const mode = writebackModeFor((host ?? hookHost(hook)).tool)
+    const inline = mode === 'inline'
     if (held && !inline) return { ...OK }
 
     const sessionId = strField(hook, 'session_id')
@@ -1631,7 +1633,7 @@ export function handleStop(
     return {
       exitCode: 2,
       stdout: '',
-      stderr: [filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId) : stopBlockMessage()), ...crossings, ...checks, ...merge, ...links].join('\n'),
+      stderr: [filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId, mode) : stopBlockMessage(mode)), ...crossings, ...checks, ...merge, ...links].join('\n'),
     }
   } catch {
     return { ...OK }
@@ -1647,6 +1649,9 @@ export function handleStop(
  * the session's own newest test command, else the record's. Fails open: a gate
  * that cannot read the index says nothing, since it is never the write-back gate.
  */
+/** How far before a session's start a git-named file must date to be another session's (r4-fixes H1). */
+export const DIRT_SLACK_MS = 2_000
+
 function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState, outcomesKnown: boolean): StopGate {
   const none: StopGate = { lines: [], blocks: false }
   try {
@@ -1662,8 +1667,9 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     // Git names every dirty file in the worktree, and concurrent sessions
     // share one: a file last written before this session began is another
     // session's edit, never this one's (r4-fixes H1). The stat is the one the
-    // edit-time read below already paid for.
-    const started = Date.parse(session.started)
+    // edit-time read below already paid for. The slack absorbs a filesystem
+    // clock coarser than Date.now (Linux stamps mtimes from a lagging tick).
+    const started = Date.parse(session.started) - DIRT_SLACK_MS
     const files: string[] = []
     let editedAt: number | null = null
     for (const [p, fromTree] of [...captured.map((f) => [f, false] as const), ...fromGit.map((f) => [f, true] as const)]) {
@@ -1793,7 +1799,7 @@ function stopCheckLines(
  * what Stop's test gate would have asked as a note for the next session,
  * written back or not, once per session (core/cursor-debt).
  */
-export function handleSessionEnd(rootDir: string, input: string): HookResult {
+export function handleSessionEnd(rootDir: string, input: string, host?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
     const sessionId = strField(hook, 'session_id')
@@ -1811,7 +1817,7 @@ export function handleSessionEnd(rootDir: string, input: string): HookResult {
     // block a Stop asked about, or — on Cursor, whose headless runs never fire
     // stop — the block its final reply ends with, read from the transcript the
     // payload names. Filed before the close, so a write-back closes nothing.
-    if (writebackMode() === 'inline' && slug !== QUICK_LANE) {
+    if (writebackModeFor((host ?? hookHost(hook)).tool) === 'inline' && slug !== QUICK_LANE) {
       try {
         fileInlineWriteback(ctx, slug, sessionId, finalReplyText(hook, hookHost(hook).tool === 'cursor'), true)
       } catch {
