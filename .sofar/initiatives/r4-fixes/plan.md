@@ -75,4 +75,4 @@ Progress: 24 done, 3 dropped, 33 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Operator rules on rc.2: merge stop-gate-attribution (H1/H2, peer 30eca1a0) into release/0.35.0 under D7 gates, then H3/H4; after that Wave B (B1–B16) one item at a time against 0.35.0-rc.1.
+Next action: Push release/0.35.0, then cut rc.2 (H1+H2) once CI is green.
