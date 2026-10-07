@@ -1,5 +1,13 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED at the **0.35.0 integration** (release/0.35.0, A8 onto A4):
+`syn.check-bound`, recorded by A8 on v0.34.1, moves by two lines and for one
+reason: A4's told set is seeded from the SessionStart digest (r4-fixes D10),
+which already showed both guarded rules, so steps 3 and 6's PostToolUse lines
+name each rule by handle as "the standing rule in your context" instead of
+quoting it again. The Rust core reproduces it (`SOFAR_CORE=… vitest run
+test/conformance`: 53 passed). No other golden moved.
+
 RE-RECORDED and ADDED for **r4-fixes A8** (Wave A, branch wave-a-a5-a8 off
 v0.34.1; docs/SPEC.md §Decision checks, §Link disposition, §Supersede-target
 integrity), from the TypeScript reference. One new case, `syn.check-bound`:

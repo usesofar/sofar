@@ -22,7 +22,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"sess-b","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/src/legacy/a.ts","old_string":"a","new_string":"b"},"tool_response":{}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/legacy/a.ts is governed by [D1·984a], a standing rule: \"Never edit files under src/legacy/.\" (guard: path:src/legacy/**,!src/legacy/README.md). Work against it needs a decision that supersedes D1·984a."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: src/legacy/a.ts is governed by [D1·984a] (guard: path:src/legacy/**,!src/legacy/README.md), the standing rule in your context. Work against it needs a decision that supersedes D1·984a."}}
 --- stderr
 (empty)
 
@@ -48,7 +48,7 @@ argv: ["event","post-tool"]
 stdin: {"session_id":"sess-b","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"bun test tests/legacy.test.ts","description":"x"},"tool_response":{}}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: tests/legacy.test.ts is governed by [D3·7zjm], a standing rule: \"Schema changes go through packages/schema/src only.\" (guard: path:**/*.ts,!packages/schema/src/**,!src/**). Work against it needs a decision that supersedes D3·7zjm.\nsofar: [D1·984a] names tests/legacy.test.ts. Its standing rule: \"Never edit files under src/legacy/.\"."}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"sofar: tests/legacy.test.ts is governed by [D3·7zjm] (guard: path:**/*.ts,!packages/schema/src/**,!src/**), the standing rule in your context. Work against it needs a decision that supersedes D3·7zjm."}}
 --- stderr
 (empty)
 
