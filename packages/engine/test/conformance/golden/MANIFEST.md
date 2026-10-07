@@ -1,5 +1,10 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.35.0** for rc.2 (r4-fixes H1/H2) from the
+TypeScript reference. The version bump is the whole diff: `argv.fast-path`
+(`--version` is `0.35.0-rc.2`) and `open.O2-update-segment` ("you have
+0.35.0-rc.2").
+
 Re-recorded on **release/0.35.0** for the rc cut (r4-fixes 3.1) from the
 TypeScript reference. The version bump is the whole diff: two goldens changed,
 each by one string. `argv.fast-path` (`--version` is now `0.35.0-rc.1`) and
