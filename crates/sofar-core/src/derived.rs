@@ -564,6 +564,9 @@ const SOFAR_READ_ONLY: &[&str] = &[
     "event",
     "review",
     "statusline",
+    "show",
+    "read",
+    "help",
 ];
 
 /// `FIND_WRITERS`: find's actions that delete, run or write.

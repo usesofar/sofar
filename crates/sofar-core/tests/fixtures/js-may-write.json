@@ -200,6 +200,18 @@
   "may_write": false
  },
  {
+  "cmd": "sofar show D12 M3",
+  "may_write": false
+ },
+ {
+  "cmd": "sofar read --session 'b5652166' '.sofar/initiatives/x/plan.md'",
+  "may_write": false
+ },
+ {
+  "cmd": "sofar help",
+  "may_write": false
+ },
+ {
   "cmd": "sofar event append --type note_added --payload '{}'",
   "may_write": false
  },

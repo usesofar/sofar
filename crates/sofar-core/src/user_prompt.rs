@@ -1199,23 +1199,36 @@ fn stop_gate_for(
     // Git is asked only when a command that may write ran (D23), about the
     // paths a rule can bear on, and again only after another one ran (D26).
     let from_git = git_changes_for(root, layout, &session.id, &index);
-    let files: Vec<String> = captured.into_iter().chain(from_git).collect();
-    if files.is_empty() {
-        return none;
-    }
+    // Git names every dirty file in the worktree, and concurrent sessions
+    // share one: a file last written before this session began is another
+    // session's edit, never this one's (r4-fixes H1). The stat is the one the
+    // edit-time read below already paid for.
+    let started = crate::date::js_date_parse(&session.started);
+    let mut files: Vec<String> = Vec::new();
     let mut edited_at: Option<f64> = None;
-    for p in &files {
-        let path = if Path::new(p).is_absolute() {
-            Path::new(p).to_path_buf()
+    let tagged = captured
+        .into_iter()
+        .map(|f| (f, false))
+        .chain(from_git.into_iter().map(|f| (f, true)));
+    for (p, from_tree) in tagged {
+        let path = if Path::new(&p).is_absolute() {
+            Path::new(&p).to_path_buf()
         } else {
-            root.join(p)
+            root.join(&p)
         };
         if let Ok(meta) = std::fs::metadata(&path) {
             let mtime = crate::index_store::mtime_ms_of(&meta);
+            if from_tree && started.is_some_and(|at| mtime < at) {
+                continue;
+            }
             if edited_at.is_none_or(|at| mtime > at) {
                 edited_at = Some(mtime);
             }
         }
+        files.push(p);
+    }
+    if files.is_empty() {
+        return none;
     }
     let known = activity
         .and_then(|a| a.last_test.as_ref())

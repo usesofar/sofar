@@ -1659,17 +1659,24 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     // only when one that may write ran (D23) — once (speed T2), about the
     // paths a rule can bear on, and again only after another one ran (D26).
     const fromGit = gitChangesFor(rootDir, sofarDir, session.id, index)
-    const files = [...captured, ...fromGit]
-    if (files.length === 0) return none
+    // Git names every dirty file in the worktree, and concurrent sessions
+    // share one: a file last written before this session began is another
+    // session's edit, never this one's (r4-fixes H1). The stat is the one the
+    // edit-time read below already paid for.
+    const started = Date.parse(session.started)
+    const files: string[] = []
     let editedAt: number | null = null
-    for (const p of files) {
+    for (const [p, fromTree] of [...captured.map((f) => [f, false] as const), ...fromGit.map((f) => [f, true] as const)]) {
       try {
         const mtime = statSync(isAbsolute(p) ? p : join(rootDir, p)).mtimeMs
+        if (fromTree && mtime < started) continue
         if (editedAt === null || mtime > editedAt) editedAt = mtime
       } catch {
         // a deleted file has no mtime; its removal is still an edit git names
       }
+      files.push(p)
     }
+    if (files.length === 0) return none
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
     return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, rootProbe(rootDir), outcomesKnown)
