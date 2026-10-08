@@ -1,6 +1,6 @@
 {
   "name": "sofar.sh",
-  "version": "0.36.0-rc.1",
+  "version": "0.37.0-dev+trunk",
   "description": "Sofar v1 engine — event log core, MCP server, CLI, hooks",
   "type": "module",
   "engines": {
@@ -69,10 +69,10 @@
     "access": "public"
   },
   "optionalDependencies": {
-    "@sofar.sh/core-darwin-arm64": "0.36.0-rc.1",
-    "@sofar.sh/core-darwin-x64": "0.36.0-rc.1",
-    "@sofar.sh/core-linux-x64": "0.36.0-rc.1",
-    "@sofar.sh/core-linux-arm64": "0.36.0-rc.1",
-    "@sofar.sh/core-win32-x64": "0.36.0-rc.1"
+    "@sofar.sh/core-darwin-arm64": "0.37.0-dev+trunk",
+    "@sofar.sh/core-darwin-x64": "0.37.0-dev+trunk",
+    "@sofar.sh/core-linux-x64": "0.37.0-dev+trunk",
+    "@sofar.sh/core-linux-arm64": "0.37.0-dev+trunk",
+    "@sofar.sh/core-win32-x64": "0.37.0-dev+trunk"
   }
 }
