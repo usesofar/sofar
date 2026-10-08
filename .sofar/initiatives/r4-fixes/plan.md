@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 28 done, 4 dropped, 30 remaining
+Progress: 28 done, 5 dropped, 29 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -32,7 +32,7 @@ Progress: 28 done, 4 dropped, 30 remaining
 - [ ] H4 Read-only sessions move the last home too: set it at Stop when a registered session's home differs (one write, only on change)
 - [x] H5 Per-host write-back default: Claude Code through sofar_end_session, Codex/Cursor in-band block (rc.2 turned every Claude completion summary into JSON)
 
-## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 3/17 (1 dropped) done
+## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 3/17 (2 dropped) done
 
 - [x] B1 B1 Work maps: ≤1.5k-char focus-task map (files, last test cmd+exit, entry points) ranked by PageRank+BM25F, stamped verified-at-sha (SOFAR_WORKMAP). PREDICT Claude −0.05 to −0.10
 - [-] B2 B2 Rules compiled to checks: opt-in forbid, PreToolUse deny + check --staged + Stop gate (SOFAR_FORBID; R13 Decision vs drift-hardening D3 first). PREDICT GV −0.5 to −1 (dropped)
@@ -50,7 +50,7 @@ Progress: 28 done, 4 dropped, 30 remaining
 - [x] B14 A10 first-prompt carrier: a first prompt naming an open record re-homes the fresh session (~10 of 33 misfiles)
 - [ ] B15 Hermetic handoff-bench runner: process groups and orphan sweep for proc.ts (Bun spawn), as A13 did for vitest
 - [ ] B16 A14's 24h abandoned rule on hot-path notices, not only doctor
-- [ ] B17 Cut habitual raw reads of record projections: round 4 cost about 55k attributed tokens per sofar Claude session (native about 1k). Cover memory.md, decisions.md and plan.md partial reads, and the read rewrite inflating `tail` reads (5.1k vs 2.1k chars). Find why agents re-read delivered content before choosing a lever (D29)
+- [-] B17 Cut habitual raw reads of record projections: round 4 cost about 55k attributed tokens per sofar Claude session (native about 1k). Cover memory.md, decisions.md and plan.md partial reads, and the read rewrite inflating `tail` reads (5.1k vs 2.1k chars). Find why agents re-read delivered content before choosing a lever (D29) (dropped)
 
 ## Phase 2c — Wave C: distribution and ecosystem [pending] — 0/8 done
 
@@ -77,5 +77,5 @@ Progress: 28 done, 4 dropped, 30 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Start B17: classify why round-4 agents raw-read memory.md, decisions.md and plan.md (clipped heads? protocol habit? read-rewrite inflation), then pick a lever.
+Next action: Run B10's replay (blackboard orchestration, HLC event ids) under D24; build only on a measured loss.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.
