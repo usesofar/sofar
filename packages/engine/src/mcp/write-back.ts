@@ -4,6 +4,7 @@ import { readBindingsFile, writeBinding } from '../core/bindings'
 import { lastHomeEnabled, lastHomeOf, setLastHome } from '../core/last-home'
 import { overlappingWritebacks, type DecisionState, type InitiativeState, type ParallelWriteback, type PhaseState } from '../core/fold'
 import { currentBranch, sameRepoWorktree } from '../core/git'
+import { realpathSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { foreignDecisions } from '../core/index-tier1'
 import { resolvePeers } from '../core/peers'
@@ -561,6 +562,17 @@ export interface BranchRebound {
  * flipped main to whichever record wrote back last (2026-09-24/25). Its
  * bindings.json is that worktree's own, because that is the file a fresh
  * session there resolves through.
+ *
+ * AND the launch checkout (r4-fixes H4, D40): the one the session was opened
+ * in (the server's root), where the operator opens the next tab. D4 alone
+ * moved only the edited worktree, so a session launched in the main checkout
+ * that did its work in a scratch worktree moved nothing the next tab reads:
+ * 105 write-backs since 2026-09-01 moved no last home. D4's harm was the
+ * COMMITTED file flipping under concurrent peers; the last home is this
+ * worktree's untracked file, and "the last session to finish here" is exactly
+ * what the operator asked a fresh tab to open on. So the launch move happens
+ * only in last-home mode, under the same guards; SOFAR_LASTHOME=committed
+ * keeps D4's single move.
  */
 function rebindBranch(
   ctx: ToolContext,
@@ -569,7 +581,21 @@ function rebindBranch(
   sessionId: string,
 ): BranchRebound | undefined {
   try {
-    const checkout = workedCheckout(ctx.rootDir, state.sessions.find((s) => s.id === sessionId)?.activity?.files ?? [])
+    if (isClosedInitiativeStatus(state.status)) return undefined
+    const worked = workedCheckout(ctx.rootDir, state.sessions.find((s) => s.id === sessionId)?.activity?.files ?? [])
+    const lastHome = lastHomeEnabled()
+    const moved = moveRoute(worked, slug, sessionId, lastHome)
+    if (!lastHome || sameDir(worked, ctx.rootDir)) return moved
+    // The launch checkout's move is the one the next tab there reads.
+    return moveRoute(ctx.rootDir, slug, sessionId, true) ?? moved
+  } catch {
+    return undefined
+  }
+}
+
+/** Move one checkout's route for its current branch to `slug`; the guards are rebindBranch's. */
+function moveRoute(checkout: string, slug: string, sessionId: string, lastHome: boolean): BranchRebound | undefined {
+  try {
     const branch = currentBranch(checkout)
     if (branch === null) return undefined
     const sofarDir = join(checkout, '.sofar')
@@ -577,8 +603,7 @@ function rebindBranch(
     const bindings = readBindingsFile(bindingsPath)
     const committed = bindings[branch]
     if (typeof committed !== 'string' || committed.length === 0) return undefined // move-only
-    if (isClosedInitiativeStatus(state.status)) return undefined
-    if (!lastHomeEnabled()) {
+    if (!lastHome) {
       // SOFAR_LASTHOME=committed: the pre-A10 rebind of the committed file.
       if (!Object.values(bindings).includes(slug)) return undefined // never introduces
       if (committed === slug) return undefined
@@ -594,6 +619,14 @@ function rebindBranch(
     return { branch, from, to: slug }
   } catch {
     return undefined
+  }
+}
+
+function sameDir(a: string, b: string): boolean {
+  try {
+    return realpathSync(a) === realpathSync(b)
+  } catch {
+    return a === b
   }
 }
 
