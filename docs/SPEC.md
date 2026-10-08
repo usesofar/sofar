@@ -7577,7 +7577,11 @@ subdirectory, against 33 of 33 from the root.
   than `npm config get prefix`, so a custom-prefix install is updated in place
   instead of a naive `npm i -g` installing to the wrong root. --check reports
   installed-vs-latest and the resolved prefix; --dry-run prints the exact npm
-  command; --force reinstalls at the target. Non-global installs (local dep,
+  command; --force reinstalls at the target. A bare upgrade never moves DOWN
+  (r4-fixes H6): when the installed version is a pre-release newer than
+  `latest`, it installs nothing, exits 0, and names `sofar upgrade next` and
+  `sofar upgrade <latest>`; only a named version or --force downgrades, and
+  --check reads "installed is newer". Non-global installs (local dep,
   npx cache) print manual guidance and never run npm. `--auto <on|off>`
   writes the opt-in auto-install preference and exits (§Update check); a
   successful upgrade pitches `--auto on` in its success message, but only

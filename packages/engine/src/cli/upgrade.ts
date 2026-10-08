@@ -4,6 +4,7 @@ import { version as CURRENT_VERSION } from '../../package.json'
 import { errMessage, fail, ok, type CmdResult } from './shared'
 import { type Caps, createSpinner, stderrCaps, type SpinnerStream } from './ui'
 import { readAutoUpgrade } from './user-config'
+import { isNewer } from './update-check'
 import type { StateEnv } from '../core/state-dir'
 import { wiredAgents } from './init'
 import { appendWiringEntry } from './wiring-journal'
@@ -81,7 +82,8 @@ function renderCheck(
 ): string {
   const lines = [`installed: ${current}`]
   if (latest) {
-    lines.push(`latest:    ${latest}${latest === current ? ' (up to date)' : ' (update available)'}`)
+    const state = latest === current ? 'up to date' : isNewer(current, latest) ? 'installed is newer' : 'update available'
+    lines.push(`latest:    ${latest} (${state})`)
   } else {
     lines.push('latest:    unknown (could not reach the npm registry)')
   }
@@ -130,6 +132,20 @@ export function resolveUpgrade(opts: UpgradeOptions, ctx: UpgradeContext): Upgra
     return {
       action: 'report',
       result: ok(`sofar is already at ${currentVersion}${opts.version ? '' : ' (latest)'}.\n`),
+    }
+  }
+
+  // A bare upgrade from a pre-release ahead of `latest` would install `latest`
+  // and DOWNGRADE with a success line (r4-fixes H6, M8: 0.35.0-rc.3 → 0.34.1).
+  // Moving down takes a named version or --force.
+  if (!opts.force && opts.version === undefined && latestVersion !== null && isNewer(currentVersion, latestVersion)) {
+    return {
+      action: 'report',
+      result: ok(
+        `sofar ${currentVersion} is newer than latest (${latestVersion}); not downgrading.\n` +
+          `Run \`sofar upgrade next\` for the newest release candidate, or ` +
+          `\`sofar upgrade ${latestVersion}\` (or --force) to go back to latest.\n`,
+      ),
     }
   }
 
