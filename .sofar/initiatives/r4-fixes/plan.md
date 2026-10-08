@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 28 done, 5 dropped, 29 remaining
+Progress: 28 done, 6 dropped, 28 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -32,7 +32,7 @@ Progress: 28 done, 5 dropped, 29 remaining
 - [ ] H4 Read-only sessions move the last home too: set it at Stop when a registered session's home differs (one write, only on change)
 - [x] H5 Per-host write-back default: Claude Code through sofar_end_session, Codex/Cursor in-band block (rc.2 turned every Claude completion summary into JSON)
 
-## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 3/17 (2 dropped) done
+## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 3/17 (3 dropped) done
 
 - [x] B1 B1 Work maps: ≤1.5k-char focus-task map (files, last test cmd+exit, entry points) ranked by PageRank+BM25F, stamped verified-at-sha (SOFAR_WORKMAP). PREDICT Claude −0.05 to −0.10
 - [-] B2 B2 Rules compiled to checks: opt-in forbid, PreToolUse deny + check --staged + Stop gate (SOFAR_FORBID; R13 Decision vs drift-hardening D3 first). PREDICT GV −0.5 to −1 (dropped)
@@ -48,7 +48,7 @@ Progress: 28 done, 5 dropped, 29 remaining
 - [ ] B12 Redesign A5 for the surfaces agents read: retired rules marked current-only in shards and events reads (A5 measured ~0; needs an operator ruling) (blocked)
 - [ ] B13 Redesign A6 sweep and A7 tripwire to clear their replay gates (A6 P/R ~0.5, median 6 sites; A7 precision 0.13, 0/27; Bash heredoc writes unseen) (blocked)
 - [x] B14 A10 first-prompt carrier: a first prompt naming an open record re-homes the fresh session (~10 of 33 misfiles)
-- [ ] B15 Hermetic handoff-bench runner: process groups and orphan sweep for proc.ts (Bun spawn), as A13 did for vitest
+- [-] B15 Hermetic handoff-bench runner: process groups and orphan sweep for proc.ts (Bun spawn), as A13 did for vitest (dropped)
 - [ ] B16 A14's 24h abandoned rule on hot-path notices, not only doctor
 - [-] B17 Cut habitual raw reads of record projections: round 4 cost about 55k attributed tokens per sofar Claude session (native about 1k). Cover memory.md, decisions.md and plan.md partial reads, and the read rewrite inflating `tail` reads (5.1k vs 2.1k chars). Find why agents re-read delivered content before choosing a lever (D29) (dropped)
 
@@ -77,5 +77,5 @@ Progress: 28 done, 5 dropped, 29 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Run B15's replay (hermetic handoff-bench runner: process groups and orphan sweep for proc.ts) under D24.
+Next action: Run B16's replay (A14's 24h abandoned rule applied on hot-path notices) under D24; it is Wave B's last item.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).
