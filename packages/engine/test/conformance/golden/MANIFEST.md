@@ -1,5 +1,9 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.36.0** for rc.2 (r4-fixes 3.2): the version
+bump is the whole diff on `argv.fast-path` and `open.O2-update-segment`.
+H3's held Stops arrive from branch rc2 as recorded there.
+
 RE-RECORDED for **r4-fixes H3** (branch rc2, D37) from the TypeScript
 reference: every held Stop's stderr gains one last line, `Then end on one line
 restating your answer: it is what the operator reads last.` That line is the
