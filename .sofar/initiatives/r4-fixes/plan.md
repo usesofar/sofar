@@ -41,7 +41,7 @@ Progress: 28 done, 4 dropped, 29 remaining
 - [ ] B5 B5 Here-vs-elsewhere digest: in-force rules from this checkout's ancestry only, plus a ≤400-char elsewhere block (SOFAR_ELSEWHERE) (blocked)
 - [ ] B6 B6 Merge-time currency: decision forks in the merge block, rule-set ETag re-tells moved rules. PREDICT T-FORK ≤10%, SR −2 to −5 pts in merge segments (blocked)
 - [ ] B7 B7 sofar diff base..head for PRs: decision/rule/guard/fork diff as Markdown; flags bidi and zero-width chars
-- [ ] B8 B8 Deterministic staleness: flag rules and memories whose cited files or guard paths are missing (never delete)
+- [ ] B8 B8 Deterministic staleness: flag rules and memories whose cited files or guard paths are missing (never delete) (blocked)
 - [ ] B9 B9 Price-aware placement and demand paging of context fragments
 - [ ] B10 B10 Blackboard orchestration (notify peers, messages point into the record) and monotonic HLC event ids
 - [ ] B11 B11 Engine hygiene: spawn-free TS hot path, union-merge fold idempotence, read-only sofar fsck, local SOFAR_TRACE and sofar explain
@@ -76,5 +76,5 @@ Progress: 28 done, 4 dropped, 29 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Run B8's replay (deterministic staleness) under D24; build only on a measured loss.
-Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).
+Next action: Run B9's replay (price-aware placement, demand paging) under D24; build only on a measured loss.
+Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.
