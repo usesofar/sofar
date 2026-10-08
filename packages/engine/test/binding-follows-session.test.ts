@@ -315,15 +315,30 @@ describe('the rebind follows the worktree the session worked in (binding-follows
     emit(sofar, 'beta', 'MINE', 'file_touched', { path, op: 'edit' }, ts)
   const wtBindings = (wt: string): unknown => JSON.parse(readFileSync(join(wt, '.sofar', 'bindings.json'), 'utf8'))
 
-  it("rebinds the worktree's branch in the worktree's own bindings, and leaves main untouched", () => {
+  it("moves the worktree's last home AND the launch checkout's, and commits neither (r4-fixes H4, D40)", () => {
     const { root, sofar, wt } = withWorktree()
     touch(sofar, join(wt, 'src', 'a.ts'), '2026-08-13T10:05:00.000Z')
     const result = wrapUp(root, 'MINE')
-    expect(result.rebound).toEqual({ branch: 'feat', from: 'alpha', to: 'beta' })
+    // The launch checkout's move is reported: it is what the next tab there opens on.
+    expect(result.rebound).toEqual({ branch: 'main', from: 'alpha', to: 'beta' })
     expect(wtBindings(wt)).toMatchObject({ feat: 'alpha', main: 'alpha' })
     expect(lastHome(join(wt, '.sofar'), 'feat')).toBe('beta')
-    expect(lastHome(sofar, 'main')).toBeUndefined()
+    expect(lastHome(sofar, 'main')).toBe('beta')
     expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
+  })
+
+  it('SOFAR_LASTHOME=committed keeps D4: only the worked worktree is rebound', () => {
+    const { root, sofar, wt } = withWorktree()
+    touch(sofar, join(wt, 'src', 'a.ts'), '2026-08-13T10:05:00.000Z')
+    process.env.SOFAR_LASTHOME = 'committed'
+    try {
+      expect(wrapUp(root, 'MINE').rebound).toEqual({ branch: 'feat', from: 'alpha', to: 'beta' })
+    } finally {
+      delete process.env.SOFAR_LASTHOME
+    }
+    expect(wtBindings(wt)).toMatchObject({ feat: 'beta', main: 'alpha' })
+    expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
+    expect(lastHome(sofar, 'main')).toBeUndefined()
   })
 
   it('the plain same-checkout case is unchanged: edits in the server checkout rebind its branch', () => {
@@ -365,7 +380,8 @@ describe('the rebind follows the worktree the session worked in (binding-follows
     touch(sofar, join(wt, 'src', 'a.ts'), '2026-08-13T10:05:00.000Z')
     touch(sofar, join(other, 'x.ts'), '2026-08-13T10:06:00.000Z')
     touch(sofar, join(root, '.sofar', 'initiatives', 'beta', 'events.jsonl'), '2026-08-13T10:07:00.000Z')
-    expect(wrapUp(root, 'MINE').rebound).toEqual({ branch: 'feat', from: 'alpha', to: 'beta' })
+    wrapUp(root, 'MINE')
+    expect(lastHome(join(wt, '.sofar'), 'feat')).toBe('beta')
     expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
   })
 
@@ -373,15 +389,17 @@ describe('the rebind follows the worktree the session worked in (binding-follows
     const { root, sofar, wt } = withWorktree()
     touch(sofar, join(root, 'README.md'), '2026-08-13T10:05:00.000Z')
     touch(sofar, join(wt, 'src', 'a.ts'), '2026-08-13T10:06:00.000Z')
-    expect(wrapUp(root, 'MINE').rebound?.branch).toBe('feat')
+    wrapUp(root, 'MINE')
+    expect(lastHome(join(wt, '.sofar'), 'feat')).toBe('beta')
     expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
   })
 
-  it('keeps every guard in the worktree: an unbound feat branch stays unbound', () => {
+  it('keeps every guard in the worktree: an unbound feat branch stays unbound; the routed launch branch still follows', () => {
     const { root, sofar, wt } = withWorktree()
     writeFileSync(join(wt, '.sofar', 'bindings.json'), `${JSON.stringify({ main: 'alpha', ...OTHERS }, null, 2)}\n`)
     touch(sofar, join(wt, 'src', 'a.ts'), '2026-08-13T10:05:00.000Z')
-    expect(wrapUp(root, 'MINE').rebound).toBeUndefined()
+    expect(wrapUp(root, 'MINE').rebound).toEqual({ branch: 'main', from: 'alpha', to: 'beta' })
+    expect(lastHome(join(wt, '.sofar'), 'feat')).toBeUndefined()
     expect(readBindings(sofar)).toEqual({ main: 'alpha', ...OTHERS })
   })
 })

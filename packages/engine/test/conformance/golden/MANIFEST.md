@@ -1,5 +1,9 @@
 # Golden manifest (rust-core D11)
 
+Merged on **main** at the 0.36.0-rc.3 merge-back (r4-fixes 3.2): main keeps
+`0.37.0-dev+trunk`, so `argv.fast-path` and `open.O2-update-segment` keep
+main's version.
+
 Merged on **main** at the 0.36.0-rc.2 merge-back (r4-fixes 3.2): main keeps
 `0.37.0-dev+trunk`, so `argv.fast-path` and `open.O2-update-segment` keep
 main's version; H3's held Stops arrive from release/0.36.0 as recorded there.

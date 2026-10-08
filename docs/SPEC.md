@@ -5682,6 +5682,15 @@ a fresh session there resolves through. A session with no such path worked
 where its server runs, and the server checkout's branch is used, as before.
 Without this, peers sharing the main checkout's server while working in
 other worktrees flipped main to whichever record wrote back last.
+AND THE LAUNCH CHECKOUT (r4-fixes H4, D40, superseding D4's rule): in
+last-home mode the write-back ALSO moves the last home of the checkout its
+server started in (where the operator opens the next tab), under the same
+guards, and reports that move as `rebound`. Both moves land only in each
+worktree's untracked last home, never in a committed bindings.json, so
+"last to finish wins" flips nothing in git; a fresh tab opens on the record
+last stopped in even when the work ran in a scratch worktree (105
+write-backs since 2026-09-01 had moved none). `SOFAR_LASTHOME=committed`
+keeps D4's single committed move.
 MOVE-ONLY alone honours `--no-bind` only on an UNBOUND branch: a branch bound
 elsewhere was moved onto the new record by its first write-back, silently
 undoing the flag the operator had just set. Membership is a fact the OPERATOR
