@@ -26,6 +26,7 @@
 pub mod append;
 pub mod atomic;
 pub mod attribution;
+pub mod carrier;
 pub mod checks;
 pub mod cli;
 pub mod collections;
@@ -104,6 +105,7 @@ pub mod update_cache;
 pub mod user_prompt;
 pub mod version;
 pub mod warmth;
+pub mod workmap;
 pub mod wrote;
 
 #[cfg(test)]

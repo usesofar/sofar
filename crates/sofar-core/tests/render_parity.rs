@@ -125,6 +125,7 @@ fn options_from(value: &Json) -> StatusOptions {
         })
         .unwrap_or_default();
     StatusOptions {
+        live_sessions: None,
         repo_memory: opt_str(o, "repoMemory"),
         session_id: opt_str(o, "sessionId"),
         git,

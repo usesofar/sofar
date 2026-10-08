@@ -771,6 +771,28 @@ fn keep_line(root: &Path, slug: &str, session_id: &str, prompt: &str) -> Option<
     (utf16_len(prompt) >= PROMPT_ANNOUNCE_MIN).then(|| prompt_keep_line(&id))
 }
 
+/// The first-prompt carrier's answer for this prompt (r4-fixes B14, D25):
+/// the record the session serves from here on, and the line that says so
+/// when it moved.
+fn carried_home(
+    layout: &Layout,
+    from: String,
+    session_id: &str,
+    prompt: Option<&str>,
+    hook: &crate::json::Object,
+) -> (String, Option<String>) {
+    let carried = prompt.and_then(|p| {
+        crate::carrier::carry_first_prompt(layout, &from, session_id, p, hook_host(hook).tool)
+    });
+    match carried {
+        Some(to) => {
+            let line = crate::carrier::carrier_line(&from, &to, session_id);
+            (to, Some(line))
+        }
+        None => (from, None),
+    }
+}
+
 /// `handleUserPrompt`.
 #[must_use]
 pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
@@ -780,9 +802,12 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         return silent();
     };
     let _ = write_session_pointer(&layout, session_id, "hook"); // D29
-    let Some(slug) = resolve_bound(&layout, session_id) else {
+    let Some(from) = resolve_bound(&layout, session_id) else {
         return silent();
     };
+    let prompt = str_field(&hook, "prompt");
+    // The first-prompt carrier (B14, D25), before anything is read for the record.
+    let (slug, carried_line) = carried_home(&layout, from, session_id, prompt, &hook);
     let state = fold_state(&layout, &slug);
     // The session's name follows the record's focus task (session-naming D1)
     // — decided before the registration check, because a session's first
@@ -790,18 +815,13 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     let title = prompt_title(&hook, &slug, &state, session_id, &layout);
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
-    let prompt = str_field(&hook, "prompt");
     let keep = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
-    // Recall (memory-lead 4.3, D25) before the registration check too; never
-    // on Cursor, whose prompt hook cannot inject.
-    let recall = match prompt {
-        Some(p) if hook_host(&hook).tool != "cursor" && crate::recall::recall_enabled() => {
-            crate::recall::prompt_recall(&layout, &state, session_id, p)
-        }
-        _ => None,
-    };
+    let (recall, map) = first_prompt_blocks(root, &layout, &hook, &state, session_id, prompt);
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        let first: Vec<String> = [recall, keep].into_iter().flatten().collect();
+        let first: Vec<String> = [carried_line, recall, map, keep]
+            .into_iter()
+            .flatten()
+            .collect();
         let result = if first.is_empty() {
             silent()
         } else {
@@ -873,13 +893,38 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         ));
     }
     lines.extend(recall);
+    lines.extend(map);
     lines.extend(keep);
+    lines.splice(0..0, carried_line); // the carrier's line leads (B14)
     let result = if lines.is_empty() {
         silent()
     } else {
         ok(lines.join("\n"))
     };
     with_session_title(Hook::UserPrompt, result, title.as_deref())
+}
+
+/// Recall (memory-lead 4.3, D25) and the work map (r4-fixes B1, D16), both
+/// before the registration check and both told once; never on Cursor, whose
+/// prompt hook cannot inject.
+fn first_prompt_blocks(
+    root: &Path,
+    layout: &Layout,
+    hook: &Object,
+    state: &InitiativeState,
+    session_id: &str,
+    prompt: Option<&str>,
+) -> (Option<String>, Option<String>) {
+    let Some(p) = prompt.filter(|_| hook_host(hook).tool != "cursor") else {
+        return (None, None);
+    };
+    let recall = crate::recall::recall_enabled()
+        .then(|| crate::recall::prompt_recall(layout, state, session_id, p))
+        .flatten();
+    let map = crate::workmap::workmap_enabled()
+        .then(|| crate::workmap::prompt_workmap(root, layout, state, session_id, p))
+        .flatten();
+    (recall, map)
 }
 
 /// The session's name for this prompt (session-naming D1): Claude Code only.
@@ -1250,7 +1295,7 @@ fn stop_gate_for(
         .map(|t| t.cmd.as_str());
     let tests = activity.map_or(&[][..], |a| a.tests_since_edit.as_slice());
     let probe = crate::checks::root_probe(root);
-    crate::checks::stop_gate(
+    let gate = crate::checks::stop_gate(
         &index,
         &files,
         tests,
@@ -1258,7 +1303,60 @@ fn stop_gate_for(
         edited_at,
         &probe,
         outcomes_known,
-    )
+    );
+    let loss = if crate::checks::test_guard_enabled() {
+        stop_test_loss(root, layout, session, &index, &files, &probe)
+    } else {
+        Vec::new()
+    };
+    if loss.is_empty() {
+        return gate;
+    }
+    let mut lines = loss;
+    lines.extend(gate.lines);
+    crate::checks::StopGate {
+        lines,
+        blocks: true,
+    }
+}
+
+/// `stopTestLoss` (r4-fixes B3, D20): once per session and test, a test file
+/// a ruled check runs that this session's work left with fewer assertion
+/// lines than it began with. Git is asked only when the session edited such
+/// a file: one bounded log for its base, one diff of those files. Fails open.
+fn stop_test_loss(
+    root: &Path,
+    layout: &Layout,
+    session: &SessionState,
+    index: &crate::index_tier1::GuardIndex,
+    files: &[String],
+    probe: crate::checks::PathProbe<'_>,
+) -> Vec<String> {
+    let asked = crate::wrote::read_loss_asked(layout, &session.id);
+    let bound: Vec<crate::checks::BoundTest> =
+        crate::checks::bound_tests_touched(index, files, root, probe)
+            .into_iter()
+            .filter(|b| !asked.contains(&format!("{}\0{}", b.path, b.handle)))
+            .collect();
+    if bound.is_empty() {
+        return Vec::new();
+    }
+    let Some(base) = crate::checks::session_base(root, &session.started) else {
+        return Vec::new();
+    };
+    let mut paths: Vec<String> = Vec::new();
+    for b in &bound {
+        if !paths.contains(&b.path) {
+            paths.push(b.path.clone());
+        }
+    }
+    let Some(diff) = crate::checks::diff_from(root, &base, &paths) else {
+        return Vec::new();
+    };
+    let (lines, keys) =
+        crate::checks::test_loss_lines(&bound, &crate::checks::assertion_delta(&diff));
+    crate::wrote::mark_loss_asked(layout, &session.id, &keys);
+    lines
 }
 
 /// `cursorDebtNote` (r4-fixes A9): Stop's test gate as Stop would run it for

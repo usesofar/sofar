@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { commonGitDir } from './git'
 import { byCodeUnit } from './order'
@@ -97,4 +97,74 @@ export function setAbandoned(rootDir: string, branch: string, on: boolean, now: 
   else delete file.branches[branch]
   write(path, file)
   return true
+}
+
+// ---------------------------------------------------------------------------
+// Idle sessions on the hot path (r4-fixes B16).
+// ---------------------------------------------------------------------------
+
+/** A session idle longer than this is abandoned (A14's rule, `sofar doctor`'s ABANDON_IDLE_MS). */
+export const SESSION_IDLE_MS = 24 * 60 * 60 * 1000
+
+/** The tail is read back in chunks of this size, and never more than TAIL_CAP_BYTES in all. */
+const TAIL_CHUNK_BYTES = 64 * 1024
+const TAIL_CAP_BYTES = 4 * 1024 * 1024
+
+/** A string field of a canonical envelope line, read without a parse: the text between `"<key>":"` and the next `"`. */
+function headField(line: string, key: string): string | null {
+  const at = line.indexOf(`"${key}":"`)
+  if (at === -1) return null
+  const from = at + key.length + 4
+  const end = line.indexOf('"', from)
+  return end === -1 ? null : line.slice(from, end)
+}
+
+/**
+ * Which of `candidates` logged an event at or after `sinceMs` (r4-fixes B16):
+ * the log is read back from its end in chunks until a whole line is older than
+ * `sinceMs` (or the start, or TAIL_CAP_BYTES), and each line in that window
+ * names its session and time in the envelope head, so nothing is parsed. In
+ * the busiest record here the last 24 h was 526 kB; most records read one
+ * chunk. Unreadable: every candidate counts as live, so the line stays as it was.
+ */
+export function sessionsLoggedSince(logPath: string, sinceMs: number, candidates: readonly string[]): Set<string> {
+  if (candidates.length === 0) return new Set()
+  let fd: number
+  try {
+    fd = openSync(logPath, 'r')
+  } catch {
+    return new Set(candidates)
+  }
+  try {
+    const size = fstatSync(fd).size
+    let start = size
+    let text = ''
+    while (start > 0 && size - start < TAIL_CAP_BYTES) {
+      const len = Math.min(TAIL_CHUNK_BYTES, start)
+      start -= len
+      const buf = Buffer.alloc(len)
+      readSync(fd, buf, 0, len, start)
+      text = buf.toString('latin1') + text
+      // The oldest WHOLE line read so far: past the first newline unless this is the file's start.
+      const nl = text.indexOf('\n')
+      const from = start === 0 ? 0 : nl + 1
+      const to = text.indexOf('\n', from)
+      if (start > 0 && (nl === -1 || to === -1)) continue
+      const ts = headField(text.slice(from, to === -1 ? text.length : to), 'ts')
+      if (ts !== null && Date.parse(ts) < sinceMs) break
+    }
+    const want = new Set(candidates)
+    const live = new Set<string>()
+    for (const line of text.split('\n')) {
+      const session = headField(line, 'session')
+      if (session === null || !want.has(session) || live.has(session)) continue
+      const ts = headField(line, 'ts')
+      if (ts !== null && Date.parse(ts) >= sinceMs) live.add(session)
+    }
+    return live
+  } catch {
+    return new Set(candidates)
+  } finally {
+    closeSync(fd)
+  }
 }

@@ -784,3 +784,87 @@ pub fn render_provenance_block(p: &RecordProvenance, home: Option<&str>) -> Vec<
     }
     lines
 }
+
+// ---------------------------------------------------------------------------
+// Idle sessions on the hot path (`core/abandoned.ts`, r4-fixes B16).
+
+/// `SESSION_IDLE_MS`: A14's rule — a session silent this long is abandoned.
+pub const SESSION_IDLE_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
+
+const TAIL_CHUNK_BYTES: u64 = 64 * 1024;
+const TAIL_CAP_BYTES: u64 = 4 * 1024 * 1024;
+
+/// `headField`: a string field of a canonical envelope line, without a parse.
+fn head_field<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+    let needle = format!("\"{key}\":\"");
+    let at = line.find(&needle)? + needle.len();
+    let end = line[at..].find('"')?;
+    Some(&line[at..at + end])
+}
+
+/// `sessionsLoggedSince`: which of `candidates` logged an event at or after
+/// `since_ms`, from the log's tail read back in chunks until a whole line is
+/// older (or the start, or 4 MiB). Unreadable: every candidate counts as live.
+#[must_use]
+pub fn sessions_logged_since(log_path: &Path, since_ms: f64, candidates: &[String]) -> Vec<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+    let Ok(mut file) = std::fs::File::open(log_path) else {
+        return candidates.to_vec();
+    };
+    let Ok(size) = file.metadata().map(|m| m.len()) else {
+        return candidates.to_vec();
+    };
+    let mut start = size;
+    let mut bytes: Vec<u8> = Vec::new();
+    while start > 0 && size - start < TAIL_CAP_BYTES {
+        let len = TAIL_CHUNK_BYTES.min(start);
+        start -= len;
+        let mut chunk = vec![0u8; usize::try_from(len).unwrap_or(0)];
+        if file.seek(SeekFrom::Start(start)).is_err() || file.read_exact(&mut chunk).is_err() {
+            return candidates.to_vec();
+        }
+        chunk.extend_from_slice(&bytes);
+        bytes = chunk;
+        // The oldest WHOLE line read so far: past the first newline unless this is the file's start.
+        let nl = bytes.iter().position(|&b| b == b'\n');
+        let from = if start == 0 {
+            0
+        } else {
+            nl.map_or(0, |n| n + 1)
+        };
+        let to = bytes[from..]
+            .iter()
+            .position(|&b| b == b'\n')
+            .map(|n| from + n);
+        if start > 0 && (nl.is_none() || to.is_none()) {
+            continue;
+        }
+        let line = String::from_utf8_lossy(&bytes[from..to.unwrap_or(bytes.len())]);
+        if head_field(&line, "ts")
+            .and_then(crate::date::js_date_parse)
+            .is_some_and(|ts| ts < since_ms)
+        {
+            break;
+        }
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    let mut live: Vec<String> = Vec::new();
+    for line in text.split('\n') {
+        let Some(session) = head_field(line, "session") else {
+            continue;
+        };
+        if !candidates.iter().any(|c| c == session) || live.iter().any(|l| l == session) {
+            continue;
+        }
+        if head_field(line, "ts")
+            .and_then(crate::date::js_date_parse)
+            .is_some_and(|ts| ts >= since_ms)
+        {
+            live.push(session.to_owned());
+        }
+    }
+    live
+}

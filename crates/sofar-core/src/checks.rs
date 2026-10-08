@@ -1496,9 +1496,381 @@ pub fn stop_gate(
     StopGate { lines, blocks }
 }
 
+// ---------------------------------------------------------------------------
+// The test-loss ask (r4-fixes B3, D19, D20): a bound test that lost assertions.
+// ---------------------------------------------------------------------------
+
+/// `testGuardEnabled`: `SOFAR_TEST_GUARD=off` (also `0`, `false`) is the ask's ablation arm.
+#[must_use]
+pub fn test_guard_enabled() -> bool {
+    let Some(raw) = std::env::var_os("SOFAR_TEST_GUARD") else {
+        return true;
+    };
+    let v = raw.to_string_lossy();
+    let v = js_trim(&v).to_lowercase();
+    !(v == "off" || v == "0" || v == "false")
+}
+
+/// `BoundTest`: a test file an in-force ruled check runs, and the rule it proves.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoundTest {
+    /// Repo-relative, as the check's command names it.
+    pub path: String,
+    /// `<slug> D<n>·<sfx>` (U5).
+    pub handle: String,
+    pub rule: String,
+}
+
+/// `repoRelative`: a path relative to `root`, or `None` for one outside it.
+fn repo_relative(path: &str, root: &Path) -> Option<String> {
+    if !Path::new(path).is_absolute() {
+        return Some(normal_path(path));
+    }
+    let root = root.to_string_lossy();
+    let root = if root.ends_with('/') {
+        root.into_owned()
+    } else {
+        format!("{root}/")
+    };
+    path.strip_prefix(root.as_str()).map(normal_path)
+}
+
+/// `boundTestsTouched`: the files this session edited that an in-force ruled
+/// check names as FILES (never a directory) in its test-shaped command. By
+/// check order, each (path, rule) once.
+#[must_use]
+pub fn bound_tests_touched(
+    index: &GuardIndex,
+    files: &[String],
+    root: &Path,
+    probe: PathProbe<'_>,
+) -> Vec<BoundTest> {
+    let mut edited: Vec<String> = Vec::new();
+    for f in files {
+        if f.starts_with('+') {
+            continue; // the overflow sentinel
+        }
+        if let Some(rel) = repo_relative(f, root)
+            && !rel.is_empty()
+            && !edited.contains(&rel)
+        {
+            edited.push(rel);
+        }
+    }
+    if edited.is_empty() {
+        return Vec::new();
+    }
+    let mut out: Vec<BoundTest> = Vec::new();
+    for c in checks_in_force(index) {
+        let Some(seg) = test_shaped_command(&c.cmd) else {
+            continue;
+        };
+        for o in test_spec(&seg, probe).operands {
+            if o.dir
+                || !edited.contains(&o.path)
+                || out.iter().any(|b| b.path == o.path && b.handle == c.shown)
+            {
+                continue;
+            }
+            out.push(BoundTest {
+                path: o.path,
+                handle: c.shown.clone(),
+                rule: c.rule.clone(),
+            });
+        }
+    }
+    out
+}
+
+/// Prose that starts like an assertion (`ASSERT_PROSE`): a test's title, never a call.
+const ASSERT_PROSE: &[&str] = &[
+    "asserts",
+    "asserted",
+    "asserting",
+    "assertion",
+    "assertions",
+];
+
+/// `isAssertionLine`: a word `expect`, `should` or `raises`, or one starting
+/// `assert` that is not prose. Words, as `/[A-Za-z_][A-Za-z0-9_]*/g` reads them.
+#[must_use]
+pub fn is_assertion_line(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if !(b.is_ascii_alphabetic() || b == b'_') {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+            i += 1;
+        }
+        let w = &text[start..i];
+        if w == "expect" || w == "should" || w == "raises" {
+            return true;
+        }
+        let lower = w.to_ascii_lowercase();
+        if lower.starts_with("assert") && !ASSERT_PROSE.contains(&lower.as_str()) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Assertion lines a diff removed and added in one file (`assertionDelta`'s values).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AssertionDelta {
+    pub removed: usize,
+    pub added: usize,
+}
+
+/// `assertionDelta`: per repo-relative path (the new name; the old for a
+/// deletion), in first-seen order.
+#[must_use]
+pub fn assertion_delta(diff: &str) -> Vec<(String, AssertionDelta)> {
+    let mut out: Vec<(String, AssertionDelta)> = Vec::new();
+    let mut header = false;
+    let mut old_path: Option<String> = None;
+    let mut path: Option<String> = None;
+    for line in diff.split('\n') {
+        if line.starts_with("diff --git ") {
+            header = true;
+            old_path = None;
+            path = None;
+            continue;
+        }
+        if header {
+            if line.starts_with("--- ") {
+                old_path = line.strip_prefix("--- a/").map(str::to_owned);
+            } else if line.starts_with("+++ ") {
+                path = line
+                    .strip_prefix("+++ b/")
+                    .map(str::to_owned)
+                    .or_else(|| old_path.clone());
+            } else if line.starts_with("@@") {
+                header = false;
+            }
+            continue;
+        }
+        let Some(p) = path.as_ref() else {
+            continue;
+        };
+        if line.starts_with("@@") {
+            continue;
+        }
+        let removed = line.starts_with('-');
+        if !removed && !line.starts_with('+') {
+            continue;
+        }
+        if !is_assertion_line(&line[1..]) {
+            continue;
+        }
+        let at = if let Some(at) = out.iter().position(|(q, _)| q == p) {
+            at
+        } else {
+            out.push((p.clone(), AssertionDelta::default()));
+            out.len() - 1
+        };
+        if removed {
+            out[at].1.removed += 1;
+        } else {
+            out[at].1.added += 1;
+        }
+    }
+    out
+}
+
+/// `testLossLines`: one line per bound test file that lost more assertion
+/// lines than it gained, naming every rule it proves, and the keys
+/// `mark_loss_asked` stores.
+#[must_use]
+pub fn test_loss_lines(
+    bound: &[BoundTest],
+    delta: &[(String, AssertionDelta)],
+) -> (Vec<String>, Vec<String>) {
+    let of = |p: &str| delta.iter().find(|(q, _)| q == p).map(|(_, d)| *d);
+    let mut by_path: Vec<(String, Vec<&BoundTest>)> = Vec::new();
+    for b in bound {
+        let Some(d) = of(&b.path) else { continue };
+        if d.removed <= d.added {
+            continue;
+        }
+        if let Some((_, v)) = by_path.iter_mut().find(|(p, _)| *p == b.path) {
+            v.push(b);
+        } else {
+            by_path.push((b.path.clone(), vec![b]));
+        }
+    }
+    let mut lines = Vec::new();
+    let mut keys = Vec::new();
+    for (path, rules) in &by_path {
+        let d = of(path).unwrap_or_default();
+        let gate_rules: Vec<GateRule> = rules
+            .iter()
+            .map(|r| GateRule {
+                handle: r.handle.clone(),
+                rule: r.rule.clone(),
+                hint: None,
+            })
+            .collect();
+        let refs: Vec<&GateRule> = gate_rules.iter().collect();
+        lines.push(format!(
+            "sofar: {path} lost {} assertion line(s) this session, and it is the test that proves {} — if the operator changed that rule, file a rule that supersedes it, with their words; if not, the test must still assert it",
+            d.removed - d.added,
+            named_rules(&refs)
+        ));
+        for r in rules {
+            keys.push(format!("{path}\0{}", r.handle));
+        }
+    }
+    (lines, keys)
+}
+
+/// `sessionBase`: the newest commit on HEAD before the session started, in
+/// one bounded spawn; `None` without git or history.
+#[must_use]
+pub fn session_base(root: &Path, started: &str) -> Option<String> {
+    let before = format!("--before={started}");
+    let out = checks_git(root, &["log", "-1", "--format=%H", &before, "HEAD"])?;
+    let sha = out.trim();
+    let ok = (40..=64).contains(&sha.len())
+        && sha
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+    ok.then(|| sha.to_owned())
+}
+
+/// `diffFrom`: `git diff -U0` of these paths from `base` to the working tree.
+#[must_use]
+pub fn diff_from(root: &Path, base: &str, paths: &[String]) -> Option<String> {
+    let mut args: Vec<&str> = vec![
+        "-c",
+        "core.quotePath=false",
+        "diff",
+        "-U0",
+        "--no-color",
+        "--no-ext-diff",
+        "--no-renames",
+        base,
+        "--",
+    ];
+    args.extend(paths.iter().map(String::as_str));
+    checks_git(root, &args)
+}
+
 #[cfg(test)]
 mod gate_tests {
     use super::*;
+
+    #[test]
+    fn assertion_lines_are_words_in_any_runner() {
+        for line in [
+            "expect(x).toBe(1)",
+            "assert x == 1",
+            "self.assertEqual(a, b)",
+            "assert_eq!(a, b);",
+            "with pytest.raises(E):",
+            "x.should.equal(1)",
+            "assertThat(a).isEqualTo(b)",
+        ] {
+            assert!(is_assertion_line(line), "{line}");
+        }
+        for line in [
+            "const expected = 1",
+            "it(\"asserts nothing\")",
+            "return find(1)",
+            "unexpected()",
+            "",
+        ] {
+            assert!(!is_assertion_line(line), "{line}");
+        }
+    }
+
+    #[test]
+    fn a_diff_counts_assertions_per_file_never_a_header() {
+        let diff = [
+            "diff --git a/test/a.test.ts b/test/a.test.ts",
+            "index 1..2 100644",
+            "--- a/test/a.test.ts",
+            "+++ b/test/a.test.ts",
+            "@@ -3,2 +3 @@",
+            "-  expect(a).toBe(1)",
+            "-  expect(b).toBe(2)",
+            "+  expect(a + b).toBe(3)",
+            "@@ -9 +8,0 @@",
+            "--- expect(c) inside a removed line that began with two dashes",
+            "diff --git a/test/gone.test.ts b/test/gone.test.ts",
+            "deleted file mode 100644",
+            "--- a/test/gone.test.ts",
+            "+++ /dev/null",
+            "@@ -1 +0,0 @@",
+            "-assert(true)",
+        ]
+        .join("\n");
+        assert_eq!(
+            assertion_delta(&diff),
+            vec![
+                (
+                    "test/a.test.ts".to_owned(),
+                    AssertionDelta {
+                        removed: 3,
+                        added: 1
+                    }
+                ),
+                (
+                    "test/gone.test.ts".to_owned(),
+                    AssertionDelta {
+                        removed: 1,
+                        added: 0
+                    }
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn only_a_net_loss_asks_one_line_per_file() {
+        let b = |path: &str, handle: &str, rule: &str| BoundTest {
+            path: path.to_owned(),
+            handle: handle.to_owned(),
+            rule: rule.to_owned(),
+        };
+        let bound = [
+            b("test/a.test.ts", "demo D1·ab", "One."),
+            b("test/a.test.ts", "demo D2·cd", "Two."),
+            b("test/b.test.ts", "demo D3·ef", "Three."),
+        ];
+        let delta = vec![
+            (
+                "test/a.test.ts".to_owned(),
+                AssertionDelta {
+                    removed: 3,
+                    added: 1,
+                },
+            ),
+            (
+                "test/b.test.ts".to_owned(),
+                AssertionDelta {
+                    removed: 2,
+                    added: 2,
+                },
+            ),
+        ];
+        let (lines, keys) = test_loss_lines(&bound, &delta);
+        assert_eq!(
+            lines,
+            vec!["sofar: test/a.test.ts lost 2 assertion line(s) this session, and it is the test that proves [demo D1·ab] \"One.\"; [demo D2·cd] \"Two.\" — if the operator changed that rule, file a rule that supersedes it, with their words; if not, the test must still assert it".to_owned()]
+        );
+        assert_eq!(
+            keys,
+            vec![
+                "test/a.test.ts\0demo D1·ab".to_owned(),
+                "test/a.test.ts\0demo D2·cd".to_owned()
+            ]
+        );
+    }
     use crate::fold::TestOutcome;
     use crate::json::Object;
 

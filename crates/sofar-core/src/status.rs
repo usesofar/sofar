@@ -410,6 +410,9 @@ pub struct NeighbourRecord {
 /// `StatusOptions` — what the `SessionStart` hook hands the template.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StatusOptions {
+    /// The unwritten sibling sessions that still act (r4-fixes B16): when
+    /// given, the "did work without writing back" line names only these.
+    pub live_sessions: Option<Vec<String>>,
     pub repo_memory: Option<String>,
     pub session_id: Option<String>,
     pub git: Option<GitState>,
@@ -439,6 +442,7 @@ pub struct StatusOptions {
 impl Default for StatusOptions {
     fn default() -> Self {
         Self {
+            live_sessions: None,
             repo_memory: None,
             session_id: None,
             git: None,
@@ -1391,6 +1395,12 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
     let others: Vec<&SessionState> = all_unwritten
         .into_iter()
         .filter(|s| unwritten.is_none_or(|u| u.id != s.id))
+        .filter(|s| {
+            options
+                .live_sessions
+                .as_ref()
+                .is_none_or(|live| live.contains(&s.id))
+        })
         .collect();
     if !others.is_empty() {
         let named: Vec<String> = others

@@ -186,6 +186,42 @@ function mainMerged(m: Materialized): void {
  * `bun test` green and ended before the merge, a guard on src/db.ts, and two
  * memories naming it, the first replaced by the second.
  */
+/**
+ * r4-fixes B3 (D20): a real repo whose bound test, four assertions, was
+ * committed long before any session began — the base the test-loss ask
+ * diffs against.
+ */
+function lossBaseline(m: Materialized): void {
+  rmSync(join(m.root, '.git'), { recursive: true, force: true })
+  const when = '2026-09-20T08:00:00Z'
+  const git = (args: string[]): void => {
+    execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false', ...args], {
+      cwd: m.root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        PATH: process.env.PATH ?? '',
+        HOME: m.home,
+        GIT_CONFIG_NOSYSTEM: '1',
+        GIT_AUTHOR_NAME: 'Conformance',
+        GIT_AUTHOR_EMAIL: 'conformance@example.invalid',
+        GIT_COMMITTER_NAME: 'Conformance',
+        GIT_COMMITTER_EMAIL: 'conformance@example.invalid',
+        GIT_AUTHOR_DATE: when,
+        GIT_COMMITTER_DATE: when,
+        TZ: 'UTC',
+      },
+    })
+  }
+  mkdirSync(join(m.root, 'tests', 'rules'), { recursive: true })
+  writeFileSync(join(m.root, '.gitignore'), '.sofar/\ntranscript.jsonl\n')
+  writeFileSync(join(m.root, LOSS_TEST), LOSS_FOUR)
+  git(['init', '-q', '-b', 'main'])
+  git(['add', '-A'])
+  git(['commit', '-q', '--no-verify', '-m', 'init'])
+}
+const LOSS_TEST = 'tests/rules/stock.test.ts'
+const LOSS_FOUR = "it('floors at zero', () => {\n  expect(move(-1)).toBe(false)\n  expect(onHand()).toBe(0)\n  expect(log()).toHaveLength(0)\n  expect(audit()).toHaveLength(1)\n})\n"
+
 function mergedBaseline(m: Materialized): void {
   rmSync(join(m.root, '.git'), { recursive: true, force: true })
   const git = (args: string[], when: string): void => {
@@ -946,6 +982,60 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes B3 (D19, D20) on the hot path: a session rewrites the test a
+    // ruled check runs so it asserts less, runs it green — the gate is
+    // satisfied — and Stop asks once about the loss, leading with the
+    // supersession; the next stop passes.
+    name: 'syn.test-loss',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('session-start: the bound test, committed before the session', ['event', 'session-start'], start({ session_id: 'sess-l' }), { before: lossBaseline }),
+      s('a rule checked by that test', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-l', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', check: { cmd: `bun test ${LOSS_TEST}` }, supersedes: 'none' })]),
+      s('Edit the bound test: two assertions gone', ['event', 'post-tool'], edit(`<ROOT>/${LOSS_TEST}`, { session_id: 'sess-l' }), {
+        before: (m) => writeFileSync(join(m.root, LOSS_TEST), LOSS_FOUR.split('\n').filter((l) => !l.includes('log()') && !l.includes('audit()')).join('\n')),
+      }),
+      s('the weakened test passes', ['event', 'post-tool'], bash(`bun test ${LOSS_TEST}`, { session_id: 'sess-l' })),
+      s('sess-l writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-l', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('stop: held once for the loss', ['event', 'stop'], stop({ session_id: 'sess-l' })),
+      s('stop: asked once, released', ['event', 'stop'], stop({ session_id: 'sess-l' })),
+    ],
+  },
+  {
+    // r4-fixes B14 (D25) on the hot path: the branch files a fresh session
+    // into `baseline`; its first prompt names the open `r4-fixes`, so the
+    // session serves r4-fixes from that prompt on, told first with the way
+    // back. A second prompt naming it again moves nothing.
+    name: 'syn.carrier',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('session-start: the branch files the session into baseline', ['event', 'session-start'], start({ session_id: 'sess-r' }), {
+        before: (m) => {
+          const dir = join(m.root, '.sofar', 'initiatives', 'r4-fixes')
+          mkdirSync(dir, { recursive: true })
+          writeFileSync(
+            join(dir, 'events.jsonl'),
+            `${JSON.stringify({ v: 1, id: '01M2Z0PCM000000000000000R4', ts: '2026-09-20T09:00:00.000Z', initiative: 'r4-fixes', session: 'cli', source: 'cli', actor: 'human', user: 'fixture@example.invalid', type: 'initiative_created', payload: { slug: 'r4-fixes', goal: 'Fix what round 4 lost.' } })}\n`,
+          )
+        },
+      }),
+      s('first prompt names r4-fixes: carried, told first', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'continue r4 fixes' })),
+      s('a second prompt naming it moves nothing', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'and the r4 fixes plan?' })),
+      s('status of r4-fixes: the session registered there', ['status', 'r4-fixes']),
+    ],
+  },
+  {
+    // r4-fixes B16 on the hot path: the fixture's unwritten sessions are all
+    // weeks old (A14's abandoned history), so the digest leaves them out; a
+    // sibling that did work this run and never wrote back is still named.
+    name: 'syn.idle-siblings',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('sess-w does work and never writes back', ['event', 'post-tool'], bash('ls src', { session_id: 'sess-w' })),
+      s('sess-v too, after it: the Last session line', ['event', 'post-tool'], bash('ls docs', { session_id: 'sess-v' })),
+      s('session-start: only the live sibling is named', ['event', 'session-start'], start({ session_id: 'sess-n' })),
+    ],
+  },
+  {
     // r3-fixes 2.11 (D19, D20) on the hot path: round 3's S18 merge in
     // miniature, in a real repo with pinned dates — wt-15 merged clean, wt-16
     // and wt-17 conflicting on src/db.ts, the conflict committed as the
@@ -1082,6 +1172,42 @@ export const CASES: ConformanceCase[] = [
       }), { env: { SOFAR_TOLD_LINES: 'off' } }),
       s('compact: the set is cleared and seeded again', ['event', 'session-start'], start({ session_id: 'sess-t', source: 'compact' })),
       s('…so the first prompt after it is quiet on the push state too', ['event', 'user-prompt'], prompt({ session_id: 'sess-t' })),
+    ],
+  },
+  {
+    // r4-fixes B1 (D16): the work map on the first prompt — ranked by the
+    // prompt's words, each name once, a missing file dropped, the budget
+    // filled by a file of 200 exports; told once; SOFAR_WORKMAP=off.
+    name: 'syn.workmap',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('first prompt: the map, the prompt\'s words first', ['event', 'user-prompt'], prompt({ session_id: 'sess-w', prompt: 'reserve stock and cancel the order when QTY_LIMIT trips' }), {
+        before: (m) => {
+          const files: Record<string, string> = {
+            'src/module/file-0.ts': [
+              'export class Ledger {',
+              '  reserveStock(orderId: string, qty: number): void {',
+              "    if (qty > 10) throw new LedgerError('QTY_LIMIT')",
+              '  }',
+              '  private async cancelOrder(orderId: string) {',
+              '  }',
+              '}',
+              'export const api = {',
+              '  shipOrder: async (id: string) => id,',
+              '}',
+            ].join('\n'),
+            'src/module/file-1.ts': "export function stockOnHand(sku: string) {\n  throw new Error(\"UNKNOWN_SKU\")\n}\n",
+            'src/module/file-2.ts': "it('caps', () => expect(() => l.reserveStock('o', 11)).toThrow('QTY_LIMIT'))\n",
+            'src/module/file-3.ts': Array.from({ length: 200 }, (_, i) => `export function handlerNumber${i}() {}`).join('\n'),
+          }
+          for (const [rel, text] of Object.entries(files)) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), text)
+          }
+        },
+      }),
+      s('second prompt: told once, no map', ['event', 'user-prompt'], prompt({ session_id: 'sess-w', prompt: 'reserve stock again' })),
+      s('SOFAR_WORKMAP=off: no map for a fresh session', ['event', 'user-prompt'], prompt({ session_id: 'sess-x', prompt: 'reserve stock' }), { env: { SOFAR_WORKMAP: 'off' } }),
     ],
   },
   {

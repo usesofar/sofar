@@ -663,6 +663,9 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let status = render_status(
         &state,
         &StatusOptions {
+            // Siblings named as unwritten only while they still act (r4-fixes B16).
+            live_sessions: crate::record_copies::abandon_enabled()
+                .then(|| live_siblings(&layout.events_path(&slug), &state, session_id)),
             repo_memory: repo_memory.clone(),
             session_id: session_id.map(str::to_owned),
             git,
@@ -722,6 +725,28 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
         },
     );
     with_session_title(Hook::SessionStart, ok(status), title.as_deref())
+}
+
+/// `liveSiblings` (r4-fixes B16): the unwritten sibling sessions that logged
+/// an event within A14's idle window, from this record's log tail only.
+fn live_siblings(
+    log_path: &std::path::Path,
+    state: &crate::fold::InitiativeState,
+    session_id: Option<&str>,
+) -> Vec<String> {
+    let candidates: Vec<String> = crate::status::unwritten_sessions(&state.sessions)
+        .into_iter()
+        .map(|s| s.id.clone())
+        .filter(|id| Some(id.as_str()) != session_id)
+        .collect();
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_secs_f64() * 1000.0);
+    crate::record_copies::sessions_logged_since(
+        log_path,
+        now_ms - crate::record_copies::SESSION_IDLE_MS,
+        &candidates,
+    )
 }
 
 #[cfg(test)]

@@ -1,5 +1,20 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.36.0** for rc.1 (r4-fixes 3.2) from the
+TypeScript reference. The version bump is the whole diff: `argv.fast-path`
+(`--version` is `0.36.0-rc.1`) and `open.O2-update-segment` ("you have
+0.36.0-rc.1"). Wave B's goldens (B1 `syn.workmap`, B3 `syn.test-loss`, B14
+`syn.carrier`) arrive from their branches as recorded there.
+
+RE-RECORDED and ADDED for **r4-fixes B1** (Wave B, branch wave-b-b1; docs/SPEC.md
+§Work map (r4-fixes B1, D16)), from the TypeScript reference. One golden moved:
+`syn.merge-handles`, whose fixture touched `src/order/caps.ts` and whose case
+creates it, so its first prompt now ends with the work map (`CAP:1`). One case
+ADDED, `syn.workmap`: the map ranked by the prompt's words, each name once, a
+missing file dropped, the budget filled; told once; `SOFAR_WORKMAP=off`. The
+Rust core reproduces both (`SOFAR_CORE=… vitest run test/conformance`: 55
+passed).
+
 Re-recorded on **main** at the 0.35.0-rc.3 merge-back (r4-fixes 3.1): main
 keeps `0.36.0-dev+trunk`, and the version string is the whole diff on
 `argv.fast-path` and `open.O2-update-segment`. H5's ten Stop holds and

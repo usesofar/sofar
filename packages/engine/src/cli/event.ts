@@ -39,7 +39,8 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, checkFailureLine, checksInForce, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, stopGate, suiteOf, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type StopGate } from '../core/checks'
+import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
+import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine } from '../core/carrier'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -100,9 +101,10 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
-import { cacheChanges, cachedChanges, markWrote, pathspecKey, readWrote } from '../core/wrote'
+import { cacheChanges, cachedChanges, markLossAsked, markWrote, pathspecKey, readLossAsked, readWrote } from '../core/wrote'
 import { readGateEnabled, rewriteRawRead, rewriteRawReadSegments } from '../core/read-rewrite'
 import { cappedRecallBlock, RECALL_TOLD_KEY, recallBlock, recallEnabled, recallV034 } from '../core/recall'
+import { WORKMAP_TOLD_KEY, workmapBlock, workmapEnabled } from '../core/workmap'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes, handleAt, qualifiedHandle, suffixedHandle } from '../core/handle'
@@ -111,7 +113,7 @@ import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
 import { newestEvent } from '../core/warmth'
 import { worktreeLeads } from '../core/record-copies'
-import { abandonEnabled } from '../core/abandoned'
+import { abandonEnabled, SESSION_IDLE_MS, sessionsLoggedSince } from '../core/abandoned'
 import { worktreeLeadsNotice } from '../projections/templates/copies'
 import { copyLagGuard } from '../mcp/copy-lag'
 import { fileInlineWriteback } from '../mcp/inline-writeback'
@@ -136,6 +138,7 @@ import {
   renderStatus,
   sessionIdLine,
   STATUS_CHAR_LIMIT,
+  unwrittenSessions,
 } from '../projections/templates/status'
 import { digestLimit } from '../core/host-payload'
 import { REPO_MD_STUB, readInput } from './shared'
@@ -1017,6 +1020,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
       ...(merge !== null ? { merge } : {}),
       ...(slug === QUICK_LANE ? { lane: true } : {}),
       ...(activity ? {} : { activity: false }),
+      // Siblings named as unwritten only while they still act (r4-fixes B16):
+      // a session silent 24 h is A14's abandoned history, which doctor lists.
+      ...(abandonEnabled() ? { liveSessions: liveSiblings(ctx.eventsPath(slug), state, sessionId) } : {}),
       // The host's digest budget (r4-fixes A2): Claude Code 6,000, Codex
       // 4,000, Cursor 3,000; every host 6,000 under SOFAR_PAYLOAD=v034.
       ...(digestLimit(host.tool) !== STATUS_CHAR_LIMIT ? { limit: digestLimit(host.tool) } : {}),
@@ -1685,9 +1691,36 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     if (files.length === 0) return none
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
-    return stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, rootProbe(rootDir), outcomesKnown)
+    const probe = rootProbe(rootDir)
+    const gate = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown)
+    const loss = testGuardEnabled() ? stopTestLoss(rootDir, sofarDir, session, index, files, probe) : []
+    return loss.length === 0 ? gate : { lines: [...loss, ...gate.lines], blocks: true }
   } catch {
     return none
+  }
+}
+
+/**
+ * The test-loss ask (r4-fixes B3, D20), once per session and test: a test
+ * file a ruled check runs that this session's work left with fewer assertion
+ * lines than it began with. Git is asked only when the session edited such a
+ * file: one bounded log for the commit it began from, one diff of those files.
+ * Fails open, like the gate.
+ */
+function stopTestLoss(rootDir: string, sofarDir: string, session: SessionState, index: GuardIndex, files: readonly string[], probe: PathProbe): string[] {
+  try {
+    const asked = new Set(readLossAsked(sofarDir, session.id))
+    const bound = boundTestsTouched(index, files, rootDir, probe).filter((b) => !asked.has(`${b.path}\0${b.handle}`))
+    if (bound.length === 0) return []
+    const base = sessionBase(rootDir, session.started)
+    if (base === null) return []
+    const diff = diffFrom(rootDir, base, [...new Set(bound.map((b) => b.path))])
+    if (diff === null) return []
+    const { lines, keys } = testLossLines(bound, assertionDelta(diff))
+    markLossAsked(sofarDir, session.id, keys)
+    return lines
+  } catch {
+    return []
   }
 }
 
@@ -3129,6 +3162,46 @@ function keepLine(rootDir: string, slug: string, sessionId: string, prompt: stri
   return id !== null && prompt.length >= PROMPT_ANNOUNCE_MIN ? promptKeepLine(id) : null
 }
 
+/**
+ * The unwritten sibling sessions that logged an event within A14's idle
+ * window (r4-fixes B16), read from this record's log tail only: the digest's
+ * "did work without writing back" line names these and leaves the abandoned
+ * out. 66% of the sessions that line named since 2026-09-01 had been silent
+ * longer than 24 h.
+ */
+function liveSiblings(logPath: string, state: InitiativeState, sessionId: string | null): ReadonlySet<string> {
+  const candidates = unwrittenSessions(state.sessions)
+    .map((s) => s.id)
+    .filter((id) => id !== sessionId)
+  return sessionsLoggedSince(logPath, Date.now() - SESSION_IDLE_MS, candidates)
+}
+
+/**
+ * The first-prompt carrier (r4-fixes B14, D25): on a session's FIRST prompt
+ * (once per context, through the told set), while it has done nothing in the
+ * record the branch gave it, a prompt naming exactly one other open record
+ * registers the session there — its latest registration, so its home (D5) —
+ * and returns that slug. A record it already registered in is left alone: a
+ * move back is a `rehome`, the agent's to make (binding-follows-session D3).
+ */
+function carryFirstPrompt(ctx: ToolContext, from: string, sessionId: string, prompt: string, host: HookHost): string | null {
+  try {
+    if (!carrierEnabled() || from === QUICK_LANE) return null
+    const told = readTold(ctx.sofarDir, sessionId)
+    if (told.has(CARRIER_TOLD_KEY)) return null
+    addTold(ctx.sofarDir, sessionId, [CARRIER_TOLD_KEY])
+    const me = ctx.foldState(from).sessions.find((s) => s.id === sessionId)
+    if (me !== undefined && (me.summary !== undefined || (me.activity?.files.length ?? 0) > 0 || (me.activity?.commands ?? 0) > 0)) return null
+    const to = carriedRecord(prompt, initiativeSlugs(ctx.sofarDir), (slug) => recordOpen(ctx, slug))
+    if (to === null || to === from) return null
+    if (ctx.foldState(to).sessions.some((s) => s.id === sessionId)) return null
+    registerLazily(ctx, to, sessionId, host)
+    return to
+  } catch {
+    return null
+  }
+}
+
 export function handleUserPrompt(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
@@ -3139,7 +3212,13 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
 
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK }
-    const { ctx, slug } = bound
+    const { ctx } = bound
+    const prompt = strField(hook, 'prompt')
+    // The first-prompt carrier (r4-fixes B14, D25) before anything is read
+    // for this record: a fresh session the operator's prompt names into
+    // another open record serves that record from this prompt on.
+    const carried = prompt === null ? null : carryFirstPrompt(ctx, bound.slug, sessionId, prompt, host)
+    const slug = carried ?? bound.slug
 
     const state = ctx.foldState(slug)
     // The session's name follows the record's focus task (session-naming D1)
@@ -3149,15 +3228,18 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
-    const prompt = strField(hook, 'prompt')
     const keep = prompt === null ? null : keepLine(rootDir, slug, sessionId, prompt)
     // Recall (memory-lead 4.3, D25) before the registration check too: the
     // first prompt is the cue, and in a bench session it is the only one.
     // Cursor's prompt hook cannot inject, so it is never spent there.
     const recall = prompt !== null && host.tool !== 'cursor' && recallEnabled() ? promptRecall(ctx.sofarDir, state, sessionId, prompt) : null
+    // The work map (r4-fixes B1, D16) rides the same first prompt: its ranking
+    // needs the prompt's words, which SessionStart has not seen yet.
+    const map = prompt !== null && host.tool !== 'cursor' && workmapEnabled() ? promptWorkmap(rootDir, ctx.sofarDir, state, sessionId, prompt) : null
     const me = state.sessions.find((s) => s.id === sessionId)
+    const carriedLine = carried === null ? null : carrierLine(bound.slug, carried, sessionId)
     if (me === undefined) {
-      const first = [recall, keep].filter((l): l is string => l !== null)
+      const first = [carriedLine, recall, map, keep].filter((l): l is string => l !== null)
       return withSessionTitle('user-prompt', first.length === 0 ? { ...OK } : { ...OK, stdout: first.join('\n') }, title) // not ours to nudge
     }
 
@@ -3267,7 +3349,9 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       )
     }
     if (recall !== null) lines.push(recall)
+    if (map !== null) lines.push(map)
     if (keep !== null) lines.push(keep)
+    if (carriedLine !== null) lines.unshift(carriedLine)
 
     return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)
   } catch {
@@ -3295,6 +3379,18 @@ function promptRecall(sofarDir: string, state: InitiativeState, session: string,
   const block = cappedRecallBlock(state, prompt, retireEnabled(), held)
   if (block !== null) addTold(sofarDir, session, [RECALL_TOLD_KEY, ...block.ids.map(entryToldKey)])
   return block?.text ?? null
+}
+
+/**
+ * The work map for this prompt (r4-fixes B1, D16), once per session: the told
+ * key is set only when a block renders, so a record with nothing to scan yet
+ * tries again on the next prompt.
+ */
+function promptWorkmap(rootDir: string, sofarDir: string, state: InitiativeState, session: string, prompt: string): string | null {
+  if (readTold(sofarDir, session).has(WORKMAP_TOLD_KEY)) return null
+  const block = workmapBlock(rootDir, state, prompt)
+  if (block !== null) addTold(sofarDir, session, [WORKMAP_TOLD_KEY])
+  return block
 }
 
 // ---------------------------------------------------------------------------

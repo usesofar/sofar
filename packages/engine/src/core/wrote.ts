@@ -83,3 +83,23 @@ export function cachedChanges(sofarDir: string, session: string, n: number, key:
 export function cacheChanges(sofarDir: string, session: string, n: number, key: string, files: readonly string[]): void {
   write(sofarDir, gitFile(sofarDir, session), { v: 1, n, key, files })
 }
+
+function lossFile(sofarDir: string, session: string): string {
+  return join(indexDir(sofarDir), WROTE_DIR, `${safe(session)}.loss.json`)
+}
+
+/**
+ * The test-loss asks Stop already made this session (r4-fixes B3, D20), each
+ * `<path>\0<handle>`: the ask holds once, never at every Stop after. A lost
+ * file asks once more.
+ */
+export function readLossAsked(sofarDir: string, session: string): string[] {
+  const raw = readJson(lossFile(sofarDir, session))
+  if (raw === null || raw.v !== 1 || !Array.isArray(raw.asked)) return []
+  return raw.asked.filter((k): k is string => typeof k === 'string')
+}
+
+export function markLossAsked(sofarDir: string, session: string, keys: readonly string[]): void {
+  if (keys.length === 0) return
+  write(sofarDir, lossFile(sofarDir, session), { v: 1, asked: [...new Set([...readLossAsked(sofarDir, session), ...keys])] })
+}

@@ -1,0 +1,32 @@
+# conformance golden: syn.workmap
+
+## step 1: first prompt: the map, the prompt's words first
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-w","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"reserve stock and cancel the order when QTY_LIMIT trips"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Entry points (worktree at ce11ce1; name:line):\nsrc/module/file-2.ts: QTY_LIMIT:1\nsrc/module/file-0.ts: reserveStock:2 cancelOrder:5 shipOrder:9\nsrc/module/file-1.ts: stockOnHand:1\nsrc/module/file-3.ts: handlerNumber0:1 handlerNumber1:2 handlerNumber2:3 handlerNumber3:4 handlerNumber4:5 handlerNumber5:6 handlerNumber6:7 handlerNumber7:8 handlerNumber8:9 handlerNumber9:10 handlerNumber10:11 handlerNumber11:12 handlerNumber12:13 handlerNumber13:14 handlerNumber14:15 handlerNumber15:16 handlerNumber16:17 handlerNumber17:18 handlerNumber18:19 handlerNumber19:20 handlerNumber20:21 handlerNumber21:22 handlerNumber22:23 handlerNumber23:24 handlerNumber24:25 handlerNumber25:26 handlerNumber26:27 handlerNumber27:28 handlerNumber28:29 handlerNumber29:30 handlerNumber30:31 handlerNumber31:32 handlerNumber32:33 handlerNumber33:34 handlerNumber34:35 handlerNumber35:36 handlerNumber36:37 handlerNumber37:38 handlerNumber38:39 handlerNumber39:40 handlerNumber40:41 handlerNumber41:42 handlerNumber42:43","sessionTitle":"baseline 1.2 #sess"}}
+--- stderr
+(empty)
+
+## step 2: second prompt: told once, no map
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-w","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"reserve stock again"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"baseline 1.2 #sess"}}
+--- stderr
+(empty)
+
+## step 3: SOFAR_WORKMAP=off: no map for a fresh session
+argv: ["event","user-prompt"]
+stdin: {"session_id":"sess-x","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"reserve stock"}
+env: {"SOFAR_WORKMAP":"off"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"baseline 1.2 #sess"}}
+--- stderr
+(empty)
+
+## record delta
+(no change)
