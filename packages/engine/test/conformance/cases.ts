@@ -1014,7 +1014,7 @@ export const CASES: ConformanceCase[] = [
           mkdirSync(dir, { recursive: true })
           writeFileSync(
             join(dir, 'events.jsonl'),
-            `${JSON.stringify({ v: 1, id: '01M4C0000000000000000000R4', ts: '2026-09-20T09:00:00.000Z', initiative: 'r4-fixes', session: 'cli', source: 'cli', actor: 'human', user: 'fixture@example.invalid', type: 'initiative_created', payload: { slug: 'r4-fixes', goal: 'Fix what round 4 lost.' } })}\n`,
+            `${JSON.stringify({ v: 1, id: '01M2Z0PCM000000000000000R4', ts: '2026-09-20T09:00:00.000Z', initiative: 'r4-fixes', session: 'cli', source: 'cli', actor: 'human', user: 'fixture@example.invalid', type: 'initiative_created', payload: { slug: 'r4-fixes', goal: 'Fix what round 4 lost.' } })}\n`,
           )
         },
       }),
