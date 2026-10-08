@@ -112,7 +112,7 @@ import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
 import { newestEvent } from '../core/warmth'
 import { worktreeLeads } from '../core/record-copies'
-import { abandonEnabled } from '../core/abandoned'
+import { abandonEnabled, SESSION_IDLE_MS, sessionsLoggedSince } from '../core/abandoned'
 import { worktreeLeadsNotice } from '../projections/templates/copies'
 import { copyLagGuard } from '../mcp/copy-lag'
 import { fileInlineWriteback } from '../mcp/inline-writeback'
@@ -137,6 +137,7 @@ import {
   renderStatus,
   sessionIdLine,
   STATUS_CHAR_LIMIT,
+  unwrittenSessions,
 } from '../projections/templates/status'
 import { digestLimit } from '../core/host-payload'
 import { REPO_MD_STUB, readInput } from './shared'
@@ -1018,6 +1019,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
       ...(merge !== null ? { merge } : {}),
       ...(slug === QUICK_LANE ? { lane: true } : {}),
       ...(activity ? {} : { activity: false }),
+      // Siblings named as unwritten only while they still act (r4-fixes B16):
+      // a session silent 24 h is A14's abandoned history, which doctor lists.
+      ...(abandonEnabled() ? { liveSessions: liveSiblings(ctx.eventsPath(slug), state, sessionId) } : {}),
       // The host's digest budget (r4-fixes A2): Claude Code 6,000, Codex
       // 4,000, Cursor 3,000; every host 6,000 under SOFAR_PAYLOAD=v034.
       ...(digestLimit(host.tool) !== STATUS_CHAR_LIMIT ? { limit: digestLimit(host.tool) } : {}),
@@ -3149,6 +3153,20 @@ function keepLine(rootDir: string, slug: string, sessionId: string, prompt: stri
   if (slug === QUICK_LANE) return null
   const id = capturePrompt(rootDir, sessionId, prompt, new Date().toISOString())
   return id !== null && prompt.length >= PROMPT_ANNOUNCE_MIN ? promptKeepLine(id) : null
+}
+
+/**
+ * The unwritten sibling sessions that logged an event within A14's idle
+ * window (r4-fixes B16), read from this record's log tail only: the digest's
+ * "did work without writing back" line names these and leaves the abandoned
+ * out. 66% of the sessions that line named since 2026-09-01 had been silent
+ * longer than 24 h.
+ */
+function liveSiblings(logPath: string, state: InitiativeState, sessionId: string | null): ReadonlySet<string> {
+  const candidates = unwrittenSessions(state.sessions)
+    .map((s) => s.id)
+    .filter((id) => id !== sessionId)
+  return sessionsLoggedSince(logPath, Date.now() - SESSION_IDLE_MS, candidates)
 }
 
 /**

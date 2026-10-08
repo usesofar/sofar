@@ -5889,7 +5889,16 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   derived resume line names ONE unwritten session (the best resume point);
   every OTHER session that did mechanical work without writing back renders
   as one budgeted `⚠ N other session(s) did work without writing back` line
-  listing up to 5 ids (record-integrity 4.3). The derived line stops at the
+  listing up to 5 ids (record-integrity 4.3). At SessionStart that line
+  names only siblings that logged an event within A14's 24 h idle window
+  (r4-fixes B16): the record's own log is read back from its end, 64 KiB at a
+  time and at most 4 MiB, until a whole line is older than now − 24 h, and
+  each line's `ts` and `session` come from the canonical envelope head
+  without a parse; an unreadable log keeps every sibling. A silent sibling is
+  abandoned history, which `sofar doctor` still lists; no sibling left drops
+  the line. Since 2026-09-01, 101 of the 153 sessions this line named here had
+  been silent longer than 24 h. `SOFAR_ABANDON=off` names every unwritten
+  sibling, as before; `sofar status` is unchanged. The derived line stops at the
   newest written-back session by design, which is right for resuming and
   wrong for accounting: with parallel sessions a single write-back used to
   hide every other session's unwritten work from the block entirely. A

@@ -467,6 +467,13 @@ function phaseMark(phase: { name: string; status: string }, staleNames: Readonly
 
 export interface StatusOptions {
   /**
+   * The unwritten sibling sessions that still act (r4-fixes B16): when given,
+   * the "did work without writing back" line names only these — a session
+   * silent longer than A14's 24 h is abandoned history (`sofar doctor`).
+   * Absent: every unwritten sibling, as before.
+   */
+  liveSessions?: ReadonlySet<string>
+  /**
    * Contents of .sofar/repo.md (hand-written repo-scoped memory, SPEC
    * §Record layout). The caller decides whether it is worth surfacing
    * (missing/empty/stub → omit); the template owns budget + placement.
@@ -788,7 +795,8 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
       '',
     ])
   }
-  const others = (lane ? [] : unwrittenSessions(state.sessions)).filter((s) => s.id !== unwritten?.id)
+  const live = options?.liveSessions
+  const others = (lane ? [] : unwrittenSessions(state.sessions)).filter((s) => s.id !== unwritten?.id && (live === undefined || live.has(s.id)))
   if (others.length > 0) {
     const named = others.slice(0, UNWRITTEN_SIBLING_CAP).map((s) => clip(s.id, SESSION_ID_BUDGET))
     const more = others.length > named.length ? `, +${others.length - named.length} more` : ''

@@ -1024,6 +1024,18 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes B16 on the hot path: the fixture's unwritten sessions are all
+    // weeks old (A14's abandoned history), so the digest leaves them out; a
+    // sibling that did work this run and never wrote back is still named.
+    name: 'syn.idle-siblings',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('sess-w does work and never writes back', ['event', 'post-tool'], bash('ls src', { session_id: 'sess-w' })),
+      s('sess-v too, after it: the Last session line', ['event', 'post-tool'], bash('ls docs', { session_id: 'sess-v' })),
+      s('session-start: only the live sibling is named', ['event', 'session-start'], start({ session_id: 'sess-n' })),
+    ],
+  },
+  {
     // r3-fixes 2.11 (D19, D20) on the hot path: round 3's S18 merge in
     // miniature, in a real repo with pinned dates — wt-15 merged clean, wt-16
     // and wt-17 conflicting on src/db.ts, the conflict committed as the
