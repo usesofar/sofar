@@ -5,21 +5,22 @@
 - Initiative: r4-fixes
 - Tool: claude-code
 - Started: 2026-10-08T18:52:37.142Z
-- Ended: 2026-10-08T18:55:15.340Z
+- Ended: 2026-10-08T19:19:03.649Z
 
 ## Summary
 
-4.1 drafted: handoff-bench 65e967f adds scenario5-launch-bench/analysis/round-5/CHAIN-N-DESIGN.md, a diff on Chain M built from 1.6 §4, 1.3 §6 and 1.5 §8 under D6's rulings. It places abandoned branches (S8 deleted Codex spike, W-c unmerged), two forks around a Cursor S16 merge, peer-currency plantings, and the T-DUP/T-ORCH fixtures owed to D23/D31. Four rulings are open in its §9: domain (time, leave and payroll recommended), branch placement, fixture split, author lane. B7 still sits in Phase 2b though D27 moved it to Wave C.
+Operator approved Chain N on the four §9 recommendations ("go"): handoff-bench cd64a94 marks CHAIN-N-DESIGN.md APPROVED with a §10 rulings block, the ruling is logged as a decision, and chain-n-author exists (--no-bind) with the blind author's goal and six tasks mirroring the design's §7 gates.
 
 ## Next action
 
-Get the operator's rulings on CHAIN-N-DESIGN.md §9, mark it approved, then open chain-n-author for the blind author.
+Start a fresh blind session homed in chain-n-author for 1.1; meanwhile r4-fixes 4.2 (round-5 harness) can proceed here.
 
 ## Activity (derived from mechanical events)
 
-- Derived: 1 file (/Users/jins/IO/handoff-bench/scenario5-launch-bench/analysis/round-5/CHAIN-N-DESIGN.md), 16 commands (2 failed), task changes: 4.1 → active
+- Derived: 1 file (/Users/jins/IO/handoff-bench/scenario5-launch-bench/analysis/round-5/CHAIN-N-DESIGN.md), 21 commands (2 failed), task changes: 4.1 → active, 4.1 → done
 - Files:
   - /Users/jins/IO/handoff-bench/scenario5-launch-bench/analysis/round-5/CHAIN-N-DESIGN.md
-- Commands run: 16 (2 failed)
+- Commands run: 21 (2 failed)
 - Task changes:
   - 4.1 → active
+  - 4.1 → done

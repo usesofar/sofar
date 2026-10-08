@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 33 done, 6 dropped, 24 remaining
+Progress: 34 done, 6 dropped, 23 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -69,14 +69,14 @@ Progress: 33 done, 6 dropped, 24 remaining
 - [x] 3.1 Cut rc 0.35.0 (Wave A): integrate the wave-a/* branches onto release/0.35.0, full gates (TS, cargo, conformance, parity:real, D18 two legs vs 0.34.1, every item's replay), CI, stage cores, operator publishes to next
 - [x] 3.2 Cut rc 0.36.0 (Wave B items whose replay passed) as round 5's frozen build; merge back to main after each cut
 
-## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/6 done
+## Phase 4 — Round 5 on a harder held-out chain [pending] — 1/6 done
 
-- [ ] 4.1 CHAIN-N-DESIGN.md (from 1.6 §4 and 1.3 §6 stressors; claims C1–C6 from 1.5 §8) for the operator's approval; then a fresh blind author session in a new chain-n-author record (active)
+- [x] 4.1 CHAIN-N-DESIGN.md (from 1.6 §4 and 1.3 §6 stressors; claims C1–C6 from 1.5 §8) for the operator's approval; then a fresh blind author session in a new chain-n-author record
 - [ ] 4.2 Round-5 harness: decision-application (DA) scoring, hierarchical bootstrap analysis, cost in dollars from pinned price vectors (R3), Codex model pinned, Bonferroni and ceiling stop (R6), two-lane option (R8), hermetic runner (A13)
 - [ ] 4.3 Calibration: a sealed bounds pilot (~50 short sessions; amnesia ≤25% DA pass, oracle ≥90%) plus a naive-notes rehearsal (~26 sessions), on non-scored arms only (R5)
 - [ ] 4.4 PRE-REGISTRATION-R5: claims (R5-F primary, R5-F+ reported, R5-A/C/B, R5-$ parity), units, stopping rules; public signed tag (R9); frozen in the operator's own words
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Get the operator's rulings on CHAIN-N-DESIGN.md §9, mark it approved, then open chain-n-author for the blind author.
+Next action: Start a fresh blind session homed in chain-n-author for 1.1; meanwhile r4-fixes 4.2 (round-5 harness) can proceed here.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).
