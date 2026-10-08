@@ -76,5 +76,5 @@ Progress: 28 done, 4 dropped, 29 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Run B7's replay (sofar diff for PRs) under D24; build only on a measured loss.
+Next action: Run B8's replay (deterministic staleness) under D24; build only on a measured loss.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).
