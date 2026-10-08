@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import type { EventEnvelope } from '../src/core/envelope'
 import { runDoctor } from '../src/cli/doctor'
-import { codexStopMessage, runAppend, STOP_BLOCK_MESSAGE, SUBCOMMANDS, type HookResult } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, codexStopMessage, runAppend, STOP_BLOCK_MESSAGE, SUBCOMMANDS, type HookResult } from '../src/cli/event'
 import { parseHookFlags } from '../src/cli/fast'
 import { patchedFiles, toCodex, type HookName } from '../src/cli/host'
 import {
@@ -168,7 +168,7 @@ describe('a Codex session end to end, through the hook table', () => {
     const fixture = fx()
     run('post-tool', fixture.root, payload('post-tool-use.apply-patch'))
     const held = run('stop', fixture.root, payload('stop.first'))
-    expect(held).toEqual({ exitCode: 2, stdout: '', stderr: codexStopMessage(fixture.slug, SESSION) })
+    expect(held).toEqual({ exitCode: 2, stdout: '', stderr: `${codexStopMessage(fixture.slug, SESSION)}\n${HOLD_CLOSE_LINE}` })
     expect(run('stop', fixture.root, payload('stop.held'))).toEqual({ exitCode: 0, stdout: '', stderr: '' })
   })
 

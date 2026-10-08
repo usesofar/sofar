@@ -51,6 +51,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: tests/rules/stock.test.ts lost 2 assertion line(s) this session, and it is the test that proves [baseline D3·<SFX>] "Stock never goes below zero." — if the operator changed that rule, file a rule that supersedes it, with their words; if not, the test must still assert it
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 7: stop: asked once, released
 argv: ["event","stop"]

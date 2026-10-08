@@ -5005,6 +5005,13 @@ Claude, two per first use on Cursor (the schema fetch, then the call).
   decisions, memories, notes — or call sofar_end_session.` (Codex: the same,
   ending `or call sofar_end_session with session_id <id>.`) — the
   continuation's reply is then the write-back. Under `tool` the 0.34 lines.
+- THE CLOSE LINE (r4-fixes H3): every Stop hold, in both engines and on
+  every host — the write-back hold and the gate, merge, link and test-loss
+  asks alike — ends with the line `Then end on one line restating your
+  answer: it is what the operator reads last.` The held agent's final
+  message is the operator's last screen; in 59 of 160 real holds it was a
+  write-back receipt or a test-rerun note. `SOFAR_HOLD_CLOSE=off` drops the
+  line, restoring 0.36.0-rc.1's holds byte for byte.
 - BOTH ENGINES: filing is TypeScript's. The native core hands a Stop or
   SessionEnd to it — after reading stdin, so not by exit 64 — when the
   switch is `inline` and the payload may carry a block: a
@@ -7577,7 +7584,11 @@ subdirectory, against 33 of 33 from the root.
   than `npm config get prefix`, so a custom-prefix install is updated in place
   instead of a naive `npm i -g` installing to the wrong root. --check reports
   installed-vs-latest and the resolved prefix; --dry-run prints the exact npm
-  command; --force reinstalls at the target. Non-global installs (local dep,
+  command; --force reinstalls at the target. A bare upgrade never moves DOWN
+  (r4-fixes H6): when the installed version is a pre-release newer than
+  `latest`, it installs nothing, exits 0, and names `sofar upgrade next` and
+  `sofar upgrade <latest>`; only a named version or --force downgrades, and
+  --check reads "installed is newer". Non-global installs (local dep,
   npx cache) print manual guidance and never run npm. `--auto <on|off>`
   writes the opt-in auto-install preference and exits (§Update check); a
   successful upgrade pitches `--auto on` in its success message, but only

@@ -90,6 +90,34 @@ describe('resolveUpgrade — pure decision core', () => {
     expect(d).toEqual({ action: 'install', prefix: '/Users/x/.local', target: '0.3.2' })
   })
 
+  // r4-fixes H6: a bare upgrade on an rc installed `latest` and moved DOWN.
+  it('never downgrades a pre-release ahead of latest without a named version', () => {
+    const d = resolveUpgrade({}, ctx({ currentVersion: '0.35.0-rc.3', latestVersion: '0.34.1' }))
+    expect(d.action).toBe('report')
+    if (d.action === 'report') {
+      expect(d.result.exitCode).toBe(0)
+      expect(d.result.stdout).toContain('0.35.0-rc.3 is newer than latest (0.34.1); not downgrading')
+      expect(d.result.stdout).toContain('sofar upgrade next')
+    }
+    expect(resolveUpgrade({ dryRun: true }, ctx({ currentVersion: '0.35.0-rc.3', latestVersion: '0.34.1' })).action).toBe('report')
+  })
+
+  it('downgrades to latest only on --force or a named version', () => {
+    const at = { currentVersion: '0.35.0-rc.3', latestVersion: '0.34.1' }
+    expect(resolveUpgrade({ force: true }, ctx(at))).toEqual({ action: 'install', prefix: '/Users/x/.local', target: '0.34.1' })
+    expect(resolveUpgrade({ version: '0.34.1' }, ctx({ ...at, latestVersion: null }))).toEqual({ action: 'install', prefix: '/Users/x/.local', target: '0.34.1' })
+  })
+
+  it('still upgrades an rc to a newer stable latest', () => {
+    const d = resolveUpgrade({}, ctx({ currentVersion: '0.36.0-rc.1', latestVersion: '0.36.0' }))
+    expect(d).toEqual({ action: 'install', prefix: '/Users/x/.local', target: '0.36.0' })
+  })
+
+  it('--check says the installed rc is newer, not that an update is available', () => {
+    const d = resolveUpgrade({ check: true }, ctx({ currentVersion: '0.36.0-rc.1', latestVersion: '0.34.1' }))
+    if (d.action === 'report') expect(d.result.stdout).toContain('latest:    0.34.1 (installed is newer)')
+  })
+
   it('installs a pinned version regardless of latest', () => {
     const d = resolveUpgrade({ version: '0.3.5' }, ctx({ latestVersion: null }))
     expect(d).toEqual({ action: 'install', prefix: '/Users/x/.local', target: '0.3.5' })

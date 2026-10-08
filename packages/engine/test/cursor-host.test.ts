@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { afterAll, describe, expect, it } from 'vitest'
 import type { EventEnvelope } from '../src/core/envelope'
-import { STOP_BLOCK_MESSAGE, SUBCOMMANDS, type HookResult } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, STOP_BLOCK_MESSAGE, SUBCOMMANDS, type HookResult } from '../src/cli/event'
 import { CURSOR_CONTEXT_MAX, fromCursor, hookHost, toCursor, type HookName } from '../src/cli/host'
 import { makeRepoFixture, type Fixture } from './helpers/mcp'
 
@@ -168,7 +168,7 @@ describe('a Cursor session end to end, through the hook table', () => {
 
     const held = run('stop', fixture.root, cursorPayload('stop', { status: 'completed', loop_count: 0 }))
     expect(held.exitCode).toBe(0)
-    expect(JSON.parse(held.stdout)).toEqual({ followup_message: STOP_BLOCK_MESSAGE })
+    expect(JSON.parse(held.stdout)).toEqual({ followup_message: `${STOP_BLOCK_MESSAGE}\n${HOLD_CLOSE_LINE}` })
 
     const again = run('stop', fixture.root, cursorPayload('stop', { status: 'completed', loop_count: 1 }))
     expect(again).toEqual({ exitCode: 0, stdout: '', stderr: '' })

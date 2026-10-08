@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import type { EventEnvelope } from '../src/core/envelope'
 import { foldLog } from '../src/core/fold'
-import { runAppend, handleStop, STOP_BLOCK_MESSAGE_TOOL, type AppendArgs } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, runAppend, handleStop, STOP_BLOCK_MESSAGE_TOOL, type AppendArgs } from '../src/cli/event'
 import { runNew } from '../src/cli/new'
 import { runStatus } from '../src/cli/status'
 
@@ -165,7 +165,14 @@ describe('event append — session_ended satisfies the Stop hook (write-back par
     // the write-back gate is armed — same exit 2 + stderr the MCP loop faces
     const blocked = handleStop(root, stopInput)
     expect(blocked.exitCode).toBe(2)
-    expect(blocked.stderr).toBe(STOP_BLOCK_MESSAGE_TOOL)
+    expect(blocked.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    // r4-fixes H3's off switch restores rc.1's hold byte for byte
+    process.env.SOFAR_HOLD_CLOSE = 'off'
+    try {
+      expect(handleStop(root, stopInput).stderr).toBe(STOP_BLOCK_MESSAGE_TOOL)
+    } finally {
+      delete process.env.SOFAR_HOLD_CLOSE
+    }
 
     // write back through the DIALECT, not MCP
     expect(

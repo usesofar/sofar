@@ -9,6 +9,7 @@ import { serializeEvent } from '../src/core/log'
 import { runDoctor } from '../src/cli/doctor'
 import { runInit } from '../src/cli/init'
 import {
+  HOLD_CLOSE_LINE,
   guardViolationLines,
   handleStop,
   handleUserPrompt,
@@ -341,7 +342,7 @@ describe('gate surface (5.2) — guards ride the block, never cause one', () => 
     expect(handleStop(root, hookStdin())).toEqual({
       exitCode: 2,
       stdout: '',
-      stderr: STOP_BLOCK_MESSAGE_TOOL, // byte-identical to the pre-guard message
+      stderr: `${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`, // the pre-guard message, plus H3's close line
     })
   })
 })

@@ -189,6 +189,18 @@ export const STOP_BLOCK_MESSAGE_TOOL =
 export const STOP_BLOCK_MESSAGE =
   'Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.'
 
+/**
+ * The close line every Stop hold ends with (r4-fixes H3): the held agent's
+ * final message is the operator's last screen, and in 59 of 160 real holds it
+ * was a write-back receipt or a test-rerun note instead of the answer.
+ * SOFAR_HOLD_CLOSE=off restores rc.1's holds.
+ */
+export const HOLD_CLOSE_LINE = 'Then end on one line restating your answer: it is what the operator reads last.'
+
+export function holdClose(lines: string[], env: Record<string, string | undefined> = process.env): string[] {
+  return env.SOFAR_HOLD_CLOSE === 'off' ? lines : [...lines, HOLD_CLOSE_LINE]
+}
+
 export function stopBlockMessage(mode: WritebackMode = writebackMode()): string {
   return mode === 'inline' ? STOP_BLOCK_MESSAGE : STOP_BLOCK_MESSAGE_TOOL
 }
@@ -1610,7 +1622,7 @@ export function handleStop(
     if (!owes) {
       const asks = [...merge, ...links]
       // The write-back's own lines ride a hold to the agent, else reach the operator.
-      if (gate?.blocks === true || asks.length > 0) return { exitCode: 2, stdout: '', stderr: [...(gate?.lines ?? []), ...asks, ...told].join('\n') }
+      if (gate?.blocks === true || asks.length > 0) return { exitCode: 2, stdout: '', stderr: holdClose([...(gate?.lines ?? []), ...asks, ...told]).join('\n') }
       // A line the gate does not hold for (an unverifiable ask, U1b) holds
       // nothing on its own: it reaches the operator, and rides any block.
       const said = [...(gate?.lines ?? []), ...told]
@@ -1639,7 +1651,7 @@ export function handleStop(
     return {
       exitCode: 2,
       stdout: '',
-      stderr: [filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId, mode) : stopBlockMessage(mode)), ...crossings, ...checks, ...merge, ...links].join('\n'),
+      stderr: holdClose([filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId, mode) : stopBlockMessage(mode)), ...crossings, ...checks, ...merge, ...links]).join('\n'),
     }
   } catch {
     return { ...OK }

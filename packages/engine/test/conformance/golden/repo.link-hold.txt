@@ -48,6 +48,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: D4·<SFX>, filed this session, names D1·1x01 as what it replaces, but D1·1x01 was already replaced by D3·<SFX>: the link is held and D1·1x01 stays in force. Answer before stopping: `sofar supersedes D4·<SFX> D3·<SFX>` if D3·<SFX> is, `sofar supersedes D4·<SFX> none` if it replaces nothing.
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 7: SOFAR_LINK_ASK=off: no ask
 argv: ["event","stop"]

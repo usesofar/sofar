@@ -1,5 +1,19 @@
 # Golden manifest (rust-core D11)
 
+Merged on **main** at the 0.36.0-rc.2 merge-back (r4-fixes 3.2): main keeps
+`0.37.0-dev+trunk`, so `argv.fast-path` and `open.O2-update-segment` keep
+main's version; H3's held Stops arrive from release/0.36.0 as recorded there.
+
+Re-recorded on **release/0.36.0** for rc.2 (r4-fixes 3.2): the version
+bump is the whole diff on `argv.fast-path` and `open.O2-update-segment`.
+H3's held Stops arrive from branch rc2 as recorded there.
+
+RE-RECORDED for **r4-fixes H3** (branch rc2, D37) from the TypeScript
+reference: every held Stop's stderr gains one last line, `Then end on one line
+restating your answer: it is what the operator reads last.` That line is the
+whole diff, 27 lines over 17 goldens. The Rust core reproduces them
+(`SOFAR_CORE=target/release/sofar-core`, 58/58).
+
 Re-recorded on **main** at the 0.36.0-rc.1 merge-back (r4-fixes 3.2): main
 moves to `0.37.0-dev+trunk` (D14's rule: at or above the newest tag, nothing
 published), and the version string is the whole diff on `argv.fast-path` and

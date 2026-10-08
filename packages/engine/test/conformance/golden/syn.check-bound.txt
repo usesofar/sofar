@@ -42,6 +42,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [guards D1·984a] "Never edit files under src/legacy/." bear on files you edited, and no covering test passed since your last edit — run `bun test tests/legacy.test.ts` and fix any failure before stopping (fix: leave src/legacy/ as it is)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 6: the bound test passes
 argv: ["event","post-tool"]

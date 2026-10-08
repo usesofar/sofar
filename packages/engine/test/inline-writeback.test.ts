@@ -17,7 +17,7 @@ import {
   writebackModeFor,
 } from '../src/core/inline-block'
 import { capturePrompt } from '../src/core/prompt-buffer'
-import { codexStopMessage, handleSessionEnd, handleStop, runAppend, STOP_BLOCK_MESSAGE, STOP_BLOCK_MESSAGE_TOOL, SUBCOMMANDS } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, codexStopMessage, handleSessionEnd, handleStop, runAppend, STOP_BLOCK_MESSAGE, STOP_BLOCK_MESSAGE_TOOL, SUBCOMMANDS } from '../src/cli/event'
 import { CODEX_HOST } from '../src/cli/host'
 import { runNew } from '../src/cli/new'
 import { createToolContext } from '../src/mcp/context'
@@ -240,7 +240,7 @@ describe('Stop files the block', () => {
     const root = repo()
     const r = stop(root, 'All done.')
     expect(r.exitCode).toBe(2)
-    expect(r.stderr).toBe(STOP_BLOCK_MESSAGE)
+    expect(r.stderr).toBe(`${STOP_BLOCK_MESSAGE}\n${HOLD_CLOSE_LINE}`)
     expect(STOP_BLOCK_MESSAGE).toMatch(/end your reply with a ```sofar block/)
     expect(codexStopMessage(SLUG, 's1')).toMatch(/```sofar block .* session_id s1 \(or `sofar event append inline --type session_ended --source codex --session s1`\)\.$/)
   })
@@ -255,7 +255,7 @@ describe('Stop files the block', () => {
     const root = repo()
     const before = events(root).length
     const r = stop(root, reply(WRITEBACK)) // a Claude Code payload: its block is not read
-    expect(r).toEqual({ exitCode: 2, stdout: '', stderr: STOP_BLOCK_MESSAGE_TOOL })
+    expect(r).toEqual({ exitCode: 2, stdout: '', stderr: `${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}` })
     expect(events(root).length).toBe(before)
   })
 
@@ -264,7 +264,7 @@ describe('Stop files the block', () => {
     const root = repo()
     const before = events(root).length
     const r = stop(root, reply(WRITEBACK))
-    expect(r).toEqual({ exitCode: 2, stdout: '', stderr: STOP_BLOCK_MESSAGE_TOOL })
+    expect(r).toEqual({ exitCode: 2, stdout: '', stderr: `${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}` })
     expect(events(root).length).toBe(before)
     expect(stop(root, reply(WRITEBACK), { stop_hook_active: true })).toEqual({ exitCode: 0, stdout: '', stderr: '' })
     expect(codexStopMessage(SLUG, 's1')).toMatch(/^Write back to the sofar record before finishing: call sofar_end_session with session_id s1/)

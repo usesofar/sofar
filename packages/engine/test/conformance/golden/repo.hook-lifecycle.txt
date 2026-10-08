@@ -125,6 +125,7 @@ exit: 2
 (empty)
 --- stderr
 Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 15: stop_hook_active short-circuits
 argv: ["event","stop"]
