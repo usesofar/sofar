@@ -25,6 +25,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [baseline D3·q58n] "Cap an order at 12 cases." bear on files you edited, and no covering test passed since your last edit — run `bun test tests/caps.test.ts` and fix any failure before stopping (fix: make the work hold the rule, or log a decision that supersedes it)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 4: stop after the merge: the same rule, the same suffix, now D4
 argv: ["event","stop"]
@@ -34,6 +35,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [baseline D4·q58n] "Cap an order at 12 cases." bear on files you edited, and no covering test passed since your last edit — run `bun test tests/caps.test.ts` and fix any failure before stopping (fix: make the work hold the rule, or log a decision that supersedes it)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 5: the next digest lists both, apart
 argv: ["event","session-start"]

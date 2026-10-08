@@ -7,7 +7,7 @@ import { assertionDelta, boundTestsTouched, isAssertionLine, testLossLines } fro
 import { makeEvent } from '../src/core/envelope'
 import { refreshGuards } from '../src/core/index-tier1'
 import { appendEvent } from '../src/core/log'
-import { handleStop } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, handleStop } from '../src/cli/event'
 import { bare } from './helpers/handles'
 
 /**
@@ -161,7 +161,7 @@ describe('Stop: the test-loss ask (r4-fixes B3, D20)', () => {
     const r = stop(root)
     expect(r.exitCode).toBe(2)
     expect(bare(r.stderr)).toBe(
-      `sofar: ${TEST_FILE} lost 2 assertion line(s) this session, and it is the test that proves [demo D1] "${SOFT}" — if the operator changed that rule, file a rule that supersedes it, with their words; if not, the test must still assert it`,
+      `sofar: ${TEST_FILE} lost 2 assertion line(s) this session, and it is the test that proves [demo D1] "${SOFT}" — if the operator changed that rule, file a rule that supersedes it, with their words; if not, the test must still assert it\n${HOLD_CLOSE_LINE}`,
     )
     expect(stop(root).exitCode).toBe(0) // asked once: the next stop passes
   })

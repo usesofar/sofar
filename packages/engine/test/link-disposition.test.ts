@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { validatePayload } from '@sofar/schema'
 import { foldLog, freshnessTotal } from '../src/core/fold'
-import { handleStop, runAppend } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, handleStop, runAppend } from '../src/cli/event'
 import { runSupersedes } from '../src/cli/supersedes'
 import { createToolContext, type ToolContext } from '../src/mcp/context'
 import { endSession } from '../src/mcp/end-session'
@@ -221,7 +221,7 @@ describe('the ask', () => {
     const held = stop(f, 'sess-a')
     expect(held.exitCode).toBe(2)
     expect(bare(held.stderr)).toBe(
-      'sofar: D2 is a rule this session filed naming nothing it replaces — it may replace D1. Answer before stopping: `sofar supersedes D2 D1` if it does, `sofar supersedes D2 none` if not.',
+      'sofar: D2 is a rule this session filed naming nothing it replaces — it may replace D1. Answer before stopping: `sofar supersedes D2 D1` if it does, `sofar supersedes D2 none` if not.\n' + HOLD_CLOSE_LINE,
     )
     expect(stop(f, 'sess-a', { stop_hook_active: true }).exitCode).toBe(0)
     vi.stubEnv('SOFAR_LINK_ASK', 'off')

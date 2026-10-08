@@ -24,6 +24,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: D3·<SFX> is a rule this session filed naming nothing it replaces — it may replace D1·1x01 or D2·ea2q. Answer before stopping: `sofar supersedes D3·<SFX> D1·1x01` if it does, `sofar supersedes D3·<SFX> none` if not.
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 4: SOFAR_LINK_ASK=off: no ask
 argv: ["event","stop"]

@@ -82,6 +82,7 @@ exit: 2
 Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
 sofar: [D1·984a] guard crossed — "Never edit files under src/legacy/." — 2 event(s): src/legacy/old.ts, src/legacy/deep/x.ts (guard: path:src/legacy/**,!src/legacy/README.md).
 sofar: [D2·41jn] guard crossed — "Never run npm publish from a workstation." — 2 event(s): npm publish --access public, npm run release (guard: cmd:*npm publish*,*npm run release*).
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 10: the earlier session crossed before this run
 argv: ["event","user-prompt"]

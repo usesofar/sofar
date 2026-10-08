@@ -21,7 +21,7 @@ import { refreshGuards } from '../src/core/index-tier1'
 import { appendEvent } from '../src/core/log'
 import { runBind } from '../src/cli/bind'
 import { runCheck, STAGED_REFUSE_EXIT } from '../src/cli/check'
-import { handlePostTool, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, handlePostTool, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
 import { createToolContext } from '../src/mcp/context'
 import { gatePathspecs } from '../src/core/checks'
 import { GIT_HOOKS } from '../src/cli/init'
@@ -364,7 +364,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     const r = stop(root, 's1')
     expect(r.exitCode).toBe(2)
     expect(bare(r.stderr)).toBe(
-      'sofar: [demo D1] "Never hard-delete anything the traveller made." bear on files you edited, and no covering test passed since your last edit — run `cd apps/web && bun test test/store.test.ts` and fix any failure before stopping (fix: restore soft delete in src/db/store.ts)',
+      'sofar: [demo D1] "Never hard-delete anything the traveller made." bear on files you edited, and no covering test passed since your last edit — run `cd apps/web && bun test test/store.test.ts` and fix any failure before stopping (fix: restore soft delete in src/db/store.ts)\n' + HOLD_CLOSE_LINE,
     )
     expect(stop(root, 's1', true).exitCode).toBe(0) // stop_hook_active: one ask per stop
     ran(root, 's1', 'cd apps/web && bun test test/store.test.ts', true, 0)
@@ -395,7 +395,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     const r = stop(root, 's1')
     expect(r.exitCode).toBe(2)
     expect(bare(r.stderr)).toBe(
-      'sofar: `bun test` failed (exit 1) after your last edit, and it covers [demo D1] "Never hard-delete anything the traveller made." — fix: restore soft delete in src/db/store.ts',
+      'sofar: `bun test` failed (exit 1) after your last edit, and it covers [demo D1] "Never hard-delete anything the traveller made." — fix: restore soft delete in src/db/store.ts\n' + HOLD_CLOSE_LINE,
     )
   })
 

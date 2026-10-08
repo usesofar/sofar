@@ -92,6 +92,7 @@ Write back to the sofar record before finishing: call sofar_end_session (or appe
 sofar: [D1·984a] guard crossed — "Never edit files under src/legacy/." — 3 event(s): src/legacy/old.ts, src/legacy/old.ts, src/legacy/new.ts (guard: path:src/legacy/**).
 sofar: check for [surf D1·984a] failed (exit 3): legacy tree modified: src/legacy/old.ts — rule: "Never edit files under src/legacy/." — fix: restore src/legacy from git
 sofar: 1 decision check(s) bear on this work but are not approved on this clone, so none ran: [surf D8·k6kg] `node -e "process.exit(1)"` — the operator approves one with `sofar check --approve "<handle>"`
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 11: gate: a rule whose check is a test
 argv: ["event","append","--type","decision_logged","--session","sess-a","--source","claude-code","--payload","{\"chose\":\"freeze legacy\",\"over\":\"editing it\",\"because\":\"b\",\"rule\":\"Keep the legacy tree frozen.\",\"guard\":\"path:src/legacy/**\",\"check\":{\"cmd\":\"bun test test/legacy.test.ts\",\"hint\":\"restore src/legacy/old.ts\"},\"supersedes\":\"none\"}"]
@@ -117,6 +118,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [surf D9·<SFX>] "Keep the legacy tree frozen." bear on files you edited, and no covering test passed since your last edit — run `bun test test/legacy.test.ts` and fix any failure before stopping (fix: restore src/legacy/old.ts)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 14: gate: one ask per stop
 argv: ["event","stop"]
@@ -162,6 +164,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [surf D1·984a] "Never edit files under src/legacy/."; [surf D9·<SFX>] "Keep the legacy tree frozen." bear on files you edited, and no covering test passed since your last edit — run `bun test` and fix any failure before stopping (fix: restore src/legacy from git)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 19: unbound: a read still surfaces, every handle qualified
 argv: ["event","post-tool"]

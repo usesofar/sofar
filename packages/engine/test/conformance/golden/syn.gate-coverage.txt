@@ -50,6 +50,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [baseline D3·<SFX>] "Stock never goes below zero."; [baseline D4·<SFX>] "Holds sit on the location, never on lots." bear on files you edited, and no covering test passed since your last edit — run `bun test tests/rules` and fix any failure before stopping (fix: reject the move before it lands)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 7: a sibling directory passes
 argv: ["event","post-tool"]
@@ -68,6 +69,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [baseline D3·<SFX>] "Stock never goes below zero."; [baseline D4·<SFX>] "Holds sit on the location, never on lots." bear on files you edited, and no covering test passed since your last edit — run `bun test tests/rules` and fix any failure before stopping (fix: reject the move before it lands)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 9: a filtered run of the parent passes
 argv: ["event","post-tool"]
@@ -86,6 +88,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [baseline D3·<SFX>] "Stock never goes below zero."; [baseline D4·<SFX>] "Holds sit on the location, never on lots." bear on files you edited, and no covering test passed since your last edit — run `bun test tests/rules` and fix any failure before stopping (fix: reject the move before it lands)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 11: the directory holding both passes
 argv: ["event","post-tool"]
@@ -122,6 +125,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: [baseline D3·<SFX>] "Stock never goes below zero."; [baseline D4·<SFX>] "Holds sit on the location, never on lots." bear on files you edited, and no covering test passed since your last edit — run `bun test tests/rules` and fix any failure before stopping (fix: reject the move before it lands)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 15: the bare runner fails
 argv: ["event","post-tool-failure"]
@@ -140,6 +144,7 @@ exit: 2
 (empty)
 --- stderr
 sofar: `bun test` failed (exit 1) after your last edit, and it covers [baseline D3·<SFX>] "Stock never goes below zero."; [baseline D4·<SFX>] "Holds sit on the location, never on lots." — fix: reject the move before it lands
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 17: the bare runner passes
 argv: ["event","post-tool"]

@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **r4-fixes H3** (branch rc2, D37) from the TypeScript
+reference: every held Stop's stderr gains one last line, `Then end on one line
+restating your answer: it is what the operator reads last.` That line is the
+whole diff, 27 lines over 17 goldens. The Rust core reproduces them
+(`SOFAR_CORE=target/release/sofar-core`, 58/58).
+
 Re-recorded on **release/0.36.0** for rc.1 (r4-fixes 3.2) from the
 TypeScript reference. The version bump is the whole diff: `argv.fast-path`
 (`--version` is `0.36.0-rc.1`) and `open.O2-update-segment` ("you have

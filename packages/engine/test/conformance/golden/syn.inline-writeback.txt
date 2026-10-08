@@ -10,6 +10,7 @@ exit: 2
 --- stderr
 sofar: your ```sofar write-back did not file — nothing from it is in the record yet. End your reply with the corrected block, whole:
 - block: not valid JSON (Expected double-quoted property name in JSON at position 27)
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 2: the repaired block, on the held Stop: filed
 argv: ["event","stop"]
@@ -49,6 +50,7 @@ exit: 2
 (empty)
 --- stderr
 Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 6: inline, no block: the hold asks for one
 argv: ["event","stop"]
@@ -59,6 +61,7 @@ exit: 2
 (empty)
 --- stderr
 Write back to the sofar record before finishing: end your reply with a ```sofar block — {"summary":"…","next_action":"…"} plus any tasks, decisions, memories, notes — or call sofar_end_session.
+Then end on one line restating your answer: it is what the operator reads last.
 
 ## step 7: a Cursor edit registers its chat
 argv: ["event","post-tool"]

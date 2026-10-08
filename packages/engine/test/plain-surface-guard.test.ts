@@ -6,7 +6,7 @@ import { makeEvent, type EventEnvelope } from '../src/core/envelope'
 import { appendEvents } from '../src/core/log'
 import { foldLog } from '../src/core/fold'
 import { renderStatus } from '../src/projections/templates/status'
-import { handlePostTool, handleSessionStart, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, handlePostTool, handleSessionStart, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
 import { runExport, runImport } from '../src/cli/transfer'
 import { createSpinner } from '../src/cli/ui/spinner'
 import { hookContext } from './helpers/hook-output'
@@ -381,7 +381,7 @@ describe('behavioral guard — guaranteed-plain surfaces under FORCE_COLOR=1 + C
 
     expect(result.exitCode).toBe(2)
     expect(result.stdout).toBe('')
-    expect(result.stderr).toBe(STOP_BLOCK_MESSAGE_TOOL)
+    expect(result.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
     expect(result.stderr).not.toMatch(ESC)
   })
 

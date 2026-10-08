@@ -39,6 +39,16 @@ use crate::told::{add_told, read_told, told_key};
 use crate::version::engine_version;
 
 pub const STOP_BLOCK_MESSAGE: &str = "Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).";
+/// The close line every Stop hold ends with (r4-fixes H3); `SOFAR_HOLD_CLOSE=off` drops it.
+pub const HOLD_CLOSE_LINE: &str =
+    "Then end on one line restating your answer: it is what the operator reads last.";
+
+fn hold_close(mut lines: Vec<String>) -> String {
+    if std::env::var_os("SOFAR_HOLD_CLOSE").is_none_or(|v| v != "off") {
+        lines.push(HOLD_CLOSE_LINE.to_owned());
+    }
+    lines.join("\n")
+}
 pub const NUDGE_DRIFT_MIN: u64 = 5;
 pub const PARALLEL_WRAP_BUDGET: usize = 420;
 pub const FILE_CONFLICT_BUDGET: usize = 300;
@@ -1021,7 +1031,7 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
         return CmdResult {
             exit_code: 2,
             stdout: String::new(),
-            stderr: held.join("\n"),
+            stderr: hold_close(held),
         };
     }
     // The in-band write-back (r4-fixes A1) asks for the block first; SOFAR_WRITEBACK=tool is 0.34's
@@ -1061,7 +1071,7 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     CmdResult {
         exit_code: 2,
         stdout: String::new(),
-        stderr: lines.join("\n"),
+        stderr: hold_close(lines),
     }
 }
 

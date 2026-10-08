@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import type { EventEnvelope } from '../src/core/envelope'
 import { foldLog } from '../src/core/fold'
 import {
+  HOLD_CLOSE_LINE,
   handlePostTool,
   handleSessionEnd,
   handleSessionStart,
@@ -162,7 +163,7 @@ describe('acceptance 1+2+4 — two interleaved sessions on ONE initiative', () =
     expect(handleStop(fixture.root, stopStdin(A))).toEqual({ exitCode: 0, stdout: '', stderr: '' })
     const blockedB = handleStop(fixture.root, stopStdin(B))
     expect(blockedB.exitCode).toBe(2)
-    expect(blockedB.stderr).toBe(STOP_BLOCK_MESSAGE_TOOL)
+    expect(blockedB.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
     // Each server still holds its OWN session and only its own — the write-back
     // no longer clears A's box (4.5), and it never reached across to B's.
     expect(serverA.handle.getActiveSession()!.id).toBe(A)

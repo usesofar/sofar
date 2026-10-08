@@ -9,7 +9,7 @@ import type { EventEnvelope } from '../src/core/envelope'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent, appendEvents } from '../src/core/log'
 import { foldLog } from '../src/core/fold'
-import { handleSessionStart, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, handleSessionStart, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
 import { REPO_MD_STUB } from '../src/cli/init'
 import {
   REPO_MEMORY_TRUNCATION_MARKER,
@@ -244,7 +244,7 @@ describe('acceptance 2+3+4 — end-to-end smoke through the built CLI', () => {
     // Stop without write-back: blocked, exit 2, exact message (acceptance 2a)
     const blocked = runEvent(fixture, 'stop', { ...base, hook_event_name: 'Stop', stop_hook_active: false })
     expect(blocked.status).toBe(2)
-    expect(blocked.stderr.trim()).toBe(STOP_BLOCK_MESSAGE_TOOL)
+    expect(blocked.stderr.trim()).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
 
     // Loop guard: same unwritten state but stop_hook_active → exit 0 (acceptance 3)
     const looped = runEvent(fixture, 'stop', { ...base, hook_event_name: 'Stop', stop_hook_active: true })
