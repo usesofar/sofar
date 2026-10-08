@@ -66,7 +66,7 @@ Progress: 29 done, 6 dropped, 27 remaining
 ## Phase 3 — Release candidate [pending] — 1/2 done
 
 - [x] 3.1 Cut rc 0.35.0 (Wave A): integrate the wave-a/* branches onto release/0.35.0, full gates (TS, cargo, conformance, parity:real, D18 two legs vs 0.34.1, every item's replay), CI, stage cores, operator publishes to next
-- [ ] 3.2 Cut rc 0.36.0 (Wave B items whose replay passed) as round 5's frozen build; merge back to main after each cut
+- [ ] 3.2 Cut rc 0.36.0 (Wave B items whose replay passed) as round 5's frozen build; merge back to main after each cut (active)
 
 ## Phase 4 — Round 5 on a harder held-out chain [pending] — 0/6 done
 
@@ -77,5 +77,5 @@ Progress: 29 done, 6 dropped, 27 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Cut rc 0.36.0 (3.2): integrate wave-b-b1 and wave-b-b16 (carries B3, B14, B16) onto release/0.36.0, run the full gates, then hand the publish to the operator.
+Next action: Operator publishes the six rc.1 tarballs to next (cores first); then verify shasums and merge release/0.36.0 back to main.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).
