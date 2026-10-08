@@ -882,6 +882,31 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   the rule, write it now and run \`sofar bind D<n> "<the command that runs
   it>"\`.` In round 3, 11 of the 14 guarded violations at S30 never passed:
   no test held the rule.
+- TEST LOSS (r4-fixes B3, D19, D20). A test edited to assert less still
+  passes the gate, so Stop also asks when the work left a BOUND test — a file
+  (never a directory) that an in-force ruled check's test-shaped command
+  names, and that this session edited — with fewer assertion lines than it
+  began with. Base: the newest commit on HEAD before the session started
+  (`git log -1 --format=%H --before=<started> HEAD`); then one `git diff -U0
+  <base> -- <those files>` against the working tree. Both spawns happen only
+  when such a file was edited. An assertion line is a removed or added diff
+  line holding a word (`[A-Za-z_][A-Za-z0-9_]*`) that is `expect`, `should`,
+  `raises`, or starts with `assert` and is not `asserts`, `asserted`,
+  `asserting`, `assertion` or `assertions`. A file whose removed assertion
+  lines outnumber its added ones gives one line before the gate's own, and
+  the stop holds: `sofar: <path> lost <n> assertion line(s) this session, and
+  it is the test that proves [<slug> D<n>·<sfx>] "<rule>"; … — if the
+  operator changed that rule, file a rule that supersedes it, with their
+  words; if not, the test must still assert it`. Once per session and (file,
+  rule): what was asked is kept in `.sofar/.index/wrote/<session>.loss.json`,
+  and a lost file asks once more. A rule the session superseded is no longer
+  in force, so it asks nothing. No base (no git, no commit before the
+  session) asks nothing. The Cursor sessionEnd debt note carries the line
+  too. `SOFAR_TEST_GUARD=off` (also `0`, `false`) is the ablation arm. Why the
+  line leads with the supersession: in round 4 the ask would have fired 3
+  times in 3 reps, every time on an operator's change (Chain M T4 v3, U3 v2)
+  that a Codex session wrote into the tests but never linked. The broader,
+  file-level form asked 79 times for those 3 (D19).
 
 ### Read-time surfacing (memory-lead 2.1, D6)
 The point-of-use push of §Decision guards (drift-hardening D3), extended from
@@ -5571,6 +5596,33 @@ ranked by count, then slug by code unit). Liveness is the host registry's
 pid (Claude Code peers whose cwd is this worktree or below), which R11 (c)
 allows here and only here: binding-follows-session D2 is NARROWED to the
 recent-work notice, which still never weighs liveness.
+THE FIRST-PROMPT CARRIER (r4-fixes B14, D25), in both engines' UserPromptSubmit,
+before anything is read for the record: on a session's FIRST prompt (the told
+set's `%carrier` key, written whatever the outcome, so once per context), while
+the session has done nothing in the record it resolved to (no write-back, no
+captured file, no command there), a prompt that names exactly one OPEN record
+(as above) other than that one registers the session there through the lazy
+registration (`session_started` {tool}, source `hook`, `continues` when
+lineage traced one) — its latest registration, so its home from this prompt
+on, for every hook, the Stop gate and the MCP server's first-call adoption.
+NAMES: the slug's `-`-separated words in order, case-insensitive, joined by
+one or more spaces, tabs, newlines, hyphens or underscores, and neither
+preceded nor followed by `[a-z0-9_-]` (`continue r4 fixes`, `R4-fixes`;
+never `r4-fixes-2` or `r4fixes`). Only a slug holding a hyphen or a digit
+counts, and never the quick lane: in the replay a one-word slug (`speed`)
+matched "speed up my development". Directory names are matched first; only
+the matches are asked whether they are open. A record the session already
+registered in is left alone: moving back there is a `rehome`, the agent's
+(binding-follows-session D3). The hook's output then leads with: `sofar:
+your prompt names the record <to>, so this session now serves <to> (the
+branch gave it <from>). Any record block injected above is <from>'s — read
+<to>'s with sofar_get_state({"initiative":"<to>"}). If <to> is wrong,
+sofar_start_session({"session_id":"<id>","initiative":"<from>"}) moves it
+back.` — and the rest of the hook (title, recall, notices) reads <to>. It
+qualifies session-orientation D2 for this case only: the redirect is the
+operator's own words, announced, never a recency guess. Replay over this
+repo's sessions since 2026-09-01: 11 of 33 misfiles fixed, no wrong move.
+`SOFAR_CARRIER=off` (also `0`, `false`) is the ablation arm.
 THE WRITE-BACK BINDS THE BRANCH (binding-follows-session D1) — IN THE
 WORKTREE, SINCE r4-fixes A10. R11 (b) supersedes D1's committed rebind, D4's
 and D5's target file and no-bind-durability D1's write side: the move below
@@ -5876,7 +5928,16 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   derived resume line names ONE unwritten session (the best resume point);
   every OTHER session that did mechanical work without writing back renders
   as one budgeted `⚠ N other session(s) did work without writing back` line
-  listing up to 5 ids (record-integrity 4.3). The derived line stops at the
+  listing up to 5 ids (record-integrity 4.3). At SessionStart that line
+  names only siblings that logged an event within A14's 24 h idle window
+  (r4-fixes B16): the record's own log is read back from its end, 64 KiB at a
+  time and at most 4 MiB, until a whole line is older than now − 24 h, and
+  each line's `ts` and `session` come from the canonical envelope head
+  without a parse; an unreadable log keeps every sibling. A silent sibling is
+  abandoned history, which `sofar doctor` still lists; no sibling left drops
+  the line. Since 2026-09-01, 101 of the 153 sessions this line named here had
+  been silent longer than 24 h. `SOFAR_ABANDON=off` names every unwritten
+  sibling, as before; `sofar status` is unchanged. The derived line stops at the
   newest written-back session by design, which is right for resuming and
   wrong for accounting: with parallel sessions a single write-back used to
   hide every other session's unwritten work from the block entirely. A

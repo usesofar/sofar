@@ -44,7 +44,7 @@ lexicon-p30.json 13afcd55a25c9138 79
 lexicon-p31.json e067f0d0cc84512f 103
 lexicon.json db313717c42222d7 836
 gens: one
-told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5"]}
+told/sess-open.json {"v":1,"told":["%carrier","01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5"]}
 
 ## step 2: the subject outweighs the over: decided before
 argv: ["event","user-prompt"]
@@ -108,8 +108,8 @@ lexicon-p30.json 13afcd55a25c9138 79
 lexicon-p31.json e067f0d0cc84512f 103
 lexicon.json absent
 gens: one
-told/sess-done.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-"]}
-told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5"]}
+told/sess-done.json {"v":1,"told":["%carrier","01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-"]}
+told/sess-open.json {"v":1,"told":["%carrier","01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5"]}
 
 ## step 5: the next prompt rebuilds every part
 argv: ["event","user-prompt"]
@@ -155,8 +155,8 @@ lexicon-p30.json 13afcd55a25c9138 79
 lexicon-p31.json e067f0d0cc84512f 103
 lexicon.json db313717c42222d7 836
 gens: one
-told/sess-done.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-"]}
-told/sess-open.json {"v":1,"told":["01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5","01M1E7ZZ000000000000000002 prompt"]}
+told/sess-done.json {"v":1,"told":["%carrier","01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-"]}
+told/sess-open.json {"v":1,"told":["%carrier","01M1E7ZZ000000000000000006 prompt","push=main@ce11ce1:-","debt=5","01M1E7ZZ000000000000000002 prompt"]}
 
 ## record delta
 === .sofar/initiatives/cutoff/events.jsonl (added, 1567 bytes)

@@ -26,6 +26,7 @@
 pub mod append;
 pub mod atomic;
 pub mod attribution;
+pub mod carrier;
 pub mod checks;
 pub mod cli;
 pub mod collections;

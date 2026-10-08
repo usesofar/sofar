@@ -44,7 +44,7 @@ lexicon-p30.json a1917d68eaa568d2 15308
 lexicon-p31.json 1ff2892d517d2508 14548
 lexicon.json b2ae7b6eea9a03de 49171
 gens: one
-told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","@01M2JWH2A0SZXMRPGH4P3HEV05","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","push=rust-core@7535e75:-"]}
+told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["%carrier","recall prompt","@01M2JWH2A0SZXMRPGH4P3HEV05","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","push=rust-core@7535e75:-"]}
 
 ## step 2: the same prompt: told once, nothing
 argv: ["event","user-prompt"]
@@ -137,7 +137,7 @@ lexicon-p30.json a1917d68eaa568d2 15308
 lexicon-p31.json 1ff2892d517d2508 14548
 lexicon.json b2ae7b6eea9a03de 49171
 gens: one
-told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["recall prompt","@01M2JWH2A0SZXMRPGH4P3HEV05","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","push=rust-core@7535e75:-","01M2JWHSEFKVFNTSK7FWY1WSYQ prompt","01M2JVK1ZHGYQ5N3RV2BX2CT7J prompt","01M2JXCZVHG875341GTKC59B04 prompt","01M2JXD7EBY8QWWECF92Z4RJ6X prompt"]}
+told/38d26db0-c497-44bf-b41d-11623a8486f5.json {"v":1,"told":["%carrier","recall prompt","@01M2JWH2A0SZXMRPGH4P3HEV05","01M2JWH2A0SZXMRPGH4P3HEV05 prompt","push=rust-core@7535e75:-","01M2JWHSEFKVFNTSK7FWY1WSYQ prompt","01M2JVK1ZHGYQ5N3RV2BX2CT7J prompt","01M2JXCZVHG875341GTKC59B04 prompt","01M2JXD7EBY8QWWECF92Z4RJ6X prompt"]}
 
 ## record delta
 (no change)

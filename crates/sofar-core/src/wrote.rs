@@ -119,3 +119,52 @@ pub fn cache_changes(layout: &Layout, session: &str, n: f64, key: &str, files: &
     );
     write_obj(layout, &git_file(layout, session), o);
 }
+
+fn loss_file(layout: &Layout, session: &str) -> PathBuf {
+    layout
+        .index_dir()
+        .join(WROTE_DIR)
+        .join(format!("{}.loss.json", crate::told::safe_session(session)))
+}
+
+/// `readLossAsked` (r4-fixes B3, D20): the test-loss asks Stop already made
+/// this session, each `<path>\0<handle>`. A lost file asks once more.
+#[must_use]
+pub fn read_loss_asked(layout: &Layout, session: &str) -> Vec<String> {
+    let Some(raw) = read_obj(&loss_file(layout, session)) else {
+        return Vec::new();
+    };
+    if raw.get("v") != Some(&Json::Num(1.0)) {
+        return Vec::new();
+    }
+    match raw.get("asked") {
+        Some(Json::Arr(items)) => items
+            .iter()
+            .filter_map(|k| match k {
+                Json::Str(s) => Some(s.clone()),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `markLossAsked`.
+pub fn mark_loss_asked(layout: &Layout, session: &str, keys: &[String]) {
+    if keys.is_empty() {
+        return;
+    }
+    let mut asked = read_loss_asked(layout, session);
+    for k in keys {
+        if !asked.contains(k) {
+            asked.push(k.clone());
+        }
+    }
+    let mut o = Object::with_capacity(2);
+    o.insert("v", Json::Num(1.0));
+    o.insert(
+        "asked",
+        Json::Arr(asked.into_iter().map(Json::Str).collect()),
+    );
+    write_obj(layout, &loss_file(layout, session), o);
+}
