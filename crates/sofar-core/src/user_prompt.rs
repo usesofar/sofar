@@ -792,16 +792,9 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     // before anything registers it.
     let prompt = str_field(&hook, "prompt");
     let keep = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
-    // Recall (memory-lead 4.3, D25) before the registration check too; never
-    // on Cursor, whose prompt hook cannot inject.
-    let recall = match prompt {
-        Some(p) if hook_host(&hook).tool != "cursor" && crate::recall::recall_enabled() => {
-            crate::recall::prompt_recall(&layout, &state, session_id, p)
-        }
-        _ => None,
-    };
+    let (recall, map) = first_prompt_blocks(root, &layout, &hook, &state, session_id, prompt);
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        let first: Vec<String> = [recall, keep].into_iter().flatten().collect();
+        let first: Vec<String> = [recall, map, keep].into_iter().flatten().collect();
         let result = if first.is_empty() {
             silent()
         } else {
@@ -873,6 +866,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         ));
     }
     lines.extend(recall);
+    lines.extend(map);
     lines.extend(keep);
     let result = if lines.is_empty() {
         silent()
@@ -880,6 +874,29 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         ok(lines.join("\n"))
     };
     with_session_title(Hook::UserPrompt, result, title.as_deref())
+}
+
+/// Recall (memory-lead 4.3, D25) and the work map (r4-fixes B1, D16), both
+/// before the registration check and both told once; never on Cursor, whose
+/// prompt hook cannot inject.
+fn first_prompt_blocks(
+    root: &Path,
+    layout: &Layout,
+    hook: &Object,
+    state: &InitiativeState,
+    session_id: &str,
+    prompt: Option<&str>,
+) -> (Option<String>, Option<String>) {
+    let Some(p) = prompt.filter(|_| hook_host(hook).tool != "cursor") else {
+        return (None, None);
+    };
+    let recall = crate::recall::recall_enabled()
+        .then(|| crate::recall::prompt_recall(layout, state, session_id, p))
+        .flatten();
+    let map = crate::workmap::workmap_enabled()
+        .then(|| crate::workmap::prompt_workmap(root, layout, state, session_id, p))
+        .flatten();
+    (recall, map)
 }
 
 /// The session's name for this prompt (session-naming D1): Claude Code only.

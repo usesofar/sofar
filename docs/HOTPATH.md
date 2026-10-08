@@ -735,7 +735,8 @@ with mtime pruning; tails for recency); `.git` / `.git/HEAD` /
 union) and `<common git dir>/worktrees/*/{gitdir,HEAD}`;
 `$XDG_STATE_HOME/sofar/checks/<clone key of the common git dir>.json`
 (stop: approvals); `$XDG_STATE_HOME/sofar/runs/<run id>.lock` (probed,
-never created); `$XDG_STATE_HOME/sofar/drive-seen/<clone key>.json`.
+never created); `$XDG_STATE_HOME/sofar/drive-seen/<clone key>.json`; up to 32 worktree source files the record touched (user-prompt's
+work map, first prompt only).
 WRITTEN: `events.jsonl` (append); `plan.md`, `decisions.md`, `memory.md`,
 `sessions/<id>.md` (atomic, if-changed); index files (atomic, silent on
 failure); `update.json` (statusline claim, temp+rename);
@@ -761,6 +762,7 @@ message file (commit-trailer).
 | `CLAUDE_CODE_SESSION_ID` | commit-trailer only |
 | `SOFAR_LINEAGE` | `off` (trimmed, any case): no lineage carriers, no lineage read (r4-fixes A10) |
 | `SOFAR_LASTHOME` | `committed` (trimmed, any case): no last-home overlay (r4-fixes A10) |
+| `SOFAR_WORKMAP` | `off`/`0`/`false` (trimmed, any case): no work map on the first prompt (r4-fixes B1) |
 | `GIT_CONFIG_*`, git's own env | inherited by the `git config user.email` spawn |
 | `XDG_CONFIG_HOME` | refresh child only (auto-upgrade preference) |
 
@@ -922,6 +924,19 @@ SPEC §Told set and hook-line epochs (r4-fixes A4):
   the session, whose PostToolUse then only captures.
 - pre-tool: whole-file read segments inside compound commands are rewritten.
 - `SOFAR_TOLD_LINES=off` restores 0.34.1 on all of the above.
+
+## Wave B deltas (r4-fixes B1; 0.36.0)
+
+As SPEC §Work map (r4-fixes B1, D16) states it:
+- §user-prompt: on a session's first prompt, after recall and before the keep
+  line (in both the registered and the not-yet-registered branch), the work
+  map, told once (`workmap prompt`); never on Cursor. It READS up to 32 worktree
+  source files the record touched (≤400 KB each, ≤2 MB in all) and `stat`s a
+  recorded path's suffixes to map it into this checkout; it spawns nothing.
+  The scanner is byte-index logic on ASCII in Rust and UTF-16-index logic in
+  TypeScript; every test is on an ASCII character, so they decide alike, and
+  budgets are UTF-16 units (P1), trims JS's (P2).
+- `SOFAR_WORKMAP=off` removes it.
 
 ## SPEC gaps
 

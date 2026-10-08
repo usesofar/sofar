@@ -1133,6 +1133,38 @@ RULES, while `SOFAR_TOLD_LINES` is not `off`:
 and debt lines, no seeding, the whole-command rewrite, uncapped reads, and a
 silent PostToolBatch.
 
+### Work map (r4-fixes B1, D16)
+
+On a session's FIRST prompt (UserPromptSubmit, never on Cursor, whose prompt
+hook cannot inject), after the recall block and before the keep line, the
+prompt hook adds the record's entry points, told once per session context
+(told-set key `workmap prompt`, set only when a block renders):
+
+    Entry points (worktree at <HEAD sha, 7>; name:line):
+    <path>: <name>:<line> <name>:<line> …
+
+FILES: the focus task's `task_files`, then `files_touched` newest first,
+deduped, at most 32, each a TS/JS (`ts tsx mts cts js jsx mjs cjs`), `py`,
+`go` or `rs` file that exists in the worktree; at most 400,000 bytes each and
+2,000,000 in all. A recorded path maps to a repo-relative one when it is
+relative, or under the root, or else by its longest suffix of two or more
+components that is a file here; `.sofar/`, `.git/` and `node_modules/` are
+never scanned. ENTRY POINTS, per line split on `\n`: `export [default]
+[declare] [abstract] [async] function|function*|const|let|var|class|interface|type|enum
+<name>` or `[async] function <name>(` at any indent; a method two to four
+columns in, `[public|private|protected|static|async|override]* <name>(…) [: T] {`
+ending the line, or `<name>: [async] (` (the name `[a-z][A-Za-z0-9]{2,}`, never
+control flow); Python `def`/`class`, Go `func`/`type`, Rust `fn`/`struct`/
+`enum`/`trait`/`const`/`static`/`type`/`mod`; and a quoted error code `'X_YZ'`
+(an uppercase letter, then `[A-Z0-9_]` with an underscore followed by at least
+two). RANK: 3 per stem of the name's words (camelCase and snake_case split,
+lexicon stems) the prompt's first 2,000 chars use, plus 4 when the prompt holds
+the name verbatim (4+ chars), plus 2 per stem the focus task's title uses; ties
+go to source before tests, then the file order above, then line. FILL: each
+name once, best first, into 1,000 UTF-16 units including the header; a name
+that does not fit is skipped and the next tried. Nothing renders when no file
+scans. `SOFAR_WORKMAP=off` (also `0`, `false`) removes the block.
+
 ### Merges (r3-fixes 2.11, D19)
 A merge is the riskiest moment in a branch's life and the one no event
 records. The block, the receipt and the Stop ask below are DERIVED, as push

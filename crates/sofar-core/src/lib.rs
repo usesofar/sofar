@@ -104,6 +104,7 @@ pub mod update_cache;
 pub mod user_prompt;
 pub mod version;
 pub mod warmth;
+pub mod workmap;
 pub mod wrote;
 
 #[cfg(test)]

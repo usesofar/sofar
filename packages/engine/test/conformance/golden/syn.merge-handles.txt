@@ -49,7 +49,7 @@ argv: ["event","user-prompt"]
 stdin: {"session_id":"sess-cite","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"Is D3·q58n still the cap we agreed on for orders?"}
 exit: 0
 --- stdout
-{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D4·q58n] rule: \"Cap an order at 12 cases.\"","sessionTitle":"baseline 1.2 #sess"}}
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D4·q58n] rule: \"Cap an order at 12 cases.\"\nEntry points (worktree at ce11ce1; name:line):\nsrc/order/caps.ts: CAP:1","sessionTitle":"baseline 1.2 #sess"}}
 --- stderr
 (empty)
 
