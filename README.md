@@ -5,6 +5,13 @@ Memory for AI coding assistants, kept inside your project.
 Works with Claude Code, the Claude desktop app, Codex, Cursor, OpenCode, and
 any other tool that reads `AGENTS.md` or speaks MCP.
 
+```
+npx sofar.sh
+```
+
+Run that in a terminal. It installs sofar and sets up the project you are in,
+asking before each step. Other ways to install are under [Install](#install).
+
 ## The problem
 
 Every new chat starts from nothing. You explain the project again. You explain
@@ -37,14 +44,37 @@ agent's usage is yours — `--cost-cap` bounds one run of it.
 ## Install
 
 ```
+npx sofar.sh
+```
+
+Run it in a terminal. It asks before each step: it installs sofar globally
+with its native core, puts the `sofar` command on your PATH, and offers to set
+up the repo you are in. When npm's global folder needs sudo, it installs into
+`~/.local` instead and offers to add that folder to your shell's startup file.
+
+To install it yourself:
+
+```
 npm install -g sofar.sh --allow-scripts=sofar.sh
 ```
 
+Keep the `-g`. The `npm i sofar.sh` shown on the npm package page installs
+sofar into the current folder only, so no `sofar` command appears.
+
 Needs Node 18 or newer. `--allow-scripts=sofar.sh` lets sofar's install
 script put the native core in place; npm 12 skips install scripts without it,
-and every hook then starts node first. To allow it for every later install,
-run `npm config set allow-scripts=sofar.sh --location=user` once. To try it without installing, use
-`npx sofar.sh status`. Update later with `sofar upgrade`.
+and every hook then starts node first. npm 10 and 11 run the script anyway.
+On npm 12, `npm config set allow-scripts=sofar.sh --location=user` allows it
+for every later install; npm 10 rejects that setting.
+
+If `sofar` is not found after installing, the folder npm puts commands in is
+not on your PATH. Add it once, then open a new terminal:
+
+```
+echo "export PATH=\"$(npm prefix -g)/bin:\$PATH\"" >> ~/.zshrc
+```
+
+Use `~/.bashrc` instead for bash. Update later with `sofar upgrade`.
 
 On macOS (arm64, x64), Linux (x64, arm64) and Windows (x64) the install also
 brings a native core, `sofar-core`, that runs the hooks, the statusline and
