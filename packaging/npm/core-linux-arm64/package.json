@@ -1,6 +1,6 @@
 {
   "name": "@sofar.sh/core-linux-arm64",
-  "version": "0.34.2",
+  "version": "0.34.3",
   "description": "sofar's native hot-path core (sofar-core) for linux-arm64. Installed by sofar.sh as an optional dependency; never depend on it directly.",
   "repository": {
     "type": "git",

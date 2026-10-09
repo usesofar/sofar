@@ -1,5 +1,9 @@
 # Golden manifest (rust-core D11)
 
+Bumped on **hotfix/0.34.3** (r4-fixes H10). The version is the whole diff:
+`argv.fast-path` (`--version` is now `0.34.3`) and `open.O2-update-segment`
+("you have 0.34.3"), each by one string. No previous set is kept.
+
 Bumped on **hotfix/0.34.2** (r4-fixes H8, release-eval-gate decision of
 2026-10-09). The version is the whole diff: `argv.fast-path` (`--version` is
 now `0.34.2`) and `open.O2-update-segment` ("you have 0.34.2"), each by one

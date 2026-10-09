@@ -71,7 +71,7 @@ Files touched (5):
 - src/module/file-3.ts
 - src/module/file-4.ts
 --- stderr
-ℹ sofar 99.0.0 is available (you have 0.34.2) — run `sofar upgrade`.
+ℹ sofar 99.0.0 is available (you have 0.34.3) — run `sofar upgrade`.
 
 ## record delta
 (no change)
