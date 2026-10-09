@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import { version } from '../../package.json'
 import { createSofarServer } from '../mcp/server'
@@ -21,6 +22,7 @@ import { runList } from './list'
 import { runNext } from './next'
 import {
   detachedStartNotifier,
+  insideAgentShell,
   runDrive,
   runDriveAwait,
   runDriveDetached,
@@ -48,12 +50,16 @@ import { runTune } from './tune'
 import { runSuggest, runSuggestVerb } from './suggest'
 import { runLogin, runLink, runPush, runPull, runPullWatch } from './cloud'
 import { runUpgrade } from './upgrade'
+import { installedSofarOnPath, isNpxRun, liveNpxInstallDeps, NPX_HINT, npxInitRefusal, runNpxInstall } from './npx-install'
 import { runCheckStatus, runRefresh, withUpdateNotice } from './update-check'
 import { writeAutoUpgrade } from './user-config'
 import { emit, fail, ok, readAllStdin, readInput } from './shared'
 import { recordRoot } from '../core/git'
 
 const program = new Command()
+
+/** This bundle's own path — where an npx run is told apart from an install (npx-install.ts). */
+const SELF_PATH = fileURLToPath(import.meta.url)
 
 program
   .name('sofar')
@@ -101,6 +107,13 @@ program
   .option('--root <dir>', 'repo root (default: the git toplevel of the current directory, else the current directory)')
   .action(
     async (opts: { agents?: string; refresh?: boolean; statusline?: boolean; root?: string; promptCapture?: boolean; codexTools?: string }) => {
+      // From npx with nothing installed, the hooks init writes would call a
+      // missing `sofar` (r4-fixes H10): refuse before writing anything.
+      const refusal = npxInitRefusal(SELF_PATH, process.env)
+      if (refusal !== null) {
+        emit(fail(refusal))
+        return
+      }
       const caps = stderrCaps()
       const result = await runInitCommand(opts, {
         cwd: process.cwd(),
@@ -950,11 +963,20 @@ registerCommitTrailerCommand(program, rootOf)
 registerReviewCommand(program, rootOf)
 registerStatuslineCommand(program, rootOf)
 
-// `sofar help write` (r4-fixes A2): the CLI write grammar the thin AGENTS.md
-// block points at — a topic, not a command, so commander's own `help <command>`
-// never sees it.
-if (process.argv[2] === 'help' && process.argv[3] === 'write' && process.argv.length === 4) {
+// `npx sofar.sh` (r4-fixes H10): npx runs sofar from its cache and installs
+// nothing, so a bare run with no installed `sofar` offers the install instead
+// of printing help, and any other command says how to install, on a terminal.
+const npxRun = isNpxRun(SELF_PATH, process.env) && installedSofarOnPath(process.env) === null
+if (npxRun && process.argv.length <= 2) {
+  const interactive = process.stdin.isTTY === true && process.stderr.isTTY === true && !insideAgentShell(process.env)
+  emit(await runNpxInstall(liveNpxInstallDeps({ interactive, ask: terminalPrompt().ask })))
+} else if (process.argv[2] === 'help' && process.argv[3] === 'write' && process.argv.length === 4) {
+  // `sofar help write` (r4-fixes A2): the CLI write grammar the thin AGENTS.md
+  // block points at — a topic, not a command, so commander's own `help <command>`
+  // never sees it.
   emit(ok(WRITE_GRAMMAR))
 } else {
+  const hint = npxRun && process.argv[2] !== 'init' && process.stderr.isTTY === true && !insideAgentShell(process.env)
+  if (hint) process.stderr.write(`${NPX_HINT}\n`)
   await program.parseAsync(process.argv)
 }
