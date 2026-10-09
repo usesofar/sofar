@@ -11,7 +11,9 @@ import { indexedLessons, lessonsEnabled, lessonsSource, relevantLessons, type Le
 import { withFileLock } from '../core/lock'
 import { silentReversal } from '../core/reversal'
 import { quoteClause, ruleFidelityWarning } from '../core/rule-fidelity'
-import { clearSessionPointer, readSessionPointer, writeSessionPointer } from '../core/session-pointer'
+import { clearSessionPointer, hostSessionFromEnv, readSessionPointer, writeSessionPointer } from '../core/session-pointer'
+
+export { hostSessionFromEnv }
 import type { Command } from 'commander'
 import { ulid } from 'ulid'
 import {
@@ -40,7 +42,7 @@ import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, ty
 import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
 import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
-import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine } from '../core/carrier'
+import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine, intendedRecord, intentLine } from '../core/carrier'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -90,7 +92,7 @@ import {
 } from '../core/told'
 import { BOUND_TOLD, boundLine, cursorDebtEnabled, debtNoteHead, debtNoteText } from '../core/cursor-debt'
 import { livePeers, resolvePeers, type Peer } from '../core/peers'
-import { continuesFor, lineageEnabled, readLineage, resolveLineage, writeBaton, writeLineage } from '../core/lineage'
+import { continuesFor, lineageEnabled, pinRoute, readLineage, resolveLineage, writeBaton, writeLineage } from '../core/lineage'
 import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
 import { nextTask } from '../core/drive-queue'
 import { noteDriveSeen } from '../core/drive-seen'
@@ -872,7 +874,9 @@ function traceLineage(rootDir: string, hook: Obj, sessionId: string): boolean {
     if (!lineageEnabled() || sessionId === 'cli') return false
     const ctx = createToolContext(rootDir)
     if (!existsSync(ctx.sofarDir)) return false
-    if (readLineage(ctx.sofarDir, sessionId) !== null) return true
+    // A route pin is not a carrier: the session opened by the route.
+    const known = readLineage(ctx.sofarDir, sessionId)
+    if (known !== null) return known.carrier !== 'route'
     // Carriers first, the registration scan only once one fires: a fresh
     // startup has none, and SessionStart then pays no extra scan of the logs.
     const lineage = resolveLineage({
@@ -949,6 +953,12 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK, stdout: unboundNotice(rootDir, sessionId) }
     const { ctx, slug, via } = bound
+    // The route pin (core/lineage.ts): an unregistered session keeps the
+    // record this block shows, whatever a peer's write-back does to the route.
+    const pinBranch = currentBranch(rootDir)
+    if (sessionId !== null && via === 'branch' && pinBranch !== null && homeInitiative(ctx.sofarDir, sessionId, slug) === null) {
+      pinRoute(ctx.sofarDir, sessionId, slug, pinBranch)
+    }
     // The context that held this session's read-time notices is gone, so what
     // it was told must be told again (memory-lead 2.1, D6).
     const source = strField(hook, 'source')
@@ -3214,6 +3224,31 @@ function carryFirstPrompt(ctx: ToolContext, from: string, sessionId: string, pro
   }
 }
 
+/**
+ * The intent carrier (r4-fixes, superseding D25's first-prompt-only rule): at
+ * ANY prompt, one that asks to work in exactly one open record other than the
+ * session's home (core/carrier.ts promptIntends) moves the session there —
+ * a plain registration when it never was, a `rehome` session_started when it
+ * was and left (binding-follows-session D3), so the home moves either way.
+ * The MCP server's pin follows the home (resolveWriteInitiative), so tool
+ * writes move with the hooks.
+ */
+function carryIntent(ctx: ToolContext, from: string, sessionId: string, prompt: string, host: HookHost): string | null {
+  try {
+    if (!carrierEnabled() || sessionId === 'cli') return null
+    const to = intendedRecord(prompt, initiativeSlugs(ctx.sofarDir), (slug) => recordOpen(ctx, slug))
+    if (to === null || to === from) return null
+    if (ctx.foldState(to).sessions.some((s) => s.id === sessionId)) {
+      ctx.appendAndProject(to, 'session_started', { tool: host.tool, rehome: true }, { session: sessionId, source: 'hook' })
+    } else {
+      registerLazily(ctx, to, sessionId, host)
+    }
+    return to
+  } catch {
+    return null
+  }
+}
+
 export function handleUserPrompt(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
@@ -3230,7 +3265,9 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // for this record: a fresh session the operator's prompt names into
     // another open record serves that record from this prompt on.
     const carried = prompt === null ? null : carryFirstPrompt(ctx, bound.slug, sessionId, prompt, host)
-    const slug = carried ?? bound.slug
+    // Else the operator's stated intent, at any prompt (the intent carrier).
+    const intended = carried !== null || prompt === null ? null : carryIntent(ctx, bound.slug, sessionId, prompt, host)
+    const slug = carried ?? intended ?? bound.slug
 
     const state = ctx.foldState(slug)
     // The session's name follows the record's focus task (session-naming D1)
@@ -3249,7 +3286,8 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // needs the prompt's words, which SessionStart has not seen yet.
     const map = prompt !== null && host.tool !== 'cursor' && workmapEnabled() ? promptWorkmap(rootDir, ctx.sofarDir, state, sessionId, prompt) : null
     const me = state.sessions.find((s) => s.id === sessionId)
-    const carriedLine = carried === null ? null : carrierLine(bound.slug, carried, sessionId)
+    const carriedLine =
+      carried !== null ? carrierLine(bound.slug, carried, sessionId) : intended !== null ? intentLine(bound.slug, intended, sessionId) : null
     if (me === undefined) {
       const first = [carriedLine, recall, map, keep].filter((l): l is string => l !== null)
       return withSessionTitle('user-prompt', first.length === 0 ? { ...OK } : { ...OK, stdout: first.join('\n') }, title) // not ours to nudge
@@ -3708,17 +3746,6 @@ function adoptSession(ctx: ToolContext, rootDir: string, slug: string, type: str
   return minted
 }
 
-/**
- * The session id a host exports to its agent's shell, or null. Only Codex
- * does today: codex 0.154.0's exec_command sets CODEX_THREAD_ID (read from the
- * binary; unverified live until 3.2's re-run), and a thread id equals the
- * hooks' session_id (live 3.2, S2). Claude Code's
- * CLAUDE_CODE_SESSION_ID is left to the pointer, where it already works.
- */
-export function hostSessionFromEnv(env: NodeJS.ProcessEnv): string | null {
-  const id = (env.CODEX_THREAD_ID ?? '').trim()
-  return id.length > 0 ? id : null
-}
 
 // ---------------------------------------------------------------------------
 // `sofar event types` — the payload reference for the CLI dialect (r1-fixes 1.3).

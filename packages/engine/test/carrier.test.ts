@@ -3,11 +3,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
-import { carriedRecord, carrierLine, nameable, promptNames } from '../src/core/carrier'
+import { carriedRecord, carrierLine, intendedRecord, intentLine, nameable, promptIntends, promptNames } from '../src/core/carrier'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { handleUserPrompt } from '../src/cli/event'
-import { homeInitiative } from '../src/mcp/context'
+import { createToolContext, homeInitiative } from '../src/mcp/context'
+import { startSession } from '../src/mcp/start-session'
 
 /**
  * r4-fixes B14 (D25) — the first-prompt carrier. A fresh session the branch
@@ -91,11 +92,11 @@ describe('UserPromptSubmit: the carrier (r4-fixes B14, D25)', () => {
     expect(home(root)).toBe('alpha-one')
   })
 
-  it('never a session that already worked, a closed record, several names or SOFAR_CARRIER=off', () => {
+  it('never a session that already worked on a mere mention, a closed record, several names or SOFAR_CARRIER=off', () => {
     const worked = repo()
     emit(worked, 'alpha-one', 'session_started', { tool: 'claude-code' }, 's1')
     emit(worked, 'alpha-one', 'command_run', { cmd: 'ls', ok: true }, 's1')
-    expect(prompt(worked, 'continue r4 fixes').stdout).not.toContain('now serves')
+    expect(prompt(worked, 'r4 fixes looks fine to me').stdout).not.toContain('now serves')
     const closed = repo()
     expect(prompt(closed, 'continue old work').stdout).not.toContain('now serves')
     const several = repo()
@@ -104,5 +105,85 @@ describe('UserPromptSubmit: the carrier (r4-fixes B14, D25)', () => {
     process.env.SOFAR_CARRIER = 'off'
     expect(prompt(off, 'continue r4 fixes').stdout).not.toContain('now serves')
     for (const r of [worked, closed, several, off]) expect(home(r) ?? 'alpha-one').toBe('alpha-one')
+  })
+})
+
+describe('intent to work in a record (the intent carrier, superseding D25)', () => {
+  it('an intent word up to six words before the name, same sentence, not negated', () => {
+    for (const p of [
+      'continue r4 fixes',
+      'I want to do some tasks in r4 fixes',
+      "let's switch to R4-fixes now",
+      'pick up r4_fixes where we left off',
+      'can we work on the r4 fixes initiative?',
+      'please re-home to r4 fixes',
+    ])
+      expect(promptIntends(p, 'r4-fixes'), p).toBe(true)
+    for (const p of [
+      'Also check the other initiatives, like the R3 fix and R4 fixes, and make sure we are not degrading',
+      "don't work on r4 fixes yet",
+      'the work is done. r4 fixes looks fine',
+      'r4 fixes: continue',
+      'continue with the plan we made yesterday and then also look at r4 fixes',
+    ])
+      expect(promptIntends(p, 'r4-fixes'), p).toBe(false)
+  })
+
+  it('exactly one open record asked for, whatever else is mentioned', () => {
+    const slugs = ['r4-fixes', 'memory-lead', 'r3-fixes']
+    expect(intendedRecord('r3 fixes is done; continue r4 fixes', slugs, () => true)).toBe('r4-fixes')
+    expect(intendedRecord('continue r4 fixes and memory lead', slugs, () => true)).toBeNull()
+    expect(intendedRecord('work on r4 fixes, then work on memory lead', slugs, () => true)).toBeNull()
+    expect(intendedRecord('continue r4 fixes', slugs, (s) => s !== 'r4-fixes')).toBeNull()
+  })
+
+  it('a session that already worked moves at a later prompt that asks for another record, told first', () => {
+    const root = repo()
+    emit(root, 'alpha-one', 'session_started', { tool: 'claude-code' }, 's1')
+    emit(root, 'alpha-one', 'command_run', { cmd: 'ls', ok: true }, 's1')
+    prompt(root, 'what is on the plan?')
+    const r = prompt(root, 'now I want to do some tasks in r4 fixes')
+    expect(r.stdout.split('\n')[0]).toBe(intentLine('alpha-one', 'r4-fixes', 's1'))
+    expect(home(root)).toBe('r4-fixes')
+    expect(startedIn(root, 'r4-fixes')).toBe(1)
+    // Asking again for where it already is moves nothing and says nothing.
+    expect(prompt(root, 'continue r4 fixes').stdout).not.toContain('now serves')
+    expect(startedIn(root, 'r4-fixes')).toBe(1)
+  })
+
+  it('back to a record it left is a rehome registration, so the home moves back', () => {
+    const root = repo()
+    emit(root, 'alpha-one', 'session_started', { tool: 'claude-code' }, 's1')
+    emit(root, 'alpha-one', 'command_run', { cmd: 'ls', ok: true }, 's1')
+    prompt(root, 'switch to r4 fixes')
+    expect(home(root)).toBe('r4-fixes')
+    prompt(root, 'ok, back to working on alpha one')
+    expect(home(root)).toBe('alpha-one')
+    const lines = readFileSync(join(root, '.sofar', 'initiatives', 'alpha-one', 'events.jsonl'), 'utf8').split('\n')
+    expect(lines.filter((l) => l.includes('"session_started"') && l.includes('"rehome":true'))).toHaveLength(1)
+  })
+
+  it('never a closed record, and not under SOFAR_CARRIER=off', () => {
+    const closed = repo()
+    emit(closed, 'alpha-one', 'session_started', { tool: 'claude-code' }, 's1')
+    prompt(closed, 'hello')
+    expect(prompt(closed, 'continue old work').stdout).not.toContain('now serves')
+    const off = repo()
+    emit(off, 'alpha-one', 'session_started', { tool: 'claude-code' }, 's1')
+    process.env.SOFAR_CARRIER = 'off'
+    prompt(off, 'hello')
+    expect(prompt(off, 'continue r4 fixes').stdout).not.toContain('now serves')
+    for (const r of [closed, off]) expect(home(r)).toBe('alpha-one')
+  })
+
+  it('the MCP pin follows the move, so tool writes land where the hooks do', () => {
+    const root = repo()
+    const ctx = createToolContext(root)
+    startSession(ctx, { tool: 'claude-code', session_id: 's1' })
+    expect(ctx.resolveWriteInitiative()).toBe('alpha-one')
+    prompt(root, 'hello')
+    prompt(root, "let's continue r4 fixes")
+    expect(ctx.resolveWriteInitiative()).toBe('r4-fixes')
+    expect(ctx.session.get()?.initiative).toBe('r4-fixes')
   })
 })

@@ -76,3 +76,26 @@ export function clearSessionPointer(rootDir: string, session: string): void {
     // best-effort: a stale pointer is caught by the record's ended check
   }
 }
+
+/**
+ * The session id a host exports to its agent's shell, or null — the
+ * process's own, which no peer can move, so it outranks the pointer.
+ *
+ * Codex: codex 0.154.0's exec_command sets CODEX_THREAD_ID, and a thread id
+ * equals the hooks' session_id (agents-parity 3.3, live 3.2, S2).
+ *
+ * Claude Code exports CLAUDE_CODE_SESSION_ID to every Bash command (observed
+ * live 2026-10-09). It was left to the pointer, which is last-writer-wins per
+ * worktree, so with two tabs open a bare `sofar event append` from one tab
+ * was filed under whichever tab last fired a hook (r4-fixes note
+ * 01M4FTHS8F7M7A6XDPWKSR0FRQ, F2). `sofar drive` strips both from the
+ * agents it launches (driver/adapter.ts), so a driven child never inherits
+ * its launcher's id.
+ */
+export function hostSessionFromEnv(env: NodeJS.ProcessEnv): string | null {
+  for (const name of ['CODEX_THREAD_ID', 'CLAUDE_CODE_SESSION_ID']) {
+    const id = (env[name] ?? '').trim()
+    if (id.length > 0) return id
+  }
+  return null
+}

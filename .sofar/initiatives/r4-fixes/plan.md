@@ -4,13 +4,13 @@
 
 Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), research best-in-class techniques across all areas (context and cost, knowledge correctness, team and multi-agent, competitors, benchmark science, engineering and product), invent where the field has nothing good enough, then build, release and prove a ≥50% lead over native memory and the best competitor on a harder held-out chain.
 
-Brief: the operator's words, 1650 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 2006 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 34 done, 6 dropped, 23 remaining
+Progress: 35 done, 6 dropped, 23 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
-## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 17/20 (3 dropped) done
+## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 18/21 (3 dropped) done
 
 - [x] A1 A1 In-band write-back: a fenced `sofar` block in the final reply is filed by the Stop handler (SOFAR_WRITEBACK). PREDICT Codex −0.15 to −0.20, Cursor −0.08 to −0.15, Claude −0.03 to −0.05
 - [x] A2 A2 Host-compiled payloads: AGENTS.md block ≤1.5k chars, CLI grammar moved to a skill, per-host budgets (SOFAR_PAYLOAD). PREDICT Codex −0.05 to −0.07, Cursor −0.05 to −0.10
@@ -32,6 +32,7 @@ Progress: 34 done, 6 dropped, 23 remaining
 - [x] H4 Read-only sessions move the last home too: set it at Stop when a registered session's home differs (one write, only on change)
 - [x] H5 Per-host write-back default: Claude Code through sofar_end_session, Codex/Cursor in-band block (rc.2 turned every Claude completion summary into JSON)
 - [x] H6 `sofar upgrade` never silently downgrades: from a pre-release ahead of `latest`, refuse (name the version or pass --force), or follow the channel the install is on (r4-fixes M8)
+- [x] H7 H7 Re-home leak: route pin (D43), intent carrier (D42), CLI host id (D44)
 
 ## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 4/17 (3 dropped) done
 
@@ -78,5 +79,5 @@ Progress: 34 done, 6 dropped, 23 remaining
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 
-Next action: Start a fresh blind session homed in chain-n-author for 1.1; meanwhile r4-fixes 4.2 (round-5 harness) can proceed here.
+Next action: Operator reviews the uncommitted H7 diff, then commit it as "H7: ..." together with the record.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: D24: deferred until round 5's T-CURRENCY fixture (at most 3 useful peer mentions in 18 worktree sessions; 1 of 5 candidates was the R4-B bait).; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).

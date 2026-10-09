@@ -189,9 +189,11 @@ is untouched (lane, unbound notice as before).
 `resolveSessionFirst(ctx, sessionId)` (every hook, the statusline):
 1. `branchSlug = resolveInitiative()` or null on any throw.
 2. If sessionId non-empty: `home = homeInitiative(sofarDir, sessionId,
-   branchSlug)`; if null and `SOFAR_LINEAGE` is not `off`, `home =`
-   `.sofar/.index/lineage/<safe id>.json`'s `home` when that record's
-   directory exists (r4-fixes A10); if non-null → `{slug: home, via: home ===
+   branchSlug)`; if null, `home =` `.sofar/.index/lineage/<safe id>.json`'s
+   `home` when that record's directory exists and the file is in force —
+   carrier `route` unless `SOFAR_ROUTE_PIN` is `off` and only while
+   `currentBranch` equals its `branch` (r4-fixes D43), any other carrier
+   unless `SOFAR_LINEAGE` is `off` (r4-fixes A10); if non-null → `{slug: home, via: home ===
    branchSlug ? 'branch' : 'session'}`.
 3. Else `{slug: branchSlug, via: 'branch'}`, or null when both miss.
 
@@ -224,8 +226,17 @@ allowed here by commit-attribution D6, forbidden per prompt); no identity
 spawn, because this hook never calls `makeEvent`.
 Writes: `shipwatch.json` (noteUpstream mark, when session_id and git state
 both resolve); `guards.json`/`graph.json` + their meta files (refreshNeighbours);
-`lineage/<safe id>.json` (r4-fixes A10, below); NEVER events.jsonl (lazy
-registration, record-hygiene D2).
+`lineage/<safe id>.json` (r4-fixes A10 and the D43 route pin, below); NEVER
+events.jsonl (lazy registration, record-hygiene D2).
+
+Route pin (r4-fixes D43; `SOFAR_ROUTE_PIN=off` skips it): AFTER resolution,
+when it answered `via: 'branch'`, the branch is known and
+`homeInitiative(id, slug)` is null, write `{home: slug, carrier: "route",
+branch, ts}` unless a lineage file with another
+carrier exists (never over one) or it already names `slug` and `branch`. A
+`route` file without `branch` is no file. A later
+SessionStart that finds a `route` file counts as untraced (the contested line
+still applies).
 
 Lineage (r4-fixes A10; `SOFAR_LINEAGE=off` skips it): BEFORE resolution, for
 a session_id other than `cli` that no log registers
@@ -761,6 +772,7 @@ message file (commit-trailer).
 | `SOFAR_CLI` | set by the stub for the core it spawns: the TypeScript CLI an in-band write-back is handed back to |
 | `CLAUDE_CODE_SESSION_ID` | commit-trailer only |
 | `SOFAR_LINEAGE` | `off` (trimmed, any case): no lineage carriers, no lineage read (r4-fixes A10) |
+| `SOFAR_ROUTE_PIN` | `off` (trimmed, any case): no route pin written or read (r4-fixes D43) |
 | `SOFAR_LASTHOME` | `committed` (trimmed, any case): no last-home overlay (r4-fixes A10) |
 | `SOFAR_WORKMAP` | `off`/`0`/`false` (trimmed, any case): no work map on the first prompt (r4-fixes B1) |
 | `GIT_CONFIG_*`, git's own env | inherited by the `git config user.email` spawn |

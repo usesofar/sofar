@@ -42,14 +42,30 @@ import { promptBufferDir, promptCaptureEnabled } from './prompt-buffer'
  * registered, the log answers and this file is never read again.
  *
  * Off by `SOFAR_LINEAGE=off`. Best-effort throughout (BD22).
+ *
+ * The same file also holds the ROUTE PIN (carrier `route`): the record the
+ * branch's route gave a session at its SessionStart, written when no carrier
+ * fired and nothing registered it. Without it an unregistered live session —
+ * one that has only read, searched, run git/sofar or talked, so no hook has
+ * registered it yet (lazy registration) — resolved through the worktree's
+ * CURRENT route, and a peer's write-back moving the last home (H4, D40) moved
+ * that open tab too: its statusline, its first MCP write, its compact digest
+ * and its first registration all followed another tab's work. The pin
+ * keeps the record the tab was shown, while a NEW tab still opens on the last
+ * home. It holds only on the branch it was made on: a checkout routes as
+ * before. `sofar new` and `sofar switch` re-pin the session that ran them.
+ * Lowest of the carriers: any other carrier, and any registration, outranks
+ * it. Off by `SOFAR_ROUTE_PIN=off`, independently of SOFAR_LINEAGE.
  */
 
-export type LineageCarrier = 'baton' | 'title' | 'fingerprint' | 'registry'
+export type LineageCarrier = 'baton' | 'title' | 'fingerprint' | 'registry' | 'route'
 
 export interface Lineage {
   home: string
   parent?: string
   carrier: LineageCarrier
+  /** A route pin's branch: it holds only while the worktree is on it. */
+  branch?: string
   ts: string
 }
 
@@ -114,9 +130,17 @@ export function readLineage(sofarDir: string, sessionId: string): Lineage | null
   const home = nonEmpty(raw.home)
   const carrier = raw.carrier
   if (home === null || !SLUG_RE.test(home)) return null
-  if (carrier !== 'baton' && carrier !== 'title' && carrier !== 'fingerprint' && carrier !== 'registry') return null
+  if (carrier !== 'baton' && carrier !== 'title' && carrier !== 'fingerprint' && carrier !== 'registry' && carrier !== 'route') return null
   const parent = nonEmpty(raw.parent)
-  return { home, ...(parent !== null ? { parent } : {}), carrier, ts: typeof raw.ts === 'string' ? raw.ts : '' }
+  const branch = nonEmpty(raw.branch)
+  if (carrier === 'route' && branch === null) return null
+  return {
+    home,
+    ...(parent !== null ? { parent } : {}),
+    carrier,
+    ...(carrier === 'route' && branch !== null ? { branch } : {}),
+    ts: typeof raw.ts === 'string' ? raw.ts : '',
+  }
 }
 
 function sweepDir(dir: string, nowMs: number, keepMs: number): void {
@@ -143,12 +167,46 @@ export function writeLineage(sofarDir: string, sessionId: string, lineage: Linea
     const dir = join(ensureIndexDir(sofarDir), 'lineage')
     mkdirSync(dir, { recursive: true })
     sweepDir(dir, Date.parse(lineage.ts) || Date.now(), LINEAGE_RETENTION_MS)
-    const body = { home: lineage.home, ...(lineage.parent !== undefined ? { parent: lineage.parent } : {}), carrier: lineage.carrier, ts: lineage.ts }
+    const body = {
+      home: lineage.home,
+      ...(lineage.parent !== undefined ? { parent: lineage.parent } : {}),
+      carrier: lineage.carrier,
+      ...(lineage.branch !== undefined ? { branch: lineage.branch } : {}),
+      ts: lineage.ts,
+    }
     writeFileAtomic(lineagePath(sofarDir, sessionId), `${JSON.stringify(body)}\n`)
     return true
   } catch {
     return false
   }
+}
+
+/** `SOFAR_ROUTE_PIN=off` turns the route pin off (its ablation switch); SOFAR_LINEAGE does not. */
+export function routePinEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return (env.SOFAR_ROUTE_PIN ?? '').trim().toLowerCase() !== 'off'
+}
+
+/**
+ * Whether a lineage file's answer is in force: a carrier by SOFAR_LINEAGE; a
+ * route pin by its own switch, and only on the branch it was made on — a
+ * checkout is the operator moving the tab, so it routes as before.
+ */
+export function lineageApplies(lineage: Lineage, branch: string | null, env: Record<string, string | undefined> = process.env): boolean {
+  if (lineage.carrier !== 'route') return lineageEnabled(env)
+  return routePinEnabled(env) && branch !== null && lineage.branch === branch
+}
+
+/**
+ * Pin an unregistered session to the record its route gave it (carrier
+ * `route`). Never over a real carrier: that is identity, the pin is only
+ * what the session was shown. The caller has checked that no log registers it.
+ */
+export function pinRoute(sofarDir: string, sessionId: string, slug: string, branch: string, now: Date = new Date()): boolean {
+  if (!routePinEnabled() || sessionId.length === 0 || sessionId === 'cli' || !SLUG_RE.test(slug) || branch.length === 0) return false
+  const existing = readLineage(sofarDir, sessionId)
+  if (existing !== null && existing.carrier !== 'route') return false
+  if (existing?.home === slug && existing.branch === branch) return true
+  return writeLineage(sofarDir, sessionId, { home: slug, carrier: 'route', branch, ts: now.toISOString() })
 }
 
 /** The parent a registration names (`continues`), when lineage put the session in `slug`. */

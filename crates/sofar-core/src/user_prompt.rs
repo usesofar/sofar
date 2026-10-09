@@ -781,9 +781,9 @@ fn keep_line(root: &Path, slug: &str, session_id: &str, prompt: &str) -> Option<
     (utf16_len(prompt) >= PROMPT_ANNOUNCE_MIN).then(|| prompt_keep_line(&id))
 }
 
-/// The first-prompt carrier's answer for this prompt (r4-fixes B14, D25):
-/// the record the session serves from here on, and the line that says so
-/// when it moved.
+/// The carriers' answer for this prompt (r4-fixes B14, D25, and the intent
+/// carrier that supersedes D25's first-prompt-only rule): the record the
+/// session serves from here on, and the line that says so when it moved.
 fn carried_home(
     layout: &Layout,
     from: String,
@@ -794,9 +794,17 @@ fn carried_home(
     let carried = prompt.and_then(|p| {
         crate::carrier::carry_first_prompt(layout, &from, session_id, p, hook_host(hook).tool)
     });
-    match carried {
+    if let Some(to) = carried {
+        let line = crate::carrier::carrier_line(&from, &to, session_id);
+        return (to, Some(line));
+    }
+    // Else the operator's stated intent, at any prompt (the intent carrier).
+    let intended = prompt.and_then(|p| {
+        crate::carrier::carry_intent(layout, &from, session_id, p, hook_host(hook).tool)
+    });
+    match intended {
         Some(to) => {
-            let line = crate::carrier::carrier_line(&from, &to, session_id);
+            let line = crate::carrier::intent_line(&from, &to, session_id);
             (to, Some(line))
         }
         None => (from, None),

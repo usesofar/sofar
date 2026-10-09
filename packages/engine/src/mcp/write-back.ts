@@ -738,7 +738,9 @@ export function endSessionFiled(
     )
   }
   const endsActive = active !== null && active.id === sessionId
-  const slug = endsActive ? active.initiative : resolveWriteBackHome(ctx, sessionId)
+  // The active pin through resolveWriteInitiative, which follows the home a
+  // hook may have moved (the intent carrier).
+  const slug = endsActive ? ctx.resolveWriteInitiative() : resolveWriteBackHome(ctx, sessionId)
 
   // The batched write-back (r1-fixes 2.1, D10 for tasks; memory-lead 1.1, D3
   // for the rest): the whole batch is planned and validated against one fold

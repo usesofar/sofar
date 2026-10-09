@@ -74,6 +74,11 @@ export function scratchEnv(prefix = 'sofar-hermetic-', base = tmpdir()) {
     // caller has not already chosen them.
     CARGO_HOME: process.env.CARGO_HOME ?? join(real, '.cargo'),
     RUSTUP_HOME: process.env.RUSTUP_HOME ?? join(real, '.rustup'),
+    // The host's own session ids, blanked: a suite run inside a Claude Code
+    // or Codex session must not attribute fixture appends to that session
+    // (core/session-pointer.ts hostSessionFromEnv reads both).
+    CLAUDE_CODE_SESSION_ID: '',
+    CODEX_THREAD_ID: '',
     SOFAR_TEST_RUN: root.slice(root.lastIndexOf('/') + 1),
     SOFAR_HERMETIC_ROOT: root,
   }

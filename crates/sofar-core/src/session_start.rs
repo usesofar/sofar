@@ -501,8 +501,9 @@ fn trace_lineage(root: &Path, layout: &Layout, hook: &Object, session_id: &str) 
     if !lineage_enabled() || session_id == "cli" || !layout.sofar_dir.exists() {
         return false;
     }
-    if read_lineage(layout, session_id).is_some() {
-        return true;
+    // A route pin is not a carrier: the session opened by the route.
+    if let Some(known) = read_lineage(layout, session_id) {
+        return known.carrier != "route";
     }
     // Carriers first, the registration scan only once one fires.
     let is_open = |slug: &str| crate::home::record_open(layout, slug);
@@ -604,6 +605,15 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     let Some((slug, via)) = resolve_session_first(&layout, session_id) else {
         return ok(unbound_notice(&layout, session_id));
     };
+    // The route pin: an unregistered session keeps the record this block
+    // shows, whatever a peer's write-back does to the route.
+    if let Some(sid) = session_id
+        && via == ResolvedVia::Branch
+        && let Some(branch) = crate::git::current_branch(root)
+        && crate::home::home_initiative(&layout, sid, Some(&slug)).is_none()
+    {
+        let _ = crate::lineage::pin_route(&layout, sid, &slug, &branch);
+    }
     // The context that held this session's read-time notices is gone, so
     // what it was told must be told again (memory-lead 2.1, D6).
     if let Some(sid) = session_id

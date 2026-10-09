@@ -5630,6 +5630,42 @@ qualifies session-orientation D2 for this case only: the redirect is the
 operator's own words, announced, never a recency guess. Replay over this
 repo's sessions since 2026-09-01: 11 of 33 misfiles fixed, no wrong move.
 `SOFAR_CARRIER=off` (also `0`, `false`) is the ablation arm.
+THE INTENT CARRIER (r4-fixes D42, superseding D25's first-prompt-only rule),
+in both engines' UserPromptSubmit, right after the first-prompt carrier and
+only when it did not move the session: at ANY prompt, a prompt that ASKS to
+work in exactly one OPEN record other than the session's resolved record moves
+the session there, whether or not it has worked. ASKS: the record is NAMED
+(as above) and one of `work working continue continuing switch switching move
+moving resume resuming focus focusing task tasks pick rehome re-home` is among
+the up-to-6 words before that naming — words split on anything but
+`[a-z0-9'-]` after lowercasing, counted back only to the nearest `.` `!` `?`
+`;` or newline — with none of `not don't dont never no without stop` before
+it in that window. Two records asked for is no move. A record the session
+never registered in gets the lazy registration; one it registered in and left
+gets `session_started` {tool, rehome: true}, source `hook`
+(binding-follows-session D3) — either way its latest registration, so its
+home. The output leads with `sofar: your prompt asks to work on <to>, so this
+session now serves <to> (it served <from>). Hooks, write-backs and the Stop
+gate follow <to> from here; read its state with
+sofar_get_state({"initiative":"<to>"}). If <to> is wrong,
+sofar_start_session({"session_id":"<id>","initiative":"<from>"}) moves it
+back.` The MCP server's pin follows the home on every write
+(resolveWriteInitiative re-derives homeInitiative(id, pin) and re-pins on a
+difference), so tool writes and the write-back move with the hooks.
+`SOFAR_CARRIER=off` turns it off too.
+THE ROUTE PIN (r4-fixes D43). A session no log registers resolved through the
+worktree's CURRENT route, so a peer's write-back moving the last home moved an
+open tab — its statusline, its first MCP write (adoption), its compact digest
+and its first registration (reproduced, r4-fixes note
+01M4FTHS8F7M7A6XDPWKSR0FRQ). SessionStart now writes, for a session it
+resolved by the branch and no log registers, the lineage file with carrier
+`route`, the slug it showed and the branch it was on; resolution reads it in
+the lineage step while the worktree is still on that branch (a checkout routes
+as before), so the tab keeps its record while a NEW tab still opens on the
+last home (D40).
+Every other carrier and every registration outranks it. `sofar new` (when it
+binds) and `sofar switch` re-pin the session that ran them, found by its host
+env id, when no log registers it. `SOFAR_ROUTE_PIN=off` is the control.
 THE WRITE-BACK BINDS THE BRANCH (binding-follows-session D1) — IN THE
 WORKTREE, SINCE r4-fixes A10. R11 (b) supersedes D1's committed rebind, D4's
 and D5's target file and no-bind-durability D1's write side: the move below

@@ -1,5 +1,15 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **r4-fixes D42/D43** (main) from the TypeScript reference;
+the Rust core reproduces all 58 (`SOFAR_CORE=target/release/sofar-core`).
+`syn.lineage`: step 11 starts a fresh `lin-committed` instead of reusing
+`lin-route`, because a reused unregistered id now keeps its route pin (D43);
+two new steps show the pin (the open tab keeps rec-07 when the last home moves
+to rec-05) and D40 intact (a new tab opens on rec-05). `syn.carrier`: four new
+steps for the intent carrier (D42) — a later prompt asking for `wave-b2`
+moves the session, a mere mention moves nothing, `continue r4 fixes` appends a
+`rehome` registration back, and the statusline follows.
+
 Merged on **main** at the 0.36.0-rc.3 merge-back (r4-fixes 3.2): main keeps
 `0.37.0-dev+trunk`, so `argv.fast-path` and `open.O2-update-segment` keep
 main's version.

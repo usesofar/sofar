@@ -1021,6 +1021,20 @@ export const CASES: ConformanceCase[] = [
       s('first prompt names r4-fixes: carried, told first', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'continue r4 fixes' })),
       s('a second prompt naming it moves nothing', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'and the r4 fixes plan?' })),
       s('status of r4-fixes: the session registered there', ['status', 'r4-fixes']),
+      // r4-fixes D42: the intent carrier, at any later prompt.
+      s('a later prompt asking to work on wave-b2: the intent carrier moves it', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'now I want to do some tasks in wave b2' }), {
+        before: (m) => {
+          const dir = join(m.root, '.sofar', 'initiatives', 'wave-b2')
+          mkdirSync(dir, { recursive: true })
+          writeFileSync(
+            join(dir, 'events.jsonl'),
+            `${JSON.stringify({ v: 1, id: '01M2Z0PCM000000000000000B2', ts: '2026-09-20T09:00:00.000Z', initiative: 'wave-b2', session: 'cli', source: 'cli', actor: 'human', user: 'fixture@example.invalid', type: 'initiative_created', payload: { slug: 'wave-b2', goal: 'The second wave.' } })}\n`,
+          )
+        },
+      }),
+      s('a mere mention of r4-fixes moves nothing', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'is r4 fixes still green?' })),
+      s('asking to continue r4-fixes: a rehome back', ['event', 'user-prompt'], prompt({ session_id: 'sess-r', prompt: 'ok, continue r4 fixes' })),
+      s('statusline: the session serves r4-fixes again', ['statusline', '--no-color'], statusline({ session_id: 'sess-r' })),
     ],
   },
   {
@@ -1407,8 +1421,15 @@ export const CASES: ConformanceCase[] = [
           writeFileSync(join(m.root, '.sofar', '.index', 'last-home.json'), `${JSON.stringify({ main: { slug: 'rec-07', session: 'x', ts: '2026-09-01T12:00:00.000Z' } })}\n`)
         },
       }),
-      s('SOFAR_LASTHOME=committed: the committed binding routes', ['event', 'session-start'], start({ session_id: 'lin-route' }), { env: { SOFAR_LASTHOME: 'committed' } }),
+      s('SOFAR_LASTHOME=committed: the committed binding routes', ['event', 'session-start'], start({ session_id: 'lin-committed' }), { env: { SOFAR_LASTHOME: 'committed' } }),
       s('statusline follows the last home', ['statusline', '--no-color'], statusline({ session_id: 'lin-route' })),
+      // r4-fixes D43: a peer's write-back moves the last home; the open,
+      // unregistered tab keeps the record its SessionStart showed it, and a
+      // NEW tab opens on the moved last home (D40).
+      s('route pin: the open tab keeps its record when the last home moves', ['statusline', '--no-color'], statusline({ session_id: 'lin-route' }), {
+        before: (m) => writeFileSync(join(m.root, '.sofar', '.index', 'last-home.json'), `${JSON.stringify({ main: { slug: 'rec-05', session: 'y', ts: '2026-09-01T12:30:00.000Z' } })}\n`),
+      }),
+      s('route pin: a new tab opens on the moved last home', ['event', 'session-start'], start({ session_id: 'lin-next' })),
       s('a plain session registers on the route', ['event', 'post-tool'], edit('<ROOT>/src/plain.ts', { session_id: 'lin-plain' }), {
         before: (m) => rmSync(join(m.root, '.sofar', '.index', 'last-home.json'), { force: true }),
       }),

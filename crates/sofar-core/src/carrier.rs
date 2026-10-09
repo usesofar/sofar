@@ -44,12 +44,17 @@ fn separator(b: u8) -> bool {
 /// underscores, case-insensitive, never inside a longer word.
 #[must_use]
 pub fn prompt_names(prompt: &str, slug: &str) -> bool {
-    let lower = prompt.to_lowercase();
+    !name_starts(&prompt.to_lowercase(), slug).is_empty()
+}
+
+/// `nameStarts`: where in `lower` each naming of `slug` starts.
+fn name_starts(lower: &str, slug: &str) -> Vec<usize> {
     let text = lower.as_bytes();
     let words: Vec<&str> = slug.split('-').filter(|w| !w.is_empty()).collect();
     let Some(first) = words.first() else {
-        return false;
+        return Vec::new();
     };
+    let mut starts = Vec::new();
     let mut from = 0;
     while let Some(off) = lower.get(from..).and_then(|rest| rest.find(first)) {
         let at = from + off;
@@ -71,10 +76,128 @@ pub fn prompt_names(prompt: &str, slug: &str) -> bool {
             i += w.len();
         }
         if ok && (i >= text.len() || !wordish(text[i])) {
+            starts.push(at);
+        }
+    }
+    starts
+}
+
+/// `INTENT_WORDS`: the intent carrier moves a session that has already
+/// worked only on one of these, up to [`INTENT_WINDOW`] words before the
+/// name, in the same sentence, with no negation before it in that window.
+pub const INTENT_WORDS: [&str; 17] = [
+    "work",
+    "working",
+    "continue",
+    "continuing",
+    "switch",
+    "switching",
+    "move",
+    "moving",
+    "resume",
+    "resuming",
+    "focus",
+    "focusing",
+    "task",
+    "tasks",
+    "pick",
+    "rehome",
+    "re-home",
+];
+/// `INTENT_WINDOW`.
+pub const INTENT_WINDOW: usize = 6;
+const NEGATIONS: [&str; 7] = ["not", "don't", "dont", "never", "no", "without", "stop"];
+
+/// `promptIntends`: the prompt names `slug` with intent to work there.
+#[must_use]
+pub fn prompt_intends(prompt: &str, slug: &str) -> bool {
+    let lower = prompt.to_lowercase();
+    for at in name_starts(&lower, slug) {
+        let before = &lower[..at];
+        let sentence = before
+            .rfind(['.', '!', '?', ';', '\n'])
+            .map_or(before, |cut| &before[cut + 1..]);
+        let all: Vec<&str> = sentence
+            .split(|c: char| {
+                !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '\'' || c == '-')
+            })
+            .filter(|w| !w.is_empty())
+            .collect();
+        let words = &all[all.len().saturating_sub(INTENT_WINDOW)..];
+        if let Some(cue) = words.iter().position(|w| INTENT_WORDS.contains(w))
+            && !words[..cue].iter().any(|w| NEGATIONS.contains(w))
+        {
             return true;
         }
     }
     false
+}
+
+/// `intendedRecord`: the one open record a prompt asks to work in.
+#[must_use]
+pub fn intended_record(
+    prompt: &str,
+    slugs: &[String],
+    open: impl Fn(&str) -> bool,
+) -> Option<String> {
+    let live: Vec<&String> = slugs
+        .iter()
+        .filter(|s| nameable(s) && prompt_intends(prompt, s))
+        .filter(|s| open(s))
+        .collect();
+    (live.len() == 1).then(|| live[0].clone())
+}
+
+/// `intentLine`.
+#[must_use]
+pub fn intent_line(from: &str, to: &str, session_id: &str) -> String {
+    format!(
+        "sofar: your prompt asks to work on {to}, so this session now serves {to} (it served {from}). Hooks, write-backs and the Stop gate follow {to} from here; read its state with sofar_get_state({{\"initiative\":\"{to}\"}}). If {to} is wrong, sofar_start_session({{\"session_id\":\"{session_id}\",\"initiative\":\"{from}\"}}) moves it back."
+    )
+}
+
+/// `carryIntent`: at ANY prompt, one asking to work in exactly one open
+/// record other than the session's home moves the session there — a plain
+/// registration, or a `rehome` `session_started` when it was registered there
+/// before (binding-follows-session D3).
+#[must_use]
+pub fn carry_intent(
+    layout: &Layout,
+    from: &str,
+    session_id: &str,
+    prompt: &str,
+    host_tool: &str,
+) -> Option<String> {
+    if !carrier_enabled() || session_id == "cli" {
+        return None;
+    }
+    let to = intended_record(prompt, &crate::layout::initiative_slugs(layout), |s| {
+        crate::home::record_open(layout, s)
+    })?;
+    if to == from {
+        return None;
+    }
+    let known = crate::append::fold_state(layout, &to)
+        .sessions
+        .iter()
+        .any(|s| s.id == session_id);
+    if known {
+        let mut payload = crate::json::Object::with_capacity(2);
+        payload.insert("tool", crate::json::Json::Str(host_tool.to_owned()));
+        payload.insert("rehome", crate::json::Json::Bool(true));
+        crate::append::append_and_project(
+            layout,
+            &to,
+            "session_started",
+            payload,
+            session_id,
+            "hook",
+        )
+        .ok()?;
+    } else {
+        crate::append::register_lazily(layout, &to, session_id, host_tool);
+    }
+    Some(to)
 }
 
 /// `carriedRecord`: the one record a prompt names that `open` admits; names
@@ -194,6 +317,41 @@ mod tests {
         );
         assert_eq!(
             carried_record("a quick speed question", &slugs, |_| true),
+            None
+        );
+    }
+
+    #[test]
+    fn intent_is_a_cue_word_before_the_name_in_the_same_sentence() {
+        for p in [
+            "continue r4 fixes",
+            "I want to do some tasks in r4 fixes",
+            "let's switch to R4-fixes now",
+            "pick up r4_fixes where we left off",
+            "can we work on the r4 fixes initiative?",
+            "please re-home to r4 fixes",
+        ] {
+            assert!(prompt_intends(p, "r4-fixes"), "{p}");
+        }
+        for p in [
+            "Also check the other initiatives, like the R3 fix and R4 fixes, and make sure we are not degrading",
+            "don't work on r4 fixes yet",
+            "the work is done. r4 fixes looks fine",
+            "r4 fixes: continue",
+            "continue with the plan we made yesterday and then also look at r4 fixes",
+        ] {
+            assert!(!prompt_intends(p, "r4-fixes"), "{p}");
+        }
+        let slugs: Vec<String> = ["r4-fixes", "memory-lead", "r3-fixes"]
+            .iter()
+            .map(|s| (*s).to_owned())
+            .collect();
+        assert_eq!(
+            intended_record("r3 fixes is done; continue r4 fixes", &slugs, |_| true),
+            Some("r4-fixes".to_owned())
+        );
+        assert_eq!(
+            intended_record("continue r4 fixes and memory lead", &slugs, |_| true),
             None
         );
     }

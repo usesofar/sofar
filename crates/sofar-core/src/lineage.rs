@@ -7,6 +7,10 @@
 //! `.sofar/.index/lineage/<session>.json` and never appends; the hooks then
 //! resolve the unregistered id through it, and its first registration says
 //! `continues`. `SOFAR_LINEAGE=off` turns every carrier off. Best-effort.
+//! The same file holds the route pin (carrier `route`): the record an
+//! unregistered session's `SessionStart` was shown, lowest of all, so a
+//! peer's write-back moving the worktree's last home leaves the open tab put
+//! (`SOFAR_ROUTE_PIN=off` is its own switch).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -74,6 +78,8 @@ pub struct Lineage {
     pub home: String,
     pub parent: Option<String>,
     pub carrier: &'static str,
+    /// A route pin's branch: it holds only while the worktree is on it.
+    pub branch: Option<String>,
     pub ts: String,
 }
 
@@ -100,12 +106,18 @@ pub fn read_lineage(layout: &Layout, session_id: &str) -> Option<Lineage> {
         "title" => "title",
         "fingerprint" => "fingerprint",
         "registry" => "registry",
+        "route" => "route",
         _ => return None,
     };
+    let branch = nonempty(&raw, "branch").map(str::to_owned);
+    if carrier == "route" && branch.is_none() {
+        return None;
+    }
     Some(Lineage {
         home: home.to_owned(),
         parent: nonempty(&raw, "parent").map(str::to_owned),
         carrier,
+        branch: if carrier == "route" { branch } else { None },
         ts: raw
             .get("ts")
             .and_then(Json::as_str)
@@ -155,10 +167,64 @@ pub fn write_lineage(layout: &Layout, session_id: &str, lineage: &Lineage) -> bo
     }
     text.push_str(",\"carrier\":");
     json::write_string(&mut text, lineage.carrier);
+    if let Some(branch) = &lineage.branch {
+        text.push_str(",\"branch\":");
+        json::write_string(&mut text, branch);
+    }
     text.push_str(",\"ts\":");
     json::write_string(&mut text, &lineage.ts);
     text.push_str("}\n");
     write_file_atomic(&lineage_path(layout, session_id), text.as_bytes()).is_ok()
+}
+
+/// `routePinEnabled`: off only for `SOFAR_ROUTE_PIN=off`.
+#[must_use]
+pub fn route_pin_enabled() -> bool {
+    std::env::var_os("SOFAR_ROUTE_PIN").is_none_or(|raw| {
+        let v = raw.to_string_lossy();
+        js_trim(&v).to_lowercase() != "off"
+    })
+}
+
+/// `lineageApplies`: a carrier by `SOFAR_LINEAGE`; a route pin by its own
+/// switch, and only on the branch it was made on.
+#[must_use]
+pub fn lineage_applies(lineage: &Lineage, branch: Option<&str>) -> bool {
+    if lineage.carrier == "route" {
+        route_pin_enabled() && branch.is_some() && lineage.branch.as_deref() == branch
+    } else {
+        lineage_enabled()
+    }
+}
+
+/// `pinRoute`: pin an unregistered session to the record its route gave it,
+/// never over a real carrier.
+#[must_use]
+#[allow(clippy::cast_possible_truncation, reason = "epoch ms fits an i64")]
+pub fn pin_route(layout: &Layout, session_id: &str, slug: &str, branch: &str) -> bool {
+    if !route_pin_enabled()
+        || session_id.is_empty()
+        || session_id == "cli"
+        || !is_slug(slug)
+        || branch.is_empty()
+    {
+        return false;
+    }
+    match read_lineage(layout, session_id) {
+        Some(existing) if existing.carrier != "route" => return false,
+        Some(existing) if existing.home == slug && existing.branch.as_deref() == Some(branch) => {
+            return true;
+        }
+        _ => {}
+    }
+    let lineage = Lineage {
+        home: slug.to_owned(),
+        parent: None,
+        carrier: "route",
+        branch: Some(branch.to_owned()),
+        ts: iso_from_epoch_ms(crate::date::now_ms() as i64),
+    };
+    write_lineage(layout, session_id, &lineage)
 }
 
 /// `continuesFor`: the parent a registration in `slug` names.
@@ -503,6 +569,7 @@ pub fn resolve_lineage(input: &LineageInput<'_>) -> Option<Lineage> {
             home,
             parent: Some(from),
             carrier: "baton",
+            branch: None,
             ts,
         });
     }
@@ -514,6 +581,7 @@ pub fn resolve_lineage(input: &LineageInput<'_>) -> Option<Lineage> {
             home: token.to_owned(),
             parent: None,
             carrier: "title",
+            branch: None,
             ts,
         });
     }
@@ -527,6 +595,7 @@ pub fn resolve_lineage(input: &LineageInput<'_>) -> Option<Lineage> {
             home,
             parent: Some(parent),
             carrier: "fingerprint",
+            branch: None,
             ts,
         });
     }
@@ -547,6 +616,7 @@ pub fn resolve_lineage(input: &LineageInput<'_>) -> Option<Lineage> {
                 home,
                 parent: Some(parent.to_owned()),
                 carrier: "registry",
+                branch: None,
                 ts,
             });
         }
@@ -592,6 +662,7 @@ mod tests {
             home: "a".into(),
             parent: Some("p".into()),
             carrier: "baton",
+            branch: None,
             ts: "2026-10-06T00:00:00.000Z".into(),
         };
         assert!(write_lineage(&layout, "s/1", &lineage));

@@ -6,11 +6,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { readLastHomes, setLastHome } from '../src/core/last-home'
-import { firstPrompt, readLineage } from '../src/core/lineage'
+import { firstPrompt, pinRoute, readLineage, writeLineage } from '../src/core/lineage'
 import { writeSessionPointer } from '../src/core/session-pointer'
 import { handlePostTool, handleSessionEnd, handleSessionStart, handleStop, handleUserPrompt } from '../src/cli/event'
 import { runSwitch } from '../src/cli/new'
-import { createToolContext } from '../src/mcp/context'
+import { createToolContext, resolveSessionFirst } from '../src/mcp/context'
 import { endSession } from '../src/mcp/end-session'
 import { applyClose } from '../src/mcp/close-initiative'
 import { adoptHostSession, adoptWorktreeSession, ADOPT_SERVER_LEAD_MS } from '../src/mcp/start-session'
@@ -40,7 +40,9 @@ beforeAll(() => {
   process.env.CLAUDE_CONFIG_DIR = registry
 })
 afterEach(() => {
-  for (const key of ['SOFAR_LINEAGE', 'SOFAR_LASTHOME', 'SOFAR_ADOPT']) delete process.env[key]
+  for (const key of ['SOFAR_LINEAGE', 'SOFAR_LASTHOME', 'SOFAR_ADOPT', 'SOFAR_ROUTE_PIN']) delete process.env[key]
+  if (savedEnv.CLAUDE_CODE_SESSION_ID === undefined) delete process.env.CLAUDE_CODE_SESSION_ID
+  else process.env.CLAUDE_CODE_SESSION_ID = savedEnv.CLAUDE_CODE_SESSION_ID
   rmSync(join(registry, 'sessions'), { recursive: true, force: true })
 })
 afterAll(() => {
@@ -381,3 +383,66 @@ describe('worktree adoption on hosts with no MCP session id (A3)', () => {
   })
 })
 
+
+describe("the route pin: a peer's write-back never moves an open tab (r4-fixes note 01M4FTHS8F7M7A6XDPWKSR0FRQ, F1)", () => {
+  const resolved = (root: string, session: string) => resolveSessionFirst(createToolContext(root), session)?.slug
+  const opened = (block: string) => /Sofar status: ([a-z0-9-]+)/.exec(block)?.[1]
+
+  it('an unregistered tab keeps the record it was shown; a NEW tab still opens on the last home (D40)', () => {
+    const { root, sofar } = repo()
+    expect(opened(sessionStart(root, 'idle'))).toBe('alpha')
+    expect(readLineage(sofar, 'idle')).toMatchObject({ home: 'alpha', carrier: 'route' })
+    // A peer re-homed to beta, worked and wrote back: the worktree's last home moves.
+    emit(sofar, 'beta', 'peer', 'session_started', { tool: 'claude-code' })
+    editFile(root, 'peer', 'p.ts')
+    wrapUp(root, 'peer')
+    expect(route(root)).toBe('beta')
+    // The open tab: resolution, compact digest and its first registration stay on alpha.
+    expect(resolved(root, 'idle')).toBe('alpha')
+    expect(opened(sessionStart(root, 'idle', { source: 'compact' }))).toBe('alpha')
+    editFile(root, 'idle', 'i.ts')
+    expect(Object.keys(eventsBySlug(sofar, 'idle'))).toEqual(['alpha'])
+    // The next tab opens on the last stopped record, as D40 asks.
+    expect(opened(sessionStart(root, 'fresh'))).toBe('beta')
+  })
+
+  it('a checkout moves the tab as before: the pin holds only on its own branch', () => {
+    const { root, sofar } = repo()
+    sessionStart(root, 'idle')
+    expect(readLineage(sofar, 'idle')).toMatchObject({ home: 'alpha', carrier: 'route', branch: 'main' })
+    writeFileSync(join(root, '.git', 'HEAD'), 'ref: refs/heads/wip/beta\n')
+    expect(resolved(root, 'idle')).toBe('beta')
+    editFile(root, 'idle', 'b.ts')
+    expect(Object.keys(eventsBySlug(sofar, 'idle'))).toEqual(['beta'])
+  })
+
+  it('SOFAR_ROUTE_PIN=off is the control: the open tab follows the moved route, as before', () => {
+    const { root, sofar } = repo()
+    sessionStart(root, 'idle')
+    process.env.SOFAR_ROUTE_PIN = 'off'
+    setLastHome(sofar, 'main', 'beta', 'peer')
+    expect(resolved(root, 'idle')).toBe('beta')
+  })
+
+  it('a registered session and a real lineage carrier are never pinned over', () => {
+    const { root, sofar } = repo()
+    emit(sofar, 'gamma', 'reg', 'session_started', { tool: 'claude-code' })
+    sessionStart(root, 'reg')
+    expect(readLineage(sofar, 'reg')).toBeNull()
+    writeLineage(sofar, 'child', { home: 'gamma', parent: 'p', carrier: 'baton', ts: T0 })
+    expect(pinRoute(sofar, 'child', 'alpha', 'main')).toBe(false)
+    expect(readLineage(sofar, 'child')?.carrier).toBe('baton')
+  })
+
+  it('sofar switch re-pins the tab that ran it, and only that tab', () => {
+    const { root, sofar } = repo()
+    sessionStart(root, 'caller')
+    sessionStart(root, 'other')
+    process.env.CLAUDE_CODE_SESSION_ID = 'caller'
+    expect(runSwitch(root, 'gamma').exitCode).toBe(0)
+    expect(resolved(root, 'caller')).toBe('gamma')
+    expect(resolved(root, 'other')).toBe('alpha')
+    expect(opened(sessionStart(root, 'fresh'))).toBe('gamma')
+    void sofar
+  })
+})

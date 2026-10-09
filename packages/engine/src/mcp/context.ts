@@ -35,7 +35,7 @@ import { EdgeAccumulator } from '../core/adjacency'
 import { extendPrefix, prefixOf, resumeFoldCheckpoint, saveFoldCheckpoint } from '../core/fold-checkpoint'
 import { cachedRegistrationIn } from '../core/registrations'
 import { lastHomeEnabled, lastHomeOf } from '../core/last-home'
-import { lineageEnabled, readLineage } from '../core/lineage'
+import { lineageApplies, readLineage } from '../core/lineage'
 import { regenerateProjections } from '../projections/generator'
 
 // Branch → initiative resolution reads git; the reader itself lives in core/
@@ -302,9 +302,11 @@ export function resolveSessionFirst(
     if (home !== null) return { slug: home, via: home === branchSlug ? branchVia() : 'session' }
     // Lineage (r4-fixes A10): an unregistered id the SessionStart hook traced
     // to a parent session (core/lineage.ts) resolves to that parent's home,
-    // ahead of every route — identity, not inference (R11 (a)).
-    const lineage = lineageEnabled() ? readLineage(ctx.sofarDir, sessionId) : null
-    if (lineage !== null && existsSync(ctx.initiativeDir(lineage.home))) {
+    // ahead of every route — identity, not inference (R11 (a)). Else the
+    // route pin: the record this session's SessionStart was shown, so a
+    // peer's write-back moving the worktree's last home leaves it put.
+    const lineage = readLineage(ctx.sofarDir, sessionId)
+    if (lineage !== null && lineageApplies(lineage, currentBranch(ctx.rootDir)) && existsSync(ctx.initiativeDir(lineage.home))) {
       return { slug: lineage.home, via: lineage.home === branchSlug ? branchVia() : 'session' }
     }
   }
@@ -532,12 +534,32 @@ export function createToolContext(rootDir: string): ToolContext {
     return slug
   }
 
+  /**
+   * The pin follows the session's home (record-integrity D9: the latest
+   * registration). A hook can move the home mid-session — the intent carrier
+   * re-homes on the operator's words — and a pin that stayed put would split
+   * the session: tool writes to the old record, hooks and the Stop gate to the
+   * new. Every pin is made AT the home, so this only ever catches a move made
+   * outside this process. The branch-preferred read settles the common case
+   * in one cached read; the rest is mtime-pruned.
+   */
+  function followHome(active: ActiveSession): string {
+    try {
+      const home = homeInitiative(sofarDir, active.id, active.initiative)
+      if (home === null || home === active.initiative) return active.initiative
+      session.set({ ...active, initiative: home })
+      return home
+    } catch {
+      return active.initiative
+    }
+  }
+
   function resolveWriteInitiative(explicit?: string): string {
     if (explicit === undefined) {
       const active = session.get()
       // Route through resolveInitiative's explicit path so a pinned slug
       // whose directory vanished mid-session still errors typed.
-      if (active !== null) return resolveInitiative(active.initiative)
+      if (active !== null) return resolveInitiative(followHome(active))
     }
     return resolveInitiative(explicit)
   }

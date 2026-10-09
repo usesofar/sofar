@@ -144,12 +144,16 @@ pub fn resolve_session_first(
         }
     };
     if let Some(id) = session_id.filter(|s| !s.is_empty()) {
-        // The home, else the lineage SessionStart traced (r4-fixes A10).
+        // The home, else the lineage SessionStart traced (r4-fixes A10),
+        // else its route pin (the record it was shown).
         let found = home_initiative(layout, id, branch_slug.as_deref()).or_else(|| {
-            if !crate::lineage::lineage_enabled() {
-                return None;
-            }
             crate::lineage::read_lineage(layout, id)
+                .filter(|l| {
+                    crate::lineage::lineage_applies(
+                        l,
+                        crate::git::current_branch(&layout.root).as_deref(),
+                    )
+                })
                 .map(|l| l.home)
                 .filter(|home| layout.initiative_dir(home).exists())
         });

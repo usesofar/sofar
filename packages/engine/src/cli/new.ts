@@ -1,9 +1,11 @@
 import { existsSync, mkdirSync } from 'node:fs'
-import { createToolContext, currentBranch, initiativeSlugs, ToolError, type ToolContext } from '../mcp/context'
+import { createToolContext, currentBranch, homeInitiative, initiativeSlugs, ToolError, type ToolContext } from '../mcp/context'
 import { applyClose } from '../mcp/close-initiative'
 import { declareWaitsOn } from '../mcp/waits-on'
 import { BindingsAbort, writeBinding } from '../core/bindings'
 import { forgetLastHome } from '../core/last-home'
+import { pinRoute } from '../core/lineage'
+import { hostSessionFromEnv } from '../core/session-pointer'
 import { QUICK_LANE } from '../core/lane'
 import { lexicalCounts, rankLexical, type LexicalDoc } from '../core/lexicon'
 import { clip } from '../projections/templates/shared'
@@ -206,6 +208,7 @@ export function runNew(
       writeBinding(ctx.bindingsPath, branch, slug)
       // An explicit route beats a remembered one (r4-fixes A10).
       forgetLastHome(ctx.sofarDir, { branch })
+      repinCaller(ctx, slug)
       report.push(`bound branch "${branch}" → ${slug}`)
     }
     // Bind first, close second: closing unbinds every branch on a
@@ -311,6 +314,7 @@ export function runSwitch(
     // switch onto the committed binding it already names still takes effect.
     const forgot = forgetLastHome(ctx.sofarDir, { branch }) > 0
     const changed = writeBinding(ctx.bindingsPath, branch, slug) || forgot
+    repinCaller(ctx, slug)
     report.push(
       changed
         ? `bound branch "${branch}" → ${slug}`
@@ -322,5 +326,22 @@ export function runSwitch(
       return fail(renderFailure(`sofar switch: ${errMessage(err)}`, errCaps))
     }
     throw err
+  }
+}
+
+/**
+ * The session that ran `sofar new` or `sofar switch` follows its own route
+ * move: the route pin (core/lineage.ts) holds every OTHER unregistered tab on
+ * the record it was shown, so the caller's pin is moved here explicitly. A
+ * registered session is not touched — its home is its log, as before.
+ * Best-effort (BD22): a routing convenience never fails the command.
+ */
+function repinCaller(ctx: ToolContext, slug: string): void {
+  try {
+    const id = hostSessionFromEnv(process.env)
+    const branch = currentBranch(ctx.rootDir)
+    if (id !== null && branch !== null && homeInitiative(ctx.sofarDir, id, null) === null) pinRoute(ctx.sofarDir, id, slug, branch)
+  } catch {
+    // the route moved; only the caller's pin did not
   }
 }

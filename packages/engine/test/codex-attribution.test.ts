@@ -106,8 +106,11 @@ describe('the id Codex exports to its agent', () => {
     expect(hostSessionFromEnv({ CODEX_THREAD_ID: ` ${S1} ` })).toBe(S1)
     expect(hostSessionFromEnv({ CODEX_THREAD_ID: '  ' })).toBeNull()
     expect(hostSessionFromEnv({})).toBeNull()
-    // Claude Code's own export is left to the pointer.
-    expect(hostSessionFromEnv({ CLAUDE_CODE_SESSION_ID: 'claude-1' })).toBeNull()
+    // Claude Code's own export too (F2): the pointer is last-writer-wins
+    // across tabs; Codex's id wins when a shell somehow carries both.
+    expect(hostSessionFromEnv({ CLAUDE_CODE_SESSION_ID: ' claude-1 ' })).toBe('claude-1')
+    expect(hostSessionFromEnv({ CLAUDE_CODE_SESSION_ID: '' })).toBeNull()
+    expect(hostSessionFromEnv({ CODEX_THREAD_ID: S1, CLAUDE_CODE_SESSION_ID: 'claude-1' })).toBe(S1)
   })
 })
 
@@ -140,6 +143,18 @@ describe('S1 step 3 re-run: the held interactive session writes back on the CLI'
     expect(readSessionPointer(fixture.root)?.session).toBe(PEER)
     vi.stubEnv('CODEX_THREAD_ID', S1)
     expect(writeBack(fixture.root, fixture.slug).session).toBe(S1)
+  })
+
+  it("two Claude Code tabs: a bare append lands under its own tab's CLAUDE_CODE_SESSION_ID, not the pointer's (F2)", () => {
+    const fixture = fx()
+    run('session-start', fixture.root, live('session-start.startup'))
+    run('session-start', fixture.root, live('session-start.startup', { session_id: PEER }))
+    expect(readSessionPointer(fixture.root)?.session).toBe(PEER)
+    vi.stubEnv('CODEX_THREAD_ID', '')
+    vi.stubEnv('CLAUDE_CODE_SESSION_ID', S1)
+    const res = runAppend(fixture.root, { slug: fixture.slug, type: 'note_added', payload: JSON.stringify({ text: 'mine' }), source: 'claude-code', actor: 'agent' })
+    expect(res.exitCode, res.stderr).toBe(0)
+    expect(logEvents(fixture.eventsPath).find((e) => e.type === 'note_added')?.session).toBe(S1)
   })
 
   it('an explicit --session still wins over the env id', () => {

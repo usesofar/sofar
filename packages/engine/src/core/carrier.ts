@@ -40,13 +40,18 @@ export function nameable(slug: string): boolean {
  * (`r4 fixes`, `R4-fixes`, `r4_fixes`; never `r4-fixes-2`).
  */
 export function promptNames(prompt: string, slug: string): boolean {
-  const lower = prompt.toLowerCase()
+  return nameStarts(prompt.toLowerCase(), slug).length > 0
+}
+
+/** Where in `lower` (the lowercased prompt) each naming of `slug` starts. */
+function nameStarts(lower: string, slug: string): number[] {
   const words = slug.split('-').filter((w) => w.length > 0)
-  if (words.length === 0) return false
+  if (words.length === 0) return []
+  const starts: number[] = []
   let from = 0
   for (;;) {
     const at = lower.indexOf(words[0]!, from)
-    if (at === -1) return false
+    if (at === -1) return starts
     from = at + 1
     if (at > 0 && wordish(lower[at - 1]!)) continue
     let i = at + words[0]!.length
@@ -60,8 +65,47 @@ export function promptNames(prompt: string, slug: string): boolean {
       }
       i += w.length
     }
-    if (ok && (i >= lower.length || !wordish(lower[i]!))) return true
+    if (ok && (i >= lower.length || !wordish(lower[i]!))) starts.push(at)
   }
+}
+
+/**
+ * The intent carrier (r4-fixes, superseding D25's first-prompt-only rule):
+ * a session that has already worked moves only when the operator says they
+ * want to work in the named record, not when it is merely mentioned ("also
+ * check the other initiatives, like the R3 fix and R4 fixes" must not move).
+ * Intent is one of these words up to INTENT_WINDOW words before the name, in
+ * the same sentence, with no negation before it in that window.
+ */
+export const INTENT_WORDS: readonly string[] = [
+  'work', 'working', 'continue', 'continuing', 'switch', 'switching', 'move', 'moving',
+  'resume', 'resuming', 'focus', 'focusing', 'task', 'tasks', 'pick', 'rehome', 're-home',
+]
+export const INTENT_WINDOW = 6
+const NEGATIONS: readonly string[] = ['not', "don't", 'dont', 'never', 'no', 'without', 'stop']
+
+/** Does the prompt name `slug` with intent to work there (INTENT_WORDS). */
+export function promptIntends(prompt: string, slug: string): boolean {
+  const lower = prompt.toLowerCase()
+  for (const at of nameStarts(lower, slug)) {
+    const before = lower.slice(0, at)
+    let cut = -1
+    for (const b of ['.', '!', '?', ';', '\n']) cut = Math.max(cut, before.lastIndexOf(b))
+    const words = before.slice(cut + 1).split(/[^a-z0-9'-]+/).filter((w) => w.length > 0).slice(-INTENT_WINDOW)
+    const cue = words.findIndex((w) => INTENT_WORDS.includes(w))
+    if (cue !== -1 && !words.slice(0, cue).some((w) => NEGATIONS.includes(w))) return true
+  }
+  return false
+}
+
+/**
+ * The one open record a prompt asks to work in, among `slugs` — null for none
+ * or several. Same shape as carriedRecord, with intent in place of a mention.
+ */
+export function intendedRecord(prompt: string, slugs: readonly string[], open: (slug: string) => boolean): string | null {
+  const named = slugs.filter((s) => nameable(s) && promptIntends(prompt, s))
+  const live = named.filter(open)
+  return live.length === 1 ? live[0]! : null
 }
 
 /** A character that continues a word or a slug: ASCII letter, digit, `_` or `-`. */
@@ -85,6 +129,15 @@ export function carrierLine(from: string, to: string, sessionId: string): string
   return (
     `sofar: your prompt names the record ${to}, so this session now serves ${to} (the branch gave it ${from}). ` +
     `Any record block injected above is ${from}'s — read ${to}'s with sofar_get_state({"initiative":"${to}"}). ` +
+    `If ${to} is wrong, sofar_start_session({"session_id":"${sessionId}","initiative":"${from}"}) moves it back.`
+  )
+}
+
+/** What the session is told, first, when the intent carrier moved it. */
+export function intentLine(from: string, to: string, sessionId: string): string {
+  return (
+    `sofar: your prompt asks to work on ${to}, so this session now serves ${to} (it served ${from}). ` +
+    `Hooks, write-backs and the Stop gate follow ${to} from here; read its state with sofar_get_state({"initiative":"${to}"}). ` +
     `If ${to} is wrong, sofar_start_session({"session_id":"${sessionId}","initiative":"${from}"}) moves it back.`
   )
 }

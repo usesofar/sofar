@@ -21,3 +21,7 @@ Also check the other initiatives, like the R3 fix and R4 fixes, and make sure we
 --- Operator, 2026-10-07 ---
 
 Also previously we had a feature: if I'm in a particular initiative and I'm working on it in the CLI, and I have two other tabs open with three different initiatives, when I open a new tab and open Claude again, it will automatically show the last stopped initiative. It automatically rehomes to that area but now that doesn't seem to work. For example in this initiative, it keeps a memory leak throughout every section that I opened
+
+--- Operator, 2026-10-09 ---
+
+Yeah that is a fix. If any session has been done as part of a particular initiative and I initiate it manually (by saying that I want to do some tasks in this initiative), then in that case, that particular session can be rehomed to that newly informed initiative when the user intentionally mentions it. We can also do that
