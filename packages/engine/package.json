@@ -8,7 +8,8 @@
   },
   "bin": {
     "sofar": "dist/cli.js",
-    "sofar-core": "bin/sofar-core"
+    "sofar-core": "bin/sofar-core",
+    "sofar.sh": "dist/cli.js"
   },
   "exports": {
     "./schema": {
