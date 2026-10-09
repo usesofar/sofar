@@ -7001,6 +7001,25 @@ subdirectory, against 33 of 33 from the root.
   (installed, latest, when it last ran, whether auto-install is on, the
   cache path, the notice that would render); `--refresh` performs the check
   itself and is the detached child's entry point (§Update check).
+- `npx sofar.sh` (r4-fixes H10) — npx runs sofar from its cache and puts
+  nothing on PATH, while the hooks `sofar init` writes call `sofar` from
+  PATH. An npx run is a bundle path inside node_modules that is not a global
+  install, from `_npx` or with `npm_command=exec`; an installed `sofar` is one
+  on PATH outside any `_npx` or `node_modules` entry. From npx with none
+  installed: a bare run on a terminal (stdin and stderr TTYs, not an agent's
+  shell) offers to install the running version with
+  `npm install -g --prefix <prefix> sofar.sh@<version> --allow-scripts=sofar.sh`
+  — `<prefix>` is `npm prefix -g` when that names an existing directory this
+  user can write (npm 12 masks UUID-shaped path segments in its output, so a
+  path that does not exist is not trusted), else `~/.local`; never sudo —
+  then, when that bin dir is not on PATH, offers to append the
+  `export PATH=…` line to the zsh or bash startup file (once), then offers
+  `sofar init` in the git repo it stands in when that has no `.sofar/`. Each
+  step asks and Enter is yes. Without a terminal the bare run exits 1 naming
+  the install command. `sofar init` from npx refuses before writing
+  anything; every other command adds one stderr line on a terminal. Global
+  installs, local dependencies run by scripts, and source checkouts are
+  untouched, and the hook path (fast.js) never loads this code.
 
 ## Update check (auto-update D1)
 
