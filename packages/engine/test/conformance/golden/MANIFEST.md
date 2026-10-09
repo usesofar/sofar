@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+Bumped on **hotfix/0.34.2** (r4-fixes H8, release-eval-gate decision of
+2026-10-09). The version is the whole diff: `argv.fast-path` (`--version` is
+now `0.34.2`) and `open.O2-update-segment` ("you have 0.34.2"), each by one
+string. The conformance suite passes against them from the TypeScript
+reference. No previous set is kept.
+
 Re-recorded on **release/0.34.1** (the hotfix cut, r4-fixes 0.2) from the
 TypeScript reference. The version bump is the whole diff: two goldens
 changed, each by one string. `argv.fast-path` (`--version` is now

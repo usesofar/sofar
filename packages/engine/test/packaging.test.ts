@@ -251,7 +251,10 @@ describe('library surface E2E (library-surface 1.3) — subpath exports from the
       exports: Record<string, unknown>
       dependencies?: unknown
     }
-    expect(spec.bin).toEqual({ sofar: 'dist/cli.js', 'sofar-core': 'bin/sofar-core' }) // the CLI and the core's PATH entry (rust-core 3.2)
+    // the CLI, the core's PATH entry (rust-core 3.2), and the CLI again under
+    // the package's own name: with two bins npx runs only the one named
+    // after the package, so without it `npx sofar.sh` cannot pick one
+    expect(spec.bin).toEqual({ sofar: 'dist/cli.js', 'sofar-core': 'bin/sofar-core', 'sofar.sh': 'dist/cli.js' })
     expect(Object.keys(spec.exports)).toEqual(['./schema', './engine', './client', './package.json'])
     expect(spec.dependencies).toBeUndefined() // still zero runtime deps
   })
