@@ -1595,7 +1595,7 @@ const LINK_LINE_TYPES: [&str; 11] = [
 ];
 
 /// `/"type"[ \t\n\r]*:[ \t\n\r]*"(?:<types>)"/`.
-fn has_type(line: &str, types: &[&str]) -> bool {
+pub(crate) fn has_type(line: &str, types: &[&str]) -> bool {
     let b = line.as_bytes();
     let ws = |b: &[u8], mut i: usize| {
         while i < b.len() && matches!(b[i], b' ' | b'\t' | b'\n' | b'\r') {

@@ -36,6 +36,8 @@ import {
   taskProgress, testOutcomeLine, nativeOriginMark } from './shared'
 import { lexicalCounts } from '../../core/lexicon'
 import { repoMemoryHandles, ruleHandles, TRAVEL_BUDGET, travelEntries, travelLines, travelSeeds, type TravelInput } from './travel'
+import { ELSEWHERE_BUDGET, elsewhereLines, elsewhereRows } from './elsewhere'
+import type { Mention } from '../../core/index-mentions'
 
 /**
  * Status projection — the SessionStart context block (task 3.6, BD3):
@@ -518,6 +520,12 @@ export interface StatusOptions {
    */
   travel?: TravelInput
   /**
+   * Every other record's newest mention of this one (r4-fixes B5, D45), from
+   * the mentions tier, read by the caller. The block keeps those after the
+   * last write-back; omitted, or with none after it, it renders zero bytes.
+   */
+  elsewhere?: readonly Mention[]
+  /**
    * Per-session notices the SessionStart hook used to compose as a preface
    * (r1-fixes 2.3, D12): recent work elsewhere, the closed banner, the
    * cold-resume advisory, the shipping notice — each already budgeted by
@@ -742,6 +750,19 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
         const shown = { rules: ruleHandles(renderedRuleLines), memories: repoMemoryHandles(renderedRepoMemory) }
         return travelLines(travelEntries(state.slug, seeds, travel, focusTerms, shown), state.slug, budget)
       },
+    })
+  }
+
+  // (3c) Elsewhere (r4-fixes B5, SPEC §Elsewhere block) — yielding, and the
+  // FIRST to claim (precedence 0): other records' prose naming this one since
+  // its last write-back is news, zero bytes most sessions, and at precedence
+  // 3 a record at the cap kept only its count — the fact it exists to carry.
+  const inbound = lane ? [] : elsewhereRows(options?.elsewhere ?? [], state.freshness.last_writeback_ts)
+  if (inbound.length > 0) {
+    blocks.push({
+      rank: 0,
+      preferred: ELSEWHERE_BUDGET,
+      render: (budget) => elsewhereLines(inbound, state.freshness.last_writeback_ts !== null, budget),
     })
   }
 

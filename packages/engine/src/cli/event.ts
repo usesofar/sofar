@@ -55,6 +55,8 @@ const SHIPPING_WINDOW = 30
 const COMMIT_SUBJECT_BUDGET = 72
 import { refreshTier0, refreshTier0Known } from '../core/index-tier0'
 import { readTravel } from '../core/index-links'
+import { elsewhereEnabled, readElsewhere } from '../core/index-mentions'
+import { elsewherePromptLines, glanceLine } from '../core/elsewhere-prompt'
 import {
   foreignDecisions,
   lastTouch,
@@ -1001,6 +1003,8 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // The links tier, the travel block's only input (linked-context D2), kept
     // materialised here as at write time.
     const travel = readTravel(ctx.sofarDir, slug)
+    // The mentions tier, the elsewhere block's only input (r4-fixes B5).
+    const elsewhere = slug === QUICK_LANE ? [] : readElsewhere(ctx.sofarDir, slug)
     // The per-session notices — recent work elsewhere, the closed banner, the
     // cold-resume advisory, shipping — once led the output as a preface. Since
     // r1-fixes 2.3 (D12) they ride INTO renderStatus as `notices` and land in
@@ -1038,6 +1042,7 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
       ...(neighbours.length > 0 ? { neighbours } : {}),
       ...(rules.length > 0 ? { repoRules: rules } : {}),
       ...(travel.links.length > 0 ? { travel } : {}),
+      ...(elsewhere.length > 0 ? { elsewhere } : {}),
       ...(notices.length > 0 ? { notices } : {}),
       ...(merge !== null ? { merge } : {}),
       ...(slug === QUICK_LANE ? { lane: true } : {}),
@@ -3288,8 +3293,14 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     const me = state.sessions.find((s) => s.id === sessionId)
     const carriedLine =
       carried !== null ? carrierLine(bound.slug, carried, sessionId) : intended !== null ? intentLine(bound.slug, intended, sessionId) : null
+    // The glance (r4-fixes B5): a prompt naming another open record, when no
+    // carrier moved the session, hears that record's latest write-back.
+    const glance =
+      carriedLine === null && prompt !== null && host.tool !== 'cursor' && elsewhereEnabled()
+        ? glanceLine(ctx, slug, sessionId, prompt, (s) => recordOpen(ctx, s))
+        : null
     if (me === undefined) {
-      const first = [carriedLine, recall, map, keep].filter((l): l is string => l !== null)
+      const first = [carriedLine, glance, recall, map, keep].filter((l): l is string => l !== null)
       return withSessionTitle('user-prompt', first.length === 0 ? { ...OK } : { ...OK, stdout: first.join('\n') }, title) // not ours to nudge
     }
 
@@ -3346,6 +3357,12 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // And of a run this session launched elsewhere (drive-reach 1.3).
     const launched = launchedDriveLine(rootDir, slug, me)
     if (launched !== null) lines.push(launched)
+    // And what another record wrote about this one while the session ran
+    // (r4-fixes B5), each mention told once.
+    if (slug !== QUICK_LANE && host.tool !== 'cursor' && elsewhereEnabled()) {
+      lines.push(...elsewherePromptLines(ctx.sofarDir, readElsewhere(ctx.sofarDir, slug), me, sessionId))
+    }
+    if (glance !== null) lines.push(glance)
 
     // One refs read (files, no subprocess) feeding both lines: the per-record
     // news first, then the repo-wide state. Order matters — "your commits

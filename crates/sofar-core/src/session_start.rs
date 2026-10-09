@@ -641,6 +641,12 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     // The links tier, the travel block's only input (linked-context D2), kept
     // materialised here as at write time.
     let travel = crate::index_links::read_travel(&layout, &slug);
+    // The mentions tier, the elsewhere block's only input (r4-fixes B5).
+    let elsewhere = if slug == QUICK_LANE {
+        Vec::new()
+    } else {
+        crate::index_mentions::read_elsewhere(&layout, &slug)
+    };
     // None at all while HEAD has not moved (rust-core 4.4, L1).
     let commits = cached_attribution(&layout, SHIPPING_WINDOW);
     let activity = activity_enabled();
@@ -687,6 +693,7 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
             activity: if activity { None } else { Some(false) },
             retire: retire_enabled(),
             travel,
+            elsewhere,
             // The host's digest budget (r4-fixes A2): Cursor 3,000, Claude
             // Code 6,000; every host 6,000 under SOFAR_PAYLOAD=v034.
             limit: Some(crate::host_payload::digest_limit(hook_host(&hook).tool)),

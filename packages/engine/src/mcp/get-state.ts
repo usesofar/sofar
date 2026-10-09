@@ -1,6 +1,7 @@
 import type { GetStateArgs } from '@sofar/schema/tool-inputs'
 import type { InitiativeState } from '../core/fold'
 import { readTravel } from '../core/index-links'
+import { readElsewhere } from '../core/index-mentions'
 import { refreshGuards, repoRules, type RepoRule } from '../core/index-tier1'
 import { listAcrossCopies } from '../core/listing'
 import { retireEnabled } from '../core/retire'
@@ -32,9 +33,11 @@ export function getState(ctx: ToolContext, args: GetStateArgs): InitiativeState 
   if (args.view === 'full') return state
   const rules = otherRecordsRules(ctx.sofarDir, slug)
   const travel = readTravel(ctx.sofarDir, slug)
+  const elsewhere = readElsewhere(ctx.sofarDir, slug)
   return renderStatus(state, {
     ...(rules.length > 0 ? { repoRules: rules } : {}),
     ...(travel.links.length > 0 ? { travel } : {}),
+    ...(elsewhere.length > 0 ? { elsewhere } : {}),
   })
 }
 

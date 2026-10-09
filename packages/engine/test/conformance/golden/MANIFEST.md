@@ -1,5 +1,12 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **r4-fixes B5, D45** (main) from the TypeScript reference;
+the Rust core reproduces all 58 (`SOFAR_CORE=target/release/sofar-core`).
+`repo.session-start` and `repo.branch-elsewhere`: the session-strategy-bench
+digest gains the elsewhere block (SPEC §Elsewhere block), two lines naming
+the bench-refresh decision and the phase-lifecycle write-back that mention
+it since its last write-back. That block is the whole diff.
+
 RE-RECORDED for **r4-fixes D42/D43** (main) from the TypeScript reference;
 the Rust core reproduces all 58 (`SOFAR_CORE=target/release/sofar-core`).
 `syn.lineage`: step 11 starts a fresh `lin-committed` instead of reusing

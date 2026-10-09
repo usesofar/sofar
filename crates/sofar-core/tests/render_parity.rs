@@ -137,6 +137,7 @@ fn options_from(value: &Json) -> StatusOptions {
         activity: o.get("activity").map(Json::is_true),
         retire: true,
         travel: sofar_core::travel::TravelInput::default(),
+        elsewhere: Vec::new(),
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_sign_loss,
@@ -430,4 +431,145 @@ fn every_surface_matches_the_typescript_golden_byte_for_byte() {
         "render-parity: {} goldens, {surfaces} surfaces byte-identical",
         goldens.len()
     );
+}
+
+/// elsewhere-parity.json (r4-fixes B5, D45): the scan, the tier from inline
+/// logs, and the block, as the TypeScript engine produced them;
+/// `index_mentions.rs` and `elsewhere.rs` must give the same.
+#[test]
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::too_many_lines,
+    reason = "small counts; one fixture, three layers"
+)]
+fn the_elsewhere_view_matches_the_typescript_fixture() {
+    use sofar_core::elsewhere::{elsewhere_lines, elsewhere_rows};
+    use sofar_core::index_mentions::{Mention, event_mentions, refresh_mentions};
+    let path = conformance_dir().join("render-parity/elsewhere-parity.json");
+    let text = std::fs::read_to_string(&path).expect("elsewhere-parity.json");
+    let fixture = json::parse(&text).expect("fixture json");
+    let o = fixture.as_obj().expect("fixture");
+    let strs = |v: &Json| -> Vec<String> {
+        v.as_arr()
+            .expect("array")
+            .iter()
+            .map(|s| s.as_str().expect("string").to_owned())
+            .collect()
+    };
+
+    let scan = o.get("scan").and_then(Json::as_arr).expect("scan");
+    assert!(scan.len() >= 8, "scan cases ({} found)", scan.len());
+    for case in scan {
+        let c = case.as_obj().expect("case");
+        let id = opt_str(c, "id").expect("id");
+        let known = strs(c.get("known").expect("known"));
+        let fields = strs(c.get("fields").expect("fields"));
+        let fields: Vec<&str> = fields.iter().map(String::as_str).collect();
+        let got = event_mentions(
+            &fields,
+            &opt_str(c, "source").expect("source"),
+            &|t: &str| known.iter().any(|k| k == t),
+        );
+        let want: Vec<(String, String)> = c
+            .get("mentions")
+            .and_then(Json::as_arr)
+            .expect("mentions")
+            .iter()
+            .map(|m| {
+                let m = strs(m);
+                (m[0].clone(), m[1].clone())
+            })
+            .collect();
+        assert_eq!(got, want, "scan case {id}");
+    }
+
+    let tier = o.get("tier").and_then(Json::as_arr).expect("tier");
+    for case in tier {
+        let c = case.as_obj().expect("case");
+        let id = opt_str(c, "id").expect("id");
+        let dir = std::env::temp_dir().join(format!(
+            "sofar-elsewhere-parity-{id}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        for line in c.get("lines").and_then(Json::as_arr).expect("lines") {
+            let l = line.as_arr().expect("line");
+            let slug = l[0].as_str().expect("slug");
+            let mut ev = json::Object::with_capacity(9);
+            ev.insert("v", Json::Num(1.0));
+            ev.insert("id", l[1].clone());
+            ev.insert("ts", l[2].clone());
+            ev.insert("initiative", Json::Str(slug.to_owned()));
+            ev.insert(
+                "session",
+                l.get(5).cloned().unwrap_or(Json::Str("s1".to_owned())),
+            );
+            ev.insert("source", Json::Str("claude-code".to_owned()));
+            ev.insert("actor", Json::Str("agent".to_owned()));
+            ev.insert("type", l[3].clone());
+            ev.insert("payload", l[4].clone());
+            let log = dir.join(".sofar/initiatives").join(slug);
+            std::fs::create_dir_all(&log).expect("log dir");
+            let mut f = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(log.join("events.jsonl"))
+                .expect("log");
+            std::io::Write::write_all(
+                &mut f,
+                format!("{}\n", json::stringify(&Json::Obj(ev))).as_bytes(),
+            )
+            .expect("append");
+        }
+        let layout = sofar_core::layout::Layout::new(&dir);
+        let states = refresh_mentions(&layout);
+        let want = c.get("states").and_then(Json::as_obj).expect("states");
+        assert_eq!(states.len(), want.len(), "tier case {id}: slugs");
+        for (slug, state) in &states {
+            let rows: Vec<Vec<String>> = want
+                .get(slug)
+                .and_then(Json::as_obj)
+                .and_then(|s| s.get("rows"))
+                .and_then(Json::as_arr)
+                .expect("rows")
+                .iter()
+                .map(strs)
+                .collect();
+            let got: Vec<Vec<String>> = state.rows.iter().map(|r| r.to_vec()).collect();
+            assert_eq!(got, rows, "tier case {id}: {slug}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    let block = o.get("block").and_then(Json::as_arr).expect("block");
+    for case in block {
+        let c = case.as_obj().expect("case");
+        let id = opt_str(c, "id").expect("id");
+        let mentions: Vec<Mention> = c
+            .get("mentions")
+            .and_then(Json::as_arr)
+            .expect("mentions")
+            .iter()
+            .map(|m| {
+                let m = m.as_obj().expect("mention");
+                Mention {
+                    source: opt_str(m, "source").expect("source"),
+                    id: opt_str(m, "id").expect("id"),
+                    ts: opt_str(m, "ts").expect("ts"),
+                    kind: opt_str(m, "kind").expect("kind"),
+                    session: opt_str(m, "session").expect("session"),
+                    sentence: opt_str(m, "sentence").expect("sentence"),
+                }
+            })
+            .collect();
+        let last = opt_str(c, "lastWriteback");
+        let budget = c.get("budget").and_then(Json::as_f64).expect("budget") as usize;
+        let got = elsewhere_lines(
+            &elsewhere_rows(&mentions, last.as_deref()),
+            last.is_some(),
+            budget,
+        );
+        assert_eq!(got, strs(c.get("lines").expect("lines")), "block case {id}");
+    }
 }

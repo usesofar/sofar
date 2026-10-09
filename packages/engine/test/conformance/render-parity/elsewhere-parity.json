@@ -1,0 +1,802 @@
+{
+  "scan": [
+    {
+      "id": "first-sentence",
+      "source": "local-sync",
+      "known": [
+        "local-sync",
+        "saas-products"
+      ],
+      "fields": [
+        "Products into the SPA (coordinate with saas-products). Then Feedback.",
+        "saas-products again."
+      ],
+      "mentions": [
+        [
+          "saas-products",
+          "Products into the SPA (coordinate with saas-products)."
+        ]
+      ]
+    },
+    {
+      "id": "cite",
+      "source": "src-x",
+      "known": [
+        "a-one",
+        "src-x"
+      ],
+      "fields": [
+        "Per a-one D12 we keep it. And a-one M3 too. But a-one 3.2 is done."
+      ],
+      "mentions": [
+        [
+          "a-one",
+          "But a-one 3.2 is done."
+        ]
+      ]
+    },
+    {
+      "id": "rehome",
+      "source": "src-x",
+      "known": [
+        "a-one",
+        "src-x"
+      ],
+      "fields": [
+        "Re-homed from a-one to src-x.",
+        "REHOMED INTO  a-one later.",
+        "We re-homed out of a-one; then a-one shipped."
+      ],
+      "mentions": [
+        [
+          "a-one",
+          "then a-one shipped."
+        ]
+      ]
+    },
+    {
+      "id": "sweep",
+      "source": "src-x",
+      "known": [
+        "a-one",
+        "b-two",
+        "c-three",
+        "d-four",
+        "src-x"
+      ],
+      "fields": [
+        "Unchanged: a-one, b-two, c-three and d-four.\nsrc-x waits on a-one, b-two and c-three.\nOnly a-one, b-two and c-three."
+      ],
+      "mentions": [
+        [
+          "a-one",
+          "Only a-one, b-two and c-three."
+        ],
+        [
+          "b-two",
+          "Only a-one, b-two and c-three."
+        ],
+        [
+          "c-three",
+          "Only a-one, b-two and c-three."
+        ]
+      ]
+    },
+    {
+      "id": "tokens",
+      "source": "src-x",
+      "known": [
+        "local-first-sync"
+      ],
+      "fields": [
+        "local-first-sync-2, xlocal-first-sync and local-first-sync_v are not it; `local-first-sync`’s is."
+      ],
+      "mentions": [
+        [
+          "local-first-sync",
+          "`local-first-sync`’s is."
+        ]
+      ]
+    },
+    {
+      "id": "split",
+      "source": "src-x",
+      "known": [
+        "a-one"
+      ],
+      "fields": [
+        "v0.36.0 and a-one.ok stay; a-one!yes\r\na-one?\tdone."
+      ],
+      "mentions": [
+        [
+          "a-one",
+          "v0.36.0 and a-one.ok stay;"
+        ]
+      ]
+    },
+    {
+      "id": "clip-surrogate",
+      "source": "src-x",
+      "known": [
+        "saas-products"
+      ],
+      "fields": [
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx saas-products 😀😀😀😀😀😀😀😀😀😀 tail words."
+      ],
+      "mentions": [
+        [
+          "saas-products",
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx saas-products 😀😀😀😀😀😀\ud83d…"
+        ]
+      ]
+    },
+    {
+      "id": "whitespace",
+      "source": "src-x",
+      "known": [
+        "a-one"
+      ],
+      "fields": [
+        "  a-one with   nbsp\tand tabs.  "
+      ],
+      "mentions": [
+        [
+          "a-one",
+          "a-one with nbsp and tabs."
+        ]
+      ]
+    }
+  ],
+  "tier": [
+    {
+      "id": "newest-per-pair",
+      "lines": [
+        [
+          "saas-products",
+          "01M4000000000000000000A001",
+          "2026-10-01T00:00:00.000Z",
+          "initiative_created",
+          {
+            "slug": "saas-products",
+            "goal": "g"
+          }
+        ],
+        [
+          "local-sync",
+          "01M4000000000000000000A002",
+          "2026-10-01T00:01:00.000Z",
+          "initiative_created",
+          {
+            "slug": "local-sync",
+            "goal": "g"
+          }
+        ],
+        [
+          "local-sync",
+          "01M4000000000000000000A003",
+          "2026-10-01T00:02:00.000Z",
+          "note_added",
+          {
+            "text": "saas-products: first."
+          }
+        ],
+        [
+          "local-sync",
+          "01M4000000000000000000A004",
+          "2026-10-01T00:03:00.000Z",
+          "command_run",
+          {
+            "cmd": "ls saas-products",
+            "ok": true
+          }
+        ],
+        [
+          "local-sync",
+          "01M4000000000000000000A006",
+          "2026-10-01T00:05:00.000Z",
+          "session_ended",
+          {
+            "next_action": "Coordinate with saas-products.",
+            "summary": "Prod runs on both."
+          },
+          "peer"
+        ],
+        [
+          "saas-products",
+          "01M4000000000000000000A007",
+          "2026-10-01T00:06:00.000Z",
+          "task_status_changed",
+          {
+            "id": "P4",
+            "status": "active",
+            "note": "Waits for local-sync."
+          }
+        ],
+        [
+          "saas-products",
+          "01M4000000000000000000A008",
+          "2026-10-01T00:07:00.000Z",
+          "decision_logged",
+          {
+            "chose": "x",
+            "over": "y",
+            "because": "local-sync owns the SPA."
+          }
+        ],
+        [
+          "saas-products",
+          "01M4000000000000000000A009",
+          "2026-10-01T00:08:00.000Z",
+          "memory_promoted",
+          {
+            "text": "local-sync deploys on Fridays."
+          }
+        ],
+        [
+          "saas-products",
+          "01M4000000000000000000A00A",
+          "2026-10-01T00:09:00.000Z",
+          "task_added",
+          {
+            "id": "P9",
+            "phase": "P",
+            "title": "Port to local-sync SPA"
+          }
+        ]
+      ],
+      "states": {
+        "local-sync": {
+          "rows": [
+            [
+              "saas-products",
+              "01M4000000000000000000A006",
+              "2026-10-01T00:05:00.000Z",
+              "write-back",
+              "peer",
+              "Coordinate with saas-products."
+            ]
+          ]
+        },
+        "saas-products": {
+          "rows": [
+            [
+              "local-sync",
+              "01M4000000000000000000A00A",
+              "2026-10-01T00:09:00.000Z",
+              "task P9",
+              "s1",
+              "Port to local-sync SPA"
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "correction-and-order",
+      "lines": [
+        [
+          "alpha-one",
+          "01M4000000000000000000B001",
+          "2026-10-02T00:00:00.000Z",
+          "initiative_created",
+          {
+            "slug": "alpha-one",
+            "goal": "g"
+          }
+        ],
+        [
+          "beta-two",
+          "01M4000000000000000000B002",
+          "2026-10-02T00:01:00.000Z",
+          "initiative_created",
+          {
+            "slug": "beta-two",
+            "goal": "g"
+          }
+        ],
+        [
+          "beta-two",
+          "01M4000000000000000000B004",
+          "2026-10-02T00:03:00.000Z",
+          "note_added",
+          {
+            "text": "alpha-one: older."
+          }
+        ],
+        [
+          "beta-two",
+          "01M4000000000000000000B006",
+          "2026-10-02T00:05:00.000Z",
+          "note_added",
+          {
+            "text": "alpha-one: newer, then withdrawn."
+          }
+        ],
+        [
+          "beta-two",
+          "01M4000000000000000000B005",
+          "2026-10-02T00:04:00.000Z",
+          "note_added",
+          {
+            "text": "alpha-one: middle."
+          }
+        ],
+        [
+          "beta-two",
+          "01M4000000000000000000B007",
+          "2026-10-02T00:06:00.000Z",
+          "correction",
+          {
+            "ref": "01M4000000000000000000B006",
+            "reason": "wrong record"
+          }
+        ]
+      ],
+      "states": {
+        "alpha-one": {
+          "rows": []
+        },
+        "beta-two": {
+          "rows": [
+            [
+              "alpha-one",
+              "01M4000000000000000000B005",
+              "2026-10-02T00:04:00.000Z",
+              "note",
+              "s1",
+              "alpha-one: middle."
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "before-it-began",
+      "lines": [
+        [
+          "old-rec",
+          "01M4000000000000000000C001",
+          "2026-10-03T00:00:00.000Z",
+          "initiative_created",
+          {
+            "slug": "old-rec",
+            "goal": "g"
+          }
+        ],
+        [
+          "old-rec",
+          "01M4000000000000000000C002",
+          "2026-10-03T00:01:00.000Z",
+          "note_added",
+          {
+            "text": "We may need a new-rec record, and speed matters."
+          }
+        ],
+        [
+          "new-rec",
+          "01M4000000000000000000C003",
+          "2026-10-03T00:02:00.000Z",
+          "initiative_created",
+          {
+            "slug": "new-rec",
+            "goal": "g"
+          }
+        ],
+        [
+          "speed",
+          "01M4000000000000000000C000",
+          "2026-10-02T23:00:00.000Z",
+          "initiative_created",
+          {
+            "slug": "speed",
+            "goal": "g"
+          }
+        ],
+        [
+          "old-rec",
+          "01M4000000000000000000C004",
+          "2026-10-03T00:03:00.000Z",
+          "note_added",
+          {
+            "text": "new-rec exists now."
+          }
+        ]
+      ],
+      "states": {
+        "new-rec": {
+          "rows": []
+        },
+        "old-rec": {
+          "rows": [
+            [
+              "new-rec",
+              "01M4000000000000000000C004",
+              "2026-10-03T00:03:00.000Z",
+              "note",
+              "s1",
+              "new-rec exists now."
+            ]
+          ]
+        },
+        "speed": {
+          "rows": []
+        }
+      }
+    }
+  ],
+  "block": [
+    {
+      "id": "anchor",
+      "mentions": [
+        {
+          "source": "b-rec",
+          "id": "id-b-rec",
+          "ts": "2026-10-07T12:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "news"
+        },
+        {
+          "source": "a-rec",
+          "id": "id-a-rec",
+          "ts": "2026-10-06T12:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "old"
+        }
+      ],
+      "lastWriteback": "2026-10-07T00:00:00.000Z",
+      "budget": 500,
+      "lines": [
+        "Elsewhere — other records that name this one since its last write-back (1 of 1):",
+        "- b-rec 2026-10-07 note: news",
+        ""
+      ]
+    },
+    {
+      "id": "no-writeback",
+      "mentions": [
+        {
+          "source": "b-rec",
+          "id": "id-b-rec",
+          "ts": "2026-10-07T12:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "news"
+        }
+      ],
+      "lastWriteback": null,
+      "budget": 500,
+      "lines": [
+        "Elsewhere — other records that name this one (1 of 1):",
+        "- b-rec 2026-10-07 note: news",
+        ""
+      ]
+    },
+    {
+      "id": "cap-and-overflow",
+      "mentions": [
+        {
+          "source": "a-a",
+          "id": "id-a-a",
+          "ts": "2026-10-07T19:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "a-a wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "b-b",
+          "id": "id-b-b",
+          "ts": "2026-10-07T18:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "b-b wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "c-c",
+          "id": "id-c-c",
+          "ts": "2026-10-07T17:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "c-c wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "d-d",
+          "id": "id-d-d",
+          "ts": "2026-10-07T16:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "d-d wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "e-e",
+          "id": "id-e-e",
+          "ts": "2026-10-07T15:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "e-e wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "f-f",
+          "id": "id-f-f",
+          "ts": "2026-10-07T14:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "f-f wrote a sentence long enough to matter for the budget here."
+        }
+      ],
+      "lastWriteback": null,
+      "budget": 500,
+      "lines": [
+        "Elsewhere — other records that name this one (3 of 6):",
+        "- a-a 2026-10-07 note: a-a wrote a sentence long enough to matter for the budget here.",
+        "- b-b 2026-10-07 note: b-b wrote a sentence long enough to matter for the budget here.",
+        "- c-c 2026-10-07 note: c-c wrote a sentence long enough to matter for the budget here.",
+        "- …and 3 more records",
+        ""
+      ]
+    },
+    {
+      "id": "tight",
+      "mentions": [
+        {
+          "source": "a-a",
+          "id": "id-a-a",
+          "ts": "2026-10-07T19:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "a-a wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "b-b",
+          "id": "id-b-b",
+          "ts": "2026-10-07T18:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "b-b wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "c-c",
+          "id": "id-c-c",
+          "ts": "2026-10-07T17:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "c-c wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "d-d",
+          "id": "id-d-d",
+          "ts": "2026-10-07T16:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "d-d wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "e-e",
+          "id": "id-e-e",
+          "ts": "2026-10-07T15:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "e-e wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "f-f",
+          "id": "id-f-f",
+          "ts": "2026-10-07T14:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "f-f wrote a sentence long enough to matter for the budget here."
+        }
+      ],
+      "lastWriteback": null,
+      "budget": 200,
+      "lines": [
+        "Elsewhere — other records that name this one (1 of 6):",
+        "- a-a 2026-10-07 note: a-a wrote a sentence long enough to matter for the budget here.",
+        "- …and 5 more records",
+        ""
+      ]
+    },
+    {
+      "id": "names",
+      "mentions": [
+        {
+          "source": "a-a",
+          "id": "id-a-a",
+          "ts": "2026-10-07T19:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "a-a wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "b-b",
+          "id": "id-b-b",
+          "ts": "2026-10-07T18:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "b-b wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "c-c",
+          "id": "id-c-c",
+          "ts": "2026-10-07T17:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "c-c wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "d-d",
+          "id": "id-d-d",
+          "ts": "2026-10-07T16:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "d-d wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "e-e",
+          "id": "id-e-e",
+          "ts": "2026-10-07T15:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "e-e wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "f-f",
+          "id": "id-f-f",
+          "ts": "2026-10-07T14:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "f-f wrote a sentence long enough to matter for the budget here."
+        }
+      ],
+      "lastWriteback": null,
+      "budget": 100,
+      "lines": [
+        "Elsewhere: 6 other record(s) name this one: a-a, b-b, c-c, d-d, e-e, f-f",
+        ""
+      ]
+    },
+    {
+      "id": "single-line",
+      "mentions": [
+        {
+          "source": "a-a",
+          "id": "id-a-a",
+          "ts": "2026-10-07T19:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "a-a wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "b-b",
+          "id": "id-b-b",
+          "ts": "2026-10-07T18:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "b-b wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "c-c",
+          "id": "id-c-c",
+          "ts": "2026-10-07T17:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "c-c wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "d-d",
+          "id": "id-d-d",
+          "ts": "2026-10-07T16:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "d-d wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "e-e",
+          "id": "id-e-e",
+          "ts": "2026-10-07T15:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "e-e wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "f-f",
+          "id": "id-f-f",
+          "ts": "2026-10-07T14:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "f-f wrote a sentence long enough to matter for the budget here."
+        }
+      ],
+      "lastWriteback": null,
+      "budget": 60,
+      "lines": [
+        "Elsewhere: 6 other record(s) name this one",
+        ""
+      ]
+    },
+    {
+      "id": "nothing-fits",
+      "mentions": [
+        {
+          "source": "a-a",
+          "id": "id-a-a",
+          "ts": "2026-10-07T19:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "a-a wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "b-b",
+          "id": "id-b-b",
+          "ts": "2026-10-07T18:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "b-b wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "c-c",
+          "id": "id-c-c",
+          "ts": "2026-10-07T17:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "c-c wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "d-d",
+          "id": "id-d-d",
+          "ts": "2026-10-07T16:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "d-d wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "e-e",
+          "id": "id-e-e",
+          "ts": "2026-10-07T15:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "e-e wrote a sentence long enough to matter for the budget here."
+        },
+        {
+          "source": "f-f",
+          "id": "id-f-f",
+          "ts": "2026-10-07T14:00:00.000Z",
+          "kind": "note",
+          "session": "s",
+          "sentence": "f-f wrote a sentence long enough to matter for the budget here."
+        }
+      ],
+      "lastWriteback": null,
+      "budget": 20,
+      "lines": []
+    },
+    {
+      "id": "clip",
+      "mentions": [
+        {
+          "source": "c-rec",
+          "id": "id-c-rec",
+          "ts": "2026-10-07T12:00:00.000Z",
+          "kind": "write-back",
+          "session": "s",
+          "sentence": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx saas-products 😀😀😀😀😀😀😀😀😀😀 tail words."
+        }
+      ],
+      "lastWriteback": null,
+      "budget": 500,
+      "lines": [
+        "Elsewhere — other records that name this one (1 of 1):",
+        "- c-rec 2026-10-07 write-back: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx saas-pr…",
+        ""
+      ]
+    },
+    {
+      "id": "empty",
+      "mentions": [],
+      "lastWriteback": null,
+      "budget": 500,
+      "lines": []
+    }
+  ]
+}

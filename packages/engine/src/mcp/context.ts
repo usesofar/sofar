@@ -24,6 +24,7 @@ import {
 } from '../core/fold'
 import { currentBranch } from '../core/git'
 import { refreshLinks, travelEnabled } from '../core/index-links'
+import { elsewhereEnabled, MENTION_TYPES, refreshMentions } from '../core/index-mentions'
 import { refreshGuards } from '../core/index-tier1'
 import { ensureIndexDir } from '../core/index-store'
 import { QUICK_LANE } from '../core/lane'
@@ -785,6 +786,13 @@ export function createToolContext(rootDir: string): ToolContext {
         // ablation arm pays nothing for the tier; its cursors catch up later.
         try {
           if (travelEnabled()) refreshLinks(sofarDir, slug)
+        } catch {
+          // see above
+        }
+        // The mentions tier too (r4-fixes B5), on the prose it scans, so the
+        // next SessionStart in a record this one names reads it warm.
+        try {
+          if (MENTION_TYPES.has(type) && elsewhereEnabled()) refreshMentions(sofarDir)
         } catch {
           // see above
         }

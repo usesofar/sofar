@@ -1365,7 +1365,10 @@ one blank line):
 3. `Next action: <≤500>`, the parallel write-backs, the staleness line, the
    notes since write-back, `Blocked on:` and the concurrent-edit lines — as
    before. Then, as its own block, TRAVEL (YIELDING, precedence 3,
-   preferred 600; zero bytes when it has no entry; §Travel block).
+   preferred 600; zero bytes when it has no entry; §Travel block), and after
+   it ELSEWHERE (YIELDING, precedence 0, so it claims first, preferred 500;
+   zero bytes when no other record names this one since its last write-back;
+   §Elsewhere block).
 4. `Last session (…):` with its summary (YIELDING, precedence 5, preferred
    450; omitted when fewer than 120 chars remain for it); `Driven:`; the
    lane's recent quick work; the derived-resume and unwritten-session lines.
@@ -1937,6 +1940,92 @@ D2) — never reach.json, never buildGraph, never a neighbour's log.
   blank separator: a record with no cross-record links, or whose links are
   all quiet (cites resolved, waits resolved before their anchors), renders
   byte-identically to a digest built before links existed.
+
+**Elsewhere block (r4-fixes B5, D45).** Travel looks OUT from the home's
+tasks; nothing looked IN. A record that another record's prose names, such
+as "Products page into the SPA (coordinate with saas-products-vertical)",
+heard nothing, so the operator had to relay what the other record already
+held (r4-fixes note 01M4FW10HGWBBAM2KE8XBVW86C). The elsewhere block
+is that inbound view: other records' prose that names the home since its last
+write-back. It reads the mentions tier only, never a neighbour's log.
+- MENTIONS TIER — `.sofar/.index/mentions.json` (meta `meta-mentions.json`),
+  one incremental pass (§Derived index) whose per-SOURCE state is, for each
+  target slug, the source's NEWEST mention of it:
+  `[target, id, ts, kind, session, sentence]`, rows in target order (code
+  unit). Derived and disposable like every tier.
+- PROSE — the fields scanned, in this order: `session_ended` next_action
+  then summary (kind `write-back`); `note_added` text (`note`);
+  `task_status_changed` note (`task <id>`); `task_added` title
+  (`task <id>`); `decision_logged` chose then because (`decision`);
+  `memory_promoted` text (`memory`). Nothing else: a hook's command_run or
+  file_touched is never prose, so reading another record's directory is not
+  a mention.
+- KNOWN SLUGS at an event `e` — the initiatives whose slug holds a `-` and
+  whose log's FIRST line that parses as an event has an id below `e`'s. A
+  one-word slug never counts (the carrier's `speed` lesson), and a name used
+  before its record existed never counts. That makes a cold rebuild and an
+  incremental pass agree.
+- SENTENCES — a field splits at every `\n`, and after every `.` `!` `?` `;`
+  that is followed by whitespace (space, tab, CR, LF) or the end; each piece
+  is trimmed of those four, and empty pieces are dropped. TOKENS are the maximal runs of `[A-Za-z0-9_-]`. A token
+  equal to a known slug other than the source's own is an OCCURRENCE of that
+  slug, and it counts unless one of three filters drops it. The filters came
+  from a replay of 48 hand-labelled mentions:
+  (1) CITE — the sentence continues ` D<digit>` or ` M<digit>`: that is
+  someone's rule quoted as a reason, not news;
+  (2) RE-HOME — the sentence text before the token, lowercased and with
+  trailing whitespace trimmed, ends with `re-homed from`, `rehomed from`,
+  `re-homed into`, `rehomed into` or `re-homed out of`;
+  (3) SWEEP — the sentence names three or more OTHER known slugs (the source's
+  own counts), the shape of an orchestrator's status roll-call.
+  The event's mention of a slug is its FIRST sentence, in field order, where
+  some occurrence survives. That sentence is whitespace-collapsed and clipped
+  to MENTION_SENTENCE_SOURCE (160) by clip(). An event mentions a slug at
+  most once.
+- THE BLOCK — SessionStart and get_state, never in the lane. Its rows are the
+  mentions of the home, at most one per source (the newest), whose `ts`
+  sorts after the home's last write-back (`freshness.last_writeback_ts`).
+  With no write-back, every row counts: a record is never mentioned before
+  it exists. Rows sort newest `ts` first, then by source code unit. The
+  block is YIELDING, precedence 0, so it claims budget FIRST (preferred
+  ELSEWHERE_BUDGET = 500). It is news since the last write-back and zero
+  bytes most sessions. At precedence 3, the replay's own case (a record at
+  the 6,000 cap) kept only the count line:
+  ```
+  Elsewhere — other records that name this one since its last write-back (<shown> of <N>):
+  - <source> <ts[0..10]> <kind>: <sentence ≤140>
+  - …and <K> more records
+  ```
+  With no write-back the header says `that name this one` without the `since`
+  clause. At most ELSEWHERE_RECORD_CAP (3) entries; the longest prefix that
+  fits with its exact tail, as in §Travel block, CAP. When not even one entry
+  fits, the block is the single line `Elsewhere: <N> other record(s) name this
+  one: <source>, <source>, …` naming every row's source, else
+  `Elsewhere: <N> other record(s) name this one`, or nothing. ZERO BYTES with
+  no row.
+- THE PROMPT LINE — UserPromptSubmit in both engines, for a registered
+  session not in the lane: the home's rows whose `ts` sorts after the
+  session's registration, whose `session` is not this session's, and whose
+  event id the session's told set does not hold yet (key `%elsewhere:<id>`).
+  Never on Cursor. At most two lines, newest first, each told once:
+  `sofar: <source> named this record (<ts[11..16]>Z, <kind>): <sentence ≤160>`.
+  A long session hears what a peer wrote about its record, while it runs.
+- THE GLANCE — UserPromptSubmit, after the carriers and only when neither
+  moved the session, never on Cursor (its prompt hook cannot inject). The
+  prompt NAMES (the carrier's rule) exactly one OPEN record other than the
+  home, and that record has a write-back the session has not been told (key
+  `%glance:<slug>:<last_writeback_ts>`). Its latest write-back is the last
+  session, in session order, whose `ended` equals the record's
+  `freshness.last_writeback_ts` and that carries a next action or a summary.
+  The hook then reads it out:
+  `sofar: your prompt names <slug> — its latest write-back (<ts[0..16]>Z):
+  next: <next_action ≤300>` and, when it carries a summary, ` — summary:
+  <summary ≤400>`, then `. Read it whole with
+  sofar_get_state({"initiative":"<slug>"}); this session still serves
+  <home>.` The agent gets what the operator pointed at without a raw read of
+  the record's files, and the session does not move.
+- `SOFAR_ELSEWHERE=off` (also `0`, `false`) turns all three off. It is the
+  ablation arm.
 
 **Deterministic and model-free.** Every state is a pure function of the
 logs present: same logs, same states, byte-identical in TypeScript and Rust

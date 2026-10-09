@@ -434,6 +434,9 @@ pub struct StatusOptions {
     /// The links tier's input to the travel block (linked-context 5.2);
     /// empty renders zero bytes.
     pub travel: crate::travel::TravelInput,
+    /// Every other record's newest mention of this one (r4-fixes B5, D45),
+    /// from the mentions tier; none after the last write-back renders zero bytes.
+    pub elsewhere: Vec<crate::index_mentions::Mention>,
     /// The block's hard cap (r4-fixes A2): the host's digest budget from
     /// `host_payload::digest_limit`; `None` is `STATUS_CHAR_LIMIT`.
     pub limit: Option<usize>,
@@ -454,6 +457,7 @@ impl Default for StatusOptions {
             activity: None,
             retire: true,
             travel: crate::travel::TravelInput::default(),
+            elsewhere: Vec::new(),
             limit: None,
         }
     }
@@ -1259,6 +1263,28 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
                 let entries =
                     crate::travel::travel_entries(slug, &seeds, travel, focus_terms_ref, &shown);
                 crate::travel::travel_lines(&entries, slug, budget)
+            }),
+            lines: Vec::new(),
+        });
+    }
+
+    // (3c) Elsewhere (r4-fixes B5) — yielding, the FIRST to claim
+    // (precedence 0); never in the lane.
+    let inbound = if options.lane {
+        Vec::new()
+    } else {
+        crate::elsewhere::elsewhere_rows(
+            &options.elsewhere,
+            state.freshness.last_writeback_ts.as_deref(),
+        )
+    };
+    if !inbound.is_empty() {
+        let since = state.freshness.last_writeback_ts.is_some();
+        blocks.push(Block::Yielding {
+            rank: 0,
+            preferred: crate::elsewhere::ELSEWHERE_BUDGET,
+            render: Box::new(move |budget: usize| {
+                crate::elsewhere::elsewhere_lines(&inbound, since, budget)
             }),
             lines: Vec::new(),
         });

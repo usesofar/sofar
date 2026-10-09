@@ -813,6 +813,10 @@ fn carried_home(
 
 /// `handleUserPrompt`.
 #[must_use]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one hook, its notices in the TypeScript order"
+)]
 pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     let layout = Layout::new(root);
     let hook = parse_hook(input);
@@ -835,8 +839,16 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     // before anything registers it.
     let keep = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
     let (recall, map) = first_prompt_blocks(root, &layout, &hook, &state, session_id, prompt);
+    let glance = prompt_glance(
+        &layout,
+        &hook,
+        &slug,
+        session_id,
+        prompt,
+        carried_line.is_some(),
+    );
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        let first: Vec<String> = [carried_line, recall, map, keep]
+        let first: Vec<String> = [carried_line, glance, recall, map, keep]
             .into_iter()
             .flatten()
             .collect();
@@ -891,6 +903,10 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     if let Some(launched) = launched_drive_line(root, &slug, me) {
         lines.push(launched);
     }
+    // And what another record wrote about this one while the session ran
+    // (r4-fixes B5), each mention told once.
+    lines.extend(elsewhere_news(&layout, &hook, &slug, me, session_id));
+    lines.extend(glance);
     let git = read_git_state(root);
     if let Some(line) =
         engine_changed_line(note_engine(&layout, session_id, engine_version()).as_deref())
@@ -920,6 +936,48 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         ok(lines.join("\n"))
     };
     with_session_title(Hook::UserPrompt, result, title.as_deref())
+}
+
+/// The glance (r4-fixes B5): a prompt naming another open record, when no
+/// carrier moved the session, hears that record's latest write-back.
+fn prompt_glance(
+    layout: &Layout,
+    hook: &Object,
+    slug: &str,
+    session_id: &str,
+    prompt: Option<&str>,
+    carried: bool,
+) -> Option<String> {
+    let p = prompt.filter(|_| {
+        !carried && hook_host(hook).tool != "cursor" && crate::index_mentions::elsewhere_enabled()
+    })?;
+    crate::elsewhere::glance_line(
+        layout,
+        slug,
+        session_id,
+        p,
+        |s| fold_state(layout, s),
+        |s| crate::home::record_open(layout, s),
+    )
+}
+
+/// The prompt line (r4-fixes B5): what other records wrote about this one
+/// since the session registered, each mention told once; never in the lane.
+fn elsewhere_news(
+    layout: &Layout,
+    hook: &Object,
+    slug: &str,
+    me: &SessionState,
+    session_id: &str,
+) -> Vec<String> {
+    if slug == QUICK_LANE
+        || hook_host(hook).tool == "cursor"
+        || !crate::index_mentions::elsewhere_enabled()
+    {
+        return Vec::new();
+    }
+    let mentions = crate::index_mentions::read_elsewhere(layout, slug);
+    crate::elsewhere::elsewhere_prompt_lines(layout, &mentions, me, session_id)
 }
 
 /// Recall (memory-lead 4.3, D25) and the work map (r4-fixes B1, D16), both
