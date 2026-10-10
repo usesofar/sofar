@@ -11,6 +11,10 @@ export function packageName(p: Platform): string
 export function packageDir(p: Platform): string
 export function binaryName(p: Platform): string
 export function optionalDependencies(version: string): Record<string, string>
+export interface Lock {
+  packages?: Record<string, { version?: string; optionalDependencies?: Record<string, string> }>
+}
+export function syncLock<T extends Lock>(lock: T, version: string): T | null
 export function render(version: string): Array<{ dir: string; files: Record<string, string> }>
 export interface CoreDigest {
   sha256: string

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
-import { coreDigests, PLATFORMS, packageDir, packageName } from '../../../packaging/npm/emit.mjs'
+import { coreDigests, PLATFORMS, packageDir, packageName, syncLock } from '../../../packaging/npm/emit.mjs'
 import { releaseVersion } from '../../../packaging/npm/release-version.mjs'
 import { approvalOrder, stagedId } from '../../../packaging/npm/stage-approve.mjs'
 import { repoSlug, trustArgs } from '../../../packaging/npm/trust.mjs'
@@ -132,6 +132,21 @@ describe('trusted publishing setup', () => {
     for (const p of PLATFORMS) {
       const pkg = JSON.parse(readFileSync(join(npmDir, packageDir(p), 'package.json'), 'utf8')) as { repository: { url: string } }
       expect(pkg.repository.url).toBe(engine.repository.url)
+    }
+  })
+
+  it('keeps package-lock.json in step with a bump, cores without build metadata, so npm ci accepts it', () => {
+    const lock = JSON.parse(readFileSync(join(repo, 'package-lock.json'), 'utf8')) as Parameters<typeof syncLock>[0]
+    expect(syncLock(lock, engine.version)).toBeNull()
+    const bumped = syncLock(lock, '0.39.0-rc.1')!
+    const deps = bumped.packages!['packages/engine']!.optionalDependencies!
+    expect(bumped.packages!['packages/engine']!.version).toBe('0.39.0-rc.1')
+    expect(Object.values(deps)).toEqual(PLATFORMS.map(() => '0.39.0-rc.1'))
+    expect(Object.keys(deps)).toEqual(PLATFORMS.map(packageName).sort())
+    const trunk = syncLock(lock, '0.39.0-dev+trunk')!
+    for (const p of PLATFORMS) {
+      expect(bumped.packages![`packages/engine/node_modules/${packageName(p)}`]!.version).toBe('0.39.0-rc.1')
+      expect(trunk.packages![`packages/engine/node_modules/${packageName(p)}`]!.version).toBe('0.39.0-dev')
     }
   })
 
