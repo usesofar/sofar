@@ -79,6 +79,11 @@ export function scratchEnv(prefix = 'sofar-hermetic-', base = tmpdir()) {
     // (core/session-pointer.ts hostSessionFromEnv reads both).
     CLAUDE_CODE_SESSION_ID: '',
     CODEX_THREAD_ID: '',
+    // A detached driver's own notes, blanked: a suite run as a driven task's
+    // verify command inherits the driver's env, and its launcher would name
+    // every run a test starts (cli/drive.ts launchingSession reads it first).
+    SOFAR_DRIVE_LAUNCHED_BY: '',
+    SOFAR_DRIVE_DETACHED: '',
     SOFAR_TEST_RUN: root.slice(root.lastIndexOf('/') + 1),
     SOFAR_HERMETIC_ROOT: root,
   }
@@ -142,8 +147,10 @@ export const HOST_LIVE = {
     'plans/', 'extensions/',
   ],
   // sofar's own state dir: the operator's live sessions write per-clone rows
-  // under existing keys all day, so below the first level only NEW names are
-  // compared (a leak makes a new clone key; a live session reuses its own).
+  // under existing keys all day, so a first-level dir is compared by kind and
+  // below it only NEW names are (a leak makes a new clone key; a live session
+  // reuses its own). A dir's mtime is no signal here: an atomic rewrite of
+  // `drive-seen/<key>.json` moves it while the names stay the same.
   '.local/state/sofar': [],
   '.config/sofar': [],
   '.beads': [],
@@ -204,11 +211,12 @@ export function canarySnapshot(homes = realHomes()) {
       for (const name of list(root)) {
         if (hostLive(rootRel, name)) continue
         const one = join(root, name)
+        const namesOnly = NAMES_ONLY_BELOW.has(rootRel)
         const sig = signature(one, false)
         if (sig === null) continue
-        snap.set(one, sig)
-        if (!sig.startsWith('d')) continue
-        const namesOnly = NAMES_ONLY_BELOW.has(rootRel)
+        const isDir = sig.startsWith('d')
+        snap.set(one, isDir && namesOnly ? 'd' : sig)
+        if (!isDir) continue
         for (const sub of list(one)) {
           if (hostLive(rootRel, `${name}/${sub}`)) continue
           const two = join(one, sub)

@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -71,6 +71,10 @@ describe('hermetic environment (A13)', () => {
     }
     expect(homedir()).toBe(process.env.HOME)
     expect(process.env.SOFAR_TEST_RUN).toBeTruthy()
+    // A suite run as a driven task's verify inherits the driver's env; its notes never reach a test.
+    for (const name of ['CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID', 'SOFAR_DRIVE_LAUNCHED_BY', 'SOFAR_DRIVE_DETACHED']) {
+      expect(process.env[name] ?? '', name).toBe('')
+    }
     expect(Number.parseFloat(process.env.SOFAR_TEST_SPEED ?? '')).toBeGreaterThanOrEqual(1)
   })
 
@@ -105,14 +109,19 @@ describe('HOME canary', () => {
     touch(at('.claude', 'projects', 'p', 'a.jsonl'))
     touch(at('.codex', 'config.toml'))
     touch(at('.local', 'state', 'sofar', 'diagnostics', 'k1', 'r.jsonl'))
+    touch(at('.local', 'state', 'sofar', 'drive-seen', 'k1.json'))
     const before = canarySnapshot([fakeHome])
     expect(canaryDiff(before, canarySnapshot([fakeHome]))).toEqual([])
 
     // A live Claude Code session appends its transcript; a live sofar
-    // session writes rows under its existing clone key.
+    // session writes rows under its existing clone key, or atomically
+    // rewrites its key's file, which moves the dir's mtime (drive-lanes 1.1).
     touch(at('.claude', 'projects', 'p', 'b.jsonl'))
     touch(at('.claude', 'history.jsonl'))
     touch(at('.local', 'state', 'sofar', 'diagnostics', 'k1', 'r2.jsonl'))
+    touch(at('.local', 'state', 'sofar', 'drive-seen', 'k1.json.tmp'), '{}')
+    renameSync(at('.local', 'state', 'sofar', 'drive-seen', 'k1.json.tmp'), at('.local', 'state', 'sofar', 'drive-seen', 'k1.json'))
+    utimesSync(at('.local', 'state', 'sofar', 'drive-seen'), new Date(), new Date(Date.now() + 5_000))
     expect(canaryDiff(before, canarySnapshot([fakeHome]))).toEqual([])
   })
 
@@ -121,10 +130,12 @@ describe('HOME canary', () => {
     touch(at('.claude', 'settings.json'), '{"hooks":{}}')
     utimesSync(at('.claude', 'settings.json'), new Date(), new Date(Date.now() + 5_000))
     touch(at('.local', 'state', 'sofar', 'diagnostics', 'k2', 'r.jsonl'))
+    touch(at('.local', 'state', 'sofar', 'drive-seen', 'k2.json'))
     touch(at('.beads', 'beads.db'))
     const changes = canaryDiff(before, canarySnapshot([fakeHome]))
     expect(changes).toContain(`changed  ${at('.claude', 'settings.json')}`)
     expect(changes).toContain(`created  ${at('.local', 'state', 'sofar', 'diagnostics', 'k2')}`)
+    expect(changes).toContain(`created  ${at('.local', 'state', 'sofar', 'drive-seen', 'k2.json')}`)
     expect(changes).toContain(`created  ${at('.beads')}`)
   })
 })
