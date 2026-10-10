@@ -1,0 +1,162 @@
+{
+  "reps": 3,
+  "labels": [
+    "2.5-lanes-1",
+    "2.5-lanes-2",
+    "2.5-lanes-3"
+  ],
+  "excluded": [],
+  "engine": {
+    "version": "0.38.0-dev+trunk",
+    "commit": "2e3f7a51",
+    "dirty_src_paths": 0,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.bench/claude-2.1.278/claude",
+    "version": "2.1.278 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config-build",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "metrics": {
+    "wall_clock_s": {
+      "mean": 703.8,
+      "sd": 507.4056,
+      "values": [
+        1289.7,
+        409.7,
+        412
+      ]
+    },
+    "overhead_s": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "tasks_done": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    },
+    "gate_pass_rate": {
+      "mean": 1,
+      "sd": 0,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    "first_try_pass_rate": {
+      "mean": 1,
+      "sd": 0,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    "tokens_per_task": {
+      "mean": 530761,
+      "sd": 16067.735,
+      "values": [
+        512223,
+        539375,
+        540685
+      ]
+    },
+    "output_tokens_per_task": {
+      "mean": 5341,
+      "sd": 278.0486,
+      "values": [
+        5027,
+        5556,
+        5440
+      ]
+    },
+    "cost_per_task": {
+      "mean": 0.2456,
+      "sd": 0.0077,
+      "values": [
+        0.2367,
+        0.25,
+        0.25
+      ]
+    },
+    "sessions": {
+      "mean": 12,
+      "sd": 0,
+      "values": [
+        12,
+        12,
+        12
+      ]
+    },
+    "merge_conflicts": {
+      "mean": 3,
+      "sd": 0,
+      "values": [
+        3,
+        3,
+        3
+      ]
+    },
+    "merge_reopen_rate": {
+      "mean": 0.333,
+      "sd": 0,
+      "values": [
+        0.333,
+        0.333,
+        0.333
+      ]
+    },
+    "regressions": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "off_task_resolutions": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "duplicate_work": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "final_tree_green": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}

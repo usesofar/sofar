@@ -4,36 +4,33 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages).
 
-Brief: the operator's words, 1204 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 1531 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 7/22 tasks done (31%)
+Progress: 8/23 tasks done (34%)
 
-## Phase 1 — Baseline and prerequisites [active] — 3/3 done
+## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
-- [x] 1.1 Lane fixture and serial baseline: a sandbox repo with 9 tasks (6 independent, 3 chained by waits_on, 3 editing one shared function), each with a verify command. Serial drive's wall-clock, tasks done, verify pass rate, tokens per task and conflicts are the bar every later step must beat — verified pass @1b91783 (attempt 2)
-- [x] 1.2 Load control so lanes do not saturate the machine: a verify semaphore (one full suite at a time), nice/taskpolicy for sessions and verify, process-group kill on verify timeout, a vitest maxWorkers cap (drive-load note 01M3PCDC, fixes 1-5) — verified pass @214c57b (attempt 1)
-- [x] 1.3 Ready frontier: readyTasks honours waits_on (queuedTasks ignores it today, drive-queue.ts:42); `sofar next --ready`; serial drive takes the ready head — verified pass @8719e50 (attempt 3)
+## Phase 2 — Local lanes [active] — 5/7 done
 
-## Phase 2 — Local lanes [pending] — 4/7 done
-
-- [x] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar — verification fail (attempt 2, exit 1)
-- [x] 2.2 `sofar drive --lanes N`: a persistent lane worktree pool (deps installed once), tasks as branches, lanes recorded on run_started. `--lanes 1` stays byte-identical to today's run (session-driver D6 holds there) — verified pass @8a8b9ff (attempt 1)
-- [x] 2.3 Coordinator: one process assigns ready tasks to free lanes and records each assignment, so the statusline and interactive sessions see which lane holds which task. Budgets (--cost-cap, --max-sessions) count across lanes; a rate-limited lane parks instead of stalling — verified pass @22023ca (attempt 1)
-- [x] 2.4 Serial merge queue: rebase a passing task branch onto the run base, re-verify when the base moved, fast-forward. A conflict becomes a merge handoff to the lane's next session. Affected-tests verify per merge, full suite per batch — verified pass @3667a3f (attempt 1)
-- [ ] 2.5 Measure local lanes against serial on the 1.1 fixture. Keep only if wall-clock falls ≥40%, duplicate work is 0, tasks done and verify pass rate are no lower, merge-conflict reopens ≤10% and tokens per task rise ≤5% (blocked)
+- [x] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar
+- [x] 2.2 `sofar drive --lanes N`: a persistent lane worktree pool (deps installed once), tasks as branches, lanes recorded on run_started. `--lanes 1` stays byte-identical to today's run (session-driver D6 holds there)
+- [x] 2.3 Coordinator: one process assigns ready tasks to free lanes and records each assignment, so the statusline and interactive sessions see which lane holds which task. Budgets (--cost-cap, --max-sessions) count across lanes; a rate-limited lane parks instead of stalling
+- [x] 2.4 Serial merge queue: rebase a passing task branch onto the run base, re-verify when the base moved, fast-forward. A conflict becomes a merge handoff to the lane's next session. Affected-tests verify per merge, full suite per batch
+- [x] 2.5 Measure local lanes against serial on the 1.1 fixture. Keep only if wall-clock falls ≥40%, duplicate work is 0, tasks done and verify pass rate are no lower, merge-conflict reopens ≤10% and tokens per task rise ≤5%
 - [ ] 2.6 Tiered verify: after each task run the typecheck plus the tests covering the files the task changed; run the full gate (whole vitest + cargo) once at a phase end and at the run end, and pin a full-gate failure to its task by bisecting the phase's task commits. Keep only if it beats per-task full verify on the 1.1 fixture with no failure missed.
 - [ ] 2.7 A verify that times out re-runs the verify once load control (1.2) clears, never a new session; only a verify that fails charges the task.
 
-## Phase 3 — Conflict-aware orchestration [pending] — 0/8 done
+## Phase 3 — Conflict-aware orchestration [pending] — 0/9 done
 
-- [ ] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane stops the edit with a reason; the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. NEEDS the operator's ruling on r4-fixes D17 (deny only on an explicit-forbid rule) for driven lanes
+- [ ] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane steers rather than denies, so r4-fixes D17 holds: the hook's context names the holding lane, its task, the region and what is free, and the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. A deny mode sits behind a flag, off, until the operator rules on D17 for driven lanes
 - [ ] 3.2 Footprint prediction and conflict-aware scheduling: task `touches`, the record's mention index, files earlier sessions on the task touched, git co-change. A free lane takes the first ready task that misses every live lease and footprint, else idles; skipped tasks age up
 - [ ] 3.3 Context packets, deterministic and one line each: lease notice (who holds what, for which task), change brief on merge (task, regions, diffstat, decisions and memories logged, write-back), park/resume packet (own write-back, WIP sha, the brief it waited for)
 - [ ] 3.4 Measure conflict-aware lanes against naive lanes: merge-conflict rework sessions, parks, lanes busy, wall-clock. Keep each piece only if it improves on 2.5
-- [ ] 3.5 Peer hint: when 3.1 denies an edit or 3.3 delivers a lease notice, name the lane holding the region as a reachable Claude Code peer (its SendMessage name from ~/.claude/sessions/<pid>.json, through core/peers.ts), so the blocked session can ask it directly. sofar never sends. The hint appears only on a live lease collision; Codex, Cursor and cloud lanes get the record packet alone. Driven `claude -p` sessions already register as peers (verified 2026-10-10: sofar-df was the 1.2 session)
+- [ ] 3.5 Peer hint: when 3.1 steers an edit away or 3.3 delivers a lease notice, name the lane holding the region as a reachable Claude Code peer (its SendMessage name from ~/.claude/sessions/<pid>.json, through core/peers.ts), so the blocked session can ask it directly. sofar never sends. The hint appears only on a live lease collision; Codex, Cursor and cloud lanes get the record packet alone. Driven `claude -p` sessions already register as peers (verified 2026-10-10: sofar-df was the 1.2 session)
 - [ ] 3.6 Thread model (D15): a task is a thread, not a session. A retry or a resumed park continues the task's own conversation when the coordinator's resume-or-refresh rule says it pays, else a fresh session takes the 3.3 packet. Each task has an inbox in the record (events addressed to the task id), which hooks deliver at the next tool or prompt boundary. A parked thread is woken only when what it waits on resolves (a lease freed, a dependency merged, CI failed in Phase 4)
 - [ ] 3.7 Thread cost levers (D15). (a) Shared warm prefix: the session-start injection is byte-identical across lanes with per-session lines last, and lane starts are staggered so lanes 2..N read lane 1's cache. (b) Warm-cache scheduling: resume inside the cache TTL, else refresh. (c) Fork at a checkpoint: a retry forks from the end of exploration, not from the failed attempt. (d) A parked thread holds no process. (e) A batched inbox: an FYI packet waits for the next boundary and never wakes a thread. (f) A per-thread context ceiling that hands off instead of compacting
 - [ ] 3.8 Measure threads against fresh sessions on the 1.1 fixture: tokens per task split into cache read, cache write and fresh input (from transcripts, never handoff.tokens, which carries the whole session's summed usage, r4-fixes note 01M4K3G1), rework sessions and wall-clock. Keep each 3.7 lever only where it lowers cost with no drop in tasks done or verify pass rate
+- [ ] 3.9 Thread gate, before any thread code (operator 2026-10-11: build threads only once proven efficient; they must save tokens against native workflows). Add `--arm native` to the fixture harness: one Claude Code session drives all 9 fixture tasks with its own subagents, scored on tokens per task split into cache read, cache write and fresh input, tasks done and wall-clock. Then project from the 2.5 reps' transcripts what each retry and park would cost as a warm resume, a cold resume, a checkpoint fork and a fresh 3.3-packet session. 3.6-3.8 go ahead only for the cases where the projection beats both fresh sessions and the native arm; otherwise drop them, citing the numbers
 
 ## Phase 4 — Cloud lanes [pending] — 0/4 done
 
@@ -42,6 +39,5 @@ Progress: 7/22 tasks done (31%)
 - [ ] 4.3 Conflicts in cloud lanes: no edit-time leases (a cloud VM cannot read the local lease store), so scheduling by footprint plus the merge queue. Measure conflict rework against local lanes
 - [ ] 4.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
-Active phase: Phase 1 — Baseline and prerequisites
-Next action: 2.5: once the operator picks a profile, run 3 interleaved 2.5-serial/2.5-lanes reps per README, then --compare
-Blocked on: task 2.5: Operator: the D6 bench profile is refused until 2026-10-11T17:00Z (seven-day limit). 2.5 needs >=3 interleaved serial and lanes reps (D7), about 54 sonnet sessions. Wait for the reset and restart the run then, or run the reps now on another profile (which one?), superseding D6's profile pin? Harness is ready (D26).
+Active phase: Phase 2 — Local lanes
+Next action: 2.6: tiered verify, measured on the fixture with the D27 profile
