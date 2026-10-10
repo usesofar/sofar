@@ -1012,6 +1012,35 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes H18 on the hot path: the gate covers edits in its own worktree
+    // only. A guard or a file mention matches a path by suffix, so an edit to
+    // another repo's src/stock.ts — or to a sibling checkout, reached by
+    // climbing out of the root — named the rule here, and asked for a test
+    // no run in this worktree can pass. The same file under the root holds.
+    name: 'syn.gate-outside-root',
+    fixture: { ...synthetic('baseline'), git: undefined },
+    steps: [
+      s('session-start: the tree, another repo, and a sibling checkout', ['event', 'session-start'], start({ session_id: 'sess-o' }), {
+        before: (m) => {
+          execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: m.root, stdio: 'ignore' })
+          for (const base of [m.root, join(m.home, 'other-repo'), join(m.root, '..', 'o-sibling')]) {
+            for (const rel of ['src/stock.ts', 'tests/rules/one.test.ts']) {
+              mkdirSync(join(base, rel, '..'), { recursive: true })
+              writeFileSync(join(base, rel), 'export {}\n')
+            }
+          }
+        },
+      }),
+      s('a rule checked by one test file', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-o', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', guard: 'path:src/**', check: { cmd: 'bun test tests/rules/one.test.ts', hint: 'reject the move before it lands' }, supersedes: 'none' })]),
+      s('sess-o writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-o', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('an edit in another repo', ['event', 'post-tool'], edit('<HOME>/other-repo/src/stock.ts', { session_id: 'sess-o' })),
+      s('an edit in a sibling checkout, through the root', ['event', 'post-tool'], edit('<ROOT>/../o-sibling/src/stock.ts', { session_id: 'sess-o' })),
+      s('stop: neither is an edit this worktree covers', ['event', 'stop'], stop({ session_id: 'sess-o' })),
+      s('the same file under the root', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-o' })),
+      s('stop: that one bears', ['event', 'stop'], stop({ session_id: 'sess-o' })),
+    ],
+  },
+  {
     // r4-fixes A8 on the hot path: a check bound after the fact. The fixture's
     // guarded D1 takes its check by check_bound (what `sofar bind` appends) and
     // keeps its handle; the gate then holds an edit it governs until that test

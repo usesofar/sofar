@@ -10192,6 +10192,15 @@ stay the underlying derivation's, and exit codes are styling-independent.
   Replay over 67 real holds in this repo's transcripts: 2 cleared outright;
   across live sessions' cached git answers, 61 dirty files blamed under H1,
   6 under windows alone, 2 with the `cd` rule too.
+- **Whose worktree (r4-fixes H18):** the gate counts an edit only under its
+  own root. A capture in another repo or another checkout — an absolute path
+  elsewhere, or one that climbs out (`<root>/../sibling/…`) — never bears,
+  though a guard or a file mention matches its path by suffix; the same file
+  under the root still holds (`syn.gate-outside-root`; the 0.36.0-rc.3 core
+  holds its step 6). Replay over 75 real holds in this repo's transcripts:
+  every rule cited by up to 37 is explained by out-of-root captures, and by
+  6 for certain, whose rules name files only another repo has. Edit-time
+  surfacing still names such paths.
 - **Landing write (r4-fixes D61):** `sofar_update_task` with `"task_id":
   "m1, m2"` files a done task_status_changed for each, in order, and the
   statusline gauge reading the record goes 0/3 → 2/3; `m1,m9` (m9 not in

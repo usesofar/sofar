@@ -477,6 +477,24 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     expect(stop(root, 's1').exitCode).toBe(2)
   })
 
+  it('an edit outside the root is never one this worktree can cover, though a rule names its path (r4-fixes H18)', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    const other = mkdtempSync(join(tmpdir(), 'sofar-other-')) // another repo, or another checkout of this one
+    roots.push(other)
+    mkdirSync(join(other, 'src', 'db'), { recursive: true })
+    writeFileSync(join(other, 'src', 'db', 'store.ts'), 'export const x = 1\n')
+    edited(root, 's0') // the record's suite comes from a run here
+    ran(root, 's0', 'bun test', true, 0)
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
+    touched(root, 's1', join(other, 'src', 'db', 'store.ts')) // the guard and the mention both match it by suffix
+    touched(root, 's1', '../elsewhere/src/db/store.ts') // a relative path that climbs out
+    wroteBack(root, 's1')
+    expect(stop(root, 's1').exitCode).toBe(0)
+    touched(root, 's1', join(root, 'src', 'db', 'store.ts')) // the same file under this root, absolute
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
   // r4-fixes H13: a file git names is this session's only when one of its
   // may-write commands was running when the file was last written.
   const shell = (root: string, session: string) => (phase: 'pre' | 'post', command: string, id: string, extra: Record<string, unknown> = {}) =>

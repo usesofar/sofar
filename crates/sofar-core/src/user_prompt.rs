@@ -1307,11 +1307,14 @@ fn stop_gate_for(
 ) -> crate::checks::StopGate {
     let none = crate::checks::StopGate::default();
     let activity = session.activity.as_ref();
+    // A capture outside the root is an edit to another repo or another
+    // checkout (r4-fixes H18): no test this worktree runs covers it, yet a
+    // rule's guard or file mention still matches it by suffix.
     let captured: Vec<String> = activity
         .map(|a| {
             a.files
                 .iter()
-                .filter(|f| !f.starts_with('+'))
+                .filter(|f| !f.starts_with('+') && crate::checks::inside_root(f, root))
                 .cloned()
                 .collect()
         })

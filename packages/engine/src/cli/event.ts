@@ -41,7 +41,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, mayWriteHere, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
+import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, insideRoot, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
 import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine, intendedRecord, intentLine } from '../core/carrier'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
@@ -1749,7 +1749,11 @@ export const DIRT_SLACK_MS = 2_000
 function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState, outcomesKnown: boolean): StopGate {
   const none: StopGate = { lines: [], blocks: false }
   try {
-    const captured = (session.activity?.files ?? []).filter((f) => !f.startsWith('+'))
+    // A capture outside the root is an edit to another repo or another
+    // checkout (r4-fixes H18): no test this worktree runs covers it, yet a
+    // rule's guard or file mention still matches it by suffix — 096f's
+    // handoff-bench …/runner/lib/paths.ts asked for a suite here.
+    const captured = (session.activity?.files ?? []).filter((f) => !f.startsWith('+') && insideRoot(f, rootDir))
     const commands = session.activity?.commands ?? 0
     if (captured.length === 0 && commands === 0) return none // no work: no index, no git
     const index = gateIndex(sofarDir, slug, state)

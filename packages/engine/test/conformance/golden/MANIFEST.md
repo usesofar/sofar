@@ -1,5 +1,12 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r4-fixes H18** (main) from the TypeScript reference; no golden
+moved, and the Rust core reproduces all 60 (`SOFAR_CORE=target/release/sofar-core`).
+One new case, `syn.gate-outside-root`: an edit in another repo
+(`<HOME>/other-repo/src/stock.ts`) and one in a sibling checkout reached
+through the root (`<ROOT>/../o-sibling/…`) no longer hold the Stop; the same
+file under the root does. The installed 0.36.0-rc.3 core fails step 6.
+
 ADDED for **r4-fixes H13** (main) from the TypeScript reference; no golden
 moved, and the Rust core reproduces all 59 (`SOFAR_CORE=target/release/sofar-core`).
 One new case, `syn.gate-windows`, the first on a real (unborn) repository so
