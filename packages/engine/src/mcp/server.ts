@@ -30,6 +30,7 @@ import { addNoteJudged } from './add-note'
 import { rememberJudged } from './remember'
 import { withCopyLag } from './copy-lag'
 import { recordRoot } from '../core/git'
+import { hostRenamed } from '../core/lineage'
 
 /**
  * Sofar MCP server (SPEC §MCP tools) — low-level SDK API on purpose (BD12):
@@ -220,6 +221,12 @@ export interface CreateSofarServerOptions {
   adoptWorktree?: boolean
   /** When this server started (epoch ms) — the A3 lead guard; default now. */
   startedAtMs?: number
+  /**
+   * The host process's pid, read at each call, with `hostSessionId` (r4-fixes
+   * H19): its registry entry names the id a `/clear` renamed this
+   * conversation to. Only `sofar mcp` passes it; tests opt in.
+   */
+  hostPid?: () => number
 }
 
 export interface SofarServerHandle {
@@ -240,6 +247,8 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
   const rootDir = resolve(options.rootDir ?? recordRoot(process.cwd()))
   const context = createToolContext(rootDir)
   const hostSessionId = options.hostSessionId?.trim() || undefined
+  // What the host calls this conversation now: its spawn id until a /clear renames it (H19).
+  let hostId = hostSessionId
   const adoptWorktree = hostSessionId === undefined && options.adoptWorktree === true
   const startedAtMs = options.startedAtMs ?? Date.now()
 
@@ -281,10 +290,20 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
       if (!check.ok) {
         throw new ToolError('invalid_input', `invalid arguments for ${name}`, check.errors)
       }
+      // A /clear renamed the conversation (H19): a session this server
+      // adopted follows it; one the agent started explicitly stays.
+      if (hostId !== undefined && options.hostPid !== undefined) {
+        const renamed = hostRenamed(hostId, options.hostPid())
+        if (renamed !== null) {
+          const followed = context.session.get()?.id === cloudHostSession(rootDir, hostId, options.hostEntrypoint)
+          hostId = renamed
+          if (followed && name !== 'sofar_start_session') adoptHostSession(context, cloudHostSession(rootDir, hostId, options.hostEntrypoint))
+        }
+      }
       // Adopt the host's session before the first tool that is not itself
       // the explicit start (D3) — once per process, whatever tool comes first.
-      if (hostSessionId !== undefined && name !== 'sofar_start_session' && context.session.get() === null) {
-        adoptHostSession(context, cloudHostSession(rootDir, hostSessionId, options.hostEntrypoint))
+      if (hostId !== undefined && name !== 'sofar_start_session' && context.session.get() === null) {
+        adoptHostSession(context, cloudHostSession(rootDir, hostId, options.hostEntrypoint))
       }
       // No id from the host: the worktree's only live hook session (A3).
       if (adoptWorktree && name !== 'sofar_start_session' && context.session.get() === null) {

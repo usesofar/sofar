@@ -915,6 +915,7 @@ program
       rootDir: opts.root,
       hostSessionId: process.env.CLAUDE_CODE_SESSION_ID,
       hostEntrypoint: process.env.CLAUDE_CODE_ENTRYPOINT,
+      hostPid: () => process.ppid,
       adoptWorktree: true,
     })
     await handle.connectStdio()
