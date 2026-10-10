@@ -15,3 +15,11 @@ is this the better architecture we have to also prevent the conflicts like if on
 --- Operator, 2026-10-10 ---
 
 yes we have to build parallel lanes also will sofar drive and parallel lanes will support the cloud ? afer the question you can create the initiative
+
+--- Operator, 2026-10-10 ---
+
+sofar lane also have a cordination model right ? and in claude code sofar lanes can communicate with ech active sessions using peer messaging ? can we also adat a thread model ?
+
+--- Operator, 2026-10-10 ---
+
+add the thread model and peer hint to the plan- engineer a way to cut the cost of the thread model. what can be those ?
