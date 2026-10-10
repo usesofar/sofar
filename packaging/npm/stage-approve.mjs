@@ -8,8 +8,9 @@
 // `npm stage list <name> --json`, then runs `npm stage approve <id>` for the
 // five platform packages first and sofar.sh last: sofar.sh pins the cores at
 // its own version, so approving it first would publish an install with no
-// core to find. Each approve asks for 2FA on this terminal; with web auth one
-// approval and its five-minute skip covers the rest. Run it in a real
+// core to find. Each approve may ask for 2FA on its own: one approval
+// covered all six `npm trust` calls, but `npm access set` asked six times
+// (2026-10-10), so expect up to six. Run it in a real
 // terminal: npm masks the approval link when its output is not a TTY
 // (r4-fixes M18). A package already published at <version> is skipped, so a
 // run cut short can be run again. --dry-run lists the ids and approves
