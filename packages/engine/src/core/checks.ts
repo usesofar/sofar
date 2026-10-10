@@ -899,6 +899,12 @@ function repoRelative(path: string, rootDir: string): string | null {
   return path.startsWith(root) ? normalPath(path.slice(root.length)) : null
 }
 
+/** Whether a path names a file under `rootDir`: an absolute one below it, a relative one that never climbs out (r4-fixes H18). */
+export function insideRoot(path: string, rootDir: string): boolean {
+  const rel = repoRelative(path, rootDir)
+  return rel !== null && rel !== '..' && !rel.startsWith('../')
+}
+
 /**
  * The files this session edited that an in-force ruled check names as FILES
  * (never a directory: a suite run binds no one test) in its test-shaped

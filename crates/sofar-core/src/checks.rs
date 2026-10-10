@@ -1608,6 +1608,13 @@ fn repo_relative(path: &str, root: &Path) -> Option<String> {
     path.strip_prefix(root.as_str()).map(normal_path)
 }
 
+/// `insideRoot` (r4-fixes H18): whether a path names a file under `root` —
+/// an absolute one below it, a relative one that never climbs out.
+#[must_use]
+pub fn inside_root(path: &str, root: &Path) -> bool {
+    repo_relative(path, root).is_some_and(|rel| rel != ".." && !rel.starts_with("../"))
+}
+
 /// `boundTestsTouched`: the files this session edited that an in-force ruled
 /// check names as FILES (never a directory) in its test-shaped command. By
 /// check order, each (path, rule) once.
