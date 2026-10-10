@@ -272,6 +272,24 @@ function registryEntryAt(pid: number, env: Record<string, string | undefined>): 
   return parseEntry(readJson(join(registryDir(env), `${pid}.json`)))
 }
 
+/**
+ * The id host process `pid` runs under now, when it renamed `adopted` (r4-fixes
+ * H19): Claude Code keeps an MCP server's stdio process across `/clear` and
+ * mints a new session id, so a server that adopted the id it was spawned with
+ * filed every later write under the dead one (splen 4d7f19fc: 48 write-back
+ * holds despite 83 write-backs). Only the same process, renamed — its entry
+ * lists `adopted` among its former names — never a stranger on a reused pid.
+ */
+export function hostRenamed(adopted: string, pid: number, env: Record<string, string | undefined> = process.env): string | null {
+  try {
+    const entry = registryEntryAt(pid, env)
+    if (entry === null || entry.pid !== pid || entry.sessionId === adopted) return null
+    return entry.former.some((f) => f.sessionId === adopted) ? entry.sessionId : null
+  } catch {
+    return null
+  }
+}
+
 // ---------------------------------------------------------------------------
 // The /clear baton.
 // ---------------------------------------------------------------------------

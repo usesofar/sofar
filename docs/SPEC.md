@@ -5198,6 +5198,17 @@ CLAUDE_CODE_SESSION_ID, while the conversation's id, the one hooks and Bash
 see, is assigned later (r4-fixes note 01M4JEK5). One VM runs one conversation,
 so its SessionStart pointer names it. Any other entrypoint, or no hook pointer,
 keeps `hostSessionId`: locally the pointer is last-writer-wins across tabs.
+**Followed across `/clear` (r4-fixes H19).** `sofar mcp` also passes
+`hostPid` (its parent's pid, read at each call). Claude Code keeps the stdio
+server across `/clear` and mints a new session id, which its registry entry
+(`~/.claude/sessions/<pid>.json`, read only, as lineage carrier 4) names, the
+old id among its `formerNames`. Before each tool, when that entry renamed the
+id the server follows (hostRenamed), the server follows the new one, and a
+session it adopted is re-adopted under it from that call on; a session the
+agent started explicitly stays pinned. An entry that never named the old id
+is a stranger on a reused pid and is ignored. Without this every write after
+a `/clear` filed under the dead session: splen 4d7f19fc took 48 write-back
+holds at Stop despite 83 write-backs, and none of its ~135 writes carried its id.
 **Worktree adoption (r4-fixes A3; 1.2 O4).** A host that gives its MCP
 server no session id (Codex, Cursor) still hands the id to its hooks, which
 leave the newest one in the worktree's session pointer
