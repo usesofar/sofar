@@ -37,7 +37,10 @@ export function stagedId(items, version) {
   const waiting = items
     .filter((item) => item.version === version && typeof item.id === 'string')
     .filter((item) => !/^(approved|published|rejected)$/i.test(item.status ?? ''))
-    .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
+    .map((item) => ({ item, at: String(item.createdAt ?? '') }))
+    // ISO timestamps order by code unit, never by locale (r1-fixes D26).
+    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+    .map(({ item }) => item)
   return waiting[0]?.id ?? null
 }
 
