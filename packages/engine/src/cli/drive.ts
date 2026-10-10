@@ -305,9 +305,11 @@ export async function runDrive(
       ...(lanes !== undefined ? { lanes } : {}),
       ...(options.laneSetup !== undefined ? { laneSetup: options.laneSetup } : {}),
       // Load control (drive-lanes 1.2): every CLI run yields to the
-      // operator's foreground and verifies one suite at a time.
+      // operator's foreground and verifies one suite at a time, and re-runs a
+      // timed-out verification only once the load clears (2.7).
       lowPriority: true,
       verifySlot: true,
+      loadWait: {},
       ...(options.onStarted !== undefined ? { onStarted: options.onStarted } : {}),
       ...(launchedBy !== undefined ? { launchedBy } : {}),
       surface,

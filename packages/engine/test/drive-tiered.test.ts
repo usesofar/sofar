@@ -201,6 +201,19 @@ describe('sofar drive --verify-quick (2.6)', () => {
     expect(existsSync(join(root, 'broken'))).toBe(false)
   })
 
+  it('a full gate that times out on its re-run too stops the run with nothing bisected or reopened (2.7)', async () => {
+    const root = repo('timeout')
+    const adapter = new FakeAdapter([commits(root, 'S1', ['a.txt']), commits(root, 'S2', ['b.txt', 'slow']), commits(root, 'S3', ['c.txt'])])
+    const full = 'test ! -f slow || sleep 30'
+    const outcome = await drive(root, 'demo', { adapter, verify: full, verifyQuick: QUICK, verifyTimeoutMs: 400, maxVerifyAttempts: 1, laneSetup: 'none' })
+
+    expect(outcome.handoffs.map((h) => `${h.task}:${h.reason}`)).toEqual(['1.1:task_done', '1.2:task_done', '1.3:task_done'])
+    expect(outcome.stop.reason).toBe('stall')
+    expect(outcome.stop.note).toContain('the full gate at the end of Phase 1 timed out on its re-run too — not charged, no session launched')
+    expect(checks(root).filter((c) => c.command === full).map((c) => `${c.task}:${c.result}`)).toEqual(['1.3:timeout', '1.3:timeout'])
+    expect(readFileSync(logPath(root), 'utf8')).not.toContain('reopened by the driver')
+  })
+
   it('on a lanes run, gates the base at a phase end inside the merge queue and bisects in a lane', async () => {
     const root = repo('lanes')
     // A chain, so the order the lanes land in is fixed.

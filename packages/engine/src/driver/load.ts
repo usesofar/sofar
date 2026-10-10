@@ -1,4 +1,5 @@
 import { accessSync, constants } from 'node:fs'
+import { cpus, loadavg } from 'node:os'
 import { delimiter, isAbsolute, join, resolve } from 'node:path'
 import { claimLockAt, type RunLockOptions } from '../core/run-lock'
 import { resolvesInside, stateBase, type StateEnv } from '../core/state-dir'
@@ -19,6 +20,11 @@ import { resolvesInside, stateBase, type StateEnv } from '../core/state-dir'
  *    lock's primitive, so the kernel releases it however its holder dies. A
  *    waiter polls it rather than blocking, so the driver still reads stop
  *    requests and signals while it waits.
+ *
+ * A third lever is a wait (drive-lanes 2.7): a verification that timed out
+ * runs again only once the machine's load has cleared, since a timeout under
+ * load says nothing about the code (r4-fixes note 01M4K8J8: load 81 on 14
+ * cores).
  */
 
 /** How far below its parent a lowered process starts: `nice -n` adds, up to 20. */
@@ -26,6 +32,9 @@ export const LOW_NICE = 10
 
 /** How often a verification waiting for the slot tries it again, past the claim's own retry. */
 export const VERIFY_SLOT_POLL_MS = 1_000
+
+/** How often a re-run waiting for the load reads it: the one-minute average moves no faster. */
+export const LOAD_POLL_MS = 5_000
 
 function executable(path: string): boolean {
   try {
@@ -147,5 +156,46 @@ export async function claimVerifySlot(
     }
     if (Date.now() - t0 >= options.maxWaitMs) return { kind: 'waited_out', waited_ms: Date.now() - t0 }
     await pause(options.pollMs ?? VERIFY_SLOT_POLL_MS, options.signal)
+  }
+}
+
+/**
+ * When the load has cleared: a one-minute load average below `ceiling`,
+ * which defaults to the logical core count — no more runnable work than
+ * cores. Windows reports no load average, so its zeros always read clear.
+ * `read` and `pollMs` are test seams.
+ */
+export type LoadWaitOptions = { ceiling?: number; read?: () => number; pollMs?: number }
+
+export type LoadWait =
+  | { kind: 'clear'; load: number; waited_ms: number }
+  /** Still loaded after `maxWaitMs`; the caller re-runs anyway rather than sit there. */
+  | { kind: 'waited_out'; load: number; waited_ms: number }
+  /** The signal fired while waiting. */
+  | { kind: 'aborted' }
+
+/**
+ * Wait for the load to clear, polled, bounded by `maxWaitMs` as the slot's
+ * wait is (D10): an unattended run must have no state it can sit in
+ * indefinitely. `onWait` is called once, the first time the load is found
+ * above the ceiling.
+ */
+export async function waitForLoad(
+  options: LoadWaitOptions & { maxWaitMs: number; signal?: AbortSignal; onWait?: (load: number, ceiling: number) => void },
+): Promise<LoadWait> {
+  const ceiling = options.ceiling ?? Math.max(1, cpus().length)
+  const read = options.read ?? ((): number => loadavg()[0] ?? 0)
+  const t0 = Date.now()
+  let told = false
+  for (;;) {
+    if (options.signal?.aborted === true) return { kind: 'aborted' }
+    const load = read()
+    if (load < ceiling) return { kind: 'clear', load, waited_ms: Date.now() - t0 }
+    if (!told) {
+      told = true
+      options.onWait?.(load, ceiling)
+    }
+    if (Date.now() - t0 >= options.maxWaitMs) return { kind: 'waited_out', load, waited_ms: Date.now() - t0 }
+    await pause(Math.min(options.pollMs ?? LOAD_POLL_MS, Math.max(0, options.maxWaitMs - (Date.now() - t0))), options.signal)
   }
 }

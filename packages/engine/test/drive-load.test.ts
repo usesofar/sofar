@@ -7,7 +7,7 @@ import { foldLog, type InitiativeState } from '../src/core/fold'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { drive, STOP_REQUEST_NOTE } from '../src/driver/drive'
-import { claimVerifySlot, LOW_NICE, lowPriority, resolveBin, verifySlotPath } from '../src/driver/load'
+import { claimVerifySlot, LOW_NICE, lowPriority, resolveBin, verifySlotPath, waitForLoad } from '../src/driver/load'
 import { startVerification } from '../src/driver/verify'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
 
@@ -16,7 +16,8 @@ import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
  * the test work a run already repeats, so before there are lanes: sessions
  * and verifications start lowered, one verification runs at a time on the
  * machine, a verification's whole process group dies on a timeout or an
- * interrupt, and a timeout is retried once before it reopens a task.
+ * interrupt. A timeout is never charged to the task (2.7): the verification
+ * runs once more once the load clears, and a second timeout stops the run.
  */
 
 const roots: string[] = []
@@ -207,6 +208,31 @@ describe('the verify slot', () => {
   })
 })
 
+describe('waitForLoad (drive-lanes 2.7)', () => {
+  it('clear at once below the ceiling; else told once, polled until it clears', async () => {
+    expect(await waitForLoad({ ceiling: 4, read: () => 3.9, maxWaitMs: 1_000 })).toMatchObject({ kind: 'clear', load: 3.9 })
+    const told: string[] = []
+    const loads = [6, 5, 4, 2]
+    const got = await waitForLoad({ ceiling: 4, read: () => loads.shift()!, pollMs: 10, maxWaitMs: 5_000, onWait: (l, c) => told.push(`${l}/${c}`) })
+    expect(got).toMatchObject({ kind: 'clear', load: 2 })
+    expect(told).toEqual(['6/4'])
+    // The default ceiling is the core count, and the default reading the one-minute load average.
+    expect((await waitForLoad({ read: () => 0, maxWaitMs: 0 })).kind).toBe('clear')
+    expect(['clear', 'waited_out']).toContain((await waitForLoad({ maxWaitMs: 0 })).kind)
+  })
+
+  it('waited out at the bound, and an abort ends the wait at once', async () => {
+    const out = await waitForLoad({ ceiling: 4, read: () => 9, pollMs: 10, maxWaitMs: 100 })
+    expect(out).toMatchObject({ kind: 'waited_out', load: 9 })
+    if (out.kind === 'waited_out') expect(out.waited_ms).toBeGreaterThanOrEqual(100)
+    const abort = new AbortController()
+    setTimeout(() => abort.abort(), 50)
+    const t0 = Date.now()
+    expect((await waitForLoad({ ceiling: 4, read: () => 9, pollMs: 30_000, maxWaitMs: 60_000, signal: abort.signal })).kind).toBe('aborted')
+    expect(Date.now() - t0).toBeLessThan(5_000)
+  })
+})
+
 describe('the gate under load control (drive-lanes 1.2)', () => {
   it('verifySlot: a verification waits while another holds the slot, then runs', async () => {
     const root = repo()
@@ -241,7 +267,7 @@ describe('the gate under load control (drive-lanes 1.2)', () => {
     expect(out2.handoffs.map((h) => h.reason)).toEqual(['verify_failed'])
   })
 
-  it('a timeout is retried once before it reopens the task, and both attempts are recorded', async () => {
+  it('a timeout is not charged: the verification runs once more, and both attempts are recorded', async () => {
     const root = repo()
     const marker = join(scratch('sofar-marker-'), 'ran')
     const lines: string[] = []
@@ -254,22 +280,138 @@ describe('the gate under load control (drive-lanes 1.2)', () => {
     })
     expect(out.handoffs.map((h) => h.reason)).toEqual(['task_done'])
     expect(state(root).runs[0]!.verifications.map((v) => [v.attempt, v.result])).toEqual([[1, 'timeout'], [2, 'pass']])
-    expect(lines.some((l) => l.includes('timed out after') && l.includes('retrying once before reopening (attempt 2)'))).toBe(true)
+    expect(lines.some((l) => l.includes('timed out after') && l.includes('not charged; re-running once the load clears (attempt 2)'))).toBe(true)
   })
 
-  it('a timeout its retry repeats reopens the task with both counted as failures', async () => {
+  it('a re-run that times out too stops the run: nothing reopened, no session launched, nothing charged — and the next run gates the task first', async () => {
     const root = repo()
+    const ok = join(scratch('sofar-marker-'), 'ok')
+    const verify = `if [ -f ${ok} ]; then exit 0; fi; sleep 30`
     const out = await drive(root, 'demo', {
       adapter: new FakeAdapter([worker(root, 'w1'), worker(root, 'w2')]),
-      verify: 'sleep 30',
+      verify,
       verifyTimeoutMs: 300,
-      maxVerifyAttempts: 2,
+      maxVerifyAttempts: 1,
+      maxSessions: 2,
+    })
+    // One session: the one whose task timed out never bought a second.
+    expect(out.handoffs.map((h) => [h.task, h.reason])).toEqual([['1.1', 'task_done']])
+    expect(out.handoffs[0]!.detail).toContain('timed out after')
+    expect(out.stop).toMatchObject({ reason: 'stall' })
+    expect(out.stop.note).toContain("1.1's verification timed out on its re-run too — not charged, no session launched")
+    expect(out.stop.note).not.toContain('failed verification')
+    expect(state(root).runs[0]!.verifications.map((v) => [v.attempt, v.result])).toEqual([[1, 'timeout'], [2, 'timeout']])
+    expect(state(root).phases[0]!.tasks[0]).toMatchObject({ id: '1.1', status: 'done' })
+    expect(readFileSync(logPath(root), 'utf8')).not.toContain('reopened by the driver')
+
+    // The load gone, a new run checks 1.1 before it launches anything.
+    writeFileSync(ok, '')
+    const next = await drive(root, 'demo', { adapter: new FakeAdapter([worker(root, 'w3')]), verify, verifyTimeoutMs: 5_000 })
+    expect(next.stop.reason).toBe('closed')
+    expect(next.handoffs.map((h) => [h.task, h.reason])).toEqual([['1.2', 'task_done']])
+    const after = types(root).slice(types(root).lastIndexOf('run_started'))
+    expect(after.indexOf('verification_recorded')).toBeLessThan(after.indexOf('handoff'))
+    expect(state(root).runs[1]!.verifications[0]).toMatchObject({ task: '1.1', attempt: 1, result: 'pass' })
+  })
+
+  it('a timeout then a fail charges the fail alone', async () => {
+    const root = repo()
+    const marker = join(scratch('sofar-marker-'), 'ran')
+    const out = await drive(root, 'demo', {
+      adapter: new FakeAdapter([worker(root, 'w1'), worker(root, 'w2')]),
+      verify: `if [ -f ${marker} ]; then exit 3; fi; touch ${marker}; sleep 30`,
+      verifyTimeoutMs: 300,
+      maxVerifyAttempts: 1,
       maxSessions: 2,
     })
     expect(out.handoffs.map((h) => h.reason)).toEqual(['verify_failed'])
     expect(out.stop).toMatchObject({ reason: 'stall' })
-    expect(out.stop.note).toContain('1.1 failed verification 2 time(s)')
-    expect(state(root).runs[0]!.verifications.map((v) => [v.attempt, v.result])).toEqual([[1, 'timeout'], [2, 'timeout']])
+    expect(out.stop.note).toContain('1.1 failed verification 1 time(s)')
+    expect(state(root).runs[0]!.verifications.map((v) => [v.attempt, v.result])).toEqual([[1, 'timeout'], [2, 'fail']])
+  })
+
+  it('loadWait: the re-run starts only once the load clears, holding no slot meanwhile', async () => {
+    const root = repo()
+    const lock = { env: { XDG_STATE_HOME: scratch('sofar-slot-') } }
+    const marker = join(scratch('sofar-marker-'), 'ran')
+    // The load reads 9 on 4 cores until another verification has taken and
+    // given back the slot, which the waiting re-run must not be holding.
+    let slotWhileWaiting: string | undefined
+    let reads = 0
+    const lines: string[] = []
+    const out = await drive(root, 'demo', {
+      adapter: new FakeAdapter([worker(root, 'w1')]),
+      verify: `if [ -f ${marker} ]; then exit 0; fi; touch ${marker}; sleep 30`,
+      verifyTimeoutMs: 2_000,
+      verifySlot: true,
+      lock,
+      maxSessions: 1,
+      loadWait: {
+        ceiling: 4,
+        pollMs: 20,
+        read: () => {
+          reads += 1
+          return slotWhileWaiting === undefined ? 9 : 1
+        },
+      },
+      onProgress: (l) => {
+        lines.push(l)
+        if (!l.includes('waiting for the load to clear')) return
+        void claimVerifySlot(root, { lock, maxWaitMs: 0 }).then((s) => {
+          if (s.kind === 'claimed') s.release()
+          slotWhileWaiting = s.kind
+        })
+      },
+    })
+    expect(out.handoffs.map((h) => h.reason)).toEqual(['task_done'])
+    expect(lines.filter((l) => l.includes('waiting for the load to clear before re-running — 9.0 on 4 cores'))).toHaveLength(1)
+    expect(slotWhileWaiting).toBe('claimed')
+    expect(reads).toBeGreaterThanOrEqual(2)
+    expect(state(root).runs[0]!.verifications.map((v) => [v.attempt, v.result])).toEqual([[1, 'timeout'], [2, 'pass']])
+  })
+
+  it('loadWait: a load that never clears is waited out at the command\'s own timeout, and the re-run goes ahead', async () => {
+    const root = repo()
+    const marker = join(scratch('sofar-marker-'), 'ran')
+    const lines: string[] = []
+    const out = await drive(root, 'demo', {
+      adapter: new FakeAdapter([worker(root, 'w1')]),
+      verify: `if [ -f ${marker} ]; then exit 0; fi; touch ${marker}; sleep 30`,
+      verifyTimeoutMs: 300,
+      maxSessions: 1,
+      loadWait: { ceiling: 4, pollMs: 20, read: () => 9 },
+      onProgress: (l) => lines.push(l),
+    })
+    expect(out.handoffs.map((h) => h.reason)).toEqual(['task_done'])
+    expect(lines.some((l) => l.startsWith('warning: the load was still 9.0 after') && l.endsWith('— re-running anyway'))).toBe(true)
+    expect(state(root).runs[0]!.verifications.map((v) => [v.attempt, v.result])).toEqual([[1, 'timeout'], [2, 'pass']])
+  })
+
+  it('a stop request while the re-run waits for the load ends the run with no verdict, and the next run gates the task first', async () => {
+    const root = repo()
+    const lines: string[] = []
+    const run = drive(root, 'demo', {
+      adapter: new FakeAdapter([worker(root, 'w1'), worker(root, 'w2')]),
+      verify: 'sleep 30',
+      verifyTimeoutMs: 300,
+      stopPollMs: 5,
+      loadWait: { ceiling: 4, pollMs: 20, read: () => 9 },
+      onProgress: (l) => {
+        lines.push(l)
+        if (!l.includes('waiting for the load to clear')) return
+        appendEvent(
+          logPath(root),
+          makeEvent({ initiative: 'demo', session: 'cli', type: 'run_stop_requested', payload: { run: state(root).runs.at(-1)!.id }, source: 'cli', actor: 'human' }),
+        )
+      },
+    })
+    const out = await run
+    expect(out.stop.reason).toBe('interrupted')
+    expect(state(root).runs[0]!.verifications.map((v) => [v.attempt, v.result])).toEqual([[1, 'timeout']])
+    expect(state(root).phases[0]!.tasks[0]).toMatchObject({ id: '1.1', status: 'done' })
+    const next = await drive(root, 'demo', { adapter: new FakeAdapter([worker(root, 'w3')]), verify: 'exit 0', maxSessions: 1 })
+    expect(state(root).runs[1]!.verifications.map((v) => [v.task, v.result])).toEqual([['1.1', 'pass'], ['1.2', 'pass']])
+    expect(next.handoffs.map((h) => h.task)).toEqual(['1.2'])
   })
 
   it.runIf(posix)('a stop request during a verification kills its group and records no verdict', async () => {

@@ -635,6 +635,32 @@ describe('the merge queue (2.4, D24)', () => {
     expect(run.verifications.filter((v) => v.task === '1.2').map((v) => v.result)).toEqual(['pass', 'fail'])
     expect(git(root, 'ls-tree', '--name-only', runBaseBranch('demo', run.id))).not.toContain('b.txt')
   })
+
+  it('a verify that times out on its re-run too leaves the branch unlanded and stops the run, charging nothing (2.7)', async () => {
+    const root = repo('timeout')
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      worker(root, 'S1', { work: commit('a.txt', 'one\n', '1.1: a') }),
+      worker(root, 'S2', { hold: afterLanding(lines, '1.1'), work: commit('b.txt', 'two\n', '1.2: b') }),
+    ])
+    // 1.2's own gate passes alone; once rebased onto 1.1 it hangs, twice.
+    const verify = 'test ! -f a.txt -o ! -f b.txt || sleep 30'
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, verify, verifyTimeoutMs: 400, laneSetup: 'none', maxVerifyAttempts: 1, onProgress: (l) => lines.push(l) })
+
+    const run = state(root).runs[0]!
+    const branch = taskBranch('demo', run.id, '1.2')
+    expect(outcome.handoffs.map((h) => [h.task, h.reason])).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'task_done'],
+    ])
+    expect(outcome.stop.reason).toBe('stall')
+    expect(outcome.stop.note).toContain("1.2's verification timed out on its re-run too — not charged, no session launched")
+    expect(outcome.stop.note).toContain(`(its work is on ${branch}, unlanded)`)
+    expect(run.verifications.filter((v) => v.task === '1.2').map((v) => v.result)).toEqual(['pass', 'timeout', 'timeout'])
+    expect(state(root).phases[0]!.tasks.find((t) => t.id === '1.2')!.status).toBe('done')
+    expect(git(root, 'ls-tree', '--name-only', runBaseBranch('demo', run.id))).not.toContain('b.txt')
+    expect(git(root, 'ls-tree', '--name-only', branch)).toContain('b.txt')
+  })
 })
 
 describe('LaneRun.integrate (2.4, D24)', () => {

@@ -69,7 +69,7 @@ import {
   type VerificationOutcome,
   type VerificationProcess,
 } from './verify'
-import { claimVerifySlot } from './load'
+import { claimVerifySlot, waitForLoad, type LoadWaitOptions } from './load'
 import { claimLanePool, detectLaneSetup, dirtyPaths, headCommit, lanePoolDir, LaneRun, type Lane, type LaneTask } from './lanes'
 import { version as ENGINE_VERSION } from '../../package.json'
 import { resolveJudgeProvider } from '../client/judge'
@@ -399,11 +399,17 @@ export interface DriveOptions {
    * one verification at a time per user on this machine. The CLI passes both,
    * as it passes `keepAwake`; a library caller that wants them states them.
    * Either way a verification runs in its own process group, killed whole on
-   * a timeout or an interrupt, and a timeout is retried once before it
-   * reopens the task.
+   * a timeout or an interrupt, and a timeout is never charged to the task
+   * (2.7): it is run once more, and a re-run that times out too stops the run.
    */
   lowPriority?: boolean
   verifySlot?: boolean
+  /**
+   * The wait before that re-run (drive-lanes 2.7): until the machine's load
+   * clears (load.ts waitForLoad), bounded by the command's own timeout. The
+   * CLI passes `{}`; absent, the re-run starts at once.
+   */
+  loadWait?: LoadWaitOptions
   /**
    * Lane worktrees to drive tasks in (drive-lanes 2.2, D19/D20). Absent or 1
    * is a serial run, unchanged: one launch directory, nothing recorded. Two or
@@ -1069,7 +1075,7 @@ async function driveHolding(
   // Every verification in flight: one on a serial run, one per lane on a lanes run (2.3).
   const liveVerifies = new Set<{ waiting: AbortController; process?: VerificationProcess }>()
   let slotWarned = false
-  const runGated = async (cmd: string, dir: string, timeoutMs: number): Promise<VerificationOutcome | undefined> => {
+  const runGated = async (cmd: string, dir: string, timeoutMs: number, rerun = false): Promise<VerificationOutcome | undefined> => {
     const watchFrom = existsSync(eventsPath) ? statSync(eventsPath).size : 0
     const look = (): void => {
       const folded = ctx.foldState(initiative)
@@ -1084,6 +1090,20 @@ async function driveHolding(
     liveVerifies.add(liveVerify)
     let release: (() => void) | undefined
     try {
+      // A re-run waits for the load first, holding no slot meanwhile (2.7).
+      if (rerun && options.loadWait !== undefined) {
+        const load = await waitForLoad({
+          ...options.loadWait,
+          maxWaitMs: timeoutMs,
+          signal: waiting.signal,
+          onWait: (avg, ceiling) => progress(`  waiting for the load to clear before re-running — ${avg.toFixed(1)} on ${ceiling} cores`),
+        })
+        if (load.kind === 'aborted') return undefined
+        if (load.kind === 'waited_out') {
+          progress(`warning: the load was still ${load.load.toFixed(1)} after ${Math.round(load.waited_ms / 1000)}s — re-running anyway`)
+        }
+      }
+      if (fenced !== undefined || interrupted) return undefined
       if (options.verifySlot === true) {
         const slot = await claimVerifySlot(rootDir, {
           ...(options.lock !== undefined ? { lock: options.lock } : {}),
@@ -1112,11 +1132,14 @@ async function driveHolding(
     }
   }
   /**
-   * A gated command, each outcome recorded through `record`. A timeout is
-   * retried once before it counts against the task (drive-load F3): under
-   * load a healthy suite can overrun its bound, and a reopen costs a whole
-   * session where a second run costs one more command. Both attempts are
-   * recorded. Undefined when the first run ended with no verdict.
+   * A gated command, each outcome recorded through `record`. A timeout is no
+   * verdict on the code (drive-lanes 2.7; drive-load F3): under load a
+   * healthy suite overruns its bound, and a reopen buys a whole session to
+   * make a passing command pass. So a timeout is never charged — `failed`
+   * counts fails alone — and the command runs once more, once the load has
+   * cleared. A re-run that times out too comes back as the outcome, for the
+   * caller to stop on (`timedOutStop`). Every run is recorded. Undefined when
+   * a run ended with no verdict.
    */
   const runRecorded = async (
     cmd: string,
@@ -1125,18 +1148,33 @@ async function driveHolding(
     attempt: number,
     record: (outcome: VerificationOutcome, attempt: number) => void,
   ): Promise<{ outcome: VerificationOutcome; attempt: number; failed: number } | undefined> => {
+    const charged = (o: VerificationOutcome): number => (o.result === 'pass' || o.result === 'timeout' ? 0 : 1)
     const first = await runGated(cmd, dir, timeoutMs)
     if (first === undefined) return undefined
     record(first, attempt)
-    if (first.result !== 'timeout') return { outcome: first, attempt, failed: first.result === 'pass' ? 0 : 1 }
-    progress(`  ${describeVerification(cmd, attempt, first)} — retrying once before reopening (attempt ${attempt + 1})`)
-    const second = await runGated(cmd, dir, timeoutMs)
-    if (second === undefined) return { outcome: first, attempt, failed: 1 }
+    if (first.result !== 'timeout') return { outcome: first, attempt, failed: charged(first) }
+    progress(`  ${describeVerification(cmd, attempt, first)} — not charged; re-running once the load clears (attempt ${attempt + 1}), never a new session`)
+    const second = await runGated(cmd, dir, timeoutMs, true)
+    if (second === undefined) return undefined
     record(second, attempt + 1)
-    return { outcome: second, attempt: attempt + 1, failed: second.result === 'pass' ? 1 : 2 }
+    return { outcome: second, attempt: attempt + 1, failed: charged(second) }
   }
+  /**
+   * The stop a re-run that timed out too calls for (2.7). Nothing is
+   * reopened and no session launched: the task stays as it stands, its last
+   * check a timeout, which the next run gates first (`recover`).
+   */
+  const timedOutStop = (what: string, line: string): string =>
+    `${what} timed out on its re-run too — not charged, no session launched; raise --verify-timeout or find the hang, then drive again; last: ${line}`
 
-  type Gate = { applies: false } | { applies: true; passed: boolean; attempt: number; line: string; exhausted: boolean }
+  /**
+   * On a gate that did not pass, `exhausted` is the stall note once the task's
+   * failures reach --max-verify-attempts; `timedOut` the stop note when it
+   * reached no verdict, nothing reopened (2.7).
+   */
+  type Gate = { applies: false } | { applies: true; passed: boolean; attempt: number; line: string; exhausted?: string; timedOut?: string }
+  const exhaustedNote = (taskId: string, failures: number, line: string): string | undefined =>
+    failures >= maxVerifyAttempts ? `${taskId} failed verification ${failures} time(s); last: ${line}` : undefined
   /** `dir` is the tree under test: the launch directory, or on a lanes run the task's lane or a lane at the base (D20). */
   const gate = async (folded: InitiativeState, taskId: string, dir: string = cwd, since?: string): Promise<Gate> => {
     const task = folded.phases.flatMap((p) => p.tasks).find((t) => t.id === taskId)
@@ -1152,7 +1190,7 @@ async function driveHolding(
     if (!checked.applies) return verified
     if (!checked.passed) return checked
     const line = [verified.applies ? verified.line : '', checked.line].filter((l) => l.length > 0).join('; ')
-    return { applies: true, passed: true, attempt: checked.attempt, line, exhausted: false }
+    return { applies: true, passed: true, attempt: checked.attempt, line }
   }
   /** A recorded check failure, worded as the gate worded it — with its rule and fix while the decision is in force. */
   const checkFailureFor = (handle: string, outcome: VerificationOutcome & { command: string; attempt: number }): string => {
@@ -1174,12 +1212,12 @@ async function driveHolding(
     // the paths it changed, and a full-gate pass on this very tree covers it.
     // A path list at its cap has lost paths, so that task runs the full gate.
     if (verifyQuick !== undefined && which.source === 'run') {
-      if (fullCovers(fingerprint)) return { applies: true, passed: true, attempt: task.verification?.attempt ?? 0, line: '', exhausted: false }
+      if (fullCovers(fingerprint)) return { applies: true, passed: true, attempt: task.verification?.attempt ?? 0, line: '' }
       const files = changedFiles(folded, taskId, dirs.absolute, since)
       if (files !== undefined) which = { ...which, cmd: expandFiles(verifyQuick, files) }
     }
     if (verificationCovers(task.verification, which.cmd, fingerprint)) {
-      return { applies: true, passed: true, attempt: task.verification!.attempt, line: '', exhausted: false }
+      return { applies: true, passed: true, attempt: task.verification!.attempt, line: '' }
     }
     const approved = which.source === 'run' || commandAllowed(which.cmd, surface)
     const record = (outcome: VerificationOutcome, attempt: number): void => {
@@ -1222,7 +1260,11 @@ async function driveHolding(
     const line = describeVerification(which.cmd, attempt, outcome)
     if (outcome.result === 'pass') {
       progress(`  ${line}`)
-      return { applies: true, passed: true, attempt, line, exhausted: false }
+      return { applies: true, passed: true, attempt, line }
+    }
+    if (outcome.result === 'timeout') {
+      progress(`  ${line} — again; ${taskId} stays done, unaccepted, and the run stops`)
+      return { applies: true, passed: false, attempt, line, timedOut: timedOutStop(`${taskId}'s verification`, line) }
     }
     // Reopen: the claim was the agent's, the rejection is the record's, and
     // a done task with a failed check must not sit in the plan as done.
@@ -1234,7 +1276,8 @@ async function driveHolding(
     )
     progress(`  ${line} — task reopened`)
     // "Once one task has FAILED N times" (D19): these failures plus the earlier.
-    return { applies: true, passed: false, attempt, line, exhausted: failuresSoFar(run, taskId) + ran.failed >= maxVerifyAttempts }
+    const exhausted = exhaustedNote(taskId, failuresSoFar(run, taskId) + ran.failed, line)
+    return { applies: true, passed: false, attempt, line, ...(exhausted !== undefined ? { exhausted } : {}) }
   }
   const checkGate = async (folded: InitiativeState, task: TaskState, run: InitiativeState['runs'][number], dir: string): Promise<Gate> => {
     let checks: InForceCheck[]
@@ -1289,8 +1332,13 @@ async function driveHolding(
         const ran = await runRecorded(c.check.cmd, dir, timeoutMs, attempt, record)
         if (ran === undefined) return { applies: false }
         ;({ outcome, attempt } = ran)
-        // Every non-pass recorded here, a timeout its retry passed included.
+        // Every fail recorded here; a timeout is never one (2.7).
         failures += ran.failed
+        if (outcome.result === 'timeout') {
+          const line = checkFailureLine(c, outcome)
+          progress(`  ${line} — again; ${task.id} stays done, unaccepted, and the run stops`)
+          return { applies: true, passed: false, attempt, line, timedOut: timedOutStop(`${task.id}'s check against [${c.shown}]`, line) }
+        }
       } else {
         outcome = { result: 'refused', duration_ms: 0, diagnostics: 'decision check is neither approved on this clone nor covered by the run\'s allow rules; nothing was run' }
         record(outcome, attempt)
@@ -1306,9 +1354,10 @@ async function driveHolding(
         { session: 'cli', source: 'cli', actor: 'human' },
       )
       progress(`  ${line} — task reopened`)
-      return { applies: true, passed: false, attempt, line, exhausted: failures >= maxVerifyAttempts }
+      const exhausted = exhaustedNote(task.id, failures, line)
+      return { applies: true, passed: false, attempt, line, ...(exhausted !== undefined ? { exhausted } : {}) }
     }
-    return { applies: true, passed: true, attempt, line: '', exhausted: false }
+    return { applies: true, passed: true, attempt, line: '' }
   }
 
   // ---------------------------------------------------------------------
@@ -1433,9 +1482,16 @@ async function driveHolding(
       return false
     }
     const line = describeVerification(verify, ran.attempt, ran.outcome)
+    // Timed out twice (2.7): no verdict to bisect, nothing to reopen.
+    if (ran.outcome.result === 'timeout') {
+      progress(`  ${line} — again; the run stops`)
+      stop ??= { reason: 'stall', note: timedOutStop(`the full gate at ${when}`, line) }
+      return false
+    }
     progress(`  ${line}${window.length > 1 ? ` — bisecting ${window.length} tasks` : ''}`)
     let pinned: Pinned | undefined = window.length === 1 ? { task: tip.task, range: [tip.task], probes: 0 } : undefined
     let unbisected: string | undefined
+    let probeTimedOut: string | undefined
     if (pinned === undefined) {
       try {
         pinned = await bisectWindow(window, fingerprint?.tree === CLEAN_TREE ? fingerprint.head : undefined, async (w) => {
@@ -1443,6 +1499,10 @@ async function driveHolding(
           if (lane === undefined) throw new Error('no clean lane to check a task commit out in')
           const probed = await runFull(w.task, lane.dir)
           if (probed === undefined) return undefined
+          if (probed.outcome.result === 'timeout') {
+            probeTimedOut = timedOutStop(`the full gate's probe of ${w.task} at ${w.commit.slice(0, 7)}`, describeVerification(verify, probed.attempt, probed.outcome))
+            return undefined
+          }
           progress(`    ${w.task} at ${w.commit.slice(0, 7)}: ${probed.outcome.result === 'pass' ? 'passes' : 'fails'}`)
           return probed.outcome.result === 'pass'
         })
@@ -1450,6 +1510,10 @@ async function driveHolding(
         unbisected = err instanceof Error ? err.message : String(err)
       }
       if (fenced !== undefined || interrupted) return false
+      if (probeTimedOut !== undefined) {
+        stop ??= { reason: 'stall', note: probeTimedOut }
+        return false
+      }
     }
     const charged = pinned?.task ?? tip.task
     const note =
@@ -1638,8 +1702,8 @@ async function driveHolding(
   }
   type Landed =
     | { kind: 'landed' }
-    /** Interrupted or fenced in the queue: left unlanded for a resumed run (D13). */
-    | { kind: 'held' }
+    /** Interrupted or fenced in the queue, or its re-verify timed out twice (`timedOut`, 2.7): left unlanded for a resumed run (D13). */
+    | { kind: 'held'; timedOut?: { line: string; note: string } }
     /** The re-verify of the integrated branch failed: the gate reopened the task. */
     | { kind: 'reverify_failed'; line: string; exhausted?: string }
     /** The merge stopped on conflicts, left in the lane; the task is reopened. */
@@ -1671,11 +1735,12 @@ async function driveHolding(
           const g = await gate(ctx.foldState(initiative), taskId, where.lane.dir)
           // Ended with no verdict: the integrated branch waits for a resumed run.
           if (fenced !== undefined || interrupted) return { kind: 'held' }
+          if (g.applies && g.timedOut !== undefined) return { kind: 'held', timedOut: { line: g.line, note: g.timedOut } }
           if (g.applies && !g.passed) {
             return {
               kind: 'reverify_failed',
               line: g.line,
-              ...(g.exhausted ? { exhausted: `${taskId} failed verification ${g.attempt} time(s); last: ${g.line}` } : {}),
+              ...(g.exhausted !== undefined ? { exhausted: g.exhausted } : {}),
             }
           }
         }
@@ -1698,8 +1763,12 @@ async function driveHolding(
    * check puts the task back in it. On a lanes run, a done task whose branch
    * never landed is one too (D20): a crash between the gate and the landing.
    * The coordinator (2.3) passes the tasks its lanes hold, never checked here,
-   * and the lanes running them, never taken for a check. True when a check
-   * reopened a task; a stop it reaches is set in `stop`, as the loop's are.
+   * and the lanes running them, never taken for a check. A done task whose
+   * last check timed out is one too, whichever run left it (2.7): that gate
+   * stopped its run with no verdict, so the next run gates it first — on a
+   * serial run, whose tree holds the work; an earlier lanes run left it on
+   * that run's branch. True when a check reopened a task; a stop it reaches
+   * is set in `stop`, as the loop's are.
    */
   const recover = async (
     state: InitiativeState,
@@ -1708,15 +1777,24 @@ async function driveHolding(
   ): Promise<boolean> => {
     let reopened = false
     const thisRun = state.runs.find((r) => r.id === runId)
+    const tasks = state.phases.flatMap((p) => p.tasks)
+    // Its newest check: an older timeout a later check answered is no longer the last word.
+    const timedOut = (task: TaskState): boolean =>
+      [task.verification, ...(task.checks ?? [])]
+        .filter((v) => v !== undefined)
+        .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0))
+        .pop()?.result === 'timeout'
+    const left = laneRun === undefined ? tasks.filter((t) => t.status === 'done' && timedOut(t)).map((t) => t.id) : []
     // The lane at the base, readied once per turn and only when a check needs it.
     let baseLane: { dir: string } | undefined | null = null
-    for (const doneId of thisRun?.done_tasks ?? []) {
+    for (const doneId of new Set([...(thisRun?.done_tasks ?? []), ...left])) {
       if (held.has(doneId)) continue
-      const task = state.phases.flatMap((p) => p.tasks).find((t) => t.id === doneId)
+      const task = tasks.find((t) => t.id === doneId)
       if (task === undefined || task.status !== 'done') continue
       // A recorded decision check (memory-lead D9) is a check behind it too:
-      // the gate ran, and the closing sweep re-checks what it accepted.
-      const unchecked = task.verification === undefined && (task.checks?.length ?? 0) === 0
+      // the gate ran, and the closing sweep re-checks what it accepted. One
+      // that timed out is not: its gate reached no verdict.
+      const unchecked = (task.verification === undefined && (task.checks?.length ?? 0) === 0) || timedOut(task)
       const unlanded = laneRun?.unlanded(doneId) === true
       if (!unchecked && !unlanded) continue
       let dir = cwd
@@ -1741,12 +1819,18 @@ async function driveHolding(
         }
       }
       const g = await gate(state, doneId, dir)
-      if (g.applies && !g.passed) {
+      if (g.applies && g.timedOut !== undefined) {
+        stop = { reason: 'stall', note: g.timedOut }
+        break
+      } else if (g.applies && !g.passed) {
         reopened = true
-        if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
+        if (g.exhausted !== undefined) stop = { reason: 'stall', note: g.exhausted }
       } else if (where !== undefined && fenced === undefined && !interrupted) {
         const landed = await landTask(doneId, where, false)
-        if (landed.kind === 'conflict' || landed.kind === 'reverify_failed') {
+        if (landed.kind === 'held' && landed.timedOut !== undefined) {
+          stop = { reason: 'stall', note: landed.timedOut.note }
+          break
+        } else if (landed.kind === 'conflict' || landed.kind === 'reverify_failed') {
           reopened = true
           if (landed.exhausted !== undefined) stop = { reason: 'stall', note: landed.exhausted }
         } else if (landed.kind === 'unlandable') {
@@ -1775,11 +1859,16 @@ async function driveHolding(
     // A tiered run's full gate at the run end (2.6), once; its pass on this
     // tree then covers every task gated on the quick tier.
     if (sweepDir !== undefined && (await fullGate(state, sweepDir, 'the run end'))) return true
+    if (stop !== undefined) return false
     for (const doneId of sweepDir === undefined ? [] : (thisRun?.done_tasks ?? [])) {
       const g = await gate(state, doneId, sweepDir)
+      if (g.applies && g.timedOut !== undefined) {
+        stop = { reason: 'stall', note: g.timedOut }
+        break
+      }
       if (g.applies && !g.passed) {
         stale = true
-        if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
+        if (g.exhausted !== undefined) stop = { reason: 'stall', note: g.exhausted }
       }
       if (fenced !== undefined || interrupted) break
     }
@@ -1982,14 +2071,21 @@ async function driveHolding(
         // Adopted while it verified: the handoff is the new owner's to file.
         if (fenced !== undefined) return { kind: 'fenced' }
         if (g.applies) checked = g.line.length > 0 ? g.line : 'passed: an earlier check still covers this tree'
-        if (g.applies && !g.passed) {
+        if (g.applies && g.timedOut !== undefined) {
+          // No verdict (2.7): the task stays done, unaccepted, and the run stops.
+          detail = g.line
+          exhausted = laneTask !== undefined ? `${g.timedOut} (its work is on ${laneTask.branch}, unlanded)` : g.timedOut
+        } else if (g.applies && !g.passed) {
           reason = 'verify_failed'
           detail = g.line
-          if (g.exhausted) exhausted = `${task.id} failed verification ${g.attempt} time(s); last: ${g.line}`
+          exhausted = g.exhausted
         } else if (laneTask !== undefined && done && !interrupted) {
           const landed = await landTask(task.id, laneTask, true)
           if (fenced !== undefined) return { kind: 'fenced' }
-          if (landed.kind === 'conflict' || landed.kind === 'reverify_failed') {
+          if (landed.kind === 'held' && landed.timedOut !== undefined) {
+            detail = checked = landed.timedOut.line
+            exhausted = `${landed.timedOut.note} (its work is on ${laneTask.branch}, unlanded)`
+          } else if (landed.kind === 'conflict' || landed.kind === 'reverify_failed') {
             reason = landed.kind === 'conflict' ? 'merge_conflict' : 'verify_failed'
             detail = landed.line
             if (landed.kind === 'reverify_failed') checked = landed.line

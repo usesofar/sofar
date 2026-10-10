@@ -6,21 +6,13 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1531 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 9/23 tasks done (39%)
+Progress: 10/23 tasks done (43%)
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
-## Phase 2 — Local lanes [active] — 6/7 done
+## Phase 2 — Local lanes [done] — 7/7 done — its tasks in phases/P2.md
 
-- [x] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar
-- [x] 2.2 `sofar drive --lanes N`: a persistent lane worktree pool (deps installed once), tasks as branches, lanes recorded on run_started. `--lanes 1` stays byte-identical to today's run (session-driver D6 holds there)
-- [x] 2.3 Coordinator: one process assigns ready tasks to free lanes and records each assignment, so the statusline and interactive sessions see which lane holds which task. Budgets (--cost-cap, --max-sessions) count across lanes; a rate-limited lane parks instead of stalling
-- [x] 2.4 Serial merge queue: rebase a passing task branch onto the run base, re-verify when the base moved, fast-forward. A conflict becomes a merge handoff to the lane's next session. Affected-tests verify per merge, full suite per batch
-- [x] 2.5 Measure local lanes against serial on the 1.1 fixture. Keep only if wall-clock falls ≥40%, duplicate work is 0, tasks done and verify pass rate are no lower, merge-conflict reopens ≤10% and tokens per task rise ≤5%
-- [x] 2.6 Tiered verify: after each task run the typecheck plus the tests covering the files the task changed; run the full gate (whole vitest + cargo) once at a phase end and at the run end, and pin a full-gate failure to its task by bisecting the phase's task commits. Keep only if it beats per-task full verify on the 1.1 fixture with no failure missed.
-- [ ] 2.7 A verify that times out re-runs the verify once load control (1.2) clears, never a new session; only a verify that fails charges the task.
-
-## Phase 3 — Conflict-aware orchestration [pending] — 0/9 done
+## Phase 3 — Conflict-aware orchestration [active] — 0/9 done
 
 - [ ] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane steers rather than denies, so r4-fixes D17 holds: the hook's context names the holding lane, its task, the region and what is free, and the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. A deny mode sits behind a flag, off, until the operator rules on D17 for driven lanes
 - [ ] 3.2 Footprint prediction and conflict-aware scheduling: task `touches`, the record's mention index, files earlier sessions on the task touched, git co-change. A free lane takes the first ready task that misses every live lease and footprint, else idles; skipped tasks age up
@@ -39,5 +31,5 @@ Progress: 9/23 tasks done (39%)
 - [ ] 4.3 Conflicts in cloud lanes: no edit-time leases (a cloud VM cannot read the local lease store), so scheduling by footprint plus the merge queue. Measure conflict rework against local lanes
 - [ ] 4.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
-Active phase: Phase 2 — Local lanes
-Next action: 2.7: re-run a timed-out verify once load control clears, never a new session
+Active phase: Phase 3 — Conflict-aware orchestration
+Next action: 3.1: region leases at PreToolUse (steer on overlap, deny behind a flag)

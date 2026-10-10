@@ -2313,7 +2313,8 @@ current fingerprint equals `checked`; the driver re-fingerprints before
 trusting one — stale means verify again. ELIGIBILITY: on a session whose
 task is done (handoff `task_done` or `threshold`) and a verify applies, the
 gate runs BEFORE the handoff is filed; a pass leaves the reason as it was,
-anything else reopens the task (`task_status_changed` → `active`, note
+and so does a timeout (TIMEOUT, under Load control); anything else
+reopens the task (`task_status_changed` → `active`, note
 `reopened by the driver — verification attempt N: \`cmd\` <how> — <last
 line>`), files the handoff as `verify_failed` with that line as `detail`,
 and the next session for the task gets the failure verbatim in its prompt
@@ -2345,9 +2346,21 @@ and signals while it runs. A timeout or an interrupt signals the whole group
 with SIGTERM, then SIGKILL 5 s later, and when the shell exits whatever it
 left in the group is SIGKILLed. An interrupt or a takeover during a command
 records NO verification: the task stays `done` with no check, which a
-resumed run gates first. TIMEOUT RETRY: a `timeout` is retried once before
-it reopens the task, and both attempts are recorded and both count against
-`--max-verify-attempts`. PRIORITY (`lowPriority`): sessions and gate
+resumed run gates first. TIMEOUT (drive-lanes 2.7): a `timeout` is no
+verdict on the code and is never charged to the task — it does not count
+against `--max-verify-attempts`, and it never reopens the task or launches a
+session. The command runs once more (attempt N+1), after THE LOAD WAIT
+(`loadWait`): the one-minute load average must fall below the ceiling
+(default the logical core count), polled every 5 s, printing `waiting for
+the load to clear before re-running — <load> on <cores> cores` once,
+bounded by the command's own timeout, past which it re-runs with a warning;
+the re-run then waits for the verify slot as any command does. Both runs are
+recorded. A re-run that times out too leaves the task as it stands — `done`,
+unaccepted, unlanded on a lanes run — and stops the run as `stall`, the note
+saying `… timed out on its re-run too — not charged, no session launched …`;
+a full-gate timeout stops it the same way, with nothing bisected. A done
+task whose latest check is a `timeout` has no check behind it: the next
+serial run, resumed or new, gates it first. PRIORITY (`lowPriority`): sessions and gate
 commands start under `nice -n 10`, plus `taskpolicy -c utility` on macOS,
 and every child inherits it. A binary that does not resolve on PATH is
 spawned unwrapped, so it still fails as ENOENT, exit 127, with
@@ -2357,7 +2370,7 @@ base>/verify.lock`, the run lock's primitive. A waiter polls it and prints
 `waiting for the verify slot — …` once. The wait is bounded by the
 command's own timeout; past that the command runs without the slot, with a
 warning. Where no lock can be taken, the warning is printed once per run.
-The CLI sets both options on every run; a library caller states them.
+The CLI sets all three options on every run; a library caller states them.
 
 **Decision checks at acceptance (memory-lead 2.3, D9).** Once the task's own
 command passes, or none applies, the gate runs the in-force decision checks
@@ -2368,15 +2381,16 @@ covered by the run's surface, and is recorded as verification_recorded with
 `decision: "<slug> D<n>"`, cwd `.` and timeout_ms = the check's own, else
 the run's verify timeout. A covered pass (same command, same tree) runs
 nothing. `refused` is recorded and NEVER blocks: nothing ran, and nothing an
-agent controls decides approval. A fail or timeout blocks exactly as a failed
-verify does: reopened with `reopened by the driver — <failure line>`,
+agent controls decides approval. A timeout is treated as a verify's is (TIMEOUT
+above). A fail blocks exactly as a failed verify does: reopened with `reopened by the driver — <failure line>`,
 handoff `verify_failed` with the line as detail, and the next session's
 prompt says `The previous session marked this task done, but <failure
 line>`. The fold keeps these records apart: run.verifications (with
 `decision`) and task.checks (latest per decision) — never
 task.verification, so the task's own pass keeps covering. A resumed driver
 treats a recorded check like a verification. `--max-verify-attempts` counts
-FAILURES per task per run, verify and check alike, a refused check excepted.
+FAILURES per task per run, verify and check alike, a refused check and a
+timeout excepted.
 Since check passes are attempts too, attempts can outnumber failures.
 
 **Fold.** `runs[]` in log order; latestRun is the resume point — a run with
