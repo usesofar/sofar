@@ -534,6 +534,38 @@ const NARROWING_WITH_VALUE = [
   '--testPathPattern', '--testPathPatterns', '--testPathIgnorePatterns', '--shard', '--project', '--deselect', '--ignore', '--ignore-glob', '--exclude',
 ]
 const NARROWING_SWITCHES = ['--only', '--onlyChanged', '-o', '--changed', '--related', '--findRelatedTests', '--lf', '--last-failed', '--only-changed', '-short']
+/**
+ * Flags that change how a run reports or builds, never which tests it runs
+ * (r4-fixes H14): dropped before coverage is read, so `cargo test -q` is
+ * `cargo test` and `npx vitest run --reporter=dot` is `npx vitest run` — 5 of
+ * 67 real holds asked again for a suite that had just passed. Those in the
+ * second list always take a value, as the next word or after `=`; `--` only
+ * separates. Any other flag still keeps a run from standing in for a wider
+ * one: `--lib`, `--ignored` and `-p` select less.
+ */
+const NEUTRAL_SWITCHES = new Set([
+  '-q', '--quiet', '--verbose', '--silent', '--release', '--workspace', '--all', '--no-fail-fast', '--include-ignored', '--nocapture',
+  '--show-output', '--locked', '--frozen', '--offline', '--run', '--no-watch', '--passWithNoTests', '--coverage', '--color', '--no-color', '--bail', '--ci',
+])
+const NEUTRAL_WITH_VALUE = new Set(['--reporter', '--reporter-outfile', '--outputFile', '--message-format', '-j', '--jobs', '--test-threads', '--maxWorkers', '--pool', '--timeout', '--testTimeout'])
+
+/** A run's arguments less every neutral flag and its value (H14). */
+function selecting(args: readonly string[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < args.length; i += 1) {
+    const t = args[i]!
+    if (t === '--' || NEUTRAL_SWITCHES.has(t)) continue
+    if (NEUTRAL_WITH_VALUE.has(t)) {
+      if (i + 1 < args.length && !args[i + 1]!.startsWith('-')) i += 1 // its value
+      continue
+    }
+    const eq = t.indexOf('=')
+    if (t.startsWith('-') && eq > 0 && (NEUTRAL_SWITCHES.has(t.slice(0, eq)) || NEUTRAL_WITH_VALUE.has(t.slice(0, eq)))) continue
+    out.push(t)
+  }
+  return out
+}
+
 /** A narrowing flag: `value` when its value is the next word, `switch` when it carries none there. */
 function narrowingFlag(token: string): 'value' | 'switch' | null {
   for (const f of NARROWING_WITH_VALUE) {
@@ -598,7 +630,7 @@ function testSpec(segment: string, probe: PathProbe = NO_TREE): TestSpec {
   const at = tokens.findIndex((t, i) => ARG_TOKEN.test(t) || (i > 0 && !keepsHead(tokens[i - 1]!, t) && probe(t) !== null))
   const spec: TestSpec = {
     head: (at === -1 ? tokens : tokens.slice(0, at)).join(' '),
-    args: at === -1 ? [] : tokens.slice(at),
+    args: at === -1 ? [] : selecting(tokens.slice(at)),
     operands: [],
     narrowed: false,
     filtered: false,
