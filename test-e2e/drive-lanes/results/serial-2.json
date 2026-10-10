@@ -1,0 +1,217 @@
+{
+  "label": "serial-2",
+  "arm": "serial",
+  "started": "2026-10-10T13:34:28.998Z",
+  "engine": {
+    "version": "0.38.0-dev+trunk",
+    "commit": "e5c66f00",
+    "dirty_src_paths": 0,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.bench/claude-2.1.278/claude",
+    "version": "2.1.278 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "drive": {
+    "exit": 0,
+    "signal": null,
+    "ms": 304433
+  },
+  "score": {
+    "run": {
+      "id": "01M4K0BDFPGF31TYT0P95QAC7B",
+      "stop_reason": "stall",
+      "stop_note": "2 consecutive stalls; last: no session registered by claude-code since the launch (exit 1)",
+      "surface": {
+        "allow": [
+          "mcp__sofar",
+          "Bash(sofar:*)",
+          "Bash(git status:*)",
+          "Bash(git diff:*)",
+          "Bash(git log:*)",
+          "Bash(git show:*)",
+          "Bash(git add:*)",
+          "Bash(git commit:*)",
+          "Bash(node:*)",
+          "Bash(npm test:*)"
+        ],
+        "model": "sonnet",
+        "permission_mode": "acceptEdits"
+      }
+    },
+    "wall_clock_s": 304.4,
+    "overhead_s": 87.9,
+    "tasks": {
+      "total": 9,
+      "done": 5,
+      "done_rate": 0.556,
+      "final_status": {
+        "1.1": "done",
+        "1.2": "done",
+        "1.3": "done",
+        "1.4": "done",
+        "1.5": "done",
+        "1.6": "pending",
+        "1.7": "pending",
+        "1.8": "pending",
+        "1.9": "pending"
+      }
+    },
+    "verify": {
+      "gate_attempts": 5,
+      "gate_passes": 5,
+      "gate_pass_rate": 1,
+      "first_try_pass_rate": 1,
+      "sweep_checks": 0,
+      "sweep_failures": 0
+    },
+    "sessions": {
+      "launched": 7,
+      "unresolved": 2,
+      "by_reason": {
+        "task_done": 5
+      },
+      "tasks_with_repeat_sessions": [],
+      "mean_seconds_per_handoff": 43.3
+    },
+    "tokens": {
+      "input": 110,
+      "cache_creation": 72832,
+      "cache_read": 1768368,
+      "output": 17933,
+      "total": 1859243,
+      "sessions_with_transcript": 5,
+      "per_task": 371849,
+      "output_per_task": 3587,
+      "context_at_handoff_mean": 368262
+    },
+    "cost": {
+      "usd": 0.82,
+      "per_task": 0.164
+    },
+    "conflicts": {
+      "merge": 0,
+      "regressions": 0,
+      "off_task_resolutions": 0,
+      "off_task": []
+    },
+    "per_task": [
+      {
+        "id": "1.1",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 28.6,
+        "tokens": 261702,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.2",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 82.2,
+        "tokens": 599372,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.3",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 27.1,
+        "tokens": 344976,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.4",
+        "shape": "shared",
+        "sessions": 1,
+        "seconds": 45.4,
+        "tokens": 393913,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.5",
+        "shape": "shared",
+        "sessions": 1,
+        "seconds": 33.1,
+        "tokens": 259280,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.6",
+        "shape": "shared",
+        "sessions": 0,
+        "seconds": 0,
+        "tokens": 0,
+        "reasons": []
+      },
+      {
+        "id": "1.7",
+        "shape": "chain",
+        "sessions": 0,
+        "seconds": 0,
+        "tokens": 0,
+        "reasons": []
+      },
+      {
+        "id": "1.8",
+        "shape": "chain",
+        "sessions": 0,
+        "seconds": 0,
+        "tokens": 0,
+        "reasons": []
+      },
+      {
+        "id": "1.9",
+        "shape": "chain",
+        "sessions": 0,
+        "seconds": 0,
+        "tokens": 0,
+        "reasons": []
+      }
+    ]
+  },
+  "final_tree": {
+    "verify_passes": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5"
+    ],
+    "commits": 7,
+    "dirty_paths": 3
+  },
+  "ended": "2026-10-10T13:39:35.851Z",
+  "invalid": "bench profile hit its seven-day usage limit after 5 tasks: launches 6 and 7 got rate_limit_event status rejected (seven_day utilization 1.0, resets 2026-10-11T17:00Z) and exited 1 before work, so the run stalled out - not a throughput sample"
+}

@@ -6,11 +6,11 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 773 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 0/16 tasks done (0%)
+Progress: 1/16 tasks done (6%)
 
-## Phase 1 — Baseline and prerequisites [active] — 0/3 done
+## Phase 1 — Baseline and prerequisites [active] — 1/3 done
 
-- [ ] 1.1 Lane fixture and serial baseline: a sandbox repo with 9 tasks (6 independent, 3 chained by waits_on, 3 editing one shared function), each with a verify command. Serial drive's wall-clock, tasks done, verify pass rate, tokens per task and conflicts are the bar every later step must beat
+- [x] 1.1 Lane fixture and serial baseline: a sandbox repo with 9 tasks (6 independent, 3 chained by waits_on, 3 editing one shared function), each with a verify command. Serial drive's wall-clock, tasks done, verify pass rate, tokens per task and conflicts are the bar every later step must beat
 - [ ] 1.2 Load control so lanes do not saturate the machine: a verify semaphore (one full suite at a time), nice/taskpolicy for sessions and verify, process-group kill on verify timeout, a vitest maxWorkers cap (drive-load note 01M3PCDC, fixes 1-5)
 - [ ] 1.3 Ready frontier: readyTasks honours waits_on (queuedTasks ignores it today, drive-queue.ts:42); `sofar next --ready`; serial drive takes the ready head
 
@@ -37,4 +37,4 @@ Progress: 0/16 tasks done (0%)
 - [ ] 4.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 1 — Baseline and prerequisites
-Next action: 1.1: build the lane fixture and the serial-drive baseline. Before 3.1 the operator rules on a D17 exception for driven lanes.
+Next action: 1.2: load control (verify semaphore, nice/taskpolicy, process-group kill on verify timeout, vitest maxWorkers cap).
