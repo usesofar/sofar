@@ -1,10 +1,12 @@
 import { isClosedInitiativeStatus } from '@sofar/schema'
+import { readyTasks, resolvedByLinks, waitingTasks } from '../core/drive-queue'
+import { refreshLinks, type Link } from '../core/index-links'
 import { listAcrossCopies, type CopyOptions, type InitiativeListing } from '../core/listing'
-import { currentBranch } from '../mcp/context'
+import { createToolContext, currentBranch, ToolError } from '../mcp/context'
 import { provenanceSummary } from '../projections/templates/copies'
-import { renderNextActions } from '../projections/templates/next'
+import { renderNextActions, renderReadyFrontier } from '../projections/templates/next'
 import { clip } from '../projections/templates/shared'
-import { ok, type CmdResult } from './shared'
+import { errMessage, fail, ok, type CmdResult } from './shared'
 import {
   columnsOf,
   createStyle,
@@ -55,6 +57,44 @@ export function runNext(
     ? renderStyledNext(rootDir, listing, caps, columns)
     : renderNextActions(listing)
   return ok(stdout, listing.warnings.map((w) => `warning: ${w}`).join('\n'))
+}
+
+/**
+ * `sofar next --ready [slug]` (drive-lanes 1.3): the ready frontier of one
+ * record — the named one, else the one the branch serves — by the rule the
+ * driver takes its next task by (D16), handles into other records resolved
+ * through the links tier. Reads this checkout's copy only: a lane runs here.
+ */
+export function runNextReady(rootDir: string, slug?: string): CmdResult {
+  const ctx = createToolContext(rootDir)
+  let resolved: string
+  try {
+    resolved = ctx.resolveInitiative(slug)
+  } catch (err) {
+    if (err instanceof ToolError) return fail(`sofar next: ${err.message} (usage: sofar next --ready [slug])`)
+    return fail(`sofar next: ${errMessage(err)}`)
+  }
+  const state = ctx.foldState(resolved)
+  // The links tier is read only when something waits: its refresh can write
+  // the derived cache, and a record with no waits needs no answer from it.
+  let links: Link[] = []
+  if (waitingTasks(state).length > 0) {
+    try {
+      links = refreshLinks(ctx.sofarDir, resolved)
+    } catch {
+      links = []
+    }
+  }
+  const foreign = resolvedByLinks(links)
+  const waiting = waitingTasks(state, foreign).map((t) => ({
+    ...t,
+    waits: t.waits.map((handle) => {
+      const link = links.find((l) => l.kind === 'waits_on' && l.from === t.id && l.to === handle)
+      if (link === undefined) return { handle }
+      return { handle, state: link.state === 'moved' && link.what !== undefined ? `moved: ${link.what}` : link.state }
+    }),
+  }))
+  return ok(renderReadyFrontier(resolved, readyTasks(state, foreign), waiting))
 }
 
 /** Hanging indent for the action body under the entry header. */

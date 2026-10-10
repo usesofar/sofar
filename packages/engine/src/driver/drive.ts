@@ -9,7 +9,15 @@ import {
   type RunStopReason,
 } from '@sofar/schema'
 import { appendedBytesScan, RUN_EVENT_MARKERS, STOP_POLL_MS } from '../core/log-scan'
-import { nextTask, queuedTasks, type DriveTask } from '../core/drive-queue'
+import {
+  nextTask,
+  queuedTasks,
+  resolvedByLinks,
+  waitingTasks,
+  type DriveTask,
+  type ForeignResolved,
+} from '../core/drive-queue'
+import { refreshLinks } from '../core/index-links'
 import { latestRun, stopRequestsInForce, type InitiativeState, type TaskState } from '../core/fold'
 import { TASK_FILES_CAP } from '../core/adjacency'
 import { applicableChecks, changedPaths, checkFailureLine, checksInForce, isApproved, type InForceCheck } from '../core/checks'
@@ -124,6 +132,29 @@ function cleanExit(exit: SessionExit): boolean {
 /** The queue and the log scan live in core/, where hot-path readers can reach them. */
 export { nextTask, queuedTasks, type DriveTask }
 export { appendedBytesScan, STOP_POLL_MS }
+
+/**
+ * The ready frontier's foreign half (drive-lanes 1.3, D16): waits_on handles
+ * into other records, resolved through the links tier, which reads each target
+ * log only past its cursor. Undefined — every foreign wait held — when no
+ * queued task waits on another record, or when the tier cannot answer.
+ */
+function foreignResolver(sofarDir: string, state: InitiativeState): ForeignResolved | undefined {
+  const foreign = waitingTasks(state).some((t) => t.waits.some((h) => h.split(' ')[0] !== state.slug))
+  if (!foreign) return undefined
+  try {
+    return resolvedByLinks(refreshLinks(sofarDir, state.slug))
+  } catch {
+    return undefined
+  }
+}
+
+/** Why a run with tasks still queued has none ready: each waiting task and what it waits on. */
+function waitingNote(state: InitiativeState, foreign: ForeignResolved | undefined): string | undefined {
+  const waiting = waitingTasks(state, foreign)
+  if (waiting.length === 0) return undefined
+  return `no task ready — ${waiting.map((t) => `${t.id} waits on ${t.waits.join(', ')}`).join('; ')}`
+}
 
 /** Consecutive stalls that stop a run; `--max-stalls` overrides it. */
 export const DEFAULT_MAX_STALLS = 2
@@ -819,7 +850,7 @@ async function driveHolding(
   }
   {
     const taken = ctx.foldState(initiative)
-    publish(taken, nextTask(taken)?.id ?? null)
+    publish(taken, nextTask(taken, foreignResolver(ctx.sofarDir, taken))?.id ?? null)
   }
   // Where the launching session's surfaces look first (drive-reach 1.3).
   if (options.launchedBy !== undefined) {
@@ -1215,7 +1246,10 @@ async function driveHolding(
       if (interrupted) stop ??= interruptedStop()
       if (stop !== undefined) break
       if (reopened) continue
-      let task = nextTask(state)
+      // The ready head (drive-lanes 1.3): a task its waits_on still holds is
+      // passed over, and the loop reaches it once what it waits on resolves.
+      const foreign = foreignResolver(ctx.sofarDir, state)
+      let task = nextTask(state, foreign)
       if (task === undefined) {
         // The closing sweep (D19): every task this run accepted, re-checked
         // against the tree as it now stands — a later session may have moved
@@ -1234,7 +1268,10 @@ async function driveHolding(
         if (interrupted) stop ??= interruptedStop()
         if (stop !== undefined) break
         if (stale) continue
-        stop = { reason: 'closed', note: 'no task left to run — every task is done, dropped or blocked' }
+        stop = {
+          reason: 'closed',
+          note: waitingNote(state, foreign) ?? 'no task left to run — every task is done, dropped or blocked',
+        }
         break
       }
       const launched = priorSessions + handoffs.length + unresolved
@@ -1431,7 +1468,7 @@ async function driveHolding(
       )
       {
         const filed = ctx.foldState(initiative)
-        publish(filed, nextTask(filed)?.id ?? null)
+        publish(filed, nextTask(filed, foreignResolver(ctx.sofarDir, filed))?.id ?? null)
       }
       if (judging.provider !== undefined && !interrupted) {
         const ended = after.sessions.find((s) => s.id === sessionId)

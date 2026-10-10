@@ -2596,7 +2596,17 @@ stderr, so the stderr tail is the diagnostic that reaches the stall note.
 next task is the one already `active` in the active phase, else its first
 `pending`, then the same in the remaining phases in plan order; `done`,
 `blocked` and `dropped` phases and tasks are skipped, and a run continues
-past a phase boundary rather than stopping at one. Stop rules, checked
+past a phase boundary rather than stopping at one. That order is the QUEUE;
+the next task is the head of its READY FRONTIER (drive-lanes 1.3, D16): a
+queued task is passed over while any handle in its `waits_on` has not
+resolved (§Links, Resolution states — `open`, `moved` and `dangling` all
+hold it), so a chain runs in dependency order whatever its plan order.
+Handles into the run's own record resolve from its fold; the driver resolves
+the rest through the links tier. The prompt line and the statusline, which
+name the task in flight by this rule (TypeScript and Rust alike), read no
+other log, so for them a handle into another record holds. A run whose queue
+holds only waiting tasks stops `closed`, its note `no task ready — <id> waits
+on <handle>, …` per waiting task. Stop rules, checked
 before each launch: the initiative is closed, no task is left, `max_sessions`
 launched, the adapter's reported cost has reached `--cost-cap`; and after
 each handoff: `needs_user`, N consecutive stalls (`--max-stalls`, default 2),
@@ -7327,6 +7337,12 @@ subdirectory, against 33 of 33 from the root.
   other copies of the record, like `sofar list`, and a record another copy
   closed is omitted (§Record copies across branches); `--here` reads this
   checkout alone, `--remotes` adds remote-tracking refs.
+  `sofar next --ready [slug]` prints one record's READY FRONTIER instead
+  (drive-lanes 1.3) — the named record, else the one the branch serves, read
+  from this checkout: the ready tasks in the order `sofar drive` takes them
+  (§Driver, the loop), one line each with its phase, then a `## Waiting`
+  list of the queued tasks a `waits_on` still holds, each handle followed by
+  its link state from the links tier. An unknown slug fails with the usage.
 - `sofar check [--staged|--all|--base <rev>] [--strict] [--list] [--approve <handle>]
   [--block-commits on|off]` (memory-lead 2.3, D9; §Decision checks) — run
   the approved in-force decision checks that apply to the working tree's

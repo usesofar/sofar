@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { runNext } from '../src/cli/next'
+import { runNext, runNextReady } from '../src/cli/next'
 import { makeEvent, type EventEnvelope } from '../src/core/envelope'
 import { serializeEvent } from '../src/core/log'
 import { renderNextActions } from '../src/projections/templates/next'
@@ -154,5 +154,83 @@ describe('sofar next', () => {
     writeInitiative(fixture.root, 'a', created('a', writeBack('a')))
     writeInitiative(fixture.root, 'b', created('b'))
     expect(runNext(fixture.root)).toEqual(runNext(fixture.root))
+  })
+})
+
+describe('sofar next --ready (drive-lanes 1.3, D16)', () => {
+  const planOf = (slug: string, tasks: unknown[]): EventEnvelope =>
+    ev(slug, 'plan_updated', { plan: { goal: 'g', phases: [{ name: 'Phase 1', status: 'active', tasks }] } })
+
+  function fixture(): string {
+    const { root } = makeRepoFixture({ slug: 'demo' })
+    writeInitiative(
+      root,
+      'demo',
+      created('demo', [
+        planOf('demo', [
+          { id: '1.1', title: 'waits on two', status: 'pending', waits_on: ['demo 1.3', 'other 2.1'] },
+          { id: '1.2', title: 'free', status: 'pending' },
+          { id: '1.3', title: 'also free', status: 'active' },
+          { id: '1.4', title: 'released', status: 'pending', waits_on: ['other 2.2'] },
+          { id: '1.5', title: 'on a typo', status: 'pending', waits_on: ['demo 9.9'] },
+        ]),
+      ]),
+    )
+    writeInitiative(
+      root,
+      'other',
+      created('other', [
+        planOf('other', [
+          { id: '2.1', title: 'theirs', status: 'pending' },
+          { id: '2.2', title: 'theirs, finished', status: 'done' },
+        ]),
+      ]),
+    )
+    return root
+  }
+
+  it('lists the ready tasks in drive order, then each waiting task with its targets and their states', () => {
+    const result = runNextReady(fixture())
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toBe(
+      [
+        '# Ready frontier: demo (3 ready, 2 waiting)',
+        '',
+        '- 1.3 also free — Phase 1',
+        '- 1.2 free — Phase 1',
+        '- 1.4 released — Phase 1',
+        '',
+        '## Waiting',
+        '',
+        '- 1.1 waits on two — waits on demo 1.3 (open), other 2.1 (open)',
+        '- 1.5 on a typo — waits on demo 9.9 (dangling)',
+        '',
+      ].join('\n'),
+    )
+  })
+
+  it('names a record explicitly, and refuses one that does not exist', () => {
+    const root = fixture()
+    expect(runNextReady(root, 'other').stdout).toContain('# Ready frontier: other (1 ready, 0 waiting)')
+    const missing = runNextReady(root, 'nope')
+    expect(missing.exitCode).not.toBe(0)
+    expect(missing.stderr).toContain('usage: sofar next --ready [slug]')
+  })
+
+  it('says when nothing is left, and when nothing is ready', () => {
+    const { root } = makeRepoFixture({ slug: 'demo' })
+    writeInitiative(root, 'demo', created('demo', [planOf('demo', [{ id: '1.1', title: 'a', status: 'done' }])]))
+    expect(runNextReady(root).stdout).toContain('(no task left — every task is done, dropped or blocked)')
+    writeInitiative(
+      root,
+      'demo',
+      created('demo', [
+        planOf('demo', [
+          { id: '1.1', title: 'a', status: 'pending', waits_on: ['demo 1.2'] },
+          { id: '1.2', title: 'b', status: 'blocked' },
+        ]),
+      ]),
+    )
+    expect(runNextReady(root).stdout).toContain('(no task ready)')
   })
 })

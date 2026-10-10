@@ -19,7 +19,7 @@ import { runNew, runSwitch } from './new'
 import { runClose } from './close'
 import { runStatus, runStatusWatch } from './status'
 import { runList } from './list'
-import { runNext } from './next'
+import { runNext, runNextReady } from './next'
 import {
   detachedStartNotifier,
   insideAgentShell,
@@ -312,8 +312,16 @@ program
   )
   .option('--here', "this checkout's copy of the record only, ignoring other worktrees and branches")
   .option('--remotes', 'also fold remote-tracking branches (origin/*)')
+  .option(
+    '--ready [slug]',
+    "instead, one record's ready frontier (the named one, else the branch's): the tasks a run could start now, in the order sofar drive takes them, then the tasks a waits_on still holds",
+  )
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action((opts: { here?: boolean; remotes?: boolean; root?: string }) => {
+  .action((opts: { here?: boolean; remotes?: boolean; ready?: string | true; root?: string }) => {
+    if (opts.ready !== undefined) {
+      emit(runNextReady(rootOf(opts), opts.ready === true ? undefined : opts.ready))
+      return
+    }
     emit(runNext(rootOf(opts), undefined, undefined, { here: opts.here, remotes: opts.remotes }))
   })
 

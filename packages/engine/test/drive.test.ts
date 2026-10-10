@@ -17,6 +17,7 @@ import {
   STOP_REQUEST_NOTE,
   watchThreshold,
 } from '../src/driver/drive'
+import { readyTasks, waitingTasks } from '../src/core/drive-queue'
 import { buildSurface } from '../src/driver/permissions'
 import { runDrive, runDriveStop } from '../src/cli/drive'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
@@ -153,6 +154,161 @@ describe('nextTask — the queue is the plan', () => {
       { name: 'Phase 1', status: 'done', tasks: [{ id: '1.1', title: 'a', status: 'done' }] },
     ])
     expect(nextTask(s)).toBeUndefined()
+  })
+})
+
+/** A second record beside `demo`, for waits that cross records. */
+function addRecord(root: string, slug: string, lines: Line[]): void {
+  const dir = join(root, '.sofar', 'initiatives', slug)
+  mkdirSync(dir, { recursive: true })
+  const path = join(dir, 'events.jsonl')
+  writeFileSync(path, '')
+  for (const line of [{ type: 'initiative_created', payload: { slug, goal: 'g' } }, ...lines]) {
+    appendEvent(path, makeEvent({ initiative: slug, session: 'cli', type: line.type, payload: line.payload, source: 'cli', actor: 'agent' }))
+  }
+}
+
+describe('the ready frontier (drive-lanes 1.3, D16) — a task runs once what it waits on resolves', () => {
+  const plan = (tasks: unknown[], extra: Line[] = []): InitiativeState => {
+    const root = repo(`ready-${Math.random().toString(36).slice(2)}`, [
+      { type: 'plan_updated', payload: { plan: { goal: 'g', phases: [{ name: 'Phase 1', status: 'active', tasks }] } } },
+      ...extra,
+    ])
+    return state(root)
+  }
+
+  it('passes over a task whose home target is open, and names what holds it', () => {
+    const s = plan([
+      { id: '1.1', title: 'after 1.2', status: 'pending', waits_on: ['demo 1.2'] },
+      { id: '1.2', title: 'first in fact', status: 'pending' },
+    ])
+    expect(readyTasks(s).map((t) => t.id)).toEqual(['1.2'])
+    expect(nextTask(s)?.id).toBe('1.2')
+    expect(waitingTasks(s).map((t) => [t.id, t.waits])).toEqual([['1.1', ['demo 1.2']]])
+  })
+
+  it('a done or dropped target releases it; an active task is held like a pending one', () => {
+    for (const status of ['done', 'dropped']) {
+      const s = plan([
+        { id: '1.1', title: 'a', status: 'active', waits_on: ['demo 1.2'] },
+        { id: '1.2', title: 'b', status },
+      ])
+      expect(nextTask(s)?.id).toBe('1.1')
+    }
+    const held = plan([
+      { id: '1.1', title: 'a', status: 'active', waits_on: ['demo 1.2'] },
+      { id: '1.2', title: 'b', status: 'blocked' },
+    ])
+    expect(nextTask(held)).toBeUndefined()
+    expect(waitingTasks(held).map((t) => t.id)).toEqual(['1.1'])
+  })
+
+  it('a dangling handle holds: the target may not be written yet', () => {
+    const s = plan([{ id: '1.1', title: 'a', status: 'pending', waits_on: ['demo 9.9'] }])
+    expect(nextTask(s)).toBeUndefined()
+  })
+
+  it('a decision holds until it is retired; a memory until it is superseded', () => {
+    const decision = { chose: 'x', over: 'y', because: 'z', until: '1.2' }
+    const open = plan(
+      [
+        { id: '1.1', title: 'a', status: 'pending', waits_on: ['demo D1', 'demo M1'] },
+        { id: '1.2', title: 'b', status: 'blocked' },
+      ],
+      [
+        { type: 'decision_logged', payload: decision },
+        { type: 'memory_promoted', payload: { text: 'old fact' } },
+      ],
+    )
+    expect(waitingTasks(open).map((t) => t.waits)).toEqual([['demo D1', 'demo M1']])
+    const retired = plan(
+      [
+        { id: '1.1', title: 'a', status: 'pending', waits_on: ['demo D1', 'demo M1'] },
+        { id: '1.2', title: 'b', status: 'done' },
+      ],
+      [
+        { type: 'decision_logged', payload: decision },
+        { type: 'memory_promoted', payload: { text: 'old fact' } },
+        { type: 'memory_promoted', payload: { text: 'new fact', supersedes: 'demo M1' } },
+      ],
+    )
+    expect(nextTask(retired)?.id).toBe('1.1')
+  })
+
+  it('a handle into another record holds unless the caller can resolve it', () => {
+    const s = plan([{ id: '1.1', title: 'a', status: 'pending', waits_on: ['other 2.1'] }])
+    expect(nextTask(s)).toBeUndefined()
+    expect(nextTask(s, (h) => h === 'other 2.1')?.id).toBe('1.1')
+  })
+
+  it('the loop takes the ready head, so a chain runs in dependency order rather than plan order', async () => {
+    const root = repo('ready-chain', [
+      {
+        type: 'plan_updated',
+        payload: {
+          plan: {
+            goal: 'g',
+            phases: [
+              {
+                name: 'Phase 1',
+                status: 'active',
+                tasks: [
+                  { id: '1.1', title: 'last', status: 'pending', waits_on: ['demo 1.2'] },
+                  { id: '1.2', title: 'middle', status: 'pending', waits_on: ['demo 1.3'] },
+                  { id: '1.3', title: 'first', status: 'pending' },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    ])
+    const adapter = new FakeAdapter([worker(root, 'S1'), worker(root, 'S2'), worker(root, 'S3')])
+    const outcome = await drive(root, 'demo', { adapter })
+    expect(adapter.sessions.map((s) => s.request.task?.id)).toEqual(['1.3', '1.2', '1.1'])
+    expect(outcome.stop.reason).toBe('closed')
+  })
+
+  it('a run left with only waiting tasks stops closed, naming each wait; a foreign target resolves through the links tier', async () => {
+    const otherPlan = (status: string): Line => ({
+      type: 'plan_updated',
+      payload: { plan: { goal: 'g', phases: [{ name: 'P', status: 'active', tasks: [{ id: '2.1', title: 'theirs', status }] }] } },
+    })
+    const lines: Line[] = [
+      {
+        type: 'plan_updated',
+        payload: {
+          plan: {
+            goal: 'g',
+            phases: [
+              {
+                name: 'Phase 1',
+                status: 'active',
+                tasks: [
+                  { id: '1.1', title: 'mine', status: 'pending' },
+                  { id: '1.2', title: 'waits on theirs', status: 'pending', waits_on: ['other 2.1'] },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    ]
+
+    const waiting = repo('ready-foreign-open', lines)
+    addRecord(waiting, 'other', [otherPlan('pending')])
+    const held = new FakeAdapter([worker(waiting, 'S1'), worker(waiting, 'S2')])
+    const stopped = await drive(waiting, 'demo', { adapter: held })
+    expect(held.sessions.map((s) => s.request.task?.id)).toEqual(['1.1'])
+    expect(stopped.stop.reason).toBe('closed')
+    expect(stopped.stop.note).toBe('no task ready — 1.2 waits on other 2.1')
+
+    const released = repo('ready-foreign-done', lines)
+    addRecord(released, 'other', [otherPlan('done')])
+    const runs = new FakeAdapter([worker(released, 'S1'), worker(released, 'S2')])
+    const finished = await drive(released, 'demo', { adapter: runs })
+    expect(runs.sessions.map((s) => s.request.task?.id)).toEqual(['1.1', '1.2'])
+    expect(finished.stop.note).toBe('no task left to run — every task is done, dropped or blocked')
   })
 })
 
