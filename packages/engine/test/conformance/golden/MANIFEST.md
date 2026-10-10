@@ -15,6 +15,11 @@ window holds; a peer's later edit no longer voids the passing run; a
 backgrounded command that leaves the worktree first opens no window. The
 installed 0.36.0-rc.3 core fails steps 11 and 14.
 
+Re-recorded on **release/0.37.0** for rc.3 (r4-fixes E2): rc.2 plus H13,
+H14, H16, H18 and H19, cherry-picked from main without drive-lanes. The
+version bump is the whole diff on `argv.fast-path` and
+`open.O2-update-segment`.
+
 Re-recorded on **release/0.37.0** for rc.2 (r4-fixes E2): rc.1's release run
 stopped at `npm ci` before building anything, so rc.2 is the first published
 0.37.0 candidate. The version bump is the whole diff on `argv.fast-path` and
