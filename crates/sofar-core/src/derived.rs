@@ -10,6 +10,7 @@
 //! existence is all `.test()` asks — with `\s` the JS whitespace set (P2) and
 //! `\w` ASCII (P3).
 
+use crate::resolve::{posix_relative, posix_resolve};
 use crate::text::{is_js_whitespace, js_trim};
 
 /// Bound on the command text a test outcome keeps (`TEST_CMD_CLIP`), in UTF-16 units.
@@ -750,6 +751,174 @@ pub fn may_write_command(cmd: &str) -> bool {
         }
     }
     false
+}
+
+/// `CD_TARGET`: `~`, `~/…`, or a literal path of `[A-Za-z0-9_./-]`.
+fn cd_target(t: &str) -> bool {
+    let literal = |s: &str| {
+        s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '/' | '-'))
+    };
+    t == "~" || t.strip_prefix("~/").is_some_and(literal) || (!t.is_empty() && literal(t))
+}
+
+/// `RE_ENTERS`: `..`, OLDPWD, `PROJECT_DIR`, or a `cd`/`pushd`/`popd` word.
+fn re_enters(tail: &str) -> bool {
+    if tail.contains("..") || tail.contains("OLDPWD") || tail.contains("PROJECT_DIR") {
+        return true;
+    }
+    let before = |c: Option<char>| {
+        c.is_none_or(|c| is_js_whitespace(c) || matches!(c, ';' | '&' | '|' | '(' | '`'))
+    };
+    let after = |c: Option<char>| {
+        c.is_none_or(|c| is_js_whitespace(c) || matches!(c, ';' | '&' | '|' | ')' | '`'))
+    };
+    ["cd", "pushd", "popd"].iter().any(|word| {
+        tail.match_indices(word).any(|(i, _)| {
+            before(tail[..i].chars().next_back()) && after(tail[i + word.len()..].chars().next())
+        })
+    })
+}
+
+/// `leavesWorktree` (r4-fixes H13): whether a shell command leaves the
+/// worktree before it does anything — its first segment is `cd` to an
+/// existing directory neither inside the root nor above it, and the rest
+/// never names the root again. Such a command cannot write here by a
+/// relative path, so its run is no window for Stop to blame dirty files on.
+#[must_use]
+pub fn leaves_worktree(
+    cmd: &str,
+    cwd: &str,
+    root: &str,
+    home: Option<&str>,
+    is_dir: &dyn Fn(&str) -> bool,
+) -> bool {
+    if !root.starts_with('/') || !cwd.starts_with('/') {
+        return false;
+    }
+    let segments = split_segments(cmd);
+    let Some((first, rest)) = segments.split_first() else {
+        return false;
+    };
+    let words: Vec<&str> = js_trim(first)
+        .split(is_js_whitespace)
+        .filter(|w| !w.is_empty())
+        .collect();
+    let [verb, target] = words.as_slice() else {
+        return false;
+    };
+    if *verb != "cd" || !cd_target(target) {
+        return false;
+    }
+    let home_dir = home
+        .filter(|h| h.starts_with('/'))
+        .map(|h| posix_resolve(h, "."));
+    let expanded = match (target.strip_prefix('~'), &home_dir) {
+        (Some(_), None) => return false,
+        (Some(after), Some(h)) => format!("{h}{after}"),
+        (None, _) => (*target).to_owned(),
+    };
+    let dir = posix_resolve(cwd, &expanded);
+    let top = posix_resolve(root, ".");
+    let inside = |a: &str, b: &str| {
+        a == b
+            || if b == "/" {
+                a.starts_with('/')
+            } else {
+                a.starts_with(&format!("{b}/"))
+            }
+    };
+    if inside(&dir, &top) || inside(&top, &dir) || !is_dir(&dir) {
+        return false;
+    }
+    let tail = rest.join("\n");
+    if re_enters(&tail) || tail.contains(top.as_str()) {
+        return false;
+    }
+    if let Some(h) = &home_dir
+        && inside(&top, h)
+    {
+        let below = posix_relative(h, &top);
+        if ["~/", "$HOME/", "${HOME}/"]
+            .iter()
+            .any(|p| tail.contains(&format!("{p}{below}")))
+        {
+            return false;
+        }
+    }
+    true
+}
+
+/// `mayWriteHere`: `may_write_command`, less a command that leaves the
+/// worktree first (r4-fixes H13).
+#[must_use]
+pub fn may_write_here(
+    cmd: &str,
+    cwd: &str,
+    root: &str,
+    home: Option<&str>,
+    is_dir: &dyn Fn(&str) -> bool,
+) -> bool {
+    may_write_command(cmd) && !leaves_worktree(cmd, cwd, root, home, is_dir)
+}
+
+#[cfg(test)]
+mod leaves_worktree_tests {
+    use super::{leaves_worktree, may_write_here};
+    use crate::json::{self, Json};
+
+    /// The table the TypeScript suite asserts too (test/may-write.test.ts).
+    #[test]
+    fn every_case_leaves_as_typescript_says() {
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/js-leaves-worktree.json"
+        ))
+        .unwrap();
+        let table = json::parse(&text).unwrap();
+        let table = table.as_obj().unwrap();
+        let root = table.get("root").and_then(Json::as_str).unwrap();
+        let home = table.get("home").and_then(Json::as_str);
+        let dirs: Vec<&str> = table
+            .get("dirs")
+            .and_then(Json::as_arr)
+            .unwrap()
+            .iter()
+            .filter_map(Json::as_str)
+            .collect();
+        let is_dir = |p: &str| dirs.contains(&p);
+        let cases = table.get("cases").and_then(Json::as_arr).unwrap();
+        assert!(cases.len() >= 30);
+        for case in cases {
+            let case = case.as_obj().unwrap();
+            let cmd = case.get("cmd").and_then(Json::as_str).unwrap();
+            let cwd = case.get("cwd").and_then(Json::as_str).unwrap();
+            let home = match case.get("home") {
+                None => home,
+                Some(h) => h.as_str(),
+            };
+            let want = case.get("leaves") == Some(&Json::Bool(true));
+            assert_eq!(
+                leaves_worktree(cmd, cwd, root, home, &is_dir),
+                want,
+                "{cmd}"
+            );
+        }
+        assert!(!may_write_here(
+            "cd /w/other && echo x > y",
+            "/w/repo",
+            root,
+            home,
+            &is_dir
+        ));
+        assert!(may_write_here(
+            "cd /w/repo/src && echo x > y",
+            "/w/repo",
+            root,
+            home,
+            &is_dir
+        ));
+    }
 }
 
 #[cfg(test)]

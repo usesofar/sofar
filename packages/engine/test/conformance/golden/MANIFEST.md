@@ -1,5 +1,13 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r4-fixes H13** (main) from the TypeScript reference; no golden
+moved, and the Rust core reproduces all 59 (`SOFAR_CORE=target/release/sofar-core`).
+One new case, `syn.gate-windows`, the first on a real (unborn) repository so
+the gate can ask git: a Bash write inside its own PreToolUse→PostToolUse
+window holds; a peer's later edit no longer voids the passing run; a
+backgrounded command that leaves the worktree first opens no window. The
+installed 0.36.0-rc.3 core fails steps 11 and 14.
+
 Merged on **main** at the 0.37.0-rc.2 merge-back (r4-fixes E2): main keeps
 `0.38.0-dev+trunk`, so `argv.fast-path` and `open.O2-update-segment` keep
 main's version.

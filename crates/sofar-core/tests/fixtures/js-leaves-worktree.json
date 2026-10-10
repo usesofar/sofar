@@ -1,0 +1,258 @@
+{
+  "root": "/w/repo",
+  "home": "/w",
+  "dirs": [
+    "/",
+    "/w",
+    "/w/repo",
+    "/w/repo/src",
+    "/w/other",
+    "/w/other/sub",
+    "/w/repo-2",
+    "/tmp"
+  ],
+  "cases": [
+    {
+      "cmd": "cd /w/other && bun test",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "an absolute directory outside, never named again"
+    },
+    {
+      "cmd": "cd /w/other && cp x /w/repo/src/y",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "names the root"
+    },
+    {
+      "cmd": "cd ~/other && make",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "~ expands to HOME"
+    },
+    {
+      "cmd": "cd ~/other && cp x ~/repo/src/y",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "names the root as ~/…"
+    },
+    {
+      "cmd": "cd /w/other && cp x $HOME/repo/y",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "names the root as $HOME/…"
+    },
+    {
+      "cmd": "cd /w/other && cp x ${HOME}/repo/y",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "names the root as ${HOME}/…"
+    },
+    {
+      "cmd": "cd ../other && make",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "a relative target resolved against cwd"
+    },
+    {
+      "cmd": "cd /w/other && cp x ../repo/y",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": ".. may climb back"
+    },
+    {
+      "cmd": "cd /w/repo/src && make",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "inside the root"
+    },
+    {
+      "cmd": "cd /w && make",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "above the root: a relative path reaches it"
+    },
+    {
+      "cmd": "cd / && make",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "the filesystem root is above everything"
+    },
+    {
+      "cmd": "cd /w/missing && make",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a cd that fails leaves the command here"
+    },
+    {
+      "cmd": "cd /w/other; make",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "any separator"
+    },
+    {
+      "cmd": "cd /w/other\nmake",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "a newline separates too"
+    },
+    {
+      "cmd": "cd /w/other && make; cd - && rm x",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a second cd"
+    },
+    {
+      "cmd": "cd /w/other && pushd /tmp",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "pushd"
+    },
+    {
+      "cmd": "cd /w/other && make && popd",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "popd"
+    },
+    {
+      "cmd": "cd /w/other && rm $OLDPWD/x",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "OLDPWD is the root"
+    },
+    {
+      "cmd": "cd /w/other && cp x $CLAUDE_PROJECT_DIR/y",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a host's project dir is the root"
+    },
+    {
+      "cmd": "cd \"/w/other\" && make",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "only a literal target"
+    },
+    {
+      "cmd": "cd $OTHER && make",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a variable target"
+    },
+    {
+      "cmd": "make && cd /w/other",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "cd must come first"
+    },
+    {
+      "cmd": "(cd /w/other && make)",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a subshell is not read"
+    },
+    {
+      "cmd": "cd /w/repo-2 && make",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "a sibling sharing the root's prefix"
+    },
+    {
+      "cmd": "cd /w/other && make",
+      "cwd": "relative/dir",
+      "leaves": false,
+      "why": "a non-posix cwd"
+    },
+    {
+      "cmd": "cd /w/other && echo $(cd /w/x && pwd)",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a cd inside a substitution"
+    },
+    {
+      "cmd": "cd /w/other && echo `cd x`",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a cd inside backticks"
+    },
+    {
+      "cmd": "cd /w/other/sub && git add . && git commit -m \"x\"",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "work committed in the other repo"
+    },
+    {
+      "cmd": "cd /w/other && git -C /w/repo status",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "git -C back at the root"
+    },
+    {
+      "cmd": "cd  /w/other  &&  make",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "extra spaces"
+    },
+    {
+      "cmd": "cd ~ && make",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "HOME holds the root"
+    },
+    {
+      "cmd": "cd /tmp && echo hi > a",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "a scratch directory"
+    },
+    {
+      "cmd": "cd /w/other && cdk deploy",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "cdk is not cd"
+    },
+    {
+      "cmd": "cd /w/other && abcd x",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "cd inside a word is not cd"
+    },
+    {
+      "cmd": "cd /w/other && echo popd",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "popd as a word anywhere"
+    },
+    {
+      "cmd": "cd /w/other",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "nothing after it"
+    },
+    {
+      "cmd": "cd",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a bare cd goes home"
+    },
+    {
+      "cmd": "cd /w/other x && make",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "three words"
+    },
+    {
+      "cmd": "cd ~/other && make",
+      "cwd": "/w/repo",
+      "home": null,
+      "leaves": false,
+      "why": "no HOME: ~ cannot resolve"
+    },
+    {
+      "cmd": "cd /w/other && cp x ~/repo/y",
+      "cwd": "/w/repo",
+      "home": null,
+      "leaves": true,
+      "why": "no HOME: ~/… cannot name the root"
+    }
+  ]
+}
