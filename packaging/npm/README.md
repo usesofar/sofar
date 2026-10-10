@@ -45,6 +45,8 @@ node packaging/npm/stage-approve.mjs <version> --dry-run
 It approves nothing unless all six are staged, skips a package already
 published, and can be run again after a failure. From a phone (web 2FA), run
 it in a pty so npm prints the approval link unmasked (r4-fixes M18).
+Expect six passkey prompts: `npm stage approve` takes one id per call, and
+its web prompt has no "skip for five minutes" box (0.37.0-rc.2, 2026-10-10).
 
 A release branch must carry `release.yml`: GitHub runs the workflow as it is
 at the tagged commit.
