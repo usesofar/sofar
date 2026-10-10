@@ -5159,6 +5159,15 @@ registerSession with {tool: "claude-code"} (plus `continues` when lineage
 placed it) — exactly sofar_start_session with that id and no `initiative`.
 Best-effort: when nothing resolves, nothing is pinned and the tool raises its
 own typed error. An explicit sofar_start_session always wins and re-homes.
+**Cloud spare (r4-fixes H11).** `sofar mcp` also passes CLAUDE_CODE_ENTRYPOINT
+as `hostEntrypoint`. When it is `remote` (a Claude Code cloud session) and the
+session pointer's writer is `hook`, the server adopts the POINTER's session
+instead of `hostSessionId` (cloudHostSession): there a pre-warmed spare
+(`claude --preload`) spawns the server, which keeps the spare's
+CLAUDE_CODE_SESSION_ID, while the conversation's id, the one hooks and Bash
+see, is assigned later (r4-fixes note 01M4JEK5). One VM runs one conversation,
+so its SessionStart pointer names it. Any other entrypoint, or no hook pointer,
+keeps `hostSessionId`: locally the pointer is last-writer-wins across tabs.
 **Worktree adoption (r4-fixes A3; 1.2 O4).** A host that gives its MCP
 server no session id (Codex, Cursor) still hands the id to its hooks, which
 leave the newest one in the worktree's session pointer
@@ -6574,7 +6583,12 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   a Bash call, so it would append an event about committing the record and
   the tree would be dirty the instant it is clean. The tree can only reach
   clean if some record-committing action appends zero events. Nothing is
-  lost: the fold counts command_run and never reads `cmd`.
+  lost: the fold counts command_run and never reads `cmd`. A segment that is
+  exactly `cd <dir>`, with a literal `<dir>` ([A-Za-z0-9_./-] only) that
+  resolves lexically (path.posix.resolve) to the payload's `cwd`, is a no-op
+  and is skipped before the test (r4-fixes H12): a Claude Code cloud session
+  prefixes its Bash commands with `cd /home/user/repo;`. A cd anywhere else,
+  or with no `cwd` in the payload, still counts, and so is logged.
   SECRETS ARE REDACTED FROM `cmd` BEFORE THE APPEND (security-hardening 3.1):
   credential-shaped material — `NAME=value` where NAME contains
   TOKEN/SECRET/PASSWORD/API_KEY/…, `--flag value` of the same names,

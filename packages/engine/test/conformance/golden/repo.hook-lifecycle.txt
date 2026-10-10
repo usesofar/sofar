@@ -72,7 +72,16 @@ exit: 0
 --- stderr
 (empty)
 
-## step 9: Bash with a subshell cannot be scanned: logged
+## step 9: Bash after a no-op cd into the cwd is exempt (r4-fixes H12)
+argv: ["event","post-tool"]
+stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"cd <ROOT>; git add .sofar && git commit -m \"x\"","description":"x"},"tool_response":{}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 10: Bash with a subshell cannot be scanned: logged
 argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m \"$(cat msg)\"","description":"x"},"tool_response":{}}
 exit: 0
@@ -81,7 +90,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 10: Bash with an unbalanced quote: logged
+## step 11: Bash with an unbalanced quote: logged
 argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git status && echo 'oops","description":"x"},"tool_response":{}}
 exit: 0
@@ -90,7 +99,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 11: Read tool appends nothing
+## step 12: Read tool appends nothing
 argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"<ROOT>/README.md"}}
 exit: 0
@@ -99,7 +108,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 12: Edit without file_path appends nothing
+## step 13: Edit without file_path appends nothing
 argv: ["event","post-tool"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{}}
 exit: 0
@@ -108,7 +117,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 13: prompt after drift: nudge and push state
+## step 14: prompt after drift: nudge and push state
 argv: ["event","user-prompt"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
@@ -117,7 +126,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 14: stop blocks the unwritten session
+## step 15: stop blocks the unwritten session
 argv: ["event","stop"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
 exit: 2
@@ -127,7 +136,7 @@ exit: 2
 Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).
 Then end on one line restating your answer: it is what the operator reads last.
 
-## step 15: stop_hook_active short-circuits
+## step 16: stop_hook_active short-circuits
 argv: ["event","stop"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":true}
 exit: 0
@@ -136,7 +145,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 16: session-end closes the session
+## step 17: session-end closes the session
 argv: ["event","session-end"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionEnd","reason":"exit"}
 exit: 0
@@ -145,7 +154,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 17: session-end again is a no-op
+## step 18: session-end again is a no-op
 argv: ["event","session-end"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"SessionEnd","reason":"other"}
 exit: 0
@@ -154,7 +163,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 18: write-back through append
+## step 19: write-back through append
 argv: ["event","append","--type","session_ended","--session","conf-session","--source","hook","--payload","{\"summary\":\"conformance lifecycle finished\",\"next_action\":\"read the golden\"}"]
 exit: 0
 --- stdout
@@ -162,7 +171,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 19: stop passes once written back
+## step 20: stop passes once written back
 argv: ["event","stop"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
 exit: 0
@@ -171,7 +180,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 20: prompt after write-back
+## step 21: prompt after write-back
 argv: ["event","user-prompt"]
 stdin: {"session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"continue"}
 exit: 0
@@ -180,7 +189,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 21: status shows the session
+## step 22: status shows the session
 argv: ["status"]
 exit: 0
 --- stdout
@@ -228,7 +237,7 @@ Files touched (5):
 --- stderr
 (empty)
 
-## step 22: statusline after the run
+## step 23: statusline after the run
 argv: ["statusline","--no-color"]
 stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
 exit: 0

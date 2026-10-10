@@ -76,6 +76,22 @@ export function adoptHostSession(ctx: ToolContext, sessionId: string, tool: stri
 /** The tool an adopted session is recorded under: the env var is Claude Code's. */
 export const HOST_TOOL = 'claude-code'
 
+/**
+ * The id a server handed `hostId` adopts (r4-fixes H11). In a Claude Code
+ * cloud session (CLAUDE_CODE_ENTRYPOINT=remote) the stdio MCP server is
+ * spawned by a pre-warmed spare (`claude --preload`) and keeps the SPARE's
+ * CLAUDE_CODE_SESSION_ID; the conversation's own id, the one hooks and Bash
+ * see, is assigned later (probe, note 01M4JEK5). A cloud session is one VM
+ * running one conversation, so the pointer its SessionStart hook wrote names
+ * that conversation. Anywhere else the host id wins: locally the pointer is
+ * last-writer-wins across tabs, and a peer's id there is not ours.
+ */
+export function cloudHostSession(rootDir: string, hostId: string, entrypoint: string | undefined): string {
+  if ((entrypoint ?? '').trim() !== 'remote') return hostId
+  const pointer = readSessionPointer(rootDir)
+  return pointer !== null && pointer.writer === 'hook' ? pointer.session : hostId
+}
+
 /** `SOFAR_ADOPT=off` turns worktree adoption off (the r4-fixes A3 ablation switch). */
 export function adoptEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return (env.SOFAR_ADOPT ?? '').trim().toLowerCase() !== 'off'
