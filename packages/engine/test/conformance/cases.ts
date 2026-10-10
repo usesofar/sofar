@@ -530,6 +530,7 @@ export const CASES: ConformanceCase[] = [
         'export OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz0123456789 && curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghijklmnop" https://user:hunter2@example.com/x --token=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -p AKIAIOSFODNN7EXAMPLE',
       )),
       s('Bash that only touches git and sofar is exempt', ['event', 'post-tool'], bash('git status && sofar status | head -3; GIT_PAGER=cat git log -1')),
+      s('Bash after a no-op cd into the cwd is exempt (r4-fixes H12)', ['event', 'post-tool'], bash('cd <ROOT>; git add .sofar && git commit -m "x"')),
       s('Bash with a subshell cannot be scanned: logged', ['event', 'post-tool'], bash('git commit -m "$(cat msg)"')),
       s('Bash with an unbalanced quote: logged', ['event', 'post-tool'], bash("git status && echo 'oops")),
       s('Read tool appends nothing', ['event', 'post-tool'], hook('PostToolUse', { tool_name: 'Read', tool_input: { file_path: '<ROOT>/README.md' } })),

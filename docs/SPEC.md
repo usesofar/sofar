@@ -6583,7 +6583,12 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   a Bash call, so it would append an event about committing the record and
   the tree would be dirty the instant it is clean. The tree can only reach
   clean if some record-committing action appends zero events. Nothing is
-  lost: the fold counts command_run and never reads `cmd`.
+  lost: the fold counts command_run and never reads `cmd`. A segment that is
+  exactly `cd <dir>`, with a literal `<dir>` ([A-Za-z0-9_./-] only) that
+  resolves lexically (path.posix.resolve) to the payload's `cwd`, is a no-op
+  and is skipped before the test (r4-fixes H12): a Claude Code cloud session
+  prefixes its Bash commands with `cd /home/user/repo;`. A cd anywhere else,
+  or with no `cwd` in the payload, still counts, and so is logged.
   SECRETS ARE REDACTED FROM `cmd` BEFORE THE APPEND (security-hardening 3.1):
   credential-shaped material — `NAME=value` where NAME contains
   TOKEN/SECRET/PASSWORD/API_KEY/…, `--flag value` of the same names,

@@ -2,7 +2,10 @@
 //! `shellSegments` splits a command at `&&`, `||`, `;`, `|`, newline and a
 //! lone `&` outside quotes; `leadingToken` takes each segment's executable;
 //! a command whose every segment leads with `git` or `sofar` appends nothing.
+//! A `cd` into the directory the command already runs in does not count
+//! (`isNoopCd`, r4-fixes H12).
 
+use crate::resolve::posix_resolve;
 use crate::text::{is_js_whitespace, js_trim};
 
 const SELF_RECORDING_COMMANDS: [&str; 2] = ["git", "sofar"];
@@ -103,19 +106,47 @@ pub fn leading_token(segment: &str) -> Option<String> {
     None
 }
 
-/// `isSelfRecordingCommand`.
+/// `isSelfRecordingCommand`; `cwd` is the hook payload's.
 #[must_use]
-pub fn is_self_recording_command(cmd: &str) -> bool {
+pub fn is_self_recording_command(cmd: &str, cwd: Option<&str>) -> bool {
     let Some(scanned) = shell_segments(cmd) else {
         return false;
     };
-    let segments: Vec<&String> = scanned.iter().filter(|s| !js_trim(s).is_empty()).collect();
+    let segments: Vec<&String> = scanned
+        .iter()
+        .filter(|s| !js_trim(s).is_empty() && !is_noop_cd(s, cwd))
+        .collect();
     if segments.is_empty() {
         return false;
     }
     segments.iter().all(|segment| {
         leading_token(segment).is_some_and(|t| SELF_RECORDING_COMMANDS.contains(&t.as_str()))
     })
+}
+
+/// `isNoopCd` (r4-fixes H12): `cd <dir>` into the directory the command
+/// already runs in. A Claude Code cloud session prefixes its Bash commands
+/// with `cd /home/user/repo;`, which made every record commit loggable. Only
+/// a literal target counts, resolved lexically against `cwd`.
+fn is_noop_cd(segment: &str, cwd: Option<&str>) -> bool {
+    let Some(cwd) = cwd else {
+        return false;
+    };
+    let words: Vec<&str> = js_trim(segment)
+        .split(is_js_whitespace)
+        .filter(|w| !w.is_empty())
+        .collect();
+    let [verb, target] = words.as_slice() else {
+        return false;
+    };
+    if *verb != "cd"
+        || !target
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '/' | '-'))
+    {
+        return false;
+    }
+    posix_resolve(cwd, target) == posix_resolve(cwd, ".")
 }
 
 #[cfg(test)]
@@ -125,22 +156,61 @@ mod tests {
     #[test]
     fn exemption_follows_the_hotpath_rules() {
         assert!(!is_self_recording_command(
-            "git status && sofar status | head -3; GIT_PAGER=cat git log -1"
+            "git status && sofar status | head -3; GIT_PAGER=cat git log -1",
+            None
         ));
         assert!(is_self_recording_command(
-            "git status && sofar status; GIT_PAGER=cat /usr/bin/git log -1"
+            "git status && sofar status; GIT_PAGER=cat /usr/bin/git log -1",
+            None
         ));
-        assert!(!is_self_recording_command("git commit -m \"$(cat msg)\""));
-        assert!(!is_self_recording_command("git status && echo 'oops"));
-        assert!(is_self_recording_command("git commit -m 'a; b && c'"));
-        assert!(is_self_recording_command("git commit -m \"a \\\" b\""));
-        assert!(!is_self_recording_command(""));
-        assert!(!is_self_recording_command("   "));
-        assert!(is_self_recording_command("git push 2>&1"));
-        assert!(!is_self_recording_command("git push & npm test"));
+        assert!(!is_self_recording_command(
+            "git commit -m \"$(cat msg)\"",
+            None
+        ));
+        assert!(!is_self_recording_command("git status && echo 'oops", None));
+        assert!(is_self_recording_command("git commit -m 'a; b && c'", None));
+        assert!(is_self_recording_command(
+            "git commit -m \"a \\\" b\"",
+            None
+        ));
+        assert!(!is_self_recording_command("", None));
+        assert!(!is_self_recording_command("   ", None));
+        assert!(is_self_recording_command("git push 2>&1", None));
+        assert!(!is_self_recording_command("git push & npm test", None));
         assert_eq!(
             shell_segments("a && b || c | d ; e\nf & g").unwrap().len(),
             7
         );
+    }
+
+    #[test]
+    fn a_cd_into_the_cwd_changes_nothing() {
+        let cwd = Some("/home/user/repo");
+        assert!(is_self_recording_command(
+            "cd /home/user/repo; git add -A .sofar && git commit -m \"x\"",
+            cwd
+        ));
+        assert!(is_self_recording_command(
+            "cd /home/user/repo/ && git push",
+            cwd
+        ));
+        assert!(is_self_recording_command("cd . && git status", cwd));
+        assert!(!is_self_recording_command("cd x && git push", None));
+        assert!(!is_self_recording_command(
+            "cd /home/user/other; git commit -m \"x\"",
+            cwd
+        ));
+        assert!(!is_self_recording_command("cd .. && git push", cwd));
+        assert!(!is_self_recording_command("cd \"$REPO\" && git push", cwd));
+        assert!(!is_self_recording_command("cd ~ && git push", cwd));
+        assert!(!is_self_recording_command(
+            "cd /home/user/repo; npm test",
+            cwd
+        ));
+        assert!(!is_self_recording_command("cd /home/user/repo", cwd));
+        assert!(!is_self_recording_command(
+            "cd /home/user/repo; git commit -m \"x\"",
+            None
+        ));
     }
 }

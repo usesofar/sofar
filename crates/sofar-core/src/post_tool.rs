@@ -197,7 +197,7 @@ pub fn classify_tool_call(hook: &Object) -> Vec<ClassifiedCall> {
                 payload,
                 domain: GuardDomain::Cmd,
                 subject: redacted,
-                exempt: is_self_recording_command(cmd),
+                exempt: is_self_recording_command(cmd, str_field(hook, "cwd")),
                 head: (!head.is_empty()).then(|| utf16_prefix(head, DIAGNOSTIC_HEAD_CLIP)),
             }]
         }

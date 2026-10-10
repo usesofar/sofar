@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { isAbsolute, join, posix, relative, resolve } from 'node:path'
 import { cachedDigestState } from '../core/digest-cache'
 import { readBindingsFile } from '../core/bindings'
 import { currentBranch, recordRoot } from '../core/git'
@@ -328,16 +328,37 @@ function shellSegments(cmd: string): string[] | null {
  * a separator OUTSIDE quotes must not be read as one inside them, or the
  * repo's own multi-line commit messages defeat the exemption and the record
  * never settles (record-hygiene-quotes D1).
+ *
+ * `cwd` is the hook payload's: a `cd` into it is a no-op and does not count
+ * (isNoopCd, r4-fixes H12).
  */
-export function isSelfRecordingCommand(cmd: string): boolean {
+export function isSelfRecordingCommand(cmd: string, cwd?: string): boolean {
   const scanned = shellSegments(cmd)
   if (scanned === null) return false
-  const segments = scanned.filter((s) => s.trim().length > 0)
+  const segments = scanned.filter((s) => s.trim().length > 0 && !isNoopCd(s, cwd))
   if (segments.length === 0) return false
   return segments.every((segment) => {
     const token = leadingToken(segment)
     return token !== null && SELF_RECORDING_COMMANDS.has(token)
   })
+}
+
+/**
+ * `cd <dir>` into the directory the command already runs in (r4-fixes H12).
+ * A Claude Code cloud session prefixes its Bash commands with
+ * `cd /home/user/repo;`, so read as its own segment it made every record
+ * commit loggable and `.sofar` never settled (probe, note 01M4JEK5). Only a
+ * literal target counts, resolved lexically against `cwd` (path.posix.resolve,
+ * as Rust's posix_resolve): quotes, `$`, `~` or globs, or no `cwd`, leave
+ * the segment counted, and so logged.
+ */
+function isNoopCd(segment: string, cwd: string | undefined): boolean {
+  if (cwd === undefined) return false
+  const words = segment.trim().split(/\s+/)
+  if (words.length !== 2 || words[0] !== 'cd') return false
+  const target = words[1]!
+  if (!/^[A-Za-z0-9_./-]+$/.test(target)) return false
+  return posix.resolve(cwd, target) === posix.resolve(cwd)
 }
 
 // ---------------------------------------------------------------------------
@@ -1243,7 +1264,7 @@ function classifyToolCall(hook: Obj): ClassifiedCall[] {
         // The guard matches what the record HOLDS, not what was typed, so the
         // hook and the fold can never disagree about whether a rule fired.
         subject: redacted,
-        exempt: isSelfRecordingCommand(cmd),
+        exempt: isSelfRecordingCommand(cmd, strField(hook, 'cwd') ?? undefined),
         ...(head.length > 0 ? { head: head.slice(0, DIAGNOSTIC_HEAD_CLIP) } : {}),
       },
     ]
