@@ -129,6 +129,7 @@ import {
   recordOpen,
   registrationIn,
   resolveSessionFirst,
+  resolveSessionHome,
   toSource,
   ToolError,
   type ResolvedVia,
@@ -384,12 +385,12 @@ function strField(hook: Obj, key: string): string | null {
 function resolveBound(
   rootDir: string,
   sessionId?: string | null,
-): { ctx: ToolContext; slug: string; via: ResolvedVia } | null {
+): { ctx: ToolContext; slug: string; via: ResolvedVia; registered: boolean } | null {
   try {
     const ctx = createToolContext(rootDir)
-    const resolved = resolveSessionFirst(ctx, sessionId)
+    const resolved = resolveSessionHome(ctx, sessionId)
     if (resolved === null) return null
-    return { ctx, slug: resolved.slug, via: resolved.via }
+    return { ctx, slug: resolved.slug, via: resolved.via, registered: resolved.registered }
   } catch {
     return null
   }
@@ -954,11 +955,13 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     const traced = sessionId !== null ? traceLineage(rootDir, hook, sessionId) : false
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK, stdout: unboundNotice(rootDir, sessionId) }
-    const { ctx, slug, via } = bound
+    const { ctx, slug, via, registered } = bound
     // The route pin (core/lineage.ts): an unregistered session keeps the
     // record this block shows, whatever a peer's write-back does to the route.
+    // `registered` is the scan resolveBound already ran: a second
+    // homeInitiative here cost +20 ms at 1000 records (r4-fixes E2, D18).
     const pinBranch = currentBranch(rootDir)
-    if (sessionId !== null && via === 'branch' && pinBranch !== null && homeInitiative(ctx.sofarDir, sessionId, slug) === null) {
+    if (sessionId !== null && via === 'branch' && pinBranch !== null && !registered) {
       pinRoute(ctx.sofarDir, sessionId, slug, pinBranch)
     }
     // The context that held this session's read-time notices is gone, so what

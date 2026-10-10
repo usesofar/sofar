@@ -135,6 +135,18 @@ pub fn resolve_session_first(
     layout: &Layout,
     session_id: Option<&str>,
 ) -> Option<(String, ResolvedVia)> {
+    resolve_session_home(layout, session_id).map(|(slug, via, _)| (slug, via))
+}
+
+/// `resolveSessionFirst` with its `registered` flag: whether a log registered
+/// the session (`home_initiative` found it). `SessionStart`'s route pin reads
+/// it instead of scanning every log again, which cost +20 ms at 1000 records
+/// (r4-fixes E2, D18).
+#[must_use]
+pub fn resolve_session_home(
+    layout: &Layout,
+    session_id: Option<&str>,
+) -> Option<(String, ResolvedVia, bool)> {
     let branch_slug = resolve_initiative(layout, None).ok();
     let branch_via = || {
         if branch_slug.as_deref() == Some(QUICK_LANE) && lane_fallback(layout) {
@@ -146,7 +158,9 @@ pub fn resolve_session_first(
     if let Some(id) = session_id.filter(|s| !s.is_empty()) {
         // The home, else the lineage SessionStart traced (r4-fixes A10),
         // else its route pin (the record it was shown).
-        let found = home_initiative(layout, id, branch_slug.as_deref()).or_else(|| {
+        let registered = home_initiative(layout, id, branch_slug.as_deref());
+        let is_registered = registered.is_some();
+        let found = registered.or_else(|| {
             crate::lineage::read_lineage(layout, id)
                 .filter(|l| {
                     crate::lineage::lineage_applies(
@@ -163,11 +177,11 @@ pub fn resolve_session_first(
             } else {
                 ResolvedVia::Session
             };
-            return Some((home, via));
+            return Some((home, via, is_registered));
         }
     }
     let via = branch_via();
-    Some((branch_slug?, via))
+    Some((branch_slug?, via, false))
 }
 
 /// `recordOpen` (r4-fixes A10): a record a lineage carrier may name — it
