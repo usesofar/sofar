@@ -7542,6 +7542,28 @@ subdirectory, against 33 of 33 from the root.
   their shard holds (D45); `brief` as every paragraph, `brief¶<k>` (or `¶<k>`) as
   one. A handle it cannot find is named on stderr with exit 1, after printing
   the rest. The recall block points here instead of at a whole file.
+- `sofar diff <base>..<head> [--strict]` (r4-fixes B7, D27) — what a branch
+  changes in the record, printed as Markdown for a pull request body or
+  review comment; sofar sends nothing. `A...B` reads as `A..B`, `A..` and a
+  bare `A` take HEAD as head, `..B` takes HEAD as base; a revision that names
+  no commit, or starts with `-`, is exit 1. Both logs are read from git at the
+  two commits (and their merge base), at the path the record sits at inside
+  the repo. The changes are the set difference of event ids, folded on each
+  side: decisions added (handle at head, chose, rule, quote, guard and what it
+  was, check, what it replaces, until, over, because), decisions retired
+  (replaced, `until` resolved, or voided by a correction), checks bound,
+  memories, tasks resolved. Three findings need a reviewer and are counted:
+  HIDDEN characters (bidi controls, zero-width and invisible format
+  characters, Unicode tags, variation-selector runs) in any string of a new
+  or edited event, an emoji ZWJ sequence, a joiner between non-Latin letters,
+  one selector after a visible character and a subdivision flag excepted;
+  FORKS, one decision replaced on this branch and differently on base; and
+  REWRITTEN history, an event edited under its id or one the merge base held
+  that head lacks, and a record the merge base held that head deleted. Record
+  text is escaped so nothing hides once rendered, every hidden character
+  prints as `⟦U+XXXX⟧`, and a line break as `↵`. Exit 0; `--strict` exits 1
+  when a finding is counted. The author and CODEOWNERS flags of 1.4 O6 wait
+  on the team rail and are not built.
 - `sofar supersedes <D<n>> <D<m>|none> [--initiative <slug>]` (r3-fixes 2.5,
   D15) — say what a filed decision replaces, after the fact: appends
   decision_linked with both event ids stamped (§Link disposition), and prints

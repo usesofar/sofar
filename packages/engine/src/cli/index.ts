@@ -40,6 +40,7 @@ import { runRemember } from './remember'
 import { runBind } from './bind'
 import { runSupersedes } from './supersedes'
 import { runShow } from './show'
+import { runDiff } from './diff'
 import { runRead } from './read'
 import { runNativeImport } from './native-import'
 import { registerStatuslineCommand } from './statusline'
@@ -495,6 +496,15 @@ program
   .option('--root <dir>', 'repo root (default: the record above the current directory)')
   .action((ids: string[], opts: { initiative?: string; root?: string }) => {
     emit(runShow(rootOf(opts), ids, opts.initiative !== undefined ? { initiative: opts.initiative } : {}))
+  })
+
+program
+  .command('diff <range>')
+  .description('what a branch changes in the record, as Markdown for a pull request: decisions, retired rules, checks, memories, tasks, and hidden characters, forks or rewritten history to review (r4-fixes B7)')
+  .option('--strict', 'exit 1 when a finding needs a reviewer')
+  .option('--root <dir>', 'repo root (default: the record above the current directory)')
+  .action((range: string, opts: { strict?: boolean; root?: string }) => {
+    emit(runDiff(rootOf(opts), range, { strict: opts.strict === true }))
   })
 
 program

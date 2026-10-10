@@ -200,6 +200,7 @@ Less often needed:
 | --- | --- |
 | `sofar update-check` | Inspect the update check — what it knows, when it last ran, whether auto-install is on |
 | `sofar abandon <branch>` | Stop naming a branch you dropped: its copy of the record leaves the session-start notice, `status` and `list` (`--undo` brings it back, `--list` shows the marks) |
+| `sofar diff <base>..<head>` | What a branch changes in the record, as Markdown for the pull request: decisions, retired rules, checks, memories, tasks, and any hidden characters, forks or rewritten history to review (`--strict` fails on one) |
 | `sofar export` / `sofar import` | Move events between copies of a record |
 | `sofar login`, `link`, `push`, `pull` | Cloud sync, if you turn it on |
 | `sofar serve` | Local server with the record as JSON |

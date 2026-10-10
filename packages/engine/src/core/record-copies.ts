@@ -354,6 +354,56 @@ export function scanRecordCopies(rootDir: string, options: ScanOptions = {}): Co
   return { copies, logs }
 }
 
+/**
+ * The commit a revision names, as a full sha; null when it names none. A
+ * revision that starts with `-` is refused before git sees it, so it can
+ * never be read as an option.
+ */
+export function commitOf(rootDir: string, rev: string): string | null {
+  if (rev.length === 0 || rev.startsWith('-')) return null
+  const out = git(rootDir, ['rev-parse', '--verify', '--quiet', `${rev}^{commit}`])
+  const sha = out === null ? '' : out.toString('utf8').trim()
+  return /^[0-9a-f]{40,64}$/.test(sha) ? sha : null
+}
+
+/** The best common ancestor of two commits; null when they share none. */
+export function mergeBaseOf(rootDir: string, a: string, b: string): string | null {
+  const out = git(rootDir, ['merge-base', a, b])
+  const sha = out === null ? '' : out.toString('utf8').trim()
+  return /^[0-9a-f]{40,64}$/.test(sha) ? sha : null
+}
+
+/**
+ * Every initiative's events.jsonl as committed at one commit (r4-fixes B7,
+ * `sofar diff`): slug → log text. One `cat-file --batch` for the
+ * initiatives tree, one for the logs. The record sits at the same path
+ * inside the commit as `rootDir` sits inside its checkout, so a record in a
+ * monorepo subdirectory reads too. Null when git cannot read the commit; an
+ * empty map when the commit holds no record.
+ */
+export function logsAtCommit(rootDir: string, sha: string): Map<string, string> | null {
+  if (!/^[0-9a-f]{40,64}$/.test(sha)) return null
+  const prefixOut = git(rootDir, ['rev-parse', '--show-prefix'])
+  if (prefixOut === null) return null
+  const prefix = prefixOut.toString('utf8').trim()
+  const trees = catFileBatch(rootDir, [`${sha}:${prefix}.sofar/initiatives`])
+  if (trees === null) return null
+  const tree = trees[0]
+  const logs = new Map<string, string>()
+  if (tree === null || tree === undefined || tree.type !== 'tree') return logs
+  const slugs = [...treeDirs(tree.content)].filter(([slug]) => SLUG.test(slug))
+  const blobs = catFileBatch(
+    rootDir,
+    slugs.map(([, oid]) => `${oid}:events.jsonl`),
+  )
+  if (blobs === null) return null
+  slugs.forEach(([slug], i) => {
+    const blob = blobs[i]
+    if (blob !== null && blob !== undefined && blob.type === 'blob') logs.set(slug, blob.content.toString('utf8'))
+  })
+  return logs
+}
+
 // ---------------------------------------------------------------------------
 // Watching the copies (branch-visibility 3.2).
 // ---------------------------------------------------------------------------
