@@ -890,6 +890,22 @@ export const PROTOCOL_BLOCK_V13 = PROTOCOL_BLOCK_V12.replace(...BRIEF_BY_REFEREN
 )
 
 /**
+ * r4-fixes D61: V13 plus the one mid-session write a tool-mode session makes —
+ * delegated work marked done as it lands, so a lead waiting on background
+ * agents or a workflow does not read 0/N on the record (and the statusline)
+ * until it wraps up. V13 stays byte-exact in the ledger; the inline block
+ * still derives from V13, since its write-back needs no tool call.
+ */
+export const PROTOCOL_BLOCK_V14 = PROTOCOL_BLOCK_V13.replace(
+  '  the session decides and changes — `sofar_end_session` carries all of it.\n',
+  `  the session decides and changes — \`sofar_end_session\` carries all of it.
+  One write cannot wait: when work you handed to a background agent or a
+  workflow lands (you merge or accept it), mark its tasks done then — one
+  \`sofar_update_task\` call, ids comma-separated (\`"task_id":"m1,m2"\`).
+`,
+)
+
+/**
  * r4-fixes A1 (SPEC §In-band write-back): the write-back is the fenced block
  * the final reply ends with, filed by the Stop hook — no start call and no
  * sofar tool call mid-session. V13 (0.34's block) stays whole underneath and
@@ -946,9 +962,9 @@ export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V13.replace(...INLINE_WRITEBACK.cla
   .replace(...INLINE_WRITEBACK.claude.during)
   .replace(...INLINE_WRITEBACK.claude.finish)
 
-/** The CLAUDE.md block for a write-back mode: 0.34's V13 under the tool write-back, Claude Code's default (r4-fixes H5). */
+/** The CLAUDE.md block for a write-back mode: V14 under the tool write-back, Claude Code's default (r4-fixes H5, D61). */
 export function protocolBlock(mode: WritebackMode = writebackModeFor('claude-code')): string {
-  return mode === 'inline' ? PROTOCOL_BLOCK : PROTOCOL_BLOCK_V13
+  return mode === 'inline' ? PROTOCOL_BLOCK : PROTOCOL_BLOCK_V14
 }
 
 /** Blocks init may refresh in a mode: the ledger, plus the other mode's current block. */
@@ -971,6 +987,7 @@ export const SHIPPED_PROTOCOL_BLOCKS: readonly string[] = [
   PROTOCOL_BLOCK_V11,
   PROTOCOL_BLOCK_V12,
   PROTOCOL_BLOCK_V13,
+  PROTOCOL_BLOCK_V14,
 ]
 
 /**

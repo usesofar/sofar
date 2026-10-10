@@ -180,6 +180,11 @@ export interface EndSessionPhaseChange {
 export type EndSessionDecision = Omit<LogDecisionArgs, 'initiative'>
 export interface UpdateTaskArgs {
   initiative?: string
+  /**
+   * One task id, or several comma-separated (r4-fixes D61): a lead marks what
+   * a background agent or workflow landed in one call. `status` and `note`
+   * apply to each; `title`, `phase` and `waits_on` take a single id.
+   */
   task_id: string
   status: TaskStatus
   note?: string
@@ -705,7 +710,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_start_session',
     description:
-      'Start a work session. Returns {session_id}; subsequent events are attributed to it.',
+      'Start a work session; returns {session_id}, which later events carry.',
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_start_session,
   },
   {
@@ -717,13 +722,13 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_update_task',
     description:
-      "Set a task's status now; wrap-up changes ride sofar_end_session.",
+      'Set task status now (task_id `m1,m2` sets several); wrap-up changes ride sofar_end_session.',
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_update_task,
   },
   {
     name: 'sofar_update_phase',
     description:
-      "Set a phase's status now, or add the phase (add; after = the phase it follows, default last). Wrap-up changes ride sofar_end_session.",
+      "Set phase status now, or add the phase (add; after = the phase it follows, default last). Wrap-up changes ride sofar_end_session.",
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_update_phase,
   },
   {
@@ -762,6 +767,11 @@ type Obj = Record<string, unknown>
 function isObj(v: unknown): v is Obj {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
+/** sofar_update_task's ids: one, or several comma-separated (r4-fixes D61). */
+export function taskIdsOf(taskId: string): string[] {
+  return taskId.split(',').map((id) => id.trim())
+}
+
 function str(v: unknown): v is string {
   return typeof v === 'string' && v.length > 0
 }
@@ -810,6 +820,16 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
   sofar_update_task(a, e) {
     if (!optSlug(a.initiative)) e.push(SLUG_ERROR)
     if (!str(a.task_id)) e.push('task_id: must be a non-empty string')
+    else {
+      const ids = taskIdsOf(a.task_id)
+      if (ids.some((id) => id.length === 0)) e.push('task_id: an empty id between commas')
+      else if (new Set(ids).size < ids.length) e.push('task_id: an id is listed twice')
+      else if (ids.length > 1) {
+        for (const key of ['title', 'phase', 'waits_on'] as const) {
+          if (a[key] !== undefined) e.push(`${key}: takes one task_id, not ${ids.length}`)
+        }
+      }
+    }
     if (typeof a.status !== 'string' || !(TASK_STATUSES as readonly string[]).includes(a.status)) {
       e.push(`status: must be one of ${TASK_STATUSES.join('|')}`)
     }
