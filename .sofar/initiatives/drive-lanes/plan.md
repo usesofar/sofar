@@ -16,7 +16,7 @@ Progress: 4/20 tasks done (20%)
 
 ## Phase 2 — Local lanes [pending] — 1/5 done
 
-- [x] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar
+- [x] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar — verification fail (attempt 1, exit 1)
 - [ ] 2.2 `sofar drive --lanes N`: a persistent lane worktree pool (deps installed once), tasks as branches, lanes recorded on run_started. `--lanes 1` stays byte-identical to today's run (session-driver D6 holds there)
 - [ ] 2.3 Coordinator: one process assigns ready tasks to free lanes and records each assignment, so the statusline and interactive sessions see which lane holds which task. Budgets (--cost-cap, --max-sessions) count across lanes; a rate-limited lane parks instead of stalling
 - [ ] 2.4 Serial merge queue: rebase a passing task branch onto the run base, re-verify when the base moved, fast-forward. A conflict becomes a merge handoff to the lane's next session. Affected-tests verify per merge, full suite per batch

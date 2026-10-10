@@ -134,6 +134,7 @@ export const HOST_LIVE = {
     'backups/', 'cache/', 'debug/', 'file-history/', 'ide/', 'jobs/', 'paste-cache/', 'plans/', 'plugins/',
     'projects/', 'session-env/', 'sessions/', 'shell-snapshots/', 'state/', 'statsig/', 'telemetry/', 'todos/',
     'daemon/', 'daemon.log', 'daemon-auth-cooldown', 'daemon-auth-status.json', 'downloads/', 'feedback/',
+    'dev-mods/',
   ],
   '.codex': [
     '.codex-global-state.json', '.codex-global-state.json.bak', '.sqlite-maintenance.lock', 'history.jsonl',

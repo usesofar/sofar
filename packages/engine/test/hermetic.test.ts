@@ -130,6 +130,8 @@ describe('HOME canary', () => {
     // rewrites its key's file, which moves the dir's mtime (drive-lanes 1.1).
     touch(at('.claude', 'projects', 'p', 'b.jsonl'))
     touch(at('.claude', 'history.jsonl'))
+    // A live session's mod dir, keyed by its session id (drive-lanes 2.1).
+    touch(at('.claude', 'dev-mods', 's1', 'panel', 'index.js'))
     touch(at('.local', 'state', 'sofar', 'diagnostics', 'k1', 'r2.jsonl'))
     touch(at('.local', 'state', 'sofar', 'drive-seen', 'k1.json.tmp'), '{}')
     renameSync(at('.local', 'state', 'sofar', 'drive-seen', 'k1.json.tmp'), at('.local', 'state', 'sofar', 'drive-seen', 'k1.json'))
