@@ -15,7 +15,7 @@ use crate::digest_cache::cached_digest_state;
 use crate::fold::InitiativeState;
 use crate::fold_cli::CmdResult;
 use crate::git::{GitState, read_git_state};
-use crate::home::{LaneAvailability, ResolvedVia, lane_availability, resolve_session_first};
+use crate::home::{LaneAvailability, ResolvedVia, lane_availability, resolve_session_home};
 use crate::hook::{clip_to, parse_hook, str_field};
 use crate::host::{CLAUDE_CODE, hook_host, session_title, title_to_apply, with_session_title};
 use crate::index_tier1::{refresh_guards, refresh_neighbours, repo_rules};
@@ -602,15 +602,17 @@ pub fn handle_session_start(root: &Path, input: &str) -> CmdResult {
     // A new id for old work (r4-fixes A10): trace its lineage before anything
     // resolves, so this block and every later hook follow the parent's home.
     let traced = session_id.is_some_and(|sid| trace_lineage(root, &layout, &hook, sid));
-    let Some((slug, via)) = resolve_session_first(&layout, session_id) else {
+    let Some((slug, via, registered)) = resolve_session_home(&layout, session_id) else {
         return ok(unbound_notice(&layout, session_id));
     };
     // The route pin: an unregistered session keeps the record this block
-    // shows, whatever a peer's write-back does to the route.
+    // shows, whatever a peer's write-back does to the route. `registered` is
+    // the scan resolution already ran; scanning again cost +20 ms at 1000
+    // records (r4-fixes E2, D18).
     if let Some(sid) = session_id
         && via == ResolvedVia::Branch
+        && !registered
         && let Some(branch) = crate::git::current_branch(root)
-        && crate::home::home_initiative(&layout, sid, Some(&slug)).is_none()
     {
         let _ = crate::lineage::pin_route(&layout, sid, &slug, &branch);
     }

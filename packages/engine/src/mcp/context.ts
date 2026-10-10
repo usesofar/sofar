@@ -290,6 +290,20 @@ export function resolveSessionFirst(
   ctx: ToolContext,
   sessionId?: string | null,
 ): ResolvedInitiative | null {
+  const resolved = resolveSessionHome(ctx, sessionId)
+  return resolved === null ? null : { slug: resolved.slug, via: resolved.via }
+}
+
+/**
+ * resolveSessionFirst with `registered`: whether a log registered the session
+ * (homeInitiative found it). SessionStart's route pin reads it instead of
+ * scanning every log again, which cost +20 ms at 1000 records (r4-fixes E2,
+ * D18).
+ */
+export function resolveSessionHome(
+  ctx: ToolContext,
+  sessionId?: string | null,
+): (ResolvedInitiative & { registered: boolean }) | null {
   let branchSlug: string | null = null
   try {
     branchSlug = ctx.resolveInitiative()
@@ -300,7 +314,7 @@ export function resolveSessionFirst(
     branchSlug === QUICK_LANE && ctx.laneFallback() ? 'lane' : 'branch'
   if (sessionId != null && sessionId.length > 0) {
     const home = homeInitiative(ctx.sofarDir, sessionId, branchSlug)
-    if (home !== null) return { slug: home, via: home === branchSlug ? branchVia() : 'session' }
+    if (home !== null) return { slug: home, via: home === branchSlug ? branchVia() : 'session', registered: true }
     // Lineage (r4-fixes A10): an unregistered id the SessionStart hook traced
     // to a parent session (core/lineage.ts) resolves to that parent's home,
     // ahead of every route — identity, not inference (R11 (a)). Else the
@@ -308,11 +322,11 @@ export function resolveSessionFirst(
     // peer's write-back moving the worktree's last home leaves it put.
     const lineage = readLineage(ctx.sofarDir, sessionId)
     if (lineage !== null && lineageApplies(lineage, currentBranch(ctx.rootDir)) && existsSync(ctx.initiativeDir(lineage.home))) {
-      return { slug: lineage.home, via: lineage.home === branchSlug ? branchVia() : 'session' }
+      return { slug: lineage.home, via: lineage.home === branchSlug ? branchVia() : 'session', registered: false }
     }
   }
   if (branchSlug === null) return null
-  return { slug: branchSlug, via: branchVia() }
+  return { slug: branchSlug, via: branchVia(), registered: false }
 }
 
 /**
