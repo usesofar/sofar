@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 2006 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 44 done, 6 dropped, 21 remaining
+Progress: 44 done, 6 dropped, 22 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -39,7 +39,7 @@ Progress: 44 done, 6 dropped, 21 remaining
 - [x] H11 H11 Cloud write-back lands in a phantom session: in Claude Code cloud the stdio MCP server inherits CLAUDE_CODE_SESSION_ID from the pre-warmed spare (`claude --preload`), not the conversation's id. Prefer the hook-registered session when the env id is unknown to the record; say "adopted" only on a match (note 01M4JEK5)
 - [x] H12 H12 Cloud command logging re-dirties .sofar after every commit: a leading `cd <repo root>;` segment defeats the record-hygiene exemption (isSelfRecordingCommand). Reproduce first, then treat cd into the record root as neutral (note 01M4JEK5)
 
-## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 6/18 (3 dropped) done
+## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 6/19 (3 dropped) done
 
 - [x] B1 B1 Work maps: ≤1.5k-char focus-task map (files, last test cmd+exit, entry points) ranked by PageRank+BM25F, stamped verified-at-sha (SOFAR_WORKMAP). PREDICT Claude −0.05 to −0.10
 - [-] B2 B2 Rules compiled to checks: opt-in forbid, PreToolUse deny + check --staged + Stop gate (SOFAR_FORBID; R13 Decision vs drift-hardening D3 first). PREDICT GV −0.5 to −1 (dropped)
@@ -59,6 +59,7 @@ Progress: 44 done, 6 dropped, 21 remaining
 - [x] B16 A14's 24h abandoned rule on hot-path notices, not only doctor
 - [-] B17 Cut habitual raw reads of record projections: round 4 cost about 55k attributed tokens per sofar Claude session (native about 1k). Cover memory.md, decisions.md and plan.md partial reads, and the read rewrite inflating `tail` reads (5.1k vs 2.1k chars). Find why agents re-read delivered content before choosing a lever (D29) (dropped)
 - [x] B18 B5 elsewhere half: mentions tier, inbound digest block, prompt line and glance (SOFAR_ELSEWHERE)
+- [ ] B19 B19 Elsewhere view at scale: mentions-tier pass costs native user-prompt +6-7 ms (+12.8%) at 1000 records (i1000-10mb, SOFAR_ELSEWHERE arm)
 
 ## Phase 2c — Wave C: distribution and ecosystem [pending] — 1/8 done
 
@@ -86,5 +87,5 @@ Progress: 44 done, 6 dropped, 21 remaining
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 - [ ] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3)
 
-Next action: When #7f77 reports the published rc.1 version, rebase local record commits onto its merge-back, set sofar-probe to that version and re-run the cloud probe.
+Next action: Operator: git push origin v0.37.0-rc.1, then approve the staged publish; then set sofar-probe to 0.37.0-rc.1 and re-run the cloud probe.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).
