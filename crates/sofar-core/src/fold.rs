@@ -257,6 +257,14 @@ pub struct RunAdoption {
     pub epoch: f64,
 }
 
+/// A lane holding a task in a lanes run (drive-lanes 2.3, D22).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct LaneAssignment {
+    pub lane: f64,
+    pub task: String,
+    pub ts: String,
+}
+
 /// The driver in force: the highest epoch, the first-sorting id on a tie.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RunOwner {
@@ -278,6 +286,10 @@ pub struct RunState {
     pub verify: Option<String>,
     /// Lane worktrees the run drives tasks in (drive-lanes 2.2); absent on a serial run.
     pub lanes: Option<f64>,
+    /// Which lane holds which task right now (drive-lanes 2.3, D22), lane
+    /// order; serialized only when a lane holds one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub assignments: Vec<LaneAssignment>,
     pub handoffs: Vec<RunHandoff>,
     pub verifications: Vec<RunVerification>,
     pub done_tasks: Vec<String>,
@@ -1238,6 +1250,7 @@ fn apply_event(
                 surface: p.get("surface").cloned(),
                 verify: opt_str(p, "verify"),
                 lanes: opt_num(p, "lanes"),
+                assignments: Vec::new(),
                 handoffs: Vec::new(),
                 verifications: Vec::new(),
                 done_tasks: Vec::new(),
@@ -1327,6 +1340,10 @@ fn apply_event(
                 tokens: opt_num(p, "tokens"),
                 detail: opt_str(p, "detail"),
             });
+            // The session ended, so the lane holding its task is free (2.3, D22).
+            if let Some(task) = opt_str(p, "task") {
+                run.assignments.retain(|a| a.task != task);
+            }
             // The session's side, attached to REGISTERED sessions only.
             if let Some(i) = session_index.position(&state.sessions, &session_id) {
                 state.sessions[i].handoff = Some(SessionHandoff {
@@ -1355,6 +1372,7 @@ fn apply_event(
             run.stopped = Some(event.ts.clone());
             run.stop_reason = Some(req_str(p, "reason"));
             run.stop_note = opt_str(p, "note");
+            run.assignments.clear();
         }
         "run_stop_requested" => {
             let run_id = req_str(p, "run");
@@ -1383,12 +1401,43 @@ fn apply_event(
                 epoch,
             });
             // Replay is in id order, so on a tie the adoption already in force
-            // sorts first and keeps the run: only a HIGHER epoch takes it.
+            // sorts first and keeps the run: only a HIGHER epoch takes it —
+            // and the lanes the driver it fenced held are gone with it (D22).
             if epoch > run.owner.epoch {
                 run.owner = RunOwner {
                     id: event.id.clone(),
                     epoch,
                 };
+                run.assignments.clear();
+            }
+        }
+        "lane_assigned" => {
+            // No stub, as for a handoff; a stopped run holds no lanes.
+            let run_id = req_str(p, "run");
+            let Some(run) = state.runs.iter_mut().find(|r| r.id == run_id) else {
+                warnings.push(format!(
+                    "line {line_no}: lane assignment for run \"{run_id}\" that never started — skipped"
+                ));
+                return;
+            };
+            if run.stopped.is_some() {
+                warnings.push(format!(
+                    "line {line_no}: lane assignment for run \"{run_id}\" after its stop — skipped"
+                ));
+                return;
+            }
+            // A lane holds one task and a task one lane: the new hold replaces both.
+            let lane = req_num(p, "lane");
+            let task = opt_str(p, "task");
+            run.assignments
+                .retain(|a| a.lane != lane && task.as_ref() != Some(&a.task));
+            if let Some(task) = task {
+                run.assignments.push(LaneAssignment {
+                    lane,
+                    task,
+                    ts: event.ts.clone(),
+                });
+                run.assignments.sort_by(|a, b| a.lane.total_cmp(&b.lane));
             }
         }
         // `judgement_recorded` is enrichment, never state (typed-judge 2.4):
@@ -1933,6 +1982,7 @@ fn record_freshness(
         | "run_stopped"
         | "run_stop_requested"
         | "run_adopted"
+        | "lane_assigned"
         | "verification_recorded"
         // Stored judgements too (typed-judge 2.4): enrichment derived from
         // the record, owing no write-back.
@@ -2353,6 +2403,23 @@ impl RunState {
         }
         put_opt(&mut o, "verify", self.verify.as_deref());
         put_opt_num(&mut o, "lanes", self.lanes);
+        if !self.assignments.is_empty() {
+            o.insert(
+                "assignments",
+                Json::Arr(
+                    self.assignments
+                        .iter()
+                        .map(|a| {
+                            let mut ao = Object::with_capacity(3);
+                            put_num(&mut ao, "lane", a.lane);
+                            put(&mut ao, "task", &a.task);
+                            put(&mut ao, "ts", &a.ts);
+                            Json::Obj(ao)
+                        })
+                        .collect(),
+                ),
+            );
+        }
         o.insert(
             "handoffs",
             Json::Arr(
@@ -2895,6 +2962,19 @@ impl RunState {
             surface: o.get("surface").cloned(),
             verify: os(o, "verify")?,
             lanes: on(o, "lanes")?,
+            assignments: match o.get("assignments") {
+                None => Vec::new(),
+                Some(_) => objs(o, "assignments")?
+                    .into_iter()
+                    .map(|a| {
+                        Some(LaneAssignment {
+                            lane: rn(a, "lane")?,
+                            task: rs(a, "task")?,
+                            ts: rs(a, "ts")?,
+                        })
+                    })
+                    .collect::<Option<_>>()?,
+            },
             handoffs: objs(o, "handoffs")?
                 .into_iter()
                 .map(|h| {
@@ -3206,6 +3286,99 @@ mod tests {
             crate::projections::describe_run(&runs[1], None),
             "run R2 via fake, task policy — 0 handoffs; running"
         );
+    }
+
+    #[test]
+    fn lane_assignments_hold_one_task_per_lane_until_a_handoff_a_free_or_the_stop() {
+        let ev = |n: u8, kind: &str, payload: &str| {
+            line(
+                &format!("01K4C00000000000000000AB{n:02}"),
+                &format!("2026-10-10T00:00:{n:02}.000Z"),
+                "cli",
+                kind,
+                payload,
+            )
+        };
+        let head = [
+            ev(
+                1,
+                "initiative_created",
+                "{\"slug\":\"demo\",\"goal\":\"g\"}",
+            ),
+            ev(
+                2,
+                "run_started",
+                "{\"run\":\"R\",\"adapter\":\"fake\",\"policy\":\"task\",\"lanes\":2}",
+            ),
+            ev(
+                3,
+                "lane_assigned",
+                "{\"run\":\"R\",\"lane\":2,\"task\":\"1.1\"}",
+            ),
+            ev(
+                4,
+                "lane_assigned",
+                "{\"run\":\"R\",\"lane\":1,\"task\":\"1.2\"}",
+            ),
+        ];
+        let fold_with = |tail: &[String]| {
+            let text = head
+                .iter()
+                .chain(tail)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n");
+            fold_text(&text, "demo").state.runs.remove(0)
+        };
+        let run = fold_with(&[]);
+        assert_eq!(
+            run.assignments
+                .iter()
+                .map(|a| (a.lane, a.task.as_str()))
+                .collect::<Vec<_>>(),
+            [(1.0, "1.2"), (2.0, "1.1")]
+        );
+        let back = RunState::from_json(run.to_json().as_obj().unwrap()).unwrap();
+        assert_eq!(back, run);
+        assert_eq!(
+            crate::projections::describe_run(&run, None),
+            "run R via fake, task policy, 2 lanes (L1 1.2, L2 1.1) — 0 handoffs; running"
+        );
+        // 1.1 moves to lane 1: lane 2 is free and 1.2 lost its lane.
+        let moved = fold_with(&[ev(
+            5,
+            "lane_assigned",
+            "{\"run\":\"R\",\"lane\":1,\"task\":\"1.1\"}",
+        )]);
+        assert_eq!(moved.assignments.len(), 1);
+        assert_eq!(moved.assignments[0].lane, 1.0);
+        let handed = fold_with(&[ev(
+            5,
+            "handoff",
+            "{\"run\":\"R\",\"session_id\":\"S\",\"reason\":\"stall\",\"task\":\"1.1\"}",
+        )]);
+        assert_eq!(handed.assignments.len(), 1);
+        assert_eq!(handed.assignments[0].task, "1.2");
+        let freed = fold_with(&[ev(5, "lane_assigned", "{\"run\":\"R\",\"lane\":1}")]);
+        assert_eq!(freed.assignments.len(), 1);
+        let stopped = fold_with(&[
+            ev(5, "run_stopped", "{\"run\":\"R\",\"reason\":\"closed\"}"),
+            ev(
+                6,
+                "lane_assigned",
+                "{\"run\":\"R\",\"lane\":1,\"task\":\"1.3\"}",
+            ),
+        ]);
+        assert!(stopped.assignments.is_empty());
+        assert!(
+            !stopped
+                .to_json()
+                .as_obj()
+                .unwrap()
+                .contains_key("assignments")
+        );
+        let adopted = fold_with(&[ev(5, "run_adopted", "{\"run\":\"R\",\"epoch\":2}")]);
+        assert!(adopted.assignments.is_empty());
     }
 
     #[test]

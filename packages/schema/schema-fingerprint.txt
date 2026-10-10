@@ -24,6 +24,7 @@ handoff: run, session_id, reason: task_done|threshold|stall|needs_user|verify_fa
 run_stopped: run, reason: closed|needs_user|stall|cost_cap|max_sessions|interrupted|error, note? (required for error)
 run_stop_requested: run
 run_adopted: run, epoch (integer ≥2; run_started is epoch 1 — the owner is the highest)
+lane_assigned: run, lane (integer ≥1), task? (absent: the lane is free again)
 verification_recorded: run, task, attempt, command, cwd, checked: {head, tree}, validator, result: pass|fail|timeout|error|refused, exit_code?, signal?, duration_ms, timeout_ms, diagnostics? (≤1,024 chars), decision? (<slug> D<n> whose check this was)
 correction: ref (the bad event id), reason?
 suggestion_proposed: candidate (sha256 over version, signal, scope, sorted evidence), signal, evidence (non-empty: event ids or row hashes), count (≥1), cutoff?, engine, detector_version, trust {protocol, verdict, precision, recall, judged}

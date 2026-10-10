@@ -27,7 +27,8 @@ import { lowPriority } from './load'
  * already holding it or else the next clean one. Acceptance commits what the
  * session left uncommitted, so the gate verifies exactly what lands, and then
  * fast-forwards the base. The checkout's own branch is never moved: it is
- * checked out under the operator's working tree.
+ * checked out under the operator's working tree. The coordinator (2.3, D21)
+ * runs lanes at once, so placing a task skips the lanes it says are busy.
  */
 
 export class LaneError extends Error {
@@ -318,20 +319,20 @@ export class LaneRun {
     return this.lanes.find((lane) => currentBranch(lane.dir) === branch)
   }
 
-  /** Clean lanes in rotation order, starting after the last one used. */
-  private cleanLanes(): Lane[] {
+  /** Clean lanes not in `busy`, in rotation order, starting after the last one used. */
+  private cleanLanes(busy: ReadonlySet<number> = new Set()): Lane[] {
     const n = this.lanes.length
     const order = Array.from({ length: n }, (_, i) => this.lanes[(this.cursor + i) % n]!)
-    return order.filter((lane) => dirtyPaths(lane.dir).length === 0)
+    return order.filter((lane) => !busy.has(lane.id) && dirtyPaths(lane.dir).length === 0)
   }
 
-  /** Why no clean lane was found: each lane, its branch and what it holds. */
-  private noCleanLane(what: string): LaneError {
+  /** Why no clean lane was found for `what`: each lane, its branch and what it holds. */
+  whyNoLane(what: string): string {
     const held = this.lanes.map((lane) => {
       const n = dirtyPaths(lane.dir).length
       return `lane ${lane.id} (${lane.dir}) holds ${n} uncommitted path${n === 1 ? '' : 's'} on ${currentBranch(lane.dir) ?? 'a detached HEAD'}`
     })
-    return new LaneError(`no clean lane for ${what}: ${held.join('; ')} — commit or discard them there`)
+    return `no clean lane for ${what}: ${held.join('; ')} — commit or discard them there`
   }
 
   /**
@@ -341,14 +342,26 @@ export class LaneRun {
    * lane checks out the branch, cutting it from the base the first time; a
    * branch already landed whose base has moved on starts again from the base.
    */
-  prepare(taskId: string): LaneTask {
+  prepare(taskId: string, busy: ReadonlySet<number> = new Set()): LaneTask {
+    const placed = this.place(taskId, busy)
+    if (placed === undefined) throw new LaneError(this.whyNoLane(taskId))
+    return placed
+  }
+
+  /**
+   * `prepare`, with no lane in `busy` touched — a lane running another task, or
+   * parked (2.3) — and undefined rather than a refusal when no free lane can
+   * take the task now: the one holding its branch is busy, or no other is clean.
+   */
+  place(taskId: string, busy: ReadonlySet<number>): LaneTask | undefined {
     const branch = this.branchOf(taskId)
     const base = this.baseTip()
     const tip = revParse(this.rootDir, `refs/heads/${branch}`)
     let lane = this.holding(branch)
+    if (lane !== undefined && busy.has(lane.id)) return undefined
     if (lane === undefined) {
-      lane = this.cleanLanes()[0]
-      if (lane === undefined) throw this.noCleanLane(taskId)
+      lane = this.cleanLanes(busy)[0]
+      if (lane === undefined) return undefined
     }
     this.cursor = (this.lanes.indexOf(lane) + 1) % this.lanes.length
     if (tip === undefined) {
@@ -384,10 +397,10 @@ export class LaneRun {
     return warnings
   }
 
-  /** A clean lane detached at the base's tip, for checks of the run's whole tree; undefined when every lane is dirty. */
-  atBase(): Lane | undefined {
+  /** A clean lane not in `busy`, detached at the base's tip, for checks of the run's whole tree; undefined when there is none. */
+  atBase(busy: ReadonlySet<number> = new Set()): Lane | undefined {
     const base = this.baseTip()
-    const clean = this.cleanLanes()
+    const clean = this.cleanLanes(busy)
     const lane = clean.find((l) => revParse(l.dir, 'HEAD') === base) ?? clean[0]
     if (lane === undefined) return undefined
     git(lane.dir, ['checkout', '-q', '--detach', base])

@@ -743,7 +743,7 @@ program
   .option('--max-verify-attempts <n>', 'stop the run once one task has failed verification this many times (default 3)')
   .option(
     '--lanes <n>',
-    "drive tasks in n lane worktrees, each task on its own branch landed on the run's base branch (default 1: one directory, as before)",
+    "drive up to n ready tasks at once, each in a lane worktree on its own branch landed on the run's base branch (default 1: one directory, one task at a time)",
   )
   .option(
     '--lane-setup <cmd>',

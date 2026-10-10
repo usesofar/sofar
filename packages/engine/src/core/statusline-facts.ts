@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import type { InitiativeStatus, RunStopReason } from '@sofar/schema'
 import { taskProgress, type TaskProgress } from '../projections/templates/shared'
 import { writeFileAtomic } from './atomic'
-import { nextTask } from './drive-queue'
+import { taskInFlight } from './drive-queue'
 import { latestRun, type InitiativeState } from './fold'
 import { ensureIndexDir, indexDir, logStat } from './index-store'
 import { currentVersion } from './snapshot'
@@ -34,7 +34,7 @@ export interface StatuslineFacts {
   status: InitiativeStatus
   /** The latest run, only what driveSegmentOf reads; null when none ran. */
   run: { id: string; stopped: string | null; stop_reason: RunStopReason | null } | null
-  /** The driver's next task id, read only while a run is open. */
+  /** The driver's next task id — on a lanes run what its lanes hold (drive-lanes D22) — read only while a run is open. */
   next_task: string | null
   /** Session id → its `started`, for the stopped-since-this-session test. */
   started: Record<string, string>
@@ -62,7 +62,7 @@ export function factsOf(state: InitiativeState): StatuslineFacts {
       run === undefined
         ? null
         : { id: run.id, stopped: run.stopped ?? null, stop_reason: run.stop_reason ?? null },
-    next_task: nextTask(state)?.id ?? null,
+    next_task: taskInFlight(state) ?? null,
     started: Object.fromEntries(started),
   }
 }

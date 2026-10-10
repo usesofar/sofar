@@ -1,0 +1,116 @@
+{
+  "state": {
+    "brief": "",
+    "current": {
+      "active_phase": "Phase 1 — first",
+      "next_action": null
+    },
+    "cursor": "01KDVDNNQ0VY50ZJ9M36D87THW",
+    "decisions": [],
+    "drop_notes": {},
+    "files_touched": [],
+    "freshness": {
+      "events_since_writeback": {
+        "commands": 0,
+        "decisions": 0,
+        "files": 0,
+        "memories": 0,
+        "notes": 0,
+        "phases": 0,
+        "reviews": 0,
+        "tasks": 0
+      },
+      "last_writeback_ts": null,
+      "notes": [],
+      "unattributed_mutations": 0
+    },
+    "goal": "a goal of realistic length for the parity suite",
+    "guard_violations": [],
+    "memories": [],
+    "phases": [
+      {
+        "name": "Phase 1 — first",
+        "status": "active",
+        "tasks": [
+          {
+            "id": "1.1",
+            "status": "active",
+            "title": "task 1"
+          },
+          {
+            "id": "1.2",
+            "status": "pending",
+            "title": "task 2"
+          },
+          {
+            "id": "1.3",
+            "status": "pending",
+            "title": "task 3"
+          }
+        ]
+      },
+      {
+        "name": "Phase 2 — second",
+        "status": "pending",
+        "tasks": [
+          {
+            "id": "2.1",
+            "route": {
+              "agent": "codex"
+            },
+            "status": "pending",
+            "title": "later",
+            "verify": {
+              "cmd": "npm test"
+            }
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "runs": [
+      {
+        "adapter": "claude-code",
+        "adoptions": [],
+        "assignments": [
+          {
+            "lane": 2,
+            "task": "1.2",
+            "ts": "2026-01-01T00:00:10.000Z"
+          }
+        ],
+        "done_tasks": [],
+        "handoffs": [
+          {
+            "reason": "task_done",
+            "session_id": "S1",
+            "task": "1.1",
+            "ts": "2026-01-01T00:00:09.000Z"
+          }
+        ],
+        "id": "01J00000000000000000000000",
+        "lanes": 2,
+        "owner": {
+          "epoch": 1,
+          "id": "01KDVDNCXRPXRQA1CVY50ZJ9M3"
+        },
+        "policy": "task",
+        "stop_requests": [],
+        "ts": "2026-01-01T00:00:03.000Z",
+        "verifications": []
+      }
+    ],
+    "sessions": [],
+    "slug": "demo",
+    "status": "active",
+    "status_note": null,
+    "status_overrides": [],
+    "status_ts": null,
+    "successor": null,
+    "task_files": {}
+  },
+  "warnings": [
+    "line 7: lane assignment for run \"01J0000000000000000000GONE\" that never started — skipped",
+    "line 8: invalid lane_assigned payload (lane: must be an integer of at least 1) — skipped"
+  ]
+}

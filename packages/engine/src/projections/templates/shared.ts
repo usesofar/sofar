@@ -7,6 +7,7 @@ import {
   type SessionActivity,
 } from '../../core/fold'
 import type { TestOutcome } from '../../core/adjacency'
+import { laneHolds } from '../../core/drive-queue'
 import { handleAt, qualifiedHandle } from '../../core/handle'
 import type { RepoRule } from '../../core/index-tier1'
 import { lexicalCounts } from '../../core/lexicon'
@@ -91,8 +92,10 @@ export function describeRun(run: RunState, liveness?: RunLiveness): string {
             : 'running'
   // A resumed run says so, and at which epoch; one never resumed renders as before.
   const resumed = run.owner.epoch > 1 ? `, resumed (epoch ${run.owner.epoch})` : ''
-  // Lanes (drive-lanes 2.2) only on a lanes run, so a serial run's line is unchanged.
-  const lanes = run.lanes !== undefined ? `, ${run.lanes} lanes` : ''
+  // Lanes (drive-lanes 2.2) only on a lanes run, so a serial run's line is
+  // unchanged — with what each holds while one does (2.3, D22).
+  const held = run.assignments !== undefined ? ` (${laneHolds(run.assignments)})` : ''
+  const lanes = run.lanes !== undefined ? `, ${run.lanes} lanes${held}` : ''
   return `run ${run.id} via ${run.adapter}, ${policy}${lanes}${resumed} — ${handoffs}; ${fate}`
 }
 

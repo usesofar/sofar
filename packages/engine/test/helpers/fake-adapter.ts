@@ -5,6 +5,7 @@ import type {
   AdapterCapabilities,
   AgentSession,
   LaunchRequest,
+  RateLimit,
   SessionExit,
   Usage,
 } from '../../src/driver/adapter'
@@ -41,8 +42,10 @@ export interface FakeScript {
   block?: string
   /** What the session does to the tree it was launched in, before it touches the record (drive-lanes 2.2). */
   work?: (cwd: string) => void
-  /** How the process ends, including what it left on stderr (r1-fixes 1.6). */
-  exit?: { code: number | null; signal?: string; stderr_tail?: string; spawn_error?: string }
+  /** Settles when the session may go on: until then it is running, so lanes can be caught at once (drive-lanes 2.3). */
+  hold?: () => Promise<void>
+  /** How the process ends, including what it left on stderr (r1-fixes 1.6) and a usage limit (drive-lanes 2.3). */
+  exit?: { code: number | null; signal?: string; stderr_tail?: string; spawn_error?: string; rate_limit?: RateLimit }
   /** Whether the exit carries the session id — a transport that shows it. */
   report_session_id?: boolean
   capabilities?: Partial<AdapterCapabilities>
@@ -79,6 +82,7 @@ export class FakeSession implements AgentSession {
   async wait(): Promise<SessionExit> {
     const { script } = this
     const taskId = this.request.task?.id
+    if (script.hold !== undefined) await script.hold()
     script.work?.(this.request.cwd)
     if (script.session_id !== undefined && taskId !== undefined) {
       const change =

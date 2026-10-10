@@ -17,6 +17,31 @@ pub fn next_task(state: &InitiativeState) -> Option<&TaskState> {
     ready_tasks(state).into_iter().next()
 }
 
+/// `heldByLanes` (drive-lanes 2.3, D22): what the latest run's lanes hold,
+/// `L<k> <task>` in lane order joined by ", "; None when that run is stopped
+/// or no lane holds a task.
+#[must_use]
+pub fn held_by_lanes(state: &InitiativeState) -> Option<String> {
+    let run = state.runs.last()?;
+    if run.stopped.is_some() || run.assignments.is_empty() {
+        return None;
+    }
+    Some(
+        run.assignments
+            .iter()
+            .map(|a| format!("L{} {}", crate::json::number_to_string(a.lane), a.task))
+            .collect::<Vec<_>>()
+            .join(", "),
+    )
+}
+
+/// `taskInFlight`: the task a watching surface names — what the lanes hold
+/// on a lanes run, else the ready head.
+#[must_use]
+pub fn task_in_flight(state: &InitiativeState) -> Option<String> {
+    held_by_lanes(state).or_else(|| next_task(state).map(|t| t.id.clone()))
+}
+
 /// `queuedTasks`: every task the run could still reach, in reach order.
 #[must_use]
 pub fn queued_tasks(state: &InitiativeState) -> Vec<&TaskState> {
@@ -169,6 +194,31 @@ mod tests {
                 "{status}"
             );
         }
+    }
+
+    #[test]
+    fn a_lanes_run_names_what_its_lanes_hold_else_the_ready_head() {
+        let tasks = plan(
+            r#"{"id":"1.1","title":"a","status":"pending"},{"id":"1.2","title":"b","status":"pending"}"#,
+        );
+        let run = r#"{"run":"R","adapter":"fake","policy":"task","lanes":2}"#;
+        let idle = state(&[("plan_updated", &tasks), ("run_started", run)]);
+        assert_eq!(held_by_lanes(&idle), None);
+        assert_eq!(task_in_flight(&idle).as_deref(), Some("1.1"));
+        let busy = state(&[
+            ("plan_updated", &tasks),
+            ("run_started", run),
+            ("lane_assigned", r#"{"run":"R","lane":2,"task":"1.1"}"#),
+            ("lane_assigned", r#"{"run":"R","lane":1,"task":"1.2"}"#),
+        ]);
+        assert_eq!(task_in_flight(&busy).as_deref(), Some("L1 1.2, L2 1.1"));
+        let stopped = state(&[
+            ("plan_updated", &tasks),
+            ("run_started", run),
+            ("lane_assigned", r#"{"run":"R","lane":1,"task":"1.1"}"#),
+            ("run_stopped", r#"{"run":"R","reason":"closed"}"#),
+        ]);
+        assert_eq!(held_by_lanes(&stopped), None);
     }
 
     #[test]

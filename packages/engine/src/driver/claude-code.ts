@@ -10,6 +10,7 @@ import type {
   AdapterCapabilities,
   AgentSession,
   LaunchRequest,
+  RateLimit,
   SessionExit,
   Usage,
 } from './adapter'
@@ -34,9 +35,15 @@ import { lowPriority } from './load'
  * - `{"type":"result","subtype","is_error","num_turns","total_cost_usd",
  *   "usage"}` — cost lives only here.
  *
- * Everything else (hook_started, thinking_tokens, rate_limit_event, user
- * lines) is skipped; an unparseable line is skipped too — the fold's
- * tolerance rule, applied to a stream.
+ * - `{"type":"rate_limit_event","rate_limit_info":{"status","rateLimitType",
+ *   "resetsAt"}}` — kept only when the status is `rejected`: the account's
+ *   usage limit refused the session, and `resetsAt` (epoch seconds) says when
+ *   it lifts (drive-lanes 2.3, D23). Seen on 2.1.278 as a launch that exits 1
+ *   before SessionStart (drive-lanes M1).
+ *
+ * Everything else (hook_started, thinking_tokens, user lines) is skipped; an
+ * unparseable line is skipped too — the fold's tolerance rule, applied to a
+ * stream.
  *
  * Two facts the driver leans on. The initiative is PINNED through the
  * prompt: the engine has no env override for the branch binding, and adding
@@ -141,6 +148,21 @@ type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 
+/**
+ * A `rate_limit_info` that refused the session, as the driver reads it; undefined
+ * for one that allowed it (the stream reports every check, `allowed` included).
+ * `resetsAt` is epoch seconds; a value too large for seconds is taken as ms.
+ */
+export function rejectedLimit(info: unknown): RateLimit | undefined {
+  if (!isObj(info) || info.status !== 'rejected') return undefined
+  const at = info.resetsAt
+  const ms = typeof at === 'number' && Number.isFinite(at) && at > 0 ? (at < 1e12 ? at * 1000 : at) : typeof at === 'string' ? Date.parse(at) : NaN
+  return {
+    ...(typeof info.rateLimitType === 'string' && info.rateLimitType.length > 0 ? { type: info.rateLimitType } : {}),
+    ...(Number.isFinite(ms) ? { resets_at: new Date(ms).toISOString() } : {}),
+  }
+}
+
 const STDERR_TAIL = 4096
 /** How long after exit to wait for stdout to drain before reporting the exit anyway. */
 const STDOUT_DRAIN_GRACE_MS = 2_000
@@ -154,6 +176,8 @@ export class ClaudeCodeSession implements AgentSession {
   stderrTail = ''
   /** Set when the binary could not be spawned at all (ENOENT and friends). */
   spawnError: string | undefined
+  /** The usage limit that refused the session, once a rejected rate_limit_event is seen. */
+  rateLimit: RateLimit | undefined
   readonly nudgePath: string
   /** The per-session settings file, once a surface has been written and verified to it. */
   readonly settingsPath: string | undefined
@@ -232,6 +256,7 @@ export class ClaudeCodeSession implements AgentSession {
           ...(this.latest !== undefined ? { usage: this.latest } : {}),
           ...(this.stderrTail.trim() !== '' ? { stderr_tail: this.stderrTail } : {}),
           ...(this.spawnError !== undefined ? { spawn_error: this.spawnError } : {}),
+          ...(this.rateLimit !== undefined ? { rate_limit: this.rateLimit } : {}),
         })
       }
       // Settle when the process has exited AND stdout has been drained, so
@@ -294,6 +319,11 @@ export class ClaudeCodeSession implements AgentSession {
             ? num(u.input_tokens) + num(u.cache_creation_input_tokens) + num(u.cache_read_input_tokens)
             : this.latest?.context_tokens ?? 0,
         )
+        return
+      }
+      case 'rate_limit_event': {
+        const limit = rejectedLimit(decoded.rate_limit_info)
+        if (limit !== undefined) this.rateLimit = limit
         return
       }
       default:

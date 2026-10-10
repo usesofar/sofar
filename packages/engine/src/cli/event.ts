@@ -96,7 +96,7 @@ import { BOUND_TOLD, boundLine, cursorDebtEnabled, debtNoteHead, debtNoteText } 
 import { livePeers, resolvePeers, type Peer } from '../core/peers'
 import { continuesFor, lineageEnabled, pinRoute, readLineage, resolveLineage, writeBaton, writeLineage } from '../core/lineage'
 import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
-import { nextTask } from '../core/drive-queue'
+import { taskInFlight } from '../core/drive-queue'
 import { noteDriveSeen } from '../core/drive-seen'
 import { probeRunLock, type RunLockOptions } from '../core/run-lock'
 import { launchedRun } from '../core/run-progress'
@@ -3144,7 +3144,8 @@ export function driveLine(
   if (run.stopped !== undefined && run.stopped < me.started) return null
   const n = run.handoffs.length
   const p = taskProgress(state.phases)
-  const now = run.stopped === undefined ? nextTask(state)?.id : undefined
+  // On a lanes run, what its lanes hold (drive-lanes D22).
+  const now = run.stopped === undefined ? taskInFlight(state) : undefined
   const tail = [`${n} handoff${n === 1 ? '' : 's'}`, ...(now !== undefined ? [`now on ${now}`] : []), `${p.done}/${p.total}`].join(' · ')
   const stopped = run.stopped !== undefined ? `stopped: ${run.stop_reason ?? 'unknown'}` : undefined
   if (!noteDriveSeen(rootDir, me.id, `${run.id} ${stopped ?? 'open'} · ${tail}`, env)) return null

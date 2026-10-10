@@ -221,10 +221,23 @@ pub fn describe_run(run: &RunState, liveness: Option<RunLiveness>) -> String {
     } else {
         String::new()
     };
-    // Lanes (drive-lanes 2.2) only on a lanes run, so a serial run's line is unchanged.
+    // Lanes (drive-lanes 2.2) only on a lanes run, so a serial run's line is
+    // unchanged — with what each holds while one does (2.3, D22).
+    let held = if run.assignments.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " ({})",
+            run.assignments
+                .iter()
+                .map(|a| format!("L{} {}", number_to_string(a.lane), a.task))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
     let lanes = run
         .lanes
-        .map(|n| format!(", {} lanes", number_to_string(n)))
+        .map(|n| format!(", {} lanes{held}", number_to_string(n)))
         .unwrap_or_default();
     format!(
         "run {} via {}, {policy}{lanes}{resumed} — {handoffs}; {fate}",

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type { Command } from 'commander'
 import { isClosedInitiativeStatus, type InitiativeStatus, type RunStopReason } from '@sofar/schema'
-import { nextTask } from '../core/drive-queue'
+import { taskInFlight } from '../core/drive-queue'
 import { latestRun, type InitiativeState } from '../core/fold'
 import { QUICK_LANE } from '../core/lane'
 import { probeRunLock, type RunLiveness } from '../core/run-lock'
@@ -220,7 +220,7 @@ export function driveSegmentOf(
   const run = latestRun(state)
   return driveSegmentFrom(
     run === undefined ? null : { id: run.id, stopped: run.stopped ?? null, stop_reason: run.stop_reason ?? null },
-    () => nextTask(state)?.id ?? null,
+    () => taskInFlight(state) ?? null,
     sessionStarted,
     probe,
   )

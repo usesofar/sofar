@@ -714,6 +714,24 @@ export interface RunAdoptedPayload {
 }
 
 /**
+ * A lanes run's coordinator gave a lane a task (drive-lanes 2.3, D22), just
+ * before launching its session there — so the statusline and an interactive
+ * session see which lane holds which task. Without `task` it freed the lane:
+ * a launch that resolved to no session files no handoff, which is what
+ * otherwise ends an assignment. One event per assignment, never a heartbeat.
+ */
+export interface LaneAssignedPayload {
+  run: string
+  /**
+   * The lane's number in the pool (`lane-<k>`). A number, never a path: the
+   * path is this machine's, and the record is shared.
+   * @asType integer
+   */
+  lane: number
+  task?: string
+}
+
+/**
  * What the 2.2 protocol measured about the detector behind a suggestion
  * (self-improve 2.3): a reader sees how often this signal is right without
  * leaving the row. Every field is a measurement, never an estimate.
@@ -783,6 +801,7 @@ export interface KnownEventPayloads {
   run_stopped: RunStoppedPayload
   run_stop_requested: RunStopRequestedPayload
   run_adopted: RunAdoptedPayload
+  lane_assigned: LaneAssignedPayload
   verification_recorded: VerificationRecordedPayload
   correction: CorrectionPayload
   suggestion_proposed: SuggestionProposedPayload
@@ -827,6 +846,7 @@ export const EVENT_TYPES = [
   'run_stopped',
   'run_stop_requested',
   'run_adopted',
+  'lane_assigned',
   'verification_recorded',
   'correction',
   'suggestion_proposed',
@@ -1363,6 +1383,13 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
       e.push('epoch: must be an integer of at least 2 — run_started is epoch 1')
     }
   },
+  lane_assigned(p, e) {
+    if (!str(p.run)) e.push('run: must be a non-empty string')
+    // Lanes are numbered from 1, as the pool names them (lane-<k>).
+    if (!(Number.isInteger(p.lane) && (p.lane as number) >= 1)) e.push('lane: must be an integer of at least 1')
+    // Absent frees the lane; an empty string would name no task while claiming to.
+    if (p.task !== undefined && !str(p.task)) e.push('task: must be a non-empty string when present — omit it to free the lane')
+  },
   correction(p, e) {
     if (!str(p.ref)) e.push('ref: must be a non-empty string (target event id)')
     if (!optStr(p.reason)) e.push('reason: must be a string')
@@ -1636,6 +1663,12 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
     summary: 'a sofar drive --resume took over a run that had no stop',
     fields: 'run, epoch (integer ≥2; run_started is epoch 1 — the owner is the highest)',
     example: { run: '01J00000000000000000000000', epoch: 2 },
+  },
+  lane_assigned: {
+    writer: 'driver',
+    summary: 'a lanes run gave a lane a task, or freed it',
+    fields: 'run, lane (integer ≥1), task? (absent: the lane is free again)',
+    example: { run: '01J00000000000000000000000', lane: 1, task: '2.3' },
   },
   correction: {
     writer: 'agent',

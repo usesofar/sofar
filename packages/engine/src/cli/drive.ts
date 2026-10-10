@@ -659,6 +659,10 @@ function followLine(raw: string, runId: string, statuses: Map<string, string>): 
   if (event.type === 'run_stopped') return STOP_SEEN
   if (event.type === 'run_stop_requested') return `${at}stop requested`
   if (event.type === 'run_adopted') return `${at}adopted at epoch ${String(p.epoch)} — a --resume took the run over`
+  if (event.type === 'lane_assigned') {
+    const task = str(p.task)
+    return `${at}lane ${String(p.lane)}: ${task !== undefined ? `takes ${task}` : 'free'}`
+  }
   if (event.type === 'handoff') {
     const task = str(p.task)
     const session = str(p.session_id)

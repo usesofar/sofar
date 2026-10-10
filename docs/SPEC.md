@@ -285,7 +285,9 @@ session `cli`, since a run is not a session; session-driver 1.2, see
 §Driver) · run_stop_requested (run — an operator asking a driver to end its
 run from outside it; in-session-drive D2, see §Driver) · run_adopted (run,
 epoch — an integer ≥2 a `--resume` claims, `run_started` being epoch 1; the
-fencing token of drive-visibility 2.2, see the Driver section) · correction (ref) ·
+fencing token of drive-visibility 2.2, see the Driver section) · lane_assigned
+(run, lane — an integer ≥1, task? — a lanes run's coordinator gave that lane
+that task, or with no task freed it; drive-lanes 2.3, D22) · correction (ref) ·
 suggestion_proposed (candidate, signal, evidence, count, cutoff?, engine,
 detector_version, trust {protocol, verdict, precision, recall, judged} — a
 loss row from a TRUSTED detector, never a cause and never a fix) ·
@@ -2208,6 +2210,13 @@ and never registers as one, so it can never read as a misrouted session:
 - `run_adopted` (run, epoch ≥2) — a `--resume` taking over a run with no stop
   (drive-visibility 2.2), at one more than the run's highest epoch; the
   fencing token a synced record carries.
+- `lane_assigned` (run, lane ≥1, task?) — a lanes run's coordinator gave a
+  lane a task just before launching it there, or, with no task, freed the
+  lane after a launch that resolved to no session (drive-lanes 2.3, D22). The
+  fold keeps `run.assignments` [{lane, task, ts}], lane order, present only
+  when a lane holds a task: an assignment replaces the lane's hold and any
+  other lane's hold on the same task, and ends at the handoff for its task,
+  at `run_stopped` and at an adoption that takes the run. Never drift.
 
 **Policy (D2, D7).** `task`: one task per session, no context sensing needed
 — identical on every agent and model, and therefore the default.
@@ -2706,8 +2715,42 @@ never touched: the stop line names the base to merge. `run_started.lanes`
 records the count, never a path; a resumed run keeps it. Refused before
 anything is recorded: `--lanes` with `--cwd`, with the `threshold` policy, or
 `--lane-setup` without lanes; a lane setup that fails; a path in the pool that
-is not a worktree of this repository. In 2.2 tasks still run one at a time,
-and a task branch the base no longer descends to stops the run as `error`.
+is not a worktree of this repository. A task branch the base no longer
+descends to stops the run as `error` (the merge queue that rebases it is
+drive-lanes 2.4).
+
+**The coordinator (drive-lanes 2.3, D21–D23).** A lanes run is driven by one
+loop that runs its lanes AT ONCE. Each turn it folds the record and gives
+every free lane — no session running in it, not parked — the first ready task
+no lane holds, placed as above, skipping a task that waits on one a lane
+holds (a done task's work is not on the base until its lane has gated and
+landed it). Each assignment is appended as `lane_assigned` just before that
+lane's launch, and each lane's launch → gate → land → handoff runs alongside
+the others; a launch's end wakes the next turn. The budgets count every lane:
+`--max-sessions` counts launches in flight as launches, so N lanes never
+launch past it, and `--cost-cap` sums every lane's reported cost before each
+launch — the lanes already running may each add theirs once it is reached.
+A stop rule that fires (needs_user, an exhausted verify, an unlandable
+branch, stalls, a budget) launches nothing more and DRAINS: the lanes in
+flight finish, are gated and file their handoffs, and then `run_stopped`;
+the first stop wins, and a budget reached while lanes run waits for them, so
+a queue they empty closes the run instead. `--stop` and ^C signal every live
+session; a fenced driver waits for its lanes and files nothing. Stalls count
+consecutively in the order launches end. A handoff is not `task_done` for a
+task another lane held while the session ran. Concurrent launches resolve by
+the transport's session id; a session found only by the timestamp fallback
+while other lanes launched too is not believed (session-driver D3), and the
+launch is unresolved. A LANE PARKS on a usage limit (D23): when the adapter
+reports one (Claude Code's stream `rate_limit_event` with status `rejected`,
+on the exit as `rate_limit {type?, resets_at?}`), that launch is no stall;
+its lane takes no task until the reset plus 30 s, or for 5 minutes doubling
+to 60 per consecutive park when none is named, and keeps the branch it
+holds, so its task waits for it. With no lane able to take a task the run
+waits for the earliest reset, still honouring `--stop` and ^C. A serial run
+is unchanged: a limited launch there still counts as a stall, and the exit
+line names the limit. Where a run's line names its lanes (`sofar status`, the
+injected record) it adds what they hold while they hold it — `2 lanes (L1
+2.3, L2 2.4)`.
 
 **Per-task routing (3.2, D10).** A plan task may carry
 `route {agent?, model?, effort?}`, and the driver resolves it at every launch.
@@ -2865,7 +2908,8 @@ caller's `CLAUDE_CODE_SESSION_ID`, else `CODEX_THREAD_ID`, else
 child's environment is otherwise clean of its caller; absent from a plain
 terminal — the per-worktree session pointer is last-writer-wins and is not
 guessed from), `task` the
-driver's own next task (null when none is queued or once stopped), `done` /
+driver's own next task (null when none is queued or once stopped; on a lanes
+run what its lanes hold, `L<k> <task>` joined by `, `, drive-lanes D22), `done` /
 `total` the initiative's taskProgress, `last_handoff` {reason, task?,
 session_id}, `state` `running` or `stopped`. It is DERIVED state (r1-fixes
 D20): a copy of what the record already says, for a reader that cannot fold
@@ -2986,7 +3030,9 @@ answer every host can reach (see the Host tiers section).
   session began, and ONLY when the run moved since this session last saw it:
   the line minus its liveness word differs from the one the session last saw
   (a handoff, a task finished, the task in flight, the stop). `now on` is the
-  driver's own next task (`core/drive-queue.ts`), absent once stopped. What
+  driver's own next task (`core/drive-queue.ts`), or on a lanes run what its
+  lanes hold, `L<k> <task>` joined by `, ` (drive-lanes D22); absent once
+  stopped. What
   the session last saw lives per session under the per-clone state dir
   (`drive-seen/<clone key>.json`); a lost, unreadable or unwritable mark
   repeats the line, never silences it. The lock is probed only when the line
@@ -2998,7 +3044,8 @@ answer every host can reach (see the Host tiers section).
 - The statusline appends `drive <task>`, `drive gone` or `drive <stop
   reason>` after the initiative's progress, the last only for a stop newer
   than the session's start, within the statusline laws (words over glyphs).
-  `<task>` is the driver's own next task (`core/drive-queue.ts`), `running`
+  `<task>` is the driver's own next task (`core/drive-queue.ts`) — on a lanes
+  run what its lanes hold, as the drive line says it — `running`
   when none is queued; a run with no lock on this machine reads `drive <task>
   liveness unknown`, never gone; a gone run shows until `--resume` or
   `--stop`, since it blocks a fresh start. The `drive` label is dim and the

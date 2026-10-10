@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { ulid } from 'ulid'
 import { afterAll, describe, expect, it } from 'vitest'
 import { validatePayload } from '@sofar/schema'
 import { makeEvent } from '../src/core/envelope'
@@ -9,8 +10,11 @@ import { foldLog, type InitiativeState } from '../src/core/fold'
 import { recordRoot } from '../src/core/git'
 import { appendEvent } from '../src/core/log'
 import { claimLockAt } from '../src/core/run-lock'
+import { heldByLanes, taskInFlight } from '../src/core/drive-queue'
+import { factsOf } from '../src/core/statusline-facts'
 import { describeRun } from '../src/projections/templates/shared'
-import { drive, renderPrompt } from '../src/driver/drive'
+import { rejectedLimit } from '../src/driver/claude-code'
+import { describeExit, drive, renderPrompt } from '../src/driver/drive'
 import {
   claimLanePool,
   detectLaneSetup,
@@ -57,15 +61,24 @@ const TWO_TASKS = {
 const logPath = (root: string): string => join(root, '.sofar', 'initiatives', 'demo', 'events.jsonl')
 const state = (root: string): InitiativeState => foldLog(logPath(root)).state
 
+/** A plan of tasks 1.1..1.n in one active phase; `waits` maps a task to the tasks it waits on. */
+function tasks(n: number, waits: Record<string, string[]> = {}): typeof TWO_TASKS {
+  const list = Array.from({ length: n }, (_, i) => {
+    const id = `1.${i + 1}`
+    return { id, title: `task ${id}`, status: 'pending', ...(waits[id] !== undefined ? { waits_on: waits[id].map((w) => `demo ${w}`) } : {}) }
+  })
+  return { plan: { goal: 'g', phases: [{ name: 'Phase 1', status: 'active', tasks: list }] } }
+}
+
 /** A committed repo with one initiative, `demo`, its record included, as a real one is. */
-function repo(name: string, extra: Record<string, string> = {}): string {
+function repo(name: string, extra: Record<string, string> = {}, plan: typeof TWO_TASKS = TWO_TASKS): string {
   const root = realpathSync(mkdtempSync(join(tmpdir(), `sofar-lanes-${name}-`)))
   roots.push(root)
   mkdirSync(join(root, '.sofar', 'initiatives', 'demo'), { recursive: true })
   writeFileSync(logPath(root), '')
   for (const [type, payload] of [
     ['initiative_created', { slug: 'demo', goal: 'g' }],
-    ['plan_updated', TWO_TASKS],
+    ['plan_updated', plan],
   ] as const) {
     appendEvent(logPath(root), makeEvent({ initiative: 'demo', session: 'cli', type, payload, source: 'cli', actor: 'agent' }))
   }
@@ -82,9 +95,16 @@ function repo(name: string, extra: Record<string, string> = {}): string {
   return root
 }
 
+/**
+ * A session that does its task. Lanes launch at once, so every one shows its
+ * session id the way Claude Code's stream does: the timestamp fallback sees
+ * its siblings and, rightly, refuses to guess (D21).
+ */
 function worker(root: string, id: string, extra: Partial<FakeScript> = {}): FakeScript {
-  return { logPath: logPath(root), initiative: 'demo', session_id: id, write_back: true, complete: true, ...extra }
+  return { logPath: logPath(root), initiative: 'demo', session_id: id, write_back: true, complete: true, report_session_id: true, ...extra }
 }
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Every event's type and payload — what two runs are compared on — with what
@@ -214,7 +234,8 @@ describe('LaneRun setup (D19)', () => {
 
 describe('sofar drive --lanes (2.2, D20)', () => {
   it('runs each task on its own branch in a lane and lands it on the base, leaving the checkout alone', async () => {
-    const root = repo('run')
+    // 1.2 waits on 1.1, so it starts only once 1.1 has landed (2.3, D21).
+    const root = repo('run', {}, tasks(2, { '1.2': ['1.1'] }))
     const headBefore = git(root, 'rev-parse', 'HEAD').trim()
     const lines: string[] = []
     const adapter = new FakeAdapter([
@@ -260,7 +281,7 @@ describe('sofar drive --lanes (2.2, D20)', () => {
   })
 
   it('continues a retried task in the lane that holds its branch, uncommitted work and all', async () => {
-    const root = repo('retry')
+    const root = repo('retry', {}, tasks(2, { '1.2': ['1.1'] }))
     const adapter = new FakeAdapter([
       // Stalls: no done, no write-back — and leaves a half-written file.
       worker(root, 'S1', { complete: false, write_back: false, work: (cwd) => writeFileSync(join(cwd, 'half.txt'), 'half\n') }),
@@ -319,6 +340,229 @@ describe('sofar drive --lanes (2.2, D20)', () => {
     expect(runs[1]).toEqual(runs[0])
     expect(runs[0]!.events.find((e) => e.includes('"run_started"'))).not.toContain('lanes')
     expect(runs[0]!.cwds).toEqual(['ROOT', 'ROOT'])
+  })
+})
+
+describe('the coordinator (2.3, D21)', () => {
+  it('runs ready tasks in free lanes at once, and the record shows which lane holds which', async () => {
+    const root = repo('concurrent')
+    let release!: () => void
+    const bothLaunched = new Promise<void>((resolve) => (release = resolve))
+    let seen: InitiativeState | undefined
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      // Held until the second lane's session is running: a serial pair would never get here.
+      worker(root, 'S1', { hold: () => bothLaunched, work: (cwd) => writeFileSync(join(cwd, 'a.txt'), 'one\n') }),
+      worker(root, 'S2', {
+        hold: async () => {
+          seen = state(root)
+          release()
+        },
+      }),
+    ])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', onProgress: (l) => lines.push(l) })
+
+    expect(outcome.stop.reason).toBe('closed')
+    expect(outcome.handoffs.map((h) => [h.task, h.reason]).sort()).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'task_done'],
+    ])
+    expect(new Set(adapter.sessions.map((s) => s.request.cwd)).size).toBe(2)
+    // While both ran, the record named both holds — what the statusline and the injected Driven line read.
+    const during = seen!.runs[0]!
+    expect(during.assignments?.map((a) => [a.lane, a.task])).toEqual([
+      [1, '1.1'],
+      [2, '1.2'],
+    ])
+    expect(describeRun(during)).toMatch(/task policy, 2 lanes \(L1 1\.1, L2 1\.2\) — /)
+    expect(heldByLanes(seen!)).toBe('L1 1.1, L2 1.2')
+    expect(taskInFlight(seen!)).toBe('L1 1.1, L2 1.2')
+    expect(factsOf(seen!).next_task).toBe('L1 1.1, L2 1.2')
+    // Once each handed off and the run stopped, no lane holds anything.
+    const after = state(root)
+    expect(after.runs[0]!.assignments).toBeUndefined()
+    expect(heldByLanes(after)).toBeUndefined()
+    const assigned = after.runs[0]!
+    // Payload keys as the log writes them, sorted.
+    expect(normalized(root).filter((e) => e.includes('"lane_assigned"'))).toEqual([
+      JSON.stringify({ type: 'lane_assigned', payload: { lane: 1, run: 'RUN', task: '1.1' } }),
+      JSON.stringify({ type: 'lane_assigned', payload: { lane: 2, run: 'RUN', task: '1.2' } }),
+    ])
+    expect(git(root, 'show', `${runBaseBranch('demo', assigned.id)}:a.txt`)).toBe('one\n')
+    expect(lines.some((l) => l.startsWith('  1.2: task_done — session S2'))).toBe(true)
+  })
+
+  it('counts launches in flight against --max-sessions', async () => {
+    const root = repo('max', {}, tasks(3))
+    const adapter = new FakeAdapter([worker(root, 'S1'), worker(root, 'S2'), worker(root, 'S3')])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', maxSessions: 1 })
+    expect(adapter.sessions).toHaveLength(1)
+    expect(outcome.stop).toEqual({ reason: 'max_sessions', note: '1 session(s) launched' })
+  })
+
+  it('sums every lane\'s cost against --cost-cap', async () => {
+    const root = repo('cost', {}, tasks(3))
+    const paid = { usage: [{ context_tokens: 10, cost_usd: 1 }] }
+    const adapter = new FakeAdapter([worker(root, 'S1', paid), worker(root, 'S2', paid), worker(root, 'S3', paid)])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', costCapUsd: 1.5 })
+    expect(adapter.sessions).toHaveLength(2)
+    expect(outcome.cost_usd).toBe(2)
+    expect(outcome.stop).toEqual({ reason: 'cost_cap', note: '$2.00 reported, cap $1.50' })
+  })
+
+  it('drains on a stop rule: the lane in flight finishes and files its handoff, and nothing more launches', async () => {
+    const root = repo('drain', {}, tasks(3))
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      worker(root, 'S1', { block: 'which database?' }),
+      // Still running when lane 1's needs_user lands.
+      worker(root, 'S2', {
+        hold: async () => {
+          while (!lines.some((l) => l.startsWith('  1.1: needs_user'))) await sleep(5)
+          await sleep(20)
+        },
+      }),
+      worker(root, 'S3'),
+    ])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', onProgress: (l) => lines.push(l) })
+    expect(outcome.stop).toEqual({ reason: 'needs_user', note: '1.1 is blocked — read its note' })
+    expect(outcome.handoffs.map((h) => [h.task, h.reason])).toEqual([
+      ['1.1', 'needs_user'],
+      ['1.2', 'task_done'],
+    ])
+    expect(adapter.sessions).toHaveLength(2)
+    expect(adapter.sessions[1]!.killed).toBeUndefined()
+  })
+
+  it('a stop request signals every lane\'s session', async () => {
+    const root = repo('stop')
+    const both = async (): Promise<void> => {
+      while (adapter.sessions.length < 2 || adapter.sessions.some((s) => s.killed === undefined)) await sleep(5)
+    }
+    const idle = { complete: false, write_back: false }
+    const adapter: FakeAdapter = new FakeAdapter([
+      worker(root, 'S1', { ...idle, hold: both }),
+      worker(root, 'S2', {
+        ...idle,
+        hold: async () => {
+          const run = state(root).runs[0]!.id
+          appendEvent(logPath(root), makeEvent({ initiative: 'demo', session: 'cli', type: 'run_stop_requested', payload: { run }, source: 'cli', actor: 'human' }))
+          await both()
+        },
+      }),
+    ])
+    const lines: string[] = []
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', stopPollMs: 10, onProgress: (l) => lines.push(l) })
+    expect(outcome.stop.reason).toBe('interrupted')
+    expect(adapter.sessions.map((s) => s.killed)).toEqual(['SIGTERM', 'SIGTERM'])
+    expect(lines).toContain('stop requested — signalling 2 sessions; request again to kill it outright')
+  })
+
+  it('parks a lane a usage limit refused instead of stalling, and its task waits for that lane', async () => {
+    const root = repo('park')
+    const limit = { type: 'five_hour', resets_at: '' }
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      // Refused before SessionStart: no session registered, exit 1 — what M1 recorded.
+      {
+        logPath: logPath(root),
+        initiative: 'demo',
+        exit: { code: 1, rate_limit: limit },
+        hold: async () => {
+          limit.resets_at = new Date(Date.now() + 1000).toISOString()
+        },
+      },
+      // Ends only once lane 1 has parked, so 1.1 then finds its lane parked.
+      worker(root, 'S2', {
+        hold: async () => {
+          while (!lines.some((l) => l.includes('parked until'))) await sleep(5)
+        },
+      }),
+      worker(root, 'S3'),
+    ])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', maxStalls: 1, parkGraceMs: 0, parkBackoffMs: 50, onProgress: (l) => lines.push(l) })
+    const resets = limit.resets_at
+
+    expect(outcome.stop.reason).toBe('closed')
+    expect(outcome.unresolved).toBe(1)
+    expect(outcome.handoffs.map((h) => [h.task, h.reason]).sort()).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'task_done'],
+    ])
+    // The retry went back to the lane holding 1.1's branch once it unparked.
+    expect(adapter.sessions[2]!.request.cwd).toBe(adapter.sessions[0]!.request.cwd)
+    expect(lines.some((l) => l.includes(`lane 1: usage limit (five_hour) until ${resets} — parked until`))).toBe(true)
+    expect(lines.some((l) => l.startsWith('no lane can take a task until a usage limit resets'))).toBe(true)
+    expect(lines).toContain('lane 1: unparked — it takes tasks again')
+    // The unresolved launch freed its lane in the record: no handoff would have.
+    expect(normalized(root).filter((e) => e.includes('"lane_assigned"'))).toEqual([
+      JSON.stringify({ type: 'lane_assigned', payload: { lane: 1, run: 'RUN', task: '1.1' } }),
+      JSON.stringify({ type: 'lane_assigned', payload: { lane: 2, run: 'RUN', task: '1.2' } }),
+      JSON.stringify({ type: 'lane_assigned', payload: { lane: 1, run: 'RUN' } }),
+      JSON.stringify({ type: 'lane_assigned', payload: { lane: 1, run: 'RUN', task: '1.1' } }),
+    ])
+    expect(lines.some((l) => l.includes('while other lanes launched too, and the transport named none (exit 1; usage limit (five_hour)'))).toBe(true)
+  })
+})
+
+describe('usage limits on the claude-code stream (D23)', () => {
+  it('keeps a rejected limit and its reset, and ignores an allowed one', () => {
+    expect(rejectedLimit({ status: 'allowed', resetsAt: 1 })).toBeUndefined()
+    expect(rejectedLimit({ status: 'rejected', rateLimitType: 'seven_day', resetsAt: 1791738000 })).toEqual({
+      type: 'seven_day',
+      resets_at: '2026-10-11T17:00:00.000Z',
+    })
+    expect(rejectedLimit({ status: 'rejected' })).toEqual({})
+    expect(describeExit({ code: 1, rate_limit: { type: 'seven_day', resets_at: '2026-10-11T17:00:00.000Z' } })).toBe(
+      'exit 1; usage limit (seven_day) until 2026-10-11T17:00:00.000Z',
+    )
+  })
+})
+
+describe('lane_assigned (D22)', () => {
+  const at = (n: number): string => `2026-10-10T00:00:0${n}.000Z`
+  function fold(events: [string, Record<string, unknown>][]): InitiativeState {
+    const dir = mkdtempSync(join(tmpdir(), 'sofar-lanes-fold-'))
+    roots.push(dir)
+    const path = join(dir, 'events.jsonl')
+    writeFileSync(path, '')
+    events.forEach(([type, payload], i) => {
+      const ms = Date.parse(at(i))
+      appendEvent(path, { ...makeEvent({ initiative: 'demo', session: 'cli', type, payload, source: 'cli', actor: 'human' }), id: ulid(ms), ts: at(i) })
+    })
+    return foldLog(path).state
+  }
+  const start: [string, Record<string, unknown>][] = [
+    ['initiative_created', { slug: 'demo', goal: 'g' }],
+    ['plan_updated', tasks(3)],
+    ['run_started', { run: 'R', adapter: 'fake', policy: 'task', lanes: 2 }],
+  ]
+
+  it('holds one task per lane and one lane per task, until a handoff, a free or the stop', () => {
+    const s = fold([
+      ...start,
+      ['lane_assigned', { run: 'R', lane: 2, task: '1.1' }],
+      ['lane_assigned', { run: 'R', lane: 1, task: '1.2' }],
+      ['lane_assigned', { run: 'R', lane: 1, task: '1.1' }], // 1.1 moves to lane 1: lane 2 is free, 1.2 lost its lane
+    ])
+    expect(s.runs[0]!.assignments).toEqual([{ lane: 1, task: '1.1', ts: at(5) }])
+    const handed = fold([...start, ['lane_assigned', { run: 'R', lane: 1, task: '1.1' }], ['lane_assigned', { run: 'R', lane: 2, task: '1.2' }], ['handoff', { run: 'R', session_id: 'S', reason: 'stall', task: '1.1' }]])
+    expect(handed.runs[0]!.assignments?.map((a) => a.task)).toEqual(['1.2'])
+    const freed = fold([...start, ['lane_assigned', { run: 'R', lane: 1, task: '1.1' }], ['lane_assigned', { run: 'R', lane: 1 }]])
+    expect(freed.runs[0]!.assignments).toBeUndefined()
+    const stopped = fold([...start, ['lane_assigned', { run: 'R', lane: 1, task: '1.1' }], ['run_stopped', { run: 'R', reason: 'closed' }], ['lane_assigned', { run: 'R', lane: 2, task: '1.2' }]])
+    expect(stopped.runs[0]!.assignments).toBeUndefined()
+    const adopted = fold([...start, ['lane_assigned', { run: 'R', lane: 1, task: '1.1' }], ['run_adopted', { run: 'R', epoch: 2 }]])
+    expect(adopted.runs[0]!.assignments).toBeUndefined()
+  })
+
+  it('validates a lane from 1 and an optional non-empty task', () => {
+    expect(validatePayload('lane_assigned', { run: 'R', lane: 1, task: '2.3' })).toEqual({ ok: true })
+    expect(validatePayload('lane_assigned', { run: 'R', lane: 2 })).toEqual({ ok: true })
+    expect(validatePayload('lane_assigned', { run: 'R', lane: 0, task: '' })).toEqual({
+      ok: false,
+      errors: ['lane: must be an integer of at least 1', 'task: must be a non-empty string when present — omit it to free the lane'],
+    })
   })
 })
 

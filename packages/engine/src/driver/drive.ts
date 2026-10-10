@@ -10,8 +10,10 @@ import {
 } from '@sofar/schema'
 import { appendedBytesScan, RUN_EVENT_MARKERS, STOP_POLL_MS } from '../core/log-scan'
 import {
+  heldByLanes,
   nextTask,
   queuedTasks,
+  readyTasks,
   resolvedByLinks,
   waitingTasks,
   type DriveTask,
@@ -38,6 +40,7 @@ import {
   wroteBack,
   type Adapter,
   type AgentSession,
+  type RateLimit,
   type SessionExit,
 } from './adapter'
 import { previewRoutes, resolveRoute, RouteError, type RoutingOptions } from './routing'
@@ -59,7 +62,7 @@ import {
   type VerificationProcess,
 } from './verify'
 import { claimVerifySlot } from './load'
-import { claimLanePool, detectLaneSetup, dirtyPaths, headCommit, lanePoolDir, LaneRun, type LaneTask } from './lanes'
+import { claimLanePool, detectLaneSetup, dirtyPaths, headCommit, lanePoolDir, LaneRun, type Lane, type LaneTask } from './lanes'
 import { version as ENGINE_VERSION } from '../../package.json'
 import { resolveJudgeProvider } from '../client/judge'
 import type { JudgeOptions } from '../core/judge'
@@ -93,7 +96,10 @@ import { judgeProgress } from './progress-judge'
  * until that directory's log for the initiative IS the log it is driving.
  * The one exception is a run with `lanes` of 2 or more (drive-lanes D3, 2.2):
  * each task runs in a lane worktree on its own branch (driver/lanes.ts), and
- * `--lanes 1` is the serial run above, untouched.
+ * `--lanes 1` is the serial run above, untouched. Such a run is driven by the
+ * coordinator (2.3, D21) instead of the loop: one process giving every free
+ * lane the next ready task, each lane's launch running at once with the
+ * others, every assignment recorded as `lane_assigned` (D22).
  */
 
 /** The longest stderr line a note quotes; the END is kept, since the cause comes last. */
@@ -111,9 +117,15 @@ export function describeExit(exit: SessionExit): string {
     exit.code !== null ? `exit ${exit.code}` : exit.signal !== undefined ? `killed by ${exit.signal}` : 'exit unknown'
   const parts = [how]
   if (exit.spawn_error !== undefined) parts.push(`could not spawn: ${exit.spawn_error}`)
+  // The one fact a usage-limited launch otherwise hides (drive-lanes M1, D23).
+  if (exit.rate_limit !== undefined) parts.push(describeLimit(exit.rate_limit))
   const line = lastStderrLine(exit.stderr_tail)
   if (line !== undefined) parts.push(`stderr: ${line}`)
   return parts.join('; ')
+}
+
+function describeLimit(limit: RateLimit): string {
+  return `usage limit${limit.type !== undefined ? ` (${limit.type})` : ''}${limit.resets_at !== undefined ? ` until ${limit.resets_at}` : ''}`
 }
 
 function lastStderrLine(tail: string | undefined): string | undefined {
@@ -163,6 +175,14 @@ function waitingNote(state: InitiativeState, foreign: ForeignResolved | undefine
 
 /** Consecutive stalls that stop a run; `--max-stalls` overrides it. */
 export const DEFAULT_MAX_STALLS = 2
+
+/** How long past the reset a usage limit names a parked lane waits (drive-lanes D23). */
+export const PARK_GRACE_MS = 30_000
+/** A parked lane's first wait when the limit names no reset; doubled per consecutive park. */
+export const PARK_BACKOFF_MS = 300_000
+export const PARK_BACKOFF_MAX_MS = 3_600_000
+/** The longest single wait the coordinator sleeps; a longer park is slept in pieces. */
+const NAP_MAX_MS = 3_600_000
 
 /**
  * How often the threshold policy reads the gauge. Usage only moves when the
@@ -374,8 +394,17 @@ export interface DriveOptions {
    * more claim that many lanes from the persistent pool, record the count in
    * `run_started.lanes`, and run each task on its own branch, landed on the
    * run's base branch once accepted. A resumed run keeps its recorded count.
+   * The coordinator (2.3, D21) runs the lanes at once.
    */
   lanes?: number
+  /**
+   * Test seams for a parked lane (2.3, D23): how long after the reset a usage
+   * limit names the lane waits (default PARK_GRACE_MS), and the first wait
+   * when it names none (default PARK_BACKOFF_MS), doubled per park up to
+   * PARK_BACKOFF_MAX_MS.
+   */
+  parkGraceMs?: number
+  parkBackoffMs?: number
   /** The command a lane runs once to install dependencies; absent detects it from the lockfile, `none` runs nothing. */
   laneSetup?: string
   /** Bound on one lane setup (default DEFAULT_LANE_SETUP_TIMEOUT_MS). */
@@ -445,6 +474,16 @@ export interface DriveOutcome {
   base?: { branch: string; tip: string }
 }
 
+/** How one launch ended, for the loop that launched it to apply its stop rules to. */
+type Launched =
+  /** Another driver adopted the run meanwhile: nothing more is filed. */
+  | { kind: 'fenced' }
+  /** Interrupted before anything was launched (the pre-flight judge's wait). */
+  | { kind: 'interrupted' }
+  /** No session to name, so no handoff was filed (D3). */
+  | { kind: 'unresolved'; why: string; exit: SessionExit }
+  | { kind: 'handoff'; session: string; reason: HandoffReason; exit: SessionExit; exhausted?: string; unlandable?: string }
+
 /** Task id → status, the before/after snapshot a handoff reason is read from. */
 function taskStatuses(state: InitiativeState): Map<string, string> {
   const statuses = new Map<string, string>()
@@ -472,11 +511,14 @@ export function handoffReason(
   taskId: string,
   sessionId: string,
   nudged = false,
+  /** Tasks other lanes held while this session ran (drive-lanes 2.3, D21): their resolving is not this session's doing. */
+  others: ReadonlySet<string> = new Set(),
 ): HandoffReason {
   const statuses = taskStatuses(after)
   if (statuses.get(taskId) === 'blocked') return 'needs_user'
   if (!wroteBack(after, sessionId)) return 'stall'
   for (const [id, status] of statuses) {
+    if (others.has(id)) continue
     if (isResolvedTaskStatus(status) && !isResolvedTaskStatus(before.get(id) ?? 'pending')) {
       // A nudged session that then wrapped up handed off because the GAUGE
       // said so, whatever else it finished on the way — that is what the
@@ -982,7 +1024,8 @@ async function driveHolding(
   // An interrupt or a takeover in that window ends it with no verdict:
   // nothing is recorded, and the task stays done without a check, which a
   // resumed run verifies first.
-  let liveVerify: { waiting: AbortController; process?: VerificationProcess } | undefined
+  // Every verification in flight: one on a serial run, one per lane on a lanes run (2.3).
+  const liveVerifies = new Set<{ waiting: AbortController; process?: VerificationProcess }>()
   let slotWarned = false
   const runGated = async (cmd: string, dir: string, timeoutMs: number): Promise<VerificationOutcome | undefined> => {
     const watchFrom = existsSync(eventsPath) ? statSync(eventsPath).size : 0
@@ -995,7 +1038,8 @@ async function driveHolding(
     if (fenced !== undefined || interrupted) return undefined
     const unwatch = watchRunEvents(eventsPath, watchFrom, look, options.stopPollMs)
     const waiting = new AbortController()
-    liveVerify = { waiting }
+    const liveVerify: { waiting: AbortController; process?: VerificationProcess } = { waiting }
+    liveVerifies.add(liveVerify)
     let release: (() => void) | undefined
     try {
       if (options.verifySlot === true) {
@@ -1020,7 +1064,7 @@ async function driveHolding(
       const outcome = await running.done
       return fenced !== undefined || interrupted ? undefined : outcome
     } finally {
-      liveVerify = undefined
+      liveVerifies.delete(liveVerify)
       release?.()
       unwatch()
     }
@@ -1248,7 +1292,10 @@ async function driveHolding(
   // run (in-session-drive D2) — the stop's note says which.
   let requested = false
   let honoured = 0
-  let live: AgentSession | undefined
+  // Every session in flight: one on a serial run, one per busy lane on a lanes run (2.3).
+  const liveSessions = new Set<AgentSession>()
+  /** Wakes the coordinator from a wait (2.3); a serial run has nothing to wake. */
+  let wakeCoordinator = (): void => {}
   const interrupt = (via: 'signal' | 'request'): void => {
     interrupted = true
     if (via === 'request') requested = true
@@ -1263,18 +1310,23 @@ async function driveHolding(
     // at the terminal no longer reaches it: it is signalled here, as a
     // session is, and a wait for the verify slot simply ends.
     if (signals === 1) {
-      live?.kill()
-      liveVerify?.waiting.abort()
-      liveVerify?.process?.kill()
+      for (const session of liveSessions) session.kill()
+      for (const v of liveVerifies) {
+        v.waiting.abort()
+        v.process?.kill()
+      }
       const again = via === 'signal' ? '^C again' : 'request again'
-      const what = live !== undefined ? 'the session' : liveVerify?.process !== undefined ? 'the verification' : undefined
+      const verifying = [...liveVerifies].some((v) => v.process !== undefined)
+      const what =
+        liveSessions.size > 1 ? `${liveSessions.size} sessions` : liveSessions.size === 1 ? 'the session' : verifying ? 'the verification' : undefined
       progress(
         `${via === 'signal' ? 'interrupted' : 'stop requested'} — ${what !== undefined ? `signalling ${what}; ${again} to kill it outright` : 'ending the run before the next launch'}`,
       )
     } else {
-      live?.kill('SIGKILL')
-      liveVerify?.process?.kill('SIGKILL')
+      for (const session of liveSessions) session.kill('SIGKILL')
+      for (const v of liveVerifies) v.process?.kill('SIGKILL')
     }
+    wakeCoordinator()
   }
   const onSignal = (): void => interrupt('signal')
   /**
@@ -1291,8 +1343,9 @@ async function driveHolding(
     // Nothing is signalled: a live session is real work whose write-back the
     // new owner resumes from.
     progress(
-      `fenced: run ${runId} was adopted at epoch ${owner.epoch} — ${live !== undefined ? 'waiting for the live session to exit, then ' : ''}launching nothing more`,
+      `fenced: run ${runId} was adopted at epoch ${owner.epoch} — ${liveSessions.size > 1 ? `waiting for the ${liveSessions.size} live sessions to exit, then ` : liveSessions.size === 1 ? 'waiting for the live session to exit, then ' : ''}launching nothing more`,
     )
+    wakeCoordinator()
   }
   /** Honour every request the fold shows for this run since this driver took it. */
   const takeRequests = (folded: InitiativeState): void => {
@@ -1331,367 +1384,713 @@ async function driveHolding(
     return `${taskId} was accepted but ${landing.branch} (${landing.tip.slice(0, 7)}) no longer descends from ${laneRun.base} — its work is on that branch, unlanded; merge it by hand`
   }
 
-  try {
-    for (;;) {
-      // Where the request watch starts reading: taken BEFORE the fold, so a
-      // request landing between the two is seen by both, and counted once.
-      const watchFrom = existsSync(eventsPath) ? statSync(eventsPath).size : 0
-      const state = ctx.foldState(initiative)
-      checkOwner(state)
-      if (fenced !== undefined) break
-      takeRequests(state)
-      if (interrupted) {
-        stop = interruptedStop()
-        break
-      }
-      if (isClosedInitiativeStatus(state.status)) {
-        stop = { reason: 'closed', note: `initiative is ${state.status}` }
-        break
-      }
-      // Tasks done under this run with no check behind them (D19): a crash
-      // between the agent's done and the gate, or a task marked done by a
-      // session the driver never resolved. Checked before the queue is read,
-      // since a failed check puts the task back in it.
-      // On a lanes run, a done task whose branch never landed is one too (D20):
-      // a crash between the gate and the landing.
-      let reopened = false
-      const thisRun = state.runs.find((r) => r.id === runId)
-      // The lane at the base, readied once per turn and only when a check needs it.
-      let baseLane: { dir: string } | undefined | null = null
-      for (const doneId of thisRun?.done_tasks ?? []) {
-        const task = state.phases.flatMap((p) => p.tasks).find((t) => t.id === doneId)
-        if (task === undefined || task.status !== 'done') continue
-        // A recorded decision check (memory-lead D9) is a check behind it too:
-        // the gate ran, and the closing sweep re-checks what it accepted.
-        const unchecked = task.verification === undefined && (task.checks?.length ?? 0) === 0
-        const unlanded = laneRun?.unlanded(doneId) === true
-        if (!unchecked && !unlanded) continue
-        let dir = cwd
-        if (laneRun !== undefined) {
-          if (unlanded) {
-            const where = laneRun.prepare(doneId)
-            baseLane = null // prepare may have taken that lane
-            commitLeftovers(where, doneId)
-            dir = where.lane.dir
-          } else {
-            if (baseLane === null) baseLane = laneRun.atBase()
-            if (baseLane === undefined) continue
-            dir = baseLane.dir
-          }
+  /**
+   * Tasks done under this run with no check behind them (D19): a crash between
+   * the agent's done and the gate, or a task marked done by a session the
+   * driver never resolved. Checked before the queue is read, since a failed
+   * check puts the task back in it. On a lanes run, a done task whose branch
+   * never landed is one too (D20): a crash between the gate and the landing.
+   * The coordinator (2.3) passes the tasks its lanes hold, never checked here,
+   * and the lanes running them, never taken for a check. True when a check
+   * reopened a task; a stop it reaches is set in `stop`, as the loop's are.
+   */
+  const recover = async (
+    state: InitiativeState,
+    held: ReadonlySet<string> = new Set(),
+    busy: ReadonlySet<number> = new Set(),
+  ): Promise<boolean> => {
+    let reopened = false
+    const thisRun = state.runs.find((r) => r.id === runId)
+    // The lane at the base, readied once per turn and only when a check needs it.
+    let baseLane: { dir: string } | undefined | null = null
+    for (const doneId of thisRun?.done_tasks ?? []) {
+      if (held.has(doneId)) continue
+      const task = state.phases.flatMap((p) => p.tasks).find((t) => t.id === doneId)
+      if (task === undefined || task.status !== 'done') continue
+      // A recorded decision check (memory-lead D9) is a check behind it too:
+      // the gate ran, and the closing sweep re-checks what it accepted.
+      const unchecked = task.verification === undefined && (task.checks?.length ?? 0) === 0
+      const unlanded = laneRun?.unlanded(doneId) === true
+      if (!unchecked && !unlanded) continue
+      let dir = cwd
+      if (laneRun !== undefined) {
+        if (unlanded) {
+          // With lanes busy, one may free up by the next turn.
+          const where = busy.size === 0 ? laneRun.prepare(doneId) : laneRun.place(doneId, busy)
+          if (where === undefined) continue
+          baseLane = null // prepare may have taken that lane
+          commitLeftovers(where, doneId)
+          dir = where.lane.dir
+        } else {
+          if (baseLane === null) baseLane = laneRun.atBase(busy)
+          if (baseLane === undefined) continue
+          dir = baseLane.dir
         }
-        const g = await gate(state, doneId, dir)
-        if (g.applies && !g.passed) {
-          reopened = true
-          if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
-        } else if (unlanded && fenced === undefined && !interrupted) {
-          const diverged = landTask(doneId)
-          if (diverged !== undefined) {
-            stop = { reason: 'error', note: diverged }
-            break
-          }
-        }
-        if (fenced !== undefined || interrupted) break
       }
-      if (fenced !== undefined) break
-      if (interrupted) stop ??= interruptedStop()
-      if (stop !== undefined) break
-      if (reopened) continue
-      // The ready head (drive-lanes 1.3): a task its waits_on still holds is
-      // passed over, and the loop reaches it once what it waits on resolves.
-      const foreign = foreignResolver(ctx.sofarDir, state)
-      let task = nextTask(state, foreign)
-      if (task === undefined) {
-        // The closing sweep (D19): every task this run accepted, re-checked
-        // against the tree as it now stands — a later session may have moved
-        // the code a pass was recorded on. A stale pass verifies again; a
-        // failure reopens the task and the loop goes on.
-        // On a lanes run that tree is the base, checked out in a clean lane (D20).
-        let stale = false
-        const sweepDir = laneRun === undefined ? cwd : laneRun.atBase()?.dir
-        if (sweepDir === undefined) {
-          progress('warning: every lane holds uncommitted work, so the closing sweep has no lane to check the base in — this run\'s passes stand as recorded')
+      const g = await gate(state, doneId, dir)
+      if (g.applies && !g.passed) {
+        reopened = true
+        if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
+      } else if (unlanded && fenced === undefined && !interrupted) {
+        const diverged = landTask(doneId)
+        if (diverged !== undefined) {
+          stop = { reason: 'error', note: diverged }
+          break
         }
-        for (const doneId of sweepDir === undefined ? [] : (thisRun?.done_tasks ?? [])) {
-          const g = await gate(state, doneId, sweepDir)
-          if (g.applies && !g.passed) {
-            stale = true
-            if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
-          }
-          if (fenced !== undefined || interrupted) break
-        }
-        if (fenced !== undefined) break
-        if (interrupted) stop ??= interruptedStop()
-        if (stop !== undefined) break
-        if (stale) continue
-        stop = {
-          reason: 'closed',
-          note: waitingNote(state, foreign) ?? 'no task left to run — every task is done, dropped or blocked',
-        }
-        break
       }
-      const launched = priorSessions + handoffs.length + unresolved
-      if (maxSessions !== undefined && launched >= maxSessions) {
-        stop = { reason: 'max_sessions', note: `${launched} session(s) launched` }
-        break
+      if (fenced !== undefined || interrupted) break
+    }
+    return reopened
+  }
+  /**
+   * The closing sweep (D19): every task this run accepted, re-checked against
+   * the tree as it now stands — a later session may have moved the code a
+   * pass was recorded on. A stale pass verifies again; a failure reopens the
+   * task and the loop goes on, which is what true says. On a lanes run that
+   * tree is the base, checked out in a clean lane (D20).
+   */
+  const sweep = async (state: InitiativeState): Promise<boolean> => {
+    let stale = false
+    const thisRun = state.runs.find((r) => r.id === runId)
+    const sweepDir = laneRun === undefined ? cwd : laneRun.atBase()?.dir
+    if (sweepDir === undefined) {
+      progress('warning: every lane holds uncommitted work, so the closing sweep has no lane to check the base in — this run\'s passes stand as recorded')
+    }
+    for (const doneId of sweepDir === undefined ? [] : (thisRun?.done_tasks ?? [])) {
+      const g = await gate(state, doneId, sweepDir)
+      if (g.applies && !g.passed) {
+        stale = true
+        if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
       }
-      if (options.costCapUsd !== undefined && cost >= options.costCapUsd) {
-        stop = {
-          reason: 'cost_cap',
-          note: `$${cost.toFixed(2)} reported, cap $${options.costCapUsd.toFixed(2)}`,
-        }
-        break
-      }
+      if (fenced !== undefined || interrupted) break
+    }
+    return stale
+  }
+  /**
+   * What the last check said about a task, if it was reopened (D19): its
+   * acceptance command, or a decision's check (memory-lead D9), with the rule
+   * and the fix. A refused check never reopened anything.
+   */
+  const lastFailure = (state: InitiativeState, taskId: string): string | undefined => {
+    const folded = state.phases.flatMap((p) => p.tasks).find((t) => t.id === taskId)
+    const lastCheck = [folded?.verification, ...(folded?.checks ?? [])]
+      .filter((v): v is NonNullable<typeof v> => v !== undefined && !('decision' in v && v.result === 'refused'))
+      .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0))
+      .pop()
+    return lastCheck === undefined || lastCheck.result === 'pass'
+      ? undefined
+      : 'decision' in lastCheck && typeof lastCheck.decision === 'string'
+        ? checkFailureFor(lastCheck.decision, lastCheck)
+        : describeVerification(lastCheck.command, lastCheck.attempt, lastCheck)
+  }
 
-      // The setting is read again before every launch (D5), so an answer the
-      // operator gave mid-run takes effect from this session on.
-      const awakeChanged = awake?.beforeLaunch()
-      if (awakeChanged !== undefined) progress(awakeChanged)
-
-      // A lanes run's task goes to its lane and branch first (D20): everything
-      // measured about the launch below is measured there.
-      const laneTask = laneRun?.prepare(task.id)
-      const launchDir = laneTask?.lane.dir ?? cwd
-      const beforeStatuses = taskStatuses(state)
-      // Who was in the record BEFORE the launch: the exact half of session
-      // resolution (below), where a millisecond timestamp is only the coarse one.
-      const knownSessions = new Set(state.sessions.map((s) => s.id))
-      const launchedAt = new Date().toISOString()
-      // The progress judge's diff base; not read at all when nobody will judge.
-      const headBefore = judging.provider !== undefined ? headOf(launchDir) : null
-      // Where this task runs (3.2): the run's pins first, the task's route for
-      // what the run left open. A route the run cannot reach THROWS, and the
-      // catch below stops the run with that sentence rather than launching the
-      // task on the default agent (D10). A hint the preview already stated is
-      // not restated; one on a task the plan grew mid-run is.
-      const route = resolveRoute(task.id, task.route, routing)
-      for (const line of route.inert) {
-        if (stated.has(line)) continue
-        stated.add(line)
-        progress(`warning: ${line}`)
-      }
-      const routed = route.adapter
-      progress(
-        `session ${launched + 1}: ${task.id} — ${task.title}${routed !== adapter ? ` via ${routed.name}` : ''}`,
+  /**
+   * One launch, start to handoff: route it, launch it, wait, resolve which
+   * session it became, gate and land a done task, file the handoff. The
+   * caller applies its stop rules to what comes back — the serial loop at
+   * once, the coordinator (2.3) as each lane's launch ends. `watchFrom` is
+   * where the request watch starts reading, taken BEFORE the caller's fold so
+   * a request landing between the two is seen by both, and counted once.
+   * `lane` is a lanes run's: the tasks other lanes held meanwhile, and the
+   * sessions other lanes' launches already became.
+   */
+  const runTask = async (
+    task: DriveTask,
+    state: InitiativeState,
+    watchFrom: number,
+    launchNo: number,
+    laneTask?: LaneTask,
+    lane?: { others: () => ReadonlySet<string>; claimed: ReadonlySet<string> },
+  ): Promise<Launched> => {
+    const launchDir = laneTask?.lane.dir ?? cwd
+    const beforeStatuses = taskStatuses(state)
+    // Who was in the record BEFORE the launch: the exact half of session
+    // resolution (below), where a millisecond timestamp is only the coarse one.
+    // A lane reads it afresh: its turn's fold predates the lanes started before it.
+    const knownSessions = new Set((lane !== undefined ? ctx.foldState(initiative) : state).sessions.map((s) => s.id))
+    const launchedAt = new Date().toISOString()
+    // The progress judge's diff base; not read at all when nobody will judge.
+    const headBefore = judging.provider !== undefined ? headOf(launchDir) : null
+    // Where this task runs (3.2): the run's pins first, the task's route for
+    // what the run left open. A route the run cannot reach THROWS, and the
+    // catch around the loop stops the run with that sentence rather than
+    // launching the task on the default agent (D10). A hint the preview
+    // already stated is not restated; one on a task the plan grew mid-run is.
+    const route = resolveRoute(task.id, task.route, routing)
+    for (const line of route.inert) {
+      if (stated.has(line)) continue
+      stated.add(line)
+      progress(`warning: ${line}`)
+    }
+    const routed = route.adapter
+    progress(`session ${launchNo}: ${task.id} — ${task.title}${routed !== adapter ? ` via ${routed.name}` : ''}`)
+    if (laneTask !== undefined) progress(`  lane ${laneTask.lane.id}: ${laneTask.lane.dir} on ${laneTask.branch}`)
+    // The coordinator publishes once a turn's assignments are recorded (2.3).
+    if (lane === undefined) publish(state, task.id)
+    const failure = lastFailure(state, task.id)
+    // Pre-flight (typed-judge 4.2/4.3, D12): advisory, so the launch below
+    // goes ahead as routed whatever it says. The judge is a network wait, so
+    // ownership, stop requests and signals are re-read before anything is
+    // appended or launched (drive-visibility 2.2).
+    if (judging.provider !== undefined) {
+      const verdict = await judgePreflight(
+        { task: { id: task.id, title: task.title, phase: task.phase }, ...(failure !== undefined ? { failure } : {}) },
+        { effort: route.effort === undefined && routed.capabilities.effort, model: route.model === undefined && routed.capabilities.model },
+        judging,
       )
-      if (laneTask !== undefined) progress(`  lane ${laneTask.lane.id}: ${laneTask.lane.dir} on ${laneTask.branch}`)
-      publish(state, task.id)
-      // What the last check said about this task, if it was reopened (D19):
-      // its acceptance command, or a decision's check (memory-lead D9), with
-      // the rule and the fix. A refused check never reopened anything.
-      const folded = state.phases.flatMap((p) => p.tasks).find((t) => t.id === task.id)
-      const lastCheck = [folded?.verification, ...(folded?.checks ?? [])]
-        .filter((v): v is NonNullable<typeof v> => v !== undefined && !('decision' in v && v.result === 'refused'))
-        .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0))
-        .pop()
-      const failure =
-        lastCheck === undefined || lastCheck.result === 'pass'
-          ? undefined
-          : 'decision' in lastCheck && typeof lastCheck.decision === 'string'
-            ? checkFailureFor(lastCheck.decision, lastCheck)
-            : describeVerification(lastCheck.command, lastCheck.attempt, lastCheck)
-      // Pre-flight (typed-judge 4.2/4.3, D12): advisory, so the launch below
-      // goes ahead as routed whatever it says. The judge is a network wait, so
-      // ownership, stop requests and signals are re-read before anything is
-      // appended or launched (drive-visibility 2.2).
-      if (judging.provider !== undefined) {
-        const verdict = await judgePreflight(
-          { task: { id: task.id, title: task.title, phase: task.phase }, ...(failure !== undefined ? { failure } : {}) },
-          { effort: route.effort === undefined && routed.capabilities.effort, model: route.model === undefined && routed.capabilities.model },
-          judging,
-        )
+      const folded = ctx.foldState(initiative)
+      checkOwner(folded)
+      if (fenced !== undefined) return { kind: 'fenced' }
+      takeRequests(folded)
+      if (interrupted) return { kind: 'interrupted' }
+      for (const judgement of verdict.judgements) {
+        ctx.appendAndProject(initiative, 'judgement_recorded', judgement, { session: 'cli', source: 'cli', actor: 'human' })
+      }
+      for (const line of verdict.lines) progress(line)
+    }
+    const session = routed.launch({
+      cwd: launchDir,
+      initiative,
+      prompt: renderPrompt(
+        initiative,
+        task,
+        policy,
+        failure,
+        laneTask !== undefined ? { id: laneTask.lane.id, dir: laneTask.lane.dir, branch: laneTask.branch } : undefined,
+      ),
+      task: { id: task.id, title: task.title },
+      ...(route.model !== undefined ? { model: route.model } : {}),
+      ...(route.effort !== undefined ? { effort: route.effort } : {}),
+      ...(surface !== undefined ? { surface } : {}),
+      ...(options.lowPriority === true ? { lowPriority: true } : {}),
+    })
+    liveSessions.add(session)
+    const unwatch = watchRunEvents(
+      eventsPath,
+      watchFrom,
+      () => {
         const folded = ctx.foldState(initiative)
         checkOwner(folded)
-        if (fenced !== undefined) break
-        takeRequests(folded)
-        if (interrupted) {
-          stop = interruptedStop()
-          break
-        }
-        for (const judgement of verdict.judgements) {
-          ctx.appendAndProject(initiative, 'judgement_recorded', judgement, { session: 'cli', source: 'cli', actor: 'human' })
-        }
-        for (const line of verdict.lines) progress(line)
-      }
-      const session = routed.launch({
-        cwd: launchDir,
-        initiative,
-        prompt: renderPrompt(
-          initiative,
-          task,
-          policy,
-          failure,
-          laneTask !== undefined ? { id: laneTask.lane.id, dir: laneTask.lane.dir, branch: laneTask.branch } : undefined,
-        ),
-        task: { id: task.id, title: task.title },
-        ...(route.model !== undefined ? { model: route.model } : {}),
-        ...(route.effort !== undefined ? { effort: route.effort } : {}),
-        ...(surface !== undefined ? { surface } : {}),
-        ...(options.lowPriority === true ? { lowPriority: true } : {}),
+        // A fenced driver's requests are the new owner's to honour.
+        if (fenced === undefined) takeRequests(folded)
+      },
+      options.stopPollMs,
+    )
+    const gauge =
+      policy === 'threshold' && thresholdPct !== undefined && contextWindow !== undefined
+        ? watchThreshold(session, thresholdPct, contextWindow, (detail) =>
+            progress(`  nudged at ${Math.round(detail.pct ?? 0)}% (${detail.tokens} ctx tokens)`),
+          )
+        : undefined
+    let exit
+    try {
+      exit = await awaitSession(session, {
+        ...(options.sessionTimeoutMs !== undefined ? { timeoutMs: options.sessionTimeoutMs } : {}),
+        onEscalate: progress,
       })
-      live = session
-      const unwatch = watchRunEvents(
-        eventsPath,
-        watchFrom,
-        () => {
-          const folded = ctx.foldState(initiative)
-          checkOwner(folded)
-          // A fenced driver's requests are the new owner's to honour.
-          if (fenced === undefined) takeRequests(folded)
-        },
-        options.stopPollMs,
-      )
-      const gauge =
-        policy === 'threshold' && thresholdPct !== undefined && contextWindow !== undefined
-          ? watchThreshold(session, thresholdPct, contextWindow, (detail) =>
-              progress(`  nudged at ${Math.round(detail.pct ?? 0)}% (${detail.tokens} ctx tokens)`),
-            )
-          : undefined
-      let exit
-      try {
-        exit = await awaitSession(session, {
-          ...(options.sessionTimeoutMs !== undefined ? { timeoutMs: options.sessionTimeoutMs } : {}),
-          onEscalate: progress,
-        })
-      } finally {
-        gauge?.stop()
-        unwatch()
-      }
-      live = undefined
-      cost += exit.usage?.cost_usd ?? 0
+    } finally {
+      gauge?.stop()
+      unwatch()
+      liveSessions.delete(session)
+    }
+    cost += exit.usage?.cost_usd ?? 0
 
-      const after = ctx.foldState(initiative)
-      // An adoption that landed after the last scan tick is caught here, before
-      // anything is filed: a fenced driver files no handoff for the new owner's run.
-      checkOwner(after)
-      if (fenced !== undefined) break
-      const resolved = resolveLaunchedSession(after, exit, launchedAt, routed.name, knownSessions)
-      if (resolved.kind !== 'found') {
-        // No session to name, so no handoff to file (D3). It still counts as a
-        // launch and as a stall — the queue did not move and the next one is
-        // unlikely to fare better.
-        unresolved += 1
-        stalls += 1
-        const why =
-          resolved.kind === 'ambiguous'
-            ? `${resolved.candidates.length} sessions registered by ${routed.name} since the launch (${resolved.candidates.join(', ')}) — the driver does not guess which was its own`
-            : `no session registered by ${routed.name} since the launch (${describeExit(exit)})`
-        progress(`  unresolved: ${why}`)
-        if (interrupted) {
-          stop = interruptedStop(why)
-          break
-        }
-        if (stalls >= maxStalls) {
-          stop = { reason: 'stall', note: `${stalls} consecutive stalls; last: ${why}` }
-          break
-        }
-        continue
-      }
+    const after = ctx.foldState(initiative)
+    // An adoption that landed after the last scan tick is caught here, before
+    // anything is filed: a fenced driver files no handoff for the new owner's run.
+    checkOwner(after)
+    if (fenced !== undefined) return { kind: 'fenced' }
+    // Sessions other lanes' launches became are not this one's candidates (2.3).
+    const known = lane === undefined ? knownSessions : new Set([...knownSessions, ...lane.claimed])
+    let resolved = resolveLaunchedSession(after, exit, launchedAt, routed.name, known)
+    // Found by time alone while other lanes launched too: it may be theirs (D21).
+    if (
+      lane !== undefined &&
+      resolved.kind === 'found' &&
+      resolved.session.id !== exit.session_id &&
+      resolved.session.id !== exit.assigned_session_id &&
+      lane.others().size > 0
+    ) {
+      resolved = { kind: 'ambiguous', candidates: [resolved.session.id] }
+    }
+    if (resolved.kind !== 'found') {
+      // No session to name, so no handoff to file (D3). It still counts as a
+      // launch and, unless a usage limit parks it (2.3), as a stall — the
+      // queue did not move and the next one is unlikely to fare better.
+      const why =
+        resolved.kind === 'ambiguous'
+          ? lane !== undefined && resolved.candidates.length === 1
+            ? `session ${resolved.candidates[0]} registered by ${routed.name} since the launch, while other lanes launched too, and the transport named none (${describeExit(exit)}) — the driver does not guess it was its own`
+            : `${resolved.candidates.length} sessions registered by ${routed.name} since the launch (${resolved.candidates.join(', ')}) — the driver does not guess which was its own`
+          : `no session registered by ${routed.name} since the launch (${describeExit(exit)})`
+      progress(`  unresolved: ${why}`)
+      return { kind: 'unresolved', why, exit }
+    }
 
-      const sessionId = resolved.session.id
-      let reason = handoffReason(beforeStatuses, after, task.id, sessionId, gauge?.nudged() === true)
-      const tokens = exit.usage?.context_tokens
-      // How the process ended travels with the handoff when it is worth
-      // reading — a stall, or any exit that was not clean (D9). A clean
-      // task_done says nothing a reader needs.
-      let detail = reason === 'stall' || !cleanExit(exit) ? describeExit(exit) : undefined
-      // The gate (D19): a task_done is accepted only on a recorded pass. A
-      // dropped task is never verified — it resolved, it was not tested.
-      let exhausted: string | undefined
-      let checked: string | undefined
-      // On a lanes run (D20) the done task's branch lands once accepted.
-      let unlandable: string | undefined
-      if (reason === 'task_done' || reason === 'threshold') {
-        const done = taskStatuses(after).get(task.id) === 'done'
-        if (laneTask !== undefined && done) commitLeftovers(laneTask, task.id)
-        const g = await gate(after, task.id, launchDir)
-        // Adopted while it verified: the handoff is the new owner's to file.
-        if (fenced !== undefined) break
-        if (g.applies) checked = g.line.length > 0 ? g.line : 'passed: an earlier check still covers this tree'
-        if (g.applies && !g.passed) {
-          reason = 'verify_failed'
-          detail = g.line
-          if (g.exhausted) exhausted = `${task.id} failed verification ${g.attempt} time(s); last: ${g.line}`
-        } else if (laneTask !== undefined && done && !interrupted) {
-          unlandable = landTask(task.id)
-        }
+    const sessionId = resolved.session.id
+    let reason = handoffReason(beforeStatuses, after, task.id, sessionId, gauge?.nudged() === true, lane?.others())
+    const tokens = exit.usage?.context_tokens
+    // How the process ended travels with the handoff when it is worth
+    // reading — a stall, or any exit that was not clean (D9). A clean
+    // task_done says nothing a reader needs.
+    let detail = reason === 'stall' || !cleanExit(exit) ? describeExit(exit) : undefined
+    // The gate (D19): a task_done is accepted only on a recorded pass. A
+    // dropped task is never verified — it resolved, it was not tested.
+    let exhausted: string | undefined
+    let checked: string | undefined
+    // On a lanes run (D20) the done task's branch lands once accepted.
+    let unlandable: string | undefined
+    if (reason === 'task_done' || reason === 'threshold') {
+      const done = taskStatuses(after).get(task.id) === 'done'
+      if (laneTask !== undefined && done) commitLeftovers(laneTask, task.id)
+      const g = await gate(after, task.id, launchDir)
+      // Adopted while it verified: the handoff is the new owner's to file.
+      if (fenced !== undefined) return { kind: 'fenced' }
+      if (g.applies) checked = g.line.length > 0 ? g.line : 'passed: an earlier check still covers this tree'
+      if (g.applies && !g.passed) {
+        reason = 'verify_failed'
+        detail = g.line
+        if (g.exhausted) exhausted = `${task.id} failed verification ${g.attempt} time(s); last: ${g.line}`
+      } else if (laneTask !== undefined && done && !interrupted) {
+        unlandable = landTask(task.id)
       }
-      ctx.appendAndProject(
-        initiative,
-        'handoff',
-        {
-          run: runId,
-          session_id: sessionId,
-          reason,
-          task: task.id,
-          ...(tokens !== undefined ? { tokens } : {}),
-          ...(detail !== undefined ? { detail } : {}),
-        },
-        { session: 'cli', source: 'cli', actor: 'human' },
-      )
-      handoffs.push({
+    }
+    ctx.appendAndProject(
+      initiative,
+      'handoff',
+      {
+        run: runId,
         session_id: sessionId,
         reason,
         task: task.id,
         ...(tokens !== undefined ? { tokens } : {}),
         ...(detail !== undefined ? { detail } : {}),
-      })
-      progress(
-        `  ${reason} — session ${sessionId}${tokens !== undefined ? `, ${tokens} ctx tokens` : ''}${detail !== undefined ? ` (${detail})` : ''}`,
+      },
+      { session: 'cli', source: 'cli', actor: 'human' },
+    )
+    handoffs.push({
+      session_id: sessionId,
+      reason,
+      task: task.id,
+      ...(tokens !== undefined ? { tokens } : {}),
+      ...(detail !== undefined ? { detail } : {}),
+    })
+    // Lanes end in any order, so a lane's handoff line names its task.
+    progress(
+      `  ${lane !== undefined ? `${task.id}: ` : ''}${reason} — session ${sessionId}${tokens !== undefined ? `, ${tokens} ctx tokens` : ''}${detail !== undefined ? ` (${detail})` : ''}`,
+    )
+    {
+      const filed = ctx.foldState(initiative)
+      publish(filed, lane !== undefined ? (heldByLanes(filed) ?? null) : (nextTask(filed, foreignResolver(ctx.sofarDir, filed))?.id ?? null))
+    }
+    if (judging.provider !== undefined && !interrupted) {
+      const ended = after.sessions.find((s) => s.id === sessionId)
+      const diff = headBefore !== null ? diffStatSince(launchDir, headBefore) : null
+      const verdict = await judgeProgress(
+        {
+          task: { id: task.id, title: task.title },
+          reason,
+          status_before: beforeStatuses.get(task.id) ?? 'pending',
+          status_after: taskStatuses(after).get(task.id) ?? 'pending',
+          ...(ended?.summary !== undefined ? { writeback: { summary: ended.summary, next_action: ended.next_action ?? '' } } : {}),
+          ...(diff !== null ? { diff } : {}),
+          ...(checked !== undefined ? { test: checked } : {}),
+        },
+        sessionId,
+        judging,
       )
-      {
-        const filed = ctx.foldState(initiative)
-        publish(filed, nextTask(filed, foreignResolver(ctx.sofarDir, filed))?.id ?? null)
+      // The judge is a network wait, and a takeover can land during it
+      // (drive-visibility 2.2): a driver fenced meanwhile appends nothing.
+      checkOwner(ctx.foldState(initiative))
+      if (fenced !== undefined) return { kind: 'fenced' }
+      for (const judgement of verdict.judgements) {
+        ctx.appendAndProject(initiative, 'judgement_recorded', judgement, { session: 'cli', source: 'cli', actor: 'human' })
       }
-      if (judging.provider !== undefined && !interrupted) {
-        const ended = after.sessions.find((s) => s.id === sessionId)
-        const diff = headBefore !== null ? diffStatSince(launchDir, headBefore) : null
-        const verdict = await judgeProgress(
-          {
-            task: { id: task.id, title: task.title },
-            reason,
-            status_before: beforeStatuses.get(task.id) ?? 'pending',
-            status_after: taskStatuses(after).get(task.id) ?? 'pending',
-            ...(ended?.summary !== undefined ? { writeback: { summary: ended.summary, next_action: ended.next_action ?? '' } } : {}),
-            ...(diff !== null ? { diff } : {}),
-            ...(checked !== undefined ? { test: checked } : {}),
-          },
-          sessionId,
-          judging,
-        )
-        // The judge is a network wait, and a takeover can land during it
-        // (drive-visibility 2.2): a driver fenced meanwhile appends nothing.
-        checkOwner(ctx.foldState(initiative))
-        if (fenced !== undefined) break
-        for (const judgement of verdict.judgements) {
-          ctx.appendAndProject(initiative, 'judgement_recorded', judgement, { session: 'cli', source: 'cli', actor: 'human' })
-        }
-        for (const line of verdict.lines) progress(line)
-      }
-      stalls = reason === 'stall' ? stalls + 1 : 0
-      lastStall = reason === 'stall' ? `session ${sessionId} — ${describeExit(exit)}` : undefined
+      for (const line of verdict.lines) progress(line)
+    }
+    return {
+      kind: 'handoff',
+      session: sessionId,
+      reason,
+      exit,
+      ...(exhausted !== undefined ? { exhausted } : {}),
+      ...(unlandable !== undefined ? { unlandable } : {}),
+    }
+  }
 
-      if (interrupted) {
-        stop = interruptedStop()
-        break
+  /**
+   * The coordinator (drive-lanes 2.3, D21): a lanes run's one loop. Each turn
+   * folds the record, gives every free lane — no session in it, not parked —
+   * the first ready task no lane holds, records it as `lane_assigned` (D22)
+   * and starts that lane's launch, which runs at once with the others. A
+   * launch's end wakes the next turn, which applies its stop rules. The
+   * budgets count every lane: launches in flight are launches, and the cost
+   * is every lane's reported cost. A stop rule that fires launches nothing
+   * more and DRAINS — the lanes in flight finish and file their handoffs
+   * first — and the first stop wins. A lane a usage limit refused parks until
+   * the limit resets, and is no stall (D23).
+   */
+  const coordinate = async (lanes: LaneRun): Promise<void> => {
+    interface Job {
+      lane: Lane
+      task: DriveTask
+      /** When the launch started and ended, on the coordinator's own clock. */
+      from: number
+      to?: number
+      ended?: Launched | { kind: 'error'; err: unknown }
+    }
+    /** Lane id → the launch running in it. */
+    const jobs = new Map<number, Job>()
+    const history: Job[] = []
+    /** Launches that ended and whose stop rules are not applied yet. */
+    const finished: Job[] = []
+    /** Sessions other lanes' launches became: never another launch's candidates. */
+    const claimed = new Set<string>()
+    /** Lane id → when its usage-limit park ends (ms). */
+    const parked = new Map<number, number>()
+    const parkStreak = new Map<number, number>()
+    let clock = 0
+    let waiting: (() => void) | undefined
+    let woken = false
+    const wake = (): void => {
+      woken = true
+      waiting?.()
+    }
+    /** Sleep until a launch ends, a request or a signal lands, or `ms` passes. */
+    const nap = (ms?: number): Promise<void> =>
+      new Promise((resolve) => {
+        if (woken) {
+          woken = false
+          resolve()
+          return
+        }
+        // Ref'd on purpose: a run whose every lane is parked holds nothing else open.
+        const timer = ms !== undefined ? setTimeout(() => waiting?.(), Math.max(0, Math.min(ms, NAP_MAX_MS))) : undefined
+        waiting = () => {
+          if (timer !== undefined) clearTimeout(timer)
+          waiting = undefined
+          woken = false
+          resolve()
+        }
+      })
+    wakeCoordinator = wake
+    // Requests and adoptions while no launch is watching — every lane parked.
+    const unwatch = watchRunEvents(
+      eventsPath,
+      existsSync(eventsPath) ? statSync(eventsPath).size : 0,
+      () => {
+        const folded = ctx.foldState(initiative)
+        checkOwner(folded)
+        if (fenced === undefined) takeRequests(folded)
+        wake()
+      },
+      options.stopPollMs,
+    )
+    const park = (lane: Lane, limit: RateLimit): void => {
+      const streak = (parkStreak.get(lane.id) ?? 0) + 1
+      parkStreak.set(lane.id, streak)
+      const now = Date.now()
+      const resets = limit.resets_at !== undefined ? Date.parse(limit.resets_at) : Number.NaN
+      const until =
+        Number.isFinite(resets) && resets > now
+          ? resets + (options.parkGraceMs ?? PARK_GRACE_MS)
+          : now + Math.min((options.parkBackoffMs ?? PARK_BACKOFF_MS) * 2 ** (streak - 1), PARK_BACKOFF_MAX_MS)
+      parked.set(lane.id, until)
+      progress(`  lane ${lane.id}: ${describeLimit(limit)} — parked until ${new Date(until).toISOString()}, not a stall; its task goes back to the queue`)
+    }
+    /** A launch's end, under the serial loop's stop rules, first stop winning. */
+    const apply = (job: Job): void => {
+      const ran = job.ended
+      if (ran === undefined || ran.kind === 'fenced') return
+      if (ran.kind === 'error') {
+        stop ??= { reason: 'error', note: errorNote(ran.err) }
+        return
       }
-      if (exhausted !== undefined) {
-        stop = { reason: 'stall', note: exhausted }
-        break
+      if (ran.kind === 'interrupted') {
+        stop ??= interruptedStop()
+        return
       }
-      if (unlandable !== undefined) {
-        stop = { reason: 'error', note: unlandable }
-        break
+      const limit = ran.exit.rate_limit
+      if (limit !== undefined) park(job.lane, limit)
+      else parkStreak.delete(job.lane.id)
+      if (ran.kind === 'unresolved') {
+        unresolved += 1
+        // No handoff will free the lane in the record (D22), so this does.
+        if (fenced === undefined) {
+          ctx.appendAndProject(initiative, 'lane_assigned', { run: runId, lane: job.lane.id }, { session: 'cli', source: 'cli', actor: 'human' })
+        }
+        if (limit !== undefined) return
+        stalls += 1
+        if (interrupted) stop ??= interruptedStop(ran.why)
+        else if (stalls >= maxStalls) stop ??= { reason: 'stall', note: `${stalls} consecutive stalls; last: ${ran.why}` }
+        return
       }
-      if (reason === 'needs_user') {
-        stop = { reason: 'needs_user', note: `${task.id} is blocked — read its note` }
-        break
+      claimed.add(ran.session)
+      // A usage limit is not the session's stall (D23): the count stands.
+      if (limit === undefined) {
+        stalls = ran.reason === 'stall' ? stalls + 1 : 0
+        lastStall = ran.reason === 'stall' ? `session ${ran.session} — ${describeExit(ran.exit)}` : undefined
       }
+      if (interrupted) stop ??= interruptedStop()
+      if (ran.exhausted !== undefined) stop ??= { reason: 'stall', note: ran.exhausted }
+      if (ran.unlandable !== undefined) stop ??= { reason: 'error', note: ran.unlandable }
+      if (ran.reason === 'needs_user') stop ??= { reason: 'needs_user', note: `${job.task.id} is blocked — read its note` }
       if (stalls >= maxStalls) {
-        stop = {
+        stop ??= {
           reason: 'stall',
           note: `${stalls} consecutive sessions with no task change${lastStall !== undefined ? `; last: ${lastStall}` : ''}`,
         }
-        break
+      }
+    }
+    const settle = (): void => {
+      for (let job = finished.shift(); job !== undefined; job = finished.shift()) apply(job)
+    }
+    const start = (task: DriveTask, where: LaneTask, state: InitiativeState, watchFrom: number, launchNo: number): void => {
+      const job: Job = { lane: where.lane, task, from: clock++ }
+      jobs.set(where.lane.id, job)
+      history.push(job)
+      // Every task another lane held while this one ran (D21).
+      const others = (): ReadonlySet<string> =>
+        new Set(history.filter((h) => h !== job && (h.to === undefined || h.to > job.from)).map((h) => h.task.id))
+      void runTask(task, state, watchFrom, launchNo, where, { others, claimed })
+        .then(
+          (ran) => {
+            job.ended = ran
+          },
+          (err: unknown) => {
+            job.ended = { kind: 'error', err }
+          },
+        )
+        .finally(() => {
+          job.to = clock++
+          jobs.delete(where.lane.id)
+          finished.push(job)
+          wake()
+        })
+    }
+
+    let saidParked: number | undefined
+    try {
+      for (;;) {
+        settle()
+        const watchFrom = existsSync(eventsPath) ? statSync(eventsPath).size : 0
+        const state = ctx.foldState(initiative)
+        checkOwner(state)
+        if (fenced === undefined) takeRequests(state)
+        if (interrupted) stop ??= interruptedStop()
+        if (stop === undefined && isClosedInitiativeStatus(state.status)) stop = { reason: 'closed', note: `initiative is ${state.status}` }
+        // Draining (D21): nothing more launches, and the lanes in flight finish first.
+        if (fenced !== undefined || stop !== undefined) {
+          if (jobs.size === 0) break
+          await nap()
+          continue
+        }
+        const now = Date.now()
+        for (const [id, until] of parked) {
+          if (until > now) continue
+          parked.delete(id)
+          progress(`lane ${id}: unparked — it takes tasks again`)
+        }
+        const held = new Set([...jobs.values()].map((j) => j.task.id))
+        // A parked lane keeps the branch it holds: its task waits for it (D23).
+        const busy = new Set([...jobs.keys(), ...parked.keys()])
+        const before = clock
+        const reopened = await recover(state, held, busy)
+        // A launch that ended meanwhile moved the record: read it again first.
+        if (reopened || clock !== before || fenced !== undefined || interrupted || stop !== undefined) continue
+        // The ready frontier (1.3), less the tasks lanes are running and the
+        // tasks waiting on one: a done task's work is not on the base until
+        // its lane has gated and landed it.
+        const foreign = foreignResolver(ctx.sofarDir, state)
+        const heldHandles = new Set([...held].map((id) => `${state.slug} ${id}`))
+        const waits = new Map(state.phases.flatMap((p) => p.tasks).map((t) => [t.id, t.waits_on ?? []]))
+        const ready = readyTasks(state, foreign).filter((t) => !held.has(t.id) && !(waits.get(t.id) ?? []).some((h) => heldHandles.has(h)))
+        if (ready.length === 0) {
+          if (jobs.size > 0) {
+            await nap()
+            continue
+          }
+          if (await sweep(state)) continue
+          if (fenced !== undefined || interrupted || stop !== undefined) continue
+          stop = { reason: 'closed', note: waitingNote(state, foreign) ?? 'no task left to run — every task is done, dropped or blocked' }
+          continue
+        }
+        const launched = priorSessions + handoffs.length + unresolved + jobs.size
+        const capped: { reason: RunStopReason; note?: string } | undefined =
+          maxSessions !== undefined && launched >= maxSessions
+            ? { reason: 'max_sessions', note: `${launched} session(s) launched` }
+            : options.costCapUsd !== undefined && cost >= options.costCapUsd
+              ? { reason: 'cost_cap', note: `$${cost.toFixed(2)} reported, cap $${options.costCapUsd.toFixed(2)}` }
+              : undefined
+        if (capped !== undefined) {
+          // The lanes in flight may yet empty the queue, which closes the run instead.
+          if (jobs.size > 0) {
+            await nap()
+            continue
+          }
+          stop = capped
+          continue
+        }
+        let room = maxSessions === undefined ? Number.POSITIVE_INFINITY : maxSessions - launched
+        let launchNo = launched
+        let started = 0
+        for (const task of ready) {
+          if (room <= 0 || busy.size >= lanes.lanes.length) break
+          const where = lanes.place(task.id, busy)
+          if (where === undefined) continue
+          busy.add(where.lane.id)
+          // The setting is read again before every launch (D5).
+          const awakeChanged = awake?.beforeLaunch()
+          if (awakeChanged !== undefined) progress(awakeChanged)
+          ctx.appendAndProject(
+            initiative,
+            'lane_assigned',
+            { run: runId, lane: where.lane.id, task: task.id },
+            { session: 'cli', source: 'cli', actor: 'human' },
+          )
+          room -= 1
+          launchNo += 1
+          started += 1
+          start(task, where, state, watchFrom, launchNo)
+        }
+        if (started > 0) {
+          const assigned = ctx.foldState(initiative)
+          publish(assigned, heldByLanes(assigned) ?? null)
+        }
+        const unpark = parked.size > 0 ? Math.min(...parked.values()) : undefined
+        if (jobs.size === 0) {
+          if (unpark === undefined) {
+            stop = { reason: 'error', note: lanes.whyNoLane(ready.map((t) => t.id).join(', ')) }
+            continue
+          }
+          if (saidParked !== unpark) {
+            saidParked = unpark
+            progress(
+              `no lane can take a task until a usage limit resets — waiting until ${new Date(unpark).toISOString()}; \`sofar drive ${initiative} --stop\` or ^C still ends the run`,
+            )
+          }
+        }
+        await nap(unpark === undefined ? undefined : unpark - Date.now())
+      }
+    } catch (err) {
+      stop ??= { reason: 'error', note: errorNote(err) }
+      // Never a stop with lanes still running behind it.
+      while (jobs.size > 0) await nap()
+      try {
+        settle()
+      } catch {
+        // the stop already says the run failed
+      }
+    } finally {
+      unwatch()
+      wakeCoordinator = (): void => {}
+    }
+  }
+
+  try {
+    if (laneRun !== undefined) {
+      await coordinate(laneRun)
+    } else {
+      for (;;) {
+        // Where the request watch starts reading: taken BEFORE the fold, so a
+        // request landing between the two is seen by both, and counted once.
+        const watchFrom = existsSync(eventsPath) ? statSync(eventsPath).size : 0
+        const state = ctx.foldState(initiative)
+        checkOwner(state)
+        if (fenced !== undefined) break
+        takeRequests(state)
+        if (interrupted) {
+          stop = interruptedStop()
+          break
+        }
+        if (isClosedInitiativeStatus(state.status)) {
+          stop = { reason: 'closed', note: `initiative is ${state.status}` }
+          break
+        }
+        const reopened = await recover(state)
+        if (fenced !== undefined) break
+        if (interrupted) stop ??= interruptedStop()
+        if (stop !== undefined) break
+        if (reopened) continue
+        // The ready head (drive-lanes 1.3): a task its waits_on still holds is
+        // passed over, and the loop reaches it once what it waits on resolves.
+        const foreign = foreignResolver(ctx.sofarDir, state)
+        const task = nextTask(state, foreign)
+        if (task === undefined) {
+          const stale = await sweep(state)
+          if (fenced !== undefined) break
+          if (interrupted) stop ??= interruptedStop()
+          if (stop !== undefined) break
+          if (stale) continue
+          stop = {
+            reason: 'closed',
+            note: waitingNote(state, foreign) ?? 'no task left to run — every task is done, dropped or blocked',
+          }
+          break
+        }
+        const launched = priorSessions + handoffs.length + unresolved
+        if (maxSessions !== undefined && launched >= maxSessions) {
+          stop = { reason: 'max_sessions', note: `${launched} session(s) launched` }
+          break
+        }
+        if (options.costCapUsd !== undefined && cost >= options.costCapUsd) {
+          stop = {
+            reason: 'cost_cap',
+            note: `$${cost.toFixed(2)} reported, cap $${options.costCapUsd.toFixed(2)}`,
+          }
+          break
+        }
+
+        // The setting is read again before every launch (D5), so an answer the
+        // operator gave mid-run takes effect from this session on.
+        const awakeChanged = awake?.beforeLaunch()
+        if (awakeChanged !== undefined) progress(awakeChanged)
+
+        const ran = await runTask(task, state, watchFrom, launched + 1)
+        if (ran.kind === 'fenced') break
+        if (ran.kind === 'interrupted') {
+          stop = interruptedStop()
+          break
+        }
+        if (ran.kind === 'unresolved') {
+          unresolved += 1
+          stalls += 1
+          if (interrupted) {
+            stop = interruptedStop(ran.why)
+            break
+          }
+          if (stalls >= maxStalls) {
+            stop = { reason: 'stall', note: `${stalls} consecutive stalls; last: ${ran.why}` }
+            break
+          }
+          continue
+        }
+        stalls = ran.reason === 'stall' ? stalls + 1 : 0
+        lastStall = ran.reason === 'stall' ? `session ${ran.session} — ${describeExit(ran.exit)}` : undefined
+
+        if (interrupted) {
+          stop = interruptedStop()
+          break
+        }
+        if (ran.exhausted !== undefined) {
+          stop = { reason: 'stall', note: ran.exhausted }
+          break
+        }
+        if (ran.unlandable !== undefined) {
+          stop = { reason: 'error', note: ran.unlandable }
+          break
+        }
+        if (ran.reason === 'needs_user') {
+          stop = { reason: 'needs_user', note: `${task.id} is blocked — read its note` }
+          break
+        }
+        if (stalls >= maxStalls) {
+          stop = {
+            reason: 'stall',
+            note: `${stalls} consecutive sessions with no task change${lastStall !== undefined ? `; last: ${lastStall}` : ''}`,
+          }
+          break
+        }
       }
     }
   } catch (err) {

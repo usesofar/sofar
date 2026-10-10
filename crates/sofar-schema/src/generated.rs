@@ -301,6 +301,7 @@ pub struct KnownEventPayloads {
     pub initiative_created: InitiativeCreatedPayload,
     pub initiative_status_changed: InitiativeStatusChangedPayload,
     pub judgement_recorded: JudgementRecordedPayload,
+    pub lane_assigned: LaneAssignedPayload,
     pub memory_promoted: MemoryPromotedPayload,
     pub note_added: NoteAddedPayload,
     pub phase_added: PhaseAddedPayload,
@@ -321,6 +322,15 @@ pub struct KnownEventPayloads {
     pub task_added: TaskAddedPayload,
     pub task_status_changed: TaskStatusChangedPayload,
     pub verification_recorded: VerificationRecordedPayload,
+}
+#[doc = "A lanes run's coordinator gave a lane a task (drive-lanes 2.3, D22), just before launching its session there — so the statusline and an interactive session see which lane holds which task. Without `task` it freed the lane: a launch that resolved to no session files no handoff, which is what otherwise ends an assignment. One event per assignment, never a heartbeat."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
+pub struct LaneAssignedPayload {
+    #[doc = "The lane's number in the pool (`lane-<k>`). A number, never a path: the path is this machine's, and the record is shared."]
+    pub lane: i64,
+    pub run: ::std::string::String,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub task: ::std::option::Option<::std::string::String>,
 }
 #[doc = "A fact its author declares repo memory — operational knowledge that is not a decision (a release command, a failure mode) and so can never be observed as repo-general from citation behaviour, because nothing derives a fact that was never written down (repo-memory-capture D1)."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]

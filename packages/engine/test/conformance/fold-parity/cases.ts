@@ -556,6 +556,27 @@ export function buildCases(): FoldParityCase[] {
     l.ev('decision_logged', { chose: 'hard delete after 30 days', over: 'never', because: 'storage', rule: 'Hard-delete only what is 30 days in the bin.', supersedes: 'D1', supersedes_id: d1 }, cli) // D4 replaces bound D1
     cases.push({ id: 'FP-25-check-bound', lines: l.lines, sidecar: { tail_at: 4, seeds: [74, 75, 76], order_independence: true, note: 'r4-fixes A8: check_bound sets a rule\'s check by its id and mints no decision — the ordinal stays; a re-bind replaces the check; one naming a plain decision or an unfolded id binds nothing, with a warning; one with no check is an invalid line; a rule replacing a bound one takes nothing of its check; never drift. The tail starts at the first bind' } })
   }
+  {
+    // drive-lanes 2.3 (D22): which lane holds which task. A lane holds one
+    // task and a task one lane, so an assignment replaces both; a handoff
+    // for the task ends it, as does a lane_assigned with no task.
+    const l = new Log('demo')
+    const RUN = '01J00000000000000000000000'
+    const cli = { session: 'cli', source: 'cli', actor: 'human' }
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('plan_updated', plan(3))
+    l.ev('run_started', { run: RUN, adapter: 'claude-code', policy: 'task', lanes: 2 }, cli)
+    l.ev('lane_assigned', { run: RUN, lane: 2, task: '1.1' }, cli)
+    l.ev('lane_assigned', { run: RUN, lane: 1, task: '1.2' }, cli)
+    l.ev('lane_assigned', { run: RUN, lane: 1, task: '1.1' }, cli) // 1.1 moves: lane 2 is free, 1.2 lost its lane
+    l.ev('lane_assigned', { run: '01J0000000000000000000GONE', lane: 1, task: '1.3' }, cli) // a run that never started
+    l.ev('lane_assigned', { run: RUN, lane: 0, task: '1.3' }, cli) // invalid: lanes count from 1
+    l.ev('handoff', { run: RUN, session_id: 'S1', reason: 'task_done', task: '1.1' }, cli) // frees lane 1
+    l.ev('lane_assigned', { run: RUN, lane: 2, task: '1.2' }, cli)
+    l.ev('lane_assigned', { run: RUN, lane: 1, task: '1.3' }, cli)
+    l.ev('lane_assigned', { run: RUN, lane: 1 }, cli) // freed: its launch became no session
+    cases.push({ id: 'FP-26-lane-assignments', lines: l.lines, sidecar: { tail_at: 5, seeds: [77, 78, 79], order_independence: true, note: 'drive-lanes 2.3 (D22): run.assignments holds one task per lane and one lane per task, lane order, present only when non-empty; an assignment replaces both holds, a handoff for the task ends it, a lane_assigned with no task frees the lane; one for a run that never started is skipped with a warning, lane 0 is an invalid line; never drift. The tail starts at the move' } })
+  }
   return cases
 }
 

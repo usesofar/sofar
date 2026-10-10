@@ -11,7 +11,7 @@ use std::path::Path;
 
 use crate::append::fold_state;
 use crate::atomic::write_file_atomic;
-use crate::drive_queue::next_task;
+use crate::drive_queue::task_in_flight;
 use crate::fold::InitiativeState;
 use crate::index_store::{LogStat, log_stat};
 use crate::json::{self, Json, Object};
@@ -36,6 +36,7 @@ pub struct StatuslineFacts {
     pub progress: TaskProgress,
     pub status: String,
     pub run: Option<FactsRun>,
+    /// On a lanes run, what its lanes hold (drive-lanes D22).
     pub next_task: Option<String>,
     /// Session id → `started`, first occurrence first, as the fold lists them.
     pub started: Object,
@@ -144,7 +145,7 @@ pub fn facts_of(state: &InitiativeState) -> StatuslineFacts {
             stopped: r.stopped.clone(),
             stop_reason: r.stop_reason.clone(),
         }),
-        next_task: next_task(state).map(|t| t.id.clone()),
+        next_task: task_in_flight(state),
         started,
     }
 }

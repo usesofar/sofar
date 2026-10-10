@@ -51,7 +51,7 @@ pub const RUN_STOP_REASONS: [&str; 7] = [
 pub const VERIFICATION_RESULTS: [&str; 5] = ["pass", "fail", "timeout", "error", "refused"];
 
 /// `EVENT_TYPES`, in the schema's order.
-pub const EVENT_TYPES: [&str; 31] = [
+pub const EVENT_TYPES: [&str; 32] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
@@ -77,6 +77,7 @@ pub const EVENT_TYPES: [&str; 31] = [
     "run_stopped",
     "run_stop_requested",
     "run_adopted",
+    "lane_assigned",
     "verification_recorded",
     "correction",
     "suggestion_proposed",
@@ -1259,6 +1260,21 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                 "epoch: must be an integer of at least 2 — run_started is epoch 1",
             );
         }
+        "lane_assigned" => {
+            must(e, str(p.get("run")), "run: must be a non-empty string");
+            // Lanes are numbered from 1, as the pool names them (lane-<k>).
+            must(
+                e,
+                integer(p.get("lane")).is_some_and(|n| n >= 1.0),
+                "lane: must be an integer of at least 1",
+            );
+            // Absent frees the lane; an empty string would name no task.
+            must(
+                e,
+                opt_nonempty_str(p.get("task")),
+                "task: must be a non-empty string when present — omit it to free the lane",
+            );
+        }
         "judgement_recorded" => validate_judgement_recorded(p, e),
         "correction" => {
             must(
@@ -1382,6 +1398,32 @@ mod tests {
                 "{lanes}"
             );
         }
+    }
+
+    #[test]
+    fn lane_assigned_names_a_lane_from_one_and_optionally_a_task() {
+        assert!(
+            check(
+                "lane_assigned",
+                "{\"run\":\"R\",\"lane\":1,\"task\":\"2.3\"}"
+            )
+            .is_empty()
+        );
+        assert!(check("lane_assigned", "{\"run\":\"R\",\"lane\":2}").is_empty());
+        assert_eq!(
+            check("lane_assigned", "{\"run\":\"R\",\"lane\":0,\"task\":\"\"}"),
+            [
+                "lane: must be an integer of at least 1",
+                "task: must be a non-empty string when present — omit it to free the lane"
+            ]
+        );
+        assert_eq!(
+            check("lane_assigned", "{\"lane\":1.5}"),
+            [
+                "run: must be a non-empty string",
+                "lane: must be an integer of at least 1"
+            ]
+        );
     }
 
     #[test]

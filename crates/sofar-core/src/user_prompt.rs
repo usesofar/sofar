@@ -400,8 +400,9 @@ fn drive_line(root: &Path, state: &InitiativeState, me: &SessionState) -> Option
     }
     let n = run.handoffs.len();
     let p = task_progress(&state.phases);
+    // On a lanes run, what its lanes hold (drive-lanes D22).
     let now = if run.stopped.is_none() {
-        crate::drive_queue::next_task(state).map(|t| t.id.clone())
+        crate::drive_queue::task_in_flight(state)
     } else {
         None
     };

@@ -46,6 +46,23 @@ export function nextTask(state: InitiativeState, foreign?: ForeignResolved): Dri
   return readyTasks(state, foreign)[0]
 }
 
+/** Lane holds as the surfaces show them (drive-lanes 2.3, D22): `L<k> <task>`, joined by ", ". */
+export function laneHolds(held: readonly { lane: number; task: string }[]): string {
+  return held.map((a) => `L${a.lane} ${a.task}`).join(', ')
+}
+
+/** What the latest run's lanes hold, in lane order; undefined when that run is stopped or no lane holds a task. */
+export function heldByLanes(state: InitiativeState): string | undefined {
+  const run = state.runs[state.runs.length - 1]
+  if (run === undefined || run.stopped !== undefined || run.assignments === undefined) return undefined
+  return laneHolds(run.assignments)
+}
+
+/** The task a watching surface names: what the lanes hold on a lanes run, else the ready head. */
+export function taskInFlight(state: InitiativeState, foreign?: ForeignResolved): string | undefined {
+  return heldByLanes(state) ?? nextTask(state, foreign)?.id
+}
+
 /**
  * Every task this run could still reach, in the order it would reach them,
  * ready or not. The routing preview walks the whole queue (3.2), because a run

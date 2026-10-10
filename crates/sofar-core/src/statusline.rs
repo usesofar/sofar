@@ -180,7 +180,7 @@ pub fn drive_segment_of(
     });
     drive_segment_from(
         run.as_ref(),
-        || crate::drive_queue::next_task(state).map(|t| t.id.clone()),
+        || crate::drive_queue::task_in_flight(state),
         session_started,
         probe,
     )

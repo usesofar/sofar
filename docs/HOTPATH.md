@@ -881,6 +881,13 @@ per golden. Contract deltas a native core must reproduce:
 
 rust-core tracks trunk continuously (D29). The goldens name their trunk
 commit in `golden/MANIFEST.md`. Contract deltas the core reproduces:
+- §Fold: `lane_assigned {run, lane ≥ 1, task?}` (drive-lanes 2.3, D22),
+  where RunState gains `assignments` [{lane, task, ts}], lane order and
+  serialized only when non-empty; a handoff for the task, `run_stopped` and
+  an adoption that takes the run end them; never drift. The statusline's
+  drive segment, the prompt's drive line and describeRun name what a lanes
+  run's lanes hold (`L<k> <task>`, joined by `, `) through `task_in_flight`.
+  Proved by fold-parity FP-26.
 - §Fold: `run_adopted {run, epoch ≥ 2}`, where RunState gains `adoptions`
   and `owner` and `stop_requests` holds event ids (drive-visibility 2.2).
   `judgement_recorded` is validated, then ignored by state and drift

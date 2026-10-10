@@ -358,11 +358,19 @@ mod tests {
         fs::create_dir_all(main.join(".sofar")).unwrap();
         fs::create_dir_all(lane.join(".sofar")).unwrap(); // the stale committed copy
         fs::create_dir_all(lane.join("apps").join("web").join("lib")).unwrap();
-        fs::write(lane.join(".git"), format!("gitdir: {}\n", lane_git.display())).unwrap();
+        fs::write(
+            lane.join(".git"),
+            format!("gitdir: {}\n", lane_git.display()),
+        )
+        .unwrap();
         let deep = lane.join("apps").join("web").join("lib");
         assert_eq!(record_root(&deep), lane); // unmarked: its own copy, as before
         assert_eq!(resolve_root(Some(&lane)), lane); // --root taken as given
-        fs::write(lane_git.join(RECORD_CHECKOUT_MARKER), format!("{}\n", main.display())).unwrap();
+        fs::write(
+            lane_git.join(RECORD_CHECKOUT_MARKER),
+            format!("{}\n", main.display()),
+        )
+        .unwrap();
         assert_eq!(record_root(&deep), main);
         assert_eq!(record_root(&lane), main);
         assert_eq!(resolve_root(Some(&lane)), main); // a Codex shim's --root names the lane's top
@@ -372,7 +380,10 @@ mod tests {
         fs::remove_dir_all(main.join(".sofar")).unwrap();
         fs::remove_dir_all(main.join("apps")).unwrap();
         // No record in the checkout: the mapped start, never the lane's copy.
-        assert_eq!(record_root(&deep), main.join("apps").join("web").join("lib"));
+        assert_eq!(
+            record_root(&deep),
+            main.join("apps").join("web").join("lib")
+        );
         fs::write(lane_git.join(RECORD_CHECKOUT_MARKER), "\n").unwrap(); // blank: unmarked
         assert_eq!(record_root(&deep), lane);
         fs::remove_dir_all(&root).unwrap();

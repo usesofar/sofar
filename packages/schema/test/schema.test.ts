@@ -53,6 +53,7 @@ const validPayloads: Record<string, Record<string, unknown>> = {
   run_stopped: { run: '01JZ8B3V0N5B4W8XK2M9QF7TSE', reason: 'needs_user', note: 'next action names a release' },
   run_stop_requested: { run: '01JZ8B3V0N5B4W8XK2M9QF7TSE' },
   run_adopted: { run: '01JZ8B3V0N5B4W8XK2M9QF7TSE', epoch: 2 },
+  lane_assigned: { run: '01JZ8B3V0N5B4W8XK2M9QF7TSE', lane: 1, task: '2.3' },
   verification_recorded: {
     run: '01JZ8B3V0N5B4W8XK2M9QF7TSE',
     task: '1.2',
@@ -166,6 +167,10 @@ describe('validatePayload', () => {
     ['run_adopted', { run: 'r', epoch: 1 }, /epoch: must be an integer of at least 2/],
     ['run_adopted', { run: 'r', epoch: 2.5 }, /epoch/],
     ['run_adopted', { epoch: 2 }, /run/],
+    // Lanes count from 1, as the pool names them; no task frees the lane (drive-lanes D22).
+    ['lane_assigned', { run: 'r', lane: 0 }, /lane: must be an integer of at least 1/],
+    ['lane_assigned', { run: 'r', lane: 1, task: '' }, /task: must be a non-empty string/],
+    ['lane_assigned', { lane: 1 }, /run/],
     ['correction', {}, /ref/],
     // A loss row is its evidence and its measured trust (self-improve 2.3):
     // without either it could never be re-derived or weighed.

@@ -35,6 +35,7 @@ import {
   type VerificationResult,
   type RunStopRequestedPayload,
   type RunAdoptedPayload,
+  type LaneAssignedPayload,
   type ReviewRecordedPayload,
   type ReviewScope,
   type ReviewVerdict,
@@ -319,6 +320,14 @@ export interface RunAdoption {
   epoch: number
 }
 
+/** A lane holding a task in a lanes run (drive-lanes 2.3, D22). */
+export interface LaneAssignment {
+  lane: number
+  task: string
+  /** When the coordinator gave it the task. */
+  ts: string
+}
+
 /**
  * One `sofar drive` run (session-driver 1.2, D2): the driver's ENTIRE state,
  * folded from run_started / handoff / run_stopped. A driver holds nothing
@@ -346,6 +355,13 @@ export interface RunState {
   verify?: string
   /** Lane worktrees the run drives tasks in (drive-lanes 2.2); absent on a serial run. */
   lanes?: number
+  /**
+   * Which lane holds which task right now (drive-lanes 2.3, D22), lane order;
+   * absent when no lane holds one. Set by `lane_assigned`, ended by the
+   * handoff for its task, a `lane_assigned` freeing the lane, the stop, or an
+   * adoption — the adopted driver's lanes are gone with it.
+   */
+  assignments?: LaneAssignment[]
   /** Log order. */
   handoffs: RunHandoff[]
   /** Every verification this run recorded, log order (D19). */
@@ -769,6 +785,14 @@ export function stopRequestsInForce(run: RunState): string[] {
   return run.stop_requests.filter((id) => id > run.owner.id)
 }
 
+/** End every assignment `ended` says is over; the field goes when none is left (D22). */
+function releaseLanes(run: RunState, ended: (a: LaneAssignment) => boolean): void {
+  if (run.assignments === undefined) return
+  const left = run.assignments.filter((a) => !ended(a))
+  if (left.length > 0) run.assignments = left
+  else delete run.assignments
+}
+
 function emptyFreshness(): FreshnessState {
   return {
     events_since_writeback: {
@@ -1185,6 +1209,7 @@ function recordFreshness(state: InitiativeState, event: EventEnvelope): void {
     case 'run_stopped':
     case 'run_stop_requested':
     case 'run_adopted':
+    case 'lane_assigned':
     case 'verification_recorded':
       // Driver events are EXCLUDED from drift, deliberately (commit-attribution
       // D18 requires the class decided here). Drift asks whether the recorded
@@ -1988,6 +2013,8 @@ function applyEvent(
         ...(p.tokens !== undefined ? { tokens: p.tokens } : {}),
         ...(p.detail !== undefined ? { detail: p.detail } : {}),
       })
+      // The session ended, so the lane holding its task is free (2.3, D22).
+      if (p.task !== undefined) releaseLanes(run, (a) => a.task === p.task)
       // The session's side of the same fact, attached to REGISTERED sessions
       // only (the attachActivity rule). The run keeps the handoff either way:
       // it is the run's history, whoever the session turns out to be.
@@ -2018,6 +2045,7 @@ function applyEvent(
       run.stopped = event.ts
       run.stop_reason = p.reason
       if (p.note !== undefined) run.stop_note = p.note
+      delete run.assignments
       break
     }
     case 'run_stop_requested': {
@@ -2045,8 +2073,34 @@ function applyEvent(
       }
       run.adoptions.push({ id: event.id, ts: event.ts, epoch: p.epoch })
       // Replay is in id order, so on a tie the adoption already in force
-      // sorts first and keeps the run: only a HIGHER epoch takes it.
-      if (p.epoch > run.owner.epoch) run.owner = { id: event.id, epoch: p.epoch }
+      // sorts first and keeps the run: only a HIGHER epoch takes it — and
+      // the lanes the driver it fenced held are gone with that driver (D22).
+      if (p.epoch > run.owner.epoch) {
+        run.owner = { id: event.id, epoch: p.epoch }
+        delete run.assignments
+      }
+      break
+    }
+    case 'lane_assigned': {
+      // No stub, as for a handoff: the coordinator assigns lanes of a run it
+      // started or adopted. A stopped run holds no lanes.
+      const p = event.payload as unknown as LaneAssignedPayload
+      const run = state.runs.find((r) => r.id === p.run)
+      if (!run) {
+        warnings.push(`line ${lineNo}: lane assignment for run "${p.run}" that never started — skipped`)
+        break
+      }
+      if (run.stopped !== undefined) {
+        warnings.push(`line ${lineNo}: lane assignment for run "${p.run}" after its stop — skipped`)
+        break
+      }
+      // A lane holds one task and a task one lane: the new hold replaces both.
+      const task = p.task
+      releaseLanes(run, (a) => a.lane === p.lane || a.task === task)
+      if (task !== undefined) {
+        const held = [...(run.assignments ?? []), { lane: p.lane, task, ts: event.ts }]
+        run.assignments = held.sort((a, b) => a.lane - b.lane)
+      }
       break
     }
     case 'session_started': {

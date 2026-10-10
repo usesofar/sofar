@@ -296,6 +296,21 @@ export interface SessionExit {
   stderr_tail?: string
   /** Set when the binary could not be spawned at all (ENOENT and friends) — the exit code is synthetic then. */
   spawn_error?: string
+  /**
+   * The agent's transport said the account's usage limit refused the session
+   * (drive-lanes 2.3, D23) — Claude Code's stream `rate_limit_event` with
+   * status `rejected`. A lanes run parks the lane until `resets_at` instead of
+   * counting a stall. Absent on a transport that shows no limit.
+   */
+  rate_limit?: RateLimit
+}
+
+/** A usage limit the transport reported, as the driver reads it. */
+export interface RateLimit {
+  /** Which limit, in the agent's own word (Claude Code: `five_hour`, `seven_day`, …). */
+  type?: string
+  /** ISO time the limit resets, when the transport names one. */
+  resets_at?: string
 }
 
 /** A launched session: the handle the driver watches until it ends. */

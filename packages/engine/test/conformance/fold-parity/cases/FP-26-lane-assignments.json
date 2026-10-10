@@ -1,0 +1,10 @@
+{
+  "tail_at": 5,
+  "seeds": [
+    77,
+    78,
+    79
+  ],
+  "order_independence": true,
+  "note": "drive-lanes 2.3 (D22): run.assignments holds one task per lane and one lane per task, lane order, present only when non-empty; an assignment replaces both holds, a handoff for the task ends it, a lane_assigned with no task frees the lane; one for a run that never started is skipped with a warning, lane 0 is an invalid line; never drift. The tail starts at the move"
+}

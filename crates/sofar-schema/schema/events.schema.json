@@ -80,6 +80,9 @@
         "run_adopted": {
           "$ref": "#/definitions/RunAdoptedPayload"
         },
+        "lane_assigned": {
+          "$ref": "#/definitions/LaneAssignedPayload"
+        },
         "verification_recorded": {
           "$ref": "#/definitions/VerificationRecordedPayload"
         },
@@ -125,6 +128,7 @@
         "run_stopped",
         "run_stop_requested",
         "run_adopted",
+        "lane_assigned",
         "verification_recorded",
         "correction",
         "suggestion_proposed",
@@ -1011,6 +1015,26 @@
         "epoch"
       ],
       "description": "A driver took over a run that has no stop (drive-visibility 2.2): `sofar drive --resume` appends one before its first launch, at one more than the run's highest epoch — `run_started` is epoch 1, so an adoption is never below 2. The fencing token for a record that syncs: the fold's owner is the highest epoch (the first-sorting id on a tie), and a driver that finds it is no longer the owner steps down. One event per takeover, never a heartbeat."
+    },
+    "LaneAssignedPayload": {
+      "type": "object",
+      "properties": {
+        "run": {
+          "type": "string"
+        },
+        "lane": {
+          "type": "integer",
+          "description": "The lane's number in the pool (`lane-<k>`). A number, never a path: the path is this machine's, and the record is shared."
+        },
+        "task": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "run",
+        "lane"
+      ],
+      "description": "A lanes run's coordinator gave a lane a task (drive-lanes 2.3, D22), just before launching its session there — so the statusline and an interactive session see which lane holds which task. Without `task` it freed the lane: a launch that resolved to no session files no handoff, which is what otherwise ends an assignment. One event per assignment, never a heartbeat."
     },
     "VerificationRecordedPayload": {
       "type": "object",
