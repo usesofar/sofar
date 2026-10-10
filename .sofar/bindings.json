@@ -3,5 +3,6 @@
   "rust-core": "rust-core",
   "r1-fixes": "r1-fixes",
   "wave-a": "memory-lead",
-  "wave-b": "memory-lead"
+  "wave-b": "memory-lead",
+  "probe/cloud-hooks": "cloud-probe"
 }

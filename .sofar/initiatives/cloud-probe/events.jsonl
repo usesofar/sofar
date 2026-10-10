@@ -1,0 +1,1 @@
+{"v":1,"id":"01M4JDZCXNGWVNT22DX11SG55X","ts":"2026-10-10T08:13:22.742Z","initiative":"cloud-probe","session":"cli","source":"cli","actor":"human","user":"dev@jithin.io","type":"initiative_created","payload":{"goal":"Throwaway: verify sofar hooks, MCP and write-back run inside a Claude Code cloud session (r4-fixes note 01M4JDAP). Never merge.","slug":"cloud-probe"}}
