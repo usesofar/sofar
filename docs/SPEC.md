@@ -274,7 +274,8 @@ watermark?, phase?, findings? — a review that was actually performed;
 commit-attribution 4.4, see §Review) ·
 run_started (run, adapter, policy: task|threshold, threshold_pct? and
 context_window? — BOTH REQUIRED for `threshold`, max_sessions?, surface?,
-verify? — the run's default acceptance command, r1-fixes 3.1 D19) · handoff (run, session_id, reason:
+verify? — the run's default acceptance command, r1-fixes 3.1 D19 — lanes? —
+an integer ≥2, absent on a serial run, drive-lanes 2.2) · handoff (run, session_id, reason:
 task_done|threshold|stall|needs_user|verify_failed, task?, tokens?, detail? — how the
 process ended, on stalls and unclean exits, r1-fixes D9; `verify_failed`
 since r1-fixes 3.1) · verification_recorded (run, task, attempt, command, cwd, checked {head, tree}, validator, result: pass|fail|timeout|error|refused, exit_code?, signal?, duration_ms, timeout_ms, diagnostics? ≤1,024 chars — the driver ran a task's acceptance command before accepting it, r1-fixes 3.1 D19 — decision? `<slug> D<n>` when it ran that decision's check, memory-lead D9) · run_stopped (run,
@@ -2196,8 +2197,8 @@ fourth asks it to end, all on envelope session `cli` — a run is not a session
 and never registers as one, so it can never read as a misrouted session:
 
 - `run_started` (run, adapter, policy, threshold_pct?, context_window?,
-  max_sessions?, surface?) — the run id is a ulid the driver mints; every
-  handoff and the stop cite it.
+  max_sessions?, surface?, verify?, lanes?) — the run id is a ulid the driver
+  mints; every handoff and the stop cite it.
 - `handoff` (run, session_id, reason, task?, tokens?) — one session
   boundary: which session ended and why the driver moved on.
 - `run_stopped` (run, reason, note?) — why the run itself ended.
@@ -2677,6 +2678,36 @@ run's checkout (LANE ROOT in §CLI) passes. It
 warns, without refusing, when that directory's branch binds elsewhere: the
 prompt still pins the writes (D4), but the child's SessionStart hook will
 inject that other record's digest.
+
+**Lanes (drive-lanes 2.2, D3, D19, D20).** `--lanes <n>` with n ≥2 is the one
+exception to D6; `--lanes 1`, the default, is the serial run above, byte for
+byte. A lanes run claims n lanes from a persistent pool of linked worktrees at
+`<state base>/<clone key>/lanes/lane-<k>` — outside the clone, kept across
+runs and initiatives — holding a flock per lane (`lane-<k>.lock`, the run
+lock's primitive) for the driver's life and skipping a lane another driver
+holds. A missing lane is created detached at the checkout's HEAD; every lane
+is marked to serve the checkout's record (LANE ROOT in §CLI) and checked like
+a launch directory. Before the run each clean lane is detached at the run's
+base and set up: `--lane-setup <cmd>`, else the installer the checkout's
+lockfile names (`npm ci`, `pnpm install --frozen-lockfile`, `yarn install
+--frozen-lockfile`, `bun install --frozen-lockfile`), `none` for nothing — run
+again only when a stamp in the lane's gitdir (the command plus a digest of the
+lockfiles) differs. The checkout's gitignored `.claude/settings.local.json`,
+where a repo enables its MCP servers, is copied into each lane. TASKS ARE
+BRANCHES: the run cuts `sofar/<slug>/<run>` from the checkout's HEAD, and each
+task works on `sofar/<slug>/<run>-<task>`, cut from that base, in the lane
+already holding it (a retry continues its tree) or else the next clean lane.
+When a session leaves its task done, the driver commits what it left
+uncommitted on the task branch (`.sofar` excepted, hooks skipped), runs the
+gate in the lane, and on acceptance fast-forwards the base by compare-and-swap;
+a landed branch that is reopened starts again from the base. The closing sweep
+checks the base in a clean lane. The checkout's own branch, index and tree are
+never touched: the stop line names the base to merge. `run_started.lanes`
+records the count, never a path; a resumed run keeps it. Refused before
+anything is recorded: `--lanes` with `--cwd`, with the `threshold` policy, or
+`--lane-setup` without lanes; a lane setup that fails; a path in the pool that
+is not a worktree of this repository. In 2.2 tasks still run one at a time,
+and a task branch the base no longer descends to stops the run as `error`.
 
 **Per-task routing (3.2, D10).** A plan task may carry
 `route {agent?, model?, effort?}`, and the driver resolves it at every launch.
@@ -7532,7 +7563,7 @@ deletes it with the worktree's gitdir.
 - `sofar drive [slug] [--policy task|threshold] [--threshold-pct <pct>]
   [--context-window <tokens>] [--max-sessions <n>] [--max-stalls <n>]
   [--cost-cap <usd>] [--session-timeout <seconds>] [--cwd <dir>] [--model <m>]
-  [--effort <e>] [--resume]
+  [--effort <e>] [--resume] [--lanes <n>] [--lane-setup <cmd|none>]
   [--agent claude-code|codex|cursor] [--bin <path>] [--agent-arg <arg>]
   [--permission-mode <mode>]
   [--allow <rule...>] [--deny <rule...>] [--bare-tools] [--detach] [--stop]
@@ -7554,7 +7585,11 @@ deletes it with the worktree's gitdir.
   it. An unknown mode is refused before a run is minted; the modes sofar
   accepts are the ones the agent does, since the driver builds the child's
   argv and a mode sofar refuses is one no operator can reach. `--session-timeout`
-  is the hang guard (§Driver, the hang guard). `--agent-arg` repeats once per
+  is the hang guard (§Driver, the hang guard). `--lanes <n>` drives each task
+  in one of n lane worktrees on its own branch, landed on the run's base
+  branch, and `--lane-setup` names the command a lane installs with
+  (§Driver, lanes); STDOUT then adds one line naming the base to merge.
+  `--agent-arg` repeats once per
   argument and appends verbatim to the argv of the agent `--agent` NAMED — the
   escape hatch past sofar's own flags, so its vocabulary falling behind an
   agent's is an inconvenience rather than a wall, and it lands LAST so the

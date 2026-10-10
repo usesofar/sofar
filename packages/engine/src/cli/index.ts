@@ -742,6 +742,14 @@ program
   .option('--verify-timeout <seconds>', 'kill an acceptance command that has not ended in this long (default 600)')
   .option('--max-verify-attempts <n>', 'stop the run once one task has failed verification this many times (default 3)')
   .option(
+    '--lanes <n>',
+    "drive tasks in n lane worktrees, each task on its own branch landed on the run's base branch (default 1: one directory, as before)",
+  )
+  .option(
+    '--lane-setup <cmd>',
+    "command a lane runs once to install dependencies, again only when the lockfile changes (default: from the lockfile, e.g. `npm ci`; `none` runs nothing)",
+  )
+  .option(
     '--agent <name>',
     'default headless agent: claude-code (default), codex or cursor (cursor-agent) — a task whose plan entry carries route.agent is launched with THAT one instead',
   )
@@ -802,6 +810,8 @@ program
         verify?: string
         verifyTimeout?: string
         maxVerifyAttempts?: string
+        lanes?: string
+        laneSetup?: string
         agent?: string
         bin?: string
         agentArg?: string[]
@@ -874,6 +884,8 @@ program
           ...(opts.verify !== undefined ? { verify: opts.verify } : {}),
           ...(opts.verifyTimeout !== undefined ? { verifyTimeout: opts.verifyTimeout } : {}),
           ...(opts.maxVerifyAttempts !== undefined ? { maxVerifyAttempts: opts.maxVerifyAttempts } : {}),
+          ...(opts.lanes !== undefined ? { lanes: opts.lanes } : {}),
+          ...(opts.laneSetup !== undefined ? { laneSetup: opts.laneSetup } : {}),
           ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
           ...(opts.bin !== undefined ? { bin: opts.bin } : {}),
           ...(opts.agentArg !== undefined ? { agentArgs: opts.agentArg } : {}),

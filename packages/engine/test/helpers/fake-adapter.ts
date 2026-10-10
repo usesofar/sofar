@@ -39,6 +39,8 @@ export interface FakeScript {
    * driven agent's needs_user lever (session-driver D5).
    */
   block?: string
+  /** What the session does to the tree it was launched in, before it touches the record (drive-lanes 2.2). */
+  work?: (cwd: string) => void
   /** How the process ends, including what it left on stderr (r1-fixes 1.6). */
   exit?: { code: number | null; signal?: string; stderr_tail?: string; spawn_error?: string }
   /** Whether the exit carries the session id — a transport that shows it. */
@@ -77,6 +79,7 @@ export class FakeSession implements AgentSession {
   async wait(): Promise<SessionExit> {
     const { script } = this
     const taskId = this.request.task?.id
+    script.work?.(this.request.cwd)
     if (script.session_id !== undefined && taskId !== undefined) {
       const change =
         script.block !== undefined

@@ -51,6 +51,10 @@ export interface DriveCliOptions {
   verifyTimeout?: string
   /** Failed verifications on one task before the run stops (default 3). */
   maxVerifyAttempts?: string
+  /** Lane worktrees to drive tasks in (drive-lanes 2.2); 1, the default, is a serial run. */
+  lanes?: string
+  /** The command a lane runs once to install dependencies; `none` runs nothing. */
+  laneSetup?: string
   /** Which agent to drive: `claude-code` (default), `codex` (3.1) or `cursor` (r1-fixes 6.8). */
   agent?: string
   /** Binary the adapter spawns (default: the agent's own — claude, codex, cursor-agent). */
@@ -259,6 +263,7 @@ export async function runDrive(
     const sessionTimeoutSec = positive('--session-timeout', options.sessionTimeout)
     const verifyTimeoutSec = positive('--verify-timeout', options.verifyTimeout)
     const maxVerifyAttempts = integer('--max-verify-attempts', options.maxVerifyAttempts)
+    const lanes = integer('--lanes', options.lanes)
     // The surface is built HERE, before anything is recorded: a bad
     // --permission-mode is a preflight refusal with no run_started behind it,
     // not a run that starts and dies on its first launch.
@@ -294,6 +299,8 @@ export async function runDrive(
       ...(options.verify !== undefined ? { verify: options.verify } : {}),
       ...(verifyTimeoutSec !== undefined ? { verifyTimeoutMs: verifyTimeoutSec * 1_000 } : {}),
       ...(maxVerifyAttempts !== undefined ? { maxVerifyAttempts } : {}),
+      ...(lanes !== undefined ? { lanes } : {}),
+      ...(options.laneSetup !== undefined ? { laneSetup: options.laneSetup } : {}),
       // Load control (drive-lanes 1.2): every CLI run yields to the
       // operator's foreground and verifies one suite at a time.
       lowPriority: true,
@@ -340,6 +347,9 @@ export async function runDrive(
     )
   }
   if (outcome.cost_usd > 0) lines.push(`cost reported by the adapter: $${outcome.cost_usd.toFixed(2)}`)
+  if (outcome.base !== undefined) {
+    lines.push(`landed on ${outcome.base.branch} (${outcome.base.tip.slice(0, 7)}) — \`git merge ${outcome.base.branch}\` brings it into your branch`)
+  }
   const stdout = `${lines.join('\n')}\n`
   return outcome.stop.reason === 'error' ? { exitCode: 1, stdout, stderr: '' } : ok(stdout)
 }

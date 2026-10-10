@@ -19,7 +19,7 @@ note_added: text
 memory_promoted: text, supersedes? (qualified handle `<slug> M<n>` of the fact this one replaces), supersedes_id? (that fact's event id; stamped by the writer, never passed), origin? (claude-memory:<file>@<16 hex>; set only by an operator-approved native-memory import)
 judgement_recorded: producer, model (the exact version), question, subject (an event id, task id or qualified record handle), about? (task:<id> | file:<repo-relative path>), answer {type: noul|choice|score, …}, state_hash?
 review_recorded: scope: phase|final, verdict: pass|findings|blocked, watermark? (sha read through), phase?, findings?: string[] (required, non-empty, for findings)
-run_started: run, adapter, policy: task|threshold, threshold_pct? and context_window? (both required for threshold), max_sessions?, surface?, verify? (the run's default acceptance command)
+run_started: run, adapter, policy: task|threshold, threshold_pct? and context_window? (both required for threshold), max_sessions?, surface?, verify? (the run's default acceptance command), lanes? (integer ≥2; absent on a serial run)
 handoff: run, session_id, reason: task_done|threshold|stall|needs_user|verify_failed, task?, tokens?, detail? (how the process ended: exit, spawn error, last stderr line)
 run_stopped: run, reason: closed|needs_user|stall|cost_cap|max_sessions|interrupted|error, note? (required for error)
 run_stop_requested: run

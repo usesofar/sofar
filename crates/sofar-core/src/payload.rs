@@ -1097,6 +1097,13 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
             if p.contains_key("max_sessions") && !positive_integer(p.get("max_sessions")) {
                 e.push("max_sessions: must be a positive integer when present".to_owned());
             }
+            // One lane is a serial run, which records no lanes at all (drive-lanes 2.2).
+            if p.contains_key("lanes") && !integer(p.get("lanes")).is_some_and(|n| n >= 2.0) {
+                e.push(
+                    "lanes: must be an integer of at least 2 when present — a serial run records none"
+                        .to_owned(),
+                );
+            }
             if let Some(surface) = p.get("surface") {
                 match surface.as_obj() {
                     None => e.push("surface: must be an object when present".to_owned()),
@@ -1360,6 +1367,21 @@ mod tests {
             check("note_added", "null"),
             ["payload: must be a JSON object"]
         );
+    }
+
+    #[test]
+    fn run_started_lanes_is_an_integer_of_at_least_two() {
+        let base = "\"run\":\"R\",\"adapter\":\"fake\",\"policy\":\"task\"";
+        assert!(check("run_started", &format!("{{{base},\"lanes\":2}}")).is_empty());
+        for lanes in ["1", "2.5", "\"3\""] {
+            assert_eq!(
+                check("run_started", &format!("{{{base},\"lanes\":{lanes}}}")),
+                [
+                    "lanes: must be an integer of at least 2 when present — a serial run records none"
+                ],
+                "{lanes}"
+            );
+        }
     }
 
     #[test]

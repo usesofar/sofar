@@ -646,6 +646,9 @@ pub struct RunStartedPayload {
     #[doc = "Tokens the session's context window holds — the DENOMINATOR `threshold_pct` is a percentage of, and REQUIRED for `threshold` for the same reason the percentage is: 80% of 200k and 80% of 1M are different runs, so a record carrying only the percentage cannot say what the last driver actually nudged at. Sofar never infers it from the model name — a model table it cannot keep true would mis-time every handoff silently — so the operator states it and the record keeps it (session-driver 2.3)."]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub context_window: ::std::option::Option<i64>,
+    #[doc = "Lane worktrees the run drives tasks in (drive-lanes 2.2, D19/D20), each task on its own branch; absent on a serial run, which launches every session in one directory. The count only: a lane's path is this machine's, and the record is shared. A resumed run keeps it."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub lanes: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub max_sessions: ::std::option::Option<i64>,
     pub policy: RunPolicy,

@@ -91,7 +91,9 @@ export function describeRun(run: RunState, liveness?: RunLiveness): string {
             : 'running'
   // A resumed run says so, and at which epoch; one never resumed renders as before.
   const resumed = run.owner.epoch > 1 ? `, resumed (epoch ${run.owner.epoch})` : ''
-  return `run ${run.id} via ${run.adapter}, ${policy}${resumed} — ${handoffs}; ${fate}`
+  // Lanes (drive-lanes 2.2) only on a lanes run, so a serial run's line is unchanged.
+  const lanes = run.lanes !== undefined ? `, ${run.lanes} lanes` : ''
+  return `run ${run.id} via ${run.adapter}, ${policy}${lanes}${resumed} — ${handoffs}; ${fate}`
 }
 
 /**

@@ -598,6 +598,14 @@ export interface RunStartedPayload {
    * stated, so it always runs; recorded so a resumed run keeps it.
    */
   verify?: string
+  /**
+   * Lane worktrees the run drives tasks in (drive-lanes 2.2, D19/D20), each
+   * task on its own branch; absent on a serial run, which launches every
+   * session in one directory. The count only: a lane's path is this
+   * machine's, and the record is shared. A resumed run keeps it.
+   * @asType integer
+   */
+  lanes?: number
 }
 
 /** What `run_started.surface` carries; the driver's own type is engine-side. */
@@ -1272,6 +1280,10 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
     if (p.max_sessions !== undefined && !(Number.isInteger(p.max_sessions) && (p.max_sessions as number) > 0)) {
       e.push('max_sessions: must be a positive integer when present')
     }
+    // One lane is a serial run, which records no lanes at all (drive-lanes 2.2).
+    if (p.lanes !== undefined && !(Number.isInteger(p.lanes) && (p.lanes as number) >= 2)) {
+      e.push('lanes: must be an integer of at least 2 when present — a serial run records none')
+    }
     // A surface with no mode and no rules records nothing while claiming to:
     // a reader would take it as "the driver pinned something" and could not
     // say what. Absent means ambient, which is a different and honest fact.
@@ -1579,7 +1591,7 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   run_started: {
     writer: 'driver',
     summary: 'a sofar drive run began',
-    fields: `run, adapter, policy: ${RUN_POLICIES.join('|')}, threshold_pct? and context_window? (both required for threshold), max_sessions?, surface?, verify? (the run's default acceptance command)`,
+    fields: `run, adapter, policy: ${RUN_POLICIES.join('|')}, threshold_pct? and context_window? (both required for threshold), max_sessions?, surface?, verify? (the run's default acceptance command), lanes? (integer ≥2; absent on a serial run)`,
     example: { run: '01J00000000000000000000000', adapter: 'codex', policy: 'task' },
   },
   handoff: {

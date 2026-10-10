@@ -221,8 +221,13 @@ pub fn describe_run(run: &RunState, liveness: Option<RunLiveness>) -> String {
     } else {
         String::new()
     };
+    // Lanes (drive-lanes 2.2) only on a lanes run, so a serial run's line is unchanged.
+    let lanes = run
+        .lanes
+        .map(|n| format!(", {} lanes", number_to_string(n)))
+        .unwrap_or_default();
     format!(
-        "run {} via {}, {policy}{resumed} — {handoffs}; {fate}",
+        "run {} via {}, {policy}{lanes}{resumed} — {handoffs}; {fate}",
         run.id, run.adapter
     )
 }

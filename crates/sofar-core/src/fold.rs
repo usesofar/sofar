@@ -276,6 +276,8 @@ pub struct RunState {
     /// The permission surface the run pinned (session-driver 2.4, D8), verbatim.
     pub surface: Option<Json>,
     pub verify: Option<String>,
+    /// Lane worktrees the run drives tasks in (drive-lanes 2.2); absent on a serial run.
+    pub lanes: Option<f64>,
     pub handoffs: Vec<RunHandoff>,
     pub verifications: Vec<RunVerification>,
     pub done_tasks: Vec<String>,
@@ -1235,6 +1237,7 @@ fn apply_event(
                 max_sessions: opt_num(p, "max_sessions"),
                 surface: p.get("surface").cloned(),
                 verify: opt_str(p, "verify"),
+                lanes: opt_num(p, "lanes"),
                 handoffs: Vec::new(),
                 verifications: Vec::new(),
                 done_tasks: Vec::new(),
@@ -2349,6 +2352,7 @@ impl RunState {
             o.insert("surface", s.clone());
         }
         put_opt(&mut o, "verify", self.verify.as_deref());
+        put_opt_num(&mut o, "lanes", self.lanes);
         o.insert(
             "handoffs",
             Json::Arr(
@@ -2890,6 +2894,7 @@ impl RunState {
             max_sessions: on(o, "max_sessions")?,
             surface: o.get("surface").cloned(),
             verify: os(o, "verify")?,
+            lanes: on(o, "lanes")?,
             handoffs: objs(o, "handoffs")?
                 .into_iter()
                 .map(|h| {
@@ -3159,6 +3164,48 @@ mod tests {
         format!(
             "{{\"v\":1,\"id\":\"{id}\",\"ts\":\"{ts}\",\"initiative\":\"demo\",\"session\":\"{session}\",\"source\":\"hook\",\"actor\":\"agent\",\"type\":\"{event_type}\",\"payload\":{payload}}}"
         )
+    }
+
+    #[test]
+    fn a_lanes_run_keeps_its_count_through_the_fold_and_a_snapshot() {
+        let text = [
+            line(
+                "01K4C0000000000000000000B1",
+                "2026-10-10T00:00:00.000Z",
+                "cli",
+                "initiative_created",
+                "{\"slug\":\"demo\",\"goal\":\"g\"}",
+            ),
+            line(
+                "01K4C0000000000000000000B2",
+                "2026-10-10T00:00:01.000Z",
+                "cli",
+                "run_started",
+                "{\"run\":\"R1\",\"adapter\":\"fake\",\"policy\":\"task\",\"lanes\":2}",
+            ),
+            line(
+                "01K4C0000000000000000000B3",
+                "2026-10-10T00:00:02.000Z",
+                "cli",
+                "run_started",
+                "{\"run\":\"R2\",\"adapter\":\"fake\",\"policy\":\"task\"}",
+            ),
+        ]
+        .join("\n");
+        let runs = fold_text(&text, "demo").state.runs;
+        assert_eq!(runs[0].lanes, Some(2.0));
+        assert_eq!(runs[1].lanes, None);
+        let back = RunState::from_json(runs[0].to_json().as_obj().unwrap()).unwrap();
+        assert_eq!(back, runs[0]);
+        assert!(!runs[1].to_json().as_obj().unwrap().contains_key("lanes"));
+        assert_eq!(
+            crate::projections::describe_run(&runs[0], None),
+            "run R1 via fake, task policy, 2 lanes — 0 handoffs; running"
+        );
+        assert_eq!(
+            crate::projections::describe_run(&runs[1], None),
+            "run R2 via fake, task policy — 0 handoffs; running"
+        );
     }
 
     #[test]

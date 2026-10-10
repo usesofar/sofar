@@ -59,6 +59,7 @@ import {
   type VerificationProcess,
 } from './verify'
 import { claimVerifySlot } from './load'
+import { claimLanePool, detectLaneSetup, dirtyPaths, headCommit, lanePoolDir, LaneRun, type LaneTask } from './lanes'
 import { version as ENGINE_VERSION } from '../../package.json'
 import { resolveJudgeProvider } from '../client/judge'
 import type { JudgeOptions } from '../core/judge'
@@ -90,6 +91,9 @@ import { judgeProgress } from './progress-judge'
  * session N's tree — so one directory serves the whole run. It is the repo
  * root unless `cwd` names another, and either way the driver refuses to start
  * until that directory's log for the initiative IS the log it is driving.
+ * The one exception is a run with `lanes` of 2 or more (drive-lanes D3, 2.2):
+ * each task runs in a lane worktree on its own branch (driver/lanes.ts), and
+ * `--lanes 1` is the serial run above, untouched.
  */
 
 /** The longest stderr line a note quotes; the END is kept, since the cause comes last. */
@@ -364,6 +368,18 @@ export interface DriveOptions {
    */
   lowPriority?: boolean
   verifySlot?: boolean
+  /**
+   * Lane worktrees to drive tasks in (drive-lanes 2.2, D19/D20). Absent or 1
+   * is a serial run, unchanged: one launch directory, nothing recorded. Two or
+   * more claim that many lanes from the persistent pool, record the count in
+   * `run_started.lanes`, and run each task on its own branch, landed on the
+   * run's base branch once accepted. A resumed run keeps its recorded count.
+   */
+  lanes?: number
+  /** The command a lane runs once to install dependencies; absent detects it from the lockfile, `none` runs nothing. */
+  laneSetup?: string
+  /** Bound on one lane setup (default DEFAULT_LANE_SETUP_TIMEOUT_MS). */
+  laneSetupTimeoutMs?: number
   /** Adopt the latest run when it has no stop, instead of refusing. */
   resume?: boolean
   /** Test seam: how often a waiting driver looks for a stop request (default STOP_POLL_MS). */
@@ -425,6 +441,8 @@ export interface DriveOutcome {
   /** Cost the adapter reported, summed over the launches this driver made. */
   cost_usd: number
   stop: { reason: RunStopReason; note?: string }
+  /** A lanes run's base branch, holding every task it landed (D20); absent on a serial run. */
+  base?: { branch: string; tip: string }
 }
 
 /** Task id → status, the before/after snapshot a handoff reason is read from. */
@@ -483,6 +501,7 @@ export function renderPrompt(
   task: DriveTask,
   policy: RunPolicy = 'task',
   failure?: string,
+  lane?: { id: number; dir: string; branch: string },
 ): string {
   const scope =
     policy === 'threshold'
@@ -507,6 +526,17 @@ export function renderPrompt(
     '',
     ...scope,
     '',
+    // A lane (drive-lanes 2.2, D20): its own worktree and branch. Absent on a
+    // serial run, whose prompt is unchanged.
+    ...(lane !== undefined
+      ? [
+          `You are in lane ${lane.id}, a worktree of this repository at ${lane.dir}, on the`,
+          `branch ${lane.branch}. Work and commit there; the driver lands the branch once the`,
+          'task is accepted. The record is the run checkout\'s: sofar reads and writes it from',
+          'this lane, and it is committed from that checkout, never from a lane.',
+          '',
+        ]
+      : []),
     // The gate's failure, verbatim (D19): the previous session marked this task
     // done and the acceptance command rejected it, so this session starts from
     // the failure rather than from a clean claim.
@@ -520,7 +550,7 @@ export function renderPrompt(
       : []),
     'Finish the way the protocol says: log decisions as you make them, mark the task',
     'done with sofar_update_task, write back with sofar_end_session (summary + the',
-    'single next action), then commit code and record together.',
+    lane !== undefined ? 'single next action), then commit your code on the lane\'s branch.' : 'single next action), then commit code and record together.',
     '',
     'If the task needs a decision only the operator can take, do NOT guess and do not',
     'do the work anyway: mark the task blocked with sofar_update_task (status',
@@ -627,6 +657,10 @@ async function driveHolding(
       ...(surface.effort === undefined && options.effort !== undefined ? { effort: options.effort } : {}),
     }
   }
+  if (options.lanes !== undefined && !(Number.isInteger(options.lanes) && options.lanes >= 1)) {
+    throw new ToolError('invalid_input', `sofar drive: --lanes must be a whole number of at least 1, got ${options.lanes}`)
+  }
+  let lanes = options.lanes ?? 1
   let priorSessions = 0
   let maxSessions = options.maxSessions
   // Progress lines held until the run is CERTAIN to start. Everything below
@@ -681,6 +715,12 @@ async function driveHolding(
       opening.push(`keeping run ${last.id}'s recorded --verify (\`${last.verify}\`) over this driver's — start a new run to change it`)
     }
     verify = last.verify ?? verify
+    // And its lanes (drive-lanes 2.2): half a run in lanes and half in one
+    // directory is two runs wearing one id.
+    if (options.lanes !== undefined && options.lanes !== (last.lanes ?? 1)) {
+      opening.push(`keeping run ${last.id}'s recorded lanes (${last.lanes ?? 'none — a serial run'}) over this driver's --lanes ${options.lanes} — start a new run to change it`)
+    }
+    lanes = last.lanes ?? 1
     opening.push(`resuming run ${last.id} — ${priorSessions} handoff(s) already recorded`)
     // The two budgets the RECORD cannot carry, said before the run rather
     // than discovered from a bill (D9). `threshold_pct`, `context_window`,
@@ -699,6 +739,21 @@ async function driveHolding(
         `warning: run ${last.id}'s ${maxSessions}-session budget is counted from its ${priorSessions} recorded handoff(s) — launches that resolved to no session file no handoff (D3), so a run that stalled that way has already spent more of the budget than the record can show`,
       )
     }
+  }
+  // A lanes run's refusals (drive-lanes 2.2), on the count the run will
+  // actually use — a resumed run's recorded one.
+  if (lanes > 1) {
+    if (policy === 'threshold') {
+      throw new ToolError(
+        'invalid_input',
+        'sofar drive: --lanes runs each task on its own branch, and a threshold session takes task after task in one tree — use the task policy with lanes',
+      )
+    }
+    if (options.cwd !== undefined) {
+      throw new ToolError('invalid_input', 'sofar drive: --cwd and --lanes both say where sessions launch — a lanes run launches each task in a lane')
+    }
+  } else if (options.laneSetup !== undefined) {
+    throw new ToolError('invalid_input', 'sofar drive: --lane-setup sets up lanes, and this run has none — add --lanes <n> (2 or more)')
   }
   const runId = resuming ? last.id : ulid()
   if (!resuming) {
@@ -768,6 +823,51 @@ async function driveHolding(
     opening.push(...awake.opening())
   }
 
+  // The lanes (drive-lanes 2.2, D19/D20), claimed after the run lock so two
+  // resumes racing for one run never both touch them, and readied before
+  // run_started so a lane that cannot be created or set up leaves no run
+  // behind. Creating and setting up a lane is said as it happens: a first
+  // install takes a while.
+  let laneRun: LaneRun | undefined
+  if (lanes > 1) {
+    try {
+      const from = headCommit(rootDir)
+      const setup =
+        options.laneSetup === 'none' || options.laneSetup?.trim() === '' ? undefined : (options.laneSetup ?? detectLaneSetup(rootDir))
+      const pool = await claimLanePool(rootDir, lanes, from, options.lock !== undefined ? { lock: options.lock } : {})
+      held.push(...pool.held)
+      for (const line of pool.created) progress(line)
+      for (const lane of pool.lanes) assertSameRecord(lane.dir, initiative, ctx.eventsPath(initiative))
+      laneRun = new LaneRun(rootDir, {
+        slug: initiative,
+        runId,
+        lanes: pool.lanes,
+        ...(setup !== undefined ? { setup } : {}),
+        ...(options.laneSetupTimeoutMs !== undefined ? { setupTimeoutMs: options.laneSetupTimeoutMs } : {}),
+        lowPriority: options.lowPriority === true,
+        progress,
+      })
+      const base = laneRun.ensureBase(from)
+      const primed = laneRun.prime()
+      opening.push(
+        `  lanes: ${pool.lanes.map((l) => l.id).join(', ')} in ${lanePoolDir(rootDir, options.lock?.env)}; each task branches from ${laneRun.base} (${base.tip.slice(0, 7)})${setup !== undefined ? `, set up with \`${setup}\`` : ''}`,
+      )
+      if (resuming && base.created) {
+        opening.push(`warning: run ${runId}'s base branch ${laneRun.base} was gone — cut again from ${from.slice(0, 7)}, so what it had landed is not in it`)
+      }
+      for (const line of [...pool.warnings, ...primed]) opening.push(`warning: ${line}`)
+      const dirty = dirtyPaths(rootDir).length
+      if (dirty > 0) {
+        opening.push(
+          `warning: ${rootDir} holds ${dirty} uncommitted path${dirty === 1 ? '' : 's'} outside .sofar — lanes start from its last commit (${from.slice(0, 7)}) and do not see them`,
+        )
+      }
+    } catch (err) {
+      if (err instanceof ToolError) throw err
+      throw new ToolError('invalid_input', `sofar drive: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
   // Who this driver is in the fold (drive-visibility 2.2): run_started's own
   // id at epoch 1 for a fresh run; for a resumed one, the adoption it appends
   // at one more than the run's highest epoch, read AFTER the claim so a
@@ -797,6 +897,7 @@ async function driveHolding(
         ...(maxSessions !== undefined ? { max_sessions: maxSessions } : {}),
         ...(surface !== undefined ? { surface } : {}),
         ...(verify !== undefined ? { verify } : {}),
+        ...(lanes > 1 ? { lanes } : {}),
       },
       { session: 'cli', source: 'cli', actor: 'human' },
     )
@@ -950,17 +1051,18 @@ async function driveHolding(
   }
 
   type Gate = { applies: false } | { applies: true; passed: boolean; attempt: number; line: string; exhausted: boolean }
-  const gate = async (folded: InitiativeState, taskId: string): Promise<Gate> => {
+  /** `dir` is the tree under test: the launch directory, or on a lanes run the task's lane or a lane at the base (D20). */
+  const gate = async (folded: InitiativeState, taskId: string, dir: string = cwd): Promise<Gate> => {
     const task = folded.phases.flatMap((p) => p.tasks).find((t) => t.id === taskId)
     const run = folded.runs.find((r) => r.id === runId)
     if (task === undefined || run === undefined || task.status !== 'done') return { applies: false }
-    const verified = await verifyGate(task, run)
+    const verified = await verifyGate(task, run, dir)
     if (verified.applies && !verified.passed) return verified
     // Decision checks (memory-lead 2.3, D9/D10) — only once the task's own
     // command passed or none applies, since a reopened task is checked again
     // anyway. A failure blocks acceptance exactly as a failed verify does:
     // an unattended run has no one to read a warning.
-    const checked = await checkGate(folded, task, run)
+    const checked = await checkGate(folded, task, run, dir)
     if (!checked.applies) return verified
     if (!checked.passed) return checked
     const line = [verified.applies ? verified.line : '', checked.line].filter((l) => l.length > 0).join('; ')
@@ -976,11 +1078,11 @@ async function driveHolding(
     }
     return `${describeVerification(outcome.command, outcome.attempt, outcome)} (the check of ${handle})`
   }
-  const verifyGate = async (task: TaskState, run: InitiativeState['runs'][number]): Promise<Gate> => {
+  const verifyGate = async (task: TaskState, run: InitiativeState['runs'][number], dir: string): Promise<Gate> => {
     const taskId = task.id
     const which = resolveVerify(task, runVerify, verifyTimeoutMs)
     if (which === undefined) return { applies: false }
-    const dirs = verifyDirs(cwd, which.cwd)
+    const dirs = verifyDirs(dir, which.cwd)
     const fingerprint = fingerprintTree(dirs.absolute)
     if (verificationCovers(task.verification, which.cmd, fingerprint)) {
       return { applies: true, passed: true, attempt: task.verification!.attempt, line: '', exhausted: false }
@@ -1040,7 +1142,7 @@ async function driveHolding(
     // "Once one task has FAILED N times" (D19): these failures plus the earlier.
     return { applies: true, passed: false, attempt, line, exhausted: failuresSoFar(run, taskId) + ran.failed >= maxVerifyAttempts }
   }
-  const checkGate = async (folded: InitiativeState, task: TaskState, run: InitiativeState['runs'][number]): Promise<Gate> => {
+  const checkGate = async (folded: InitiativeState, task: TaskState, run: InitiativeState['runs'][number], dir: string): Promise<Gate> => {
     let checks: InForceCheck[]
     try {
       checks = checksInForce(refreshGuards(ctx.sofarDir))
@@ -1053,9 +1155,9 @@ async function driveHolding(
     // its oldest paths, so every check applies rather than a guessed few.
     const touched = folded.task_files[task.id] ?? []
     const applicable =
-      touched.length >= TASK_FILES_CAP ? checks : applicableChecks(checks, [...new Set([...touched, ...(changedPaths(cwd, 'worktree') ?? [])])])
+      touched.length >= TASK_FILES_CAP ? checks : applicableChecks(checks, [...new Set([...touched, ...(changedPaths(dir, 'worktree') ?? [])])])
     if (applicable.length === 0) return { applies: false }
-    const fingerprint = fingerprintTree(cwd)
+    const fingerprint = fingerprintTree(dir)
     let attempt = attemptsSoFar(run, task.id)
     let failures = failuresSoFar(run, task.id)
     for (const c of applicable) {
@@ -1090,7 +1192,7 @@ async function driveHolding(
       }
       let outcome: VerificationOutcome
       if (approved) {
-        const ran = await runRecorded(c.check.cmd, cwd, timeoutMs, attempt, record)
+        const ran = await runRecorded(c.check.cmd, dir, timeoutMs, attempt, record)
         if (ran === undefined) return { applies: false }
         ;({ outcome, attempt } = ran)
         // Every non-pass recorded here, a timeout its retry passed included.
@@ -1208,6 +1310,27 @@ async function driveHolding(
   process.on('SIGINT', onSignal)
   process.on('SIGTERM', onSignal)
 
+  // A lanes run's acceptance (drive-lanes 2.2, D20): what the session left
+  // uncommitted is committed on its task branch before the gate, so the gate
+  // verifies exactly what lands; an accepted branch then fast-forwards the
+  // base. A serial run does neither.
+  const commitLeftovers = (where: LaneTask, taskId: string): void => {
+    const left = laneRun?.commitLeftovers(where, taskId)
+    if (left !== undefined) {
+      progress(`  committed ${left.paths} path${left.paths === 1 ? '' : 's'} the session left uncommitted on ${where.branch} (${left.sha.slice(0, 7)})`)
+    }
+  }
+  /** Land an accepted task's branch on the base; the stop note when it cannot fast-forward. */
+  const landTask = (taskId: string): string | undefined => {
+    if (laneRun === undefined) return undefined
+    const landing = laneRun.land(taskId)
+    if (landing.kind === 'landed') {
+      progress(`  landed ${taskId} on ${laneRun.base} (${landing.from.slice(0, 7)}..${landing.to.slice(0, 7)})`)
+    }
+    if (landing.kind !== 'diverged') return undefined
+    return `${taskId} was accepted but ${landing.branch} (${landing.tip.slice(0, 7)}) no longer descends from ${laneRun.base} — its work is on that branch, unlanded; merge it by hand`
+  }
+
   try {
     for (;;) {
       // Where the request watch starts reading: taken BEFORE the fold, so a
@@ -1229,17 +1352,43 @@ async function driveHolding(
       // between the agent's done and the gate, or a task marked done by a
       // session the driver never resolved. Checked before the queue is read,
       // since a failed check puts the task back in it.
+      // On a lanes run, a done task whose branch never landed is one too (D20):
+      // a crash between the gate and the landing.
       let reopened = false
       const thisRun = state.runs.find((r) => r.id === runId)
+      // The lane at the base, readied once per turn and only when a check needs it.
+      let baseLane: { dir: string } | undefined | null = null
       for (const doneId of thisRun?.done_tasks ?? []) {
         const task = state.phases.flatMap((p) => p.tasks).find((t) => t.id === doneId)
+        if (task === undefined || task.status !== 'done') continue
         // A recorded decision check (memory-lead D9) is a check behind it too:
         // the gate ran, and the closing sweep re-checks what it accepted.
-        if (task === undefined || task.status !== 'done' || task.verification !== undefined || (task.checks?.length ?? 0) > 0) continue
-        const g = await gate(state, doneId)
+        const unchecked = task.verification === undefined && (task.checks?.length ?? 0) === 0
+        const unlanded = laneRun?.unlanded(doneId) === true
+        if (!unchecked && !unlanded) continue
+        let dir = cwd
+        if (laneRun !== undefined) {
+          if (unlanded) {
+            const where = laneRun.prepare(doneId)
+            baseLane = null // prepare may have taken that lane
+            commitLeftovers(where, doneId)
+            dir = where.lane.dir
+          } else {
+            if (baseLane === null) baseLane = laneRun.atBase()
+            if (baseLane === undefined) continue
+            dir = baseLane.dir
+          }
+        }
+        const g = await gate(state, doneId, dir)
         if (g.applies && !g.passed) {
           reopened = true
           if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
+        } else if (unlanded && fenced === undefined && !interrupted) {
+          const diverged = landTask(doneId)
+          if (diverged !== undefined) {
+            stop = { reason: 'error', note: diverged }
+            break
+          }
         }
         if (fenced !== undefined || interrupted) break
       }
@@ -1256,9 +1405,14 @@ async function driveHolding(
         // against the tree as it now stands — a later session may have moved
         // the code a pass was recorded on. A stale pass verifies again; a
         // failure reopens the task and the loop goes on.
+        // On a lanes run that tree is the base, checked out in a clean lane (D20).
         let stale = false
-        for (const doneId of thisRun?.done_tasks ?? []) {
-          const g = await gate(state, doneId)
+        const sweepDir = laneRun === undefined ? cwd : laneRun.atBase()?.dir
+        if (sweepDir === undefined) {
+          progress('warning: every lane holds uncommitted work, so the closing sweep has no lane to check the base in — this run\'s passes stand as recorded')
+        }
+        for (const doneId of sweepDir === undefined ? [] : (thisRun?.done_tasks ?? [])) {
+          const g = await gate(state, doneId, sweepDir)
           if (g.applies && !g.passed) {
             stale = true
             if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
@@ -1293,13 +1447,17 @@ async function driveHolding(
       const awakeChanged = awake?.beforeLaunch()
       if (awakeChanged !== undefined) progress(awakeChanged)
 
+      // A lanes run's task goes to its lane and branch first (D20): everything
+      // measured about the launch below is measured there.
+      const laneTask = laneRun?.prepare(task.id)
+      const launchDir = laneTask?.lane.dir ?? cwd
       const beforeStatuses = taskStatuses(state)
       // Who was in the record BEFORE the launch: the exact half of session
       // resolution (below), where a millisecond timestamp is only the coarse one.
       const knownSessions = new Set(state.sessions.map((s) => s.id))
       const launchedAt = new Date().toISOString()
       // The progress judge's diff base; not read at all when nobody will judge.
-      const headBefore = judging.provider !== undefined ? headOf(cwd) : null
+      const headBefore = judging.provider !== undefined ? headOf(launchDir) : null
       // Where this task runs (3.2): the run's pins first, the task's route for
       // what the run left open. A route the run cannot reach THROWS, and the
       // catch below stops the run with that sentence rather than launching the
@@ -1315,6 +1473,7 @@ async function driveHolding(
       progress(
         `session ${launched + 1}: ${task.id} — ${task.title}${routed !== adapter ? ` via ${routed.name}` : ''}`,
       )
+      if (laneTask !== undefined) progress(`  lane ${laneTask.lane.id}: ${laneTask.lane.dir} on ${laneTask.branch}`)
       publish(state, task.id)
       // What the last check said about this task, if it was reopened (D19):
       // its acceptance command, or a decision's check (memory-lead D9), with
@@ -1354,9 +1513,15 @@ async function driveHolding(
         for (const line of verdict.lines) progress(line)
       }
       const session = routed.launch({
-        cwd,
+        cwd: launchDir,
         initiative,
-        prompt: renderPrompt(initiative, task, policy, failure),
+        prompt: renderPrompt(
+          initiative,
+          task,
+          policy,
+          failure,
+          laneTask !== undefined ? { id: laneTask.lane.id, dir: laneTask.lane.dir, branch: laneTask.branch } : undefined,
+        ),
         task: { id: task.id, title: task.title },
         ...(route.model !== undefined ? { model: route.model } : {}),
         ...(route.effort !== undefined ? { effort: route.effort } : {}),
@@ -1433,8 +1598,12 @@ async function driveHolding(
       // dropped task is never verified — it resolved, it was not tested.
       let exhausted: string | undefined
       let checked: string | undefined
+      // On a lanes run (D20) the done task's branch lands once accepted.
+      let unlandable: string | undefined
       if (reason === 'task_done' || reason === 'threshold') {
-        const g = await gate(after, task.id)
+        const done = taskStatuses(after).get(task.id) === 'done'
+        if (laneTask !== undefined && done) commitLeftovers(laneTask, task.id)
+        const g = await gate(after, task.id, launchDir)
         // Adopted while it verified: the handoff is the new owner's to file.
         if (fenced !== undefined) break
         if (g.applies) checked = g.line.length > 0 ? g.line : 'passed: an earlier check still covers this tree'
@@ -1442,6 +1611,8 @@ async function driveHolding(
           reason = 'verify_failed'
           detail = g.line
           if (g.exhausted) exhausted = `${task.id} failed verification ${g.attempt} time(s); last: ${g.line}`
+        } else if (laneTask !== undefined && done && !interrupted) {
+          unlandable = landTask(task.id)
         }
       }
       ctx.appendAndProject(
@@ -1473,7 +1644,7 @@ async function driveHolding(
       }
       if (judging.provider !== undefined && !interrupted) {
         const ended = after.sessions.find((s) => s.id === sessionId)
-        const diff = headBefore !== null ? diffStatSince(cwd, headBefore) : null
+        const diff = headBefore !== null ? diffStatSince(launchDir, headBefore) : null
         const verdict = await judgeProgress(
           {
             task: { id: task.id, title: task.title },
@@ -1507,6 +1678,10 @@ async function driveHolding(
         stop = { reason: 'stall', note: exhausted }
         break
       }
+      if (unlandable !== undefined) {
+        stop = { reason: 'error', note: unlandable }
+        break
+      }
       if (reason === 'needs_user') {
         stop = { reason: 'needs_user', note: `${task.id} is blocked — read its note` }
         break
@@ -1538,6 +1713,16 @@ async function driveHolding(
     { session: 'cli', source: 'cli', actor: 'human' },
   )
   publish(ctx.foldState(initiative), null, ended.reason)
+  // A lanes run's work is on its base branch, never the checkout's (D20).
+  let base: DriveOutcome['base']
+  if (laneRun !== undefined) {
+    try {
+      base = { branch: laneRun.base, tip: laneRun.baseTip() }
+      progress(`lanes: what this run landed is on ${base.branch} (${base.tip.slice(0, 7)}) — \`git merge ${base.branch}\` brings it into your branch`)
+    } catch (err) {
+      progress(`warning: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
   return {
     run: runId,
     initiative,
@@ -1547,6 +1732,7 @@ async function driveHolding(
     unresolved,
     cost_usd: cost,
     stop: ended,
+    ...(base !== undefined ? { base } : {}),
   }
 }
 
