@@ -4,6 +4,7 @@
 // drive-lanes step must beat (README.md).
 //
 //   node run.mjs --label serial-1                       # serial drive, this checkout's build
+//   node run.mjs --label lanes-1 --arm lanes --lanes 3  # the same plan on three lanes (drive-lanes 2.5)
 //   node run.mjs --label serial-1 --model opus --effort high
 //   node run.mjs --label selftest --self-test           # no Claude: fixture properties only
 //   node run.mjs --label preflight --preflight          # engine, claude and profile, then stop
@@ -23,7 +24,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { REFERENCE, SKELETON, SLUG, TASKS, GOAL, planPayload } from './fixture.mjs'
-import { measure, measureCell } from './measure.mjs'
+import { compare, measure, measureCell } from './measure.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const HOME = homedir()
@@ -33,6 +34,7 @@ const { values: opt } = parseArgs({
     engine: { type: 'string', default: resolve(HERE, '..', '..') },
     label: { type: 'string' },
     arm: { type: 'string', default: 'serial' },
+    lanes: { type: 'string', default: '3' },
     model: { type: 'string', default: 'sonnet' },
     effort: { type: 'string' },
     claude: { type: 'string', default: existsSync(join(HOME, '.bench', 'claude-2.1.278', 'claude')) ? join(HOME, '.bench', 'claude-2.1.278', 'claude') : 'claude' },
@@ -47,11 +49,16 @@ const { values: opt } = parseArgs({
   },
 })
 if (opt.help || !opt.label) {
-  console.log('usage: node run.mjs --label <name> [--arm serial] [--engine <checkout>] [--model sonnet] [--effort <e>] [--claude <bin>] [--claude-config <dir>] [--root <dir>] [--session-timeout 900] [--max-sessions 18] [--self-test | --preflight]')
+  console.log('usage: node run.mjs --label <name> [--arm serial|lanes] [--lanes 3] [--engine <checkout>] [--model sonnet] [--effort <e>] [--claude <bin>] [--claude-config <dir>] [--root <dir>] [--session-timeout 900] [--max-sessions 18] [--self-test | --preflight]')
   process.exit(opt.help ? 0 : 2)
 }
-if (opt.arm !== 'serial') {
-  console.error(`--arm ${opt.arm}: only \`serial\` exists yet — later drive-lanes steps add their arms here`)
+if (opt.arm !== 'serial' && opt.arm !== 'lanes') {
+  console.error(`--arm ${opt.arm}: the arms are \`serial\` and \`lanes\` — later drive-lanes steps add theirs here`)
+  process.exit(2)
+}
+const lanes = opt.arm === 'lanes' ? Number(opt.lanes) : 1
+if (opt.arm === 'lanes' && !(Number.isInteger(lanes) && lanes >= 2)) {
+  console.error(`--lanes ${opt.lanes}: a lanes arm runs at least 2`)
   process.exit(2)
 }
 
@@ -215,6 +222,8 @@ function selfTest() {
   // 5. The whole tree green.
   checks.all_green_at_end = TASKS.every((t) => verifyPasses(t))
   checks.measure = measureSelfTest()
+  checks.measure_lanes = measureLanesSelfTest()
+  checks.compare = compareSelfTest()
   const pass =
     checks.all_red_on_skeleton &&
     Object.values(checks.green_alone).every(Boolean) &&
@@ -222,7 +231,9 @@ function selfTest() {
     checks.shared_green_merged &&
     checks.chain.every((c) => c.green && c.later_red) &&
     checks.all_green_at_end &&
-    checks.measure.pass
+    checks.measure.pass &&
+    checks.measure_lanes.pass &&
+    checks.compare.pass
   return { pass, checks }
 }
 
@@ -275,6 +286,85 @@ function measureSelfTest() {
   return { pass: JSON.stringify(got) === JSON.stringify(want), ...(JSON.stringify(got) !== JSON.stringify(want) ? { got, want } : {}) }
 }
 
+/**
+ * The scorer on a synthetic two-lane run whose lanes interleave: 1.4 and 1.5 run
+ * at once; 1.5's gate passes while 1.4's handoff lands between it and its own
+ * handoff, then its merge conflicts and reopens it; lane 2 resolves it, gating
+ * twice (the merge re-verify). Lane 2 is then given 1.6 while lane 1 still holds
+ * it, and freed. The closing sweep fails 1.6 and the run stops.
+ */
+function measureLanesSelfTest() {
+  const t = (s) => new Date(Date.UTC(2026, 0, 1, 0, 0, s)).toISOString()
+  const R = 'RUN'
+  const cli = { session: 'cli' }
+  const ev = (type, payload, ts, env = cli) => ({ type, payload, ts, ...env })
+  const lane = (n, task, s) => ev('lane_assigned', { run: R, lane: n, ...(task !== undefined ? { task } : {}) }, t(s))
+  const verify = (task, attempt, result, s) => ev('verification_recorded', { run: R, task, attempt, result }, t(s))
+  const handoff = (sid, reason, task, s) => ev('handoff', { run: R, session_id: sid, reason, task }, t(s))
+  const status = (id, st, s, session) => ev('task_status_changed', { id, status: st }, t(s), session === undefined ? cli : { session })
+  const events = [
+    ev('run_started', { run: R, lanes: 2 }, t(0)),
+    lane(1, '1.4', 1),
+    lane(2, '1.5', 1),
+    ev('session_started', { tool: 'claude-code' }, t(2), { session: 's1' }),
+    ev('session_started', { tool: 'claude-code' }, t(3), { session: 's2' }),
+    status('1.4', 'done', 40, 's1'),
+    status('1.5', 'done', 45, 's2'),
+    verify('1.4', 1, 'pass', 50),
+    verify('1.5', 1, 'pass', 52),
+    handoff('s1', 'task_done', '1.4', 55),
+    lane(1, '1.6', 56),
+    ev('session_started', { tool: 'claude-code' }, t(57), { session: 's3' }),
+    status('1.5', 'active', 59),
+    handoff('s2', 'merge_conflict', '1.5', 60),
+    lane(2, '1.5', 61),
+    ev('session_started', { tool: 'claude-code' }, t(62), { session: 's4' }),
+    status('1.5', 'done', 90, 's4'),
+    verify('1.5', 2, 'pass', 95),
+    verify('1.5', 3, 'pass', 97),
+    handoff('s4', 'task_done', '1.5', 100),
+    lane(2, '1.6', 101),
+    lane(2, undefined, 102),
+    status('1.6', 'done', 110, 's3'),
+    verify('1.6', 1, 'pass', 112),
+    handoff('s3', 'task_done', '1.6', 115),
+    verify('1.4', 2, 'pass', 120),
+    verify('1.5', 4, 'pass', 121),
+    verify('1.6', 2, 'fail', 122),
+    status('1.6', 'active', 123),
+    ev('run_stopped', { run: R, reason: 'max_sessions' }, t(130)),
+  ]
+  const s = measure(events)
+  const got = {
+    lanes: s.run.lanes,
+    wall: s.wall_clock_s,
+    overhead: s.overhead_s,
+    busy: s.lanes_busy_rate,
+    done: s.tasks.done,
+    gate: [s.verify.gate_passes, s.verify.gate_attempts],
+    sweep: [s.verify.sweep_checks, s.verify.sweep_failures],
+    merge: [s.conflicts.merge, s.conflicts.merge_reopen_rate],
+    double_held: s.conflicts.double_held.map((d) => [d.task, ...d.lanes]),
+    duplicate_work: s.conflicts.duplicate_work,
+  }
+  const want = { lanes: 2, wall: 130, overhead: null, busy: 0.792, done: 2, gate: [5, 5], sweep: [3, 1], merge: [1, 0.5], double_held: [['1.6', 1, 2]], duplicate_work: 1 }
+  return { pass: JSON.stringify(got) === JSON.stringify(want), ...(JSON.stringify(got) !== JSON.stringify(want) ? { got, want } : {}) }
+}
+
+/** 2.5's keep rule on synthetic bars: a pass, one criterion missed, too few reps. */
+function compareSelfTest() {
+  const barOf = (reps, metrics) => ({ reps, metrics: Object.fromEntries(Object.entries(metrics).map(([k, v]) => [k, Array.isArray(v) ? { mean: v.reduce((a, x) => a + x, 0) / v.length, values: v } : { mean: v, values: [v] }])) })
+  const serial = barOf(3, { wall_clock_s: 460, tasks_done: 9, gate_pass_rate: 1, tokens_per_task: 100_000, duplicate_work: [0, 0, 0], merge_reopen_rate: 0 })
+  const lanesBar = (over = {}, reps = 3) => barOf(reps, { wall_clock_s: 260, tasks_done: 9, gate_pass_rate: 1, tokens_per_task: 104_000, duplicate_work: [0, 0, 0], merge_reopen_rate: 0.1, ...over })
+  const got = {
+    keep: compare(serial, lanesBar()).verdict,
+    slow: compare(serial, lanesBar({ wall_clock_s: 300, duplicate_work: [0, 1, 0] })).failed,
+    few: compare(serial, lanesBar({}, 2)).verdict,
+  }
+  const want = { keep: 'keep', slow: ['wall_clock_falls_40pct', 'duplicate_work_0'], few: 'insufficient_reps' }
+  return { pass: JSON.stringify(got) === JSON.stringify(want), ...(JSON.stringify(got) !== JSON.stringify(want) ? { got, want } : {}) }
+}
+
 // ---------- the arm ----------
 function claudeInfo() {
   const env = scrubbedEnv({ CLAUDE_CONFIG_DIR: opt['claude-config'] })
@@ -296,6 +386,7 @@ function driveArgs(engine) {
     '--allow', 'Bash(node:*)', 'Bash(npm test:*)',
     '--session-timeout', opt['session-timeout'],
     '--max-sessions', opt['max-sessions'],
+    ...(lanes > 1 ? ['--lanes', String(lanes)] : []),
     '--no-keep-awake',
     '--bin', opt.claude,
     '--agent-arg=--setting-sources', '--agent-arg=project,local',
@@ -342,7 +433,7 @@ function runDrive(engine) {
 }
 
 // ---------- main ----------
-const result = { label: opt.label, arm: opt.arm, cell, started: new Date().toISOString(), engine: null, claude: null }
+const result = { label: opt.label, arm: opt.arm, ...(lanes > 1 ? { lanes } : {}), cell, started: new Date().toISOString(), engine: null, claude: null }
 let ok = false
 try {
   const engine = resolveEngine(resolve(opt.engine))
@@ -378,7 +469,7 @@ try {
         dirty_paths: sh('git', ['status', '--porcelain'], { cwd: repo }).stdout.split('\n').filter((l) => l.trim().length > 0).length,
       }
       const s = result.score
-      log(`SCORE ${opt.label}: ${s.tasks.done}/${s.tasks.total} done in ${s.wall_clock_s}s; gate pass ${s.verify.gate_passes}/${s.verify.gate_attempts}; ${s.tokens.per_task ?? '?'} tokens/task; $${s.cost.usd ?? '?'}; regressions ${s.conflicts.regressions}; final tree ${result.final_tree.verify_passes.length}/${TASKS.length} green`)
+      log(`SCORE ${opt.label}: ${s.tasks.done}/${s.tasks.total} done in ${s.wall_clock_s}s; gate pass ${s.verify.gate_passes}/${s.verify.gate_attempts}; ${s.tokens.per_task ?? '?'} tokens/task; $${s.cost.usd ?? '?'}; regressions ${s.conflicts.regressions}; merge conflicts ${s.conflicts.merge}; duplicate work ${s.conflicts.duplicate_work}; final tree ${result.final_tree.verify_passes.length}/${TASKS.length} green`)
       ok = result.drive.exit === 0
     }
   }

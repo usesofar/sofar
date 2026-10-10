@@ -12,8 +12,9 @@
 //   verify.gate_pass_rate   passes / attempts at the gate a session's done meets
 //   tokens.per_task     every token the sessions' models processed (input, cache
 //                       writes, cache reads, output), over tasks done
-//   conflicts           merge conflicts (none: serial drive never merges) and
-//                       regressions — accepted tasks the closing sweep reopened
+//   conflicts           merge conflicts (a lanes run's merge_conflict handoffs; none
+//                       for serial, which never merges), regressions — accepted tasks
+//                       the closing sweep reopened — and duplicate work
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -111,22 +112,29 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
     if (e.type === 'task_status_changed' && ids.has(e.payload.id)) status.set(e.payload.id, e.payload.status)
   }
 
+  const lanes = started.payload.lanes ?? 1
   const handoffs = inRun.filter((e) => e.type === 'handoff' && e.payload.run === runId)
   const sessionStart = new Map()
   for (const e of inRun) if (e.type === 'session_started' && !sessionStart.has(e.session)) sessionStart.set(e.session, e.ts)
   const taskOf = new Map(handoffs.map((h) => [h.payload.session_id, h.payload.task]))
 
   // Gate or sweep: a gate check is the one a session's done meets, so the next
-  // boundary after it (a handoff, a launch, the stop) is that task's handoff.
-  // Anything else ran at the loop head — the closing sweep, or a resume.
+  // boundary after it is that task's handoff. Serial: the next handoff, launch or
+  // stop. Lanes interleave, so only the task's own boundaries count there — its
+  // handoff, its next lane assignment, the stop; a merge re-verify sits between
+  // the gate and the handoff and is a gate check too. Anything else ran at the
+  // loop head — the closing sweep, or a resume.
+  const boundary = (e, task) =>
+    lanes > 1
+      ? e.type === 'run_stopped' || ((e.type === 'handoff' || e.type === 'lane_assigned') && e.payload.task === task)
+      : e.type === 'handoff' || e.type === 'session_started' || e.type === 'run_stopped'
   const verifications = []
   for (let i = 0; i < inRun.length; i++) {
     const v = inRun[i]
     if (v.type !== 'verification_recorded' || v.payload.run !== runId || v.payload.decision !== undefined) continue
     let next
     for (let j = i + 1; j < inRun.length; j++) {
-      const t = inRun[j].type
-      if (t === 'handoff' || t === 'session_started' || t === 'run_stopped') {
+      if (boundary(inRun[j], v.payload.task)) {
         next = inRun[j]
         break
       }
@@ -147,6 +155,23 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
     if (e.payload.status !== 'done' && e.payload.status !== 'dropped') continue
     const own = taskOf.get(e.session)
     if (own !== undefined && own !== e.payload.id) offTask.push({ session: e.session, task: e.payload.id, launched_for: own })
+  }
+  // Two lanes holding one task at once: an assignment holds until the task's
+  // handoff, the lane's free or the stop (D22), so a second lane given a task
+  // still held elsewhere is working it twice.
+  const holder = new Map()
+  const doubleHeld = []
+  for (const e of inRun) {
+    if (e.payload?.run !== runId) continue
+    if (e.type === 'lane_assigned') {
+      for (const [task, lane] of holder) if (lane === e.payload.lane) holder.delete(task)
+      if (e.payload.task === undefined) continue
+      const other = holder.get(e.payload.task)
+      if (other !== undefined) doubleHeld.push({ task: e.payload.task, lanes: [other, e.payload.lane], at: e.ts })
+      holder.set(e.payload.task, e.payload.lane)
+    } else if (e.type === 'handoff' && e.payload.task !== undefined) {
+      holder.delete(e.payload.task)
+    }
   }
 
   const tokens = { input: 0, cache_creation: 0, cache_read: 0, output: 0, total: 0, sessions_with_transcript: 0 }
@@ -175,6 +200,7 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
   for (const h of handoffs) reasons[h.payload.reason] = (reasons[h.payload.reason] ?? 0) + 1
   const gatePasses = gate.filter((v) => v.result === 'pass').length
   const regressions = sweep.filter((v) => v.result !== 'pass').length
+  const mergeConflicts = reasons.merge_conflict ?? 0
   const wall = stopped !== undefined ? ms(started.ts, stopped.ts) / 1000 : null
 
   const inSessions = [...perTask.values()].reduce((a, r) => a + r.seconds, 0)
@@ -182,6 +208,7 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
   return {
     run: {
       id: runId,
+      lanes,
       stop_reason: stopped?.payload.reason ?? null,
       stop_note: stopped?.payload.note ?? null,
       surface: started.payload.surface ?? null,
@@ -189,7 +216,9 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
     wall_clock_s: round(wall, 1),
     // Time outside any registered session: agent boot before SessionStart,
     // verify, fold and handoff — the per-launch cost lanes overlap or multiply.
-    overhead_s: wall !== null ? round(wall - inSessions, 1) : null,
+    // Lanes' session time overlaps, so there it is the share of lane time busy.
+    overhead_s: wall !== null && lanes === 1 ? round(wall - inSessions, 1) : null,
+    lanes_busy_rate: wall !== null && wall > 0 && lanes > 1 ? round(inSessions / (wall * lanes)) : null,
     tasks: { total: TASKS.length, done, done_rate: round(done / TASKS.length), final_status: Object.fromEntries(status) },
     verify: {
       gate_attempts: gate.length,
@@ -216,7 +245,17 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
           : null,
     },
     cost: { usd: drive.cost_usd, per_task: drive.cost_usd !== null && done > 0 ? round(drive.cost_usd / done, 4) : null },
-    conflicts: { merge: 0, regressions, off_task_resolutions: offTask.length, off_task: offTask },
+    conflicts: {
+      merge: mergeConflicts,
+      // Tasks reopened by a merge conflict, over tasks done — the 2.5 bar is ≤ 10%.
+      merge_reopen_rate: done > 0 ? round(mergeConflicts / done) : null,
+      regressions,
+      off_task_resolutions: offTask.length,
+      off_task: offTask,
+      double_held: doubleHeld,
+      // Work done twice: a task resolved by a session launched for another, or held by two lanes at once.
+      duplicate_work: offTask.length + doubleHeld.length,
+    },
     per_task: [...perTask.values()].map((r) => ({ ...r, seconds: round(r.seconds, 1) })),
   }
 }
@@ -249,9 +288,39 @@ export function headline(result) {
     cost_per_task: s.cost.per_task,
     sessions: s.sessions.launched,
     merge_conflicts: s.conflicts.merge,
+    merge_reopen_rate: s.conflicts.merge_reopen_rate ?? (s.tasks.done > 0 ? round(s.conflicts.merge / s.tasks.done) : null),
     regressions: s.conflicts.regressions,
     off_task_resolutions: s.conflicts.off_task_resolutions,
+    duplicate_work: s.conflicts.duplicate_work ?? s.conflicts.off_task_resolutions,
     final_tree_green: result.final_tree?.verify_passes.length ?? null,
+  }
+}
+
+/**
+ * drive-lanes 2.5's keep rule, applied to two bars of interleaved same-day reps
+ * (D7): lanes stay only if wall-clock falls ≥ 40%, duplicate work is 0 in every
+ * rep, tasks done and the gate pass rate are no lower, merge-conflict reopens
+ * are ≤ 10% of tasks done and tokens per task rise ≤ 5%. Fewer than 3 valid reps
+ * an arm is no verdict.
+ */
+export function compare(serial, lanes, { minReps = 3 } = {}) {
+  const m = (b, k) => b.metrics[k]?.mean ?? null
+  const change = (k) => (m(serial, k) > 0 && m(lanes, k) !== null ? round(m(lanes, k) / m(serial, k) - 1, 4) : null)
+  const criteria = {
+    wall_clock_falls_40pct: { serial: m(serial, 'wall_clock_s'), lanes: m(lanes, 'wall_clock_s'), change: change('wall_clock_s'), pass: change('wall_clock_s') !== null && change('wall_clock_s') <= -0.4 },
+    duplicate_work_0: { lanes: lanes.metrics.duplicate_work?.values ?? [], pass: (lanes.metrics.duplicate_work?.values ?? [null]).every((x) => x === 0) },
+    tasks_done_no_lower: { serial: m(serial, 'tasks_done'), lanes: m(lanes, 'tasks_done'), pass: m(lanes, 'tasks_done') !== null && m(lanes, 'tasks_done') >= m(serial, 'tasks_done') },
+    gate_pass_rate_no_lower: { serial: m(serial, 'gate_pass_rate'), lanes: m(lanes, 'gate_pass_rate'), pass: m(lanes, 'gate_pass_rate') !== null && m(lanes, 'gate_pass_rate') >= m(serial, 'gate_pass_rate') },
+    merge_reopens_le_10pct: { lanes: m(lanes, 'merge_reopen_rate'), pass: m(lanes, 'merge_reopen_rate') !== null && m(lanes, 'merge_reopen_rate') <= 0.1 },
+    tokens_per_task_rise_le_5pct: { serial: m(serial, 'tokens_per_task'), lanes: m(lanes, 'tokens_per_task'), change: change('tokens_per_task'), pass: change('tokens_per_task') !== null && change('tokens_per_task') <= 0.05 },
+  }
+  const enough = serial.reps >= minReps && lanes.reps >= minReps
+  const failed = Object.entries(criteria).filter(([, c]) => !c.pass).map(([k]) => k)
+  return {
+    reps: { serial: serial.reps, lanes: lanes.reps, min: minReps },
+    verdict: !enough ? 'insufficient_reps' : failed.length === 0 ? 'keep' : 'drop',
+    failed,
+    criteria,
   }
 }
 
@@ -280,12 +349,22 @@ export function bar(all) {
   return out
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--bar') {
+if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--compare') {
+  // node measure.mjs --compare 2.5-serial 2.5-lanes  → results/2.5-lanes-vs-2.5-serial.json
+  // from the two series' bars (each built first with --bar)
+  const [serialSeries, lanesSeries] = process.argv.slice(3, 5)
+  const dir = join(dirname(fileURLToPath(import.meta.url)), 'results')
+  const read = (s) => JSON.parse(readFileSync(join(dir, `${s}.bar.json`), 'utf8'))
+  const verdict = { serial: serialSeries, lanes: lanesSeries, ...compare(read(serialSeries), read(lanesSeries)) }
+  writeFileSync(join(dir, `${lanesSeries}-vs-${serialSeries}.json`), `${JSON.stringify(verdict, null, 2)}\n`)
+  console.log(JSON.stringify(verdict, null, 2))
+} else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--bar') {
   // node measure.mjs --bar serial  → results/serial.bar.json from results/serial-<n>.json
   const arm = process.argv[3]
   const dir = join(dirname(fileURLToPath(import.meta.url)), 'results')
+  const series = new RegExp(`^${arm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d+\\.json$`)
   const reps = readdirSync(dir)
-    .filter((f) => new RegExp(`^${arm}-\\d+\\.json$`).test(f))
+    .filter((f) => series.test(f))
     .sort()
     .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')))
   const summary = bar(reps)
@@ -296,7 +375,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '-
   // RESULT.json and results/<label>.json, --invalid marks the rep as no sample of its arm
   const cell = process.argv[2]
   if (cell === undefined) {
-    console.error('usage: node measure.mjs <cell> [--write] [--invalid <why>] | --bar <arm>')
+    console.error('usage: node measure.mjs <cell> [--write] [--invalid <why>] | --bar <series> | --compare <serial series> <lanes series>')
     process.exit(2)
   }
   const resultPath = join(cell, 'artifacts', 'RESULT.json')

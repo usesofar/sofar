@@ -19,8 +19,8 @@ Progress: 7/22 tasks done (31%)
 - [x] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar — verification fail (attempt 2, exit 1)
 - [x] 2.2 `sofar drive --lanes N`: a persistent lane worktree pool (deps installed once), tasks as branches, lanes recorded on run_started. `--lanes 1` stays byte-identical to today's run (session-driver D6 holds there) — verified pass @8a8b9ff (attempt 1)
 - [x] 2.3 Coordinator: one process assigns ready tasks to free lanes and records each assignment, so the statusline and interactive sessions see which lane holds which task. Budgets (--cost-cap, --max-sessions) count across lanes; a rate-limited lane parks instead of stalling — verified pass @22023ca (attempt 1)
-- [x] 2.4 Serial merge queue: rebase a passing task branch onto the run base, re-verify when the base moved, fast-forward. A conflict becomes a merge handoff to the lane's next session. Affected-tests verify per merge, full suite per batch
-- [ ] 2.5 Measure local lanes against serial on the 1.1 fixture. Keep only if wall-clock falls ≥40%, duplicate work is 0, tasks done and verify pass rate are no lower, merge-conflict reopens ≤10% and tokens per task rise ≤5%
+- [x] 2.4 Serial merge queue: rebase a passing task branch onto the run base, re-verify when the base moved, fast-forward. A conflict becomes a merge handoff to the lane's next session. Affected-tests verify per merge, full suite per batch — verified pass @3667a3f (attempt 1)
+- [ ] 2.5 Measure local lanes against serial on the 1.1 fixture. Keep only if wall-clock falls ≥40%, duplicate work is 0, tasks done and verify pass rate are no lower, merge-conflict reopens ≤10% and tokens per task rise ≤5% (blocked)
 - [ ] 2.6 Tiered verify: after each task run the typecheck plus the tests covering the files the task changed; run the full gate (whole vitest + cargo) once at a phase end and at the run end, and pin a full-gate failure to its task by bisecting the phase's task commits. Keep only if it beats per-task full verify on the 1.1 fixture with no failure missed.
 - [ ] 2.7 A verify that times out re-runs the verify once load control (1.2) clears, never a new session; only a verify that fails charges the task.
 
@@ -43,4 +43,5 @@ Progress: 7/22 tasks done (31%)
 - [ ] 4.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 1 — Baseline and prerequisites
-Next action: 2.5: measure local lanes, merge queue on, against the 1.1 serial baseline; take the merge-conflict reopen rate from merge_conflict handoffs
+Next action: 2.5: once the operator picks a profile, run 3 interleaved 2.5-serial/2.5-lanes reps per README, then --compare
+Blocked on: task 2.5: Operator: the D6 bench profile is refused until 2026-10-11T17:00Z (seven-day limit). 2.5 needs >=3 interleaved serial and lanes reps (D7), about 54 sonnet sessions. Wait for the reset and restart the run then, or run the reps now on another profile (which one?), superseding D6's profile pin? Harness is ready (D26).

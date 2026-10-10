@@ -20,7 +20,9 @@ so the driver accepts a task only on a recorded pass (r1-fixes D19).
 `--self-test` proves those properties without an agent: every verify is red on
 the skeleton, each task's reference turns its own verify green, the three
 `formatPrice` branches conflict on the second and third merge, and each chain
-link stays red until the one it waits on lands.
+link stays red until the one it waits on lands. It also runs the scorer on a
+synthetic serial run, a synthetic two-lane run whose lanes interleave, and the
+2.5 keep rule on synthetic bars.
 
 ## Run (on a quiet host — wall-clock is the headline number)
 
@@ -33,6 +35,26 @@ node measure.mjs <cell> [--write]             # re-score a cell (--write updates
 node measure.mjs <cell> --write --invalid "<why>"   # keep a rep as evidence, out of the bar
 node measure.mjs --bar serial                 # results/serial-<n>.json → results/serial.bar.json (mean ± sd)
 ```
+
+### Lanes against serial (drive-lanes 2.5)
+
+`--arm lanes --lanes N` drives the same plan with `sofar drive --lanes N`
+(default 3), merge queue on. Arms are compared on interleaved reps run the same
+day, at least 3 valid reps each (drive-lanes D7), as their own series — the
+1.1 `serial` bar is another day's and stays the regression reference only:
+
+```
+node run.mjs --label 2.5-serial-1                       # then 2.5-lanes-1, 2.5-serial-2, …
+node run.mjs --label 2.5-lanes-1 --arm lanes --lanes 3
+node measure.mjs --bar 2.5-serial && node measure.mjs --bar 2.5-lanes
+node measure.mjs --compare 2.5-serial 2.5-lanes         # → results/2.5-lanes-vs-2.5-serial.json
+```
+
+`--compare` applies 2.5's keep rule to the two bars: wall-clock falls ≥ 40%,
+duplicate work is 0 in every lanes rep, tasks done and the gate pass rate are no
+lower, merge-conflict reopens are ≤ 10% of tasks done, tokens per task rise
+≤ 5%. Its verdict is `keep`, `drop` (with the criteria missed) or
+`insufficient_reps`.
 
 Before a run, `--probe` launches one trivial session the way the adapter does
 and keeps its stream: the adapter keeps only an exit code, so a launch refused
@@ -53,15 +75,18 @@ CLAUDE.md loads); `results/<label>.json` keeps the score in the repo.
 | Field | Read from | Meaning |
 | --- | --- | --- |
 | `wall_clock_s` | record | `run_started` → `run_stopped` |
-| `overhead_s` | record | wall-clock outside every registered session: agent boot, verify, fold, handoff |
+| `overhead_s` | record | wall-clock outside every registered session: agent boot, verify, fold, handoff (serial only — lanes overlap) |
+| `lanes_busy_rate` | record | lanes only: session time over wall-clock × lanes |
 | `tasks.done` | record | fixture tasks whose final status is done (a failed verify reopens, so done = accepted) |
-| `verify.gate_pass_rate` | record | passes / attempts at the gate a session's done meets; `first_try_pass_rate` per task |
+| `verify.gate_pass_rate` | record | passes / attempts at the gate a session's done meets, a merge re-verify included; `first_try_pass_rate` per task |
 | `verify.sweep_failures` | record | accepted tasks the closing sweep re-checked and failed |
 | `tokens.per_task` | transcripts | input + cache writes + cache reads + output, every session, over tasks done |
 | `cost.per_task` | drive stdout | the adapter's reported cost over tasks done |
-| `conflicts.merge` | — | 0 for serial (it never merges); lanes arms count their merge queue's conflicts |
+| `conflicts.merge` | record | `merge_conflict` handoffs (drive-lanes D24); 0 for serial, which never merges |
+| `conflicts.merge_reopen_rate` | record | `conflicts.merge` over tasks done |
 | `conflicts.regressions` | record | = `verify.sweep_failures` |
-| `conflicts.off_task_resolutions` | record | a session resolving a task it was not launched for — duplicate work once lanes run at once |
+| `conflicts.off_task_resolutions` | record | a session resolving a task it was not launched for |
+| `conflicts.duplicate_work` | record | off-task resolutions plus `double_held`: a task assigned to a lane while another lane still held it (`lane_assigned`, D22) |
 
 `final_tree` in `RESULT.json` re-runs all nine verifies on the tree the run left,
 independently of the driver.
