@@ -2294,6 +2294,28 @@ task line; describeRun appends `, P/N verification(s) passed` when the run
 recorded any; sessions/<id>.md shows `verify_failed` like any reason.
 Records without checks render byte-identically.
 
+**Load control (drive-lanes 1.2).** The driver is cheap; the load is the
+test work a run multiplies (drive-load note 01M3PCDC). PROCESS GROUP: every
+command the gate runs (acceptance and decision checks) is spawned async and
+detached, in its own process group, so the driver still reads stop requests
+and signals while it runs. A timeout or an interrupt signals the whole group
+with SIGTERM, then SIGKILL 5 s later, and when the shell exits whatever it
+left in the group is SIGKILLed. An interrupt or a takeover during a command
+records NO verification: the task stays `done` with no check, which a
+resumed run gates first. TIMEOUT RETRY: a `timeout` is retried once before
+it reopens the task, and both attempts are recorded and both count against
+`--max-verify-attempts`. PRIORITY (`lowPriority`): sessions and gate
+commands start under `nice -n 10`, plus `taskpolicy -c utility` on macOS,
+and every child inherits it. A binary that does not resolve on PATH is
+spawned unwrapped, so it still fails as ENOENT, exit 127, with
+`spawn_error`. THE VERIFY SLOT (`verifySlot`): one gate command at a time
+per user on the machine, held as a flock-semantics lock on `<state
+base>/verify.lock`, the run lock's primitive. A waiter polls it and prints
+`waiting for the verify slot — …` once. The wait is bounded by the
+command's own timeout; past that the command runs without the slot, with a
+warning. Where no lock can be taken, the warning is printed once per run.
+The CLI sets both options on every run; a library caller states them.
+
 **Decision checks at acceptance (memory-lead 2.3, D9).** Once the task's own
 command passes, or none applies, the gate runs the in-force decision checks
 (§Decision checks) that apply to the task's files: task_files[task], plus the
@@ -2382,9 +2404,12 @@ honest. The nudge is a FILE: `nudge()` creates it at the path the child got
 in `SOFAR_DRIVE_NUDGE`, and the PostToolUse hook (2.3) turns its existence
 into "finish the current task, write back, end your turn" — print mode has
 no stdin to speak through once started. A spawn failure is exit 127, never
-a rejection. The child is spawned detached and `kill()` signals its whole
-process group — claude's MCP servers and hook shims would otherwise outlive
-it holding the stdout pipe (the D10 reaping rule) — and the exit is
+a rejection. With `lowPriority` on the request (drive-lanes 1.2) the binary
+starts through `nice`/`taskpolicy` when it resolves on PATH; both exec, so
+the pid and the group are still the agent's. The child is spawned detached
+and `kill()` signals its whole process group — claude's MCP servers and
+hook shims would otherwise outlive it holding the stdout pipe (the D10
+reaping rule) — and the exit is
 reported once stdout has drained or a two-second grace has passed,
 whichever comes first. The session's temp dir — the nudge file and the
 settings — is removed at that same moment: the child is gone by every path
@@ -8181,6 +8206,21 @@ stay the underlying derivation's, and exit codes are styling-independent.
   fingerprint changes on an edit, a new file and a commit, is stable on a
   clean tree, ignores `.sofar/`, and is null outside a repository. A run
   with no verify command records nothing and renders as before.
+- **Load control (drive-lanes 1.2):** a gate command's timeout kills its
+  whole process group, a background child included, and a child the
+  command left behind dies when the shell exits. SIGTERM ignored → SIGKILL
+  after the grace. A stop request during a verification ends the run
+  `interrupted` within seconds, kills the group and records no
+  verification, the task left `done`. A timeout then a pass records
+  `[timeout, pass]` and hands off `task_done`; two timeouts reopen the task
+  and count as two failures. With `lowPriority` the command, and a Claude
+  Code session, run 10 nice levels below the driver, capped at 20 (on macOS
+  also below the default 31 base priority), and a missing agent binary is
+  still `spawn_error` ENOENT. With
+  `verifySlot` a verification waits while another holder has the slot, says
+  so once, and runs on release. A held slot past the bound is
+  `waited_out`, an abort ends the wait at once, and no primitive, or a
+  state base inside the repo, is `unavailable`.
 - **Read-path latency budget (r1-fixes D18):** `npm run bench:read-paths --
   --baseline <previous release cli.js> --candidate <RC cli.js> --fixture
   repo|i1000-10mb [--legs ts,native]` times session-start, user-prompt, stop

@@ -27,7 +27,7 @@
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
-import { homedir, tmpdir, userInfo } from 'node:os'
+import { getPriority, homedir, tmpdir, userInfo } from 'node:os'
 import { join, resolve } from 'node:path'
 
 // ---------------------------------------------------------------------------
@@ -283,6 +283,22 @@ export function speedFactor(env = process.env) {
   times.sort((a, b) => a - b)
   const factor = times[2] / REFERENCE_SPAWN_MS
   return Math.min(8, Math.max(1, Math.round(factor * 10) / 10))
+}
+
+/** The worker cap a suite started below normal priority takes: half the cores. */
+export const LOWERED_MAX_WORKERS = '50%'
+
+/**
+ * vitest's `maxWorkers` for a suite at this niceness (drive-lanes 1.2,
+ * drive-load F2), or undefined for vitest's own default of cores − 1. A
+ * driven session and the driver's verify start lowered (nice 10), and lanes
+ * would run several of their suites at once, so a lowered suite takes half
+ * the cores. One the operator starts at normal priority keeps the default:
+ * on a quiet box the cap only slowed the suite (60→66 s and 71→86 s at 50%,
+ * n=2, 2026-10-10), and nothing else was competing for the cores.
+ */
+export function workerCap(priority = getPriority()) {
+  return priority > 0 ? LOWERED_MAX_WORKERS : undefined
 }
 
 /** `ac`, `battery`, or `unknown` (no way to tell: a desktop, a container, a CI runner). */

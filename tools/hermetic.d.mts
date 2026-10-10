@@ -15,6 +15,8 @@ export function canaryReport(changes: readonly string[]): string
 
 export const REFERENCE_SPAWN_MS: number
 export function speedFactor(env?: Record<string, string | undefined>): number
+export const LOWERED_MAX_WORKERS: string
+export function workerCap(priority?: number): string | undefined
 export function powerSource(platform?: string): 'ac' | 'battery' | 'unknown'
 export function batteryRefusal(env?: Record<string, string | undefined>, source?: 'ac' | 'battery' | 'unknown'): string | null
 

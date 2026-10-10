@@ -14,6 +14,7 @@ import type {
   Usage,
 } from './adapter'
 import { launchEnv } from './adapter'
+import { lowPriority } from './load'
 
 /**
  * The Claude Code adapter (session-driver 2.1): `claude -p` in print mode
@@ -190,7 +191,9 @@ export class ClaudeCodeSession implements AgentSession {
     // a process-group leader so kill() can reap the whole tree — claude
     // spawns MCP servers and hook shims that would otherwise outlive it and
     // keep the stdout pipe open (the D10 reaping rule, applied here).
-    this.child = spawn(options.bin ?? 'claude', claudeArgs(request, options, this.settingsPath), {
+    const argv: [string, string[]] = [options.bin ?? 'claude', claudeArgs(request, options, this.settingsPath)]
+    const [bin, args] = request.lowPriority === true ? lowPriority(...argv, { env, cwd: request.cwd }) : argv
+    this.child = spawn(bin, args, {
       cwd: request.cwd,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],

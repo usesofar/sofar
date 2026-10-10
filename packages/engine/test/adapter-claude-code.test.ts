@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { getPriority, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { ClaudeCodeAdapter, claudeArgs, pinLine, pinPrompt } from '../src/driver/claude-code'
+import { LOW_NICE } from '../src/driver/load'
 import { NUDGE_ENV, readNudge } from '../src/driver/nudge'
 import type { LaunchRequest } from '../src/driver/adapter'
 
@@ -27,6 +28,7 @@ pwd > "$STUB_OUT/cwd"
 printf '%s' "$${NUDGE_ENV}" > "$STUB_OUT/nudge"
 printf '%s' "$FOO" > "$STUB_OUT/foo"
 env > "$STUB_OUT/env"
+if [ -n "$STUB_PRIO" ]; then ps -o nice= -p $$ > "$STUB_OUT/prio"; fi
 if [ -n "$STUB_STREAM" ]; then cat "$STUB_STREAM"; fi
 if [ -n "$STUB_STDERR" ]; then echo "$STUB_STDERR" >&2; fi
 if [ -n "$STUB_SLEEP" ]; then sleep "$STUB_SLEEP"; fi
@@ -189,6 +191,18 @@ describe('spawn', () => {
     expect(exit.code).toBe(127)
     expect(session.spawnError).toContain('ENOENT')
     expect(exit.spawn_error).toContain('ENOENT') // the driver's note reads the exit, not the session
+  })
+
+  it.runIf(process.platform !== 'win32')('lowPriority starts the agent lowered, and a missing binary is still an ENOENT (drive-lanes 1.2)', async () => {
+    const c = cell('nice')
+    const exit = await new ClaudeCodeAdapter().launch(c.request({ lowPriority: true, env: { STUB_PRIO: '1', STUB_STREAM: withStream(c, [init, result]) } })).wait()
+    expect(exit.code).toBe(0)
+    expect(exit.session_id).toBe(SID)
+    // `nice -n` adds to this suite's own niceness, which a driven verify has already lowered.
+    expect(readFileSync(join(c.out, 'prio'), 'utf8').trim()).toBe(String(Math.min(20, getPriority() + LOW_NICE)))
+    const missing = await new ClaudeCodeAdapter({ bin: join(c.root, 'no-such-claude') }).launch(c.request({ lowPriority: true })).wait()
+    expect(missing.code).toBe(127)
+    expect(missing.spawn_error).toContain('ENOENT')
   })
 
   it('a non-zero exit is reported with the stderr tail kept for diagnostics', async () => {

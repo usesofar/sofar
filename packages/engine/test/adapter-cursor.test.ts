@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { getPriority, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import { runInit } from '../src/cli/init'
+import { LOW_NICE } from '../src/driver/load'
 import { runNew } from '../src/cli/new'
 import {
   CursorAdapter,
@@ -44,6 +45,7 @@ const S1C_CHAT = 'f30f288e-8228-4f80-bc82-b25b61ad39c3'
 const STUB = `#!/bin/sh
 printf '%s\\n' "$@" > "$STUB_OUT/argv"
 pwd > "$STUB_OUT/cwd"
+if [ -n "$STUB_PRIO" ]; then ps -o nice= -p $$ > "$STUB_OUT/prio"; fi
 if [ -n "$STUB_STREAM" ]; then cat "$STUB_STREAM"; fi
 if [ -n "$STUB_STDERR" ]; then printf '%s\\n' "$STUB_STDERR" >&2; fi
 exit \${STUB_EXIT:-0}
@@ -172,6 +174,14 @@ describe('the stream', () => {
     expect(exit.usage).toEqual({ context_tokens: 66_461 + 34_304, output_tokens: 762 })
     expect(session.failure).toBeUndefined()
     expect(readFileSync(join(c.out, 'argv'), 'utf8')).toContain(`use the id the driver assigned: ${session.assignedSessionId}`)
+  })
+
+  it.runIf(process.platform !== 'win32')('lowPriority starts cursor-agent lowered (drive-lanes 1.2)', async () => {
+    const c = cell('nice')
+    const exit = await new CursorAdapter().launch(c.request({ lowPriority: true, env: { STUB_PRIO: '1', STUB_STREAM: STREAM } })).wait()
+    expect(exit.code).toBe(0)
+    expect(exit.session_id).toBe(S1C_CHAT)
+    expect(readFileSync(join(c.out, 'prio'), 'utf8').trim()).toBe(String(Math.min(20, getPriority() + LOW_NICE)))
   })
 
   it('a transport failure prints nothing on stdout: exit 1, no chat id, the cause in the stderr tail', async () => {

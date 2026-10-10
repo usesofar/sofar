@@ -141,16 +141,25 @@ export function probeRunLock(rootDir: string, runId: string, options: RunLockOpt
 export async function claimRunLock(rootDir: string, runId: string, options: RunLockOptions = {}): Promise<RunLockClaim> {
   const where = runLockPath(rootDir, runId, options.env)
   if (!('path' in where)) return { kind: 'unavailable', why: where.why }
+  return claimLockAt(where.path, options)
+}
+
+/**
+ * The same claim on any path the caller has already placed — the verify slot
+ * (drive-lanes 1.2) is one more lock of this kind, so it takes this primitive
+ * rather than a second one. Creates the parent dir; never unlinks the file.
+ */
+export async function claimLockAt(path: string, options: Pick<RunLockOptions, 'primitive'> = {}): Promise<RunLockClaim> {
   const primitive = options.primitive === undefined ? platformPrimitive() : options.primitive
   if (primitive === null) {
     return { kind: 'unavailable', why: `sofar cannot take a flock-semantics lock from Node on ${process.platform} yet` }
   }
   try {
-    mkdirSync(join(where.path, '..'), { recursive: true })
+    mkdirSync(join(path, '..'), { recursive: true })
   } catch (err) {
-    return { kind: 'unavailable', why: `could not create ${join(where.path, '..')} (${errCode(err)})` }
+    return { kind: 'unavailable', why: `could not create ${join(path, '..')} (${errCode(err)})` }
   }
-  return primitive === 'exlock' ? claimExlock(where.path) : claimFlock1(where.path)
+  return primitive === 'exlock' ? claimExlock(path) : claimFlock1(path)
 }
 
 async function claimExlock(path: string): Promise<RunLockClaim> {

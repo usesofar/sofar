@@ -15,6 +15,7 @@ import type {
   Usage,
 } from './adapter'
 import { drivenPinLine, launchEnv } from './adapter'
+import { lowPriority } from './load'
 
 /**
  * The codex adapter (session-driver 3.1, D9): `codex exec --json`, one JSON
@@ -232,7 +233,8 @@ export class CodexSession implements AgentSession {
     // the command line. Detached for the same reason as the Claude adapter —
     // codex spawns MCP servers and hook shims that would outlive it holding
     // the stdout pipe open.
-    this.child = spawn(options.bin ?? 'codex', args, {
+    const [bin, argv] = request.lowPriority === true ? lowPriority(options.bin ?? 'codex', args, { env, cwd: request.cwd }) : [options.bin ?? 'codex', args]
+    this.child = spawn(bin, argv, {
       cwd: request.cwd,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],

@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
 import type { TaskVerify, VerificationResult } from '@sofar/schema'
 import type { RunState, TaskState, TaskVerification } from '../core/fold'
 import { redactCommand } from '../core/redact'
+import { lowPriority } from './load'
 import type { PermissionSurface } from './permissions'
 
 /**
@@ -187,6 +188,9 @@ export interface VerificationOutcome {
  * Run the command and say how it ended. Nothing here decides acceptance —
  * the driver records the outcome and reads its own record (session-driver
  * D5). Output is kept only as a bounded, redacted tail.
+ *
+ * Synchronous, for `sofar check` and the Stop hook's checks, which bound
+ * their own budgets. The driver runs `startVerification` instead.
  */
 export function runVerification(cmd: string, cwd: string, timeoutMs: number): VerificationOutcome {
   if (!existsSync(cwd)) {
@@ -218,6 +222,176 @@ export function runVerification(cmd: string, cwd: string, timeoutMs: number): Ve
     duration_ms,
     ...(diagnostics !== undefined ? { diagnostics } : {}),
   }
+}
+
+/** How long a timed-out command's group gets after SIGTERM before SIGKILL. */
+export const VERIFY_KILL_GRACE_MS = 5_000
+/** How long the output pipes may stay open after the group is gone. */
+const VERIFY_DRAIN_GRACE_MS = 2_000
+/** Raw output kept per stream while the command runs; the recorded tail is cut from it. */
+const RAW_TAIL = 64 * 1024
+
+/** A driven verification in flight (drive-lanes 1.2). */
+export interface VerificationProcess {
+  /** Settles once the command has ended and its group has been swept. Never rejects. */
+  done: Promise<VerificationOutcome>
+  /** Signal the command's whole process group: the shell and everything it started. */
+  kill(signal?: NodeJS.Signals): void
+}
+
+/**
+ * The driver's verification (drive-lanes 1.2, drive-load F4). It runs what
+ * `runVerification` runs, with three differences:
+ *
+ *  - ASYNC. The driver's event loop keeps running, so a stop request or a
+ *    signal is seen while the command runs, not after up to `--verify-timeout`.
+ *  - ITS OWN PROCESS GROUP. The shell is spawned detached, so a timeout or an
+ *    interrupt signals the whole group: SIGTERM, then SIGKILL after
+ *    VERIFY_KILL_GRACE_MS. spawnSync signalled only the shell, and vitest's
+ *    forks or a cargo test binary could outlive it. Whatever the command left
+ *    running in the group is killed when the shell exits, so nothing it
+ *    started outlives the check.
+ *  - `lowPriority` starts the shell through `nice`/`taskpolicy` (load.ts),
+ *    and everything it runs inherits that.
+ *
+ * Output is kept as a rolling tail per stream, stdout before stderr as
+ * spawnSync joined them. No byte cap fails the command.
+ */
+export function startVerification(
+  cmd: string,
+  cwd: string,
+  timeoutMs: number,
+  options: { lowPriority?: boolean; killGraceMs?: number } = {},
+): VerificationProcess {
+  if (!existsSync(cwd)) {
+    return {
+      done: Promise.resolve({ result: 'error', duration_ms: 0, diagnostics: `verification cwd does not exist: ${cwd}` }),
+      kill: () => {},
+    }
+  }
+  const t0 = Date.now()
+  const posix = process.platform !== 'win32'
+  const [bin, args] = posix ? (options.lowPriority === true ? lowPriority('/bin/sh', ['-c', cmd], { cwd }) : ['/bin/sh', ['-c', cmd]]) : [cmd, []]
+  let child: ChildProcess
+  try {
+    child = spawn(bin, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: posix, shell: !posix })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { done: Promise.resolve({ result: 'error', duration_ms: Date.now() - t0, diagnostics: tail(message) ?? message }), kill: () => {} }
+  }
+  const signalGroup = (signal: NodeJS.Signals): void => {
+    const pid = child.pid
+    if (pid !== undefined && posix) {
+      try {
+        process.kill(-pid, signal)
+        return
+      } catch {
+        // The group is gone, or never formed: the shell alone, below.
+      }
+    }
+    try {
+      child.kill(signal)
+    } catch {
+      // Already reaped.
+    }
+  }
+  /** SIGKILL whatever is still in the group; nothing when it is empty. Never the shell alone, which may be reaped. */
+  const sweep = (): void => {
+    if (!posix || child.pid === undefined) return
+    try {
+      process.kill(-child.pid, 'SIGKILL')
+    } catch {
+      // Nothing left in the group.
+    }
+  }
+  let stdout = ''
+  let stderr = ''
+  child.stdout!.setEncoding('utf8')
+  child.stderr!.setEncoding('utf8')
+  child.stdout!.on('data', (chunk: string) => {
+    stdout = (stdout + chunk).slice(-RAW_TAIL)
+  })
+  child.stderr!.on('data', (chunk: string) => {
+    stderr = (stderr + chunk).slice(-RAW_TAIL)
+  })
+
+  let timedOut = false
+  let terminating = false
+  let escalation: NodeJS.Timeout | undefined
+  let settle: () => void = () => {}
+  // SIGTERM to the group, and after the grace SIGKILL — then the pipes get a
+  // bounded drain, since a process that left the group may still hold them.
+  const terminate = (): void => {
+    terminating = true
+    signalGroup('SIGTERM')
+    escalation ??= setTimeout(() => {
+      sweep()
+      setTimeout(() => settle(), VERIFY_DRAIN_GRACE_MS).unref()
+    }, options.killGraceMs ?? VERIFY_KILL_GRACE_MS)
+  }
+  const deadline = setTimeout(() => {
+    timedOut = true
+    terminate()
+  }, timeoutMs)
+
+  const done = new Promise<VerificationOutcome>((settleDone) => {
+    let settled = false
+    let spawnError: Error | undefined
+    let exited: { code: number | null; signal: NodeJS.Signals | null } | undefined
+    settle = (): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(deadline)
+      if (escalation !== undefined) clearTimeout(escalation)
+      sweep()
+      child.stdout!.destroy()
+      child.stderr!.destroy()
+      const duration_ms = Date.now() - t0
+      const diagnostics = tail(`${stdout}${stderr}`)
+      const code = exited?.code ?? null
+      const signal = exited?.signal ?? null
+      if (timedOut) {
+        settleDone({ result: 'timeout', ...(signal !== null ? { signal: String(signal) } : {}), duration_ms, ...(diagnostics !== undefined ? { diagnostics } : {}) })
+      } else if (spawnError !== undefined) {
+        settleDone({ result: 'error', duration_ms, diagnostics: tail(`${diagnostics ?? ''}\n${spawnError.message}`) ?? spawnError.message })
+      } else if (code === 0) {
+        settleDone({ result: 'pass', exit_code: 0, duration_ms, ...(diagnostics !== undefined ? { diagnostics } : {}) })
+      } else {
+        settleDone({
+          result: 'fail',
+          ...(code !== null ? { exit_code: code } : {}),
+          ...(signal !== null ? { signal: String(signal) } : {}),
+          duration_ms,
+          ...(diagnostics !== undefined ? { diagnostics } : {}),
+        })
+      }
+    }
+    let drained = 0
+    const onClose = (): void => {
+      drained += 1
+      if (drained === 2 && exited !== undefined) settle()
+    }
+    child.stdout!.on('close', onClose)
+    child.stderr!.on('close', onClose)
+    child.on('exit', (code, signal) => {
+      exited = { code, signal }
+      if (drained === 2) {
+        settle()
+        return
+      }
+      // A group being terminated keeps its grace; the escalation sweeps it.
+      if (terminating) return
+      // The shell is gone; anything it left in its group goes with it, and
+      // the pipes such a straggler held then close.
+      sweep()
+      setTimeout(settle, VERIFY_DRAIN_GRACE_MS).unref()
+    })
+    child.on('error', (err) => {
+      spawnError = err
+      settle()
+    })
+  })
+  return { done, kill: (signal: NodeJS.Signals = 'SIGTERM') => (signal === 'SIGTERM' ? terminate() : signalGroup(signal)) }
 }
 
 /** ANSI-stripped, redacted, last DIAGNOSTICS_MAX chars; undefined when empty. */

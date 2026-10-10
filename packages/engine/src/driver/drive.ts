@@ -43,11 +43,13 @@ import {
   fingerprintTree,
   headOf,
   resolveVerify,
-  runVerification,
+  startVerification,
   verificationCovers,
   verifyDirs,
   type VerificationOutcome,
+  type VerificationProcess,
 } from './verify'
+import { claimVerifySlot } from './load'
 import { version as ENGINE_VERSION } from '../../package.json'
 import { resolveJudgeProvider } from '../client/judge'
 import type { JudgeOptions } from '../core/judge'
@@ -319,6 +321,17 @@ export interface DriveOptions {
   verifyTimeoutMs?: number
   /** Failed attempts on one task before the run stops as a stall (default DEFAULT_MAX_VERIFY_ATTEMPTS). */
   maxVerifyAttempts?: number
+  /**
+   * Load control (drive-lanes 1.2). `lowPriority` starts every session and
+   * verification under `nice`, plus `taskpolicy` on macOS; `verifySlot` runs
+   * one verification at a time per user on this machine. The CLI passes both,
+   * as it passes `keepAwake`; a library caller that wants them states them.
+   * Either way a verification runs in its own process group, killed whole on
+   * a timeout or an interrupt, and a timeout is retried once before it
+   * reopens the task.
+   */
+  lowPriority?: boolean
+  verifySlot?: boolean
   /** Adopt the latest run when it has no stop, instead of refusing. */
   resume?: boolean
   /** Test seam: how often a waiting driver looks for a stop request (default STOP_POLL_MS). */
@@ -829,18 +842,93 @@ async function driveHolding(
   const verifyTimeoutMs = options.verifyTimeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS
   const maxVerifyAttempts = options.maxVerifyAttempts ?? DEFAULT_MAX_VERIFY_ATTEMPTS
   const runVerify = { ...(verify !== undefined ? { verify } : {}) }
+
+  // Load control (drive-lanes 1.2). A command the gate runs waits for the
+  // verify slot, runs at the run's priority in its own process group, and
+  // the run's stop requests are watched while it runs, as during a session.
+  // An interrupt or a takeover in that window ends it with no verdict:
+  // nothing is recorded, and the task stays done without a check, which a
+  // resumed run verifies first.
+  let liveVerify: { waiting: AbortController; process?: VerificationProcess } | undefined
+  let slotWarned = false
+  const runGated = async (cmd: string, dir: string, timeoutMs: number): Promise<VerificationOutcome | undefined> => {
+    const watchFrom = existsSync(eventsPath) ? statSync(eventsPath).size : 0
+    const look = (): void => {
+      const folded = ctx.foldState(initiative)
+      checkOwner(folded)
+      if (fenced === undefined) takeRequests(folded)
+    }
+    look()
+    if (fenced !== undefined || interrupted) return undefined
+    const unwatch = watchRunEvents(eventsPath, watchFrom, look, options.stopPollMs)
+    const waiting = new AbortController()
+    liveVerify = { waiting }
+    let release: (() => void) | undefined
+    try {
+      if (options.verifySlot === true) {
+        const slot = await claimVerifySlot(rootDir, {
+          ...(options.lock !== undefined ? { lock: options.lock } : {}),
+          maxWaitMs: timeoutMs,
+          signal: waiting.signal,
+          onWait: (path) => progress(`  waiting for the verify slot — another verification on this machine holds ${path}`),
+        })
+        if (slot.kind === 'aborted') return undefined
+        if (slot.kind === 'claimed') release = slot.release
+        else if (slot.kind === 'waited_out') {
+          progress(`warning: the verify slot was still held after ${Math.round(slot.waited_ms / 1000)}s — verifying without it`)
+        } else if (!slotWarned) {
+          slotWarned = true
+          progress(`warning: no verify slot (${slot.why}) — this run's verifications are not serialized against other drivers`)
+        }
+      }
+      if (fenced !== undefined || interrupted) return undefined
+      const running = startVerification(cmd, dir, timeoutMs, { lowPriority: options.lowPriority === true })
+      liveVerify.process = running
+      const outcome = await running.done
+      return fenced !== undefined || interrupted ? undefined : outcome
+    } finally {
+      liveVerify = undefined
+      release?.()
+      unwatch()
+    }
+  }
+  /**
+   * A gated command, each outcome recorded through `record`. A timeout is
+   * retried once before it counts against the task (drive-load F3): under
+   * load a healthy suite can overrun its bound, and a reopen costs a whole
+   * session where a second run costs one more command. Both attempts are
+   * recorded. Undefined when the first run ended with no verdict.
+   */
+  const runRecorded = async (
+    cmd: string,
+    dir: string,
+    timeoutMs: number,
+    attempt: number,
+    record: (outcome: VerificationOutcome, attempt: number) => void,
+  ): Promise<{ outcome: VerificationOutcome; attempt: number; failed: number } | undefined> => {
+    const first = await runGated(cmd, dir, timeoutMs)
+    if (first === undefined) return undefined
+    record(first, attempt)
+    if (first.result !== 'timeout') return { outcome: first, attempt, failed: first.result === 'pass' ? 0 : 1 }
+    progress(`  ${describeVerification(cmd, attempt, first)} — retrying once before reopening (attempt ${attempt + 1})`)
+    const second = await runGated(cmd, dir, timeoutMs)
+    if (second === undefined) return { outcome: first, attempt, failed: 1 }
+    record(second, attempt + 1)
+    return { outcome: second, attempt: attempt + 1, failed: second.result === 'pass' ? 1 : 2 }
+  }
+
   type Gate = { applies: false } | { applies: true; passed: boolean; attempt: number; line: string; exhausted: boolean }
-  const gate = (folded: InitiativeState, taskId: string): Gate => {
+  const gate = async (folded: InitiativeState, taskId: string): Promise<Gate> => {
     const task = folded.phases.flatMap((p) => p.tasks).find((t) => t.id === taskId)
     const run = folded.runs.find((r) => r.id === runId)
     if (task === undefined || run === undefined || task.status !== 'done') return { applies: false }
-    const verified = verifyGate(task, run)
+    const verified = await verifyGate(task, run)
     if (verified.applies && !verified.passed) return verified
     // Decision checks (memory-lead 2.3, D9/D10) — only once the task's own
     // command passed or none applies, since a reopened task is checked again
     // anyway. A failure blocks acceptance exactly as a failed verify does:
     // an unattended run has no one to read a warning.
-    const checked = checkGate(folded, task, run)
+    const checked = await checkGate(folded, task, run)
     if (!checked.applies) return verified
     if (!checked.passed) return checked
     const line = [verified.applies ? verified.line : '', checked.line].filter((l) => l.length > 0).join('; ')
@@ -856,7 +944,7 @@ async function driveHolding(
     }
     return `${describeVerification(outcome.command, outcome.attempt, outcome)} (the check of ${handle})`
   }
-  const verifyGate = (task: TaskState, run: InitiativeState['runs'][number]): Gate => {
+  const verifyGate = async (task: TaskState, run: InitiativeState['runs'][number]): Promise<Gate> => {
     const taskId = task.id
     const which = resolveVerify(task, runVerify, verifyTimeoutMs)
     if (which === undefined) return { applies: false }
@@ -865,34 +953,44 @@ async function driveHolding(
     if (verificationCovers(task.verification, which.cmd, fingerprint)) {
       return { applies: true, passed: true, attempt: task.verification!.attempt, line: '', exhausted: false }
     }
-    const attempt = attemptsSoFar(run, taskId) + 1
     const approved = which.source === 'run' || commandAllowed(which.cmd, surface)
-    progress(`  verifying ${taskId} (attempt ${attempt}): ${which.cmd}${approved ? '' : ' — refused, outside the run\'s permission surface'}`)
-    const outcome: VerificationOutcome = approved
-      ? runVerification(which.cmd, dirs.absolute, which.timeout_ms)
-      : { result: 'refused', duration_ms: 0, diagnostics: 'plan-level verify command is not covered by the run\'s allow rules; nothing was run' }
-    ctx.appendAndProject(
-      initiative,
-      'verification_recorded',
-      {
-        run: runId,
-        task: taskId,
-        attempt,
-        command: which.cmd,
-        cwd: dirs.relative,
-        // No repository to fingerprint: record that honestly rather than a
-        // stand-in a later driver could mistake for a real tree.
-        checked: fingerprint ?? { head: 'none', tree: 'none' },
-        validator: ENGINE_VERSION,
-        result: outcome.result,
-        ...(outcome.exit_code !== undefined ? { exit_code: outcome.exit_code } : {}),
-        ...(outcome.signal !== undefined ? { signal: outcome.signal } : {}),
-        duration_ms: outcome.duration_ms,
-        timeout_ms: which.timeout_ms,
-        ...(outcome.diagnostics !== undefined ? { diagnostics: outcome.diagnostics } : {}),
-      },
-      { session: 'cli', source: 'cli', actor: 'human' },
-    )
+    const record = (outcome: VerificationOutcome, attempt: number): void => {
+      ctx.appendAndProject(
+        initiative,
+        'verification_recorded',
+        {
+          run: runId,
+          task: taskId,
+          attempt,
+          command: which.cmd,
+          cwd: dirs.relative,
+          // No repository to fingerprint: record that honestly rather than a
+          // stand-in a later driver could mistake for a real tree.
+          checked: fingerprint ?? { head: 'none', tree: 'none' },
+          validator: ENGINE_VERSION,
+          result: outcome.result,
+          ...(outcome.exit_code !== undefined ? { exit_code: outcome.exit_code } : {}),
+          ...(outcome.signal !== undefined ? { signal: outcome.signal } : {}),
+          duration_ms: outcome.duration_ms,
+          timeout_ms: which.timeout_ms,
+          ...(outcome.diagnostics !== undefined ? { diagnostics: outcome.diagnostics } : {}),
+        },
+        { session: 'cli', source: 'cli', actor: 'human' },
+      )
+    }
+    const first = attemptsSoFar(run, taskId) + 1
+    progress(`  verifying ${taskId} (attempt ${first}): ${which.cmd}${approved ? '' : ' — refused, outside the run\'s permission surface'}`)
+    let ran: { outcome: VerificationOutcome; attempt: number; failed: number }
+    if (approved) {
+      const recorded = await runRecorded(which.cmd, dirs.absolute, which.timeout_ms, first, record)
+      if (recorded === undefined) return { applies: false }
+      ran = recorded
+    } else {
+      const outcome: VerificationOutcome = { result: 'refused', duration_ms: 0, diagnostics: 'plan-level verify command is not covered by the run\'s allow rules; nothing was run' }
+      record(outcome, first)
+      ran = { outcome, attempt: first, failed: 1 }
+    }
+    const { outcome, attempt } = ran
     const line = describeVerification(which.cmd, attempt, outcome)
     if (outcome.result === 'pass') {
       progress(`  ${line}`)
@@ -907,10 +1005,10 @@ async function driveHolding(
       { session: 'cli', source: 'cli', actor: 'human' },
     )
     progress(`  ${line} — task reopened`)
-    // "Once one task has FAILED N times" (D19): this failure plus the earlier.
-    return { applies: true, passed: false, attempt, line, exhausted: failuresSoFar(run, taskId) + 1 >= maxVerifyAttempts }
+    // "Once one task has FAILED N times" (D19): these failures plus the earlier.
+    return { applies: true, passed: false, attempt, line, exhausted: failuresSoFar(run, taskId) + ran.failed >= maxVerifyAttempts }
   }
-  const checkGate = (folded: InitiativeState, task: TaskState, run: InitiativeState['runs'][number]): Gate => {
+  const checkGate = async (folded: InitiativeState, task: TaskState, run: InitiativeState['runs'][number]): Promise<Gate> => {
     let checks: InForceCheck[]
     try {
       checks = checksInForce(refreshGuards(ctx.sofarDir))
@@ -927,7 +1025,7 @@ async function driveHolding(
     if (applicable.length === 0) return { applies: false }
     const fingerprint = fingerprintTree(cwd)
     let attempt = attemptsSoFar(run, task.id)
-    const failures = failuresSoFar(run, task.id)
+    let failures = failuresSoFar(run, task.id)
     for (const c of applicable) {
       // A pass on this tree, for this exact command, still covers (D19).
       if (verificationCovers(task.checks?.find((v) => v.decision === c.handle), c.check.cmd, fingerprint)) continue
@@ -935,30 +1033,40 @@ async function driveHolding(
       const approved = isApproved(rootDir, c.check.cmd) || commandAllowed(c.check.cmd, surface)
       const timeoutMs = c.check.timeout_ms ?? verifyTimeoutMs
       progress(`  checking ${task.id} against [${c.shown}]: ${c.check.cmd}${approved ? '' : ' — refused, neither approved on this clone nor inside the run\'s permission surface'}`)
-      const outcome: VerificationOutcome = approved
-        ? runVerification(c.check.cmd, cwd, timeoutMs)
-        : { result: 'refused', duration_ms: 0, diagnostics: 'decision check is neither approved on this clone nor covered by the run\'s allow rules; nothing was run' }
-      ctx.appendAndProject(
-        initiative,
-        'verification_recorded',
-        {
-          run: runId,
-          task: task.id,
-          attempt,
-          command: c.check.cmd,
-          cwd: '.',
-          checked: fingerprint ?? { head: 'none', tree: 'none' },
-          validator: ENGINE_VERSION,
-          result: outcome.result,
-          ...(outcome.exit_code !== undefined ? { exit_code: outcome.exit_code } : {}),
-          ...(outcome.signal !== undefined ? { signal: outcome.signal } : {}),
-          duration_ms: outcome.duration_ms,
-          timeout_ms: timeoutMs,
-          ...(outcome.diagnostics !== undefined ? { diagnostics: outcome.diagnostics } : {}),
-          decision: c.handle,
-        },
-        { session: 'cli', source: 'cli', actor: 'human' },
-      )
+      const record = (outcome: VerificationOutcome, n: number): void => {
+        ctx.appendAndProject(
+          initiative,
+          'verification_recorded',
+          {
+            run: runId,
+            task: task.id,
+            attempt: n,
+            command: c.check.cmd,
+            cwd: '.',
+            checked: fingerprint ?? { head: 'none', tree: 'none' },
+            validator: ENGINE_VERSION,
+            result: outcome.result,
+            ...(outcome.exit_code !== undefined ? { exit_code: outcome.exit_code } : {}),
+            ...(outcome.signal !== undefined ? { signal: outcome.signal } : {}),
+            duration_ms: outcome.duration_ms,
+            timeout_ms: timeoutMs,
+            ...(outcome.diagnostics !== undefined ? { diagnostics: outcome.diagnostics } : {}),
+            decision: c.handle,
+          },
+          { session: 'cli', source: 'cli', actor: 'human' },
+        )
+      }
+      let outcome: VerificationOutcome
+      if (approved) {
+        const ran = await runRecorded(c.check.cmd, cwd, timeoutMs, attempt, record)
+        if (ran === undefined) return { applies: false }
+        ;({ outcome, attempt } = ran)
+        // Every non-pass recorded here, a timeout its retry passed included.
+        failures += ran.failed
+      } else {
+        outcome = { result: 'refused', duration_ms: 0, diagnostics: 'decision check is neither approved on this clone nor covered by the run\'s allow rules; nothing was run' }
+        record(outcome, attempt)
+      }
       // Refused never blocks: nothing ran, and nothing an agent controls
       // decides whether a check is approved.
       if (outcome.result === 'refused' || outcome.result === 'pass') continue
@@ -970,7 +1078,7 @@ async function driveHolding(
         { session: 'cli', source: 'cli', actor: 'human' },
       )
       progress(`  ${line} — task reopened`)
-      return { applies: true, passed: false, attempt, line, exhausted: failures + 1 >= maxVerifyAttempts }
+      return { applies: true, passed: false, attempt, line, exhausted: failures >= maxVerifyAttempts }
     }
     return { applies: true, passed: true, attempt, line: '', exhausted: false }
   }
@@ -1017,14 +1125,21 @@ async function driveHolding(
     // leave a run with no stop, which is the one thing the next driver cannot
     // read. SIGKILL unblocks the wait, so the run still gets its stop. A stop
     // request is the same two steps, for a driver no ^C can reach.
+    // A verification is in its own process group (drive-lanes 1.2), so a ^C
+    // at the terminal no longer reaches it: it is signalled here, as a
+    // session is, and a wait for the verify slot simply ends.
     if (signals === 1) {
       live?.kill()
+      liveVerify?.waiting.abort()
+      liveVerify?.process?.kill()
       const again = via === 'signal' ? '^C again' : 'request again'
+      const what = live !== undefined ? 'the session' : liveVerify?.process !== undefined ? 'the verification' : undefined
       progress(
-        `${via === 'signal' ? 'interrupted' : 'stop requested'} — ${live !== undefined ? `signalling the session; ${again} to kill it outright` : 'ending the run before the next launch'}`,
+        `${via === 'signal' ? 'interrupted' : 'stop requested'} — ${what !== undefined ? `signalling ${what}; ${again} to kill it outright` : 'ending the run before the next launch'}`,
       )
     } else {
       live?.kill('SIGKILL')
+      liveVerify?.process?.kill('SIGKILL')
     }
   }
   const onSignal = (): void => interrupt('signal')
@@ -1089,12 +1204,15 @@ async function driveHolding(
         // A recorded decision check (memory-lead D9) is a check behind it too:
         // the gate ran, and the closing sweep re-checks what it accepted.
         if (task === undefined || task.status !== 'done' || task.verification !== undefined || (task.checks?.length ?? 0) > 0) continue
-        const g = gate(state, doneId)
+        const g = await gate(state, doneId)
         if (g.applies && !g.passed) {
           reopened = true
           if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
         }
+        if (fenced !== undefined || interrupted) break
       }
+      if (fenced !== undefined) break
+      if (interrupted) stop ??= interruptedStop()
       if (stop !== undefined) break
       if (reopened) continue
       let task = nextTask(state)
@@ -1105,12 +1223,15 @@ async function driveHolding(
         // failure reopens the task and the loop goes on.
         let stale = false
         for (const doneId of thisRun?.done_tasks ?? []) {
-          const g = gate(state, doneId)
+          const g = await gate(state, doneId)
           if (g.applies && !g.passed) {
             stale = true
             if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
           }
+          if (fenced !== undefined || interrupted) break
         }
+        if (fenced !== undefined) break
+        if (interrupted) stop ??= interruptedStop()
         if (stop !== undefined) break
         if (stale) continue
         stop = { reason: 'closed', note: 'no task left to run — every task is done, dropped or blocked' }
@@ -1202,6 +1323,7 @@ async function driveHolding(
         ...(route.model !== undefined ? { model: route.model } : {}),
         ...(route.effort !== undefined ? { effort: route.effort } : {}),
         ...(surface !== undefined ? { surface } : {}),
+        ...(options.lowPriority === true ? { lowPriority: true } : {}),
       })
       live = session
       const unwatch = watchRunEvents(
@@ -1274,7 +1396,9 @@ async function driveHolding(
       let exhausted: string | undefined
       let checked: string | undefined
       if (reason === 'task_done' || reason === 'threshold') {
-        const g = gate(after, task.id)
+        const g = await gate(after, task.id)
+        // Adopted while it verified: the handoff is the new owner's to file.
+        if (fenced !== undefined) break
         if (g.applies) checked = g.line.length > 0 ? g.line : 'passed: an earlier check still covers this tree'
         if (g.applies && !g.passed) {
           reason = 'verify_failed'

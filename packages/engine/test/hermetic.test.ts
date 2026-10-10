@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   HERMETIC_VARS,
+  LOWERED_MAX_WORKERS,
   TRACKED_WRAPPER,
   batteryRefusal,
   canaryDiff,
@@ -15,6 +16,7 @@ import {
   killAll,
   processBaseline,
   processTable,
+  workerCap,
 } from '../../../tools/hermetic.mjs'
 import { killTracked, scaled, spawnTracked, trackedGroups } from './helpers/tracked'
 
@@ -93,6 +95,16 @@ describe('hermetic environment (A13)', () => {
 
   it('scales timeouts by the measured factor', () => {
     expect(scaled(1000)).toBe(Math.round(1000 * Number.parseFloat(process.env.SOFAR_TEST_SPEED!)))
+  })
+
+  it('caps workers at half the cores for a suite started lowered, and leaves the default otherwise (drive-lanes 1.2)', () => {
+    expect(workerCap(10)).toBe(LOWERED_MAX_WORKERS)
+    expect(workerCap(1)).toBe('50%')
+    expect(workerCap(0)).toBeUndefined()
+    expect(workerCap(-5)).toBeUndefined()
+    // What the config reads: this process's own niceness, which a lowered parent hands down.
+    const probe = `import("${join(repoRoot, 'tools', 'hermetic.mjs')}").then((m) => process.stdout.write(String(m.workerCap())))`
+    expect(spawnSync('nice', ['-n', '10', process.execPath, '-e', probe], { encoding: 'utf8' }).stdout).toBe('50%')
   })
 })
 

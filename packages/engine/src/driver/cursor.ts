@@ -11,6 +11,7 @@ import type {
   Usage,
 } from './adapter'
 import { drivenPinLine, launchEnv } from './adapter'
+import { lowPriority } from './load'
 
 /**
  * The cursor adapter (r1-fixes 6.8, D38): `cursor-agent -p --output-format
@@ -186,10 +187,12 @@ export class CursorSession implements AgentSession {
     // Stdin is closed, as for codex: nothing will ever answer on it. Detached
     // so a kill reaches the MCP servers and hook shells cursor-agent spawns,
     // which would otherwise outlive it holding the stdout pipe open.
-    this.child = spawn(options.bin ?? 'cursor-agent', args, {
+    // Never the calling agent's session identity (in-session-drive D3).
+    const env = launchEnv(request.env)
+    const [bin, argv] = request.lowPriority === true ? lowPriority(options.bin ?? 'cursor-agent', args, { env, cwd: request.cwd }) : [options.bin ?? 'cursor-agent', args]
+    this.child = spawn(bin, argv, {
       cwd: request.cwd,
-      // Never the calling agent's session identity (in-session-drive D3).
-      env: launchEnv(request.env),
+      env,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: process.platform !== 'win32',
     })

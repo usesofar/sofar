@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { getPriority, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import { runInit } from '../src/cli/init'
 import { runNew } from '../src/cli/new'
+import { LOW_NICE } from '../src/driver/load'
 import { nudgeLine } from '../src/driver/nudge'
 import { checkSchema, type Json } from './helpers/codex'
 import {
@@ -48,6 +49,7 @@ afterAll(() => {
 const STUB = `#!/bin/sh
 printf '%s\\n' "$@" > "$STUB_OUT/argv"
 pwd > "$STUB_OUT/cwd"
+if [ -n "$STUB_PRIO" ]; then ps -o nice= -p $$ > "$STUB_OUT/prio"; fi
 if [ -n "$STUB_STREAM" ]; then cat "$STUB_STREAM"; fi
 if [ -n "$STUB_STDERR" ]; then echo "$STUB_STDERR" >&2; fi
 exit \${STUB_EXIT:-0}
@@ -235,6 +237,14 @@ describe('the stream', () => {
     // The id the pin line handed over is the one reported.
     expect(readFileSync(join(c.out, 'argv'), 'utf8')).toContain(`use the id the driver assigned: ${session.assignedSessionId}`)
     expect(exit.code).toBe(0)
+  })
+
+  it.runIf(process.platform !== 'win32')('lowPriority starts codex lowered (drive-lanes 1.2)', async () => {
+    const c = cell('nice')
+    const exit = await new CodexAdapter().launch(c.request({ lowPriority: true, env: { STUB_PRIO: '1', STUB_STREAM: withStream(c, [THREAD, TURN_DONE]) } })).wait()
+    expect(exit.code).toBe(0)
+    expect(exit.session_id).toBe(THREAD.thread_id)
+    expect(readFileSync(join(c.out, 'prio'), 'utf8').trim()).toBe(String(Math.min(20, getPriority() + LOW_NICE)))
   })
 
   it('shows no id it never saw: without thread.started the exit carries the assigned id alone', async () => {

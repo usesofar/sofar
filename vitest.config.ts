@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { defineConfig, type Plugin } from 'vitest/config'
-import { batteryRefusal, scratchEnv, speedFactor } from './tools/hermetic.mjs'
+import { batteryRefusal, scratchEnv, speedFactor, workerCap } from './tools/hermetic.mjs'
 
 // Hermetic runs (r4-fixes A13). Every user-level dir a test or a child it
 // spawns could reach — HOME, USERPROFILE, every XDG_* base dir, CODEX_HOME,
@@ -34,6 +34,12 @@ if (battery !== null) {
   console.warn(`sofar: the latency pin${process.env.SOFAR_PERF === '1' ? ' and the perf baseline are' : ' is'} ${battery}`)
 }
 
+// A suite started below normal priority — inside a driven session or as the
+// driver's verify (drive-lanes 1.2) — takes half the cores rather than
+// vitest's cores − 1, so lanes running suites at once do not saturate the box
+// (drive-load F2: 13 forks, 3.0 GB peak). At normal priority the default stands.
+const maxWorkers = workerCap()
+
 const unitEnv = { ...hermetic, SOFAR_TEST_SPEED: String(speed) }
 const latencyState = join(hermeticRoot, 'xdg', 'state-latency')
 mkdirSync(latencyState, { recursive: true })
@@ -62,6 +68,7 @@ function shAsText(): Plugin {
 export default defineConfig({
   plugins: [shAsText()],
   test: {
+    ...(maxWorkers !== undefined ? { maxWorkers } : {}),
     globalSetup: ['packages/engine/test/global-setup.ts'],
     // Two sequential groups (sequence.groupOrder): the latency pin (speed
     // T2) measures wall-clock of spawned shims, so it must run AFTER the

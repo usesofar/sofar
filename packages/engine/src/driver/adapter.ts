@@ -125,6 +125,12 @@ export interface LaunchRequest {
   surface?: PermissionSurface
   /** Extra environment for the child — the driver's isolation (private TMPDIR, port block). */
   env?: Record<string, string>
+  /**
+   * Start the agent at low priority (drive-lanes 1.2): through `lowPriority`
+   * (load.ts), so the agent and every tool it runs yield the cores to the
+   * operator's foreground work.
+   */
+  lowPriority?: boolean
 }
 
 /**
