@@ -1,5 +1,14 @@
 # Golden manifest (rust-core D11)
 
+Merged on **main** at the 0.37.0-rc.2 merge-back (r4-fixes E2): main keeps
+`0.38.0-dev+trunk`, so `argv.fast-path` and `open.O2-update-segment` keep
+main's version.
+
+Re-recorded on **release/0.37.0** for rc.2 (r4-fixes E2): rc.1's release run
+stopped at `npm ci` before building anything, so rc.2 is the first published
+0.37.0 candidate. The version bump is the whole diff on `argv.fast-path` and
+`open.O2-update-segment`.
+
 Re-recorded on **main** at the 0.37.0-rc.1 merge-back (r4-fixes E2): main
 moves to `0.38.0-dev+trunk` (D14's rule: at or above the newest tag, nothing
 published), and the version string is the whole diff on `argv.fast-path` and
