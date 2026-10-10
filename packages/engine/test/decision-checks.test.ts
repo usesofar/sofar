@@ -21,7 +21,7 @@ import { refreshGuards } from '../src/core/index-tier1'
 import { appendEvent } from '../src/core/log'
 import { runBind } from '../src/cli/bind'
 import { runCheck, STAGED_REFUSE_EXIT } from '../src/cli/check'
-import { HOLD_CLOSE_LINE, handlePostTool, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
+import { HOLD_CLOSE_LINE, handlePostTool, handlePreTool, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
 import { createToolContext } from '../src/mcp/context'
 import { gatePathspecs } from '../src/core/checks'
 import { GIT_HOOKS } from '../src/cli/init'
@@ -447,8 +447,15 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     expect(stop(root, 's1').exitCode).toBe(2)
     ran(root, 's1', 'bun test test/store.test.ts', true, 0) // finished after the edit
     expect(stop(root, 's1').exitCode).toBe(0)
+    // Edited again after that run: with none of its commands running it is a
+    // concurrent session's write (r4-fixes H13); by one of its own it bears.
     const later = new Date(Date.now() + 60_000)
-    utimesSync(file, later, later) // edited again after that run
+    utimesSync(file, later, later)
+    expect(stop(root, 's1').exitCode).toBe(0)
+    const sed = { session_id: 's1', cwd: root, tool_name: 'Bash', tool_input: { command: "sed -i '' s/b/c/ src/db/store.ts" }, tool_use_id: 'sed-2', tool_response: { exit_code: 0 } }
+    handlePreTool(root, JSON.stringify({ ...sed, hook_event_name: 'PreToolUse' }))
+    writeFileSync(file, 'export const x = 2\n')
+    handlePostTool(root, JSON.stringify({ ...sed, hook_event_name: 'PostToolUse' }))
     expect(stop(root, 's1').exitCode).toBe(2)
   })
 
@@ -467,6 +474,86 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     expect(stop(root, 's1').exitCode).toBe(0)
     writeFileSync(file, 'export const x = 2\n') // now this session writes it
     bash('echo z > notes.txt')
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
+  // r4-fixes H13: a file git names is this session's only when one of its
+  // may-write commands was running when the file was last written.
+  const shell = (root: string, session: string) => (phase: 'pre' | 'post', command: string, id: string, extra: Record<string, unknown> = {}) =>
+    (phase === 'pre' ? handlePreTool : handlePostTool)(
+      root,
+      JSON.stringify({ session_id: session, cwd: root, hook_event_name: phase === 'pre' ? 'PreToolUse' : 'PostToolUse', tool_name: 'Bash', tool_input: { command, ...extra }, tool_use_id: id, tool_response: { exit_code: 0 } }),
+    )
+
+  it("a file git names that was written while none of this session's commands ran is a concurrent session's (r4-fixes H13)", () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    startedAgo(root, 'demo', 's1', 600_000)
+    wroteBack(root, 's1')
+    const bash = shell(root, 's1')
+    const peer = join(root, 'src', 'db', 'peer.ts')
+    writeFileSync(peer, 'export const p = 1\n') // a peer's edit a minute ago, after s1 began
+    const ago = new Date(Date.now() - 60_000)
+    utimesSync(peer, ago, ago)
+    bash('pre', 'echo y > notes.txt', 't1')
+    bash('post', 'echo y > notes.txt', 't1') // git is asked, and names the peer's file
+    expect(stop(root, 's1').exitCode).toBe(0)
+    const own = join(root, 'src', 'db', 'store.ts')
+    bash('pre', "sed -i '' s/a/b/ src/db/store.ts", 't2')
+    writeFileSync(own, 'export const x = 1\n') // written while t2 ran
+    bash('post', "sed -i '' s/a/b/ src/db/store.ts", 't2')
+    expect(stop(root, 's1').exitCode).toBe(2)
+    ran(root, 's1', 'bun test test/store.test.ts', true, 0)
+    expect(stop(root, 's1').exitCode).toBe(0)
+    const later = new Date(Date.now() + 60_000)
+    utimesSync(peer, later, later) // the peer edits again after that run: still not s1's
+    bash('pre', 'echo z > notes.txt', 't3')
+    bash('post', 'echo z > notes.txt', 't3')
+    expect(stop(root, 's1').exitCode).toBe(0)
+  })
+
+  it('a run with no PostToolUse, or a backgrounded one, still blames what it wrote (r4-fixes H13)', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    startedAgo(root, 'demo', 's1', 600_000)
+    wroteBack(root, 's1')
+    const bash = shell(root, 's1')
+    bash('pre', 'npm run gen', 'bg', { run_in_background: true })
+    bash('post', 'npm run gen', 'bg', { run_in_background: true })
+    ran(root, 's1', 'bun test test/store.test.ts', true, 0)
+    const own = join(root, 'src', 'db', 'store.ts')
+    writeFileSync(own, 'export const x = 1\n')
+    const later = new Date(Date.now() + 120_000)
+    utimesSync(own, later, later) // the background job writes after the run
+    expect(stop(root, 's1').exitCode).toBe(2)
+
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's2')
+    wroteBack(root, 's2')
+    const other = shell(root, 's2')
+    other('post', 'echo y > notes.txt', 'm') // marks, so git is asked
+    other('pre', 'make', 'never-posted') // denied or killed: no PostToolUse
+    ran(root, 's2', 'bun test test/store.test.ts', true, 0)
+    const soon = new Date(Date.now() + 120_000)
+    utimesSync(own, soon, soon) // inside the pending run's bound
+    expect(stop(root, 's2').exitCode).toBe(2)
+  })
+
+  it('a command that leaves the worktree first marks nothing; marks from before windows keep the H1 rule (r4-fixes H13)', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    startedAgo(root, 'demo', 's1', 600_000)
+    wroteBack(root, 's1')
+    const elsewhere = mkdtempSync(join(tmpdir(), 'sofar-elsewhere-'))
+    roots.push(elsewhere)
+    writeFileSync(join(root, 'src', 'db', 'store.ts'), 'export const x = 1\n') // a peer's, uncommitted
+    const bash = shell(root, 's1')
+    bash('pre', `cd ${elsewhere} && make && echo ok > out.txt`, 'x1')
+    bash('post', `cd ${elsewhere} && make && echo ok > out.txt`, 'x1')
+    expect(existsSync(join(root, '.sofar', '.index', 'wrote', 's1.json'))).toBe(false)
+    expect(stop(root, 's1').exitCode).toBe(0)
+    // A session marked by a sofar without windows: every dirty file after its start is its own (H1).
+    mkdirSync(join(root, '.sofar', '.index', 'wrote'), { recursive: true })
+    writeFileSync(join(root, '.sofar', '.index', 'wrote', 's1.json'), '{"v":1,"n":1}\n')
     expect(stop(root, 's1').exitCode).toBe(2)
   })
 

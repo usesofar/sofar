@@ -206,6 +206,27 @@ pub fn rewrite_raw_read_segments(
     })
 }
 
+/// `beginShellWrite` (r4-fixes H13): a shell call that may write here is
+/// starting — open its window, so Stop can tell this session's dirt from a
+/// concurrent session's. Only in a repo sofar already keeps a record in.
+fn begin_shell_write(root: &Path, hook: &Object, session: &str, cmd: &str, cwd: &str) {
+    if session == "cli" {
+        return;
+    }
+    let home = std::env::var("HOME").ok();
+    let is_dir = |p: &str| crate::layout::is_dir(Path::new(p));
+    if !crate::derived::may_write_here(cmd, cwd, &root.to_string_lossy(), home.as_deref(), &is_dir)
+    {
+        return;
+    }
+    let layout = crate::layout::Layout::new(root);
+    if !crate::layout::is_dir(&layout.sofar_dir) {
+        return;
+    }
+    let key = crate::wrote::write_key(str_field(hook, "tool_use_id"), cmd);
+    crate::wrote::begin_write(&layout, session, &key, crate::date::now_ms());
+}
+
 /// `handlePreTool`: the host's own rewrite form, or no output.
 #[must_use]
 pub fn handle_pre_tool(root: &Path, input: &str) -> CmdResult {
@@ -214,9 +235,6 @@ pub fn handle_pre_tool(root: &Path, input: &str) -> CmdResult {
         stdout: String::new(),
         stderr: String::new(),
     };
-    if !read_gate_enabled() {
-        return silent;
-    }
     let hook = parse_hook(input);
     if str_field(&hook, "tool_name") != Some("Bash") {
         return silent;
@@ -232,6 +250,10 @@ pub fn handle_pre_tool(root: &Path, input: &str) -> CmdResult {
     };
     let root_str = root.to_string_lossy();
     let cwd = str_field(&hook, "cwd").unwrap_or(&root_str);
+    begin_shell_write(root, &hook, session, cmd, cwd);
+    if !read_gate_enabled() {
+        return silent;
+    }
     // Per segment inside compound commands (r4-fixes A4); the whole command
     // only, as 0.34.1, under SOFAR_TOLD_LINES=off.
     let rewritten = if crate::told::told_lines_enabled() {

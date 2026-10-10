@@ -8,6 +8,8 @@
  * read only by the CLI and the MCP server, never by a projection.
  */
 
+import { posix } from 'node:path'
+
 /** Env switch: `SOFAR_ACTIVITY=off` (also `0`, `false`) — round 3's ablation arm (D24 (5)). */
 export const ACTIVITY_ENV = 'SOFAR_ACTIVITY'
 
@@ -220,4 +222,45 @@ export function mayWriteCommand(cmd: string): boolean {
     if (!readOnlySegment(seg)) return true
   }
   return false
+}
+
+const CD_TARGET = /^(?:~|~\/[A-Za-z0-9_./-]*|[A-Za-z0-9_./-]+)$/
+const RE_ENTERS = /\.\.|OLDPWD|PROJECT_DIR|(?:^|[\s;&|(`])(?:cd|pushd|popd)(?=$|[\s;&|)`])/
+
+/**
+ * Whether a shell command leaves the worktree before it does anything
+ * (r4-fixes H13): its first segment is `cd` to an existing directory that is
+ * neither inside the root nor above it, and the rest never names the root
+ * again — no root path (as written, `~/…` or `$HOME/…`), no `..`, no second
+ * `cd`/`pushd`/`popd`, no OLDPWD or *PROJECT_DIR. Such a command cannot write
+ * here by a relative path, so its run is no window for Stop to blame dirty
+ * files on: a session benching another repo was blamed for every peer edit in
+ * this one (#096f, 2026-10-10). Pure: the caller hands the directory test and
+ * HOME. Only a literal target counts, resolved lexically against `cwd` (as
+ * isNoopCd); a non-posix root or cwd never leaves.
+ */
+export function leavesWorktree(cmd: string, cwd: string, root: string, home: string | undefined, isDir: (path: string) => boolean): boolean {
+  if (!root.startsWith('/') || !cwd.startsWith('/')) return false
+  const [first, ...rest] = splitSegments(cmd)
+  const words = (first ?? '').trim().split(/\s+/)
+  if (words.length !== 2 || words[0] !== 'cd' || !CD_TARGET.test(words[1]!)) return false
+  const target = words[1]!
+  const homeDir = home !== undefined && home.startsWith('/') ? posix.resolve(home) : null
+  if (target.startsWith('~') && homeDir === null) return false
+  const dir = posix.resolve(cwd, target.startsWith('~') ? `${homeDir}${target.slice(1)}` : target)
+  const top = posix.resolve(root)
+  const inside = (a: string, b: string) => a === b || a.startsWith(b === '/' ? b : `${b}/`)
+  if (inside(dir, top) || inside(top, dir) || !isDir(dir)) return false
+  const tail = rest.join('\n')
+  if (RE_ENTERS.test(tail) || tail.includes(top)) return false
+  if (homeDir !== null && inside(top, homeDir)) {
+    const below = posix.relative(homeDir, top)
+    if (['~/', '$HOME/', '${HOME}/'].some((p) => tail.includes(`${p}${below}`))) return false
+  }
+  return true
+}
+
+/** mayWriteCommand, less a command that leaves the worktree first (r4-fixes H13). */
+export function mayWriteHere(cmd: string, cwd: string, root: string, home: string | undefined, isDir: (path: string) => boolean): boolean {
+  return mayWriteCommand(cmd) && !leavesWorktree(cmd, cwd, root, home, isDir)
 }

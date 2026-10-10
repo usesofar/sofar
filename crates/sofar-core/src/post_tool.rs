@@ -225,13 +225,42 @@ pub fn render_subject(domain: GuardDomain, subject: &str, root: &Path) -> String
 /// `markShellWrites` (r3-fixes 2.13, D23): mark the session when a shell
 /// call may have written a file the hooks never capture; self-recording
 /// commands count (`git checkout` appends nothing and rewrites the tree).
-fn mark_shell_writes(layout: &Layout, session: &str, calls: &[ClassifiedCall]) {
-    if calls
-        .iter()
-        .any(|c| c.domain == GuardDomain::Cmd && crate::derived::may_write_command(&c.subject))
-    {
-        crate::wrote::mark_wrote(layout, session);
+/// The mark closes the call's window (r4-fixes H13); a backgrounded call's
+/// stays open. A call that leaves the worktree first marks nothing.
+fn mark_shell_writes(
+    root: &Path,
+    layout: &Layout,
+    session: &str,
+    hook: &Object,
+    calls: &[ClassifiedCall],
+) {
+    let root_str = root.to_string_lossy();
+    let cwd = str_field(hook, "cwd").unwrap_or(&root_str);
+    let home = std::env::var("HOME").ok();
+    let is_dir = |p: &str| crate::layout::is_dir(Path::new(p));
+    if !calls.iter().any(|c| {
+        c.domain == GuardDomain::Cmd
+            && crate::derived::may_write_here(&c.subject, cwd, &root_str, home.as_deref(), &is_dir)
+    }) {
+        return;
     }
+    let tool_input = hook.get("tool_input").and_then(Json::as_obj);
+    let cmd = tool_input
+        .and_then(|t| t.get("command"))
+        .and_then(Json::as_str)
+        .unwrap_or("");
+    let key = crate::wrote::write_key(str_field(hook, "tool_use_id"), cmd);
+    let run = crate::wrote::WriteRun {
+        key: &key,
+        at: crate::date::now_ms(),
+        background: tool_input.and_then(|t| t.get("run_in_background")) == Some(&Json::Bool(true)),
+        // Cursor reports how long the call ran, in ms.
+        duration_ms: match hook.get("duration") {
+            Some(Json::Num(d)) => Some(*d),
+            _ => None,
+        },
+    };
+    crate::wrote::mark_wrote(layout, session, Some(&run));
 }
 
 /// `SCOPE_DECISIONS_MAX` / `SCOPE_NOTICE_BUDGET` (memory-lead 2.1, D6).
@@ -1113,7 +1142,7 @@ pub fn handle_post_tool(root: &Path, input: &str) -> CmdResult {
         None
     };
 
-    mark_shell_writes(&layout, session, &calls);
+    mark_shell_writes(root, &layout, session, &hook, &calls);
     let mut registered = false;
     for c in calls.iter().filter(|c| !c.exempt) {
         if !registered {
@@ -1195,7 +1224,7 @@ pub fn handle_post_tool_failure(root: &Path, input: &str) -> CmdResult {
     if !exempt {
         register_lazily(&layout, &slug, session, host.tool);
     }
-    mark_shell_writes(&layout, session, &calls);
+    mark_shell_writes(root, &layout, session, &hook, &calls);
     for c in calls.iter().filter(|c| !c.exempt) {
         let mut payload = c.payload.clone();
         payload.insert("ok", Json::Bool(false));

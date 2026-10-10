@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { FixtureSpec, Materialized, Step } from './harness'
 
@@ -955,6 +955,60 @@ export const CASES: ConformanceCase[] = [
       s('sess-x writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-x', '--source', 'codex', '--payload', '{"summary":"s","next_action":"n"}']),
       s('Codex: the directory run, its output text only', ['event', 'post-tool', '--host', 'codex'], hook('PostToolUse', { session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions', tool_name: 'Bash', tool_input: { command: 'bun test tests/rules' }, tool_response: '\n', tool_use_id: 'exec-x2' })),
       s('stop under Codex: unverifiable, not held, told to the operator', ['event', 'stop', '--host', 'codex'], stop({ session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions' })),
+    ],
+  },
+  {
+    // r4-fixes H13 on the hot path: concurrent sessions share one worktree, so
+    // a file git names is this session's only when one of its may-write
+    // commands was running, PreToolUse to PostToolUse, when it was last
+    // written. Its own Bash write bears; a peer's later edit no longer voids
+    // its passing run; a command that leaves the worktree first marks nothing,
+    // so a peer's write after it began is not blamed either.
+    name: 'syn.gate-windows',
+    // A real repository, unborn: the gate asks git what is dirty, and the
+    // pinned skeleton has no objects for git to read.
+    fixture: { ...synthetic('baseline'), git: undefined },
+    steps: [
+      s('session-start: the tree, and a directory beside it', ['event', 'session-start'], start({ session_id: 'sess-w' }), {
+        before: (m) => {
+          execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: m.root, stdio: 'ignore' })
+          for (const rel of ['src/stock.ts', 'tests/rules/one.test.ts']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+          }
+          mkdirSync(join(m.root, '..', 'w-elsewhere'), { recursive: true })
+        },
+      }),
+      s('a rule checked by one test file', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-w', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', guard: 'path:src/**', check: { cmd: 'bun test tests/rules/one.test.ts', hint: 'reject the move before it lands' }, supersedes: 'none' })]),
+      s('sess-w writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-w', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('a may-write command starts', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-w', tool_name: 'Bash', tool_input: { command: "sed -i '' s/a/b/ src/stock.ts" }, tool_use_id: 'w1' })),
+      s('it writes the guarded file, and ends', ['event', 'post-tool'], bash("sed -i '' s/a/b/ src/stock.ts", { session_id: 'sess-w', tool_use_id: 'w1' }), {
+        before: (m) => writeFileSync(join(m.root, 'src', 'stock.ts'), 'export const x = 1\n'),
+      }),
+      s('stop: its own Bash write bears', ['event', 'stop'], stop({ session_id: 'sess-w' })),
+      s('the test passes', ['event', 'post-tool'], bash('bun test tests/rules/one.test.ts', { session_id: 'sess-w' })),
+      s('stop: covered', ['event', 'stop'], stop({ session_id: 'sess-w' })),
+      s('another may-write command starts', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-w', tool_name: 'Bash', tool_input: { command: 'echo y > notes.txt' }, tool_use_id: 'w2' })),
+      s('it ends, writing nothing guarded', ['event', 'post-tool'], bash('echo y > notes.txt', { session_id: 'sess-w', tool_use_id: 'w2' })),
+      s("stop: a peer's later edit is not this session's", ['event', 'stop'], stop({ session_id: 'sess-w' }), {
+        before: (m) => {
+          const peer = join(m.root, 'src', 'peer.ts')
+          writeFileSync(peer, 'export const p = 1\n')
+          const later = new Date(Date.now() + 120_000)
+          utimesSync(peer, later, later)
+        },
+      }),
+      // Backgrounded, its window would stay open and claim the peer's write.
+      s('a backgrounded command that leaves the worktree first starts', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-w', tool_name: 'Bash', tool_input: { command: 'cd <ROOT>/../w-elsewhere && make', run_in_background: true }, tool_use_id: 'x1' })),
+      s('it is backgrounded; a peer then writes the guarded file', ['event', 'post-tool'], hook('PostToolUse', { session_id: 'sess-w', tool_name: 'Bash', tool_input: { command: 'cd <ROOT>/../w-elsewhere && make', run_in_background: true }, tool_response: {}, tool_use_id: 'x1' }), {
+        before: (m) => {
+          const stock = join(m.root, 'src', 'stock.ts')
+          writeFileSync(stock, 'export const x = 2\n')
+          const later = new Date(Date.now() + 120_000)
+          utimesSync(stock, later, later)
+        },
+      }),
+      s('stop: that run is no window here', ['event', 'stop'], stop({ session_id: 'sess-w' })),
     ],
   },
   {

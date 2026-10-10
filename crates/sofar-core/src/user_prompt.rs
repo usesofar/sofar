@@ -1329,10 +1329,17 @@ fn stop_gate_for(
     let from_git = git_changes_for(root, layout, &session.id, &index);
     // Git names every dirty file in the worktree, and concurrent sessions
     // share one: a file last written before this session began is another
-    // session's edit, never this one's (r4-fixes H1). The stat is the one the
+    // session's edit, never this one's (r4-fixes H1), and so is one written
+    // while none of its may-write commands ran (H13). The stat is the one the
     // edit-time read below already paid for. The slack absorbs a filesystem
     // clock coarser than Date.now (Linux stamps mtimes from a lagging tick).
+    // Marks from before windows existed keep the H1 rule.
     let started = crate::date::js_date_parse(&session.started).map(|at| at - DIRT_SLACK_MS);
+    let windows = if from_git.is_empty() {
+        None
+    } else {
+        crate::wrote::read_windows(layout, &session.id)
+    };
     let mut files: Vec<String> = Vec::new();
     let mut edited_at: Option<f64> = None;
     let tagged = captured
@@ -1347,7 +1354,12 @@ fn stop_gate_for(
         };
         if let Ok(meta) = std::fs::metadata(&path) {
             let mtime = crate::index_store::mtime_ms_of(&meta);
-            if from_tree && started.is_some_and(|at| mtime < at) {
+            if from_tree
+                && (started.is_some_and(|at| mtime < at)
+                    || windows
+                        .as_deref()
+                        .is_some_and(|w| !crate::wrote::in_window(mtime, w, DIRT_SLACK_MS)))
+            {
                 continue;
             }
             if edited_at.is_none_or(|at| mtime > at) {

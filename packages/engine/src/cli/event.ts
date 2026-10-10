@@ -39,7 +39,7 @@ import {
   type SessionState,
 } from '../core/fold'
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
-import { activityEnabled, mayWriteCommand, testShapedCommand } from '../core/derived'
+import { activityEnabled, mayWriteHere, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
 import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
 import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine, intendedRecord, intentLine } from '../core/carrier'
@@ -105,7 +105,7 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
-import { cacheChanges, cachedChanges, markLossAsked, markWrote, pathspecKey, readLossAsked, readWrote } from '../core/wrote'
+import { beginWrite, cacheChanges, cachedChanges, inWindow, markLossAsked, markWrote, pathspecKey, readLossAsked, readWindows, readWrote, writeKey } from '../core/wrote'
 import { readGateEnabled, rewriteRawRead, rewriteRawReadSegments } from '../core/read-rewrite'
 import { cappedRecallBlock, RECALL_TOLD_KEY, recallBlock, recallEnabled, recallV034 } from '../core/recall'
 import { WORKMAP_TOLD_KEY, workmapBlock, workmapEnabled } from '../core/workmap'
@@ -1285,14 +1285,15 @@ function classifyToolCall(hook: Obj): ClassifiedCall[] {
  */
 export function handlePreTool(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
-    if (!readGateEnabled()) return { ...OK }
     const hook = parseHook(input)
-    const host = declared ?? hookHost(hook)
     if (strField(hook, 'tool_name') !== 'Bash') return { ...OK }
     const session = strField(hook, 'session_id')
     const toolInput = isObj(hook.tool_input) ? hook.tool_input : null
     const cmd = toolInput === null ? null : strField(toolInput, 'command')
     if (session === null || toolInput === null || cmd === null) return { ...OK }
+    beginShellWrite(rootDir, hook, session, cmd)
+    if (!readGateEnabled()) return { ...OK }
+    const host = declared ?? hookHost(hook)
     // Per segment inside compound commands (r4-fixes A4); the whole command
     // only, as 0.34.1, under SOFAR_TOLD_LINES=off.
     const rewrite = toldLinesEnabled() ? rewriteRawReadSegments : rewriteRawRead
@@ -1309,14 +1310,50 @@ export function handlePreTool(rootDir: string, input: string, declared?: HookHos
   }
 }
 
+/** Whether a path names a directory; false when it cannot be read. */
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * A shell call that may write here is starting (r4-fixes H13): open its
+ * window, so Stop can tell this session's dirt from a concurrent session's.
+ * Only in a repo sofar already keeps a record in; never throws.
+ */
+function beginShellWrite(rootDir: string, hook: Obj, session: string, cmd: string): void {
+  try {
+    if (session === 'cli' || !mayWriteHere(cmd, strField(hook, 'cwd') ?? rootDir, rootDir, process.env.HOME, isDirectory)) return
+    const sofarDir = join(rootDir, '.sofar')
+    if (!existsSync(sofarDir)) return
+    beginWrite(sofarDir, session, writeKey(strField(hook, 'tool_use_id'), cmd), Date.now())
+  } catch {
+    // Derived: a lost start widens the window to the H1 rule's.
+  }
+}
+
 /**
  * Mark the session when a shell call may have written a file the hooks never
  * capture (r3-fixes 2.13, D23): Stop's test gate asks git only then. A failed
  * command may have written too. Self-recording commands count: `git checkout`
- * appends nothing and still rewrites the tree.
+ * appends nothing and still rewrites the tree. The mark closes the call's
+ * window (r4-fixes H13); a backgrounded call's stays open. A call that leaves
+ * the worktree first marks nothing.
  */
-function markShellWrites(sofarDir: string, session: string, calls: readonly ClassifiedCall[]): void {
-  if (calls.some((c) => c.domain === 'cmd' && mayWriteCommand(c.subject))) markWrote(sofarDir, session)
+function markShellWrites(rootDir: string, sofarDir: string, session: string, hook: Obj, calls: readonly ClassifiedCall[]): void {
+  const cwd = strField(hook, 'cwd') ?? rootDir
+  if (!calls.some((c) => c.domain === 'cmd' && mayWriteHere(c.subject, cwd, rootDir, process.env.HOME, isDirectory))) return
+  const toolInput = isObj(hook.tool_input) ? hook.tool_input : {}
+  markWrote(sofarDir, session, {
+    key: writeKey(strField(hook, 'tool_use_id'), strField(toolInput, 'command') ?? ''),
+    at: Date.now(),
+    background: toolInput.run_in_background === true,
+    // Cursor reports how long the call ran, in ms.
+    durationMs: typeof hook.duration === 'number' ? hook.duration : null,
+  })
 }
 
 /**
@@ -1371,7 +1408,7 @@ export function handlePostToolFailure(rootDir: string, input: string, declared?:
     const exit = typeof hook.exit_code === 'number' ? hook.exit_code : null
     const interrupt = typeof hook.is_interrupt === 'boolean' ? hook.is_interrupt : null
     if (!exempt) registerLazily(ctx, slug, session, host)
-    markShellWrites(ctx.sofarDir, session, calls)
+    markShellWrites(rootDir, ctx.sofarDir, session, hook, calls)
     for (const { type, payload, exempt: self } of calls) {
       if (self) continue
       ctx.appendAndProject(
@@ -1499,7 +1536,7 @@ export function handlePostTool(rootDir: string, input: string, declared?: HookHo
     const exit = response !== null && typeof response.exit_code === 'number' ? response.exit_code : null
     const ok = interrupted ? false : postToolProvesSuccess(host) ? true : undefined
 
-    markShellWrites(ctx.sofarDir, session, calls)
+    markShellWrites(rootDir, ctx.sofarDir, session, hook, calls)
     let registered = false
     for (const { type, payload, exempt: self } of calls) {
       if (self) continue
@@ -1723,16 +1760,20 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     const fromGit = gitChangesFor(rootDir, sofarDir, session.id, index)
     // Git names every dirty file in the worktree, and concurrent sessions
     // share one: a file last written before this session began is another
-    // session's edit, never this one's (r4-fixes H1). The stat is the one the
-    // edit-time read below already paid for. The slack absorbs a filesystem
-    // clock coarser than Date.now (Linux stamps mtimes from a lagging tick).
+    // session's edit, never this one's (r4-fixes H1), and so is one written
+    // while none of its may-write commands ran (H13) — a peer's edit after
+    // this session's last test voided it. The stat is the one the edit-time
+    // read below already paid for. The slack absorbs a filesystem clock
+    // coarser than Date.now (Linux stamps mtimes from a lagging tick). Marks
+    // from before windows existed keep the H1 rule.
     const started = Date.parse(session.started) - DIRT_SLACK_MS
+    const windows = fromGit.length > 0 ? readWindows(sofarDir, session.id) : null
     const files: string[] = []
     let editedAt: number | null = null
     for (const [p, fromTree] of [...captured.map((f) => [f, false] as const), ...fromGit.map((f) => [f, true] as const)]) {
       try {
         const mtime = statSync(isAbsolute(p) ? p : join(rootDir, p)).mtimeMs
-        if (fromTree && mtime < started) continue
+        if (fromTree && (mtime < started || (windows !== null && !inWindow(mtime, windows, DIRT_SLACK_MS)))) continue
         if (editedAt === null || mtime > editedAt) editedAt = mtime
       } catch {
         // a deleted file has no mtime; its removal is still an edit git names

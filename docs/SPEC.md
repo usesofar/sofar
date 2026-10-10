@@ -795,7 +795,23 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   never cached. A session with commands and no mark asks git nothing. A
   session with no captured file and no command, or a repo whose in-force rules
   have neither a guard nor a file mention, skips the gate and asks git
-  nothing.
+  nothing. ATTRIBUTION (r4-fixes H1, H13): concurrent sessions share one
+  worktree, so a file git names is this session's only when its mtime is no
+  earlier than 2 s before the session began AND falls, give or take 2 s, in
+  one of its may-write commands' runs. PreToolUse records each run's start
+  under the host's `tool_use_id` (else the command's digest) in the mark's
+  `p`; PostToolUse closes it into `w` as `[start, end]`, with `end` null for a
+  backgrounded call (`run_in_background`); a missing start falls back to the
+  host's `duration` (Cursor, ms) and else to 0. A start never closed counts as
+  a 30-minute run. Windows overlapping merge, at most 256 per session, the
+  oldest merging first. A mark with no `w` (written before windows) keeps the
+  H1 rule alone. A command whose first segment is `cd` to an existing
+  directory neither inside the root nor above it, whose rest never names the
+  root again (its path as written, `~/…` or `$HOME/…`, `..`, another
+  `cd`/`pushd`/`popd`, OLDPWD or `*PROJECT_DIR`), cannot write here by a
+  relative path and marks nothing (`leavesWorktree`; table in
+  crates/sofar-core/tests/fixtures/js-leaves-worktree.json, asserted by both
+  engines).
 - RULES (2.13, D23): the declared index as last written, with no freshness
   pass over every log, and the bound record's own ruled entries rebuilt from
   the fold Stop already holds. Every write path that appends a
@@ -10138,6 +10154,13 @@ stay the underlying derivation's, and exit codes are styling-independent.
   `make`, editors, `cat a | sh`, `python3 - <<EOF` and `sed 's/a/b/w out'`
   mark; `cat … | grep`, `git status`, `git add -A && git commit`, `sofar
   event append`, `sed -n 5,9p` and a plain `cat <<EOF` do not.
+- **Whose dirt (r4-fixes H13):** a passing run is voided only by a file
+  written while one of the session's own may-write commands ran: a peer's
+  edit after it, git-dirty in the shared worktree, no longer holds the Stop,
+  and a `cd <elsewhere> && …` command marks nothing (`syn.gate-windows`).
+  Replay over 67 real holds in this repo's transcripts: 2 cleared outright;
+  across live sessions' cached git answers, 61 dirty files blamed under H1,
+  6 under windows alone, 2 with the `cd` rule too.
 - **Binding (r3-fixes 2.10c; r4-fixes A8):** `sofar bind D1 'bun test
   test/store.test.ts'` appends `check_bound` and D1 keeps its handle and
   takes the check (no D2), a session that edits the guarded file is then
