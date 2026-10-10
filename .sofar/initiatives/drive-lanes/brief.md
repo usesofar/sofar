@@ -23,3 +23,7 @@ sofar lane also have a cordination model right ? and in claude code sofar lanes 
 --- Operator, 2026-10-10 ---
 
 add the thread model and peer hint to the plan- engineer a way to cut the cost of the thread model. what can be those ?
+
+why its checking everytime ? its better to check at last right ?
+
+yes
