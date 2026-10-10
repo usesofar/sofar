@@ -274,7 +274,8 @@ watermark?, phase?, findings? — a review that was actually performed;
 commit-attribution 4.4, see §Review) ·
 run_started (run, adapter, policy: task|threshold, threshold_pct? and
 context_window? — BOTH REQUIRED for `threshold`, max_sessions?, surface?,
-verify? — the run's default acceptance command, r1-fixes 3.1 D19 — lanes? —
+verify? — the run's default acceptance command, r1-fixes 3.1 D19 — verify_quick? —
+the per-task tier of a tiered run, needs verify, drive-lanes 2.6 — lanes? —
 an integer ≥2, absent on a serial run, drive-lanes 2.2) · handoff (run, session_id, reason:
 task_done|threshold|stall|needs_user|verify_failed|merge_conflict, task?, tokens?, detail? — how the
 process ended, on stalls and unclean exits, r1-fixes D9; `verify_failed`
@@ -2199,7 +2200,7 @@ fourth asks it to end, all on envelope session `cli` — a run is not a session
 and never registers as one, so it can never read as a misrouted session:
 
 - `run_started` (run, adapter, policy, threshold_pct?, context_window?,
-  max_sessions?, surface?, verify?, lanes?) — the run id is a ulid the driver
+  max_sessions?, surface?, verify?, verify_quick?, lanes?) — the run id is a ulid the driver
   mints; every handoff and the stop cite it.
 - `handoff` (run, session_id, reason, task?, tokens?) — one session
   boundary: which session ended and why the driver moved on.
@@ -2779,6 +2780,39 @@ stops as `stall`. A resumed run's recovery lands a done, unlanded branch
 through the same queue and reopens it the same way, filing no handoff. An
 interrupt or a takeover while a branch waits or re-verifies leaves it
 unlanded for a resumed run (D13).
+
+**Tiered verify (drive-lanes 2.6, D29, D30).** `--verify-quick <cmd>`, with
+`--verify` (refused without it, before anything is recorded), makes the run
+TIERED; it is recorded in `run_started.verify_quick` and a resumed run keeps
+its own. PER TASK: a task with no `verify` of its own is gated on the quick
+command instead of `--verify`, every `{files}` in it replaced by the paths
+the task changed, each single-quoted, nothing when there are none — the
+paths touched while it was active, what the tree holds uncommitted, and what
+its branch committed (since the run base on a lanes run, since its launch on
+a serial one), `.sofar/` excluded. A task whose touched list hit its cap runs
+`--verify` itself. A task with its own `verify` runs that, as before. THE
+FULL GATE is `--verify`, run once on the tree the run reached: when every task
+of a phase is done or dropped, none still in a lane, and one of them is in
+the WINDOW — the tasks whose latest passing check of their own came after the
+run's last pass of `--verify` — and again at the closing sweep. Serial runs
+check the checkout; a lanes run checks the base in a clean lane, inside the
+merge queue. A pass of `--verify` on the exact tree (same command, same
+fingerprint) covers it and every quick-tier task's check on that tree, so the
+closing sweep after a phase end on the same tree runs nothing. It is recorded
+against the window's last task. ON FAILURE the driver BISECTS the window's
+task commits — a task's commit is the HEAD of its latest passing check when
+that tree was clean — for the first one `--verify` fails on: the tree before
+the window passes by assumption, the failing tree fails, and a window task
+whose commit is that tree is never run again. Each probe runs in a clean lane
+detached at the commit (a serial run claims one from the lane pool the first
+time, set up as a lane is) and is recorded against the task whose commit it
+ran on. The task pinned — the owner of the first failing commit, or, past the
+last passing one, the window's last task — is reopened (`reopened by the
+driver — the full gate failed at <the end of <phase>|the run end>, and
+bisecting <n> tasks pinned it to <task>[ (no commit separates <tasks>)]:
+<failure line>`); one the bisect cannot pin is charged to the window's last
+task, saying why. `--max-verify-attempts` counts the pinned task's failures
+as for any check. A run without `--verify-quick` gates exactly as before.
 
 **Per-task routing (3.2, D10).** A plan task may carry
 `route {agent?, model?, effort?}`, and the driver resolves it at every launch.
@@ -7638,7 +7672,8 @@ deletes it with the worktree's gitdir.
 - `sofar drive [slug] [--policy task|threshold] [--threshold-pct <pct>]
   [--context-window <tokens>] [--max-sessions <n>] [--max-stalls <n>]
   [--cost-cap <usd>] [--session-timeout <seconds>] [--cwd <dir>] [--model <m>]
-  [--effort <e>] [--resume] [--lanes <n>] [--lane-setup <cmd|none>]
+  [--effort <e>] [--resume] [--verify <cmd>] [--verify-quick <cmd>]
+  [--lanes <n>] [--lane-setup <cmd|none>]
   [--agent claude-code|codex|cursor] [--bin <path>] [--agent-arg <arg>]
   [--permission-mode <mode>]
   [--allow <rule...>] [--deny <rule...>] [--bare-tools] [--detach] [--stop]
@@ -8403,6 +8438,15 @@ stay the underlying derivation's, and exit codes are styling-independent.
   fingerprint changes on an edit, a new file and a commit, is stable on a
   clean tree, ignores `.sofar/`, and is null outside a repository. A run
   with no verify command records nothing and renders as before.
+- **Tiered verify (drive-lanes 2.6):** with `--verify` and `--verify-quick`,
+  each task is gated on the quick command with `{files}` = the paths it
+  committed; `--verify` runs once at each phase end and at the run end, a
+  pass on that tree covering the closing sweep. A failure is bisected over the
+  window's task commits and the task whose commit first fails is reopened —
+  serial and lanes alike (drive-tiered.test.ts). Replayed on the 1.1 fixture's
+  nine tasks with three injected faults, tiered and per-task full verify both
+  reopen all three and finish green, and tiered runs the full suite 6 times
+  to 20 (test-e2e/drive-lanes/tiered-replay.test.ts).
 - **Load control (drive-lanes 1.2):** a gate command's timeout kills its
   whole process group, a background child included, and a child the
   command left behind dies when the shell exits. SIGTERM ignored → SIGKILL

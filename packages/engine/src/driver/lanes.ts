@@ -432,6 +432,15 @@ export class LaneRun {
     return lane
   }
 
+  /** A clean lane not in `busy`, detached at `commit` and set up — where a tiered run bisects a full-gate failure (2.6); undefined when there is none. */
+  atCommit(commit: string, busy: ReadonlySet<number> = new Set()): Lane | undefined {
+    const lane = this.cleanLanes(busy)[0]
+    if (lane === undefined) return undefined
+    git(lane.dir, ['checkout', '-q', '--detach', commit])
+    this.setUp(lane)
+    return lane
+  }
+
   /**
    * Commit what the session left uncommitted on its task branch (D20), `.sofar`
    * excepted, so the gate verifies what lands. Hooks are skipped: this is the

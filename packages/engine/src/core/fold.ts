@@ -353,6 +353,8 @@ export interface RunState {
   surface?: RunSurface
   /** The run's default acceptance command (D19), when `--verify` stated one. */
   verify?: string
+  /** The per-task tier of a tiered run (drive-lanes 2.6): `verify` is then the full gate. */
+  verify_quick?: string
   /** Lane worktrees the run drives tasks in (drive-lanes 2.2); absent on a serial run. */
   lanes?: number
   /**
@@ -1941,6 +1943,7 @@ function applyEvent(
         ...(p.max_sessions !== undefined ? { max_sessions: p.max_sessions } : {}),
         ...(p.surface !== undefined ? { surface: p.surface } : {}),
         ...(p.verify !== undefined ? { verify: p.verify } : {}),
+        ...(p.verify_quick !== undefined ? { verify_quick: p.verify_quick } : {}),
         ...(p.lanes !== undefined ? { lanes: p.lanes } : {}),
         handoffs: [],
         verifications: [],

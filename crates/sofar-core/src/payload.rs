@@ -1079,6 +1079,11 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                 opt_nonempty_str(p.get("verify")),
                 "verify: must be a non-empty string when present",
             );
+            if !opt_nonempty_str(p.get("verify_quick")) {
+                e.push("verify_quick: must be a non-empty string when present".to_owned());
+            } else if p.contains_key("verify_quick") && !p.contains_key("verify") {
+                e.push("verify_quick: needs verify, the full gate it tiers".to_owned());
+            }
             if !one_of(p.get("policy"), &RUN_POLICIES) {
                 e.push(format!("policy: must be one of {}", RUN_POLICIES.join("|")));
             }

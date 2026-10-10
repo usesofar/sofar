@@ -1,4 +1,4 @@
-import { closeSync, existsSync, openSync, readSync, realpathSync, statSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { ulid } from 'ulid'
 import {
@@ -28,6 +28,7 @@ import { recordRoot } from '../core/git'
 import { claimRunLock, probeRunLock, type RunLockOptions } from '../core/run-lock'
 import { noteLaunched, writeRunProgress } from '../core/run-progress'
 import { cloneRealPath } from '../core/state-dir'
+import { byCodeUnit } from '../core/order'
 import { taskProgress } from '../projections/templates/shared'
 import { createKeepAwake, type KeepAwakeOptions } from './keep-awake'
 import { createToolContext, ToolError } from '../mcp/context'
@@ -46,7 +47,12 @@ import {
 import { previewRoutes, resolveRoute, RouteError, type RoutingOptions } from './routing'
 import {
   attemptsSoFar,
+  bisectWindow,
+  CLEAN_TREE,
+  committedSince,
+  expandFiles,
   failuresSoFar,
+  gateWindow,
   commandAllowed,
   DEFAULT_MAX_VERIFY_ATTEMPTS,
   DEFAULT_VERIFY_TIMEOUT_MS,
@@ -58,6 +64,8 @@ import {
   startVerification,
   verificationCovers,
   verifyDirs,
+  type Pinned,
+  type RecordedCheck,
   type VerificationOutcome,
   type VerificationProcess,
 } from './verify'
@@ -373,6 +381,14 @@ export interface DriveOptions {
    * of its own. Recorded in `run_started.verify`; a resumed run keeps its own.
    */
   verify?: string
+  /**
+   * Tiered verify (drive-lanes 2.6): run after each task with no `verify` of
+   * its own instead of `verify`, `{files}` replaced by the paths it changed;
+   * `verify` is then the full gate, run once at each phase end and at the
+   * run end, and a failure is pinned by bisecting the task commits since its
+   * last pass. Needs `verify`. Recorded in `run_started.verify_quick`.
+   */
+  verifyQuick?: string
   /** Bound on one acceptance command (default DEFAULT_VERIFY_TIMEOUT_MS); a task's `verify.timeout_ms` wins. */
   verifyTimeoutMs?: number
   /** Failed attempts on one task before the run stops as a stall (default DEFAULT_MAX_VERIFY_ATTEMPTS). */
@@ -689,6 +705,7 @@ async function driveHolding(
   // driver's flags for a fresh run, taken from the record for a resumed one.
   let surface = options.surface
   let verify = options.verify
+  let verifyQuick = options.verifyQuick
 
   const cwd = resolve(options.cwd ?? rootDir)
   assertSameRecord(cwd, initiative, ctx.eventsPath(initiative))
@@ -772,6 +789,11 @@ async function driveHolding(
       opening.push(`keeping run ${last.id}'s recorded --verify (\`${last.verify}\`) over this driver's — start a new run to change it`)
     }
     verify = last.verify ?? verify
+    // Tiering is the run's too (2.6): a run half tiered is two runs wearing one id.
+    if (options.verifyQuick !== undefined && options.verifyQuick !== last.verify_quick) {
+      opening.push(`keeping run ${last.id}'s recorded --verify-quick (${last.verify_quick !== undefined ? `\`${last.verify_quick}\`` : 'none — every task runs the full gate'}) over this driver's — start a new run to change it`)
+    }
+    verifyQuick = last.verify_quick
     // And its lanes (drive-lanes 2.2): half a run in lanes and half in one
     // directory is two runs wearing one id.
     if (options.lanes !== undefined && options.lanes !== (last.lanes ?? 1)) {
@@ -809,14 +831,18 @@ async function driveHolding(
     if (options.cwd !== undefined) {
       throw new ToolError('invalid_input', 'sofar drive: --cwd and --lanes both say where sessions launch — a lanes run launches each task in a lane')
     }
-  } else if (options.laneSetup !== undefined) {
-    throw new ToolError('invalid_input', 'sofar drive: --lane-setup sets up lanes, and this run has none — add --lanes <n> (2 or more)')
+  } else if (options.laneSetup !== undefined && verifyQuick === undefined) {
+    throw new ToolError('invalid_input', 'sofar drive: --lane-setup sets up lanes, and this run has none — add --lanes <n> (2 or more), or --verify-quick, whose bisect runs in a lane')
+  }
+  if (verifyQuick !== undefined && verify === undefined) {
+    throw new ToolError('invalid_input', 'sofar drive: --verify-quick is the per-task tier of --verify, the full gate — state both')
   }
   const runId = resuming ? last.id : ulid()
   if (!resuming) {
     opening.push(`run ${runId} — ${adapter.name}, ${policy} policy, in ${cwd}`)
     if (surface !== undefined) opening.push(`  permissions: ${describeSurface(surface)}`)
-    if (verify !== undefined) opening.push(`  verify: ${verify}`)
+    if (verify !== undefined) opening.push(`  verify: ${verify}${verifyQuick !== undefined ? ` — the full gate, at each phase end and the run end` : ''}`)
+    if (verifyQuick !== undefined) opening.push(`  verify per task: ${verifyQuick}`)
   }
 
   // Everything a launch needs to know about WHERE a task runs (3.2): the
@@ -954,6 +980,7 @@ async function driveHolding(
         ...(maxSessions !== undefined ? { max_sessions: maxSessions } : {}),
         ...(surface !== undefined ? { surface } : {}),
         ...(verify !== undefined ? { verify } : {}),
+        ...(verifyQuick !== undefined ? { verify_quick: verifyQuick } : {}),
         ...(lanes > 1 ? { lanes } : {}),
       },
       { session: 'cli', source: 'cli', actor: 'human' },
@@ -1111,11 +1138,11 @@ async function driveHolding(
 
   type Gate = { applies: false } | { applies: true; passed: boolean; attempt: number; line: string; exhausted: boolean }
   /** `dir` is the tree under test: the launch directory, or on a lanes run the task's lane or a lane at the base (D20). */
-  const gate = async (folded: InitiativeState, taskId: string, dir: string = cwd): Promise<Gate> => {
+  const gate = async (folded: InitiativeState, taskId: string, dir: string = cwd, since?: string): Promise<Gate> => {
     const task = folded.phases.flatMap((p) => p.tasks).find((t) => t.id === taskId)
     const run = folded.runs.find((r) => r.id === runId)
     if (task === undefined || run === undefined || task.status !== 'done') return { applies: false }
-    const verified = await verifyGate(task, run, dir)
+    const verified = await verifyGate(folded, task, run, dir, since)
     if (verified.applies && !verified.passed) return verified
     // Decision checks (memory-lead 2.3, D9/D10) — only once the task's own
     // command passed or none applies, since a reopened task is checked again
@@ -1137,12 +1164,20 @@ async function driveHolding(
     }
     return `${describeVerification(outcome.command, outcome.attempt, outcome)} (the check of ${handle})`
   }
-  const verifyGate = async (task: TaskState, run: InitiativeState['runs'][number], dir: string): Promise<Gate> => {
+  const verifyGate = async (folded: InitiativeState, task: TaskState, run: InitiativeState['runs'][number], dir: string, since?: string): Promise<Gate> => {
     const taskId = task.id
-    const which = resolveVerify(task, runVerify, verifyTimeoutMs)
+    let which = resolveVerify(task, runVerify, verifyTimeoutMs)
     if (which === undefined) return { applies: false }
     const dirs = verifyDirs(dir, which.cwd)
     const fingerprint = fingerprintTree(dirs.absolute)
+    // Tiered (2.6): a task with no command of its own runs the quick tier on
+    // the paths it changed, and a full-gate pass on this very tree covers it.
+    // A path list at its cap has lost paths, so that task runs the full gate.
+    if (verifyQuick !== undefined && which.source === 'run') {
+      if (fullCovers(fingerprint)) return { applies: true, passed: true, attempt: task.verification?.attempt ?? 0, line: '', exhausted: false }
+      const files = changedFiles(folded, taskId, dirs.absolute, since)
+      if (files !== undefined) which = { ...which, cmd: expandFiles(verifyQuick, files) }
+    }
     if (verificationCovers(task.verification, which.cmd, fingerprint)) {
       return { applies: true, passed: true, attempt: task.verification!.attempt, line: '', exhausted: false }
     }
@@ -1274,6 +1309,186 @@ async function driveHolding(
       return { applies: true, passed: false, attempt, line, exhausted: failures >= maxVerifyAttempts }
     }
     return { applies: true, passed: true, attempt, line: '', exhausted: false }
+  }
+
+  // ---------------------------------------------------------------------
+  // Tiered verify (drive-lanes 2.6). With --verify-quick, a task with no
+  // command of its own is gated on the quick tier, and --verify becomes the
+  // full gate: run once when a phase's tasks are all resolved, and once at
+  // the run end, on the tree the run reached. What a full pass vouches for is
+  // every task accepted since the last one (the window). A failure is pinned
+  // by bisecting the window's task commits in a clean lane, and the task
+  // pinned is reopened, as a failed per-task gate is.
+  // ---------------------------------------------------------------------
+  /** This run's checks as recorded, in log order: the command and the tree, which the fold does not keep. */
+  const runChecks = (): RecordedCheck[] => {
+    const checks: RecordedCheck[] = []
+    if (!existsSync(eventsPath)) return checks
+    for (const line of readFileSync(eventsPath, 'utf8').split('\n')) {
+      if (!line.includes('"verification_recorded"') || !line.includes(runId)) continue
+      try {
+        const e = JSON.parse(line) as { type?: unknown; payload?: { run?: unknown } }
+        if (e.type === 'verification_recorded' && e.payload?.run === runId) checks.push(e.payload as unknown as RecordedCheck)
+      } catch {
+        // a corrupt line is the fold's to warn about
+      }
+    }
+    return checks
+  }
+  /** A full-gate pass this run recorded on exactly this tree. */
+  const fullCovers = (fingerprint: ReturnType<typeof fingerprintTree>, checks: RecordedCheck[] = runChecks()): boolean =>
+    fingerprint !== null &&
+    checks.some(
+      (c) => c.decision === undefined && c.command === verify && c.result === 'pass' && c.checked.head === fingerprint.head && c.checked.tree === fingerprint.tree,
+    )
+  /**
+   * The paths a task changed: those touched while it was active, what the
+   * tree holds uncommitted, and what its branch committed — since the base on
+   * a lanes run, since its launch on a serial one. Undefined once the touched
+   * list hit its cap and lost paths.
+   */
+  const changedFiles = (folded: InitiativeState, taskId: string, dir: string, since?: string): string[] | undefined => {
+    const touched = folded.task_files[taskId] ?? []
+    if (touched.length >= TASK_FILES_CAP) return undefined
+    let from = since
+    if (laneRun !== undefined) {
+      try {
+        from = laneRun.baseTip()
+      } catch {
+        // the base is gone; the record's paths still stand
+      }
+    }
+    const committed = from !== undefined ? committedSince(dir, from) : []
+    return [...new Set([...touched, ...(changedPaths(dir, 'worktree') ?? []), ...committed])].filter((p) => !p.startsWith('.sofar/')).sort(byCodeUnit)
+  }
+  /** One full-gate run on `dir`, recorded against `taskId`; undefined when it ended with no verdict. */
+  const runFull = (taskId: string, dir: string): Promise<{ outcome: VerificationOutcome; attempt: number; failed: number } | undefined> => {
+    const fingerprint = fingerprintTree(dir)
+    const run = ctx.foldState(initiative).runs.find((r) => r.id === runId)
+    const attempt = (run !== undefined ? attemptsSoFar(run, taskId) : 0) + 1
+    return runRecorded(verify!, dir, verifyTimeoutMs, attempt, (outcome, n) => {
+      ctx.appendAndProject(
+        initiative,
+        'verification_recorded',
+        {
+          run: runId,
+          task: taskId,
+          attempt: n,
+          command: verify!,
+          cwd: '.',
+          checked: fingerprint ?? { head: 'none', tree: 'none' },
+          validator: ENGINE_VERSION,
+          result: outcome.result,
+          ...(outcome.exit_code !== undefined ? { exit_code: outcome.exit_code } : {}),
+          ...(outcome.signal !== undefined ? { signal: outcome.signal } : {}),
+          duration_ms: outcome.duration_ms,
+          timeout_ms: verifyTimeoutMs,
+          ...(outcome.diagnostics !== undefined ? { diagnostics: outcome.diagnostics } : {}),
+        },
+        { session: 'cli', source: 'cli', actor: 'human' },
+      )
+    })
+  }
+  /** The lane a serial tiered run bisects in, claimed from the pool the first time it needs one. */
+  let bisectLanes: LaneRun | undefined
+  const probeLane = async (commit: string, busy: ReadonlySet<number>): Promise<Lane | undefined> => {
+    if (laneRun !== undefined) return laneRun.atCommit(commit, busy)
+    if (bisectLanes === undefined) {
+      const pool = await claimLanePool(rootDir, 1, commit, options.lock !== undefined ? { lock: options.lock } : {})
+      held.push(...pool.held)
+      for (const line of [...pool.created, ...pool.warnings]) progress(`  ${line}`)
+      const setup = options.laneSetup === 'none' || options.laneSetup?.trim() === '' ? undefined : (options.laneSetup ?? detectLaneSetup(rootDir))
+      bisectLanes = new LaneRun(rootDir, {
+        slug: initiative,
+        runId,
+        lanes: pool.lanes,
+        ...(setup !== undefined ? { setup } : {}),
+        ...(options.laneSetupTimeoutMs !== undefined ? { setupTimeoutMs: options.laneSetupTimeoutMs } : {}),
+        lowPriority: options.lowPriority === true,
+        progress,
+      })
+    }
+    return bisectLanes.atCommit(commit)
+  }
+  /**
+   * The full gate, once, on `dir` — the tree the run has reached. Skipped
+   * when a full pass already covers that tree or the window is empty. It is
+   * recorded against the window's last task, whose acceptance that tree
+   * holds; each bisect probe against the task whose commit it ran on. True
+   * when it reopened a task; a stop it reaches is set in `stop`.
+   */
+  const fullGate = async (state: InitiativeState, dir: string, when: string, busy: ReadonlySet<number> = new Set()): Promise<boolean> => {
+    if (verify === undefined || verifyQuick === undefined) return false
+    const checks = runChecks()
+    const fingerprint = fingerprintTree(dir)
+    if (fullCovers(fingerprint, checks)) return false
+    const done = new Set(state.phases.flatMap((p) => p.tasks).filter((t) => t.status === 'done').map((t) => t.id))
+    const window = gateWindow(checks, verify, done)
+    const tip = window[window.length - 1]
+    if (tip === undefined) return false
+    progress(`  full gate at ${when}, for ${window.map((w) => w.task).join(', ')}: ${verify}`)
+    const ran = await runFull(tip.task, dir)
+    if (ran === undefined || ran.outcome.result === 'pass') {
+      if (ran !== undefined) progress(`  ${describeVerification(verify, ran.attempt, ran.outcome)}`)
+      return false
+    }
+    const line = describeVerification(verify, ran.attempt, ran.outcome)
+    progress(`  ${line}${window.length > 1 ? ` — bisecting ${window.length} tasks` : ''}`)
+    let pinned: Pinned | undefined = window.length === 1 ? { task: tip.task, range: [tip.task], probes: 0 } : undefined
+    let unbisected: string | undefined
+    if (pinned === undefined) {
+      try {
+        pinned = await bisectWindow(window, fingerprint?.tree === CLEAN_TREE ? fingerprint.head : undefined, async (w) => {
+          const lane = await probeLane(w.commit, busy)
+          if (lane === undefined) throw new Error('no clean lane to check a task commit out in')
+          const probed = await runFull(w.task, lane.dir)
+          if (probed === undefined) return undefined
+          progress(`    ${w.task} at ${w.commit.slice(0, 7)}: ${probed.outcome.result === 'pass' ? 'passes' : 'fails'}`)
+          return probed.outcome.result === 'pass'
+        })
+      } catch (err) {
+        unbisected = err instanceof Error ? err.message : String(err)
+      }
+      if (fenced !== undefined || interrupted) return false
+    }
+    const charged = pinned?.task ?? tip.task
+    const note =
+      pinned !== undefined
+        ? `the full gate failed at ${when}${pinned.probes > 0 ? `, and bisecting ${window.length} tasks pinned it to ${charged}` : ''}${pinned.range.length > 1 ? ` (no commit separates ${pinned.range.join(', ')})` : ''}: ${line}`
+        : `the full gate failed at ${when}, ${unbisected !== undefined ? `and could not be bisected (${unbisected})` : 'yet every task commit since its last pass passes it — the failure is in what the tree holds beyond them, or a flake'}; charged to ${charged}, the last task it was for: ${line}`
+    ctx.appendAndProject(
+      initiative,
+      'task_status_changed',
+      { id: charged, status: 'active', note: `reopened by the driver — ${note}` },
+      { session: 'cli', source: 'cli', actor: 'human' },
+    )
+    progress(`  ${charged} reopened — ${note}`)
+    const run = ctx.foldState(initiative).runs.find((r) => r.id === runId)
+    const failures = run !== undefined ? failuresSoFar(run, charged) : 0
+    if (failures >= maxVerifyAttempts) stop ??= { reason: 'stall', note: `${charged} failed verification ${failures} time(s); last: ${note}` }
+    return true
+  }
+  /**
+   * A phase end: every task of a phase done or dropped, none still held by a
+   * lane, and one of them in the window. The full gate then runs on the
+   * checkout, or on the base in a clean lane inside the merge queue, so no
+   * landing moves it meanwhile. True when it reopened a task.
+   */
+  const phaseGate = async (state: InitiativeState, heldTasks: ReadonlySet<string> = new Set(), busy: ReadonlySet<number> = new Set()): Promise<boolean> => {
+    if (verify === undefined || verifyQuick === undefined) return false
+    const done = new Set(state.phases.flatMap((p) => p.tasks).filter((t) => t.status === 'done').map((t) => t.id))
+    const window = new Set(gateWindow(runChecks(), verify, done).map((w) => w.task))
+    const ended = state.phases.find(
+      (p) => p.tasks.some((t) => window.has(t.id)) && p.tasks.every((t) => isResolvedTaskStatus(t.status) && !heldTasks.has(t.id)),
+    )
+    if (ended === undefined) return false
+    const lanes = laneRun
+    if (lanes === undefined) return fullGate(state, cwd, `the end of ${ended.name}`)
+    return merging(async () => {
+      const lane = lanes.atBase(busy)
+      if (lane === undefined) return false
+      return fullGate(ctx.foldState(initiative), lane.dir, `the end of ${ended.name}`, busy)
+    })
   }
 
   // The progress judge (typed-judge 4.1, D8): only with a configured provider,
@@ -1557,6 +1772,9 @@ async function driveHolding(
     if (sweepDir === undefined) {
       progress('warning: every lane holds uncommitted work, so the closing sweep has no lane to check the base in — this run\'s passes stand as recorded')
     }
+    // A tiered run's full gate at the run end (2.6), once; its pass on this
+    // tree then covers every task gated on the quick tier.
+    if (sweepDir !== undefined && (await fullGate(state, sweepDir, 'the run end'))) return true
     for (const doneId of sweepDir === undefined ? [] : (thisRun?.done_tasks ?? [])) {
       const g = await gate(state, doneId, sweepDir)
       if (g.applies && !g.passed) {
@@ -1610,6 +1828,8 @@ async function driveHolding(
     // A lane reads it afresh: its turn's fold predates the lanes started before it.
     const knownSessions = new Set((lane !== undefined ? ctx.foldState(initiative) : state).sessions.map((s) => s.id))
     const launchedAt = new Date().toISOString()
+    // Where a serial tiered run reads what the task committed from (2.6).
+    const launchHead = verifyQuick !== undefined && laneTask === undefined ? headOf(launchDir) : null
     // The progress judge's diff base; not read at all when nobody will judge.
     const headBefore = judging.provider !== undefined ? headOf(launchDir) : null
     // Where this task runs (3.2): the run's pins first, the task's route for
@@ -1758,7 +1978,7 @@ async function driveHolding(
         detail = unresolved
         exhausted = reopenConflicted(task.id, unresolved, true)
       } else {
-        const g = await gate(after, task.id, launchDir)
+        const g = await gate(after, task.id, launchDir, launchHead ?? undefined)
         // Adopted while it verified: the handoff is the new owner's to file.
         if (fenced !== undefined) return { kind: 'fenced' }
         if (g.applies) checked = g.line.length > 0 ? g.line : 'passed: an earlier check still covers this tree'
@@ -2023,6 +2243,9 @@ async function driveHolding(
         const reopened = await recover(state, held, busy)
         // A launch that ended meanwhile moved the record: read it again first.
         if (reopened || clock !== before || fenced !== undefined || interrupted || stop !== undefined) continue
+        // A tiered run's phase end (2.6), once every task of the phase has landed.
+        if (await phaseGate(state, held, busy)) continue
+        if (clock !== before || fenced !== undefined || interrupted || stop !== undefined) continue
         // The ready frontier (1.3), less the tasks lanes are running and the
         // tasks waiting on one: a done task's work is not on the base until
         // its lane has gated and landed it.
@@ -2137,6 +2360,12 @@ async function driveHolding(
         if (interrupted) stop ??= interruptedStop()
         if (stop !== undefined) break
         if (reopened) continue
+        // A tiered run's phase end (2.6).
+        const gated = await phaseGate(state)
+        if (fenced !== undefined) break
+        if (interrupted) stop ??= interruptedStop()
+        if (stop !== undefined) break
+        if (gated) continue
         // The ready head (drive-lanes 1.3): a task its waits_on still holds is
         // passed over, and the loop reaches it once what it waits on resolves.
         const foreign = foreignResolver(ctx.sofarDir, state)

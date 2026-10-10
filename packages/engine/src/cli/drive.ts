@@ -47,6 +47,8 @@ export interface DriveCliOptions {
   resume?: boolean
   /** The run's default acceptance command (r1-fixes 3.1, D19). */
   verify?: string
+  /** The per-task tier of a tiered run (drive-lanes 2.6); --verify is then the full gate. */
+  verifyQuick?: string
   /** Seconds one acceptance command may run (default 600). */
   verifyTimeout?: string
   /** Failed verifications on one task before the run stops (default 3). */
@@ -297,6 +299,7 @@ export async function runDrive(
       ...(options.effort !== undefined ? { effort: options.effort } : {}),
       ...(options.resume === true ? { resume: true } : {}),
       ...(options.verify !== undefined ? { verify: options.verify } : {}),
+      ...(options.verifyQuick !== undefined ? { verifyQuick: options.verifyQuick } : {}),
       ...(verifyTimeoutSec !== undefined ? { verifyTimeoutMs: verifyTimeoutSec * 1_000 } : {}),
       ...(maxVerifyAttempts !== undefined ? { maxVerifyAttempts } : {}),
       ...(lanes !== undefined ? { lanes } : {}),

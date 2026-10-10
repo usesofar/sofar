@@ -677,6 +677,9 @@ pub struct RunStartedPayload {
     #[doc = "The run's default acceptance command (r1-fixes 3.1, D19): `--verify`, applied to every task that carries no `verify` of its own. Operator- stated, so it always runs; recorded so a resumed run keeps it."]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub verify: ::std::option::Option<::std::string::String>,
+    #[doc = "The per-task tier of a tiered run (drive-lanes 2.6): `--verify-quick`, run after each task that carries no `verify` of its own, with `{files}` replaced by the paths the task changed. `verify` is then the full gate, run once at each phase end and at the run end, a failure pinned to its task by bisecting the task commits since the last full pass. Needs `verify`; recorded so a resumed run keeps it."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub verify_quick: ::std::option::Option<::std::string::String>,
 }
 #[doc = "`RunStopReason`"]
 #[derive(

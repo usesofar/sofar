@@ -74,6 +74,12 @@ export function diffStatSince(cwd: string, head: string): string | null {
   return [stat.trim(), added > 0 ? `${added} untracked file${added === 1 ? '' : 's'}` : ''].filter((x) => x.length > 0).join(', ')
 }
 
+/** Paths committed on `cwd`'s HEAD since it forked from `since`, outside the record; empty when git cannot say. */
+export function committedSince(cwd: string, since: string): string[] {
+  const out = git(cwd, ['diff', '--name-only', '-z', `${since}...HEAD`, '--', '.', `:(exclude,top)${RECORD_DIR}`])
+  return out === null ? [] : out.split('\0').filter((p) => p.length > 0)
+}
+
 /**
  * The tree the command runs on. `head` is the commit; `tree` digests the
  * tracked diff against it and every untracked file's blob id, so an edit, a
@@ -411,6 +417,103 @@ export function verifyDirs(launchDir: string, cwd: string): { relative: string; 
   const absolute = isAbsolute(cwd) ? cwd : resolve(launchDir, cwd)
   const rel = relative(launchDir, absolute)
   return { relative: rel.length === 0 ? '.' : rel, absolute }
+}
+
+/** Where a tiered run's quick command takes the paths a task changed (drive-lanes 2.6). */
+export const FILES_PLACEHOLDER = '{files}'
+
+/** `cmd` with every `{files}` replaced by `files`, each single-quoted for /bin/sh; nothing when there are none. */
+export function expandFiles(cmd: string, files: readonly string[]): string {
+  return cmd.split(FILES_PLACEHOLDER).join(files.map((f) => `'${f.replace(/'/g, `'\\''`)}'`).join(' '))
+}
+
+/** The `tree` fingerprintTree gives a checkout holding nothing uncommitted: its HEAD alone names that tree. */
+export const CLEAN_TREE = createHash('sha256').update('\0untracked\0').digest('hex')
+
+/** One acceptance check as `verification_recorded` carries it: what bisecting needs, which the fold does not keep. */
+export interface RecordedCheck {
+  task: string
+  command: string
+  result: VerificationResult
+  checked: { head: string; tree: string }
+  decision?: string
+}
+
+/** A task a tiered run accepted since its last full-gate pass (2.6), and the commit it was accepted on when that tree was clean. */
+export interface WindowTask {
+  task: string
+  commit?: string
+}
+
+/**
+ * What the next full gate vouches for (drive-lanes 2.6): every task in `done`
+ * whose latest passing check of its own came after the run's last full-gate
+ * pass, in the order they passed. A full-gate pass is a pass of `full` itself,
+ * whichever task it was recorded for, so a task that ran the full gate as its
+ * own check closes the window too. A failed full gate never does: what it
+ * failed on is still unvouched.
+ */
+export function gateWindow(checks: readonly RecordedCheck[], full: string, done: ReadonlySet<string>): WindowTask[] {
+  const own = checks.filter((c) => c.decision === undefined && c.result === 'pass')
+  let from = 0
+  own.forEach((c, i) => {
+    if (c.command === full) from = i + 1
+  })
+  const latest = new Map<string, RecordedCheck>()
+  for (const c of own.slice(from)) {
+    latest.delete(c.task)
+    latest.set(c.task, c)
+  }
+  return [...latest.values()]
+    .filter((c) => done.has(c.task))
+    .map((c) => ({ task: c.task, ...(c.checked.tree === CLEAN_TREE && c.checked.head !== 'none' ? { commit: c.checked.head } : {}) }))
+}
+
+export interface Pinned {
+  /** The task whose commit first fails: the one reopened. */
+  task: string
+  /** Every window task the failure may be in — more than one when some were accepted on uncommitted trees, so no commit separates them. */
+  range: string[]
+  /** Full-gate runs the bisect spent. */
+  probes: number
+}
+
+/**
+ * Pin a full-gate failure to its task (drive-lanes 2.6): binary search over
+ * the window's task commits for the first one the full gate fails on. The
+ * tree before the window is taken as passing (the last full pass, or the
+ * run's start) and the tree the gate failed on as failing; `tip` is that
+ * tree's commit when it was clean, so the window task it equals is never run
+ * again. `probe` answers pass (true), fail (false), or no verdict
+ * (undefined: an interrupt), which ends the search with nothing pinned.
+ * Undefined too when every task commit passed and the failure lies beyond
+ * them — in what the tree held uncommitted, or a flake.
+ */
+export async function bisectWindow(
+  window: readonly WindowTask[],
+  tip: string | undefined,
+  probe: (w: WindowTask & { commit: string }) => Promise<boolean | undefined>,
+): Promise<Pinned | undefined> {
+  const at = window.flatMap((w, i) => (w.commit !== undefined ? [i] : []))
+  let lo = -1
+  let hi = at.length
+  // The failing tree is the last task's own commit: known to fail, never re-run.
+  if (tip !== undefined && at.length > 0 && window[at[at.length - 1]!]!.commit === tip) hi = at.length - 1
+  let probes = 0
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1
+    const w = window[at[mid]!]!
+    probes += 1
+    const passed = await probe(w as WindowTask & { commit: string })
+    if (passed === undefined) return undefined
+    if (passed) lo = mid
+    else hi = mid
+  }
+  const first = lo === -1 ? 0 : at[lo]! + 1
+  const last = hi === at.length ? window.length - 1 : at[hi]!
+  if (first > last) return undefined
+  const range = window.slice(first, last + 1).map((w) => w.task)
+  return { task: range[range.length - 1]!, range, probes }
 }
 
 /** How many attempts this run has already recorded for the task. */

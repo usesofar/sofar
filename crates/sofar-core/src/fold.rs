@@ -284,6 +284,8 @@ pub struct RunState {
     /// The permission surface the run pinned (session-driver 2.4, D8), verbatim.
     pub surface: Option<Json>,
     pub verify: Option<String>,
+    /// The per-task tier of a tiered run (drive-lanes 2.6); `verify` is then the full gate.
+    pub verify_quick: Option<String>,
     /// Lane worktrees the run drives tasks in (drive-lanes 2.2); absent on a serial run.
     pub lanes: Option<f64>,
     /// Which lane holds which task right now (drive-lanes 2.3, D22), lane
@@ -1249,6 +1251,7 @@ fn apply_event(
                 max_sessions: opt_num(p, "max_sessions"),
                 surface: p.get("surface").cloned(),
                 verify: opt_str(p, "verify"),
+                verify_quick: opt_str(p, "verify_quick"),
                 lanes: opt_num(p, "lanes"),
                 assignments: Vec::new(),
                 handoffs: Vec::new(),
@@ -2402,6 +2405,7 @@ impl RunState {
             o.insert("surface", s.clone());
         }
         put_opt(&mut o, "verify", self.verify.as_deref());
+        put_opt(&mut o, "verify_quick", self.verify_quick.as_deref());
         put_opt_num(&mut o, "lanes", self.lanes);
         if !self.assignments.is_empty() {
             o.insert(
@@ -2961,6 +2965,7 @@ impl RunState {
             max_sessions: on(o, "max_sessions")?,
             surface: o.get("surface").cloned(),
             verify: os(o, "verify")?,
+            verify_quick: os(o, "verify_quick")?,
             lanes: on(o, "lanes")?,
             assignments: match o.get("assignments") {
                 None => Vec::new(),

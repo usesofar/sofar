@@ -1,0 +1,36 @@
+{
+  "task": "drive-lanes 2.6",
+  "what": "This repo's own gate, the cost tiering targets — the fixture's whole suite costs ~0.1 s, this one 220 s",
+  "measured": "2026-10-10, host load 3.3-8 on 14 CPUs",
+  "full_gate": {
+    "command": "npm run -s typecheck && npx vitest run --project unit && cargo test -q --workspace",
+    "source": "every verification_recorded of that command in .sofar/initiatives/*/events.jsonl",
+    "runs": 51,
+    "mean_s": 220.7,
+    "results": { "pass": 41, "fail": 9, "timeout": 1 }
+  },
+  "closing_sweep_repeats": {
+    "source": "linked-context run 01M3Q2181G3TZJSZ4E74KN06D9",
+    "verifies": 25,
+    "total_s": 6631,
+    "same_tree": "14 runs of the full gate on one tree (1c4df7d) at the sweep, ~260 s each; a tiered run runs it once there"
+  },
+  "quick_tier": {
+    "command": "npm run -s typecheck && npx vitest related --run --project unit {files}",
+    "recommended": "add --passWithNoTests, so a task that changed no module (a Rust-only task) passes the quick tier and leaves cargo to the full gate",
+    "typecheck_s": 0.7,
+    "samples": [
+      {
+        "files": "drive-lanes 2.4's commit 3667a3f3: drive.ts, lanes.ts, progress-judge.ts, drive-lanes.test.ts, events.ts, SPEC.md, ARCHITECTURE.md",
+        "test_files": 203,
+        "seconds": 50.4
+      },
+      {
+        "files": "verify.ts, lanes.ts, drive-tiered.test.ts",
+        "test_files": 90,
+        "seconds": 26.9
+      }
+    ]
+  },
+  "projection_per_task": "220.7 s → 28-51 s (-77% to -87%); cargo moves to the phase-end full gate. A schema change (events.ts) reaches 203 of the unit files, so its quick tier is most of the suite."
+}

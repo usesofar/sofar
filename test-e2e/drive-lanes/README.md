@@ -56,6 +56,25 @@ lower, merge-conflict reopens are ≤ 10% of tasks done, tokens per task rise
 ≤ 5%. Its verdict is `keep`, `drop` (with the criteria missed) or
 `insufficient_reps`.
 
+### Tiered verify against per-task full verify (drive-lanes 2.6)
+
+`tiered-replay.test.ts` replays the nine tasks without an agent (D29): the
+references as scripted sessions through the real driver, each spec test
+shipped with its task so `node --test` is a full gate that is green after
+every correct task, three phases, and three injected faults — 1.5 and 1.6
+overwrite `formatPrice`, and 1.2 adds a module only a README test (read from
+disk, imported by nothing) notices. One arm gates every task on
+`--verify "node --test"`, the other adds `--verify-quick "node
+scripts/related.mjs {files}"`. It runs in the unit suite (one rep); to score:
+
+```
+printf 'SOFAR_TIERED_REPLAY_WRITE=1\nSOFAR_TIERED_REPLAY_REPS=3\n' > node_modules/.cache/tiered-replay.env
+node --env-file=node_modules/.cache/tiered-replay.env node_modules/vitest/vitest.mjs run test-e2e/drive-lanes/tiered-replay.test.ts
+```
+
+→ `results/2.6-replay.json`. This repo's own gate costs are in
+`results/2.6-real-gate.json`.
+
 Before a run, `--probe` launches one trivial session the way the adapter does
 and keeps its stream: the adapter keeps only an exit code, so a launch refused
 for the profile's usage limit (`rate_limit_event`, status `rejected`) reads as a

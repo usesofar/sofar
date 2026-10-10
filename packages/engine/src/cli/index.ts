@@ -739,6 +739,10 @@ program
     '--verify <cmd>',
     'acceptance command run before a task the agent marked done is accepted (r1-fixes 3.1); a task\'s own plan `verify` wins',
   )
+  .option(
+    '--verify-quick <cmd>',
+    'tiered verify (drive-lanes 2.6): run this after each task instead of --verify, {files} replaced by the paths the task changed; --verify then runs once at each phase end and at the run end, a failure bisected to its task',
+  )
   .option('--verify-timeout <seconds>', 'kill an acceptance command that has not ended in this long (default 600)')
   .option('--max-verify-attempts <n>', 'stop the run once one task has failed verification this many times (default 3)')
   .option(
@@ -808,6 +812,7 @@ program
         effort?: string
         resume?: boolean
         verify?: string
+        verifyQuick?: string
         verifyTimeout?: string
         maxVerifyAttempts?: string
         lanes?: string
@@ -882,6 +887,7 @@ program
           ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
           ...(opts.resume === true ? { resume: true } : {}),
           ...(opts.verify !== undefined ? { verify: opts.verify } : {}),
+          ...(opts.verifyQuick !== undefined ? { verifyQuick: opts.verifyQuick } : {}),
           ...(opts.verifyTimeout !== undefined ? { verifyTimeout: opts.verifyTimeout } : {}),
           ...(opts.maxVerifyAttempts !== undefined ? { maxVerifyAttempts: opts.maxVerifyAttempts } : {}),
           ...(opts.lanes !== undefined ? { lanes: opts.lanes } : {}),

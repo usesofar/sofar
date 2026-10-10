@@ -1,0 +1,319 @@
+{
+  "task": "drive-lanes 2.6",
+  "method": "replay: reference solutions as scripted sessions through the real driver and gate commands, arms interleaved (D29)",
+  "node": "v24.21.0",
+  "faulted": {
+    "reps": 3,
+    "full_runs": {
+      "per-task-full": 20,
+      "tiered": 6,
+      "delta_pct": -70
+    },
+    "gate_seconds": {
+      "per-task-full": 1.68,
+      "tiered": 1.53,
+      "delta_pct": -8.9
+    },
+    "wall_clock_s": {
+      "per-task-full": 2.82,
+      "tiered": 3.43,
+      "delta_pct": 21.6
+    },
+    "sessions": {
+      "per-task-full": 12,
+      "tiered": 12,
+      "delta_pct": 0
+    },
+    "reopened": {
+      "per-task-full": [
+        "1.2",
+        "1.5",
+        "1.6"
+      ],
+      "tiered": [
+        "1.2",
+        "1.5",
+        "1.6"
+      ]
+    },
+    "pinned": [
+      "1.2"
+    ],
+    "missed": 0,
+    "runs": {
+      "per-task-full": [
+        {
+          "arm": "per-task-full",
+          "stop": "closed",
+          "sessions": 12,
+          "tasks_done": 9,
+          "reopened": [
+            "1.2",
+            "1.5",
+            "1.6"
+          ],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.84,
+          "gate": {
+            "full_runs": 20,
+            "quick_runs": 0,
+            "checks": 20,
+            "seconds": 1.69,
+            "full_seconds": 1.69
+          },
+          "pinned": []
+        },
+        {
+          "arm": "per-task-full",
+          "stop": "closed",
+          "sessions": 12,
+          "tasks_done": 9,
+          "reopened": [
+            "1.2",
+            "1.5",
+            "1.6"
+          ],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.83,
+          "gate": {
+            "full_runs": 20,
+            "quick_runs": 0,
+            "checks": 20,
+            "seconds": 1.69,
+            "full_seconds": 1.69
+          },
+          "pinned": []
+        },
+        {
+          "arm": "per-task-full",
+          "stop": "closed",
+          "sessions": 12,
+          "tasks_done": 9,
+          "reopened": [
+            "1.2",
+            "1.5",
+            "1.6"
+          ],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.79,
+          "gate": {
+            "full_runs": 20,
+            "quick_runs": 0,
+            "checks": 20,
+            "seconds": 1.67,
+            "full_seconds": 1.67
+          },
+          "pinned": []
+        }
+      ],
+      "tiered": [
+        {
+          "arm": "tiered",
+          "stop": "closed",
+          "sessions": 12,
+          "tasks_done": 9,
+          "reopened": [
+            "1.2",
+            "1.5",
+            "1.6"
+          ],
+          "final_tree_passes": true,
+          "wall_clock_s": 3.44,
+          "gate": {
+            "full_runs": 6,
+            "quick_runs": 12,
+            "checks": 18,
+            "seconds": 1.54,
+            "full_seconds": 0.48
+          },
+          "pinned": [
+            "1.2"
+          ]
+        },
+        {
+          "arm": "tiered",
+          "stop": "closed",
+          "sessions": 12,
+          "tasks_done": 9,
+          "reopened": [
+            "1.2",
+            "1.5",
+            "1.6"
+          ],
+          "final_tree_passes": true,
+          "wall_clock_s": 3.4,
+          "gate": {
+            "full_runs": 6,
+            "quick_runs": 12,
+            "checks": 18,
+            "seconds": 1.52,
+            "full_seconds": 0.46
+          },
+          "pinned": [
+            "1.2"
+          ]
+        },
+        {
+          "arm": "tiered",
+          "stop": "closed",
+          "sessions": 12,
+          "tasks_done": 9,
+          "reopened": [
+            "1.2",
+            "1.5",
+            "1.6"
+          ],
+          "final_tree_passes": true,
+          "wall_clock_s": 3.45,
+          "gate": {
+            "full_runs": 6,
+            "quick_runs": 12,
+            "checks": 18,
+            "seconds": 1.54,
+            "full_seconds": 0.47
+          },
+          "pinned": [
+            "1.2"
+          ]
+        }
+      ]
+    }
+  },
+  "clean": {
+    "reps": 3,
+    "full_runs": {
+      "per-task-full": 17,
+      "tiered": 3,
+      "delta_pct": -82.4
+    },
+    "gate_seconds": {
+      "per-task-full": 1.43,
+      "tiered": 1.09,
+      "delta_pct": -23.8
+    },
+    "wall_clock_s": {
+      "per-task-full": 2.36,
+      "tiered": 2.48,
+      "delta_pct": 5.1
+    },
+    "sessions": {
+      "per-task-full": 9,
+      "tiered": 9,
+      "delta_pct": 0
+    },
+    "reopened": {
+      "per-task-full": [],
+      "tiered": []
+    },
+    "pinned": [],
+    "missed": 0,
+    "runs": {
+      "per-task-full": [
+        {
+          "arm": "per-task-full",
+          "stop": "closed",
+          "sessions": 9,
+          "tasks_done": 9,
+          "reopened": [],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.36,
+          "gate": {
+            "full_runs": 17,
+            "quick_runs": 0,
+            "checks": 17,
+            "seconds": 1.43,
+            "full_seconds": 1.43
+          },
+          "pinned": []
+        },
+        {
+          "arm": "per-task-full",
+          "stop": "closed",
+          "sessions": 9,
+          "tasks_done": 9,
+          "reopened": [],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.36,
+          "gate": {
+            "full_runs": 17,
+            "quick_runs": 0,
+            "checks": 17,
+            "seconds": 1.44,
+            "full_seconds": 1.44
+          },
+          "pinned": []
+        },
+        {
+          "arm": "per-task-full",
+          "stop": "closed",
+          "sessions": 9,
+          "tasks_done": 9,
+          "reopened": [],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.35,
+          "gate": {
+            "full_runs": 17,
+            "quick_runs": 0,
+            "checks": 17,
+            "seconds": 1.43,
+            "full_seconds": 1.43
+          },
+          "pinned": []
+        }
+      ],
+      "tiered": [
+        {
+          "arm": "tiered",
+          "stop": "closed",
+          "sessions": 9,
+          "tasks_done": 9,
+          "reopened": [],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.49,
+          "gate": {
+            "full_runs": 3,
+            "quick_runs": 9,
+            "checks": 12,
+            "seconds": 1.1,
+            "full_seconds": 0.25
+          },
+          "pinned": []
+        },
+        {
+          "arm": "tiered",
+          "stop": "closed",
+          "sessions": 9,
+          "tasks_done": 9,
+          "reopened": [],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.48,
+          "gate": {
+            "full_runs": 3,
+            "quick_runs": 9,
+            "checks": 12,
+            "seconds": 1.09,
+            "full_seconds": 0.24
+          },
+          "pinned": []
+        },
+        {
+          "arm": "tiered",
+          "stop": "closed",
+          "sessions": 9,
+          "tasks_done": 9,
+          "reopened": [],
+          "final_tree_passes": true,
+          "wall_clock_s": 2.47,
+          "gate": {
+            "full_runs": 3,
+            "quick_runs": 9,
+            "checks": 12,
+            "seconds": 1.08,
+            "full_seconds": 0.25
+          },
+          "pinned": []
+        }
+      ]
+    }
+  }
+}

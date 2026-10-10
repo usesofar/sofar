@@ -6,18 +6,18 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1531 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 8/23 tasks done (34%)
+Progress: 9/23 tasks done (39%)
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
-## Phase 2 — Local lanes [active] — 5/7 done
+## Phase 2 — Local lanes [active] — 6/7 done
 
 - [x] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar
 - [x] 2.2 `sofar drive --lanes N`: a persistent lane worktree pool (deps installed once), tasks as branches, lanes recorded on run_started. `--lanes 1` stays byte-identical to today's run (session-driver D6 holds there)
 - [x] 2.3 Coordinator: one process assigns ready tasks to free lanes and records each assignment, so the statusline and interactive sessions see which lane holds which task. Budgets (--cost-cap, --max-sessions) count across lanes; a rate-limited lane parks instead of stalling
 - [x] 2.4 Serial merge queue: rebase a passing task branch onto the run base, re-verify when the base moved, fast-forward. A conflict becomes a merge handoff to the lane's next session. Affected-tests verify per merge, full suite per batch
 - [x] 2.5 Measure local lanes against serial on the 1.1 fixture. Keep only if wall-clock falls ≥40%, duplicate work is 0, tasks done and verify pass rate are no lower, merge-conflict reopens ≤10% and tokens per task rise ≤5%
-- [ ] 2.6 Tiered verify: after each task run the typecheck plus the tests covering the files the task changed; run the full gate (whole vitest + cargo) once at a phase end and at the run end, and pin a full-gate failure to its task by bisecting the phase's task commits. Keep only if it beats per-task full verify on the 1.1 fixture with no failure missed.
+- [x] 2.6 Tiered verify: after each task run the typecheck plus the tests covering the files the task changed; run the full gate (whole vitest + cargo) once at a phase end and at the run end, and pin a full-gate failure to its task by bisecting the phase's task commits. Keep only if it beats per-task full verify on the 1.1 fixture with no failure missed.
 - [ ] 2.7 A verify that times out re-runs the verify once load control (1.2) clears, never a new session; only a verify that fails charges the task.
 
 ## Phase 3 — Conflict-aware orchestration [pending] — 0/9 done
@@ -40,4 +40,4 @@ Progress: 8/23 tasks done (34%)
 - [ ] 4.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 2 — Local lanes
-Next action: 2.6: tiered verify, measured on the fixture with the D27 profile
+Next action: 2.7: re-run a timed-out verify once load control clears, never a new session

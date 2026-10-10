@@ -601,6 +601,15 @@ export interface RunStartedPayload {
    */
   verify?: string
   /**
+   * The per-task tier of a tiered run (drive-lanes 2.6): `--verify-quick`,
+   * run after each task that carries no `verify` of its own, with `{files}`
+   * replaced by the paths the task changed. `verify` is then the full gate,
+   * run once at each phase end and at the run end, a failure pinned to its
+   * task by bisecting the task commits since the last full pass. Needs
+   * `verify`; recorded so a resumed run keeps it.
+   */
+  verify_quick?: string
+  /**
    * Lane worktrees the run drives tasks in (drive-lanes 2.2, D19/D20), each
    * task on its own branch; absent on a serial run, which launches every
    * session in one directory. The count only: a lane's path is this
@@ -1274,6 +1283,8 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
     if (!str(p.run)) e.push('run: must be a non-empty string')
     if (!str(p.adapter)) e.push('adapter: must be a non-empty string')
     if (!optNonEmptyStr(p.verify)) e.push('verify: must be a non-empty string when present')
+    if (!optNonEmptyStr(p.verify_quick)) e.push('verify_quick: must be a non-empty string when present')
+    else if (p.verify_quick !== undefined && p.verify === undefined) e.push('verify_quick: needs verify, the full gate it tiers')
     if (!(RUN_POLICIES as readonly unknown[]).includes(p.policy)) {
       e.push(`policy: must be one of ${RUN_POLICIES.join('|')}`)
     }
@@ -1620,7 +1631,7 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   run_started: {
     writer: 'driver',
     summary: 'a sofar drive run began',
-    fields: `run, adapter, policy: ${RUN_POLICIES.join('|')}, threshold_pct? and context_window? (both required for threshold), max_sessions?, surface?, verify? (the run's default acceptance command), lanes? (integer ≥2; absent on a serial run)`,
+    fields: `run, adapter, policy: ${RUN_POLICIES.join('|')}, threshold_pct? and context_window? (both required for threshold), max_sessions?, surface?, verify? (the run's default acceptance command), verify_quick? (the per-task tier of a tiered run; needs verify), lanes? (integer ≥2; absent on a serial run)`,
     example: { run: '01J00000000000000000000000', adapter: 'codex', policy: 'task' },
   },
   handoff: {
