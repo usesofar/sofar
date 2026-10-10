@@ -849,8 +849,20 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   `--deselect`, `--ignore`, `--ignore-glob` and `--exclude`. These take no
   value: `--only`, `--onlyChanged`, `-o`, `--changed`, `--related`,
   `--findRelatedTests`, `--lf`, `--last-failed`, `--only-changed` and
-  `-short`. The tree is read only here, at Stop. `suiteOf`, which projections
-  call, reads none: there a bare word stays in the head.
+  `-short`. A NEUTRAL FLAG changes how a run reports or builds, never which
+  tests it runs, and drops before any of this with its value (r4-fixes H14):
+  `-q`, `--quiet`, `--verbose`, `--silent`, `--release`, `--workspace`,
+  `--all`, `--no-fail-fast`, `--include-ignored`, `--nocapture`,
+  `--show-output`, `--locked`, `--frozen`, `--offline`, `--run`, `--no-watch`,
+  `--passWithNoTests`, `--coverage`, `--color`, `--no-color`, `--bail` and
+  `--ci`, alone or as `flag=value`; and, always taking a value as the next
+  word or after `=`, `--reporter`, `--reporter-outfile`, `--outputFile`,
+  `--message-format`, `-j`, `--jobs`, `--test-threads`, `--maxWorkers`,
+  `--pool`, `--timeout` and `--testTimeout`. A bare `--` drops too. So
+  `cargo test -q -- --nocapture` is the bare runner, while `--lib`,
+  `--ignored` or `-p <crate>` still keep a run from covering a wider ask. The
+  tree is read only here, at Stop. `suiteOf`, which projections call, reads
+  none: there a bare word stays in the head.
 - COVERING: a run covers a requirement when the heads are the same and one of
   these holds. (1) The run has no arguments: the bare runner covers every ask
   on it. (2) The run names every argument the requirement names, and if a
@@ -10210,6 +10222,14 @@ stay the underlying derivation's, and exit codes are styling-independent.
   `make`, editors, `cat a | sh`, `python3 - <<EOF` and `sed 's/a/b/w out'`
   mark; `cat … | grep`, `git status`, `git add -A && git commit`, `sofar
   event append`, `sed -n 5,9p` and a plain `cat <<EOF` do not.
+- **Neutral flags (r4-fixes H14):** `cargo test -q --workspace --release`
+  and `cargo test -q -- --nocapture` cover `cargo test`; `npx vitest run
+  --reporter=dot` covers any `npx vitest run` ask; `cargo test -q --lib`, `-p
+  <crate>`, and `bun test --timeout 5000 tests/unit` (a sibling) do not, nor
+  does `bun test --color tests/unit` (`--color` takes no next word). Rows in
+  crates/sofar-core/tests/fixtures/js-stop-gate-coverage.json, asserted by
+  both engines. Replay over this repo's real holds: the two `cargo test -q`
+  holds clear; the round-4 holds' verdicts do not move.
 - **Whose dirt (r4-fixes H13):** a passing run is voided only by a file
   written while one of the session's own may-write commands ran: a peer's
   edit after it, git-dirty in the shared worktree, no longer holds the Stop,

@@ -956,6 +956,82 @@ const NARROWING_SWITCHES: &[&str] = &[
     "-short",
 ];
 
+/// `NEUTRAL_SWITCHES` (r4-fixes H14): flags that change how a run reports or
+/// builds, never which tests it runs; dropped before coverage is read, so
+/// `cargo test -q` is `cargo test`. Any other flag still keeps a run from
+/// standing in for a wider one: `--lib`, `--ignored` and `-p` select less.
+const NEUTRAL_SWITCHES: &[&str] = &[
+    "-q",
+    "--quiet",
+    "--verbose",
+    "--silent",
+    "--release",
+    "--workspace",
+    "--all",
+    "--no-fail-fast",
+    "--include-ignored",
+    "--nocapture",
+    "--show-output",
+    "--locked",
+    "--frozen",
+    "--offline",
+    "--run",
+    "--no-watch",
+    "--passWithNoTests",
+    "--coverage",
+    "--color",
+    "--no-color",
+    "--bail",
+    "--ci",
+];
+
+/// `NEUTRAL_WITH_VALUE`: neutral flags that always take a value, as the next
+/// word or after `=`.
+const NEUTRAL_WITH_VALUE: &[&str] = &[
+    "--reporter",
+    "--reporter-outfile",
+    "--outputFile",
+    "--message-format",
+    "-j",
+    "--jobs",
+    "--test-threads",
+    "--maxWorkers",
+    "--pool",
+    "--timeout",
+    "--testTimeout",
+];
+
+/// `selecting`: a run's arguments less every neutral flag and its value;
+/// `--` only separates.
+fn selecting(args: &[&str]) -> Vec<String> {
+    let mut out = Vec::with_capacity(args.len());
+    let mut i = 0;
+    while i < args.len() {
+        let t = args[i];
+        i += 1;
+        if t == "--" || NEUTRAL_SWITCHES.contains(&t) {
+            continue;
+        }
+        if NEUTRAL_WITH_VALUE.contains(&t) {
+            if i < args.len() && !args[i].starts_with('-') {
+                i += 1; // its value
+            }
+            continue;
+        }
+        if t.starts_with('-')
+            && t.find('=').is_some_and(|eq| {
+                eq > 0
+                    && (NEUTRAL_SWITCHES.contains(&&t[..eq])
+                        || NEUTRAL_WITH_VALUE.contains(&&t[..eq]))
+            })
+        {
+            continue;
+        }
+        out.push(t.to_owned());
+    }
+    out
+}
+
 /// How a token narrows a run (`narrowingFlag`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Narrowing {
@@ -1085,10 +1161,7 @@ fn test_spec(segment: &str, probe: PathProbe<'_>) -> TestSpec {
     });
     let (head, args) = match at {
         None => (tokens.join(" "), Vec::new()),
-        Some(at) => (
-            tokens[..at].join(" "),
-            tokens[at..].iter().map(|t| (*t).to_owned()).collect(),
-        ),
+        Some(at) => (tokens[..at].join(" "), selecting(&tokens[at..])),
     };
     let mut spec = TestSpec {
         head,
