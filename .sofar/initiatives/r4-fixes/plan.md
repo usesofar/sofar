@@ -6,11 +6,11 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 2006 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 44 done, 6 dropped, 22 remaining
+Progress: 44 done, 6 dropped, 23 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
-## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 23/26 (3 dropped) done
+## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 23/27 (3 dropped) done
 
 - [x] A1 A1 In-band write-back: a fenced `sofar` block in the final reply is filed by the Stop handler (SOFAR_WRITEBACK). PREDICT Codex −0.15 to −0.20, Cursor −0.08 to −0.15, Claude −0.03 to −0.05
 - [x] A2 A2 Host-compiled payloads: AGENTS.md block ≤1.5k chars, CLI grammar moved to a skill, per-host budgets (SOFAR_PAYLOAD). PREDICT Codex −0.05 to −0.07, Cursor −0.05 to −0.10
@@ -38,6 +38,7 @@ Progress: 44 done, 6 dropped, 22 remaining
 - [x] H10 H10 Running from npx's cache, say so: one stderr line naming `npm i -g sofar.sh --allow-scripts=sofar.sh`, and `sofar init` refuses (or warns) when no `sofar` is on PATH, since the hooks it writes would call a missing command
 - [x] H11 H11 Cloud write-back lands in a phantom session: in Claude Code cloud the stdio MCP server inherits CLAUDE_CODE_SESSION_ID from the pre-warmed spare (`claude --preload`), not the conversation's id. Prefer the hook-registered session when the env id is unknown to the record; say "adopted" only on a match (note 01M4JEK5)
 - [x] H12 H12 Cloud command logging re-dirties .sofar after every commit: a leading `cd <repo root>;` segment defeats the record-hygiene exemption (isSelfRecordingCommand). Reproduce first, then treat cd into the record root as neutral (note 01M4JEK5)
+- [ ] H13 H13 Stop gate counts a concurrent session's uncommitted edits as this session's: stopGateFor takes every git-dirty file modified after this session started (r4-fixes H1 slack). In a long session sharing a worktree, a peer's later edits void every test run. Seen 2026-10-10: #7f77's package-lock.json, release-pipeline.test.ts, emit.mjs at 09:17:35Z voided a 09:17:02Z cargo test. Attribute git-dirty files only to sessions with a may-write Bash command in a window before the mtime; replay first (D24). The earlier -q block (note 01M4JGT9) may be the same cause
 
 ## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 6/19 (3 dropped) done
 
@@ -87,5 +88,5 @@ Progress: 44 done, 6 dropped, 22 remaining
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 - [ ] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3)
 
-Next action: Operator: git push origin v0.37.0-rc.1, then approve the staged publish; then set sofar-probe to 0.37.0-rc.1 and re-run the cloud probe.
+Next action: Operator: git push origin v0.37.0-rc.1, then node packaging/npm/stage-approve.mjs 0.37.0-rc.1; then re-run the cloud probe on 0.37.0-rc.1.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).
