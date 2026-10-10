@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 2006 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 44 done, 6 dropped, 23 remaining
+Progress: 45 done, 6 dropped, 22 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -62,10 +62,10 @@ Progress: 44 done, 6 dropped, 23 remaining
 - [x] B18 B5 elsewhere half: mentions tier, inbound digest block, prompt line and glance (SOFAR_ELSEWHERE)
 - [ ] B19 B19 Elsewhere view at scale: mentions-tier pass costs native user-prompt +6-7 ms (+12.8%) at 1000 records (i1000-10mb, SOFAR_ELSEWHERE arm)
 
-## Phase 2c — Wave C: distribution and ecosystem [pending] — 1/8 done
+## Phase 2c — Wave C: distribution and ecosystem [pending] — 2/8 done
 
 - [ ] E1 E1 Host plugins as the primary install (Claude Code, Codex, Cursor); doctor detects double wiring (after A12; R21)
-- [ ] E2 E2 Release pipeline: release.yml builds 5 cores, OIDC trusted publishing, staged publish, provenance, attestations, automatic merge-back (bypass-2FA tokens end Jan 2027) (active)
+- [x] E2 E2 Release pipeline: release.yml builds 5 cores, OIDC trusted publishing, staged publish, provenance, attestations, automatic merge-back (bypass-2FA tokens end Jan 2027)
 - [ ] E3 E3 Interop: sofar export/import --amr (Agent Memory Repo), import --beads, spec-kit extension
 - [x] E4 E4 GitHub Action example: sofar check + sofar diff in the user's own CI (after B7)
 - [ ] E5 E5 Docs and site: per-host quickstarts, llms.txt, How-we-measure page, behaviour-diff changelog, published byte budget
@@ -73,10 +73,7 @@ Progress: 44 done, 6 dropped, 23 remaining
 - [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
 - [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
 
-## Phase 3 — Release candidate [pending] — 2/2 done
-
-- [x] 3.1 Cut rc 0.35.0 (Wave A): integrate the wave-a/* branches onto release/0.35.0, full gates (TS, cargo, conformance, parity:real, D18 two legs vs 0.34.1, every item's replay), CI, stage cores, operator publishes to next
-- [x] 3.2 Cut rc 0.36.0 (Wave B items whose replay passed) as round 5's frozen build; merge back to main after each cut
+## Phase 3 — Release candidate [done] — 2/2 done — its tasks in phases/P5.md
 
 ## Phase 4 — Round 5 on a harder held-out chain [pending] — 2/7 done
 
@@ -86,7 +83,7 @@ Progress: 44 done, 6 dropped, 23 remaining
 - [ ] 4.4 PRE-REGISTRATION-R5: claims (R5-F primary, R5-F+ reported, R5-A/C/B, R5-$ parity), units, stopping rules; public signed tag (R9); frozen in the operator's own words
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
-- [ ] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3)
+- [ ] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3) (blocked)
 
-Next action: Operator: git push origin v0.37.0-rc.1, then node packaging/npm/stage-approve.mjs 0.37.0-rc.1; then re-run the cloud probe on 0.37.0-rc.1.
-Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).
+Next action: Operator: rule on the lane design (note 01M4JC73); optionally delete probe branches probe/cloud-hooks (GitHub) and probe/cloud-hooks-2 (local).
+Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).; task 4.2a: First host run 2026-10-10, handoff-bench e8a3201, HARNESS-R5.md §3. Doctor ✓ except pinned sofar (default 0.32.0, round pin unset). Canary ✗: 545 false positives fixed (hidden vendor/providers = public skeleton blobs); Cursor chats now per-cell; remaining hits are temp copies of the sofar travel-planner record (ruling 21). Owed: ruling 21, bun cache clear after Chain N author, canary with round env, bd check, real smoke (4.3).
