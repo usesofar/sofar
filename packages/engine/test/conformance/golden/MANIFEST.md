@@ -1,5 +1,10 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **drive-lanes 3.1** (main) from the TypeScript reference:
+`argv.fast-path` only, whose `sofar event --help` gains `lease [options]`, the
+lane lease hook (4 lines). sofar-core owns no new shape: `event lease` exits
+64 and the TypeScript CLI answers it, so the native run prints the same help.
+
 ADDED for **r4-fixes H18** (main) from the TypeScript reference; no golden
 moved, and the Rust core reproduces all 60 (`SOFAR_CORE=target/release/sofar-core`).
 One new case, `syn.gate-outside-root`: an edit in another repo

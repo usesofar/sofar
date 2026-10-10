@@ -85,6 +85,25 @@ export function settingsFor(surface: PermissionSurface): Record<string, unknown>
   }
 }
 
+/** The tools a lane session's lease hook sees (drive-lanes 3.1): every one that edits a file. */
+export const LEASE_HOOK_MATCHER = 'Edit|Write|MultiEdit|NotebookEdit'
+/** Bound on one lease check, in seconds: a file read and a few small ones, so a hang is a fault. */
+export const LEASE_HOOK_TIMEOUT_S = 10
+
+/**
+ * The lease hook's entry for a session's settings file (drive-lanes 3.1,
+ * D33). `--settings` adds a source, and hooks merge across sources, so it
+ * runs beside the project's own PreToolUse hooks, never instead of them; and
+ * only in this session, so no interactive edit ever pays for it.
+ */
+export function leaseHookSettings(command: string): Record<string, unknown> {
+  return {
+    hooks: {
+      PreToolUse: [{ matcher: LEASE_HOOK_MATCHER, hooks: [{ type: 'command', command, timeout: LEASE_HOOK_TIMEOUT_S }] }],
+    },
+  }
+}
+
 /** Filename of the per-session settings file, inside the session's own temp dir. */
 export const SETTINGS_FILE = 'settings.json'
 
@@ -203,9 +222,13 @@ export class ClaudeCodeSession implements AgentSession {
     // session whose permissions could not be verified is indistinguishable
     // from one running on the operator's ambient configuration, and an
     // unattended run must not be unable to tell those apart.
-    if (request.surface !== undefined) {
+    // A lane's lease hook (3.1) rides the same file.
+    if (request.surface !== undefined || request.leaseHook !== undefined) {
       this.settingsPath = join(sessionDir, SETTINGS_FILE)
-      writeVerifiedSettings(this.settingsPath, settingsFor(request.surface))
+      writeVerifiedSettings(this.settingsPath, {
+        ...(request.surface !== undefined ? settingsFor(request.surface) : {}),
+        ...(request.leaseHook !== undefined ? leaseHookSettings(request.leaseHook) : {}),
+      })
     } else {
       this.settingsPath = undefined
     }

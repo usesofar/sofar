@@ -126,6 +126,14 @@ export interface LaunchRequest {
   /** Extra environment for the child — the driver's isolation (private TMPDIR, port block). */
   env?: Record<string, string>
   /**
+   * A lanes run's lease hook (drive-lanes 3.1, D33): the command a PreToolUse
+   * hook on Edit, Write, MultiEdit and NotebookEdit runs in this session. An
+   * adapter that can give one session a hook of its own installs it (Claude
+   * Code, in its per-session settings file); the others launch without it, and
+   * their edits lease nothing. The lane's lease file travels in `env`.
+   */
+  leaseHook?: string
+  /**
    * Start the agent at low priority (drive-lanes 1.2): through `lowPriority`
    * (load.ts), so the agent and every tool it runs yield the cores to the
    * operator's foreground work.

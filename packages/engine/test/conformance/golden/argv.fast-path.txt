@@ -45,6 +45,10 @@ Commands:
                                after a Bash call that started a detached run,
                                wait on it and wake this session with one line
                                when it stops or its driver is gone
+  lease [options]              PreToolUse hook (a lanes run's sessions only,
+                               drive-lanes 3.1): map an edit to its section or
+                               symbol, steer it off another lane's lease with
+                               one context line, or refuse it in deny mode
   user-prompt [options]        UserPromptSubmit hook: nudge an in-flow
                                write-back (one additionalContext line) when
                                drift since the last session_ended ≥5 events

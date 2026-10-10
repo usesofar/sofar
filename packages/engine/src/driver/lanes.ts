@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from
 import { dirname, join } from 'node:path'
 import { writeFileAtomic } from '../core/atomic'
 import { commonGitDir, currentBranch, gitDir, markRecordCheckout } from '../core/git'
+import { closeLease, laneLockFile, leaseFile } from '../core/leases'
 import { claimLockAt, type RunLockOptions } from '../core/run-lock'
 import { cloneKey, resolvesInside, stateBase, type StateEnv } from '../core/state-dir'
 import { lowPriority } from './load'
@@ -227,13 +228,16 @@ export async function claimLanePool(rootDir: string, count: number, base: string
   try {
     const last = count + (options.spare ?? 8)
     for (let id = 1; lanes.length < count && id <= last; id += 1) {
-      const claim = await claimLockAt(join(pool, `lane-${id}.lock`), options.lock ?? {})
+      const claim = await claimLockAt(laneLockFile(pool, id), options.lock ?? {})
       if (claim.kind === 'held') {
         skipped.push(id)
         continue
       }
-      if (claim.kind === 'claimed') held.push(claim.lock)
-      else unlocked ??= claim.why
+      if (claim.kind === 'claimed') {
+        held.push(claim.lock)
+        // Whatever lease a driver that held this lane left behind is over (3.1).
+        closeLease(leaseFile(pool, id))
+      } else unlocked ??= claim.why
       const dir = join(pool, `lane-${id}`)
       if (!isLaneOf(rootDir, dir)) {
         if (existsSync(dir)) {

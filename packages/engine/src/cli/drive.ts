@@ -57,6 +57,8 @@ export interface DriveCliOptions {
   lanes?: string
   /** The command a lane runs once to install dependencies; `none` runs nothing. */
   laneSetup?: string
+  /** Region leases between lanes (drive-lanes 3.1): steer (default), deny or off. */
+  leases?: string
   /** Which agent to drive: `claude-code` (default), `codex` (3.1) or `cursor` (r1-fixes 6.8). */
   agent?: string
   /** Binary the adapter spawns (default: the agent's own — claude, codex, cursor-agent). */
@@ -197,6 +199,23 @@ function positive(name: string, raw: string | undefined): number | undefined {
   return value
 }
 
+/**
+ * `--leases` (drive-lanes 3.1, D33): steer unless stated, `off` leases
+ * nothing. The hook a lane session runs is THIS build's own CLI — the entry
+ * this process was started as — never whichever `sofar` the lane's PATH holds.
+ */
+export function leaseOption(raw: string | undefined, entry: readonly string[] = [process.execPath, process.argv[1]!]): DriveOptions['leases'] {
+  const mode = raw ?? 'steer'
+  if (mode === 'off') return undefined
+  if (mode !== 'steer' && mode !== 'deny') throw new ToolError('invalid_input', `sofar drive: --leases takes steer, deny or off, got "${mode}"`)
+  return { mode, hook: `${entry.map(shellWord).join(' ')} event lease` }
+}
+
+/** One shell word: bare when safe, single-quoted otherwise. */
+function shellWord(value: string): string {
+  return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`
+}
+
 function integer(name: string, raw: string | undefined): number | undefined {
   const value = positive(name, raw)
   if (value !== undefined && !Number.isInteger(value)) {
@@ -266,6 +285,7 @@ export async function runDrive(
     const verifyTimeoutSec = positive('--verify-timeout', options.verifyTimeout)
     const maxVerifyAttempts = integer('--max-verify-attempts', options.maxVerifyAttempts)
     const lanes = integer('--lanes', options.lanes)
+    const leases = leaseOption(options.leases)
     // The surface is built HERE, before anything is recorded: a bad
     // --permission-mode is a preflight refusal with no run_started behind it,
     // not a run that starts and dies on its first launch.
@@ -304,6 +324,7 @@ export async function runDrive(
       ...(maxVerifyAttempts !== undefined ? { maxVerifyAttempts } : {}),
       ...(lanes !== undefined ? { lanes } : {}),
       ...(options.laneSetup !== undefined ? { laneSetup: options.laneSetup } : {}),
+      ...(leases !== undefined ? { leases } : {}),
       // Load control (drive-lanes 1.2): every CLI run yields to the
       // operator's foreground and verifies one suite at a time, and re-runs a
       // timed-out verification only once the load clears (2.7).

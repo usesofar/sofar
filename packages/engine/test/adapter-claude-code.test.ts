@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { getPriority, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { ClaudeCodeAdapter, claudeArgs, pinLine, pinPrompt } from '../src/driver/claude-code'
+import { ClaudeCodeAdapter, claudeArgs, LEASE_HOOK_MATCHER, LEASE_HOOK_TIMEOUT_S, pinLine, pinPrompt } from '../src/driver/claude-code'
 import { LOW_NICE } from '../src/driver/load'
 import { NUDGE_ENV, readNudge } from '../src/driver/nudge'
 import type { LaunchRequest } from '../src/driver/adapter'
@@ -300,6 +300,29 @@ describe('nudge', () => {
     // The surface lives in `run_started` where D8 puts it, so the file has no
     // reader left; an unattended run is exactly what makes many launches.
     expect(existsSync(session.sessionDir)).toBe(false)
+  })
+
+  it("a lane's lease hook rides the session's own settings file, beside its surface (drive-lanes 3.1)", async () => {
+    const c = cell('lease-hook')
+    const session = new ClaudeCodeAdapter().launch(
+      c.request({ leaseHook: "'/x y/node' /cli.js event lease", surface: { permission_mode: 'acceptEdits', allow: ['mcp__sofar'] }, env: { STUB_SLEEP: '1' } }),
+    )
+    await untilWritten(join(c.out, 'argv'))
+    const settings = JSON.parse(readFileSync(session.settingsPath!, 'utf8')) as Record<string, unknown>
+    expect(settings).toEqual({
+      permissions: { allow: ['mcp__sofar'] },
+      hooks: {
+        PreToolUse: [{ matcher: LEASE_HOOK_MATCHER, hooks: [{ type: 'command', command: "'/x y/node' /cli.js event lease", timeout: LEASE_HOOK_TIMEOUT_S }] }],
+      },
+    })
+    const argv = readFileSync(join(c.out, 'argv'), 'utf8').split('\n')
+    expect(argv[argv.indexOf('--settings') + 1]).toBe(session.settingsPath)
+    await session.wait()
+    // Without a surface the hook still gets a file; without either, no file and no flag.
+    const bare = new ClaudeCodeAdapter().launch(c.request({ leaseHook: 'h' }))
+    expect(Object.keys(JSON.parse(readFileSync(bare.settingsPath!, 'utf8')) as object)).toEqual(['hooks'])
+    await bare.wait()
+    expect(new ClaudeCodeAdapter().launch(c.request()).settingsPath).toBeUndefined()
   })
 
   it('a spawn failure cleans up too — the dir outlives nothing', async () => {

@@ -2795,6 +2795,43 @@ through the same queue and reopens it the same way, filing no handoff. An
 interrupt or a takeover while a branch waits or re-verifies leaves it
 unlanded for a resumed run (D13).
 
+**Region leases (drive-lanes 3.1, D4, D14, D33).** `--leases <mode>` —
+`steer`, the default, `deny`, or `off` — governs what a lanes run's lanes may
+edit at once; a serial run leases nothing. A LEASE is one file per lane beside
+the lane locks, `lane-<k>.lease.jsonl`, never the record: its first line, which
+the coordinator writes when it gives the lane a task, names the run, the task,
+its title, when this run first gave that task a lane (its AGE) and the mode;
+the coordinator deletes it when the lane's job ends, after its gate and
+landing; and a lease counts only while its lane's lock is held. Each lane
+session — on Claude Code, the one adapter that installs it — gets a PreToolUse
+hook on `Edit|Write|MultiEdit|NotebookEdit` through its own `--settings` file,
+never the project's, running `sofar event lease` on the driver's own build,
+with the lane's lease file in `SOFAR_DRIVE_LEASE`. The hook maps the call to
+REGIONS: for Edit and MultiEdit, the deepest markdown section (ATX headings
+outside fences, then `**Bold label**` paragraphs) or code symbol (TS/JS, Rust,
+Go, Python: declaration lines and indentation) holding each `old_string`,
+named by its path of names and holding its children when the edit reaches
+one; the whole file for Write, NotebookEdit, any other file kind, a missing
+file or text not found. A code file's leading import block, `.sofar/` and every
+path `.gitattributes` gives `merge=union` never lease. Two regions OVERLAP on
+the same name, an ancestor that holds its children, or the whole file. THE
+OLDER TASK WINS — earlier age, then the lower lane: an edit overlapping an
+older task's lease is STEERED, the edit applying and the session told, as
+`additionalContext` with no permission decision (r4-fixes D17), which lane
+holds which region for which task, what is free, and to work on a free part or
+park — commit its WIP on the branch, write back, end its turn; under `deny` it
+is refused (`permissionDecision: deny`, the same text as the reason). An edit
+overlapping only younger tasks' leases claims its regions, and the session is
+told the region is now its own. Every wait points at an older task, so nothing
+deadlocks. The hook appends each region it claims, and each it was steered off,
+to the lane's file. A session that ends with no task change after a steer HAS
+PARKED: its handoff is `stall` with detail `parked on a lease — lane <k>
+(<task>) holds <region>`, counted toward no stop rule; its task is ready again
+only once every lease it hit is gone, and before it launches again its lane
+takes the base in as the merge queue does (rebased, else merged, a stopped
+merge left for its session). The mode is the driver's, like the hang guard:
+not recorded, and a resumed run takes the resuming driver's.
+
 **Tiered verify (drive-lanes 2.6, D29, D30).** `--verify-quick <cmd>`, with
 `--verify` (refused without it, before anything is recorded), makes the run
 TIERED; it is recorded in `run_started.verify_quick` and a resumed run keeps
@@ -7687,7 +7724,7 @@ deletes it with the worktree's gitdir.
   [--context-window <tokens>] [--max-sessions <n>] [--max-stalls <n>]
   [--cost-cap <usd>] [--session-timeout <seconds>] [--cwd <dir>] [--model <m>]
   [--effort <e>] [--resume] [--verify <cmd>] [--verify-quick <cmd>]
-  [--lanes <n>] [--lane-setup <cmd|none>]
+  [--lanes <n>] [--lane-setup <cmd|none>] [--leases steer|deny|off]
   [--agent claude-code|codex|cursor] [--bin <path>] [--agent-arg <arg>]
   [--permission-mode <mode>]
   [--allow <rule...>] [--deny <rule...>] [--bare-tools] [--detach] [--stop]
@@ -7713,6 +7750,8 @@ deletes it with the worktree's gitdir.
   in one of n lane worktrees on its own branch, landed on the run's base
   branch, and `--lane-setup` names the command a lane installs with
   (§Driver, lanes); STDOUT then adds one line naming the base to merge.
+  `--leases` says what a lane is told, or refused, on an edit into a region an
+  older task in another lane holds (§Driver, region leases).
   `--agent-arg` repeats once per
   argument and appends verbatim to the argv of the agent `--agent` NAMED — the
   escape hatch past sofar's own flags, so its vocabulary falling behind an

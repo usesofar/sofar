@@ -6,15 +6,15 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1531 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 10/23 tasks done (43%)
+Progress: 11/23 tasks done (47%)
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
 ## Phase 2 — Local lanes [done] — 7/7 done — its tasks in phases/P2.md
 
-## Phase 3 — Conflict-aware orchestration [active] — 0/9 done
+## Phase 3 — Conflict-aware orchestration [active] — 1/9 done
 
-- [ ] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane steers rather than denies, so r4-fixes D17 holds: the hook's context names the holding lane, its task, the region and what is free, and the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. A deny mode sits behind a flag, off, until the operator rules on D17 for driven lanes
+- [x] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane steers rather than denies, so r4-fixes D17 holds: the hook's context names the holding lane, its task, the region and what is free, and the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. A deny mode sits behind a flag, off, until the operator rules on D17 for driven lanes
 - [ ] 3.2 Footprint prediction and conflict-aware scheduling: task `touches`, the record's mention index, files earlier sessions on the task touched, git co-change. A free lane takes the first ready task that misses every live lease and footprint, else idles; skipped tasks age up
 - [ ] 3.3 Context packets, deterministic and one line each: lease notice (who holds what, for which task), change brief on merge (task, regions, diffstat, decisions and memories logged, write-back), park/resume packet (own write-back, WIP sha, the brief it waited for)
 - [ ] 3.4 Measure conflict-aware lanes against naive lanes: merge-conflict rework sessions, parks, lanes busy, wall-clock. Keep each piece only if it improves on 2.5
@@ -32,4 +32,4 @@ Progress: 10/23 tasks done (43%)
 - [ ] 4.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 3 — Conflict-aware orchestration
-Next action: 3.1: region leases at PreToolUse (steer on overlap, deny behind a flag)
+Next action: 3.2: footprint prediction and conflict-aware scheduling

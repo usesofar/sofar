@@ -110,18 +110,24 @@ export function runLockPath(
  */
 export function probeRunLock(rootDir: string, runId: string, options: RunLockOptions = {}): RunLiveness {
   const where = runLockPath(rootDir, runId, options.env)
-  if (!('path' in where) || !existsSync(where.path)) return 'absent'
+  if (!('path' in where)) return 'absent'
+  return probeLockAt(where.path, options)
+}
+
+/** The same probe on any lock file of this kind — a lane's (drive-lanes 3.1) as well as a run's. */
+export function probeLockAt(path: string, options: Pick<RunLockOptions, 'primitive'> = {}): RunLiveness {
+  if (!existsSync(path)) return 'absent'
   const primitive = options.primitive === undefined ? platformPrimitive() : options.primitive
   if (primitive === 'exlock') {
     try {
-      closeSync(openSync(where.path, constants.O_RDONLY | O_SHLOCK | constants.O_NONBLOCK))
+      closeSync(openSync(path, constants.O_RDONLY | O_SHLOCK | constants.O_NONBLOCK))
       return 'free'
     } catch (err) {
       return wouldBlock(err) ? 'held' : 'absent'
     }
   }
   if (primitive === 'flock1') {
-    const res = spawnSync('flock', ['-s', '-n', '-E', String(FLOCK_CONFLICT), where.path, 'true'], {
+    const res = spawnSync('flock', ['-s', '-n', '-E', String(FLOCK_CONFLICT), path, 'true'], {
       stdio: 'ignore',
       timeout: FLOCK_HANDSHAKE_MS,
     })

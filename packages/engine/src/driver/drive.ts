@@ -26,6 +26,8 @@ import { applicableChecks, changedPaths, checkFailureLine, checksInForce, isAppr
 import { refreshGuards } from '../core/index-tier1'
 import { recordRoot } from '../core/git'
 import { claimRunLock, probeRunLock, type RunLockOptions } from '../core/run-lock'
+import { closeLease, LEASE_ENV, leaseFile, openLease, readLease, stillHeld, type LeaseWait } from '../core/leases'
+import { describeRegion } from '../core/regions'
 import { noteLaunched, writeRunProgress } from '../core/run-progress'
 import { cloneRealPath } from '../core/state-dir'
 import { byCodeUnit } from '../core/order'
@@ -191,6 +193,21 @@ export const PARK_BACKOFF_MS = 300_000
 export const PARK_BACKOFF_MAX_MS = 3_600_000
 /** The longest single wait the coordinator sleeps; a longer park is slept in pieces. */
 const NAP_MAX_MS = 3_600_000
+/**
+ * How often an idle coordinator looks again at a lease another run's lane
+ * holds (3.1): its own lanes' leases end with their jobs, which wake it.
+ */
+export const LEASE_POLL_MS = 15_000
+
+/** A park on a lease, as a handoff's detail says it (3.1, D33): who held what, for which task. */
+function parkNote(waits: readonly LeaseWait[]): string {
+  const holders = new Map<string, Set<string>>()
+  for (const w of waits) {
+    const key = `lane ${w.lane} (${w.task})`
+    holders.set(key, (holders.get(key) ?? new Set()).add(describeRegion(w.region)))
+  }
+  return `parked on a lease — ${[...holders].map(([who, regions]) => `${who} holds ${[...regions].join(', ')}`).join('; ')}`
+}
 
 /**
  * How often the threshold policy reads the gauge. Usage only moves when the
@@ -429,6 +446,18 @@ export interface DriveOptions {
   parkBackoffMs?: number
   /** The command a lane runs once to install dependencies; absent detects it from the lockfile, `none` runs nothing. */
   laneSetup?: string
+  /**
+   * Region leases between a lanes run's lanes (drive-lanes 3.1, D33). Each
+   * lane session gets a PreToolUse hook running `hook` (the CLI passes
+   * `sofar event lease` on its own build): `steer` adds context to an edit that
+   * overlaps an older task's lease in another lane, `deny` refuses it (D14). A
+   * session that ends with no task change after a steer has parked: not a
+   * stall, and its task waits until the lease it hit is gone. Absent leases
+   * nothing (3.4's naive arm); ignored on a serial run. A per-driver knob like
+   * `sessionTimeoutMs`: not recorded, and a resumed run takes the resuming
+   * driver's.
+   */
+  leases?: { mode: 'steer' | 'deny'; hook: string }
   /** Bound on one lane setup (default DEFAULT_LANE_SETUP_TIMEOUT_MS). */
   laneSetupTimeoutMs?: number
   /** Adopt the latest run when it has no stop, instead of refusing. */
@@ -504,7 +533,7 @@ type Launched =
   | { kind: 'interrupted' }
   /** No session to name, so no handoff was filed (D3). */
   | { kind: 'unresolved'; why: string; exit: SessionExit }
-  | { kind: 'handoff'; session: string; reason: HandoffReason; exit: SessionExit; exhausted?: string; unlandable?: string }
+  | { kind: 'handoff'; session: string; reason: HandoffReason; exit: SessionExit; exhausted?: string; unlandable?: string; parked?: LeaseWait[] }
 
 /** Task id → status, the before/after snapshot a handoff reason is read from. */
 function taskStatuses(state: InitiativeState): Map<string, string> {
@@ -918,6 +947,8 @@ async function driveHolding(
   // behind. Creating and setting up a lane is said as it happens: a first
   // install takes a while.
   let laneRun: LaneRun | undefined
+  /** Region leases (3.1, D33): the mode, the hook, and the pool the lease files sit in. */
+  let leasing: { mode: 'steer' | 'deny'; hook: string; pool: string } | undefined
   if (lanes > 1) {
     try {
       const from = headCommit(rootDir)
@@ -940,6 +971,14 @@ async function driveHolding(
       const primed = laneRun.prime()
       opening.push(
         `  lanes: ${pool.lanes.map((l) => l.id).join(', ')} in ${lanePoolDir(rootDir, options.lock?.env)}; each task branches from ${laneRun.base} (${base.tip.slice(0, 7)})${setup !== undefined ? `, set up with \`${setup}\`` : ''}`,
+      )
+      if (options.leases !== undefined) leasing = { ...options.leases, pool: lanePoolDir(rootDir, options.lock?.env) }
+      opening.push(
+        leasing === undefined
+          ? '  leases: off — lanes edit with no leases, and the merge queue alone meets their conflicts'
+          : leasing.mode === 'deny'
+            ? "  leases: deny — an edit overlapping an older task's section or symbol in another lane is refused (drive-lanes D14)"
+            : "  leases: steer — an edit overlapping an older task's section or symbol in another lane applies, and the session is told who holds it and what is free (drive-lanes 3.1)",
       )
       if (resuming && base.created) {
         opening.push(`warning: run ${runId}'s base branch ${laneRun.base} was gone — cut again from ${from.slice(0, 7)}, so what it had landed is not in it`)
@@ -1980,6 +2019,10 @@ async function driveHolding(
       ...(route.effort !== undefined ? { effort: route.effort } : {}),
       ...(surface !== undefined ? { surface } : {}),
       ...(options.lowPriority === true ? { lowPriority: true } : {}),
+      // The lane's lease file and the hook that reads it (3.1, D33).
+      ...(leasing !== undefined && laneTask !== undefined
+        ? { env: { [LEASE_ENV]: leaseFile(leasing.pool, laneTask.lane.id) }, leaseHook: leasing.hook }
+        : {}),
     })
     liveSessions.add(session)
     const unwatch = watchRunEvents(
@@ -2051,6 +2094,18 @@ async function driveHolding(
     // reading — a stall, or any exit that was not clean (D9). A clean
     // task_done says nothing a reader needs.
     let detail = reason === 'stall' || !cleanExit(exit) ? describeExit(exit) : undefined
+    // A session steered off another lane's lease that then ended with no task
+    // change has parked (3.1, D33): said in the handoff's detail, since the
+    // reason stays `stall` — nothing resolved — and the coordinator does not
+    // count it as one.
+    let parked: LeaseWait[] | undefined
+    if (reason === 'stall' && leasing !== undefined && laneTask !== undefined) {
+      const waits = readLease(leaseFile(leasing.pool, laneTask.lane.id))?.waits ?? []
+      if (waits.length > 0) {
+        parked = waits
+        detail = `${parkNote(waits)}${detail !== undefined ? `; ${detail}` : ''}`
+      }
+    }
     // The gate (D19): a task_done is accepted only on a recorded pass. A
     // dropped task is never verified — it resolved, it was not tested.
     let exhausted: string | undefined
@@ -2156,6 +2211,7 @@ async function driveHolding(
       exit,
       ...(exhausted !== undefined ? { exhausted } : {}),
       ...(unlandable !== undefined ? { unlandable } : {}),
+      ...(parked !== undefined ? { parked } : {}),
     }
   }
 
@@ -2190,6 +2246,21 @@ async function driveHolding(
     /** Lane id → when its usage-limit park ends (ms). */
     const parked = new Map<number, number>()
     const parkStreak = new Map<number, number>()
+    /** Task id → when this run first gave it a lane: its age under the leases (3.1, D33). */
+    const firstGiven = new Map<string, number>()
+    /** Task id → the leases it parked on (3.1): it waits until every one is gone. */
+    const leaseWaits = new Map<string, LeaseWait[]>()
+    /** Tasks that parked on a lease: their branch takes the base in before they launch again. */
+    const rejoin = new Set<string>()
+    /** Whether a parked task still waits; forgets one whose every lease is gone. */
+    const waitsOnLease = (id: string): boolean => {
+      const waits = leaseWaits.get(id)
+      if (waits === undefined || leasing === undefined) return false
+      const pool = leasing.pool
+      if (waits.some((w) => stillHeld(pool, w))) return true
+      leaseWaits.delete(id)
+      return false
+    }
     let clock = 0
     let waiting: (() => void) | undefined
     let woken = false
@@ -2267,8 +2338,15 @@ async function driveHolding(
         return
       }
       claimed.add(ran.session)
+      // A park on a lease (3.1) is not a stall either: the task waits for the lease.
+      if (ran.parked !== undefined) {
+        leaseWaits.set(job.task.id, ran.parked)
+        rejoin.add(job.task.id)
+        const holders = [...new Set(ran.parked.map((w) => `lane ${w.lane} (${w.task})`))].join(', ')
+        progress(`  lane ${job.lane.id}: ${job.task.id} parked on a lease — not a stall; it waits until ${holders} lets go`)
+      }
       // A usage limit is not the session's stall (D23): the count stands.
-      if (limit === undefined) {
+      if (limit === undefined && ran.parked === undefined) {
         stalls = ran.reason === 'stall' ? stalls + 1 : 0
         lastStall = ran.reason === 'stall' ? `session ${ran.session} — ${describeExit(ran.exit)}` : undefined
       }
@@ -2285,6 +2363,25 @@ async function driveHolding(
     }
     const settle = (): void => {
       for (let job = finished.shift(); job !== undefined; job = finished.shift()) apply(job)
+    }
+    /**
+     * A task back from a park on a lease (3.1) takes the base in first — what
+     * the holder landed while it waited — in its lane, as the merge queue
+     * would at landing (D24): rebased, else merged, and a merge that stops on
+     * conflicts is left for the session the lane launches next.
+     */
+    const rejoinBase = (where: LaneTask, taskId: string): void => {
+      const at = `  lane ${where.lane.id}: ${taskId} is back from its park`
+      try {
+        const into = lanes.integrate(where, taskId)
+        if (into.kind === 'conflict') {
+          progress(`${at} — the merge of ${lanes.base} (${into.onto.slice(0, 7)}) stopped on ${into.paths.join(', ')}, left for its session`)
+        } else if (into.kind !== 'current') {
+          progress(`${at} — ${into.kind} onto ${lanes.base} (${into.onto.slice(0, 7)})`)
+        }
+      } catch (err) {
+        progress(`${at} without ${lanes.base}'s latest — ${err instanceof Error ? err.message : String(err)}`)
+      }
     }
     const start = (task: DriveTask, where: LaneTask, state: InitiativeState, watchFrom: number, launchNo: number): void => {
       const job: Job = { lane: where.lane, task, from: clock++ }
@@ -2303,6 +2400,8 @@ async function driveHolding(
           },
         )
         .finally(() => {
+          // The job is over, gate and landing too: everything the lane leased is free (3.1).
+          if (leasing !== undefined) closeLease(leaseFile(leasing.pool, where.lane.id))
           job.to = clock++
           jobs.delete(where.lane.id)
           finished.push(job)
@@ -2348,10 +2447,18 @@ async function driveHolding(
         const foreign = foreignResolver(ctx.sofarDir, state)
         const heldHandles = new Set([...held].map((id) => `${state.slug} ${id}`))
         const waits = new Map(state.phases.flatMap((p) => p.tasks).map((t) => [t.id, t.waits_on ?? []]))
-        const ready = readyTasks(state, foreign).filter((t) => !held.has(t.id) && !(waits.get(t.id) ?? []).some((h) => heldHandles.has(h)))
+        // A task parked on a lease (3.1) waits until the lease is gone.
+        const ready = readyTasks(state, foreign).filter(
+          (t) => !held.has(t.id) && !(waits.get(t.id) ?? []).some((h) => heldHandles.has(h)) && !waitsOnLease(t.id),
+        )
         if (ready.length === 0) {
           if (jobs.size > 0) {
             await nap()
+            continue
+          }
+          // Only another run's lane can hold a lease now, and its end wakes nothing here.
+          if ([...leaseWaits.keys()].some(waitsOnLease)) {
+            await nap(LEASE_POLL_MS)
             continue
           }
           if (await sweep(state)) continue
@@ -2383,6 +2490,26 @@ async function driveHolding(
           const where = lanes.place(task.id, busy)
           if (where === undefined) continue
           busy.add(where.lane.id)
+          if (leasing !== undefined) {
+            // A task back from a park takes in what landed while it waited, before it edits again.
+            if (rejoin.delete(task.id)) rejoinBase(where, task.id)
+            const since = firstGiven.get(task.id) ?? Date.now()
+            firstGiven.set(task.id, since)
+            try {
+              openLease(leaseFile(leasing.pool, where.lane.id), {
+                v: 1,
+                run: runId,
+                initiative,
+                lane: where.lane.id,
+                task: task.id,
+                title: task.title,
+                since,
+                mode: leasing.mode,
+              })
+            } catch (err) {
+              progress(`warning: lane ${where.lane.id}: no lease for ${task.id} — ${err instanceof Error ? err.message : String(err)}; its edits lease nothing`)
+            }
+          }
           // The setting is read again before every launch (D5).
           const awakeChanged = awake?.beforeLaunch()
           if (awakeChanged !== undefined) progress(awakeChanged)

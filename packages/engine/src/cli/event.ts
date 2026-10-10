@@ -102,6 +102,7 @@ import { probeRunLock, type RunLockOptions } from '../core/run-lock'
 import { launchedRun } from '../core/run-progress'
 import { cloneRealPath } from '../core/state-dir'
 import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } from '../core/run-await'
+import { handleLease } from './lease-hook'
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
@@ -3957,6 +3958,12 @@ export const SUBCOMMANDS: ReadonlyArray<{
     description:
       'PostToolUse hook (Claude Code, asyncRewake): after a Bash call that started a detached run, wait on it and wake this session with one line when it stops or its driver is gone',
     handler: handleDriveAwait,
+  },
+  {
+    name: 'lease',
+    description:
+      "PreToolUse hook (a lanes run's sessions only, drive-lanes 3.1): map an edit to its section or symbol, steer it off another lane's lease with one context line, or refuse it in deny mode",
+    handler: (rootDir, input) => handleLease(rootDir, input),
   },
   {
     name: 'user-prompt',
