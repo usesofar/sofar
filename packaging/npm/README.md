@@ -30,8 +30,10 @@ Pushing a `v<version>` tag runs `.github/workflows/release.yml`:
    token, provenance automatic. The dist-tag is `next` for a pre-release,
    `latest` for a newer stable, `release-<major>.<minor>` for a patch to an
    older line.
-4. `merge-back` opens a pull request merging the tag into main when main does
-   not hold it.
+4. `merge-back`, when main does not hold the tag, pushes it to
+   `merge-back/<tag>` and links a one-click pull request in the run summary.
+   The operator opens it: the organization does not let Actions create pull
+   requests.
 
 Nothing is installable until the operator approves, in a real terminal:
 

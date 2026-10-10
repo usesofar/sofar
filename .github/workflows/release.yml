@@ -154,24 +154,24 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # A tag cut on a release branch leaves main behind it (r4-fixes 0.1): open a
-  # pull request that merges the tagged commit back. Skipped when main already
-  # holds it. The repository must allow Actions to open pull requests.
+  # A tag cut on a release branch leaves main behind it (r4-fixes 0.1): push
+  # the tagged commit to merge-back/<tag> and link a one-click pull request
+  # in the run summary. Skipped when main already holds it. The operator opens
+  # the pull request: the usesofar organization does not let Actions create
+  # pull requests, and the toggle that would also lets them approve one.
   merge-back:
     needs: [verify, stage]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     env:
-      GH_TOKEN: ${{ github.token }}
       TAG: ${{ github.ref_name }}
       VERSION: ${{ needs.verify.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Open the merge-back pull request
+      - name: Push the merge-back branch
         run: |
           if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
             echo "main already holds $TAG"
@@ -179,6 +179,10 @@ jobs:
           fi
           branch="merge-back/$TAG"
           git push origin "$GITHUB_SHA:refs/heads/$branch"
-          gh pr create --base main --head "$branch" \
-            --title "Merge $TAG back into main" \
-            --body "Release $VERSION was cut from a branch main does not hold. Merge it so main's version stays at or above the newest tag (ci.yml release-guard)."
+          {
+            echo "## Merge $TAG back into main"
+            echo
+            echo "Release $VERSION was cut from a branch main does not hold. Merge it so main's version stays at or above the newest tag (ci.yml release-guard):"
+            echo
+            echo "[Open the pull request]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1)"
+          } >> "$GITHUB_STEP_SUMMARY"

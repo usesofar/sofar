@@ -181,6 +181,15 @@ describe('release.yml', () => {
     expect(job('stage')).toMatch(/needs: \[verify, core\]/)
   })
 
+  it('pushes the merge-back branch and links the pull request, never asking Actions to open one', () => {
+    const mergeBack = job('merge-back')
+    expect(mergeBack).toContain('git push origin "$GITHUB_SHA:refs/heads/$branch"')
+    expect(mergeBack).toContain('/compare/main...$branch?expand=1')
+    expect(mergeBack).toContain('>> "$GITHUB_STEP_SUMMARY"')
+    expect(mergeBack).not.toContain('pull-requests: write')
+    expect(yml).not.toMatch(/gh pr create/)
+  })
+
   it('never expands an expression inside a shell line', () => {
     const lines = yml.split('\n')
     const shell: string[] = []
