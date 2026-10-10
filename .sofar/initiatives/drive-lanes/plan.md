@@ -12,7 +12,7 @@ Progress: 3/20 tasks done (15%)
 
 - [x] 1.1 Lane fixture and serial baseline: a sandbox repo with 9 tasks (6 independent, 3 chained by waits_on, 3 editing one shared function), each with a verify command. Serial drive's wall-clock, tasks done, verify pass rate, tokens per task and conflicts are the bar every later step must beat — verified pass @1b91783 (attempt 2)
 - [x] 1.2 Load control so lanes do not saturate the machine: a verify semaphore (one full suite at a time), nice/taskpolicy for sessions and verify, process-group kill on verify timeout, a vitest maxWorkers cap (drive-load note 01M3PCDC, fixes 1-5) — verified pass @214c57b (attempt 1)
-- [x] 1.3 Ready frontier: readyTasks honours waits_on (queuedTasks ignores it today, drive-queue.ts:42); `sofar next --ready`; serial drive takes the ready head — verification fail (attempt 1, exit 1)
+- [x] 1.3 Ready frontier: readyTasks honours waits_on (queuedTasks ignores it today, drive-queue.ts:42); `sofar next --ready`; serial drive takes the ready head — verification timeout (attempt 2)
 
 ## Phase 2 — Local lanes [pending] — 0/5 done
 

@@ -44,3 +44,10 @@ opt-level = 3
 strip = "symbols"
 debug = "line-tables-only"
 split-debuginfo = "packed"
+
+# drive-lanes D17: the parity tests fold every real log under .sofar/, which
+# only grows; unoptimised they took 172 s and pushed a low-priority driven
+# verify past its 600 s timeout. opt-level 1 runs them in under 10 s; debug
+# assertions and overflow checks stay on.
+[profile.test]
+opt-level = 1
