@@ -24,6 +24,7 @@ import {
   LaneRun,
   runBaseBranch,
   taskBranch,
+  unmergedPaths,
 } from '../src/driver/lanes'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
 
@@ -502,6 +503,185 @@ describe('the coordinator (2.3, D21)', () => {
       JSON.stringify({ type: 'lane_assigned', payload: { lane: 1, run: 'RUN', task: '1.1' } }),
     ])
     expect(lines.some((l) => l.includes('while other lanes launched too, and the transport named none (exit 1; usage limit (five_hour)'))).toBe(true)
+  })
+})
+
+describe('the merge queue (2.4, D24)', () => {
+  /** A session's work: one file, committed on its branch. */
+  const commit =
+    (file: string, content: string, message: string) =>
+    (cwd: string): void => {
+      writeFileSync(join(cwd, file), content)
+      git(cwd, 'add', file)
+      git(cwd, 'commit', '-qm', message)
+    }
+  /** Holds a session until `task` has landed, so its own landing finds the base moved. */
+  const afterLanding = (lines: string[], task: string) => async (): Promise<void> => {
+    while (!lines.some((l) => l.startsWith(`  landed ${task} on `))) await sleep(5)
+  }
+
+  it('rebases a branch the base moved past, verifies it again and lands it', async () => {
+    const root = repo('rebase')
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      worker(root, 'S1', { work: commit('a.txt', 'one\n', '1.1: a') }),
+      worker(root, 'S2', { hold: afterLanding(lines, '1.1'), work: commit('b.txt', 'two\n', '1.2: b') }),
+    ])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, verify: 'true', laneSetup: 'none', onProgress: (l) => lines.push(l) })
+
+    expect(outcome.stop.reason).toBe('closed')
+    expect(outcome.handoffs.map((h) => [h.task, h.reason])).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'task_done'],
+    ])
+    const run = state(root).runs[0]!
+    const base = runBaseBranch('demo', run.id)
+    // Linear: 1.2's commit was replayed on 1.1's, with no merge commit.
+    expect(git(root, 'log', '-2', '--format=%s', base).trim().split('\n')).toEqual(['1.2: b', '1.1: a'])
+    expect(git(root, 'rev-list', '--merges', base).trim()).toBe('')
+    expect(lines.some((l) => l.startsWith(`  rebased ${taskBranch('demo', run.id, '1.2')} onto ${base} (`))).toBe(true)
+    expect(lines.some((l) => l.endsWith('— the base moved, so 1.2 is verified again'))).toBe(true)
+    // Verified on the tree its session left, and again on the rebased one.
+    expect(run.verifications.filter((v) => v.task === '1.2').map((v) => [v.attempt, v.result])).toEqual([
+      [1, 'pass'],
+      [2, 'pass'],
+    ])
+  })
+
+  it("hands a conflict to the lane's next session as a merge in progress, and lands its resolution", async () => {
+    const root = repo('conflict', { 'shared.txt': 'base\n' })
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      worker(root, 'S1', { work: commit('shared.txt', 'one\n', '1.1: shared') }),
+      worker(root, 'S2', { hold: afterLanding(lines, '1.1'), work: commit('shared.txt', 'two\n', '1.2: shared') }),
+      // The lane's next session finishes the merge with git add and git commit alone.
+      worker(root, 'S3', {
+        work: (cwd) => {
+          expect(readFileSync(join(cwd, 'shared.txt'), 'utf8')).toContain('<<<<<<<')
+          writeFileSync(join(cwd, 'shared.txt'), 'one\ntwo\n')
+          git(cwd, 'add', 'shared.txt')
+          git(cwd, 'commit', '-q', '--no-edit')
+        },
+      }),
+    ])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, verify: 'true', laneSetup: 'none', onProgress: (l) => lines.push(l) })
+
+    expect(outcome.stop.reason).toBe('closed')
+    expect(outcome.handoffs.map((h) => [h.task, h.reason])).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'merge_conflict'],
+      ['1.2', 'task_done'],
+    ])
+    const run = state(root).runs[0]!
+    const base = runBaseBranch('demo', run.id)
+    const branch = taskBranch('demo', run.id, '1.2')
+    const detail = outcome.handoffs[1]!.detail!
+    expect(detail.startsWith(`merge conflict: ${branch} conflicts with ${base} (`)).toBe(true)
+    expect(detail.endsWith(') in shared.txt — the merge is left in lane 2 for its next session')).toBe(true)
+    expect(lines).toContain(`  ${detail} — task reopened`)
+    const [, s2, s3] = adapter.sessions
+    expect(s3!.request.cwd).toBe(s2!.request.cwd)
+    expect(s3!.request.prompt).toContain(`The run's base, ${base}, moved on while this task was worked`)
+    expect(s3!.request.prompt).toContain('is in progress in this lane, stopped on conflicts in: shared.txt.')
+    expect(git(root, 'show', `${base}:shared.txt`)).toBe('one\ntwo\n')
+    expect(dirtyPaths(s3!.request.cwd)).toEqual([])
+  })
+
+  it("never commits a merge left unresolved, and stops once one task's conflicts reach --max-verify-attempts", async () => {
+    const root = repo('unresolved', { 'shared.txt': 'base\n' })
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      worker(root, 'S1', { work: commit('shared.txt', 'one\n', '1.1: shared') }),
+      worker(root, 'S2', { hold: afterLanding(lines, '1.1'), work: commit('shared.txt', 'two\n', '1.2: shared') }),
+      // Marks the task done without touching the merge.
+      worker(root, 'S3'),
+    ])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, verify: 'true', laneSetup: 'none', maxVerifyAttempts: 2, onProgress: (l) => lines.push(l) })
+
+    const run = state(root).runs[0]!
+    const base = runBaseBranch('demo', run.id)
+    const branch = taskBranch('demo', run.id, '1.2')
+    expect(outcome.handoffs.map((h) => [h.task, h.reason])).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'merge_conflict'],
+      ['1.2', 'merge_conflict'],
+    ])
+    const last = `merge conflict: ${branch} still holds the merge of ${base} unresolved in shared.txt (lane 2)`
+    expect(outcome.handoffs[2]!.detail).toBe(last)
+    expect(outcome.stop).toEqual({ reason: 'stall', note: `1.2 conflicted with ${base} 2 time(s); last: ${last}` })
+    // Not gated, not committed, not landed: the conflict is still the lane's.
+    expect(run.verifications.filter((v) => v.task === '1.2')).toHaveLength(1)
+    expect(git(root, 'show', `${base}:shared.txt`)).toBe('one\n')
+    expect(unmergedPaths(adapter.sessions[2]!.request.cwd)).toEqual(['shared.txt'])
+  })
+
+  it('reopens a branch whose re-verify fails once rebased, and never lands it', async () => {
+    const root = repo('reverify')
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      worker(root, 'S1', { work: commit('a.txt', 'one\n', '1.1: a') }),
+      worker(root, 'S2', { hold: afterLanding(lines, '1.1'), work: commit('b.txt', 'two\n', '1.2: b') }),
+    ])
+    // Each task passes alone; together they do not.
+    const verify = 'test ! -f a.txt -o ! -f b.txt'
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, verify, laneSetup: 'none', maxVerifyAttempts: 1, onProgress: (l) => lines.push(l) })
+
+    expect(outcome.handoffs.map((h) => [h.task, h.reason])).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'verify_failed'],
+    ])
+    expect(outcome.stop.reason).toBe('stall')
+    const run = state(root).runs[0]!
+    expect(run.verifications.filter((v) => v.task === '1.2').map((v) => v.result)).toEqual(['pass', 'fail'])
+    expect(git(root, 'ls-tree', '--name-only', runBaseBranch('demo', run.id))).not.toContain('b.txt')
+  })
+})
+
+describe('LaneRun.integrate (2.4, D24)', () => {
+  it("rebases a linear branch, and merges one already holding a merge so its resolution is kept", async () => {
+    const root = repo('integrate', { 'shared.txt': 'base\n' })
+    const head = git(root, 'rev-parse', 'HEAD').trim()
+    const pool = await claimLanePool(root, 1, head)
+    try {
+      const run = new LaneRun(root, { slug: 'demo', runId: 'R2', lanes: pool.lanes, progress: () => {} })
+      run.ensureBase(head)
+      run.prime()
+      /** Move the base on by one commit, through the checkout (nothing else holds it). */
+      const onBase = (file: string, content: string): void => {
+        git(root, 'checkout', '-q', run.base)
+        writeFileSync(join(root, file), content)
+        git(root, 'add', file)
+        git(root, 'commit', '-qm', `base: ${file}`)
+        git(root, 'checkout', '-q', 'main')
+      }
+      const where = run.prepare('1.1')
+      const dir = where.lane.dir
+      writeFileSync(join(dir, 'shared.txt'), 'lane\n')
+      git(dir, 'commit', '-qam', '1.1: shared')
+      onBase('shared.txt', 'base two\n')
+
+      expect(run.land('1.1').kind).toBe('diverged')
+      const stopped = run.integrate(where, '1.1')
+      expect(stopped).toEqual({ kind: 'conflict', onto: run.baseTip(), paths: ['shared.txt'] })
+      expect(run.mergeInProgress(where.lane)).toEqual({ onto: run.baseTip(), paths: ['shared.txt'] })
+      expect(run.commitLeftovers(where, '1.1')).toEqual({ kind: 'unresolved', paths: ['shared.txt'] })
+
+      // The session resolves it; then the base moves again.
+      writeFileSync(join(dir, 'shared.txt'), 'both\n')
+      git(dir, 'add', 'shared.txt')
+      git(dir, 'commit', '-q', '--no-edit')
+      expect(run.mergeInProgress(where.lane)).toBeUndefined()
+      onBase('other.txt', 'x\n')
+
+      const merged = run.integrate(where, '1.1')
+      expect(merged.kind).toBe('merged')
+      expect(readFileSync(join(dir, 'shared.txt'), 'utf8')).toBe('both\n')
+      expect(run.land('1.1').kind).toBe('landed')
+      expect(run.integrate(where, '1.1')).toEqual({ kind: 'current' })
+      expect(git(root, 'show', `${run.base}:other.txt`)).toBe('x\n')
+    } finally {
+      for (const l of pool.held) l.release()
+    }
   })
 })
 

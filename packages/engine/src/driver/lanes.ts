@@ -29,6 +29,9 @@ import { lowPriority } from './load'
  * fast-forwards the base. The checkout's own branch is never moved: it is
  * checked out under the operator's working tree. The coordinator (2.3, D21)
  * runs lanes at once, so placing a task skips the lanes it says are busy.
+ * A branch the base moved past is integrated in its own lane (2.4, D24):
+ * rebased, else merged, and a merge that stops on conflicts stays in the lane
+ * for the lane's next session to finish.
  */
 
 export class LaneError extends Error {
@@ -181,6 +184,13 @@ export function dirtyPaths(dir: string): string[] {
   return paths
 }
 
+/** Paths a merge left unresolved in `dir`: the index's conflict entries. */
+export function unmergedPaths(dir: string): string[] {
+  return git(dir, ['diff', '--name-only', '-z', '--diff-filter=U'])
+    .split('\0')
+    .filter((p) => p.length > 0)
+}
+
 export interface LanePoolOptions {
   /** Where the pool and its locks live, and which lock primitive is used (the run lock's). */
   lock?: RunLockOptions
@@ -273,8 +283,22 @@ export type Landing =
   | { kind: 'landed'; from: string; to: string }
   /** The branch is already in the base: nothing moved. */
   | { kind: 'already' }
-  /** The base moved past the branch's fork point (2.4's merge queue rebases it); nothing moved. */
+  /** The base moved past the branch's fork point: `integrate` it first (2.4); nothing moved. */
   | { kind: 'diverged'; branch: string; tip: string }
+
+export type Integration =
+  /** The branch already holds the base's tip: nothing to do. */
+  | { kind: 'current' }
+  /** The branch now holds the base's tip `onto`; its HEAD moved `from` → `to`. */
+  | { kind: 'rebased' | 'merged'; from: string; to: string; onto: string }
+  /** Merging `onto` stopped on conflicts in `paths`; the merge is left in the lane (D24). */
+  | { kind: 'conflict'; onto: string; paths: string[] }
+
+export type Leftovers =
+  | { kind: 'clean' }
+  | { kind: 'committed'; sha: string; paths: number }
+  /** A merge's conflicts are still unresolved there: nothing was committed (D24). */
+  | { kind: 'unresolved'; paths: string[] }
 
 /**
  * One lanes run's branches over its claimed lanes (D20). Every git call goes
@@ -411,21 +435,25 @@ export class LaneRun {
   /**
    * Commit what the session left uncommitted on its task branch (D20), `.sofar`
    * excepted, so the gate verifies what lands. Hooks are skipped: this is the
-   * driver's bookkeeping on a branch it made, not an authored commit.
+   * driver's bookkeeping on a branch it made, not an authored commit. A merge
+   * the session left unresolved is never committed (D24): `git add` would take
+   * its conflict markers as the resolution.
    */
-  commitLeftovers(task: LaneTask, taskId: string): { sha: string; paths: number } | undefined {
+  commitLeftovers(task: LaneTask, taskId: string): Leftovers {
+    const unresolved = unmergedPaths(task.lane.dir)
+    if (unresolved.length > 0) return { kind: 'unresolved', paths: unresolved }
     const dirty = dirtyPaths(task.lane.dir)
-    if (dirty.length === 0) return undefined
+    if (dirty.length === 0) return { kind: 'clean' }
     git(task.lane.dir, ['add', '-A', '--', '.', ':(exclude,top).sofar'])
     git(task.lane.dir, ['commit', '-q', '--no-verify', '-m', `${taskId}: work the session left uncommitted (sofar drive)`])
-    return { sha: headCommit(task.lane.dir), paths: dirty.length }
+    return { kind: 'committed', sha: headCommit(task.lane.dir), paths: dirty.length }
   }
 
   /**
    * Fast-forward the base to the task's branch (D20), compare-and-swap so a
    * base moved meanwhile is never overwritten. A branch the base no longer
-   * descends to is left where it is and said so: rebasing it is 2.4's merge
-   * queue.
+   * descends to is left where it is and said so: the merge queue (2.4)
+   * integrates it and lands it again.
    */
   land(taskId: string): Landing {
     const branch = this.branchOf(taskId)
@@ -435,6 +463,43 @@ export class LaneRun {
     if (!gitOk(this.rootDir, ['merge-base', '--is-ancestor', base, tip])) return { kind: 'diverged', branch, tip }
     git(this.rootDir, ['update-ref', '-m', `sofar drive: land ${taskId}`, `refs/heads/${this.base}`, tip, base])
     return { kind: 'landed', from: base, to: tip }
+  }
+
+  /**
+   * Bring the base's tip into a task branch the base moved past (2.4, D24), in
+   * the lane holding it, which must be clean. A branch with no merge commit is
+   * rebased, so the base stays linear; one already holding a merge — a
+   * session's resolution of an earlier conflict — or one the rebase stopped
+   * on is merged instead, so no resolution is replayed. A merge that stops on
+   * conflicts is left in progress for the lane's next session.
+   */
+  integrate(task: LaneTask, taskId: string): Integration {
+    const { lane, branch } = task
+    if (currentBranch(lane.dir) !== branch) throw new LaneError(`lane ${lane.id} (${lane.dir}) is not on ${branch}, so it cannot integrate ${taskId}`)
+    const dirty = dirtyPaths(lane.dir).length
+    if (dirty > 0) throw new LaneError(`lane ${lane.id} (${lane.dir}) holds ${dirty} uncommitted path${dirty === 1 ? '' : 's'}, so it cannot integrate ${taskId}`)
+    const onto = this.baseTip()
+    const from = headCommit(lane.dir)
+    if (gitOk(lane.dir, ['merge-base', '--is-ancestor', onto, 'HEAD'])) return { kind: 'current' }
+    if (git(lane.dir, ['rev-list', '--merges', '-n', '1', `${onto}..HEAD`]).trim().length === 0) {
+      if (gitOk(lane.dir, ['rebase', '-q', '--no-verify', onto])) return { kind: 'rebased', from, to: headCommit(lane.dir), onto }
+      gitOk(lane.dir, ['rebase', '--abort'])
+    }
+    if (gitOk(lane.dir, ['merge', '-q', '--no-verify', '--no-edit', '-m', `${taskId}: merge ${this.base} (sofar drive)`, onto])) {
+      return { kind: 'merged', from, to: headCommit(lane.dir), onto }
+    }
+    const paths = unmergedPaths(lane.dir)
+    if (paths.length === 0) {
+      gitOk(lane.dir, ['merge', '--abort'])
+      throw new LaneError(`git merge of ${this.base} into ${branch} failed in lane ${lane.id} (${lane.dir}) with no conflict to hand on`)
+    }
+    return { kind: 'conflict', onto, paths }
+  }
+
+  /** The merge a lane holds in progress (D24): the commit being merged and the paths still unresolved. */
+  mergeInProgress(lane: Lane): { onto: string; paths: string[] } | undefined {
+    const onto = revParse(lane.dir, 'MERGE_HEAD')
+    return onto === undefined ? undefined : { onto, paths: unmergedPaths(lane.dir) }
   }
 
   /** Whether the task has a branch the base does not hold yet. */

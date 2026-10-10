@@ -276,9 +276,9 @@ run_started (run, adapter, policy: task|threshold, threshold_pct? and
 context_window? — BOTH REQUIRED for `threshold`, max_sessions?, surface?,
 verify? — the run's default acceptance command, r1-fixes 3.1 D19 — lanes? —
 an integer ≥2, absent on a serial run, drive-lanes 2.2) · handoff (run, session_id, reason:
-task_done|threshold|stall|needs_user|verify_failed, task?, tokens?, detail? — how the
+task_done|threshold|stall|needs_user|verify_failed|merge_conflict, task?, tokens?, detail? — how the
 process ended, on stalls and unclean exits, r1-fixes D9; `verify_failed`
-since r1-fixes 3.1) · verification_recorded (run, task, attempt, command, cwd, checked {head, tree}, validator, result: pass|fail|timeout|error|refused, exit_code?, signal?, duration_ms, timeout_ms, diagnostics? ≤1,024 chars — the driver ran a task's acceptance command before accepting it, r1-fixes 3.1 D19 — decision? `<slug> D<n>` when it ran that decision's check, memory-lead D9) · run_stopped (run,
+since r1-fixes 3.1; `merge_conflict` since drive-lanes 2.4) · verification_recorded (run, task, attempt, command, cwd, checked {head, tree}, validator, result: pass|fail|timeout|error|refused, exit_code?, signal?, duration_ms, timeout_ms, diagnostics? ≤1,024 chars — the driver ran a task's acceptance command before accepting it, r1-fixes 3.1 D19 — decision? `<slug> D<n>` when it ran that decision's check, memory-lead D9) · run_stopped (run,
 reason: closed|needs_user|stall|cost_cap|max_sessions|interrupted|error,
 note? — REQUIRED for `error`; the three driver events ride on envelope
 session `cli`, since a run is not a session; session-driver 1.2, see
@@ -2259,7 +2259,9 @@ fire.
 
 **Reasons.** handoff: `task_done` | `threshold` | `verify_failed` (r1-fixes 3.1, D19: the session marked its task done and the acceptance command rejected it — reopened, failure in the next prompt) | `stall` (the session ended
 with no task change) | `needs_user` (its write-back names a decision only
-the operator can take). stop: `closed` | `needs_user` | `stall` (N
+the operator can take) | `merge_conflict` (drive-lanes 2.4, D24: a lanes
+run's task whose branch would not merge onto the run's base — reopened, the
+merge left in its lane for the lane's next session). stop: `closed` | `needs_user` | `stall` (N
 consecutive stalls) | `cost_cap` | `max_sessions` | `interrupted` |
 `error` — `note` is REQUIRED for `error`, the dropped-task rule: a run that
 died unexplained is one nobody can resume.
@@ -2716,8 +2718,7 @@ records the count, never a path; a resumed run keeps it. Refused before
 anything is recorded: `--lanes` with `--cwd`, with the `threshold` policy, or
 `--lane-setup` without lanes; a lane setup that fails; a path in the pool that
 is not a worktree of this repository. A task branch the base no longer
-descends to stops the run as `error` (the merge queue that rebases it is
-drive-lanes 2.4).
+descends to goes through the merge queue below.
 
 **The coordinator (drive-lanes 2.3, D21–D23).** A lanes run is driven by one
 loop that runs its lanes AT ONCE. Each turn it folds the record and gives
@@ -2751,6 +2752,33 @@ is unchanged: a limited launch there still counts as a stall, and the exit
 line names the limit. Where a run's line names its lanes (`sofar status`, the
 injected record) it adds what they hold while they hold it — `2 lanes (L1
 2.3, L2 2.4)`.
+
+**The merge queue (drive-lanes 2.4, D24, D25).** Landings run ONE AT A TIME,
+so the base cannot move between a branch's integration, its re-verify and its
+fast-forward; a lane waiting its turn stays busy. A branch that holds the
+base's tip fast-forwards the base as above, with no second verify. A branch
+the base moved past is integrated in its own lane: REBASED onto the base's tip
+when it holds no merge commit, else — or when the rebase stops — MERGED into
+(`git merge --no-edit`, message `<task>: merge <base> (sofar drive)`), so a
+session's resolution of an earlier conflict is never replayed. Its tree is no
+longer the one that passed, so the gate runs again in the lane — the same
+gate as acceptance (D25); a pass fast-forwards the base, a failure reopens the
+task and the handoff is `verify_failed`. A merge that stops on conflicts is
+LEFT IN PROGRESS in the lane: the task is reopened (note `reopened by the
+driver — merge conflict: <branch> conflicts with <base> (<sha7>) in <paths> —
+the merge is left in lane <k> for its next session`) and the handoff is
+`merge_conflict` with that line as detail. The lane holds the branch, and its
+uncommitted tree keeps every other task out, so the task's next launch is
+there; its prompt, read from the lane's MERGE_HEAD and unmerged paths, says to
+resolve, `git add` and `git commit` — commands the protocol floor already
+grants. A lane still holding unmerged paths when its task is marked done is
+never committed (`git add` would take the markers as the resolution): that
+handoff is `merge_conflict` again, with no gate. When one task's
+`merge_conflict` handoffs in the run reach `--max-verify-attempts` the run
+stops as `stall`. A resumed run's recovery lands a done, unlanded branch
+through the same queue and reopens it the same way, filing no handoff. An
+interrupt or a takeover while a branch waits or re-verifies leaves it
+unlanded for a resumed run (D13).
 
 **Per-task routing (3.2, D10).** A plan task may carry
 `route {agent?, model?, effort?}`, and the driver resolves it at every launch.

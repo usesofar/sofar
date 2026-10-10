@@ -541,9 +541,11 @@ export type RunPolicy = (typeof RUN_POLICIES)[number]
  * write-back's prose (session-driver D5); `verify_failed`
  * (r1-fixes 3.1, D19) is a task the session marked done that the acceptance
  * command then rejected — the driver reopened it, and the next session gets
- * the failure.
+ * the failure; `merge_conflict` (drive-lanes 2.4, D24) is a lanes run's task
+ * whose branch would not merge onto the run's base — the driver reopened it
+ * and left the merge in its lane for the lane's next session to resolve.
  */
-export const HANDOFF_REASONS = ['task_done', 'threshold', 'stall', 'needs_user', 'verify_failed'] as const
+export const HANDOFF_REASONS = ['task_done', 'threshold', 'stall', 'needs_user', 'verify_failed', 'merge_conflict'] as const
 export type HandoffReason = (typeof HANDOFF_REASONS)[number]
 
 /** Why the run itself ended — the stop rules, plus the two ways a run can die. */

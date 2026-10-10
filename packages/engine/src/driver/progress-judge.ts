@@ -22,8 +22,9 @@ import { CLOUD_PRODUCER, judge, redactState, type Answer, type JudgeOptions, typ
  * printed on the progress line. A warning is added when the verdict and the
  * fold disagree with conviction.
  *
- * The rules answer only what the record already says: a verify_failed task is
- * not done, and a needs_user session is blocked on the operator. They are
+ * The rules answer only what the record already says: a verify_failed or
+ * merge_conflict task is not done, and a needs_user session is blocked on the
+ * operator. They are
  * never stored, since they restate the fold and carry no model string (D4).
  * Nothing runs unless a `cloud` provider is configured: without one, the fold
  * already says everything the rules could.
@@ -83,7 +84,7 @@ export function progressRequest(e: ProgressEvidence): Request {
           true: '`diff` and `write_back` show the work `task` asks for, and `test`, if present, passed',
           false: 'part of `task` is missing, `test` failed, the change does not match `task`, or nothing landed',
         },
-        decide: () => (e.reason === 'verify_failed' ? { type: 'noul', noul: 0 } : null),
+        decide: () => (e.reason === 'verify_failed' || e.reason === 'merge_conflict' ? { type: 'noul', noul: 0 } : null),
       },
       outcome: {
         type: 'choice',

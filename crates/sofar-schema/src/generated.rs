@@ -134,6 +134,8 @@ pub enum HandoffReason {
     NeedsUser,
     #[serde(rename = "verify_failed")]
     VerifyFailed,
+    #[serde(rename = "merge_conflict")]
+    MergeConflict,
 }
 impl ::std::fmt::Display for HandoffReason {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
@@ -143,6 +145,7 @@ impl ::std::fmt::Display for HandoffReason {
             Self::Stall => f.write_str("stall"),
             Self::NeedsUser => f.write_str("needs_user"),
             Self::VerifyFailed => f.write_str("verify_failed"),
+            Self::MergeConflict => f.write_str("merge_conflict"),
         }
     }
 }
@@ -155,6 +158,7 @@ impl ::std::str::FromStr for HandoffReason {
             "stall" => Ok(Self::Stall),
             "needs_user" => Ok(Self::NeedsUser),
             "verify_failed" => Ok(Self::VerifyFailed),
+            "merge_conflict" => Ok(Self::MergeConflict),
             _ => Err("invalid value".into()),
         }
     }

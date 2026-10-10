@@ -543,7 +543,7 @@ export function renderPrompt(
   task: DriveTask,
   policy: RunPolicy = 'task',
   failure?: string,
-  lane?: { id: number; dir: string; branch: string },
+  lane?: { id: number; dir: string; branch: string; base?: string; merge?: { onto: string; paths: string[] } },
 ): string {
   const scope =
     policy === 'threshold'
@@ -576,6 +576,21 @@ export function renderPrompt(
           `branch ${lane.branch}. Work and commit there; the driver lands the branch once the`,
           'task is accepted. The record is the run checkout\'s: sofar reads and writes it from',
           'this lane, and it is committed from that checkout, never from a lane.',
+          '',
+        ]
+      : []),
+    // A merge handoff (drive-lanes 2.4, D24), read from the lane itself: the
+    // merge queue merged the run's base into this branch and it stopped on
+    // conflicts. Finishing it needs only `git add` and `git commit`.
+    ...(lane?.merge !== undefined
+      ? [
+          `The run's base${lane.base !== undefined ? `, ${lane.base},` : ''} moved on while this task was worked, and the driver's merge of it`,
+          `(${lane.merge.onto.slice(0, 7)}) into this branch is in progress in this lane${
+            lane.merge.paths.length > 0 ? `, stopped on conflicts in: ${lane.merge.paths.join(', ')}` : ', every conflict resolved but not committed'
+          }.`,
+          'Finish it first: resolve each conflict so both sides\' intent survives, `git add` the',
+          'files and `git commit` to conclude the merge. Then check the task still does what it',
+          'asks, and mark it done. The driver lands the branch only once the merge is concluded.',
           '',
         ]
       : []),
@@ -1367,22 +1382,99 @@ async function driveHolding(
   // uncommitted is committed on its task branch before the gate, so the gate
   // verifies exactly what lands; an accepted branch then fast-forwards the
   // base. A serial run does neither.
-  const commitLeftovers = (where: LaneTask, taskId: string): void => {
+  /** Commit a done task's leftovers; the merge-conflict line instead when a merge there is unresolved (D24). */
+  const commitLeftovers = (where: LaneTask, taskId: string): string | undefined => {
     const left = laneRun?.commitLeftovers(where, taskId)
-    if (left !== undefined) {
+    if (left?.kind === 'committed') {
       progress(`  committed ${left.paths} path${left.paths === 1 ? '' : 's'} the session left uncommitted on ${where.branch} (${left.sha.slice(0, 7)})`)
     }
+    if (left?.kind !== 'unresolved') return undefined
+    return `merge conflict: ${where.branch} still holds the merge of ${laneRun!.base} unresolved in ${left.paths.join(', ')} (lane ${where.lane.id})`
   }
-  /** Land an accepted task's branch on the base; the stop note when it cannot fast-forward. */
-  const landTask = (taskId: string): string | undefined => {
-    if (laneRun === undefined) return undefined
-    const landing = laneRun.land(taskId)
-    if (landing.kind === 'landed') {
-      progress(`  landed ${taskId} on ${laneRun.base} (${landing.from.slice(0, 7)}..${landing.to.slice(0, 7)})`)
-    }
-    if (landing.kind !== 'diverged') return undefined
-    return `${taskId} was accepted but ${landing.branch} (${landing.tip.slice(0, 7)}) no longer descends from ${laneRun.base} — its work is on that branch, unlanded; merge it by hand`
+  /**
+   * Reopen a task the merge queue could not land for a conflict (D24), as the
+   * gate reopens a failed one. The exhausted note when its conflicts in this
+   * run, this one included, reach --max-verify-attempts.
+   */
+  const reopenConflicted = (taskId: string, line: string, handoff: boolean): string | undefined => {
+    ctx.appendAndProject(
+      initiative,
+      'task_status_changed',
+      { id: taskId, status: 'active', note: `reopened by the driver — ${line}` },
+      { session: 'cli', source: 'cli', actor: 'human' },
+    )
+    progress(`  ${line} — task reopened`)
+    if (!handoff) return undefined
+    const run = ctx.foldState(initiative).runs.find((r) => r.id === runId)
+    const conflicts = (run?.handoffs ?? []).filter((h) => h.task === taskId && h.reason === 'merge_conflict').length + 1
+    return conflicts >= maxVerifyAttempts ? `${taskId} conflicted with ${laneRun!.base} ${conflicts} time(s); last: ${line}` : undefined
   }
+
+  /**
+   * The merge queue (drive-lanes 2.4, D24): landings run one at a time, so the
+   * base cannot move between a branch's integration, its re-verify and its
+   * fast-forward. Each turn waits for the one before it, whatever it ended in.
+   */
+  let mergeTail: Promise<unknown> = Promise.resolve()
+  const merging = <T>(turn: () => Promise<T>): Promise<T> => {
+    const mine = mergeTail.then(turn)
+    mergeTail = mine.catch(() => undefined)
+    return mine
+  }
+  type Landed =
+    | { kind: 'landed' }
+    /** Interrupted or fenced in the queue: left unlanded for a resumed run (D13). */
+    | { kind: 'held' }
+    /** The re-verify of the integrated branch failed: the gate reopened the task. */
+    | { kind: 'reverify_failed'; line: string; exhausted?: string }
+    /** The merge stopped on conflicts, left in the lane; the task is reopened. */
+    | { kind: 'conflict'; line: string; exhausted?: string }
+    | { kind: 'unlandable'; note: string }
+  /**
+   * Land an accepted task's branch on the base, through the queue. A branch
+   * the base moved past is integrated in its lane and gated again there,
+   * since its tree is no longer the one that passed; only a pass lands it.
+   * `handoff` is false where no session hands off (a resumed run's recovery).
+   */
+  const landTask = (taskId: string, where: LaneTask, handoff: boolean): Promise<Landed> =>
+    merging(async (): Promise<Landed> => {
+      const lanes = laneRun
+      if (lanes === undefined) return { kind: 'landed' }
+      if (fenced !== undefined || interrupted) return { kind: 'held' }
+      let landing = lanes.land(taskId)
+      if (landing.kind === 'diverged') {
+        const integrated = lanes.integrate(where, taskId)
+        if (integrated.kind === 'conflict') {
+          const line = `merge conflict: ${where.branch} conflicts with ${lanes.base} (${integrated.onto.slice(0, 7)}) in ${integrated.paths.join(', ')} — the merge is left in lane ${where.lane.id} for its next session`
+          const exhausted = reopenConflicted(taskId, line, handoff)
+          return { kind: 'conflict', line, ...(exhausted !== undefined ? { exhausted } : {}) }
+        }
+        if (integrated.kind !== 'current') {
+          progress(
+            `  ${integrated.kind} ${where.branch} onto ${lanes.base} (${integrated.onto.slice(0, 7)}; ${integrated.from.slice(0, 7)}..${integrated.to.slice(0, 7)}) — the base moved, so ${taskId} is verified again`,
+          )
+          const g = await gate(ctx.foldState(initiative), taskId, where.lane.dir)
+          // Ended with no verdict: the integrated branch waits for a resumed run.
+          if (fenced !== undefined || interrupted) return { kind: 'held' }
+          if (g.applies && !g.passed) {
+            return {
+              kind: 'reverify_failed',
+              line: g.line,
+              ...(g.exhausted ? { exhausted: `${taskId} failed verification ${g.attempt} time(s); last: ${g.line}` } : {}),
+            }
+          }
+        }
+        landing = lanes.land(taskId)
+      }
+      if (landing.kind === 'diverged') {
+        return {
+          kind: 'unlandable',
+          note: `${taskId} was accepted but ${landing.branch} (${landing.tip.slice(0, 7)}) still does not descend from ${lanes.base} after the merge queue integrated it — its work is on that branch, unlanded`,
+        }
+      }
+      if (landing.kind === 'landed') progress(`  landed ${taskId} on ${lanes.base} (${landing.from.slice(0, 7)}..${landing.to.slice(0, 7)})`)
+      return { kind: 'landed' }
+    })
 
   /**
    * Tasks done under this run with no check behind them (D19): a crash between
@@ -1413,13 +1505,19 @@ async function driveHolding(
       const unlanded = laneRun?.unlanded(doneId) === true
       if (!unchecked && !unlanded) continue
       let dir = cwd
+      let where: LaneTask | undefined
       if (laneRun !== undefined) {
         if (unlanded) {
           // With lanes busy, one may free up by the next turn.
-          const where = busy.size === 0 ? laneRun.prepare(doneId) : laneRun.place(doneId, busy)
+          where = busy.size === 0 ? laneRun.prepare(doneId) : laneRun.place(doneId, busy)
           if (where === undefined) continue
           baseLane = null // prepare may have taken that lane
-          commitLeftovers(where, doneId)
+          const unresolved = commitLeftovers(where, doneId)
+          if (unresolved !== undefined) {
+            reopenConflicted(doneId, unresolved, false)
+            reopened = true
+            continue
+          }
           dir = where.lane.dir
         } else {
           if (baseLane === null) baseLane = laneRun.atBase(busy)
@@ -1431,10 +1529,13 @@ async function driveHolding(
       if (g.applies && !g.passed) {
         reopened = true
         if (g.exhausted) stop = { reason: 'stall', note: `${doneId} failed verification ${g.attempt} time(s); last: ${g.line}` }
-      } else if (unlanded && fenced === undefined && !interrupted) {
-        const diverged = landTask(doneId)
-        if (diverged !== undefined) {
-          stop = { reason: 'error', note: diverged }
+      } else if (where !== undefined && fenced === undefined && !interrupted) {
+        const landed = await landTask(doneId, where, false)
+        if (landed.kind === 'conflict' || landed.kind === 'reverify_failed') {
+          reopened = true
+          if (landed.exhausted !== undefined) stop = { reason: 'stall', note: landed.exhausted }
+        } else if (landed.kind === 'unlandable') {
+          stop = { reason: 'error', note: landed.note }
           break
         }
       }
@@ -1525,6 +1626,11 @@ async function driveHolding(
     const routed = route.adapter
     progress(`session ${launchNo}: ${task.id} — ${task.title}${routed !== adapter ? ` via ${routed.name}` : ''}`)
     if (laneTask !== undefined) progress(`  lane ${laneTask.lane.id}: ${laneTask.lane.dir} on ${laneTask.branch}`)
+    // A merge the queue left in this lane is handed to this session (D24).
+    const merge = laneTask !== undefined ? laneRun?.mergeInProgress(laneTask.lane) : undefined
+    if (merge !== undefined) {
+      progress(`  lane ${laneTask!.lane.id}: the merge of ${laneRun!.base} (${merge.onto.slice(0, 7)}) is in progress there — handed to this session${merge.paths.length > 0 ? ` to resolve ${merge.paths.join(', ')}` : ''}`)
+    }
     // The coordinator publishes once a turn's assignments are recorded (2.3).
     if (lane === undefined) publish(state, task.id)
     const failure = lastFailure(state, task.id)
@@ -1556,7 +1662,9 @@ async function driveHolding(
         task,
         policy,
         failure,
-        laneTask !== undefined ? { id: laneTask.lane.id, dir: laneTask.lane.dir, branch: laneTask.branch } : undefined,
+        laneTask !== undefined
+          ? { id: laneTask.lane.id, dir: laneTask.lane.dir, branch: laneTask.branch, ...(merge !== undefined ? { base: laneRun!.base, merge } : {}) }
+          : undefined,
       ),
       task: { id: task.id, title: task.title },
       ...(route.model !== undefined ? { model: route.model } : {}),
@@ -1638,21 +1746,38 @@ async function driveHolding(
     // dropped task is never verified — it resolved, it was not tested.
     let exhausted: string | undefined
     let checked: string | undefined
-    // On a lanes run (D20) the done task's branch lands once accepted.
+    // On a lanes run (D20) the done task's branch lands once accepted, through
+    // the merge queue (2.4, D24).
     let unlandable: string | undefined
     if (reason === 'task_done' || reason === 'threshold') {
       const done = taskStatuses(after).get(task.id) === 'done'
-      if (laneTask !== undefined && done) commitLeftovers(laneTask, task.id)
-      const g = await gate(after, task.id, launchDir)
-      // Adopted while it verified: the handoff is the new owner's to file.
-      if (fenced !== undefined) return { kind: 'fenced' }
-      if (g.applies) checked = g.line.length > 0 ? g.line : 'passed: an earlier check still covers this tree'
-      if (g.applies && !g.passed) {
-        reason = 'verify_failed'
-        detail = g.line
-        if (g.exhausted) exhausted = `${task.id} failed verification ${g.attempt} time(s); last: ${g.line}`
-      } else if (laneTask !== undefined && done && !interrupted) {
-        unlandable = landTask(task.id)
+      // A merge the session left unresolved is still a conflict, and is never gated.
+      const unresolved = laneTask !== undefined && done ? commitLeftovers(laneTask, task.id) : undefined
+      if (unresolved !== undefined) {
+        reason = 'merge_conflict'
+        detail = unresolved
+        exhausted = reopenConflicted(task.id, unresolved, true)
+      } else {
+        const g = await gate(after, task.id, launchDir)
+        // Adopted while it verified: the handoff is the new owner's to file.
+        if (fenced !== undefined) return { kind: 'fenced' }
+        if (g.applies) checked = g.line.length > 0 ? g.line : 'passed: an earlier check still covers this tree'
+        if (g.applies && !g.passed) {
+          reason = 'verify_failed'
+          detail = g.line
+          if (g.exhausted) exhausted = `${task.id} failed verification ${g.attempt} time(s); last: ${g.line}`
+        } else if (laneTask !== undefined && done && !interrupted) {
+          const landed = await landTask(task.id, laneTask, true)
+          if (fenced !== undefined) return { kind: 'fenced' }
+          if (landed.kind === 'conflict' || landed.kind === 'reverify_failed') {
+            reason = landed.kind === 'conflict' ? 'merge_conflict' : 'verify_failed'
+            detail = landed.line
+            if (landed.kind === 'reverify_failed') checked = landed.line
+            exhausted = landed.exhausted
+          } else if (landed.kind === 'unlandable') {
+            unlandable = landed.note
+          }
+        }
       }
     }
     ctx.appendAndProject(

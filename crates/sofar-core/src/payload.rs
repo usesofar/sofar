@@ -32,12 +32,13 @@ pub const INITIATIVE_STATUSES: [&str; 4] = ["active", "done", "dropped", "supers
 pub const REVIEW_VERDICTS: [&str; 3] = ["pass", "findings", "blocked"];
 pub const REVIEW_SCOPES: [&str; 2] = ["phase", "final"];
 pub const RUN_POLICIES: [&str; 2] = ["task", "threshold"];
-pub const HANDOFF_REASONS: [&str; 5] = [
+pub const HANDOFF_REASONS: [&str; 6] = [
     "task_done",
     "threshold",
     "stall",
     "needs_user",
     "verify_failed",
+    "merge_conflict",
 ];
 pub const RUN_STOP_REASONS: [&str; 7] = [
     "closed",
@@ -1495,7 +1496,7 @@ mod tests {
                 "{\"run\":\"r\",\"session_id\":\"s\",\"reason\":\"nope\",\"tokens\":-1}"
             ),
             [
-                "reason: must be one of task_done|threshold|stall|needs_user|verify_failed",
+                "reason: must be one of task_done|threshold|stall|needs_user|verify_failed|merge_conflict",
                 "tokens: must be a non-negative integer when present",
             ]
         );
