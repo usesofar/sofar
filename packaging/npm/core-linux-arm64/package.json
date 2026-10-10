@@ -4,7 +4,7 @@
   "description": "sofar's native hot-path core (sofar-core) for linux-arm64. Installed by sofar.sh as an optional dependency; never depend on it directly.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jithinio/sofar.git",
+    "url": "git+https://github.com/usesofar/sofar.git",
     "directory": "packaging/npm/core-linux-arm64"
   },
   "homepage": "https://sofar.sh",

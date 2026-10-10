@@ -94,7 +94,7 @@ function manifest(p, version) {
     name: packageName(p),
     version,
     description: `sofar's native hot-path core (sofar-core) for ${p.platform}-${p.arch}. Installed by sofar.sh as an optional dependency; never depend on it directly.`,
-    repository: { type: 'git', url: 'git+https://github.com/jithinio/sofar.git', directory: `packaging/npm/${packageDir(p)}` },
+    repository: { type: 'git', url: 'git+https://github.com/usesofar/sofar.git', directory: `packaging/npm/${packageDir(p)}` },
     homepage: 'https://sofar.sh',
     license: 'MIT',
     os: [p.platform],

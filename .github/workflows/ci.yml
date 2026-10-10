@@ -73,10 +73,9 @@ jobs:
   # The native core (rust-core 3.2): one build per platform sofar.sh ships a
   # core for, tested where the runner can run it, and uploaded as the
   # artifact `packaging/npm/emit.mjs --binaries` stages into the platform
-  # packages. Publishing stays a human step (repo memory M1): download the
-  # `sofar-core-*` artifacts, run the emit script, `npm publish` each
-  # platform package, then sofar.sh — the optionalDependencies pin them at
-  # the release version, so the order matters.
+  # packages. A release builds its own at the tag (release.yml, r4-fixes E2)
+  # and stages all six for the operator's approval; packaging/npm/README.md
+  # keeps the by-hand fallback.
   core:
     strategy:
       fail-fast: false

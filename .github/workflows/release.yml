@@ -1,0 +1,184 @@
+# Release (r4-fixes E2): a pushed v* tag builds the five native cores, attests
+# them, and STAGES all six packages on npm through trusted publishing (OIDC).
+# Nothing is installable until the operator approves each staged package with
+# 2FA (`node packaging/npm/stage-approve.mjs <version>`), so the release stays
+# the operator's hand and no npm token lives in this repository.
+#
+# One-time setup, by the operator: `node packaging/npm/trust.mjs` registers this
+# workflow, in the `npm` environment, as each package's stage-only trusted
+# publisher. Until then the stage step fails at the token exchange and
+# publishes nothing.
+#
+# A release branch must carry this file: GitHub runs the workflow as it is at
+# the tagged commit.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # The tag names the version the manifests carry, and the platform packages
+  # match it (emit.mjs --check); the engine suite and typecheck pass at it.
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # The dist-tag: `next` for a pre-release, `latest` for a stable release
+      # newer than the current one, `release-<major>.<minor>` for a patch to an
+      # older line, so it never moves `latest` backwards.
+      - id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          latest=$(npm view sofar.sh dist-tags.latest 2>/dev/null || true)
+          node packaging/npm/release-version.mjs "$REF_NAME" "$latest" >> "$GITHUB_OUTPUT"
+      - run: node packaging/npm/emit.mjs --check
+      - run: npm ci
+      - run: npm run build
+      - run: npx vitest run --project unit
+      - run: npm run typecheck
+
+  # The same matrix as ci.yml's core job, built at the tagged commit so each
+  # binary bakes in this version (r4-fixes M16), then attested.
+  core:
+    needs: verify
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: macos-14, target: aarch64-apple-darwin }
+          - { os: macos-15-intel, target: x86_64-apple-darwin }
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
+          targets: ${{ matrix.target }}
+      - run: cargo test -p sofar-core --target "$TARGET"
+        shell: bash
+      - run: cargo build --release -p sofar-core --target "$TARGET"
+        shell: bash
+      # The one binary this target builds (`.exe` on Windows): the attestation
+      # names exactly what the artifact carries.
+      - id: bin
+        shell: bash
+        run: |
+          bin="target/$TARGET/release/sofar-core"
+          if [ -f "$bin.exe" ]; then bin="$bin.exe"; fi
+          echo "path=$bin" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.bin.outputs.path }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sofar-core-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/sofar-core
+            target/${{ matrix.target }}/release/sofar-core.exe
+          if-no-files-found: error
+
+  # Stage the five platform packages, then sofar.sh, which pins them. Trusted
+  # publishing needs npm >= 11.5.1 and staging >= 11.15.0; provenance is
+  # automatic.
+  stage:
+    needs: [verify, core]
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      DIST_TAG: ${{ needs.verify.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@12.2.0
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sofar-core-*
+          path: ${{ runner.temp }}/cores
+      # download-artifact writes DIR/sofar-core-<target>/; emit wants DIR/<target>/.
+      - name: Stage the binaries into the platform packages
+        run: |
+          cd "$RUNNER_TEMP/cores"
+          for dir in sofar-core-*; do mv "$dir" "${dir#sofar-core-}"; done
+          cd "$GITHUB_WORKSPACE"
+          node packaging/npm/emit.mjs --binaries "$RUNNER_TEMP/cores"
+      - name: Stage on npm
+        run: |
+          for dir in packaging/npm/core-*/; do
+            npm stage publish "./$dir" --tag "$DIST_TAG" --access public
+          done
+          npm stage publish ./packages/engine --tag "$DIST_TAG" --access public
+      - name: What to approve
+        run: |
+          {
+            echo "## sofar $VERSION staged (tag \`$DIST_TAG\`)"
+            echo
+            echo "Nothing is installable yet. Approve the five cores first, then sofar.sh, each with 2FA:"
+            echo
+            echo '```'
+            echo "node packaging/npm/stage-approve.mjs $VERSION"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # A tag cut on a release branch leaves main behind it (r4-fixes 0.1): open a
+  # pull request that merges the tagged commit back. Skipped when main already
+  # holds it. The repository must allow Actions to open pull requests.
+  merge-back:
+    needs: [verify, stage]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Open the merge-back pull request
+        run: |
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "main already holds $TAG"
+            exit 0
+          fi
+          branch="merge-back/$TAG"
+          git push origin "$GITHUB_SHA:refs/heads/$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Merge $TAG back into main" \
+            --body "Release $VERSION was cut from a branch main does not hold. Merge it so main's version stays at or above the newest tag (ci.yml release-guard)."

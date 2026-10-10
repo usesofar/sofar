@@ -35,11 +35,13 @@ for (const name of readdirSync(TEMPLATES).filter((n) => n.endsWith('.ts')).sort(
 // core into the per-user store only when the copy hashes to one of these, so
 // a build without them never activates — fine for a checkout, a silent loss
 // for a release, which is why `npm publish` refuses to build without all five.
+// So does `npm stage publish`, the release workflow's (r4-fixes E2): npm names
+// that command `stage`.
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'))
 const { coreDigests, PLATFORMS } = await import('../../packaging/npm/emit.mjs')
 const digests = coreDigests(version)
 const missing = PLATFORMS.map((p) => `${p.platform}-${p.arch}`).filter((key) => digests[key] === undefined)
-if (process.env.npm_command === 'publish' && missing.length > 0) {
+if ((process.env.npm_command === 'publish' || process.env.npm_command === 'stage') && missing.length > 0) {
   throw new Error(
     `no staged core digest for ${missing.join(', ')} at ${version} — stage the release binaries first (node packaging/npm/emit.mjs --binaries DIR), or self-activation ships disabled`,
   )
