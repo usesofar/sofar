@@ -5159,6 +5159,15 @@ registerSession with {tool: "claude-code"} (plus `continues` when lineage
 placed it) — exactly sofar_start_session with that id and no `initiative`.
 Best-effort: when nothing resolves, nothing is pinned and the tool raises its
 own typed error. An explicit sofar_start_session always wins and re-homes.
+**Cloud spare (r4-fixes H11).** `sofar mcp` also passes CLAUDE_CODE_ENTRYPOINT
+as `hostEntrypoint`. When it is `remote` (a Claude Code cloud session) and the
+session pointer's writer is `hook`, the server adopts the POINTER's session
+instead of `hostSessionId` (cloudHostSession): there a pre-warmed spare
+(`claude --preload`) spawns the server, which keeps the spare's
+CLAUDE_CODE_SESSION_ID, while the conversation's id, the one hooks and Bash
+see, is assigned later (r4-fixes note 01M4JEK5). One VM runs one conversation,
+so its SessionStart pointer names it. Any other entrypoint, or no hook pointer,
+keeps `hostSessionId`: locally the pointer is last-writer-wins across tabs.
 **Worktree adoption (r4-fixes A3; 1.2 O4).** A host that gives its MCP
 server no session id (Codex, Cursor) still hands the id to its hooks, which
 leave the newest one in the worktree's session pointer

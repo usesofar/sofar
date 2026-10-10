@@ -20,7 +20,7 @@ import { version } from '../../package.json'
 import { createToolContext, ToolError, type ActiveSession, type ToolContext } from './context'
 import { recordDiagnostic } from '../core/diagnostics'
 import { getState } from './get-state'
-import { adoptHostSession, adoptWorktreeSession, startSession, toolOfClient } from './start-session'
+import { adoptHostSession, adoptWorktreeSession, cloudHostSession, startSession, toolOfClient } from './start-session'
 import { endSessionJudged } from './end-session'
 import { updateTaskJudged } from './update-task'
 import { updatePhase } from './update-phase'
@@ -206,6 +206,11 @@ export interface CreateSofarServerOptions {
    */
   hostSessionId?: string
   /**
+   * CLAUDE_CODE_ENTRYPOINT, passed with `hostSessionId`: `remote` marks a
+   * cloud session, whose server may carry a spare's stale id (r4-fixes H11).
+   */
+  hostEntrypoint?: string
+  /**
    * Adopt the worktree's newest hook-registered session when it is the only
    * live one (r4-fixes A3). Only `sofar mcp` passes it, and only without a
    * host session id: that server is a stdio child of ONE agent process. The
@@ -278,7 +283,7 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
       // Adopt the host's session before the first tool that is not itself
       // the explicit start (D3) — once per process, whatever tool comes first.
       if (hostSessionId !== undefined && name !== 'sofar_start_session' && context.session.get() === null) {
-        adoptHostSession(context, hostSessionId)
+        adoptHostSession(context, cloudHostSession(rootDir, hostSessionId, options.hostEntrypoint))
       }
       // No id from the host: the worktree's only live hook session (A3).
       if (adoptWorktree && name !== 'sofar_start_session' && context.session.get() === null) {
