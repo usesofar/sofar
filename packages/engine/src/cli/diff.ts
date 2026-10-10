@@ -198,6 +198,8 @@ export function runDiff(rootDir: string, range: string, options: DiffOptions = {
   const mergeSha = mergeBaseOf(rootDir, baseSha, headSha)
   const mergeBase = mergeSha === null ? new Map<string, string>() : (logsAtCommit(rootDir, mergeSha) ?? new Map<string, string>())
   const diff = diffRecords(base, head, mergeBase)
-  const label = `${code(`${parsed.base}..${parsed.head}`)} (${baseSha.slice(0, 7)}..${headSha.slice(0, 7)})`
+  // A revision given as a full sha (CI passes the head's) prints short; a name keeps its shas beside it.
+  const shown = (rev: string): string => (/^[0-9a-f]{40,64}$/.test(rev) ? rev.slice(0, 7) : rev)
+  const label = `${code(`${shown(parsed.base)}..${shown(parsed.head)}`)} (${baseSha.slice(0, 7)}..${headSha.slice(0, 7)})`
   return { exitCode: options.strict === true && diff.flagged > 0 ? 1 : 0, stdout: renderDiff(diff, label), stderr: '' }
 }

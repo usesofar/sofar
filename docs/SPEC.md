@@ -7288,7 +7288,7 @@ subdirectory, against 33 of 33 from the root.
   other copies of the record, like `sofar list`, and a record another copy
   closed is omitted (§Record copies across branches); `--here` reads this
   checkout alone, `--remotes` adds remote-tracking refs.
-- `sofar check [--staged|--all] [--strict] [--list] [--approve <handle>]
+- `sofar check [--staged|--all|--base <rev>] [--strict] [--list] [--approve <handle>]
   [--block-commits on|off]` (memory-lead 2.3, D9; §Decision checks) — run
   the approved in-force decision checks that apply to the working tree's
   changes (tracked against HEAD plus untracked, `.sofar/` excluded), print each
@@ -7301,6 +7301,15 @@ subdirectory, against 33 of 33 from the root.
   asks on a terminal and refuses without one (a bare `D<n>` resolves in the
   bound initiative). `--block-commits on|off` sets the clone's pre-commit
   opt-in.
+  `--base <rev>` (r4-fixes E4) is the pull request check, for CI, where a
+  fresh clone has approved nothing: the paths are those the commits changed
+  since the merge base with `<rev>` (the working tree is not the pull request:
+  on a runner it holds the job's own files), and a check counts as approved
+  when its exact command is in force at `<rev>`, merged and so reviewed like
+  the rest of it. A check the branch adds or changes does not run; it is
+  named with `sofar diff <rev>..HEAD`, and runs once merged. `--staged` with
+  it, or a `<rev>` that names no commit or shares no history with HEAD, is
+  exit 1. examples/github-actions/sofar.yml runs it beside `sofar diff`.
 - `sofar why <path>` — every task, session and decision behind a path,
   across ALL initiatives, newest-first (§Record graph `whyFile`). Prints the
   recorded paths the query resolved to (§Path identity) VERBATIM — those are

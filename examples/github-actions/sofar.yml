@@ -1,0 +1,83 @@
+# sofar on pull requests — copy to .github/workflows/sofar.yml.
+#
+# Two steps, both deterministic and both on GitHub's runner. Nothing calls a
+# model, and the record goes nowhere but this pull request.
+#
+#   1. `sofar diff` prints what the pull request changes in the record —
+#      decisions added and retired, checks bound, memories, tasks resolved —
+#      to the job summary and to one comment it keeps up to date. It fails on
+#      hidden characters (bidi, zero-width) in record text, a decision replaced
+#      differently here and on the base branch, or rewritten history.
+#   2. `sofar check --base` runs the decision checks already merged into the
+#      base branch against the files the pull request changed. A check the
+#      pull request adds or changes does not run until it is merged: the diff
+#      shows it for review instead.
+#
+# Needs sofar.sh 0.37.0 or later, the first release with `sofar diff` and
+# `sofar check --base`.
+
+name: sofar
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write # the comment; without it the job summary still has the diff
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the record at the base, at the head and at their merge base
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install sofar
+        run: npm install -g sofar.sh@0.37.0
+
+      - name: Record diff
+        id: diff
+        env:
+          BASE: origin/${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          status=0
+          sofar diff "$BASE..$HEAD_SHA" --strict > "$RUNNER_TEMP/sofar-diff.md" || status=$?
+          cat "$RUNNER_TEMP/sofar-diff.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on the pull request
+        # A fork's token cannot comment; the job summary carries the same text.
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          marker='<!-- sofar diff -->'
+          { echo "$marker"; head -c 60000 "$RUNNER_TEMP/sofar-diff.md"; } > "$RUNNER_TEMP/comment.md"
+          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F "body=@$RUNNER_TEMP/comment.md" > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$RUNNER_TEMP/comment.md" > /dev/null
+          fi
+
+      # Checks are your own commands (`npm test`, say): install what they need
+      # (dependencies, a build) in steps before this one.
+      - name: Decision checks
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: sofar check --base "$BASE" --strict
+
+      - name: Record findings
+        if: steps.diff.outputs.status != '0'
+        run: |
+          echo "::error::sofar diff found hidden characters, a fork against the base branch, or rewritten history; the job summary shows where"
+          exit 1

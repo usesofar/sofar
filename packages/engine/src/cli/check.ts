@@ -6,6 +6,8 @@ import {
   approveCheck,
   blocksCommits,
   changedPaths,
+  changedSince,
+  checkCommandsIn,
   checkFailureLine,
   checksInForce,
   isApproved,
@@ -13,8 +15,10 @@ import {
   setBlocksCommits,
   throttledUnapprovedLine,
   unapprovedLine,
+  unmergedLine,
   type InForceCheck,
 } from '../core/checks'
+import { commitOf, logsAtCommit, mergeBaseOf } from '../core/record-copies'
 import { refreshGuards } from '../core/index-tier1'
 import { runVerification } from '../driver/verify'
 import { createToolContext } from '../mcp/context'
@@ -50,6 +54,13 @@ export interface CheckOptions {
   approve?: string
   /** Turn the pre-commit opt-in on or off for this clone. */
   blockCommits?: string
+  /**
+   * The pull request mode (r4-fixes E4): the paths changed since the merge
+   * base with this revision, and the checks in force at it count as approved
+   * — merged, so reviewed the way the rest of the base was. A check the
+   * branch adds or changes does not run until it is merged.
+   */
+  base?: string
 }
 
 export interface CheckIo {
@@ -140,21 +151,38 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
       return ok(`${lines.join('\n')}\n${blocksCommits(rootDir, env) ? 'pre-commit: blocks on a failure\n' : 'pre-commit: warns only\n'}`)
     }
 
-    const paths = opts.all === true ? null : changedPaths(rootDir, staged ? 'staged' : 'worktree')
+    let pr: { base: string; mergeBase: string; merged: Set<string> } | null = null
+    if (opts.base !== undefined) {
+      if (staged) return fail('sofar check: --base is the pull request mode; --staged is the pre-commit one — pass one')
+      const baseSha = commitOf(rootDir, opts.base)
+      const headSha = commitOf(rootDir, 'HEAD')
+      if (baseSha === null || headSha === null) return fail(`sofar check: ${baseSha === null ? opts.base : 'HEAD'} names no commit in this repository`)
+      const mergeBase = mergeBaseOf(rootDir, baseSha, headSha)
+      const logs = logsAtCommit(rootDir, baseSha)
+      if (mergeBase === null || logs === null) return fail(`sofar check: HEAD shares no history with ${opts.base} — fetch it whole (actions/checkout: fetch-depth: 0)`)
+      pr = { base: opts.base, mergeBase, merged: checkCommandsIn(logs) }
+    }
+
+    const paths = opts.all === true ? null : pr !== null ? changedSince(rootDir, pr.mergeBase) : changedPaths(rootDir, staged ? 'staged' : 'worktree')
     if (paths === null && opts.all !== true) return staged ? ok() : fail('sofar check: git could not say what changed — pass --all to run every approved check')
     const applicable = opts.all === true ? checks : applicableChecks(checks, paths ?? [])
-    const approved = applicable.filter((c) => isApproved(rootDir, c.check.cmd, env))
+    const approved = applicable.filter((c) => isApproved(rootDir, c.check.cmd, env) || pr?.merged.has(c.check.cmd) === true)
     // Pre-commit says it once per clone per day (r4-fixes U7); an explicit
     // `sofar check` always does.
     const unapprovedChecks = applicable.filter((c) => !approved.includes(c))
     const unapproved = staged
       ? throttledUnapprovedLine(rootDir, unapprovedChecks, (io.now ?? (() => new Date().toISOString()))(), env)
-      : unapprovedLine(unapprovedChecks)
+      : pr !== null
+        ? unmergedLine(unapprovedChecks, pr.base)
+        : unapprovedLine(unapprovedChecks)
     const { ran } = runChecks(approved, rootDir, runVerification)
     const failed = ran.filter((r) => r.outcome.result !== 'pass')
 
     const warnings = [...failed.map((r) => checkFailureLine(r.check, r.outcome)), ...(unapproved !== null ? [unapproved] : [])]
-    const scope = opts.all === true ? 'every approved check' : `${paths!.length} ${staged ? 'staged' : 'changed'} path(s)`
+    const scope =
+      opts.all === true
+        ? 'every approved check'
+        : `${paths!.length} ${staged ? 'staged' : 'changed'} path(s)${pr !== null ? ` since ${pr.base}` : ''}`
     const summary = `sofar check: ${ran.length} check(s) ran on ${scope} — ${ran.length - failed.length} passed, ${failed.length} failed`
     const blocking = staged && failed.length > 0 && blocksCommits(rootDir, env)
     const tail = blocking

@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join } from 'node:path'
 import { guardMatches, parseGuard, type DecisionCheck } from '@sofar/schema'
 import type { TestOutcome, TimedTestOutcome } from './adjacency'
 import { testShapedCommand } from './derived'
+import { foldLines } from './fold'
 import { commonGitDir } from './git'
 import { qualifiedHandle } from './handle'
 import { scopeHitsForSubject, type GuardIndex } from './index-tier1'
@@ -187,6 +188,43 @@ export function changedPaths(rootDir: string, mode: 'staged' | 'worktree'): stri
   const untracked = git(rootDir, ['ls-files', '--others', '--exclude-standard', '-z', '--full-name'])
   if (tracked === null || untracked === null) return null
   return [...new Set([...split(tracked), ...split(untracked)])]
+}
+
+/**
+ * Paths a branch's commits changed since it left its base (r4-fixes E4), the
+ * record excluded — what a pull request changes, for `sofar check --base`.
+ * Commits only: on a CI runner the working tree also holds what the job
+ * itself wrote, and none of that is the pull request. Null without git.
+ */
+export function changedSince(rootDir: string, mergeBase: string): string[] | null {
+  const out = git(rootDir, ['diff', '--name-only', '-z', mergeBase, 'HEAD'])
+  return out === null ? null : out.split('\0').filter((p) => p.length > 0 && !p.startsWith(RECORD))
+}
+
+/**
+ * The check commands in force in a set of logs (r4-fixes E4): every ruled,
+ * unreplaced decision carrying a check, in every record. Read from the logs
+ * at a pull request's base, these are what `sofar check --base` counts as
+ * approved: they were merged into the branch the PR targets. A check the PR
+ * adds or changes is not among them, and runs only once it is merged too.
+ */
+export function checkCommandsIn(logs: ReadonlyMap<string, string>): Set<string> {
+  const cmds = new Set<string>()
+  for (const [slug, text] of logs) {
+    const { state } = foldLines(text.split('\n').filter((line) => line.trim().length > 0), slug)
+    for (const d of state.decisions) {
+      if (d.check !== undefined && d.rule !== undefined && d.superseded_by === undefined) cmds.add(d.check.cmd)
+    }
+  }
+  return cmds
+}
+
+/** The checks a pull request check did not run because they are not yet merged into its base (r4-fixes E4). */
+export function unmergedLine(checks: readonly InForceCheck[], base: string): string | null {
+  if (checks.length === 0) return null
+  const named = checks.slice(0, 3).map((c) => `[${c.shown}] \`${c.check.cmd}\``).join(', ')
+  const more = checks.length > 3 ? `, +${checks.length - 3} more` : ''
+  return `sofar: ${checks.length} decision check(s) bear on this work but are new or changed since ${base}, so none ran: ${named}${more} — each runs here once it is merged; review it in \`sofar diff ${base}..HEAD\``
 }
 
 // ---------------------------------------------------------------------------

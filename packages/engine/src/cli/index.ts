@@ -338,8 +338,9 @@ program
   .option('--list', 'list every in-force check and whether it is approved here; runs nothing')
   .option('--approve <handle>', 'approve one check\'s command on this clone ("<slug> D<n>") — asks on a terminal; an agent cannot approve its own command')
   .option('--block-commits <on|off>', 'make a failed approved check refuse commits on this clone (on), or only warn (off, the default)')
+  .option('--base <rev>', 'the pull request check (CI): the paths changed since the merge base with <rev>, and the checks in force at <rev> count as approved; one the branch adds or changes runs once merged')
   .option('--root <dir>', 'repo root (default: current directory)')
-  .action(async (opts: { staged?: boolean; all?: boolean; strict?: boolean; list?: boolean; approve?: string; blockCommits?: string; root?: string }) => {
+  .action(async (opts: { staged?: boolean; all?: boolean; strict?: boolean; list?: boolean; approve?: string; blockCommits?: string; base?: string; root?: string }) => {
     // The approval is the operator's (memory-lead D9): asked only on a real
     // terminal, never under CI, never from a piped agent shell.
     const terminal = process.stdin.isTTY === true && process.stderr.isTTY === true && process.env.CI === undefined
