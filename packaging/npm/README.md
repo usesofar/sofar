@@ -56,9 +56,16 @@ node packaging/npm/trust.mjs             # create them, 2FA each
 
 That makes `release.yml`, in this repository's `npm` environment, each
 package's trusted publisher, allowed to stage only. Then set each package's
-publishing access on npmjs.com to "Require two-factor authentication and
-disallow tokens". Until the trust exists, the stage job fails at the token
-exchange and publishes nothing.
+publishing access to "Require two-factor authentication and disallow
+tokens", on npmjs.com or in a real terminal, 2FA each:
+
+```
+for p in @sofar.sh/core-darwin-arm64 @sofar.sh/core-darwin-x64 @sofar.sh/core-linux-x64 @sofar.sh/core-linux-arm64 @sofar.sh/core-win32-x64 sofar.sh; do npm access set mfa=publish "$p" || break; done
+```
+
+Trusted publishing still works under it: it authenticates with OIDC, not a
+token. Until the trust exists, the stage job fails at the token exchange and
+publishes nothing.
 
 ### By hand (the fallback)
 
