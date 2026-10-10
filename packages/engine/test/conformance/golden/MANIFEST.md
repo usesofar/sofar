@@ -1,5 +1,10 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.37.0** for rc.1 (r4-fixes E2) from the
+TypeScript reference. The version bump is the whole diff: `argv.fast-path`
+(`--version` is `0.37.0-rc.1`) and `open.O2-update-segment` ("you have
+0.37.0-rc.1").
+
 RE-RECORDED for **r4-fixes B5, D45** (main) from the TypeScript reference;
 the Rust core reproduces all 58 (`SOFAR_CORE=target/release/sofar-core`).
 `repo.session-start` and `repo.branch-elsewhere`: the session-strategy-bench

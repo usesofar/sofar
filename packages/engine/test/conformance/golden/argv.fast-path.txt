@@ -156,7 +156,7 @@ exit: 1
 argv: ["--version"]
 exit: 0
 --- stdout
-0.37.0-dev+trunk
+0.37.0-rc.1
 --- stderr
 (empty)
 
