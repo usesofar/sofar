@@ -6,17 +6,17 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1133 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 3/20 tasks done (15%)
+Progress: 4/20 tasks done (20%)
 
 ## Phase 1 — Baseline and prerequisites [active] — 3/3 done
 
 - [x] 1.1 Lane fixture and serial baseline: a sandbox repo with 9 tasks (6 independent, 3 chained by waits_on, 3 editing one shared function), each with a verify command. Serial drive's wall-clock, tasks done, verify pass rate, tokens per task and conflicts are the bar every later step must beat — verified pass @1b91783 (attempt 2)
 - [x] 1.2 Load control so lanes do not saturate the machine: a verify semaphore (one full suite at a time), nice/taskpolicy for sessions and verify, process-group kill on verify timeout, a vitest maxWorkers cap (drive-load note 01M3PCDC, fixes 1-5) — verified pass @214c57b (attempt 1)
-- [x] 1.3 Ready frontier: readyTasks honours waits_on (queuedTasks ignores it today, drive-queue.ts:42); `sofar next --ready`; serial drive takes the ready head — verification timeout (attempt 2)
+- [x] 1.3 Ready frontier: readyTasks honours waits_on (queuedTasks ignores it today, drive-queue.ts:42); `sofar next --ready`; serial drive takes the ready head — verified pass @8719e50 (attempt 3)
 
-## Phase 2 — Local lanes [pending] — 0/5 done
+## Phase 2 — Local lanes [pending] — 1/5 done
 
-- [ ] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar
+- [x] 2.1 Record-root override: a lane session writes the main checkout's .sofar, never its worktree's stale committed copy; lanes never commit .sofar
 - [ ] 2.2 `sofar drive --lanes N`: a persistent lane worktree pool (deps installed once), tasks as branches, lanes recorded on run_started. `--lanes 1` stays byte-identical to today's run (session-driver D6 holds there)
 - [ ] 2.3 Coordinator: one process assigns ready tasks to free lanes and records each assignment, so the statusline and interactive sessions see which lane holds which task. Budgets (--cost-cap, --max-sessions) count across lanes; a rate-limited lane parks instead of stalling
 - [ ] 2.4 Serial merge queue: rebase a passing task branch onto the run base, re-verify when the base moved, fast-forward. A conflict becomes a merge handoff to the lane's next session. Affected-tests verify per merge, full suite per batch
@@ -41,4 +41,4 @@ Progress: 3/20 tasks done (15%)
 - [ ] 4.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 1 — Baseline and prerequisites
-Next action: 2.1: record-root override for lane sessions.
+Next action: 2.2: `sofar drive --lanes N` lane pool, marking each lane with markRecordCheckout.

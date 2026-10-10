@@ -191,6 +191,15 @@ export function changedPaths(rootDir: string, mode: 'staged' | 'worktree'): stri
 }
 
 /**
+ * Staged paths inside any record, nested ones included — what a drive lane
+ * must never commit (drive-lanes D18). Null without git.
+ */
+export function stagedRecordPaths(rootDir: string): string[] | null {
+  const staged = git(rootDir, ['diff', '--cached', '--name-only', '-z'])
+  return staged === null ? null : staged.split('\0').filter((p) => p.startsWith(RECORD) || p.includes(`/${RECORD}`))
+}
+
+/**
  * Paths a branch's commits changed since it left its base (r4-fixes E4), the
  * record excluded — what a pull request changes, for `sofar check --base`.
  * Commits only: on a CI runner the working tree also holds what the job

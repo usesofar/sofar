@@ -751,9 +751,11 @@ exit code.
 - pre-commit: the `pre-commit` git hook (§Hooks) runs `sofar check --staged`
   over the staged paths. It warns on stderr and exits 10 ONLY when the clone
   opted in (`sofar check --block-commits on`, in the same file) and an approved
-  check failed. The hook refuses the commit on 10 alone. Any other status,
-  including an older sofar without `check` (exit 1) or no record, lets the
-  commit through.
+  check failed, or when it runs in a drive lane (LANE ROOT in §CLI) and a path
+  inside any `.sofar/` is staged: a lane never commits a record, since the run
+  commits its record in its own checkout. The hook refuses the commit on 10
+  alone. Any other status, including an older sofar without `check` (exit 1)
+  or no record, lets the commit through.
 - drive: at task acceptance (§Driver, Decision checks at acceptance).
 - `sofar check` (§CLI): warns, exit 0; `--strict` exits 1 on a failure.
 
@@ -2667,9 +2669,11 @@ switches no branch: sessions in a run are sequential and cumulative, so a
 fresh checkout per session would discard the previous one's uncommitted work
 and its installed dependencies. Sessions launch in the repo root unless
 `--cwd` names another directory, and the driver refuses to start unless
-`<cwd>/.sofar/initiatives/<slug>/events.jsonl` resolves (realpath) to the log
-it is driving — the record is committed, so a plain worktree carries a stale
-COPY of it and a session writing there would fork the queue invisibly. It
+`.sofar/initiatives/<slug>/events.jsonl` under the root a session there
+resolves (ROOT in §CLI) is, by realpath, the log it is driving — the record is
+committed, so a plain worktree carries a stale COPY of it and a session
+writing there would fork the queue invisibly. A lane marked to serve the
+run's checkout (LANE ROOT in §CLI) passes. It
 warns, without refusing, when that directory's branch binds elsewhere: the
 prompt still pins the writes (D4), but the child's SessionStart hook will
 inject that other record's digest.
@@ -6836,6 +6840,21 @@ follows its `cd`. In round 3, with cwd as the root, every hook silently did
 nothing from `apps/web`: Claude Write/Edit capture was 0 of 156 from a
 subdirectory, against 33 of 33 from the root.
 
+LANE ROOT (drive-lanes 2.1, D18). A linked worktree whose own gitdir holds
+`sofar-record-checkout` — one line, the absolute path of a checkout of the
+same repository — is a drive lane. Its committed `.sofar/` is a stale copy
+and is never served: the same walk looks for `.sofar/` at the matching paths
+of the named checkout, and with none there answers the matching path of the
+working directory, which holds no record either. Every resolver reads the
+marker — hooks, the MCP server, the CLI, both implementations — whichever host
+launched the lane, so every write made in a lane lands in the run's record. A
+`--root` inside a lane is mapped the same way rather than taken as given: a
+Codex shim names the lane's own top. Git
+facts (the staged paths, the tree a check runs in) stay the lane's own. A
+marker is written only for a linked worktree of the same repository, serving
+a checkout that holds a record and is not itself; `git worktree remove`
+deletes it with the worktree's gitdir.
+
 - `sofar init [--agents <list>] [--refresh] [--[no-]prompt-capture]` — create .sofar/, write repo.md stub, install hook shims
   (including git's own `.git/hooks/prepare-commit-msg`, never clobbering —
   commit-attribution D7, §Hooks)
@@ -7378,8 +7397,11 @@ subdirectory, against 33 of 33 from the root.
   failure line, the unapproved line and `sofar check: N check(s) ran on M
   changed path(s) — P passed, F failed`; exit 0 (`--strict`: 1 on a failure).
   `--staged` is the pre-commit hook: the staged paths, the report on stderr,
-  exit 10 only when the clone opted in and an approved check failed, 0 for
-  everything else including its own errors. `--all` runs every approved check.
+  exit 10 only when the clone opted in and an approved check failed, or when
+  a drive lane stages a record (drive-lanes D18), 0 for everything else
+  including its own errors. In a lane, without `--root`, the paths come from
+  the lane's own index and the checks run in the lane's tree; the record they
+  come from is the run's. `--all` runs every approved check.
   `--list` prints each check, approved or not, and its scope. `--approve`
   asks on a terminal and refuses without one (a bare `D<n>` resolves in the
   bound initiative). `--block-commits on|off` sets the clone's pre-commit
@@ -10257,6 +10279,16 @@ stay the underlying derivation's, and exit codes are styling-independent.
   itself in a repo with no record, and never a `.sofar/` above the repo or
   outside any repo. A PostToolUse Edit and a Stop run with their cwd in
   `src/legacy` serve the record at the root (`syn.surfacing`).
+- **Lane root (drive-lanes 2.1, D18):** in a linked worktree marked with
+  `sofar-record-checkout`, `recordRoot` and the Rust `record_root` return the
+  named checkout from any depth, map a nearer `.sofar/` path for path, and
+  never return the lane's own copy, even when the checkout holds no record. An
+  MCP write made from the lane lands in the checkout's log while the lane's
+  log stays byte-identical and its tree clean. `sofar drive --cwd <lane>`
+  refuses an unmarked lane (fork the queue) and runs once it is marked.
+  `sofar check --staged` in the lane exits 10 on a staged `.sofar/` path
+  whatever the clone opted into, reads the lane's index, and runs checks in
+  the lane's tree.
 - **Brief by reference (r3-fixes 2.9, D6):** brief_appended {text} refuses
   an empty text; the fold sets an empty brief to it, else appends it after a
   blank line, and a later plan_updated carrying `brief` replaces the whole;

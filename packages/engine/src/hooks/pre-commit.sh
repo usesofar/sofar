@@ -2,8 +2,9 @@
 # sofar pre-commit shim — no logic here (BD4); the CLI owns behavior.
 # Runs the decision checks that bear on the staged paths (memory-lead 2.3,
 # D9). They warn; the commit is refused only when the operator opted this
-# clone in (`sofar check --block-commits on`) and an approved check failed,
-# which `sofar check --staged` signals with exit 10 and nothing else. Every
+# clone in (`sofar check --block-commits on`) and an approved check failed, or
+# when a drive lane stages a record (drive-lanes D18), which `sofar check
+# --staged` signals with exit 10 and nothing else. Every
 # other status — a missing binary, an older sofar without `check`, a crash —
 # lets the commit through: this hook must never fail a commit for reasons of
 # its own. `--staged` itself exits only 0 or 10, so a 1 is an older sofar

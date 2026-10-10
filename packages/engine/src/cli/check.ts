@@ -13,6 +13,7 @@ import {
   isApproved,
   runChecks,
   setBlocksCommits,
+  stagedRecordPaths,
   throttledUnapprovedLine,
   unapprovedLine,
   unmergedLine,
@@ -28,10 +29,11 @@ import { errMessage, fail, ok, type CmdResult } from './shared'
  * `sofar check` (memory-lead 2.3, D9) — run the decision checks that bear on
  * the work in front of you, approve one, or opt this clone's commits into
  * blocking. The same command IS the pre-commit hook (`--staged`), which is
- * why that mode can fail only one way: an approved check failed and the
- * operator opted in (exit STAGED_REFUSE_EXIT). Anything else — no record, no
- * git, a broken index — exits 0, because a hook that breaks commits for its
- * own reasons is one an operator deletes.
+ * why that mode can fail only two ways (exit STAGED_REFUSE_EXIT): an approved
+ * check failed and the operator opted in, or a drive lane staged a record —
+ * the driver's marker is that opt-in (drive-lanes D18). Anything else — no
+ * record, no git, a broken index — exits 0, because a hook that breaks commits
+ * for its own reasons is one an operator deletes.
  */
 
 /**
@@ -68,6 +70,12 @@ export interface CheckIo {
   confirm?: ((question: string) => Promise<boolean>) | null
   now?: () => string
   env?: NodeJS.ProcessEnv
+  /**
+   * The drive lane this runs in (drive-lanes D18, `laneOf`): `rootDir` is
+   * then the run's checkout, which holds the record, while git and the checks
+   * look at the lane's own tree, the one being committed.
+   */
+  lane?: { worktree: string; checkout: string } | null
 }
 
 /**
@@ -103,7 +111,20 @@ function findCheck(rootDir: string, checks: readonly InForceCheck[], handle: str
 export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: CheckIo = {}): Promise<CmdResult> {
   const env = io.env ?? process.env
   const staged = opts.staged === true
+  const lane = io.lane ?? null
+  const tree = lane?.worktree ?? rootDir
   try {
+    // A lane's record is the run's checkout, which the run commits; the lane's
+    // own .sofar is a stale copy, so staging it is refused whatever this clone
+    // opted into (drive-lanes D18).
+    const record = staged && lane !== null ? stagedRecordPaths(tree) : null
+    if (lane !== null && record !== null && record.length > 0) {
+      return {
+        exitCode: STAGED_REFUSE_EXIT,
+        stdout: '',
+        stderr: `sofar check: commit refused — a drive lane never commits a record (drive-lanes D18); this lane's lives in ${lane.checkout}, and the run commits it there. Unstage it: git restore --staged -- ${record.join(' ')}\n`,
+      }
+    }
     if (!existsSync(join(rootDir, '.sofar'))) {
       return staged ? ok() : fail('sofar check: no .sofar/ record here — run `sofar init` first')
     }
@@ -154,16 +175,16 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
     let pr: { base: string; mergeBase: string; merged: Set<string> } | null = null
     if (opts.base !== undefined) {
       if (staged) return fail('sofar check: --base is the pull request mode; --staged is the pre-commit one — pass one')
-      const baseSha = commitOf(rootDir, opts.base)
-      const headSha = commitOf(rootDir, 'HEAD')
+      const baseSha = commitOf(tree, opts.base)
+      const headSha = commitOf(tree, 'HEAD')
       if (baseSha === null || headSha === null) return fail(`sofar check: ${baseSha === null ? opts.base : 'HEAD'} names no commit in this repository`)
-      const mergeBase = mergeBaseOf(rootDir, baseSha, headSha)
-      const logs = logsAtCommit(rootDir, baseSha)
+      const mergeBase = mergeBaseOf(tree, baseSha, headSha)
+      const logs = logsAtCommit(tree, baseSha)
       if (mergeBase === null || logs === null) return fail(`sofar check: HEAD shares no history with ${opts.base} — fetch it whole (actions/checkout: fetch-depth: 0)`)
       pr = { base: opts.base, mergeBase, merged: checkCommandsIn(logs) }
     }
 
-    const paths = opts.all === true ? null : pr !== null ? changedSince(rootDir, pr.mergeBase) : changedPaths(rootDir, staged ? 'staged' : 'worktree')
+    const paths = opts.all === true ? null : pr !== null ? changedSince(tree, pr.mergeBase) : changedPaths(tree, staged ? 'staged' : 'worktree')
     if (paths === null && opts.all !== true) return staged ? ok() : fail('sofar check: git could not say what changed — pass --all to run every approved check')
     const applicable = opts.all === true ? checks : applicableChecks(checks, paths ?? [])
     const approved = applicable.filter((c) => isApproved(rootDir, c.check.cmd, env) || pr?.merged.has(c.check.cmd) === true)
@@ -175,7 +196,7 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
       : pr !== null
         ? unmergedLine(unapprovedChecks, pr.base)
         : unapprovedLine(unapprovedChecks)
-    const { ran } = runChecks(approved, rootDir, runVerification)
+    const { ran } = runChecks(approved, tree, runVerification)
     const failed = ran.filter((r) => r.outcome.result !== 'pass')
 
     const warnings = [...failed.map((r) => checkFailureLine(r.check, r.outcome)), ...(unapproved !== null ? [unapproved] : [])]

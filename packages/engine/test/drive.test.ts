@@ -1,8 +1,10 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { foldLog, type InitiativeState } from '../src/core/fold'
+import { markRecordCheckout } from '../src/core/git'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import type { Adapter, AgentSession, LaunchRequest, SessionExit } from '../src/driver/adapter'
@@ -729,6 +731,25 @@ describe('preflight — nothing is recorded until the run can actually run', () 
       /has no record for "demo"/,
     )
     expect(readTypes(root)).not.toContain('run_started')
+  })
+
+  it('launches in a lane worktree only once it is marked to serve the run\'s record (drive-lanes D18)', async () => {
+    const root = repo('lane')
+    const git = (...args: string[]): void => {
+      execFileSync('git', args, { cwd: root, stdio: 'ignore' })
+    }
+    git('init', '-q', '-b', 'main')
+    git('-c', 'user.email=t@t.t', '-c', 'user.name=t', 'add', '-A')
+    git('-c', 'user.email=t@t.t', '-c', 'user.name=t', 'commit', '-qm', 'record')
+    const lane = `${root}-lane`
+    roots.push(lane)
+    git('worktree', 'add', '-q', lane, '-b', 'lane-1')
+    const stale = readFileSync(logPath(lane), 'utf8')
+    await expect(drive(root, 'demo', { adapter: new FakeAdapter([worker(root, 'S1')]), cwd: lane })).rejects.toThrow(/fork the queue/)
+    markRecordCheckout(lane, root)
+    await drive(root, 'demo', { adapter: new FakeAdapter([worker(root, 'S1')]), cwd: lane, maxSessions: 1 })
+    expect(readTypes(root)).toContain('run_started')
+    expect(readFileSync(logPath(lane), 'utf8')).toBe(stale)
   })
 
   it('refuses a threshold policy missing either half of its threshold (2.3)', async () => {

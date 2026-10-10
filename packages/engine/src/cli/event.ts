@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, posix, relative, resolve } from 'node:path'
 import { cachedDigestState } from '../core/digest-cache'
 import { readBindingsFile } from '../core/bindings'
-import { currentBranch, recordRoot } from '../core/git'
+import { currentBranch, recordRoot, servedRoot } from '../core/git'
 import { ensureIndexDir } from '../core/index-store'
 import { QUICK_LANE, QUICK_LANE_GOAL } from '../core/lane'
 import { refreshLexicon } from '../core/index-lexicon'
@@ -4016,7 +4016,7 @@ export function registerEventCommand(program: Command): void {
           return
         }
         mirror(
-          runAppend(resolve(opts.root ?? recordRoot(process.cwd())), {
+          runAppend(opts.root === undefined ? recordRoot(process.cwd()) : servedRoot(opts.root), {
             type: opts.type,
             payload: input.text,
             ...(opts.session !== undefined ? { session: opts.session } : {}),
@@ -4052,7 +4052,7 @@ export function registerEventCommand(program: Command): void {
       )
       .action(async (opts: { root?: string; host?: DeclaredHost }) => {
         const input = await readStdin()
-        mirror(await handler(resolve(opts.root ?? recordRoot(process.cwd())), input, opts.host))
+        mirror(await handler(opts.root === undefined ? recordRoot(process.cwd()) : servedRoot(opts.root), input, opts.host))
       })
   }
 }

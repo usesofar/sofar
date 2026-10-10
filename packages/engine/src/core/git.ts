@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { writeFileAtomic } from './atomic'
 
 /**
  * Git facts read straight from the repo, never copied into the record.
@@ -22,23 +23,114 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
  * `start` itself, as before. Hosts run hooks in the agent's current directory,
  * which follows its `cd`: in round 3, 60% of Claude turns ran from a
  * subdirectory, where every hook found no record and silently did nothing.
+ *
+ * A linked worktree marked with RECORD_CHECKOUT_MARKER (drive-lanes D18)
+ * looks in the checkout it names instead, path for path, and never in its own
+ * committed copy: with no record there either, the answer is the mapped
+ * `start`, which holds none, so a lane's stale copy is never served.
  */
 export function recordRoot(start: string): string {
   const from = resolve(start)
   const climbed: string[] = []
+  let linked = false
   for (let dir = from; ; dir = dirname(dir)) {
     climbed.push(dir)
-    if (existsSync(join(dir, '.git'))) break
+    const kind = dotGitKind(dir)
+    if (kind !== null) {
+      linked = kind === 'file'
+      break
+    }
     if (dirname(dir) === dir) return from // no repo: no walk
   }
+  const top = climbed[climbed.length - 1]!
+  const checkout = linked ? markedCheckout(top) : null
+  const at = (dir: string): string => (checkout === null ? dir : join(checkout, relative(top, dir)))
   for (const dir of climbed) {
     try {
-      if (statSync(join(dir, '.sofar')).isDirectory()) return dir
+      if (statSync(join(at(dir), '.sofar')).isDirectory()) return at(dir)
     } catch {
       // no record at this level
     }
   }
-  return from
+  return at(from)
+}
+
+/**
+ * The file in a linked worktree's OWN gitdir naming the checkout whose record
+ * that worktree serves (drive-lanes 2.1, D18). A drive lane's committed
+ * `.sofar` is a stale copy of the run's record; the marker is read by every
+ * resolver in the lane — hooks, the MCP server, the agent's own sofar calls,
+ * the pre-commit check — whichever host launched it. It is per-worktree state
+ * like HEAD, never a hook or a ref (commit-attribution D20), and goes when
+ * `git worktree remove` deletes that gitdir.
+ */
+export const RECORD_CHECKOUT_MARKER = 'sofar-record-checkout'
+
+function dotGitKind(dir: string): 'dir' | 'file' | null {
+  try {
+    return statSync(join(dir, '.git')).isDirectory() ? 'dir' : 'file'
+  } catch {
+    return null
+  }
+}
+
+/** The checkout a marked worktree's marker names, resolved like a gitdir pointer; null when unmarked. */
+function markedCheckout(worktree: string): string | null {
+  const dir = gitDir(worktree)
+  if (dir === null) return null
+  try {
+    const named = readFileSync(join(dir, RECORD_CHECKOUT_MARKER), 'utf8').trim()
+    return named.length > 0 ? resolve(dir, named) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The marked linked worktree `start` is in and the checkout it serves the
+ * record of (D18); null in an ordinary checkout, an unmarked worktree or
+ * outside a repo. What git asks about — the index a commit stages, the tree a
+ * check runs in — is the worktree's; the record is the checkout's.
+ */
+export function laneOf(start: string): { worktree: string; checkout: string } | null {
+  for (let dir = resolve(start); ; dir = dirname(dir)) {
+    const kind = dotGitKind(dir)
+    if (kind === 'dir') return null
+    if (kind === 'file') {
+      const checkout = markedCheckout(dir)
+      return checkout === null ? null : { worktree: dir, checkout }
+    }
+    if (dirname(dir) === dir) return null
+  }
+}
+
+/**
+ * An explicit `--root`, taken as given — except in a drive lane, whose own
+ * copy is never served (D18): a Codex shim names the lane's top as its root.
+ */
+export function servedRoot(root: string): string {
+  return laneOf(root) === null ? resolve(root) : recordRoot(root)
+}
+
+/**
+ * Mark `worktree` as serving `checkout`'s record (D18) — what `sofar drive
+ * --lanes` does to each lane it creates. Refuses anything but a linked
+ * worktree of the same repository as a checkout holding a record: the marker
+ * redirects every record write made in that worktree, so it may name nothing
+ * else.
+ */
+export function markRecordCheckout(worktree: string, checkout: string): void {
+  const lane = resolve(worktree)
+  const served = realpathSync(resolve(checkout))
+  if (dotGitKind(lane) !== 'file') throw new Error(`${lane} is not a linked git worktree`)
+  const theirs = commonGitDir(lane)
+  const ours = commonGitDir(served)
+  if (theirs === null || ours === null || realpathSync(theirs) !== realpathSync(ours)) {
+    throw new Error(`${lane} is not a worktree of the repository at ${served}`)
+  }
+  if (realpathSync(lane) === served) throw new Error(`${lane} cannot serve its own record`)
+  if (!existsSync(join(served, '.sofar'))) throw new Error(`${served} holds no .sofar record`)
+  writeFileAtomic(join(gitDir(lane)!, RECORD_CHECKOUT_MARKER), `${served}\n`)
 }
 
 /**

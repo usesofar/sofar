@@ -65,8 +65,9 @@ pub fn posix_normalize(path: &str, keep_trailing: bool) -> String {
     out
 }
 
-/// `path.resolve(--root ?? recordRoot(cwd))`: absolute and normalised. With
-/// no `--root`, the record above the cwd (r3-fixes 2.12).
+/// `--root ? servedRoot(--root) : recordRoot(cwd)`: absolute and normalised.
+/// With no `--root`, the record above the cwd (r3-fixes 2.12); a `--root` is
+/// taken as given, except in a drive lane (drive-lanes D18).
 #[must_use]
 pub fn resolve_root(root: Option<&Path>) -> PathBuf {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
@@ -75,7 +76,26 @@ pub fn resolve_root(root: Option<&Path>) -> PathBuf {
         Some(r) => cwd.join(r),
         None => record_root(&cwd),
     };
-    PathBuf::from(posix_normalize(&raw.to_string_lossy(), false))
+    let given = PathBuf::from(posix_normalize(&raw.to_string_lossy(), false));
+    if root.is_some() && in_marked_lane(&given) {
+        return record_root(&given);
+    }
+    given
+}
+
+/// `laneOf(start) !== null`: `start` is in a linked worktree carrying the
+/// record-checkout marker.
+fn in_marked_lane(start: &Path) -> bool {
+    let mut dir = start.to_path_buf();
+    loop {
+        if let Ok(meta) = std::fs::metadata(dir.join(".git")) {
+            return !meta.is_dir() && marked_checkout(&dir).is_some();
+        }
+        match dir.parent() {
+            Some(parent) => dir = parent.to_path_buf(),
+            None => return false,
+        }
+    }
 }
 
 /// `recordRoot` (core/git.ts, r3-fixes 2.12): the nearest ancestor of `start`
@@ -83,25 +103,56 @@ pub fn resolve_root(root: Option<&Path>) -> PathBuf {
 /// is in — up to and including its top, the first ancestor with a `.git`
 /// entry. Outside a repo, or with no record in it, `start` itself. Hosts run
 /// hooks in the agent's current directory, which follows its `cd`.
+///
+/// A linked worktree marked with `RECORD_CHECKOUT_MARKER` (drive-lanes D18)
+/// looks in the checkout it names instead, path for path, and never in its
+/// own committed copy: with no record there either, the mapped `start`.
 #[must_use]
 pub fn record_root(start: &Path) -> PathBuf {
     let from = PathBuf::from(posix_normalize(&start.to_string_lossy(), false));
     let mut climbed: Vec<PathBuf> = Vec::new();
     let mut dir = from.clone();
-    loop {
+    let linked = loop {
         climbed.push(dir.clone());
-        if dir.join(".git").exists() {
-            break;
+        if let Ok(meta) = std::fs::metadata(dir.join(".git")) {
+            break !meta.is_dir();
         }
         match dir.parent() {
             Some(parent) => dir = parent.to_path_buf(),
             None => return from, // no repo: no walk
         }
-    }
+    };
+    let checkout = if linked { marked_checkout(&dir) } else { None };
+    let at = |d: &Path| -> PathBuf {
+        match &checkout {
+            None => d.to_path_buf(),
+            Some(c) => {
+                let rel = d.strip_prefix(&dir).unwrap_or(Path::new(""));
+                PathBuf::from(posix_normalize(&c.join(rel).to_string_lossy(), false))
+            }
+        }
+    };
     climbed
-        .into_iter()
+        .iter()
+        .map(|d| at(d))
         .find(|d| std::fs::metadata(d.join(".sofar")).is_ok_and(|m| m.is_dir()))
-        .unwrap_or(from)
+        .unwrap_or_else(|| at(&from))
+}
+
+/// `RECORD_CHECKOUT_MARKER` (core/git.ts): the file in a linked worktree's own
+/// gitdir naming the checkout whose record it serves.
+pub const RECORD_CHECKOUT_MARKER: &str = "sofar-record-checkout";
+
+/// `markedCheckout`: the checkout a marked worktree names, resolved against its
+/// gitdir like a gitdir pointer; `None` when unmarked.
+fn marked_checkout(worktree: &Path) -> Option<PathBuf> {
+    let dir = crate::git::git_dir(worktree)?;
+    let text = std::fs::read_to_string(dir.join(RECORD_CHECKOUT_MARKER)).ok()?;
+    let named = crate::text::js_trim(&text);
+    if named.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(posix_resolve(&dir.to_string_lossy(), named)))
 }
 
 const MAX_LISTED: usize = 10;
@@ -294,6 +345,36 @@ mod tests {
                 ".sofar/bindings.json must be a JSON object of branch → slug".into()
             ))
         );
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_marked_lane_serves_the_checkout_it_names_never_its_own_copy() {
+        let root = crate::testing::scratch_dir("lane-root");
+        let main = root.join("main");
+        let lane = root.join("lane");
+        let lane_git = main.join(".git").join("worktrees").join("lane");
+        fs::create_dir_all(&lane_git).unwrap();
+        fs::create_dir_all(main.join(".sofar")).unwrap();
+        fs::create_dir_all(lane.join(".sofar")).unwrap(); // the stale committed copy
+        fs::create_dir_all(lane.join("apps").join("web").join("lib")).unwrap();
+        fs::write(lane.join(".git"), format!("gitdir: {}\n", lane_git.display())).unwrap();
+        let deep = lane.join("apps").join("web").join("lib");
+        assert_eq!(record_root(&deep), lane); // unmarked: its own copy, as before
+        assert_eq!(resolve_root(Some(&lane)), lane); // --root taken as given
+        fs::write(lane_git.join(RECORD_CHECKOUT_MARKER), format!("{}\n", main.display())).unwrap();
+        assert_eq!(record_root(&deep), main);
+        assert_eq!(record_root(&lane), main);
+        assert_eq!(resolve_root(Some(&lane)), main); // a Codex shim's --root names the lane's top
+        assert_eq!(resolve_root(Some(&main)), main);
+        fs::create_dir_all(main.join("apps").join("web").join(".sofar")).unwrap(); // a nearer record, mapped
+        assert_eq!(record_root(&deep), main.join("apps").join("web"));
+        fs::remove_dir_all(main.join(".sofar")).unwrap();
+        fs::remove_dir_all(main.join("apps")).unwrap();
+        // No record in the checkout: the mapped start, never the lane's copy.
+        assert_eq!(record_root(&deep), main.join("apps").join("web").join("lib"));
+        fs::write(lane_git.join(RECORD_CHECKOUT_MARKER), "\n").unwrap(); // blank: unmarked
+        assert_eq!(record_root(&deep), lane);
         fs::remove_dir_all(&root).unwrap();
     }
 }

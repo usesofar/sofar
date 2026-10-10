@@ -22,6 +22,7 @@ import { latestRun, stopRequestsInForce, type InitiativeState, type TaskState } 
 import { TASK_FILES_CAP } from '../core/adjacency'
 import { applicableChecks, changedPaths, checkFailureLine, checksInForce, isApproved, type InForceCheck } from '../core/checks'
 import { refreshGuards } from '../core/index-tier1'
+import { recordRoot } from '../core/git'
 import { claimRunLock, probeRunLock, type RunLockOptions } from '../core/run-lock'
 import { noteLaunched, writeRunProgress } from '../core/run-progress'
 import { cloneRealPath } from '../core/state-dir'
@@ -1569,11 +1570,13 @@ function errorNote(err: unknown): string {
  * The launch directory must serve the SAME log (D6). The record is committed,
  * so a plain worktree holds a stale COPY of it: a session launched there would
  * write into a second events.jsonl the driver never reads, forking the queue
- * silently. realpath equality catches exactly that, and passes for the repo
- * root and for a worktree whose `.sofar` is a symlink to the real one.
+ * silently. The log is the one a session there resolves (recordRoot), so
+ * realpath equality catches exactly that, and passes for the repo root, for a
+ * lane marked to serve it (drive-lanes D18) and for a worktree whose `.sofar`
+ * is a symlink to the real one.
  */
 function assertSameRecord(cwd: string, initiative: string, target: string): void {
-  const driven = join(cwd, '.sofar', 'initiatives', initiative, 'events.jsonl')
+  const driven = join(recordRoot(cwd), '.sofar', 'initiatives', initiative, 'events.jsonl')
   if (!existsSync(driven)) {
     throw new ToolError(
       'unknown_initiative',
@@ -1598,7 +1601,7 @@ function assertSameRecord(cwd: string, initiative: string, target: string): void
 function warnOnForeignBinding(cwd: string, initiative: string, progress: (line: string) => void): void {
   let bound: string | null = null
   try {
-    bound = createToolContext(cwd).resolveInitiative()
+    bound = createToolContext(recordRoot(cwd)).resolveInitiative()
   } catch {
     bound = null
   }

@@ -1,9 +1,8 @@
-import { resolve } from 'node:path'
 import { mirror, readStdin, SUBCOMMANDS } from './event'
 import { isDeclaredHost, type DeclaredHost } from './host'
 import { PLAIN_CAPS, runStatusline, STATUSLINE_FORCED_CAPS } from './statusline'
 import { readAllStdin } from './shared'
-import { recordRoot } from '../core/git'
+import { recordRoot, servedRoot } from '../core/git'
 
 /**
  * Hot-path CLI entry (speed-2 T1).
@@ -43,7 +42,7 @@ function parseRoot(rest: readonly string[]): { root: string; extra: string[] } |
       extra.push(arg)
     }
   }
-  return { root: resolve(root ?? recordRoot(process.cwd())), extra }
+  return { root: root === undefined ? recordRoot(process.cwd()) : servedRoot(root), extra }
 }
 
 /**

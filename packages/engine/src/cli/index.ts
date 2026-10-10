@@ -55,7 +55,7 @@ import { installedSofarOnPath, isNpxRun, liveNpxInstallDeps, NPX_HINT, npxInitRe
 import { runCheckStatus, runRefresh, withUpdateNotice } from './update-check'
 import { writeAutoUpgrade } from './user-config'
 import { emit, fail, ok, readAllStdin, readInput } from './shared'
-import { recordRoot } from '../core/git'
+import { laneOf, recordRoot, servedRoot } from '../core/git'
 
 const program = new Command()
 
@@ -77,7 +77,7 @@ program
 
 /** Every repo-scoped command takes --root (default: the record above the cwd, r3-fixes 2.12) — the mcp/event precedent. */
 function rootOf(opts: { root?: string }): string {
-  return resolve(opts.root ?? recordRoot(process.cwd()))
+  return opts.root === undefined ? recordRoot(process.cwd()) : servedRoot(opts.root)
 }
 
 program
@@ -340,7 +340,7 @@ program
   .description(
     'run the decision checks that bear on your changes (memory-lead 2.3): each a command a ruled decision carries, run only once the operator approved it on this clone; warns, and fails a commit only when this clone opted in',
   )
-  .option('--staged', 'check the staged paths — what the pre-commit hook runs; exits 10 only when this clone opted in and an approved check failed')
+  .option('--staged', 'check the staged paths — what the pre-commit hook runs; exits 10 only when this clone opted in and an approved check failed, or when a drive lane stages a record')
   .option('--all', 'run every approved check, whatever changed')
   .option('--strict', 'exit 1 when a check failed')
   .option('--list', 'list every in-force check and whether it is approved here; runs nothing')
@@ -364,7 +364,7 @@ program
         }
       : null
     const { root, ...rest } = opts
-    emit(await runCheck(rootOf({ ...(root !== undefined ? { root } : {}) }), rest, { confirm }))
+    emit(await runCheck(rootOf({ ...(root !== undefined ? { root } : {}) }), rest, { confirm, lane: laneOf(root ?? process.cwd()) }))
   })
 
 program
