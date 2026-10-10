@@ -1,6 +1,6 @@
 {
   "name": "@sofar.sh/core-darwin-arm64",
-  "version": "0.37.0-rc.1",
+  "version": "0.37.0-rc.2",
   "description": "sofar's native hot-path core (sofar-core) for darwin-arm64. Installed by sofar.sh as an optional dependency; never depend on it directly.",
   "repository": {
     "type": "git",

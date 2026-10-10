@@ -10,6 +10,7 @@
 //
 //   node packaging/npm/emit.mjs                  write every package.json + README and
 //                                                sync sofar.sh's optionalDependencies
+//                                                and package-lock.json's entries
 //   node packaging/npm/emit.mjs --check          exit 1 when anything on disk differs
 //   node packaging/npm/emit.mjs --binaries DIR   also copy DIR/<target>/sofar-core[.exe]
 //                                                into each package (CI, after the matrix)
@@ -35,6 +36,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const repo = join(here, '..', '..')
 const enginePkgPath = join(repo, 'packages', 'engine', 'package.json')
+const lockPath = join(repo, 'package-lock.json')
 
 /**
  * `@sofar.sh/core-<platform>-<arch>` — cli/core.ts (CORE_PACKAGE) and install.mjs
@@ -130,6 +132,31 @@ export function optionalDependencies(version) {
   return Object.fromEntries(PLATFORMS.map((p) => [packageName(p), version]))
 }
 
+/**
+ * package-lock.json in step with `version`: sofar.sh's entry and its
+ * optionalDependencies, and each platform package's entry, which npm writes
+ * without build metadata (`0.38.0-dev`, never `+trunk`). Returns the lock to
+ * write, or null when it already agrees. A version bump that missed the core
+ * entries left `npm ci` refusing the lock: v0.37.0-rc.1's first release run
+ * failed there, and so did main's CI (r4-fixes E2).
+ */
+export function syncLock(lock, version) {
+  const next = structuredClone(lock)
+  const engine = next.packages?.['packages/engine']
+  if (engine === undefined) return null
+  engine.version = version
+  // npm keeps a lock's dependency keys sorted; by code unit, never locale (r1-fixes D26).
+  engine.optionalDependencies = Object.fromEntries(
+    Object.entries(optionalDependencies(version)).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+  )
+  const plain = version.split('+')[0]
+  for (const p of PLATFORMS) {
+    const entry = next.packages[`packages/engine/node_modules/${packageName(p)}`]
+    if (entry !== undefined) entry.version = plain
+  }
+  return JSON.stringify(next) === JSON.stringify(lock) ? null : next
+}
+
 function main(argv) {
   const check = argv.includes('--check')
   const binaries = argv.includes('--binaries') ? argv[argv.indexOf('--binaries') + 1] : undefined
@@ -158,6 +185,12 @@ function main(argv) {
       enginePkg.optionalDependencies = optionalDependencies(version)
       writeFileSync(enginePkgPath, `${JSON.stringify(enginePkg, null, 2)}\n`)
     }
+  }
+
+  const synced = syncLock(JSON.parse(readFileSync(lockPath, 'utf8')), version)
+  if (synced !== null) {
+    drift.push(lockPath)
+    if (!check) writeFileSync(lockPath, `${JSON.stringify(synced, null, 2)}\n`)
   }
 
   if (check) {

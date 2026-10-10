@@ -1,5 +1,10 @@
 # Golden manifest (rust-core D11)
 
+Re-recorded on **release/0.37.0** for rc.2 (r4-fixes E2): rc.1's release run
+stopped at `npm ci` before building anything, so rc.2 is the first published
+0.37.0 candidate. The version bump is the whole diff on `argv.fast-path` and
+`open.O2-update-segment`.
+
 Re-recorded on **release/0.37.0** for rc.1 (r4-fixes E2) from the
 TypeScript reference. The version bump is the whole diff: `argv.fast-path`
 (`--version` is `0.37.0-rc.1`) and `open.O2-update-segment` ("you have
