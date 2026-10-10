@@ -5196,14 +5196,16 @@ session, sofar_start_session is only for re-homing, otherwise it comes first
 with the injected session id; the session writes back ONCE, at wrap-up, and
 sofar_end_session carries its decisions, task changes (a new task with its
 title), phase changes, memories and notes, with sofar_log_decision mid-session
-only for a decision a concurrent session must see first; review, close and
-find are CLI. SERVER_INSTRUCTIONS is the non-adopted text. Under the in-band
+only for a decision a concurrent session must see first, and (r4-fixes D61)
+one sofar_update_task when a background agent's or workflow's work lands;
+review, close and find are CLI. SERVER_INSTRUCTIONS is the non-adopted text. Under the in-band
 write-back (§In-band write-back, the default) the non-adopted line asks for
 sofar_start_session only before a sofar tool, since the write-back block
 needs no call, and the write-back sentence names the ```` ```sofar ```` block
 first and sofar_end_session as the alternative; `SOFAR_WRITEBACK=tool` keeps
-the text above. The protocol block carries the loop itself; instructions ride
-every initialize, so they stay short (≤800 chars).
+the text above, and only it names the landing write: the in-band arm needs no
+tool call. The protocol block carries the loop itself; instructions ride
+every initialize, so they stay short (under 900 chars).
 
 **Write guard (branch-visibility 3.4).** Every write tool's result, bare
 `{ok, event_id}` ones included, may add a `warnings` line when the record it
@@ -5449,6 +5451,14 @@ sofar_start_session.`
   ParallelWriteback — who is reachable is a fact about live host processes,
   and folding it in would make one log fold differently on two machines.
 - sofar_update_task({initiative?, task_id, status, note?, title?, phase?, waits_on?}) → ok
+  # SEVERAL IDS (r4-fixes D61): `task_id` may list ids comma-separated
+  # ("m1,m2"); `status` and `note` apply to each, one task_status_changed
+  # apiece in list order, `event_id` the last. Every id is planned before
+  # any append, so one the plan lacks files none of them. `title`, `phase`
+  # and `waits_on` take a single id (an add names one task), and an empty or
+  # repeated id is `invalid_input`. It exists for the lead that delegated:
+  # when a background agent's or workflow's work lands it marks those tasks
+  # done in one call, instead of reading 0/N until its write-back.
   # ADDS a task (phase-lifecycle D7, superseding D4): a task_id the plan
   # lacks WITH a `title` appends task_added {phase, id, title, status} into
   # `phase` (resolved like sofar_update_phase; default the active phase),
@@ -10041,7 +10051,8 @@ stay the underlying derivation's, and exit codes are styling-independent.
   first), writes back with ONE sofar_end_session carrying `decisions`,
   `tasks` (a new task with its `title`), `phases`, `memories` and `notes`,
   words a rule as the operator did with their words in `quote`, and names
-  neither sofar_update_task nor sofar_remember; the block it replaced is
+  neither sofar_update_task (until r4-fixes D61's landing write, V14) nor
+  sofar_remember; the block it replaced is
   PROTOCOL_BLOCK_V8, the last SHIPPED_PROTOCOL_BLOCKS entry, and classifies
   as stale. A live Claude Code (2.1.274) `sofar mcp` child carries its
   parent session's CLAUDE_CODE_SESSION_ID (checked 2026-09-17).
@@ -10259,6 +10270,15 @@ stay the underlying derivation's, and exit codes are styling-independent.
   Replay over 67 real holds in this repo's transcripts: 2 cleared outright;
   across live sessions' cached git answers, 61 dirty files blamed under H1,
   6 under windows alone, 2 with the `cd` rule too.
+- **Landing write (r4-fixes D61):** `sofar_update_task` with `"task_id":
+  "m1, m2"` files a done task_status_changed for each, in order, and the
+  statusline gauge reading the record goes 0/3 → 2/3; `m1,m9` (m9 not in
+  the plan) files nothing; `m1,`, `m1,m1`, and a `title`, `phase` or
+  `waits_on` beside two ids are `invalid_input`. The tool-mode instructions
+  and protocol block V14 name the landing write; V14 minus that sentence is
+  V13 byte for byte, a V13 repo refreshes to V14, and the inline block and
+  instructions name no sofar_update_task. The tool surface stays ≤8,450
+  chars.
 - **Binding (r3-fixes 2.10c; r4-fixes A8):** `sofar bind D1 'bun test
   test/store.test.ts'` appends `check_bound` and D1 keeps its handle and
   takes the check (no D2), a session that edits the guarded file is then

@@ -135,7 +135,7 @@ describe('the MCP surface (A2, O10)', () => {
 })
 
 /** sha256 prefix of tools/list as `sofar mcp` serves it — update deliberately. */
-const TOOLS_LIST_HASH = 'c8745a0a54c97e83'
+const TOOLS_LIST_HASH = 'f79a1f4f36bfca66'
 
 describe('per-host digest budgets (A2)', () => {
   it('Claude Code keeps 6,000; Codex 4,000; Cursor 3,000; SOFAR_PAYLOAD=v034 gives every host 6,000', () => {

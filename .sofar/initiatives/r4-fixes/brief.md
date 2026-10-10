@@ -25,3 +25,7 @@ Also previously we had a feature: if I'm in a particular initiative and I'm work
 --- Operator, 2026-10-09 ---
 
 Yeah that is a fix. If any session has been done as part of a particular initiative and I initiate it manually (by saying that I want to do some tasks in this initiative), then in that case, that particular session can be rehomed to that newly informed initiative when the user intentionally mentions it. We can also do that
+
+--- Operator, 2026-10-10 ---
+
+[Image #1] When running some agent workflow or dynamic workflow in Claude, our status line will not update properly

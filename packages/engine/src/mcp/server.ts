@@ -66,7 +66,8 @@ export const ALWAYS_LOADED_TOOLS = ['sofar_end_session', 'sofar_log_decision'] a
  * the start_session sentence. Kept short on purpose: the protocol block
  * carries the loop, and instructions ride every initialize. The last sentence
  * (r1-fixes 2.4, D13) names the three operations that left the tool list for
- * the CLI.
+ * the CLI. The tool arm marks delegated work done as it lands (r4-fixes D61):
+ * a lead that waits on agents otherwise reads 0/N until it wraps up.
  */
 export function serverInstructions(
   adopted: boolean,
@@ -105,7 +106,7 @@ export function serverInstructions(
         : 'Call sofar_start_session first, with the session_id from the injected "Session:" line.',
     inline
       ? "Write back once, at wrap-up: end your final reply with one ```sofar block of sofar_end_session's arguments — the Stop hook files it — or call sofar_end_session. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed."
-      : "Write back once, at wrap-up: sofar_end_session carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed.",
+      : "Write back once, at wrap-up: sofar_end_session carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes. When a background agent's or workflow's work lands, mark its tasks done then: one sofar_update_task, task_id \"m1,m2\". Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed.",
     'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.',
   ].join('\n')
 }

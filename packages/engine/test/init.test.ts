@@ -45,6 +45,7 @@ import {
   STATUSLINE_SETTINGS_ENTRY,
   AGENTS_PROTOCOL_BLOCK_V13,
   PROTOCOL_BLOCK_V13,
+  PROTOCOL_BLOCK_V14,
   INLINE_WRITEBACK,
   INLINE_WRITEBACK_AGENTS,
   protocolBlock,
@@ -196,7 +197,7 @@ describe('sofar init on a fresh repo', () => {
 
     // CLAUDE.md protocol block: markers + the three BD19 clauses + the loop
     const claudeMd = readFileSync(join(root, 'CLAUDE.md'), 'utf8')
-    expect(claudeMd).toBe(PROTOCOL_BLOCK_V13) // Claude Code writes back through the tool (r4-fixes H5)
+    expect(claudeMd).toBe(PROTOCOL_BLOCK_V14) // Claude Code writes back through the tool (r4-fixes H5, D61)
     expect(claudeMd).toContain(PROTOCOL_START)
     expect(claudeMd).toContain(PROTOCOL_END)
     expect(claudeMd).toMatch(/never in tool memory/i) // (a) total jurisdiction
@@ -748,7 +749,7 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     const [shipped, now] = BRIEF_BY_REFERENCE.claude
     // (V13 is that block as 0.34 shipped it; r4-fixes A1's inline edits sit on top — see below.)
     const unbriefed = PROTOCOL_BLOCK_V13.replace(now, shipped).replace(LINK_DISPOSITION.claude[1], LINK_DISPOSITION.claude[0])
-    expect(unbriefed.replace(links(unbriefed), '')).toBe(SHIPPED_PROTOCOL_BLOCKS.at(-2))
+    expect(unbriefed.replace(links(unbriefed), '')).toBe(SHIPPED_PROTOCOL_BLOCKS[11]) // V12, by version
     const v12 = SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-2)!
     expect(v12.replace(links(v12), '')).toBe(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-3))
   })
@@ -811,15 +812,15 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     expect(classifyProtocolBlock(v10, PROTOCOL_BLOCK, SHIPPED_PROTOCOL_BLOCKS)).toBe('stale')
   })
 
-  it('the in-band write-back (r4-fixes A1) edits only START, DURING and BEFORE FINISHING; 0.34 is V13, in the ledger and the tool arm', () => {
+  it('the in-band write-back (r4-fixes A1) edits only START, DURING and BEFORE FINISHING; 0.34 is V13, in the ledger, and V14 is the tool arm', () => {
     const flat = (b: string): string => b.replace(/\s+/g, ' ')
     const back = (b: string, edits: ReadonlyArray<readonly [string, string]>): string => edits.reduce((x, [old, now]) => x.replace(now, old), b)
     const claude = INLINE_WRITEBACK.claude
     expect(back(PROTOCOL_BLOCK, [claude.start, claude.during, claude.finish])).toBe(PROTOCOL_BLOCK_V13)
     expect(back(AGENTS_PROTOCOL_BLOCK, [INLINE_WRITEBACK_AGENTS.block, INLINE_WRITEBACK_AGENTS.finish])).toBe(AGENTS_PROTOCOL_BLOCK_V13)
-    expect(SHIPPED_PROTOCOL_BLOCKS.at(-1)).toBe(PROTOCOL_BLOCK_V13)
+    expect(SHIPPED_PROTOCOL_BLOCKS.at(-1)).toBe(PROTOCOL_BLOCK_V14)
     expect(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)).toBe(AGENTS_PROTOCOL_BLOCK_V13)
-    expect(protocolBlock('tool')).toBe(PROTOCOL_BLOCK_V13)
+    expect(protocolBlock('tool')).toBe(PROTOCOL_BLOCK_V14)
     expect(agentsProtocolBlock('tool')).toBe(AGENTS_PROTOCOL_BLOCK_V13)
     // Either arm refreshes the other's untouched block.
     expect(classifyProtocolBlock(PROTOCOL_BLOCK_V13, protocolBlock('inline'), shippedProtocolBlocks('inline'))).toBe('stale')
@@ -829,6 +830,18 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     for (const b of [PROTOCOL_BLOCK, AGENTS_PROTOCOL_BLOCK]) expect(b).toContain('```sofar')
     expect(flat(PROTOCOL_BLOCK)).toContain('no sofar tool call is needed')
     expect(flat(AGENTS_PROTOCOL_BLOCK)).toContain('no `sofar_start_session`, no `session_started` append')
+  })
+
+  it('V14 (r4-fixes D61) adds only the landing write to DURING, and a V13 repo refreshes to it', () => {
+    const flat = (b: string): string => b.replace(/\s+/g, ' ')
+    const landing = /\n {2}One write cannot wait:[\s\S]*?`\)\.(?=\n)/.exec(PROTOCOL_BLOCK_V14)![0]
+    expect(PROTOCOL_BLOCK_V14.replace(landing, '')).toBe(PROTOCOL_BLOCK_V13)
+    expect(flat(landing)).toContain('when work you handed to a background agent or a workflow lands')
+    expect(flat(landing)).toContain('one `sofar_update_task` call, ids comma-separated (`"task_id":"m1,m2"`)')
+    // The inline block needs no tool call mid-session, so it stays V13's derivative.
+    expect(PROTOCOL_BLOCK).not.toContain('sofar_update_task')
+    expect(classifyProtocolBlock(PROTOCOL_BLOCK_V13, protocolBlock('tool'), shippedProtocolBlocks('tool'))).toBe('stale')
+    expect(classifyProtocolBlock(PROTOCOL_BLOCK_V14, protocolBlock('inline'), shippedProtocolBlocks('inline'))).toBe('stale')
   })
 
   it('keeps every block sofar ever shipped classifiable as stale, in both dialects', () => {
