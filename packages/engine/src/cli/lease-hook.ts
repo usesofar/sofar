@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { laneOf } from '../core/git'
-import { checkLease, LEASE_ENV, unionMerged } from '../core/leases'
+import { checkLease, LEASE_ENV, unionMerged, type LeaseHolder } from '../core/leases'
+import { peerHint } from '../core/packets'
+import { resolvePeers } from '../core/peers'
 import type { EditCall } from '../core/regions'
 import type { HookResult } from './event'
 
@@ -47,15 +49,36 @@ export function handleLease(rootDir: string, input: string, env: NodeJS.ProcessE
     } catch {
       // a new file, or one gone: the whole file
     }
-    const check = checkLease(leasePath, path, content, call)
+    const session = str(hook.session_id) ?? undefined
+    const check = checkLease(leasePath, path, content, call, undefined, session)
     if (check === null || check.text === null) return OK
+    const hint = session !== undefined && check.holders !== undefined ? peers(session, check.holders, env) : null
+    const text = hint === null ? check.text : `${check.text}\n${hint}`
     const specific = check.deny
-      ? { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: check.text }
-      : { hookEventName: 'PreToolUse', additionalContext: check.text }
+      ? { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: text }
+      : { hookEventName: 'PreToolUse', additionalContext: text }
     return { ...OK, stdout: `${JSON.stringify({ hookSpecificOutput: specific })}\n` }
   } catch {
     return OK
   }
+}
+
+/**
+ * The peer hint (drive-lanes 3.5): the holders a fresh steer or notice named
+ * whose session is live in Claude Code's own registry (core/peers.ts) — and
+ * only while this session is in it too, the one that can `SendMessage`. A
+ * Codex, Cursor or cloud lane is in no local registry, on either side, so it
+ * keeps the record's packet alone. The registry is read, never written.
+ */
+function peers(session: string, holders: readonly LeaseHolder[], env: NodeJS.ProcessEnv): string | null {
+  const live = resolvePeers([session, ...holders.map((h) => h.session)], env)
+  if (!live.has(session)) return null
+  return peerHint(
+    holders.flatMap((h) => {
+      const peer = h.session === session ? undefined : live.get(h.session)
+      return peer === undefined ? [] : [{ lane: h.lane, task: h.task, name: peer.name, ...(peer.ambiguous ? { cwd: peer.cwd } : {}) }]
+    }),
+  )
 }
 
 type Obj = Record<string, unknown>

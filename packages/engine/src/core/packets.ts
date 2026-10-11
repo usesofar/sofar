@@ -21,6 +21,9 @@ import type { Region } from './regions'
  * - The RESUME PACKET: what a session taking a task back in its lane needs of
  *   the session before it — how that one ended, its write-back, the WIP the
  *   branch holds, and, after a park, the brief of the landing it waited for.
+ * - The PEER HINT (3.5): under a steer or a hook notice, the holder's live
+ *   Claude Code session by the name `SendMessage` addresses, so the session
+ *   can ask it directly. Named only; sofar never sends.
  */
 
 /** One file a landing changed; null counts for a binary file. */
@@ -66,6 +69,7 @@ const DETAIL_MAX = 200
 const BRIEF_MAX = 800
 const NOTICE_MAX = 800
 const RESUME_MAX = 1600
+const PEER_MAX = 400
 
 /** Collapse whitespace and bound a string: every packet is one line. */
 function clip(text: string, max: number): string {
@@ -167,6 +171,32 @@ export function fileNotice(file: string, me: LeaseHeader, holders: readonly { he
   return clip(
     `sofar lease (drive-lanes 3.3): in ${file}, ${who.join('; ')} — ${holders.length === 1 ? 'a task' : 'tasks'} older than yours (${me.task}), so an edit there is steered; the rest of the file is free.`,
     NOTICE_MAX,
+  )
+}
+
+/** An older lane a session was just steered off or told of, by the name its live Claude Code session answers to. */
+export interface PeerHolder {
+  lane: number
+  task: string
+  name: string
+  /** Set when another live session shares the name: the host's own tie-breaker. */
+  cwd?: string
+}
+
+/**
+ * The peer hint (drive-lanes 3.5), one line under a steer or a notice: which
+ * holder the session can ask directly, by its `SendMessage` name. sofar only
+ * names it; the agent sends, or not. Null when no holder resolved.
+ */
+export function peerHint(holders: readonly PeerHolder[]): string | null {
+  if (holders.length === 0) return null
+  const who = [...holders]
+    .sort((a, b) => a.lane - b.lane)
+    .map((h) => `lane ${h.lane} (${h.task}) as "${h.name}"${h.cwd !== undefined ? ` (in ${h.cwd})` : ''}`)
+  const one = holders.length === 1
+  return clip(
+    `sofar peer (drive-lanes 3.5): ${one ? 'the holder is' : 'the holders are'} live in Claude Code — ${who.join('; ')}. SendMessage ${one ? 'it' : 'the one you need'} to ask what it is changing there or when it lands. sofar sends nothing, and a reply is not in the record: write back what you learn.`,
+    PEER_MAX,
   )
 }
 

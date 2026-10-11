@@ -2906,6 +2906,22 @@ with neither, and its resume packets say what the record and git hold.
 `--leases off`, the default, delivers no packet. A packet that cannot be
 read is said as a warning and skipped, never a stop.
 
+**Peer hint (drive-lanes 3.5, D39).** The lease hook also keeps, in the
+lane's lease, the host session it runs in — a line `{"task", "session"}`
+appended whenever the session changes, the latest standing. When a steer or a
+refusal names an older holder for the first time, or a hook notice names one,
+and that holder's lease carries a session, the hook looks both sessions up in
+Claude Code's own session registry (`core/peers.ts`, read and never written).
+If both are live there, one more line follows the packet: `sofar peer
+(drive-lanes 3.5): the holder is live in Claude Code — lane <k> (<task>) as
+"<name>"[ (in <cwd>)]. SendMessage it to ask what it is changing there or when
+it lands. sofar sends nothing, and a reply is not in the record: write back
+what you learn.` — the cwd only when another live session answers to the same
+name, bounded at 400 characters. sofar only names the peer; the agent decides
+whether to send. A repeated collision, the launch notice, a holder with no
+session kept, and any session absent from the registry (a Codex, Cursor or
+cloud lane, or a session that ended) get the record's packet alone, unchanged.
+
 **Tiered verify (drive-lanes 2.6, D29, D30).** `--verify-quick <cmd>`, with
 `--verify` (refused without it, before anything is recorded), makes the run
 TIERED; it is recorded in `run_started.verify_quick` and a resumed run keeps

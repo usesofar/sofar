@@ -16,7 +16,8 @@ import { probeLockAt, type RunLiveness } from './run-lock'
  * assigns the lane, and deletes the file when the lane's job ends, after its
  * gate and landing: a lease lives exactly as long as the task holds the lane.
  * The lane's PreToolUse hook appends a line per region it claims and per
- * region it was steered off; the coordinator appends the change brief of each
+ * region it was steered off, and one naming the host session it runs in
+ * whenever that changes (3.5); the coordinator appends the change brief of each
  * other lane's landing (3.3), and the hook a line per brief or notice it has
  * said. Every line is one short append, and appends of a short line are
  * atomic, so writers interleave whole lines. A lease counts only while its
@@ -68,6 +69,8 @@ export interface Lease {
   briefs: PostedBrief[]
   /** What the hook already said: `brief <key>`, and `notice [run, lane, task, file]` per holder and file. */
   told: string[]
+  /** The host session the lane's hook last ran in (3.5): whom another lane may ask about what this one holds. */
+  session?: string
 }
 
 /** `<pool>/lane-<k>.lease.jsonl` */
@@ -133,6 +136,7 @@ export function readLease(path: string): Lease | null {
   const waits: LeaseWait[] = []
   const briefs = new Map<string, PostedBrief>()
   const told = new Set<string>()
+  let session: string | undefined
   for (const line of lines.slice(1)) {
     if (line.length === 0) continue
     let entry: unknown
@@ -152,8 +156,10 @@ export function readLease(path: string): Lease | null {
     const brief = asBrief(entry.brief)
     if (brief !== null) briefs.set(brief.key, brief)
     if (typeof entry.told === 'string') told.add(entry.told)
+    // A lane's sessions run one after another: the latest is the one that can answer.
+    if (typeof entry.session === 'string' && entry.session.length > 0) session = entry.session
   }
-  return { header, claims: [...claims.values()], waits, briefs: [...briefs.values()], told: [...told] }
+  return { header, claims: [...claims.values()], waits, briefs: [...briefs.values()], told: [...told], ...(session !== undefined ? { session } : {}) }
 }
 
 function asBrief(v: unknown): PostedBrief | null {
@@ -325,12 +331,22 @@ function holdings(others: readonly Lease[]): string {
     .join(' | ')
 }
 
+/** An older lane this call named for the first time, and the session its hook last ran in. */
+export interface LeaseHolder {
+  lane: number
+  /** Its task, with its record when another run's. */
+  task: string
+  session: string
+}
+
 /** What one edit call amounts to under the lane's lease. */
 export interface LeaseCheck {
   /** Refuse the edit (deny mode, an older task's region). */
   deny: boolean
   /** The context for the session; null says nothing. */
   text: string | null
+  /** The older lanes a fresh steer or a notice named, whose session is known (3.5): absent when none. */
+  holders?: LeaseHolder[]
 }
 
 /**
@@ -340,8 +356,11 @@ export interface LeaseCheck {
  * steered off, and say what to tell the session. Two context packets (3.3)
  * ride along, each said once: the lease notice, when older tasks hold parts of
  * `rel` this edit did not touch, and the brief of every landing that changed
- * `rel` since the lane's branch was cut. Null when the lane's lease is gone,
- * or the call touches nothing leasable and no brief names the file.
+ * `rel` since the lane's branch was cut. `session`, the host session the hook
+ * runs in, is kept in the lease whenever it changes, so a lane that collides
+ * with this one later can be told whom to ask (3.5). Null when the lane's
+ * lease is gone, or the call touches nothing leasable and no brief names the
+ * file.
  */
 export function checkLease(
   leasePath: string,
@@ -349,6 +368,7 @@ export function checkLease(
   content: string | null,
   call: EditCall,
   probe?: (lock: string) => RunLiveness,
+  session?: string,
 ): LeaseCheck | null {
   const own = readLease(leasePath)
   if (own === null) return null
@@ -372,6 +392,7 @@ export function checkLease(
           .filter((h) => h.regions.length > 0)
       : []
   const lines = [
+    ...(session !== undefined && session !== own.session ? [JSON.stringify({ task, session })] : []),
     ...decision.claim.map((claim) => JSON.stringify({ task, claim })),
     ...fresh.map((c) => JSON.stringify({ task, wait: { run: c.holder.run, lane: c.holder.lane, task: c.holder.task, region: c.theirs } })),
     ...noticed.map((h) => JSON.stringify({ task, told: noticeKey(h.header, rel) })),
@@ -383,7 +404,13 @@ export function checkLease(
   const lease =
     decision.blocked.length > 0 && fresh.length === 0 && decision.won.length === 0 ? againLine(own, decision.blocked) : leaseContext(own, decision, others)
   const text = [lease, fileNotice(rel, own.header, noticed), ...briefs.map((b) => briefNotice(rel, b))].filter((t): t is string => t !== null)
-  return { deny, text: text.length > 0 ? text.join('\n') : null }
+  // Whom to ask: the holders said for the first time — a repeat names no one again.
+  const named = new Map([...fresh.map((c) => c.holder), ...noticed.map((h) => h.header)].map((h) => [`${h.run} ${h.lane} ${h.task}`, h]))
+  const holders = [...named.values()].flatMap((h) => {
+    const held = others.find((o) => o.header.run === h.run && o.header.lane === h.lane && o.header.task === h.task)?.session
+    return held === undefined ? [] : [{ lane: h.lane, task: h.run === own.header.run ? h.task : `${h.initiative} ${h.task}`, session: held }]
+  })
+  return { deny, text: text.length > 0 ? text.join('\n') : null, ...(holders.length > 0 ? { holders } : {}) }
 }
 
 /** What the hook keeps of a notice it gave: that holder, that file. */

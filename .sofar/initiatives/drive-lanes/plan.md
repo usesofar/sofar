@@ -6,19 +6,19 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1531 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 14/24 tasks done (58%)
+Progress: 15/24 tasks done (62%)
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
 ## Phase 2 — Local lanes [done] — 7/7 done — its tasks in phases/P2.md
 
-## Phase 3 — Conflict-aware orchestration [active] — 4/10 done
+## Phase 3 — Conflict-aware orchestration [active] — 5/10 done
 
 - [x] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane steers rather than denies, so r4-fixes D17 holds: the hook's context names the holding lane, its task, the region and what is free, and the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. A deny mode sits behind a flag, off, until the operator rules on D17 for driven lanes — verified pass @fed90c0 (attempt 1)
 - [x] 3.2 Footprint prediction and conflict-aware scheduling: task `touches`, the record's mention index, files earlier sessions on the task touched, git co-change. A free lane takes the first ready task that misses every live lease and footprint, else idles; skipped tasks age up — verified pass @56bdde1 (attempt 1)
 - [x] 3.3 Context packets, deterministic and one line each: lease notice (who holds what, for which task), change brief on merge (task, regions, diffstat, decisions and memories logged, write-back), park/resume packet (own write-back, WIP sha, the brief it waited for) — verified pass @9e5dad2 (attempt 1)
-- [x] 3.4 Measure conflict-aware lanes against naive lanes: merge-conflict rework sessions, parks, lanes busy, wall-clock. Keep each piece only if it improves on 2.5
-- [ ] 3.5 Peer hint: when 3.1 steers an edit away or 3.3 delivers a lease notice, name the lane holding the region as a reachable Claude Code peer (its SendMessage name from ~/.claude/sessions/<pid>.json, through core/peers.ts), so the blocked session can ask it directly. sofar never sends. The hint appears only on a live lease collision; Codex, Cursor and cloud lanes get the record packet alone. Driven `claude -p` sessions already register as peers (verified 2026-10-10: sofar-df was the 1.2 session)
+- [x] 3.4 Measure conflict-aware lanes against naive lanes: merge-conflict rework sessions, parks, lanes busy, wall-clock. Keep each piece only if it improves on 2.5 — verified pass @c5ae09f (attempt 1)
+- [x] 3.5 Peer hint: when 3.1 steers an edit away or 3.3 delivers a lease notice, name the lane holding the region as a reachable Claude Code peer (its SendMessage name from ~/.claude/sessions/<pid>.json, through core/peers.ts), so the blocked session can ask it directly. sofar never sends. The hint appears only on a live lease collision; Codex, Cursor and cloud lanes get the record packet alone. Driven `claude -p` sessions already register as peers (verified 2026-10-10: sofar-df was the 1.2 session)
 - [ ] 3.6 Thread model (D15): a task is a thread, not a session. A retry or a resumed park continues the task's own conversation when the coordinator's resume-or-refresh rule says it pays, else a fresh session takes the 3.3 packet. Each task has an inbox in the record (events addressed to the task id), which hooks deliver at the next tool or prompt boundary. A parked thread is woken only when what it waits on resolves (a lease freed, a dependency merged, CI failed in Phase 4)
 - [ ] 3.7 Thread cost levers (D15). (a) Shared warm prefix: the session-start injection is byte-identical across lanes with per-session lines last, and lane starts are staggered so lanes 2..N read lane 1's cache. (b) Warm-cache scheduling: resume inside the cache TTL, else refresh. (c) Fork at a checkpoint: a retry forks from the end of exploration, not from the failed attempt. (d) A parked thread holds no process. (e) A batched inbox: an FYI packet waits for the next boundary and never wakes a thread. (f) A per-thread context ceiling that hands off instead of compacting
 - [ ] 3.8 Measure threads against fresh sessions on the 1.1 fixture: tokens per task split into cache read, cache write and fresh input (from transcripts, never handoff.tokens, which carries the whole session's summed usage, r4-fixes note 01M4K3G1), rework sessions and wall-clock. Keep each 3.7 lever only where it lowers cost with no drop in tasks done or verify pass rate

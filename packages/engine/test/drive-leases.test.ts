@@ -265,6 +265,26 @@ describe('leases (D33): the older task wins', () => {
     expect(readLease(leaseFile(dir, 2))?.claims).toEqual([md(['Spec', 'Hooks'])])
   })
 
+  it('keeps the session its hook runs in, and names an older holder whose session it knows once — a fresh steer or a notice, never a repeat (3.5)', () => {
+    const DOC = '# Spec\n## Driver\ndriver text\n## Hooks\nhooks\n'
+    const dir = pool('holders', [{ lane: 1, task: '1.1', since: 1, claims: [driver] }, { lane: 2, task: '1.2', since: 2 }, { lane: 3, task: '1.3', since: 3 }])
+    appendFileSync(leaseFile(dir, 1), `${JSON.stringify({ task: '1.1', session: 'S0' })}\n${JSON.stringify({ task: '1.1', session: 'S1' })}\n`)
+    expect(readLease(leaseFile(dir, 1))?.session).toBe('S1')
+    const steer = checkLease(leaseFile(dir, 2), 'a.md', DOC, edit('driver text'), () => 'held', 'S2')
+    expect(steer?.holders).toEqual([{ lane: 1, task: '1.1', session: 'S1' }])
+    expect(readLease(leaseFile(dir, 2))?.session).toBe('S2')
+    // The same collision again names no one; the same session is not written twice.
+    expect(checkLease(leaseFile(dir, 2), 'a.md', DOC, edit('driver text'), () => 'held', 'S2')?.holders).toBeUndefined()
+    expect(readFileSync(leaseFile(dir, 2), 'utf8').split('"session"').length - 1).toBe(1)
+    // A notice names the holder too: lane 3 edits a part of a.md lane 1 does not hold.
+    const notice = checkLease(leaseFile(dir, 3), 'a.md', DOC, edit('hooks'), () => 'held', 'S3')
+    expect(notice?.text).toMatch(/^sofar lease \(drive-lanes 3\.3\): in a\.md, lane 1 holds/)
+    expect(notice?.holders).toEqual([{ lane: 1, task: '1.1', session: 'S1' }])
+    // A holder whose hook kept no session is named in the record packet alone.
+    const quiet = pool('no-session', [{ lane: 1, task: '1.1', since: 1, claims: [driver] }, { lane: 2, task: '1.2', since: 2 }])
+    expect(checkLease(leaseFile(quiet, 2), 'a.md', DOC, edit('driver text'), () => 'held', 'S2')?.holders).toBeUndefined()
+  })
+
   it('refuses in deny mode, and tells the older task the region is now its own', () => {
     const DOC = '# Spec\n## Driver\ndriver text\n'
     const deny = pool('deny', [{ lane: 1, task: '1.1', since: 1, claims: [driver] }, { lane: 2, task: '1.2', since: 2, mode: 'deny' }])
@@ -352,6 +372,81 @@ describe('sofar event lease: the hook (3.1)', () => {
     expect(specific.permissionDecision).toBe('deny')
     expect(specific.permissionDecisionReason).toMatch(/this edit was refused/)
     expect(specific.additionalContext).toBeUndefined()
+  })
+
+  describe('the peer hint (3.5)', () => {
+    const HINT = 'sofar peer (drive-lanes 3.5): the holder is live in Claude Code — lane 1 (1.1) as "sofar-df". SendMessage it to ask'
+
+    /** Claude Code's registry, as the host writes it: the holder's session and the blocked one, both live. */
+    function registry(entries: { session: string; name: string; pid: number }[]): { env: Record<string, string>; dir: string } {
+      const root = scratch('registry')
+      const dir = join(root, 'sessions')
+      mkdirSync(dir)
+      entries.forEach((e, i) =>
+        writeFileSync(join(dir, `${i}.json`), JSON.stringify({ pid: e.pid, sessionId: e.session, cwd: root, name: e.name, kind: 'interactive', entrypoint: 'sdk-cli', messagingSocketPath: join(root, `${i}.sock`) })),
+      )
+      return { env: { CLAUDE_CONFIG_DIR: root }, dir }
+    }
+
+    const both = (): { env: Record<string, string>; dir: string } =>
+      registry([
+        { session: 'S1', name: 'sofar-df', pid: process.pid },
+        { session: 'S2', name: 'sofar-3a', pid: process.ppid },
+      ])
+
+    function steered(name: string, session = 'S1'): { lane: string; dir: string } {
+      const { lane, pool: dir } = laneRepo(name)
+      appendFileSync(leaseFile(dir, 1), `${JSON.stringify({ task: '1.1', session })}\n`)
+      return { lane, dir }
+    }
+
+    const hook = (lane: string, old: string, env: Record<string, string>): Record<string, unknown> => {
+      const out = handleLease(lane, JSON.stringify({ session_id: 'S2', cwd: lane, tool_name: 'Edit', tool_input: { file_path: join(lane, 'docs', 'a.md'), old_string: old, new_string: 'y' } }), env)
+      return (JSON.parse(out.stdout) as { hookSpecificOutput: Record<string, unknown> }).hookSpecificOutput
+    }
+
+    it('names the holding lane by its SendMessage name under a fresh steer, once; the registry is read, never written', () => {
+      const { lane, dir } = steered('peer-steer')
+      const reg = both()
+      const before = readFileSync(join(reg.dir, '0.json'), 'utf8')
+      const env = { [LEASE_ENV]: leaseFile(dir, 2), ...reg.env }
+      const first = hook(lane, 'driver text', env).additionalContext as string
+      expect(first.split('\n')).toHaveLength(2)
+      expect(first.split('\n')[0]).toContain('lane 1 holds docs/a.md › Spec › Driver for 1.1')
+      expect(first.split('\n')[1]).toContain(HINT)
+      expect(hook(lane, 'driver text', env).additionalContext).toBe('sofar lease: still held by lane 1 (1.1) — docs/a.md › Spec › Driver; this edit applied anyway — undo it, work elsewhere, or park.')
+      expect(readFileSync(join(reg.dir, '0.json'), 'utf8')).toBe(before)
+    })
+
+    it('rides a notice, and a refusal in deny mode', () => {
+      const notice = steered('peer-notice')
+      const text = hook(notice.lane, 'hooks', { [LEASE_ENV]: leaseFile(notice.dir, 2), ...both().env }).additionalContext as string
+      expect(text).toMatch(/^sofar lease \(drive-lanes 3\.3\): in docs\/a\.md, lane 1 holds/)
+      expect(text).toContain(HINT)
+      const deny = steered('peer-deny')
+      openLease(leaseFile(deny.dir, 2), header({ lane: 2, task: '1.2', since: 2, mode: 'deny' }))
+      const refused = hook(deny.lane, 'driver text', { [LEASE_ENV]: leaseFile(deny.dir, 2), ...both().env })
+      expect(refused.permissionDecision).toBe('deny')
+      expect(refused.permissionDecisionReason).toContain(HINT)
+    })
+
+    it('says the record packet alone when either side is not a live Claude Code peer — a Codex, Cursor or cloud lane, or a session gone', () => {
+      const plain = (name: string, env: Record<string, string>, session?: string): string => {
+        const { lane, dir } = steered(name, session)
+        return hook(lane, 'driver text', { [LEASE_ENV]: leaseFile(dir, 2), ...env }).additionalContext as string
+      }
+      const cases = {
+        holderAbsent: plain('peer-holder-absent', registry([{ session: 'S2', name: 'sofar-3a', pid: process.ppid }]).env),
+        selfAbsent: plain('peer-self-absent', registry([{ session: 'S1', name: 'sofar-df', pid: process.pid }]).env),
+        holderGone: plain('peer-holder-gone', registry([{ session: 'S1', name: 'sofar-df', pid: 2_147_483_646 }, { session: 'S2', name: 'sofar-3a', pid: process.ppid }]).env),
+        noRegistry: plain('peer-none', { CLAUDE_CONFIG_DIR: scratch('empty') }),
+      }
+      for (const text of Object.values(cases)) {
+        expect(text).not.toContain('sofar peer')
+        expect(text.split('\n')).toHaveLength(1)
+        expect(text).toContain('lane 1 holds docs/a.md › Spec › Driver for 1.1')
+      }
+    })
   })
 
   it('--leases: off by default (D37), steer or deny on request, anything else refused', () => {

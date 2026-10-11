@@ -13,6 +13,7 @@ import {
   fileNotice,
   leaseNotice,
   loggedBy,
+  peerHint,
   postedBrief,
   regionsByFile,
   resumePacket,
@@ -112,6 +113,20 @@ describe('the packets, as pure renderers', () => {
     const at = fileNotice('a.md', header({ lane: 2, task: '1.2', since: 2 }), [{ header: header({ lane: 1, task: '1.1', since: 1 }), regions: [md('a.md', ['A', 'One'])] }])
     expect(at).toBe('sofar lease (drive-lanes 3.3): in a.md, lane 1 holds a.md [A › One] for 1.1 "task 1.1" — a task older than yours (1.2), so an edit there is steered; the rest of the file is free.')
     expect(fileNotice('a.md', header({ lane: 2, task: '1.2', since: 2 }), [])).toBeNull()
+  })
+
+  it('the peer hint (3.5): each holder by its SendMessage name, lane order, a shared name with its cwd — null when none resolved', () => {
+    expect(peerHint([{ lane: 1, task: '1.1', name: 'sofar-df' }])).toBe(
+      'sofar peer (drive-lanes 3.5): the holder is live in Claude Code — lane 1 (1.1) as "sofar-df". SendMessage it to ask what it is changing there or when it lands. sofar sends nothing, and a reply is not in the record: write back what you learn.',
+    )
+    const two = peerHint([
+      { lane: 3, task: 'other 1.3', name: 'sofar', cwd: '/pool/lane-3' },
+      { lane: 1, task: '1.1', name: 'sofar-df' },
+    ])
+    expect(two).toContain('the holders are live in Claude Code — lane 1 (1.1) as "sofar-df"; lane 3 (other 1.3) as "sofar" (in /pool/lane-3). SendMessage the one you need')
+    oneLine(two)
+    expect(peerHint([{ lane: 1, task: '1.1', name: 'n'.repeat(1000) }])!.length).toBeLessThanOrEqual(400)
+    expect(peerHint([])).toBeNull()
   })
 
   it('the resume packet: how the last session ended, its write-back, the WIP, and what the park waited for', () => {
