@@ -1010,6 +1010,11 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
             if p.contains_key("exit") && integer(p.get("exit")).is_none() {
                 e.push("exit: must be an integer".to_owned());
             }
+            must(
+                e,
+                opt_bool(p.get("elsewhere")),
+                "elsewhere: must be a boolean",
+            );
         }
         // brief_appended (r3-fixes 2.9) shares note_added's one rule.
         "note_added" | "brief_appended" => {

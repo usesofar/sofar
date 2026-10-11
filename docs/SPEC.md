@@ -10212,6 +10212,18 @@ stay the underlying derivation's, and exit codes are styling-independent.
   every rule cited by up to 37 is explained by out-of-root captures, and by
   6 for certain, whose rules name files only another repo has. Edit-time
   surfacing still names such paths.
+- **Whose suite (r4-fixes H15):** a command whose first segment `cd`-s out of
+  the worktree (leavesWorktree) is logged with `elsewhere: true` on its
+  `command_run` (self-improve D28). Its test still proves the task it ran
+  under, but it is no run of this worktree's suite: it never covers an edit
+  here and never becomes `last_test`, the suite a rule with no check asks
+  for (`syn.gate-elsewhere`). A heredoc's body is data, never a shell
+  segment: a `bun test …` line in a script fed to `python3 - <<'EOF'` is no
+  test run, and its `..` or `cd` no re-entry, though the root's own path
+  there still is. Replay over #096f's 11 real holds, every one asking for
+  handoff-bench's `bun test`: 7 no longer take that suite; the other 4 trace
+  to a quoted `../lib/paths` in a sed expression, which H13's rule still
+  reads as a possible re-entry.
 - **Landing write (r4-fixes D61):** `sofar_update_task` with `"task_id":
   "m1, m2"` files a done task_status_changed for each, in order, and the
   statusline gauge reading the record goes 0/3 → 2/3; `m1,m9` (m9 not in

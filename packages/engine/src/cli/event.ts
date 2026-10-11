@@ -39,7 +39,7 @@ import {
   type SessionState,
 } from '../core/fold'
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
-import { activityEnabled, mayWriteHere, testShapedCommand } from '../core/derived'
+import { activityEnabled, leavesWorktree, mayWriteHere, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
 import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, insideRoot, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
 import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine, intendedRecord, intentLine } from '../core/carrier'
@@ -1170,7 +1170,7 @@ export function handlePostToolBatch(rootDir: string, input: string): HookResult 
     for (const raw of batch) {
       if (!isObj(raw) || !SURFACED_TOOLS.has(strField(raw, 'tool_name') ?? '')) continue
       const one: Obj = { ...raw, session_id: session, ...(typeof hook.cwd === 'string' ? { cwd: hook.cwd } : {}) }
-      const calls = classifyToolCall(one)
+      const calls = classifyToolCall(one, rootDir)
       const edited = new Set(calls.filter((c) => c.domain === 'path').map((c) => resolve(rootDir, c.subject)))
       subjects.push(
         ...calls.map((c) => ({ domain: c.domain, subject: c.subject, edit: c.type === 'file_touched' })),
@@ -1219,7 +1219,7 @@ interface ClassifiedCall {
  * multi-file patch (agents-parity 2.1), so the result is every classified
  * subject, in order, and empty for a call that is not ours.
  */
-function classifyToolCall(hook: Obj): ClassifiedCall[] {
+function classifyToolCall(hook: Obj, rootDir?: string): ClassifiedCall[] {
   const toolName = strField(hook, 'tool_name')
   const toolInput = isObj(hook.tool_input) ? hook.tool_input : {}
   if (toolName === 'Edit' || toolName === 'MultiEdit' || toolName === 'Write') {
@@ -1258,11 +1258,15 @@ function classifyToolCall(hook: Obj): ClassifiedCall[] {
     // commands are considered self-recording.
     const redacted = redactCommand(cmd)
     const head = cmd.trimStart().split(/\s+/, 1)[0] ?? ''
+    // A run that cd-s out of the worktree first is no run of this one's suite
+    // (r4-fixes H15, self-improve D28): the record says so, and the Stop gate
+    // neither counts it as covering nor asks for it.
+    const elsewhere = rootDir !== undefined && leavesWorktree(cmd, strField(hook, 'cwd') ?? rootDir, rootDir, process.env.HOME, isDirectory)
     return [
       {
         toolName,
         type: 'command_run',
-        payload: { cmd: redacted },
+        payload: { cmd: redacted, ...(elsewhere ? { elsewhere: true } : {}) },
         domain: 'cmd',
         // The guard matches what the record HOLDS, not what was typed, so the
         // hook and the fold can never disagree about whether a rule fired.
@@ -1399,7 +1403,7 @@ export function handlePostToolFailure(rootDir: string, input: string, declared?:
     if (bound === null) return { ...OK }
     const { ctx, slug } = bound
 
-    const calls = classifyToolCall(hook)
+    const calls = classifyToolCall(hook, rootDir)
     const [call] = calls
     if (call === undefined) return { ...OK }
     const { head } = call
@@ -1483,7 +1487,7 @@ export function handlePostTool(rootDir: string, input: string, declared?: HookHo
     const injected = (lines: readonly string[]): HookResult =>
       lines.length === 0 ? { ...OK } : { ...OK, stdout: postToolContext(lines) }
 
-    const calls = classifyToolCall(hook)
+    const calls = classifyToolCall(hook, rootDir)
     // Reads are subjects too (memory-lead 2.1, D6), and append nothing.
     const edited = new Set(calls.filter((c) => c.domain === 'path').map((c) => resolve(rootDir, c.subject)))
     const reads = readPaths(hook, rootDir).filter((p) => !edited.has(p))

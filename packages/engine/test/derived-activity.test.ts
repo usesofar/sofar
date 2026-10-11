@@ -101,6 +101,14 @@ describe('the test-command recognizer (D24 (1))', () => {
   it('clips the kept segment', () => {
     expect(testShapedCommand(`npm test ${'x'.repeat(500)}`)!.length).toBe(120)
   })
+
+  it("a heredoc's body is data, never a test run (r4-fixes H15)", () => {
+    expect(testShapedCommand("python3 - <<'EOF'\nbun test fires no hooks\nEOF")).toBeNull()
+    expect(testShapedCommand('cat <<-X\n\tnpm test\n\tX')).toBeNull()
+    expect(testShapedCommand('cat <<A <<"B"\nvitest\nA\nnpm test\nB\nls')).toBeNull()
+    expect(testShapedCommand("cat <<'EOF'\nnpm test\nEOF\nnpm test")).toBe('npm test')
+    expect(testShapedCommand('cat <<< x\nnpm test')).toBe('npm test')
+  })
 })
 
 describe('the fold (D24 (2))', () => {

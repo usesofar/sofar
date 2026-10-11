@@ -381,6 +381,14 @@ export interface CommandRunPayload {
   ok?: boolean
   /** @asType integer */
   exit?: number
+  /**
+   * The command left the worktree before it did anything (r4-fixes H15,
+   * self-improve D28): its first segment is a `cd` out of this repo. Written
+   * only as `true`. Its test proves the task it ran under, but it is no run
+   * of this worktree's suite: the Stop gate neither counts it as covering nor
+   * asks for it.
+   */
+  elsewhere?: boolean
 }
 export interface NoteAddedPayload { text: string }
 /**
@@ -1164,6 +1172,7 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
     if (p.exit !== undefined && !(typeof p.exit === 'number' && Number.isInteger(p.exit))) {
       e.push('exit: must be an integer')
     }
+    if (p.elsewhere !== undefined && typeof p.elsewhere !== 'boolean') e.push('elsewhere: must be a boolean')
   },
   note_added(p, e) {
     if (!str(p.text)) e.push('text: must be a non-empty string')
@@ -1553,7 +1562,7 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   command_run: {
     writer: 'hook',
     summary: 'a shell command captured by the PostToolUse hook (PostToolUseFailure on a failed one)',
-    fields: 'cmd, ok? (what the host said; absent = unknown), exit? (only when the host gives a number)',
+    fields: 'cmd, ok? (what the host said; absent = unknown), exit? (only when the host gives a number), elsewhere? (true when it cd-ed out of the worktree first)',
     example: { cmd: 'npm test' },
   },
   note_added: {

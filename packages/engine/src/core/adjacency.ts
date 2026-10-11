@@ -133,6 +133,8 @@ export interface GraphEdge {
     exit?: number
     /** The test-shaped segment of the command, when the recognizer found one and `ok` is known. */
     test?: string
+    /** On a `ran` edge: the command cd-ed out of the worktree first (r4-fixes H15), so it is no run of this one's suite. */
+    elsewhere?: boolean
   }
 }
 
@@ -187,7 +189,10 @@ export function edgesForEvent(
           ? null
           : { ok: p.ok, ...(p.exit !== undefined ? { exit: p.exit } : {}), ...(test !== null ? { test } : {}) }
       if (session !== undefined) {
-        edges.push({ kind: 'ran', from: session, to: command, ...stamp, ...(outcome !== null ? { attrs: outcome } : {}) })
+        // A run elsewhere (r4-fixes H15) still proves the task below, but the
+        // session's own suite never learns it: it marks the `ran` edge only.
+        const ran = outcome !== null && p.elsewhere === true ? { ...outcome, elsewhere: true } : outcome
+        edges.push({ kind: 'ran', from: session, to: command, ...stamp, ...(ran !== null ? { attrs: ran } : {}) })
       }
       if (outcome !== null && test !== null) {
         for (const taskId of activeTasks) {
@@ -424,7 +429,7 @@ export class EdgeAccumulator {
           a.commands += 1
           if (edge.attrs !== undefined) {
             if (edge.attrs.ok === false) a.failed += 1
-            const outcome = outcomeOf(edge.attrs)
+            const outcome = edge.attrs.elsewhere === true ? null : outcomeOf(edge.attrs)
             if (outcome !== null) {
               a.lastTest = outcome
               a.testsSinceEdit.push({ ...outcome, ts: edge.ts ?? '' })

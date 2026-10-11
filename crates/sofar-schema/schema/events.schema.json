@@ -631,6 +631,10 @@
         },
         "exit": {
           "type": "integer"
+        },
+        "elsewhere": {
+          "type": "boolean",
+          "description": "The command left the worktree before it did anything (r4-fixes H15, self-improve D28): its first segment is a `cd` out of this repo. Written only as `true`. Its test proves the task it ran under, but it is no run of this worktree's suite: the Stop gate neither counts it as covering nor asks for it."
         }
       },
       "required": [

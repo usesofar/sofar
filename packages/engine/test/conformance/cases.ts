@@ -1041,6 +1041,34 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes H15 on the hot path: a test run that cd-s out of the worktree
+    // first (#096f benched handoff-bench with `bun test`) is recorded as run
+    // elsewhere. It neither covers an edit here nor becomes the suite the
+    // gate asks for: a rule with no check still asks for this tree's `npm
+    // test`, and only that run releases the stop.
+    name: 'syn.gate-elsewhere',
+    fixture: { ...synthetic('baseline'), git: undefined },
+    steps: [
+      s('session-start: the tree and another repo', ['event', 'session-start'], start({ session_id: 'sess-e' }), {
+        before: (m) => {
+          execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: m.root, stdio: 'ignore' })
+          for (const base of [m.root, join(m.home, 'bench')]) {
+            mkdirSync(join(base, 'src'), { recursive: true })
+            writeFileSync(join(base, 'src', 'stock.ts'), 'export {}\n')
+          }
+        },
+      }),
+      s('a rule with no check', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-e', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', guard: 'path:src/**', supersedes: 'none' })]),
+      s("this tree's suite passes", ['event', 'post-tool'], bash('npm test', { session_id: 'sess-e' })),
+      s('an edit the rule governs', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-e' })),
+      s('sess-e writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-e', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s("another repo's suite passes, run from here", ['event', 'post-tool'], bash('cd <HOME>/bench && bun test', { session_id: 'sess-e' })),
+      s('stop: held, asking for npm test', ['event', 'stop'], stop({ session_id: 'sess-e' })),
+      s("this tree's suite passes again", ['event', 'post-tool'], bash('npm test', { session_id: 'sess-e' })),
+      s('stop: covered', ['event', 'stop'], stop({ session_id: 'sess-e' })),
+    ],
+  },
+  {
     // r4-fixes A8 on the hot path: a check bound after the fact. The fixture's
     // guarded D1 takes its check by check_bound (what `sofar bind` appends) and
     // keeps its handle; the gate then holds an edit it governs until that test

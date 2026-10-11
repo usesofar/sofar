@@ -433,6 +433,8 @@ pub struct EdgeAttrs {
     pub exit: Option<f64>,
     /// The test-shaped segment of the command, when the recognizer found one and `ok` is known.
     pub test: Option<String>,
+    /// On a `ran` edge: the command cd-ed out of the worktree first (r4-fixes H15).
+    pub elsewhere: bool,
 }
 
 impl EdgeAttrs {
@@ -1654,7 +1656,11 @@ fn edges_for_event(
                 _ => None,
             });
             if let Some(session) = session {
-                edges.push(stamp("ran", session, command.clone(), outcome.clone()));
+                // A run elsewhere (r4-fixes H15) still proves the task below,
+                // but the session's own suite never learns it.
+                let elsewhere = matches!(p.get("elsewhere"), Some(Json::Bool(true)));
+                let ran = outcome.clone().map(|o| EdgeAttrs { elsewhere, ..o });
+                edges.push(stamp("ran", session, command.clone(), ran));
             }
             if let Some(outcome) = outcome
                 && outcome.test.is_some()
@@ -1794,7 +1800,7 @@ impl EdgeAccumulator {
                         if attrs.ok == Some(false) {
                             a.failed += 1;
                         }
-                        if let Some(outcome) = attrs.outcome() {
+                        if let Some(outcome) = attrs.outcome().filter(|_| !attrs.elsewhere) {
                             a.tests_since_edit.push(TimedTestOutcome {
                                 outcome: outcome.clone(),
                                 ts: edge.ts.clone().unwrap_or_default(),
@@ -2584,6 +2590,9 @@ impl GraphEdge {
             }
             put_opt_num(&mut ao, "exit", a.exit);
             put_opt(&mut ao, "test", a.test.as_deref());
+            if a.elsewhere {
+                ao.insert("elsewhere", Json::Bool(true));
+            }
             o.insert("attrs", Json::Obj(ao));
         }
         Json::Obj(o)
@@ -3130,6 +3139,11 @@ impl GraphEdge {
                         },
                         exit: on(a, "exit")?,
                         test: os(a, "test")?,
+                        elsewhere: match a.get("elsewhere") {
+                            None => false,
+                            Some(Json::Bool(b)) => *b,
+                            Some(_) => return None,
+                        },
                     })
                 }
             },

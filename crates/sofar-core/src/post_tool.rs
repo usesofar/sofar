@@ -148,6 +148,13 @@ pub fn patched_files(patch: &str, cwd: Option<&str>) -> Vec<(String, &'static st
 /// for a call that is not ours; several for an `apply_patch`.
 #[must_use]
 pub fn classify_tool_call(hook: &Object) -> Vec<ClassifiedCall> {
+    classify_tool_call_in(hook, None)
+}
+
+/// `classifyToolCall(hook, rootDir)`: under a root, a command that cd-s out
+/// of the worktree first carries `elsewhere: true` (r4-fixes H15).
+#[must_use]
+pub fn classify_tool_call_in(hook: &Object, root: Option<&Path>) -> Vec<ClassifiedCall> {
     let Some(tool_name) = str_field(hook, "tool_name") else {
         return Vec::new();
     };
@@ -189,8 +196,21 @@ pub fn classify_tool_call(hook: &Object) -> Vec<ClassifiedCall> {
                 .split(is_js_whitespace)
                 .next()
                 .unwrap_or("");
-            let mut payload = Object::with_capacity(1);
+            // A run that cd-s out of the worktree first is no run of this
+            // one's suite (r4-fixes H15, self-improve D28): the record says
+            // so, and the Stop gate neither counts it as covering nor asks for it.
+            let elsewhere = root.is_some_and(|root| {
+                let root_str = root.to_string_lossy();
+                let cwd = str_field(hook, "cwd").unwrap_or(&root_str);
+                let home = std::env::var("HOME").ok();
+                let is_dir = |p: &str| crate::layout::is_dir(Path::new(p));
+                crate::derived::leaves_worktree(cmd, cwd, &root_str, home.as_deref(), &is_dir)
+            });
+            let mut payload = Object::with_capacity(2);
             payload.insert("cmd", Json::Str(redacted.clone()));
+            if elsewhere {
+                payload.insert("elsewhere", Json::Bool(true));
+            }
             vec![ClassifiedCall {
                 tool_name: tool_name.to_owned(),
                 event_type: "command_run",
@@ -997,7 +1017,7 @@ pub fn handle_post_tool_batch(root: &Path, input: &str) -> CmdResult {
             if let Some(cwd) = hook.get("cwd").and_then(Json::as_str) {
                 one.insert("cwd", Json::Str(cwd.to_owned()));
             }
-            let calls = classify_tool_call(&one);
+            let calls = classify_tool_call_in(&one, Some(root));
             let edited: Vec<String> = calls
                 .iter()
                 .filter(|c| c.domain == GuardDomain::Path)
@@ -1060,7 +1080,7 @@ pub fn handle_post_tool(root: &Path, input: &str) -> CmdResult {
         }
     };
 
-    let calls = classify_tool_call(&hook);
+    let calls = classify_tool_call_in(&hook, Some(root));
     // Reads are subjects too (memory-lead 2.1, D6), and append nothing.
     let edited: Vec<String> = calls
         .iter()
@@ -1211,7 +1231,7 @@ pub fn handle_post_tool_failure(root: &Path, input: &str) -> CmdResult {
     let Some(slug) = bound_or_lane(&layout, session) else {
         return silent();
     };
-    let calls = classify_tool_call(&hook);
+    let calls = classify_tool_call_in(&hook, Some(root));
     let Some(call) = calls.first() else {
         return silent();
     };

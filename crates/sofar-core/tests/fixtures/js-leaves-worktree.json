@@ -253,6 +253,36 @@
       "home": null,
       "leaves": true,
       "why": "no HOME: ~/… cannot name the root"
+    },
+    {
+      "cmd": "cd /w/other && python3 - <<'EOF'\nimport os\nos.chdir('..')\nEOF",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "a heredoc body's `..` is data, not a re-entry (H15)"
+    },
+    {
+      "cmd": "cd /w/other && cat <<-EOF\n\tcd ..\n\tEOF",
+      "cwd": "/w/repo",
+      "leaves": true,
+      "why": "a <<- body's `cd` is data (H15)"
+    },
+    {
+      "cmd": "cd /w/other && bun run x.ts <<EOF\ncd /w/repo\nEOF",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a heredoc body naming the root may write there (H15)"
+    },
+    {
+      "cmd": "cd /w/other && cat <<EOF\nok\nEOF\ncd /w/repo && echo hi",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a cd after the heredoc's end re-enters (H15)"
+    },
+    {
+      "cmd": "cd /w/other && cat <<< '..'",
+      "cwd": "/w/repo",
+      "leaves": false,
+      "why": "a here-string is no heredoc"
     }
   ]
 }

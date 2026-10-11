@@ -1,5 +1,12 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r4-fixes H15** (main) from the TypeScript reference; the Rust
+core reproduces all 61. One new case, `syn.gate-elsewhere`: a `cd <HOME>/bench
+&& bun test` run is logged with `elsewhere: true`, neither covers an edit here
+nor becomes the suite asked for (the stop asks for `npm test`). RE-RECORDED
+`syn.gate-windows`: its `cd <ROOT>/../w-elsewhere && make` now carries
+`elsewhere: true` (2 lines); nothing else moved.
+
 ADDED for **r4-fixes H18** (main) from the TypeScript reference; no golden
 moved, and the Rust core reproduces all 60 (`SOFAR_CORE=target/release/sofar-core`).
 One new case, `syn.gate-outside-root`: an edit in another repo

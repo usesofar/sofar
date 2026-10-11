@@ -18,6 +18,9 @@ pub struct CheckBoundPayload {
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct CommandRunPayload {
     pub cmd: ::std::string::String,
+    #[doc = "The command left the worktree before it did anything (r4-fixes H15, self-improve D28): its first segment is a `cd` out of this repo. Written only as `true`. Its test proves the task it ran under, but it is no run of this worktree's suite: the Stop gate neither counts it as covering nor asks for it."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub elsewhere: ::std::option::Option<bool>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub exit: ::std::option::Option<i64>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
