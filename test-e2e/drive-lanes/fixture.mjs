@@ -107,6 +107,25 @@ export function planPayload() {
   }
 }
 
+/**
+ * The native arm's one prompt (drive-lanes 3.9): the plan as a Claude Code user
+ * would hand it to a single session — each task's id, title, verify and waits_on,
+ * the facts the driven arms' record carries — with the work left to the
+ * session's own subagents. No sofar: no record, hooks or MCP server.
+ */
+export function nativePrompt() {
+  const task = (t) =>
+    [`- ${t.id} ${t.title}`, `  verify: ${t.verify.cmd}`, ...(t.waits_on !== undefined ? [`  waits on: ${t.waits_on.map((w) => w.replace(`${SLUG} `, '')).join(', ')}`] : [])].join('\n')
+  return [
+    GOAL,
+    '',
+    `The plan, ${TASKS.length} tasks:`,
+    ...TASKS.map(task),
+    '',
+    'Work through the whole plan with your own subagents (the Agent tool): hand each task to a subagent, and run tasks in parallel wherever the plan allows. A task is done when its verify command exits 0; commit it then (git add, git commit). A task that waits on another starts only once that one is done. Finish when every task verifies.',
+  ].join('\n')
+}
+
 const header = (test) => `import { test } from 'node:test'\nimport assert from 'node:assert/strict'\n${test}`
 
 /** The skeleton: package.json, README, stubs and every task's acceptance test. */

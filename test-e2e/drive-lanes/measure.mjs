@@ -22,9 +22,13 @@ import { SLUG, TASKS } from './fixture.mjs'
 
 /** Every parseable line of a log; a torn or foreign line is skipped, as the fold does. */
 export function readEvents(path) {
-  if (!existsSync(path)) return []
+  return existsSync(path) ? jsonLines(readFileSync(path, 'utf8')) : []
+}
+
+/** Every parseable JSON line of a text: an event log, a stream-json stdout. */
+export function jsonLines(text) {
   const out = []
-  for (const line of readFileSync(path, 'utf8').split('\n')) {
+  for (const line of (text ?? '').split('\n')) {
     if (line.trim().length === 0) continue
     try {
       out.push(JSON.parse(line))
@@ -34,13 +38,26 @@ export function readEvents(path) {
 }
 
 /**
+ * What a token costs, in fresh-input tokens (drive-lanes 3.9): Claude Code's
+ * cache writes are the one-hour kind (the transcripts' usage says
+ * ephemeral_1h), so a write is 2× fresh input, a read 0.1×, output 5×. Fitted,
+ * not assumed: on all 21 agent reps of 2.5 and 3.4 the adapter's reported cost
+ * is these weights × $2 per million to within 0.3%.
+ */
+export const TOKEN_WEIGHTS = { input: 1, cache_creation: 2, cache_read: 0.1, output: 5 }
+export const USD_PER_WEIGHTED_TOKEN = 2 / 1e6
+
+/** A usage split, priced in fresh-input tokens. */
+export const weighted = (u) => Math.round(Object.entries(TOKEN_WEIGHTS).reduce((a, [k, w]) => a + w * (u[k] ?? 0), 0))
+
+/**
  * Token usage of one session's transcript (plus any subagent transcripts beside
  * it), each assistant message counted once — a message split across several
  * transcript lines repeats its usage on every one.
  */
 export function transcriptUsage(paths) {
   const seen = new Set()
-  const u = { input: 0, cache_creation: 0, cache_read: 0, output: 0, messages: 0 }
+  const u = { input: 0, cache_creation: 0, cache_read: 0, output: 0, messages: 0, models: {} }
   for (const path of paths) {
     for (const line of readFileSync(path, 'utf8').split('\n')) {
       if (!line.includes('"usage"')) continue
@@ -62,6 +79,7 @@ export function transcriptUsage(paths) {
       u.cache_read += m.usage.cache_read_input_tokens ?? 0
       u.output += m.usage.output_tokens ?? 0
       u.messages += 1
+      if (typeof m.model === 'string') u.models[m.model] = (u.models[m.model] ?? 0) + 1
     }
   }
   return { ...u, total: u.input + u.cache_creation + u.cache_read + u.output }
@@ -93,6 +111,20 @@ export function parseDriveStdout(text) {
 
 const ms = (a, b) => Date.parse(b) - Date.parse(a)
 const round = (n, d = 3) => (n === null || n === undefined || !Number.isFinite(n) ? null : Math.round(n * 10 ** d) / 10 ** d)
+
+/**
+ * Tokens per task split by kind — fresh input, cache writes, cache reads,
+ * output — and priced (3.9): a cache read is a tenth of fresh input, so the
+ * raw total alone hides where a thread's cost moves.
+ */
+export function splitPerTask(tokens, done) {
+  if (!(done > 0) || typeof tokens?.total !== 'number' || tokens.total === 0) return { split_per_task: null, weighted_per_task: null }
+  const per = (k) => Math.round((tokens[k] ?? 0) / done)
+  return {
+    split_per_task: { input: per('input'), cache_creation: per('cache_creation'), cache_read: per('cache_read'), output: per('output') },
+    weighted_per_task: Math.round(weighted(tokens) / done),
+  }
+}
 
 /**
  * The score. `usageOf(sessionId)` returns a transcriptUsage or null; `drive` is
@@ -244,6 +276,7 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
       ...tokens,
       per_task: done > 0 && tokens.sessions_with_transcript > 0 ? Math.round(tokens.total / done) : null,
       output_per_task: done > 0 && tokens.sessions_with_transcript > 0 ? Math.round(tokens.output / done) : null,
+      ...splitPerTask(tokens, done),
       context_at_handoff_mean:
         handoffs.some((h) => h.payload.tokens !== undefined)
           ? Math.round(handoffs.reduce((a, h) => a + (h.payload.tokens ?? 0), 0) / handoffs.filter((h) => h.payload.tokens !== undefined).length)
@@ -279,9 +312,56 @@ export function measureCell(cell, claudeConfig) {
   return measure(events, { usageOf, drive })
 }
 
+/**
+ * Score a native-arm run (drive-lanes 3.9): one Claude Code session that worked
+ * the plan with its own subagents — no driver, no record. Its stream gives the
+ * session id and the reported cost; its transcripts, the main thread's and every
+ * subagent's, the tokens; tasks done is the harness's own re-run of each verify
+ * on the tree it left (`passes`), since a native session meets no gate.
+ */
+export function measureNative({ stdout, claudeConfig, wallMs, passes }) {
+  const lines = jsonLines(stdout)
+  const init = lines.find((l) => l.type === 'system' && l.subtype === 'init')
+  const result = lines.filter((l) => l.type === 'result').pop()
+  const sessionId = init?.session_id ?? result?.session_id ?? null
+  const paths = sessionId !== null && claudeConfig !== undefined ? findTranscripts(claudeConfig, sessionId) : []
+  const subs = paths.filter((p) => p.includes('/subagents/'))
+  const usage = (ps) => (ps.length > 0 ? transcriptUsage(ps) : null)
+  const all = usage(paths)
+  const done = passes.length
+  const tokens =
+    all === null
+      ? { input: 0, cache_creation: 0, cache_read: 0, output: 0, total: 0, sessions_with_transcript: 0 }
+      : { input: all.input, cache_creation: all.cache_creation, cache_read: all.cache_read, output: all.output, total: all.total, sessions_with_transcript: 1 }
+  const perTask = (n) => (done > 0 && all !== null ? Math.round(n / done) : null)
+  const cost = typeof result?.total_cost_usd === 'number' ? result.total_cost_usd : null
+  return {
+    run: { id: sessionId, lanes: 1, arm: 'native', stop_reason: result?.subtype ?? null, is_error: result?.is_error ?? null, num_turns: result?.num_turns ?? null },
+    wall_clock_s: round(wallMs / 1000, 1),
+    overhead_s: null,
+    lanes_busy_rate: null,
+    tasks: { total: TASKS.length, done, done_rate: round(done / TASKS.length), final_status: Object.fromEntries(TASKS.map((t) => [t.id, passes.includes(t.id) ? 'done' : 'pending'])) },
+    verify: { gate_attempts: null, gate_passes: null, gate_pass_rate: null, first_try_pass_rate: null, sweep_checks: 0, sweep_failures: 0 },
+    sessions: { launched: 1, subagents: subs.length, unresolved: 0, by_reason: {}, parks: null, rework: null, tasks_with_repeat_sessions: [], mean_seconds_per_handoff: null },
+    tokens: {
+      ...tokens,
+      per_task: perTask(tokens.total),
+      output_per_task: perTask(tokens.output),
+      ...splitPerTask(tokens, done),
+      main: usage(paths.filter((p) => !subs.includes(p))),
+      subagents: usage(subs),
+      models: all?.models ?? {},
+    },
+    cost: { usd: cost, per_task: cost !== null && done > 0 ? round(cost / done, 4) : null },
+    conflicts: { merge: null, merge_reopen_rate: null, regressions: null, off_task_resolutions: null, off_task: [], double_held: [], duplicate_work: null },
+    per_task: [],
+  }
+}
+
 /** The headline numbers of one scored run, flat — what the bar is made of. */
 export function headline(result) {
   const s = result.score
+  const { split_per_task: split, weighted_per_task } = splitPerTask(s.tokens, s.tasks.done)
   return {
     wall_clock_s: s.wall_clock_s,
     overhead_s: s.overhead_s,
@@ -293,10 +373,15 @@ export function headline(result) {
     first_try_pass_rate: s.verify.first_try_pass_rate,
     tokens_per_task: s.tokens.per_task,
     output_tokens_per_task: s.tokens.output_per_task,
+    input_tokens_per_task: split?.input ?? null,
+    cache_write_tokens_per_task: split?.cache_creation ?? null,
+    cache_read_tokens_per_task: split?.cache_read ?? null,
+    weighted_tokens_per_task: weighted_per_task,
     cost_per_task: s.cost.per_task,
     sessions: s.sessions.launched,
+    subagents: s.sessions.subagents ?? null,
     merge_conflicts: s.conflicts.merge,
-    merge_reopen_rate: s.conflicts.merge_reopen_rate ?? (s.tasks.done > 0 ? round(s.conflicts.merge / s.tasks.done) : null),
+    merge_reopen_rate: s.conflicts.merge_reopen_rate ?? (s.tasks.done > 0 && typeof s.conflicts.merge === 'number' ? round(s.conflicts.merge / s.tasks.done) : null),
     regressions: s.conflicts.regressions,
     off_task_resolutions: s.conflicts.off_task_resolutions,
     duplicate_work: s.conflicts.duplicate_work ?? s.conflicts.off_task_resolutions,
@@ -441,7 +526,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '-
   }
   const resultPath = join(cell, 'artifacts', 'RESULT.json')
   const result = JSON.parse(readFileSync(resultPath, 'utf8'))
-  const score = measureCell(cell, result.claude?.config)
+  const nativeOut = join(cell, 'artifacts', 'native.stdout.jsonl')
+  const score =
+    result.arm === 'native'
+      ? measureNative({ stdout: existsSync(nativeOut) ? readFileSync(nativeOut, 'utf8') : '', claudeConfig: result.claude?.config, wallMs: result.native?.ms ?? 0, passes: result.final_tree?.verify_passes ?? [] })
+      : measureCell(cell, result.claude?.config)
   const why = process.argv.indexOf('--invalid')
   if (process.argv.includes('--write')) {
     const next = { ...result, ...(why > 0 ? { invalid: process.argv[why + 1] } : {}), score }

@@ -1,0 +1,2241 @@
+{
+  "task": "drive-lanes 3.9",
+  "model": {
+    "ttl_s": 3600,
+    "weights": {
+      "input": 1,
+      "cache_creation": 2,
+      "cache_read": 0.1,
+      "output": 5
+    },
+    "usd_per_weighted_token": 0.000002,
+    "packet_tokens": 400
+  },
+  "native": {
+    "reps": 3,
+    "tokens_per_task": 200728.3333,
+    "weighted_per_task": 53645.6667,
+    "tasks_done": 9,
+    "wall_clock_s": 240,
+    "input_per_task": 14,
+    "cache_write_per_task": 11849,
+    "cache_read_per_task": 186611,
+    "output_per_task": 2254.6667
+  },
+  "arms": {
+    "2.5-serial": {
+      "reps": 3,
+      "cases": 0,
+      "tokens_per_task": 340122,
+      "weighted_per_task": 75771,
+      "vs_native": {
+        "tokens": 0.6944,
+        "weighted": 0.4124
+      },
+      "with": {
+        "fresh_packet": {
+          "lower": {
+            "tokens_per_task": 340122,
+            "weighted_per_task": 75771
+          },
+          "upper": {
+            "tokens_per_task": 340122,
+            "weighted_per_task": 75771
+          }
+        },
+        "warm_resume": {
+          "lower": {
+            "tokens_per_task": 340122,
+            "weighted_per_task": 75771
+          },
+          "upper": {
+            "tokens_per_task": 340122,
+            "weighted_per_task": 75771
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "tokens_per_task": 340122,
+            "weighted_per_task": 75771
+          },
+          "upper": {
+            "tokens_per_task": 340122,
+            "weighted_per_task": 75771
+          }
+        },
+        "fork": {
+          "lower": {
+            "tokens_per_task": 340122,
+            "weighted_per_task": 75771
+          },
+          "upper": {
+            "tokens_per_task": 340122,
+            "weighted_per_task": 75771
+          }
+        }
+      }
+    },
+    "2.5-lanes": {
+      "reps": 3,
+      "cases": 9,
+      "tokens_per_task": 530761,
+      "weighted_per_task": 122752,
+      "vs_native": {
+        "tokens": 1.6442,
+        "weighted": 1.2882
+      },
+      "with": {
+        "fresh_packet": {
+          "lower": {
+            "tokens_per_task": 532894,
+            "weighted_per_task": 123218
+          },
+          "upper": {
+            "tokens_per_task": 532894,
+            "weighted_per_task": 123218
+          }
+        },
+        "warm_resume": {
+          "lower": {
+            "tokens_per_task": 482600,
+            "weighted_per_task": 105275
+          },
+          "upper": {
+            "tokens_per_task": 633306,
+            "weighted_per_task": 133182
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "tokens_per_task": 482600,
+            "weighted_per_task": 116812
+          },
+          "upper": {
+            "tokens_per_task": 633306,
+            "weighted_per_task": 144719
+          }
+        },
+        "fork": {
+          "lower": {
+            "tokens_per_task": 463815,
+            "weighted_per_task": 103219
+          },
+          "upper": {
+            "tokens_per_task": 603657,
+            "weighted_per_task": 130040
+          }
+        }
+      }
+    },
+    "3.4-serial": {
+      "reps": 3,
+      "cases": 0,
+      "tokens_per_task": 316923,
+      "weighted_per_task": 73360,
+      "vs_native": {
+        "tokens": 0.5789,
+        "weighted": 0.3675
+      },
+      "with": {
+        "fresh_packet": {
+          "lower": {
+            "tokens_per_task": 316923,
+            "weighted_per_task": 73360
+          },
+          "upper": {
+            "tokens_per_task": 316923,
+            "weighted_per_task": 73360
+          }
+        },
+        "warm_resume": {
+          "lower": {
+            "tokens_per_task": 316923,
+            "weighted_per_task": 73360
+          },
+          "upper": {
+            "tokens_per_task": 316923,
+            "weighted_per_task": 73360
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "tokens_per_task": 316923,
+            "weighted_per_task": 73360
+          },
+          "upper": {
+            "tokens_per_task": 316923,
+            "weighted_per_task": 73360
+          }
+        },
+        "fork": {
+          "lower": {
+            "tokens_per_task": 316923,
+            "weighted_per_task": 73360
+          },
+          "upper": {
+            "tokens_per_task": 316923,
+            "weighted_per_task": 73360
+          }
+        }
+      }
+    },
+    "3.4-naive": {
+      "reps": 3,
+      "cases": 8,
+      "tokens_per_task": 486574,
+      "weighted_per_task": 111713,
+      "vs_native": {
+        "tokens": 1.424,
+        "weighted": 1.0824
+      },
+      "with": {
+        "fresh_packet": {
+          "lower": {
+            "tokens_per_task": 488337,
+            "weighted_per_task": 112115
+          },
+          "upper": {
+            "tokens_per_task": 488337,
+            "weighted_per_task": 112115
+          }
+        },
+        "warm_resume": {
+          "lower": {
+            "tokens_per_task": 464172,
+            "weighted_per_task": 100540
+          },
+          "upper": {
+            "tokens_per_task": 560434,
+            "weighted_per_task": 119165
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "tokens_per_task": 464172,
+            "weighted_per_task": 109945
+          },
+          "upper": {
+            "tokens_per_task": 560434,
+            "weighted_per_task": 128571
+          }
+        },
+        "fork": {
+          "lower": {
+            "tokens_per_task": 449275,
+            "weighted_per_task": 98982
+          },
+          "upper": {
+            "tokens_per_task": 540172,
+            "weighted_per_task": 117072
+          }
+        }
+      }
+    },
+    "3.4-footprint": {
+      "reps": 3,
+      "cases": 0,
+      "tokens_per_task": 344209,
+      "weighted_per_task": 79570,
+      "vs_native": {
+        "tokens": 0.7148,
+        "weighted": 0.4833
+      },
+      "with": {
+        "fresh_packet": {
+          "lower": {
+            "tokens_per_task": 344209,
+            "weighted_per_task": 79570
+          },
+          "upper": {
+            "tokens_per_task": 344209,
+            "weighted_per_task": 79570
+          }
+        },
+        "warm_resume": {
+          "lower": {
+            "tokens_per_task": 344209,
+            "weighted_per_task": 79570
+          },
+          "upper": {
+            "tokens_per_task": 344209,
+            "weighted_per_task": 79570
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "tokens_per_task": 344209,
+            "weighted_per_task": 79570
+          },
+          "upper": {
+            "tokens_per_task": 344209,
+            "weighted_per_task": 79570
+          }
+        },
+        "fork": {
+          "lower": {
+            "tokens_per_task": 344209,
+            "weighted_per_task": 79570
+          },
+          "upper": {
+            "tokens_per_task": 344209,
+            "weighted_per_task": 79570
+          }
+        }
+      }
+    },
+    "3.4-default": {
+      "reps": 3,
+      "cases": 0,
+      "tokens_per_task": 340211,
+      "weighted_per_task": 78776,
+      "vs_native": {
+        "tokens": 0.6949,
+        "weighted": 0.4685
+      },
+      "with": {
+        "fresh_packet": {
+          "lower": {
+            "tokens_per_task": 340211,
+            "weighted_per_task": 78776
+          },
+          "upper": {
+            "tokens_per_task": 340211,
+            "weighted_per_task": 78776
+          }
+        },
+        "warm_resume": {
+          "lower": {
+            "tokens_per_task": 340211,
+            "weighted_per_task": 78776
+          },
+          "upper": {
+            "tokens_per_task": 340211,
+            "weighted_per_task": 78776
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "tokens_per_task": 340211,
+            "weighted_per_task": 78776
+          },
+          "upper": {
+            "tokens_per_task": 340211,
+            "weighted_per_task": 78776
+          }
+        },
+        "fork": {
+          "lower": {
+            "tokens_per_task": 340211,
+            "weighted_per_task": 78776
+          },
+          "upper": {
+            "tokens_per_task": 340211,
+            "weighted_per_task": 78776
+          }
+        }
+      }
+    },
+    "3.4-steer": {
+      "reps": 2,
+      "cases": 0,
+      "tokens_per_task": 495533,
+      "weighted_per_task": 119937,
+      "vs_native": {
+        "tokens": 1.4687,
+        "weighted": 1.2357
+      },
+      "with": {
+        "fresh_packet": {
+          "lower": {
+            "tokens_per_task": 495533,
+            "weighted_per_task": 119937
+          },
+          "upper": {
+            "tokens_per_task": 495533,
+            "weighted_per_task": 119937
+          }
+        },
+        "warm_resume": {
+          "lower": {
+            "tokens_per_task": 495533,
+            "weighted_per_task": 119937
+          },
+          "upper": {
+            "tokens_per_task": 495533,
+            "weighted_per_task": 119937
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "tokens_per_task": 495533,
+            "weighted_per_task": 119937
+          },
+          "upper": {
+            "tokens_per_task": 495533,
+            "weighted_per_task": 119937
+          }
+        },
+        "fork": {
+          "lower": {
+            "tokens_per_task": 495533,
+            "weighted_per_task": 119937
+          },
+          "upper": {
+            "tokens_per_task": 495533,
+            "weighted_per_task": 119937
+          }
+        }
+      }
+    },
+    "3.4-deny": {
+      "reps": 1,
+      "cases": 0,
+      "tokens_per_task": 643625,
+      "weighted_per_task": 137150,
+      "vs_native": {
+        "tokens": 2.2064,
+        "weighted": 1.5566
+      },
+      "with": {
+        "fresh_packet": {
+          "lower": {
+            "tokens_per_task": 643625,
+            "weighted_per_task": 137150
+          },
+          "upper": {
+            "tokens_per_task": 643625,
+            "weighted_per_task": 137150
+          }
+        },
+        "warm_resume": {
+          "lower": {
+            "tokens_per_task": 643625,
+            "weighted_per_task": 137150
+          },
+          "upper": {
+            "tokens_per_task": 643625,
+            "weighted_per_task": 137150
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "tokens_per_task": 643625,
+            "weighted_per_task": 137150
+          },
+          "upper": {
+            "tokens_per_task": 643625,
+            "weighted_per_task": 137150
+          }
+        },
+        "fork": {
+          "lower": {
+            "tokens_per_task": 643625,
+            "weighted_per_task": 137150
+          },
+          "upper": {
+            "tokens_per_task": 643625,
+            "weighted_per_task": 137150
+          }
+        }
+      }
+    }
+  },
+  "shape": {
+    "3.4-serial sessions": {
+      "threads": 27,
+      "calls_per_thread": 9.4,
+      "first_context": 29598,
+      "first_cache_write": 8150,
+      "mean_context": 33231,
+      "calls_per_task": 9.4
+    },
+    "3.4-footprint sessions": {
+      "threads": 27,
+      "calls_per_thread": 10.1,
+      "first_context": 29972,
+      "first_cache_write": 8524,
+      "mean_context": 33830,
+      "calls_per_task": 10.1
+    },
+    "3.9-native main thread": {
+      "threads": 3,
+      "calls_per_thread": 22.3,
+      "first_context": 24869,
+      "first_cache_write": 5297,
+      "mean_context": 47916,
+      "calls_per_task": 2.5
+    },
+    "3.9-native subagents": {
+      "threads": 23,
+      "calls_per_thread": 5.1,
+      "first_context": 15411,
+      "first_cache_write": 4589,
+      "mean_context": 18207,
+      "calls_per_task": 4.4
+    }
+  },
+  "by_kind": {
+    "merge_conflict": {
+      "cases": 17,
+      "arms": [
+        "2.5-lanes",
+        "3.4-naive"
+      ],
+      "total": {
+        "fresh": {
+          "input": 526,
+          "cache_creation": 352177,
+          "cache_read": 9460794,
+          "output": 99346,
+          "raw": 9912843,
+          "weighted": 2147689
+        },
+        "fresh_packet": {
+          "input": 526,
+          "cache_creation": 358977,
+          "cache_read": 9559194,
+          "output": 99346,
+          "raw": 10018043,
+          "weighted": 2171129
+        },
+        "warm_resume": {
+          "lower": {
+            "input": 364,
+            "cache_creation": 125106,
+            "cache_read": 7813727,
+            "output": 68437,
+            "raw": 8007634,
+            "weighted": 1374134
+          },
+          "upper": {
+            "input": 526,
+            "cache_creation": 355619,
+            "cache_read": 14220286,
+            "output": 99346,
+            "raw": 14675777,
+            "weighted": 2630523
+          }
+        },
+        "cold_resume": {
+          "lower": {
+            "input": 364,
+            "cache_creation": 422707,
+            "cache_read": 7516126,
+            "output": 68437,
+            "raw": 8007634,
+            "weighted": 1939576
+          },
+          "upper": {
+            "input": 526,
+            "cache_creation": 653220,
+            "cache_read": 13922685,
+            "output": 99346,
+            "raw": 14675777,
+            "weighted": 3195965
+          }
+        },
+        "fork": {
+          "lower": {
+            "input": 364,
+            "cache_creation": 121630,
+            "cache_read": 6907791,
+            "output": 68437,
+            "raw": 7098222,
+            "weighted": 1276588
+          },
+          "upper": {
+            "input": 526,
+            "cache_creation": 352143,
+            "cache_read": 12876160,
+            "output": 99346,
+            "raw": 13328175,
+            "weighted": 2489158
+          }
+        }
+      },
+      "warm": 17
+    }
+  },
+  "verdicts": [
+    {
+      "kind": "merge_conflict",
+      "lever": "warm_resume",
+      "cases": 17,
+      "beats_fresh": false,
+      "vs_fresh": {
+        "lower": {
+          "raw": true,
+          "weighted": true
+        },
+        "upper": {
+          "raw": false,
+          "weighted": false
+        }
+      },
+      "beats_native": false,
+      "vs_native": [
+        {
+          "arm": "2.5-lanes",
+          "tokens_per_task": 482600,
+          "weighted_per_task": 105275,
+          "below_native": false
+        },
+        {
+          "arm": "3.4-naive",
+          "tokens_per_task": 464172,
+          "weighted_per_task": 100540,
+          "below_native": false
+        }
+      ],
+      "go": false
+    },
+    {
+      "kind": "merge_conflict",
+      "lever": "cold_resume",
+      "cases": 17,
+      "beats_fresh": false,
+      "vs_fresh": {
+        "lower": {
+          "raw": true,
+          "weighted": true
+        },
+        "upper": {
+          "raw": false,
+          "weighted": false
+        }
+      },
+      "beats_native": false,
+      "vs_native": [
+        {
+          "arm": "2.5-lanes",
+          "tokens_per_task": 482600,
+          "weighted_per_task": 116812,
+          "below_native": false
+        },
+        {
+          "arm": "3.4-naive",
+          "tokens_per_task": 464172,
+          "weighted_per_task": 109945,
+          "below_native": false
+        }
+      ],
+      "go": false
+    },
+    {
+      "kind": "merge_conflict",
+      "lever": "fork",
+      "cases": 17,
+      "beats_fresh": false,
+      "vs_fresh": {
+        "lower": {
+          "raw": true,
+          "weighted": true
+        },
+        "upper": {
+          "raw": false,
+          "weighted": false
+        }
+      },
+      "beats_native": false,
+      "vs_native": [
+        {
+          "arm": "2.5-lanes",
+          "tokens_per_task": 463815,
+          "weighted_per_task": 103219,
+          "below_native": false
+        },
+        {
+          "arm": "3.4-naive",
+          "tokens_per_task": 449275,
+          "weighted_per_task": 98982,
+          "below_native": false
+        }
+      ],
+      "go": false
+    }
+  ],
+  "go": [],
+  "cases": [
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-1",
+      "task": "1.4",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 9,
+        "context_end": 36073,
+        "checkpoint_context": 33395
+      },
+      "retry": {
+        "calls": 14,
+        "calls_before_first_edit": 4,
+        "context_start": 31390,
+        "context_end": 44403
+      },
+      "retry_start": "2026-10-10T19:29:06.561Z",
+      "leased": false,
+      "gap_s": 165,
+      "warm": true,
+      "fork_gap_s": 389,
+      "fork_warm": true,
+      "fresh": {
+        "input": 28,
+        "cache_creation": 22955,
+        "cache_read": 526063,
+        "output": 6857,
+        "raw": 555903,
+        "weighted": 132829
+      },
+      "fresh_packet": {
+        "input": 28,
+        "cache_creation": 23355,
+        "cache_read": 531263,
+        "output": 6857,
+        "raw": 561503,
+        "weighted": 134149
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 8012,
+          "cache_read": 398603,
+          "output": 4587,
+          "raw": 411222,
+          "weighted": 78839
+        },
+        "upper": {
+          "input": 28,
+          "cache_creation": 23147,
+          "cache_read": 730621,
+          "output": 6857,
+          "raw": 760653,
+          "weighted": 153669
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 22445,
+          "cache_read": 384170,
+          "output": 4587,
+          "raw": 411222,
+          "weighted": 106262
+        },
+        "upper": {
+          "input": 28,
+          "cache_creation": 37580,
+          "cache_read": 716188,
+          "output": 6857,
+          "raw": 760653,
+          "weighted": 181092
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 7818,
+          "cache_read": 372017,
+          "output": 4587,
+          "raw": 384442,
+          "weighted": 75793
+        },
+        "upper": {
+          "input": 28,
+          "cache_creation": 22953,
+          "cache_read": 693323,
+          "output": 6857,
+          "raw": 723161,
+          "weighted": 149551
+        }
+      }
+    },
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-1",
+      "task": "1.6",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 9,
+        "context_end": 36446,
+        "checkpoint_context": 33462
+      },
+      "retry": {
+        "calls": 10,
+        "calls_before_first_edit": 3,
+        "context_start": 31400,
+        "context_end": 40169
+      },
+      "retry_start": "2026-10-10T19:29:01.289Z",
+      "leased": false,
+      "gap_s": 154,
+      "warm": true,
+      "fork_gap_s": 338,
+      "fork_warm": true,
+      "fresh": {
+        "input": 20,
+        "cache_creation": 18721,
+        "cache_read": 350236,
+        "output": 4407,
+        "raw": 373384,
+        "weighted": 94521
+      },
+      "fresh_packet": {
+        "input": 20,
+        "cache_creation": 19121,
+        "cache_read": 353836,
+        "output": 4407,
+        "raw": 377384,
+        "weighted": 95681
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 14,
+          "cache_creation": 4203,
+          "cache_read": 267457,
+          "output": 2427,
+          "raw": 274101,
+          "weighted": 47301
+        },
+        "upper": {
+          "input": 20,
+          "cache_creation": 18884,
+          "cache_read": 500053,
+          "output": 4407,
+          "raw": 523364,
+          "weighted": 109828
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 14,
+          "cache_creation": 19038,
+          "cache_read": 252622,
+          "output": 2427,
+          "raw": 274101,
+          "weighted": 75487
+        },
+        "upper": {
+          "input": 20,
+          "cache_creation": 33719,
+          "cache_read": 485218,
+          "output": 4407,
+          "raw": 523364,
+          "weighted": 138015
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 14,
+          "cache_creation": 4038,
+          "cache_read": 246734,
+          "output": 2427,
+          "raw": 253213,
+          "weighted": 44898
+        },
+        "upper": {
+          "input": 20,
+          "cache_creation": 18719,
+          "cache_read": 470378,
+          "output": 4407,
+          "raw": 493524,
+          "weighted": 106531
+        }
+      }
+    },
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-1",
+      "task": "1.4",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 14,
+        "context_end": 44666,
+        "checkpoint_context": 36983
+      },
+      "retry": {
+        "calls": 20,
+        "calls_before_first_edit": 7,
+        "context_start": 31833,
+        "context_end": 44318
+      },
+      "retry_start": "2026-10-10T19:37:07.452Z",
+      "leased": false,
+      "gap_s": 51,
+      "warm": true,
+      "fork_gap_s": 301,
+      "fork_warm": true,
+      "fresh": {
+        "input": 40,
+        "cache_creation": 22870,
+        "cache_read": 746923,
+        "output": 6515,
+        "raw": 776348,
+        "weighted": 153047
+      },
+      "fresh_packet": {
+        "input": 40,
+        "cache_creation": 23270,
+        "cache_read": 754523,
+        "output": 6515,
+        "raw": 784348,
+        "weighted": 154607
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 7609,
+          "cache_read": 625390,
+          "output": 3289,
+          "raw": 636314,
+          "weighted": 94228
+        },
+        "upper": {
+          "input": 40,
+          "cache_creation": 23131,
+          "cache_read": 1211022,
+          "output": 6515,
+          "raw": 1240708,
+          "weighted": 199979
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 30566,
+          "cache_read": 602433,
+          "output": 3289,
+          "raw": 636314,
+          "weighted": 137846
+        },
+        "upper": {
+          "input": 40,
+          "cache_creation": 46088,
+          "cache_read": 1188065,
+          "output": 6515,
+          "raw": 1240708,
+          "weighted": 243598
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 7346,
+          "cache_read": 525774,
+          "output": 3289,
+          "raw": 536435,
+          "weighted": 83740
+        },
+        "upper": {
+          "input": 40,
+          "cache_creation": 22868,
+          "cache_read": 1057625,
+          "output": 6515,
+          "raw": 1087048,
+          "weighted": 184114
+        }
+      }
+    },
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-2",
+      "task": "1.5",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 11,
+        "context_end": 38313,
+        "checkpoint_context": 33735
+      },
+      "retry": {
+        "calls": 18,
+        "calls_before_first_edit": 5,
+        "context_start": 31399,
+        "context_end": 44006
+      },
+      "retry_start": "2026-10-10T19:52:54.647Z",
+      "leased": false,
+      "gap_s": 18,
+      "warm": true,
+      "fork_gap_s": 53,
+      "fork_warm": true,
+      "fresh": {
+        "input": 36,
+        "cache_creation": 22558,
+        "cache_read": 667662,
+        "output": 5814,
+        "raw": 696070,
+        "weighted": 140988
+      },
+      "fresh_packet": {
+        "input": 36,
+        "cache_creation": 22958,
+        "cache_read": 674462,
+        "output": 5814,
+        "raw": 703270,
+        "weighted": 142468
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 9596,
+          "cache_read": 557594,
+          "output": 4574,
+          "raw": 571790,
+          "weighted": 97847
+        },
+        "upper": {
+          "input": 36,
+          "cache_creation": 23091,
+          "cache_read": 970699,
+          "output": 5814,
+          "raw": 999640,
+          "weighted": 172358
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 25928,
+          "cache_read": 541262,
+          "output": 4574,
+          "raw": 571790,
+          "weighted": 128878
+        },
+        "upper": {
+          "input": 36,
+          "cache_creation": 39423,
+          "cache_read": 954367,
+          "output": 5814,
+          "raw": 999640,
+          "weighted": 203389
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 9061,
+          "cache_read": 498615,
+          "output": 4574,
+          "raw": 512276,
+          "weighted": 90880
+        },
+        "upper": {
+          "input": 36,
+          "cache_creation": 22556,
+          "cache_read": 888830,
+          "output": 5814,
+          "raw": 917236,
+          "weighted": 163101
+        }
+      }
+    },
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-2",
+      "task": "1.6",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 10,
+        "context_end": 38433,
+        "checkpoint_context": 35198
+      },
+      "retry": {
+        "calls": 17,
+        "calls_before_first_edit": 7,
+        "context_start": 31399,
+        "context_end": 43613
+      },
+      "retry_start": "2026-10-10T19:52:52.701Z",
+      "leased": false,
+      "gap_s": 11,
+      "warm": true,
+      "fork_gap_s": 33,
+      "fork_warm": true,
+      "fresh": {
+        "input": 34,
+        "cache_creation": 22165,
+        "cache_read": 619473,
+        "output": 7382,
+        "raw": 649054,
+        "weighted": 143221
+      },
+      "fresh_packet": {
+        "input": 34,
+        "cache_creation": 22565,
+        "cache_read": 625873,
+        "output": 7382,
+        "raw": 655854,
+        "weighted": 144661
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 7014,
+          "cache_read": 417031,
+          "output": 4310,
+          "raw": 428375,
+          "weighted": 77301
+        },
+        "upper": {
+          "input": 34,
+          "cache_creation": 22412,
+          "cache_read": 907971,
+          "output": 7382,
+          "raw": 937799,
+          "weighted": 172565
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 23752,
+          "cache_read": 400293,
+          "output": 4310,
+          "raw": 428375,
+          "weighted": 109103
+        },
+        "upper": {
+          "input": 34,
+          "cache_creation": 39150,
+          "cache_read": 891233,
+          "output": 7382,
+          "raw": 937799,
+          "weighted": 204367
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 6765,
+          "cache_read": 384930,
+          "output": 4310,
+          "raw": 396025,
+          "weighted": 73593
+        },
+        "upper": {
+          "input": 34,
+          "cache_creation": 22163,
+          "cache_read": 853225,
+          "output": 7382,
+          "raw": 882804,
+          "weighted": 166593
+        }
+      }
+    },
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-2",
+      "task": "1.6",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 17,
+        "context_end": 43958,
+        "checkpoint_context": 37246
+      },
+      "retry": {
+        "calls": 17,
+        "calls_before_first_edit": 6,
+        "context_start": 31613,
+        "context_end": 43536
+      },
+      "retry_start": "2026-10-10T19:55:10.529Z",
+      "leased": false,
+      "gap_s": 19,
+      "warm": true,
+      "fork_gap_s": 69,
+      "fork_warm": true,
+      "fresh": {
+        "input": 34,
+        "cache_creation": 22088,
+        "cache_read": 613472,
+        "output": 6790,
+        "raw": 642384,
+        "weighted": 139507
+      },
+      "fresh_packet": {
+        "input": 34,
+        "cache_creation": 22488,
+        "cache_read": 619872,
+        "output": 6790,
+        "raw": 649184,
+        "weighted": 140947
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 8762,
+          "cache_read": 525725,
+          "output": 5291,
+          "raw": 539800,
+          "weighted": 96574
+        },
+        "upper": {
+          "input": 34,
+          "cache_creation": 22431,
+          "cache_read": 995799,
+          "output": 6790,
+          "raw": 1025054,
+          "weighted": 178426
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 30929,
+          "cache_read": 503558,
+          "output": 5291,
+          "raw": 539800,
+          "weighted": 138691
+        },
+        "upper": {
+          "input": 34,
+          "cache_creation": 44598,
+          "cache_read": 973632,
+          "output": 6790,
+          "raw": 1025054,
+          "weighted": 220543
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 8417,
+          "cache_read": 452238,
+          "output": 5291,
+          "raw": 465968,
+          "weighted": 88535
+        },
+        "upper": {
+          "input": 34,
+          "cache_creation": 22086,
+          "cache_read": 882040,
+          "output": 6790,
+          "raw": 910950,
+          "weighted": 166360
+        }
+      }
+    },
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-3",
+      "task": "1.5",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 11,
+        "context_end": 37132,
+        "checkpoint_context": 33264
+      },
+      "retry": {
+        "calls": 16,
+        "calls_before_first_edit": 4,
+        "context_start": 31431,
+        "context_end": 46842
+      },
+      "retry_start": "2026-10-10T20:07:41.449Z",
+      "leased": false,
+      "gap_s": 10,
+      "warm": true,
+      "fork_gap_s": 42,
+      "fork_warm": true,
+      "fresh": {
+        "input": 32,
+        "cache_creation": 25394,
+        "cache_read": 629677,
+        "output": 8902,
+        "raw": 664005,
+        "weighted": 158298
+      },
+      "fresh_packet": {
+        "input": 32,
+        "cache_creation": 25794,
+        "cache_read": 635677,
+        "output": 8902,
+        "raw": 670405,
+        "weighted": 159698
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 10449,
+          "cache_read": 515749,
+          "output": 6736,
+          "raw": 532958,
+          "weighted": 106177
+        },
+        "upper": {
+          "input": 32,
+          "cache_creation": 25587,
+          "cache_read": 880428,
+          "output": 8902,
+          "raw": 914949,
+          "weighted": 183759
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 25940,
+          "cache_read": 500258,
+          "output": 6736,
+          "raw": 532958,
+          "weighted": 135610
+        },
+        "upper": {
+          "input": 32,
+          "cache_creation": 41078,
+          "cache_read": 864937,
+          "output": 8902,
+          "raw": 914949,
+          "weighted": 213192
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 10254,
+          "cache_read": 469528,
+          "output": 6736,
+          "raw": 486542,
+          "weighted": 101165
+        },
+        "upper": {
+          "input": 32,
+          "cache_creation": 25392,
+          "cache_read": 818735,
+          "output": 8902,
+          "raw": 853061,
+          "weighted": 177200
+        }
+      }
+    },
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-3",
+      "task": "1.6",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 11,
+        "context_end": 37330,
+        "checkpoint_context": 33019
+      },
+      "retry": {
+        "calls": 10,
+        "calls_before_first_edit": 4,
+        "context_start": 31585,
+        "context_end": 40153
+      },
+      "retry_start": "2026-10-10T20:07:51.579Z",
+      "leased": false,
+      "gap_s": 15,
+      "warm": true,
+      "fork_gap_s": 38,
+      "fork_warm": true,
+      "fresh": {
+        "input": 20,
+        "cache_creation": 18705,
+        "cache_read": 347906,
+        "output": 4347,
+        "raw": 370978,
+        "weighted": 93956
+      },
+      "fresh_packet": {
+        "input": 20,
+        "cache_creation": 19105,
+        "cache_read": 351506,
+        "output": 4347,
+        "raw": 374978,
+        "weighted": 95116
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 12,
+          "cache_creation": 3806,
+          "cache_read": 231881,
+          "output": 2242,
+          "raw": 237941,
+          "weighted": 42022
+        },
+        "upper": {
+          "input": 20,
+          "cache_creation": 18992,
+          "cache_read": 506439,
+          "output": 4347,
+          "raw": 529798,
+          "weighted": 110383
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 12,
+          "cache_creation": 19401,
+          "cache_read": 216286,
+          "output": 2242,
+          "raw": 237941,
+          "weighted": 71653
+        },
+        "upper": {
+          "input": 20,
+          "cache_creation": 34587,
+          "cache_read": 490844,
+          "output": 4347,
+          "raw": 529798,
+          "weighted": 140013
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 12,
+          "cache_creation": 3517,
+          "cache_read": 206304,
+          "output": 2242,
+          "raw": 212075,
+          "weighted": 38886
+        },
+        "upper": {
+          "input": 20,
+          "cache_creation": 18703,
+          "cache_read": 463618,
+          "output": 4347,
+          "raw": 486688,
+          "weighted": 105523
+        }
+      }
+    },
+    {
+      "series": "2.5-lanes",
+      "rep": "2.5-lanes-3",
+      "task": "1.5",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 16,
+        "context_end": 47124,
+        "checkpoint_context": 36986
+      },
+      "retry": {
+        "calls": 22,
+        "calls_before_first_edit": 10,
+        "context_start": 31962,
+        "context_end": 43842
+      },
+      "retry_start": "2026-10-10T20:10:03.130Z",
+      "leased": false,
+      "gap_s": 12,
+      "warm": true,
+      "fork_gap_s": 61,
+      "fork_warm": true,
+      "fresh": {
+        "input": 44,
+        "cache_creation": 22394,
+        "cache_read": 807618,
+        "output": 6424,
+        "raw": 836480,
+        "weighted": 157714
+      },
+      "fresh_packet": {
+        "input": 44,
+        "cache_creation": 22794,
+        "cache_read": 816018,
+        "output": 6424,
+        "raw": 845280,
+        "weighted": 159354
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 8352,
+          "cache_read": 618707,
+          "output": 4664,
+          "raw": 631747,
+          "weighted": 101919
+        },
+        "upper": {
+          "input": 44,
+          "cache_creation": 22674,
+          "cache_read": 1372210,
+          "output": 6424,
+          "raw": 1401352,
+          "weighted": 214733
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 33748,
+          "cache_read": 593311,
+          "output": 4664,
+          "raw": 631747,
+          "weighted": 150171
+        },
+        "upper": {
+          "input": 44,
+          "cache_creation": 48070,
+          "cache_read": 1346814,
+          "output": 6424,
+          "raw": 1401352,
+          "weighted": 262985
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 8070,
+          "cache_read": 497333,
+          "output": 4664,
+          "raw": 510091,
+          "weighted": 89217
+        },
+        "upper": {
+          "input": 44,
+          "cache_creation": 22392,
+          "cache_read": 1149456,
+          "output": 6424,
+          "raw": 1178316,
+          "weighted": 191894
+        }
+      }
+    },
+    {
+      "series": "3.4-naive",
+      "rep": "3.4-naive-1",
+      "task": "1.5",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 8,
+        "context_end": 35373,
+        "checkpoint_context": 33009
+      },
+      "retry": {
+        "calls": 15,
+        "calls_before_first_edit": 3,
+        "context_start": 30433,
+        "context_end": 40615
+      },
+      "retry_start": "2026-10-11T00:39:02.740Z",
+      "leased": false,
+      "gap_s": 9,
+      "warm": true,
+      "fork_gap_s": 24,
+      "fork_warm": true,
+      "fresh": {
+        "input": 30,
+        "cache_creation": 19167,
+        "cache_read": 513415,
+        "output": 4207,
+        "raw": 536819,
+        "weighted": 110741
+      },
+      "fresh_packet": {
+        "input": 30,
+        "cache_creation": 19567,
+        "cache_read": 519015,
+        "output": 4207,
+        "raw": 542819,
+        "weighted": 112101
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 8553,
+          "cache_read": 468913,
+          "output": 3480,
+          "raw": 480970,
+          "weighted": 81421
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 19256,
+          "cache_read": 722201,
+          "output": 4207,
+          "raw": 745694,
+          "weighted": 131797
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 22389,
+          "cache_read": 455077,
+          "output": 3480,
+          "raw": 480970,
+          "weighted": 107710
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 33092,
+          "cache_read": 708365,
+          "output": 4207,
+          "raw": 745694,
+          "weighted": 158086
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 8462,
+          "cache_read": 440636,
+          "output": 3480,
+          "raw": 452602,
+          "weighted": 78412
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 19165,
+          "cache_read": 686832,
+          "output": 4207,
+          "raw": 710234,
+          "weighted": 128078
+        }
+      }
+    },
+    {
+      "series": "3.4-naive",
+      "rep": "3.4-naive-1",
+      "task": "1.6",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 10,
+        "context_end": 36289,
+        "checkpoint_context": 32430
+      },
+      "retry": {
+        "calls": 14,
+        "calls_before_first_edit": 4,
+        "context_start": 30577,
+        "context_end": 41218
+      },
+      "retry_start": "2026-10-11T00:39:33.341Z",
+      "leased": false,
+      "gap_s": 14,
+      "warm": true,
+      "fork_gap_s": 37,
+      "fork_warm": true,
+      "fresh": {
+        "input": 28,
+        "cache_creation": 19770,
+        "cache_read": 493537,
+        "output": 6139,
+        "raw": 519474,
+        "weighted": 119617
+      },
+      "fresh_packet": {
+        "input": 28,
+        "cache_creation": 20170,
+        "cache_read": 498737,
+        "output": 6139,
+        "raw": 525074,
+        "weighted": 120937
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 6748,
+          "cache_read": 395732,
+          "output": 4137,
+          "raw": 406637,
+          "weighted": 73774
+        },
+        "upper": {
+          "input": 28,
+          "cache_creation": 19901,
+          "cache_read": 701180,
+          "output": 6139,
+          "raw": 727248,
+          "weighted": 140643
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 21458,
+          "cache_read": 381022,
+          "output": 4137,
+          "raw": 406637,
+          "weighted": 101723
+        },
+        "upper": {
+          "input": 28,
+          "cache_creation": 34611,
+          "cache_read": 686470,
+          "output": 6139,
+          "raw": 727248,
+          "weighted": 168592
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 6615,
+          "cache_read": 357275,
+          "output": 4137,
+          "raw": 368047,
+          "weighted": 69663
+        },
+        "upper": {
+          "input": 28,
+          "cache_creation": 19768,
+          "cache_read": 647287,
+          "output": 6139,
+          "raw": 673222,
+          "weighted": 134988
+        }
+      }
+    },
+    {
+      "series": "3.4-naive",
+      "rep": "3.4-naive-1",
+      "task": "1.6",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 14,
+        "context_end": 41347,
+        "checkpoint_context": 35001
+      },
+      "retry": {
+        "calls": 13,
+        "calls_before_first_edit": 4,
+        "context_start": 30692,
+        "context_end": 39214
+      },
+      "retry_start": "2026-10-11T00:41:00.313Z",
+      "leased": false,
+      "gap_s": 8,
+      "warm": true,
+      "fork_gap_s": 47,
+      "fork_warm": true,
+      "fresh": {
+        "input": 26,
+        "cache_creation": 17766,
+        "cache_read": 442951,
+        "output": 4701,
+        "raw": 465444,
+        "weighted": 103358
+      },
+      "fresh_packet": {
+        "input": 26,
+        "cache_creation": 18166,
+        "cache_read": 447751,
+        "output": 4701,
+        "raw": 470644,
+        "weighted": 104638
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 18,
+          "cache_creation": 5972,
+          "cache_read": 399165,
+          "output": 3677,
+          "raw": 408832,
+          "weighted": 70264
+        },
+        "upper": {
+          "input": 26,
+          "cache_creation": 17893,
+          "cache_read": 701511,
+          "output": 4701,
+          "raw": 724131,
+          "weighted": 129468
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 18,
+          "cache_creation": 25744,
+          "cache_read": 379393,
+          "output": 3677,
+          "raw": 408832,
+          "weighted": 107830
+        },
+        "upper": {
+          "input": 26,
+          "cache_creation": 37665,
+          "cache_read": 681739,
+          "output": 4701,
+          "raw": 724131,
+          "weighted": 167035
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 18,
+          "cache_creation": 5843,
+          "cache_read": 342180,
+          "output": 3677,
+          "raw": 351718,
+          "weighted": 64307
+        },
+        "upper": {
+          "input": 26,
+          "cache_creation": 17764,
+          "cache_read": 619142,
+          "output": 4701,
+          "raw": 641633,
+          "weighted": 120973
+        }
+      }
+    },
+    {
+      "series": "3.4-naive",
+      "rep": "3.4-naive-2",
+      "task": "1.5",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 8,
+        "context_end": 35419,
+        "checkpoint_context": 32838
+      },
+      "retry": {
+        "calls": 18,
+        "calls_before_first_edit": 5,
+        "context_start": 30562,
+        "context_end": 41830
+      },
+      "retry_start": "2026-10-11T00:56:11.142Z",
+      "leased": false,
+      "gap_s": 10,
+      "warm": true,
+      "fork_gap_s": 24,
+      "fork_warm": true,
+      "fresh": {
+        "input": 36,
+        "cache_creation": 20382,
+        "cache_read": 626338,
+        "output": 5469,
+        "raw": 652225,
+        "weighted": 130779
+      },
+      "fresh_packet": {
+        "input": 36,
+        "cache_creation": 20782,
+        "cache_read": 633138,
+        "output": 5469,
+        "raw": 659425,
+        "weighted": 132259
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 8724,
+          "cache_read": 507053,
+          "output": 4100,
+          "raw": 519903,
+          "weighted": 88679
+        },
+        "upper": {
+          "input": 36,
+          "cache_creation": 20487,
+          "cache_read": 877711,
+          "output": 5469,
+          "raw": 903703,
+          "weighted": 156126
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 22590,
+          "cache_read": 493187,
+          "output": 4100,
+          "raw": 519903,
+          "weighted": 115025
+        },
+        "upper": {
+          "input": 36,
+          "cache_creation": 34353,
+          "cache_read": 863845,
+          "output": 5469,
+          "raw": 903703,
+          "weighted": 182472
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 26,
+          "cache_creation": 8617,
+          "cache_read": 473607,
+          "output": 4100,
+          "raw": 486350,
+          "weighted": 85121
+        },
+        "upper": {
+          "input": 36,
+          "cache_creation": 20380,
+          "cache_read": 831360,
+          "output": 5469,
+          "raw": 857245,
+          "weighted": 151277
+        }
+      }
+    },
+    {
+      "series": "3.4-naive",
+      "rep": "3.4-naive-2",
+      "task": "1.5",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 18,
+        "context_end": 41931,
+        "checkpoint_context": 33611
+      },
+      "retry": {
+        "calls": 16,
+        "calls_before_first_edit": 4,
+        "context_start": 30963,
+        "context_end": 41284
+      },
+      "retry_start": "2026-10-11T00:57:58.340Z",
+      "leased": false,
+      "gap_s": 15,
+      "warm": true,
+      "fork_gap_s": 74,
+      "fork_warm": true,
+      "fresh": {
+        "input": 32,
+        "cache_creation": 19836,
+        "cache_read": 570231,
+        "output": 5369,
+        "raw": 595468,
+        "weighted": 123572
+      },
+      "fresh_packet": {
+        "input": 32,
+        "cache_creation": 20236,
+        "cache_read": 576231,
+        "output": 5369,
+        "raw": 601868,
+        "weighted": 124972
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 7161,
+          "cache_read": 545602,
+          "output": 4014,
+          "raw": 556801,
+          "weighted": 88976
+        },
+        "upper": {
+          "input": 32,
+          "cache_creation": 19935,
+          "cache_read": 897860,
+          "output": 5369,
+          "raw": 923196,
+          "weighted": 156533
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 27545,
+          "cache_read": 525218,
+          "output": 4014,
+          "raw": 556801,
+          "weighted": 127706
+        },
+        "upper": {
+          "input": 32,
+          "cache_creation": 40319,
+          "cache_read": 877476,
+          "output": 5369,
+          "raw": 923196,
+          "weighted": 195263
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 24,
+          "cache_creation": 7060,
+          "cache_read": 445863,
+          "output": 4014,
+          "raw": 456961,
+          "weighted": 78800
+        },
+        "upper": {
+          "input": 32,
+          "cache_creation": 19834,
+          "cache_read": 764841,
+          "output": 5369,
+          "raw": 790076,
+          "weighted": 143029
+        }
+      }
+    },
+    {
+      "series": "3.4-naive",
+      "rep": "3.4-naive-3",
+      "task": "1.6",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 11,
+        "context_end": 37050,
+        "checkpoint_context": 33481
+      },
+      "retry": {
+        "calls": 15,
+        "calls_before_first_edit": 5,
+        "context_start": 30675,
+        "context_end": 40925
+      },
+      "retry_start": "2026-10-11T01:13:20.076Z",
+      "leased": false,
+      "gap_s": 9,
+      "warm": true,
+      "fork_gap_s": 32,
+      "fork_warm": true,
+      "fresh": {
+        "input": 30,
+        "cache_creation": 19477,
+        "cache_read": 522572,
+        "output": 5642,
+        "raw": 547721,
+        "weighted": 119451
+      },
+      "fresh_packet": {
+        "input": 30,
+        "cache_creation": 19877,
+        "cache_read": 528172,
+        "output": 5642,
+        "raw": 553721,
+        "weighted": 120811
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 6935,
+          "cache_read": 404045,
+          "output": 4066,
+          "raw": 415066,
+          "weighted": 74625
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 19613,
+          "cache_read": 756466,
+          "output": 5642,
+          "raw": 781751,
+          "weighted": 143113
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 22401,
+          "cache_read": 388579,
+          "output": 4066,
+          "raw": 415066,
+          "weighted": 104010
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 35079,
+          "cache_read": 741000,
+          "output": 5642,
+          "raw": 781751,
+          "weighted": 172498
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 20,
+          "cache_creation": 6797,
+          "cache_read": 368493,
+          "output": 4066,
+          "raw": 379376,
+          "weighted": 70793
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 19475,
+          "cache_read": 703069,
+          "output": 5642,
+          "raw": 728216,
+          "weighted": 137497
+        }
+      }
+    },
+    {
+      "series": "3.4-naive",
+      "rep": "3.4-naive-3",
+      "task": "1.5",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 11,
+        "context_end": 37715,
+        "checkpoint_context": 34333
+      },
+      "retry": {
+        "calls": 13,
+        "calls_before_first_edit": 2,
+        "context_start": 30459,
+        "context_end": 38230
+      },
+      "retry_start": "2026-10-11T01:13:24.333Z",
+      "leased": false,
+      "gap_s": 9,
+      "warm": true,
+      "fork_gap_s": 29,
+      "fork_warm": true,
+      "fresh": {
+        "input": 26,
+        "cache_creation": 16782,
+        "cache_read": 435840,
+        "output": 3841,
+        "raw": 456489,
+        "weighted": 96379
+      },
+      "fresh_packet": {
+        "input": 26,
+        "cache_creation": 17182,
+        "cache_read": 440640,
+        "output": 3841,
+        "raw": 461689,
+        "weighted": 97659
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 6329,
+          "cache_read": 446688,
+          "output": 3076,
+          "raw": 456115,
+          "weighted": 72729
+        },
+        "upper": {
+          "input": 26,
+          "cache_creation": 16905,
+          "cache_read": 647188,
+          "output": 3841,
+          "raw": 667960,
+          "weighted": 117760
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 22473,
+          "cache_read": 430544,
+          "output": 3076,
+          "raw": 456115,
+          "weighted": 103402
+        },
+        "upper": {
+          "input": 26,
+          "cache_creation": 33049,
+          "cache_read": 631044,
+          "output": 3841,
+          "raw": 667960,
+          "weighted": 148433
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 6204,
+          "cache_read": 409611,
+          "output": 3076,
+          "raw": 418913,
+          "weighted": 68771
+        },
+        "upper": {
+          "input": 26,
+          "cache_creation": 16780,
+          "cache_read": 603347,
+          "output": 3841,
+          "raw": 623994,
+          "weighted": 113126
+        }
+      }
+    },
+    {
+      "series": "3.4-naive",
+      "rep": "3.4-naive-3",
+      "task": "1.6",
+      "kind": "merge_conflict",
+      "prior": {
+        "calls": 15,
+        "context_end": 41060,
+        "checkpoint_context": 34526
+      },
+      "retry": {
+        "calls": 15,
+        "calls_before_first_edit": 4,
+        "context_start": 30749,
+        "context_end": 42595
+      },
+      "retry_start": "2026-10-11T01:14:51.518Z",
+      "leased": false,
+      "gap_s": 9,
+      "warm": true,
+      "fork_gap_s": 46,
+      "fork_warm": true,
+      "fresh": {
+        "input": 30,
+        "cache_creation": 21147,
+        "cache_read": 546880,
+        "output": 6540,
+        "raw": 574597,
+        "weighted": 129712
+      },
+      "fresh_packet": {
+        "input": 30,
+        "cache_creation": 21547,
+        "cache_read": 552480,
+        "output": 6540,
+        "raw": 580597,
+        "weighted": 131072
+      },
+      "warm_resume": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 6881,
+          "cache_read": 488392,
+          "output": 3767,
+          "raw": 499062,
+          "weighted": 81458
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 21280,
+          "cache_read": 840927,
+          "output": 6540,
+          "raw": 868777,
+          "weighted": 159383
+        }
+      },
+      "cold_resume": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 26360,
+          "cache_read": 468913,
+          "output": 3767,
+          "raw": 499062,
+          "weighted": 118468
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 40759,
+          "cache_read": 821448,
+          "output": 6540,
+          "raw": 868777,
+          "weighted": 196393
+        }
+      },
+      "fork": {
+        "lower": {
+          "input": 22,
+          "cache_creation": 6746,
+          "cache_read": 416653,
+          "output": 3767,
+          "raw": 427188,
+          "weighted": 74014
+        },
+        "upper": {
+          "input": 30,
+          "cache_creation": 21145,
+          "cache_read": 743052,
+          "output": 6540,
+          "raw": 770767,
+          "weighted": 149325
+        }
+      }
+    }
+  ]
+}

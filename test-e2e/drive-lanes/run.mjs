@@ -5,6 +5,7 @@
 //
 //   node run.mjs --label serial-1                       # serial drive, this checkout's build
 //   node run.mjs --label lanes-1 --arm lanes --lanes 3  # the same plan on three lanes (drive-lanes 2.5)
+//   node run.mjs --label native-1 --arm native          # one Claude Code session and its subagents, no sofar (3.9)
 //   node run.mjs --label serial-1 --model opus --effort high
 //   node run.mjs --label selftest --self-test           # no Claude: fixture properties only
 //   node run.mjs --label preflight --preflight          # engine, claude and profile, then stop
@@ -23,8 +24,8 @@ import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
-import { REFERENCE, SKELETON, SLUG, TASKS, GOAL, planPayload } from './fixture.mjs'
-import { compare, comparePiece, measure, measureCell } from './measure.mjs'
+import { REFERENCE, SKELETON, SLUG, TASKS, GOAL, nativePrompt, planPayload } from './fixture.mjs'
+import { compare, comparePiece, measure, measureCell, measureNative } from './measure.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const HOME = homedir()
@@ -51,13 +52,14 @@ const { values: opt } = parseArgs({
   },
 })
 if (opt.help || !opt.label) {
-  console.log('usage: node run.mjs --label <name> [--arm serial|lanes] [--lanes 3] [--leases steer|deny|off] [--schedule footprint|ready] [--engine <checkout>] [--model sonnet] [--effort <e>] [--claude <bin>] [--claude-config <dir>] [--root <dir>] [--session-timeout 900] [--max-sessions 18] [--self-test | --preflight]')
+  console.log('usage: node run.mjs --label <name> [--arm serial|lanes|native] [--lanes 3] [--leases steer|deny|off] [--schedule footprint|ready] [--engine <checkout>] [--model sonnet] [--effort <e>] [--claude <bin>] [--claude-config <dir>] [--root <dir>] [--session-timeout 900] [--max-sessions 18] [--self-test | --preflight]')
   process.exit(opt.help ? 0 : 2)
 }
-if (opt.arm !== 'serial' && opt.arm !== 'lanes') {
-  console.error(`--arm ${opt.arm}: the arms are \`serial\` and \`lanes\` — later drive-lanes steps add theirs here`)
+if (!['serial', 'lanes', 'native'].includes(opt.arm)) {
+  console.error(`--arm ${opt.arm}: the arms are \`serial\`, \`lanes\` and \`native\` — later drive-lanes steps add theirs here`)
   process.exit(2)
 }
+const native = opt.arm === 'native'
 const lanes = opt.arm === 'lanes' ? Number(opt.lanes) : 1
 if (opt.arm === 'lanes' && !(Number.isInteger(lanes) && lanes >= 2)) {
   console.error(`--lanes ${opt.lanes}: a lanes arm runs at least 2`)
@@ -140,8 +142,8 @@ function writeFiles(files) {
   }
 }
 
-function initRepo(engine) {
-  const env = engineEnv(engine)
+/** The skeleton, committed on main; returns the cell's git. */
+function initSkeleton(env) {
   const git = (...a) => sh('git', a, { cwd: repo, env })
   git('init', '-q', '-b', 'main')
   git('config', 'user.email', 'drive-lanes@example.invalid')
@@ -149,6 +151,29 @@ function initRepo(engine) {
   writeFiles(SKELETON)
   git('add', '-A')
   git('commit', '-qm', 'skeleton')
+  return git
+}
+
+/** Auto-memory and the auto-mode steer off, merged into whatever init wrote. */
+function writeLocalSettings() {
+  const localPath = join(repo, '.claude', 'settings.local.json')
+  const local = existsSync(localPath) ? JSON.parse(readFileSync(localPath, 'utf8')) : {}
+  local.autoMemoryEnabled = false
+  local.permissions = { ...(local.permissions ?? {}), disableAutoMode: 'disable' }
+  mkdirSync(dirname(localPath), { recursive: true })
+  writeFileSync(localPath, `${JSON.stringify(local, null, 2)}\n`)
+  appendFileSync(join(repo, '.git', 'info', 'exclude'), '.claude/settings.local.json\n')
+}
+
+/** The native arm's cell (3.9): the same skeleton and no sofar at all — no record, hooks or MCP server. */
+function initNativeRepo(engine) {
+  initSkeleton(engineEnv(engine))
+  writeLocalSettings()
+}
+
+function initRepo(engine) {
+  const env = engineEnv(engine)
+  const git = initSkeleton(env)
   sh(engine.sofar, ['init', '--agents', 'claude-code', '--no-prompt-capture'], { cwd: repo, env })
   // Pin the engine by absolute path where PATH may not reach (l36, arms.ts pinEngineInConfigs).
   const hooks = join(repo, '.claude', 'hooks')
@@ -164,13 +189,7 @@ function initRepo(engine) {
     cfg.mcpServers.sofar.command = engine.sofar
     writeFileSync(mcp, `${JSON.stringify(cfg, null, 2)}\n`)
   }
-  // Auto-memory and the auto-mode steer off, merged into whatever init wrote.
-  const localPath = join(repo, '.claude', 'settings.local.json')
-  const local = existsSync(localPath) ? JSON.parse(readFileSync(localPath, 'utf8')) : {}
-  local.autoMemoryEnabled = false
-  local.permissions = { ...(local.permissions ?? {}), disableAutoMode: 'disable' }
-  writeFileSync(localPath, `${JSON.stringify(local, null, 2)}\n`)
-  appendFileSync(join(repo, '.git', 'info', 'exclude'), '.claude/settings.local.json\n')
+  writeLocalSettings()
 
   sh(engine.sofar, ['new', SLUG, '--goal', GOAL, '--root', repo], { cwd: repo, env })
   const planFile = join(artifacts, 'plan.json')
@@ -461,10 +480,68 @@ function runDrive(engine) {
   })
 }
 
+/** The driven arms' surface (D6) minus sofar's own rules: the native session commits as a driven one does. */
+const NATIVE_ALLOW = ['Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git show:*)', 'Bash(git add:*)', 'Bash(git commit:*)', 'Bash(node:*)', 'Bash(npm test:*)']
+
+/**
+ * The native arm (drive-lanes 3.9): one Claude Code session handed the whole
+ * plan, working it with its own subagents — what an operator without sofar
+ * would run. Same binary, profile, model and permission mode as the driven
+ * arms, no MCP server, and the time nine driven sessions would get. The stream
+ * is kept for the session id and the reported cost.
+ */
+function runNative() {
+  const env = scrubbedEnv({ CLAUDE_CONFIG_DIR: opt['claude-config'] })
+  env.PATH = `${dirname(opt.claude)}:${env.PATH ?? ''}`
+  const settings = join(artifacts, 'native.settings.json')
+  writeFileSync(settings, `${JSON.stringify({ permissions: { allow: NATIVE_ALLOW } }, null, 2)}\n`)
+  const mcp = join(artifacts, 'native.mcp.json')
+  writeFileSync(mcp, `${JSON.stringify({ mcpServers: {} })}\n`)
+  const prompt = nativePrompt()
+  writeFileSync(join(artifacts, 'native.prompt.txt'), `${prompt}\n`)
+  const flags = [
+    '--output-format', 'stream-json', '--verbose',
+    '--model', opt.model,
+    ...(opt.effort !== undefined ? ['--effort', opt.effort] : []),
+    '--permission-mode', 'acceptEdits',
+    '--settings', settings,
+    '--setting-sources', 'project,local',
+    '--strict-mcp-config', '--mcp-config', mcp,
+  ]
+  writeFileSync(join(artifacts, 'native.argv.json'), `${JSON.stringify(['-p', '<native.prompt.txt>', ...flags], null, 2)}\n`)
+  log(`native: ${opt.claude} -p <native.prompt.txt> ${flags.join(' ')}`)
+  const timeoutMs = Number(opt['session-timeout']) * TASKS.length * 1000
+  const err = createWriteStream(join(artifacts, 'native.stderr.txt'))
+  const chunks = []
+  const started = Date.now()
+  return new Promise((done) => {
+    const child = spawn(opt.claude, ['-p', prompt, ...flags], { cwd: repo, env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const timer = setTimeout(() => child.kill('SIGTERM'), timeoutMs)
+    child.stdout.on('data', (chunk) => chunks.push(chunk))
+    child.stderr.pipe(err)
+    child.on('close', (code, signal) => {
+      clearTimeout(timer)
+      const stdout = Buffer.concat(chunks).toString('utf8')
+      writeFileSync(join(artifacts, 'native.stdout.jsonl'), stdout)
+      done({ exit: code, signal, ms: Date.now() - started, timeout_s: timeoutMs / 1000, stdout })
+    })
+  })
+}
+
+/** The tree the run left, checked by the harness rather than the driver. */
+function finalTree() {
+  return {
+    verify_passes: TASKS.filter((t) => verifyPasses(t)).map((t) => t.id),
+    commits: Number(sh('git', ['rev-list', '--count', 'HEAD'], { cwd: repo }).stdout.trim()),
+    dirty_paths: sh('git', ['status', '--porcelain'], { cwd: repo }).stdout.split('\n').filter((l) => l.trim().length > 0).length,
+  }
+}
+
 // ---------- main ----------
 const result = {
   label: opt.label,
   arm: opt.arm,
+  ...(native ? { native_prompt: nativePrompt() } : {}),
   ...(lanes > 1 ? { lanes, leases: opt.leases ?? 'steer', schedule: opt.schedule ?? 'footprint' } : {}),
   cell, started: new Date().toISOString(), engine: null, claude: null }
 let ok = false
@@ -478,7 +555,8 @@ try {
     log(`claude: ${JSON.stringify(result.claude)}`)
     ok = result.claude.loggedIn
   } else {
-    initRepo(engine)
+    if (native && !opt.probe && !opt['self-test']) initNativeRepo(engine)
+    else initRepo(engine)
     if (opt.probe) {
       result.claude = claudeInfo()
       result.probe = probe(engine)
@@ -492,20 +570,27 @@ try {
       result.claude = claudeInfo()
       log(`claude: ${result.claude.version}, ${result.claude.authMethod ?? 'auth unknown'} ${result.claude.subscription ?? ''}, ${opt.model}${opt.effort ? `/${opt.effort}` : ''}`)
       if (!result.claude.loggedIn) throw new Error(`the Claude profile at ${opt['claude-config']} is not logged in — refusing to spend anything`)
-      result.drive = await runDrive(engine)
-      log(`drive exited ${result.drive.exit}${result.drive.signal ? ` (${result.drive.signal})` : ''} after ${Math.round(result.drive.ms / 1000)}s`)
-      result.score = measureCell(cell, opt['claude-config'])
-      // The tree the run left, checked by the harness rather than the driver. A
-      // lanes run lands on its run base branch and leaves the checkout's own alone (D20).
-      if (lanes > 1 && result.score.run?.id) sh('git', ['checkout', '-q', `sofar/${SLUG}/${result.score.run.id}`], { cwd: repo, allowFail: true })
-      result.final_tree = {
-        verify_passes: TASKS.filter((t) => verifyPasses(t)).map((t) => t.id),
-        commits: Number(sh('git', ['rev-list', '--count', 'HEAD'], { cwd: repo }).stdout.trim()),
-        dirty_paths: sh('git', ['status', '--porcelain'], { cwd: repo }).stdout.split('\n').filter((l) => l.trim().length > 0).length,
+      if (native) {
+        const { stdout, ...run } = await runNative()
+        result.native = run
+        log(`native session exited ${run.exit}${run.signal ? ` (${run.signal})` : ''} after ${Math.round(run.ms / 1000)}s`)
+        result.final_tree = finalTree()
+        result.score = measureNative({ stdout, claudeConfig: opt['claude-config'], wallMs: run.ms, passes: result.final_tree.verify_passes })
+        const s = result.score
+        const sp = s.tokens.split_per_task
+        log(`SCORE ${opt.label}: ${s.tasks.done}/${s.tasks.total} green on the final tree in ${s.wall_clock_s}s; ${s.sessions.subagents} subagent(s); ${s.tokens.per_task ?? '?'} tokens/task (fresh ${sp?.input ?? '?'}, cache write ${sp?.cache_creation ?? '?'}, cache read ${sp?.cache_read ?? '?'}, output ${sp?.output ?? '?'}; ${s.tokens.weighted_per_task ?? '?'} weighted); $${s.cost.usd ?? '?'}`)
+        ok = run.exit === 0
+      } else {
+        result.drive = await runDrive(engine)
+        log(`drive exited ${result.drive.exit}${result.drive.signal ? ` (${result.drive.signal})` : ''} after ${Math.round(result.drive.ms / 1000)}s`)
+        result.score = measureCell(cell, opt['claude-config'])
+        // A lanes run lands on its run base branch and leaves the checkout's own alone (D20).
+        if (lanes > 1 && result.score.run?.id) sh('git', ['checkout', '-q', `sofar/${SLUG}/${result.score.run.id}`], { cwd: repo, allowFail: true })
+        result.final_tree = finalTree()
+        const s = result.score
+        log(`SCORE ${opt.label}: ${s.tasks.done}/${s.tasks.total} done in ${s.wall_clock_s}s; gate pass ${s.verify.gate_passes}/${s.verify.gate_attempts}; ${s.tokens.per_task ?? '?'} tokens/task; $${s.cost.usd ?? '?'}; regressions ${s.conflicts.regressions}; merge conflicts ${s.conflicts.merge}; duplicate work ${s.conflicts.duplicate_work}; final tree ${result.final_tree.verify_passes.length}/${TASKS.length} green`)
+        ok = result.drive.exit === 0
       }
-      const s = result.score
-      log(`SCORE ${opt.label}: ${s.tasks.done}/${s.tasks.total} done in ${s.wall_clock_s}s; gate pass ${s.verify.gate_passes}/${s.verify.gate_attempts}; ${s.tokens.per_task ?? '?'} tokens/task; $${s.cost.usd ?? '?'}; regressions ${s.conflicts.regressions}; merge conflicts ${s.conflicts.merge}; duplicate work ${s.conflicts.duplicate_work}; final tree ${result.final_tree.verify_passes.length}/${TASKS.length} green`)
-      ok = result.drive.exit === 0
     }
   }
 } catch (err) {

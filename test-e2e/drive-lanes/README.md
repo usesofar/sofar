@@ -95,6 +95,32 @@ node --env-file=node_modules/.cache/conflict-replay.env node_modules/vitest/vite
 
 → `results/3.4-replay.json`.
 
+### The thread gate: native Claude Code against threads (drive-lanes 3.9)
+
+`--arm native` runs the plan without sofar: one Claude Code session is handed
+the whole plan in its prompt (each task's id, title, verify and waits_on, the
+facts the record carries) and works it with its own subagents. The cell has no
+record, hooks or MCP server. The stack is the driven arms' own (D6, D27), the
+surface is theirs minus sofar's rules, and the session gets the time nine
+driven sessions would. It meets no gate, so tasks done is the harness's re-run
+of every verify on the tree it left. Tokens come from the main transcript and
+every subagent's:
+
+```
+node run.mjs --label 3.9-native-1 --arm native --claude-config ~/.bench/claude-config-build
+node measure.mjs --bar 3.9-native
+node thread-gate.mjs                     # → results/3.9-thread-gate.json
+```
+
+`thread-gate.mjs` projects every rework case in the 2.5 and 3.4 agent reps (a
+handoff that left its task undone, then the next session on that task) call by
+call from both transcripts. It prices each case four ways: a fresh session with
+the 3.3 packet, a warm resume, a cold resume and a fork at the end of
+exploration. It does this at two bounds: the thread skipping the retry's
+rediscovery, or replaying all of it. Then it applies the gate: a lever goes
+ahead only where both bounds beat both fresh sessions and the arm beats the
+native arm per task (`thread-gate.test.ts` pins the arithmetic).
+
 ### Tiered verify against per-task full verify (drive-lanes 2.6)
 
 `tiered-replay.test.ts` replays the nine tasks without an agent (D29): the
@@ -141,6 +167,8 @@ CLAUDE.md loads); `results/<label>.json` keeps the score in the repo.
 | `verify.gate_pass_rate` | record | passes / attempts at the gate a session's done meets, a merge re-verify included; `first_try_pass_rate` per task |
 | `verify.sweep_failures` | record | accepted tasks the closing sweep re-checked and failed |
 | `tokens.per_task` | transcripts | input + cache writes + cache reads + output, every session, over tasks done |
+| `tokens.split_per_task` | transcripts | the same split by kind: fresh input, cache writes, cache reads, output (3.9) |
+| `tokens.weighted_per_task` | transcripts | priced in fresh-input tokens: write 2×, read 0.1×, output 5× (`TOKEN_WEIGHTS`, fitted to the adapter's cost) |
 | `cost.per_task` | drive stdout | the adapter's reported cost over tasks done |
 | `conflicts.merge` | record | `merge_conflict` handoffs (drive-lanes D24); 0 for serial, which never merges |
 | `conflicts.merge_reopen_rate` | record | `conflicts.merge` over tasks done |
