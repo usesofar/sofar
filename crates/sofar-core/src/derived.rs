@@ -794,6 +794,39 @@ fn redirects_to_file(cmd: &str) -> bool {
 
 /// `readOnlySegment`: an allowlisted head, or git, sofar, find, sed, sort,
 /// tree or uniq doing nothing that writes.
+/// `BARE_ASSIGN`: a segment that only assigns a shell variable (`t=v0.34.0`,
+/// `f="a b"`); with no substitution or redirect anywhere, it writes no file.
+fn bare_assignment(seg: &str) -> bool {
+    let b = seg.as_bytes();
+    if !b
+        .first()
+        .is_some_and(|c| c.is_ascii_alphabetic() || *c == b'_')
+    {
+        return false;
+    }
+    let mut i = 1;
+    while b
+        .get(i)
+        .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+    {
+        i += 1;
+    }
+    if b.get(i) != Some(&b'=') {
+        return false;
+    }
+    let value = &seg[i + 1..];
+    match value.as_bytes().first() {
+        Some(q @ (b'"' | b'\'')) => {
+            value.len() >= 2
+                && value.as_bytes()[value.len() - 1] == *q
+                && !value[1..value.len() - 1].contains(*q as char)
+        }
+        _ => !value
+            .chars()
+            .any(|c| is_js_whitespace(c) || c == '"' || c == '\''),
+    }
+}
+
 fn read_only_segment(seg: &str) -> bool {
     let tokens: Vec<&str> = seg
         .split(is_js_whitespace)
@@ -840,6 +873,12 @@ pub fn may_write_command(cmd: &str) -> bool {
         return true;
     }
     for raw in split_segments(cmd) {
+        // r4-fixes H20: 346 of 9,375 may-write commands in real transcripts
+        // were marked only by a `f=…;` segment, each a window a peer's edit
+        // was blamed in.
+        if bare_assignment(js_trim(raw)) {
+            continue;
+        }
         let seg = js_trim(strip_env_assignments(raw));
         if seg.is_empty() {
             continue;
