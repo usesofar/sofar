@@ -406,5 +406,17 @@
  {
   "cmd": "time npm test",
   "may_write": true
+ },
+ {
+  "cmd": "cat <<'EOF'\nrm -rf x\nEOF",
+  "may_write": false
+ },
+ {
+  "cmd": "cat > f <<'EOF'\nhi\nEOF",
+  "may_write": true
+ },
+ {
+  "cmd": "python3 - <<'EOF'\nprint(1)\nEOF",
+  "may_write": true
  }
 ]

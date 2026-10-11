@@ -14,7 +14,7 @@ session_started: tool (your agent name), model?
 session_ended: summary, next_action (the single next step)
 session_closed: reason
 file_touched: path, op, ok? (what the host said; absent = unknown, never success)
-command_run: cmd, ok? (what the host said; absent = unknown), exit? (only when the host gives a number)
+command_run: cmd, ok? (what the host said; absent = unknown), exit? (only when the host gives a number), elsewhere? (true when it cd-ed out of the worktree first)
 note_added: text
 memory_promoted: text, supersedes? (qualified handle `<slug> M<n>` of the fact this one replaces), supersedes_id? (that fact's event id; stamped by the writer, never passed), origin? (claude-memory:<file>@<16 hex>; set only by an operator-approved native-memory import)
 judgement_recorded: producer, model (the exact version), question, subject (an event id, task id or qualified record handle), about? (task:<id> | file:<repo-relative path>), answer {type: noul|choice|score, …}, state_hash?

@@ -6,30 +6,17 @@ Goal: A small, trustworthy improvement process whose every change has inspectabl
 
 Progress: 15/16 tasks done (93%)
 
-## Phase 1 — Evidence contracts and capture [done] — 3/3 done
+## Phase 1 — Evidence contracts and capture [done] — 3/3 done — its tasks in phases/P1.md
 
 > D2/D3 contracts, capture (1.2) and the availability map (1.3) landed; full suite green except a pre-existing intermittent in reach-index 3.5 unrelated to this work.
 
-- [x] 1.1 Gating Decisions before code: (a) outcome payload schema only in packages/schema/src; (b) diagnostics storage boundary: a separate local gitignored store that the exporter and sync never read, enforced by tests at the export boundary
-- [x] 1.2 Outcome capture, single owner (r1-fixes 2.5 consumes it): tool exit status and is_error, PostToolUseFailure, MCP typed-error rejections, and memory-usage signals, written to the private store where they are diagnostics
-- [x] 1.3 Signal availability map: every promised signal marked capturable or UNKNOWN with its reason (e.g. sofar and git commands are hook-exempt per record-hygiene D1); consumers report unknown, never guess
-
-## Phase 2 — Detector (propose-only) [done] — 3/3 done
+## Phase 2 — Detector (propose-only) [done] — 3/3 done — its tasks in phases/P2.md
 
 > Detector, its measured trust, and the propose-only lifecycle are all in: tune detects and gates on the corpus, 2.2 says which detector may be believed, suggest turns only those into loss rows that Phase 3 can consume.
 
-- [x] 2.1 `sofar tune --dry-run` detects only well-supported failure types (duplicate session starts, corrections, stalls, formatter friction) and prints unknown for the rest
-- [x] 2.2 Precision and recall against the manual smoke and round-1 loss-study rows before any suggestion is trusted
-- [x] 2.3 Suggestions only: approval bound to an exact candidate hash, stale applications rejected, rejection and reversal history kept; offline replay limited to context-size and information-preservation checks
-
-## Phase 3 — Bounded fix loop (developer-side) [done] — 4/4 done
+## Phase 3 — Bounded fix loop (developer-side) [done] — 4/4 done — its tasks in phases/P3.md
 
 > Closed on the operator's ruling 2026-09-23, genuinely 4/4: frozen evaluator, durable ledger, equal-budget baseline, and the first L-row cycle, which returned DISCARD (loop, direct-fix and the human fix all replay 0/3). Phase status tracks TASK COMPLETION, and holding a complete phase open because a result was negative would make it a proxy for a claim it was never designed to carry. The DISCARD stands on its own (note 01M35K70TY, evaluator README §3.4 evidence). The harness work found while running that cycle moved to Phase 5, keeping ids 3.5 and 3.6 so every citation still resolves.
-
-- [x] 3.1 Frozen evaluator outside the candidate's control: runner, hidden tests, fixtures, scoring and result capture live in a separate repo and process the candidate cannot write
-- [x] 3.2 Durable spend ledger across restarts counting every attempt, retry and evaluation, aligned with bench-refresh D14 and D17
-- [x] 3.3 Equal-budget baseline: the same agent directly fixing the same loss with the same feedback and spend; a loop change is kept only if it beats this baseline
-- [x] 3.4 First manual cycle on one round-1 loss row: loop result vs direct-fix baseline vs the human-built r1-fixes change
 
 ## Phase 4 — Release proof [pending] — 3/4 done
 
@@ -38,12 +25,9 @@ Progress: 15/16 tasks done (93%)
 - [x] 4.3 Public standing snapshot (downloads, stars, listings) reported separately and never used as a technical gate
 - [ ] 4.4 Expand autonomy, including any in-product local adaptation, only after 3 consecutive cycles beat the direct-fix baseline on unseen work (blocked)
 
-## Phase 5 — Evaluator harness hygiene (the inherited round-1 losses) [done] — 2/2 done
+## Phase 5 — Evaluator harness hygiene (the inherited round-1 losses) [done] — 2/2 done — its tasks in phases/P5.md
 
 > 3.5 (587047f) and 3.6 (db77aad) are both in the evaluator's own code, with the pin unmoved. Proof is unit tests plus real zsh and Seatbelt checks; no live cycle was run. Regime boundaries are in note 01M37F9F.
-
-- [x] 3.5 Evaluator sweeps a cell's listening strays after every session and at run end, the way round 2's runner does (lib/strays.ts killListeningStrays, from round-1 loss row L23): processes whose cwd is inside the cell and hold a listening socket, killed by exact PID and recorded in the result, never by pattern — cycle-L11b left 18 orphans holding 8 ports across all three eval cells
-- [x] 3.6 Close the inherited round-1 losses that reach the GUARD column in the evaluator's OWN code, never by moving the pin (D21): eval cells read-deny every sibling run as fix cells already do (L25), a cell's shell PATH is pinned so a Bash `sofar` call cannot reach the global install (L21, round 2's ZDOTDIR), an agent stopped from outside is distinguishable from one that finished (L24, the pinned agents.ts has no stoppedFromOutside), and a run refuses or marks itself invalid when the host slept during it (L22). RECORD THE REGIME PER SESSION, not just the pin: the agent's system-prompt hash and its steer flags, because neither a version pin nor a frozen binary fixes the prompt — round 1 saw the auto_mode steer ON 2.1.273 cells that tonight's 30 lacked, and two sessions on one pinned 2.1.278 thirty minutes apart had different prompt hashes (note 01M35N82X0). Today's regime is handoff-bench c628b557fd8f43ba6ec73f6ceffb04cb2588400c, pin hash 3b02d4088a6b: when the pin moves, cycles either side are different regimes and guard numbers do not cross that boundary. Full enumeration against L01–L28 in note 01M35MJ0B7
 
 Next action: After round 2 finishes, the operator runs 4.4's evaluator cycles.
 Blocked on: task 4.4: Waits for round 2 to finish (operator ruling). Then the operator runs at least 3 consecutive fix cycles at db77aad or later, each beating the equal-budget direct-fix baseline on unseen work (D1).

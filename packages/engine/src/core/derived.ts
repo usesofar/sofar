@@ -62,11 +62,35 @@ export function testShapedCommand(cmd: string): string | null {
   return null
 }
 
-/** Quote-aware split on the shell's sequencing operators — inside quotes an `&&` is text. */
+const HEREDOC = /^<<(-?)[ \t]*(["']?)([A-Za-z0-9_.-]+)\2/
+
+/** The index past the heredoc bodies that begin at `pos`, each ended by a line that is its terminator (less leading tabs under `<<-`), or by the input's end. */
+function pastHeredocs(cmd: string, pos: number, pending: Array<{ word: string; tabs: boolean }>): number {
+  for (const { word, tabs } of pending) {
+    for (;;) {
+      const nl = cmd.indexOf('\n', pos)
+      const end = nl === -1 ? cmd.length : nl
+      const line = cmd.slice(pos, end)
+      if ((tabs ? line.replace(/^\t+/, '') : line) === word || end >= cmd.length) {
+        pos = Math.min(end + 1, cmd.length)
+        break
+      }
+      pos = end + 1
+    }
+  }
+  return pos
+}
+
+/**
+ * Quote-aware split on the shell's sequencing operators — inside quotes an
+ * `&&` is text. A heredoc's body is data, never a segment (r4-fixes H15): a
+ * `bun test …` line in a script fed to `python3 - <<'EOF'` is no test run.
+ */
 function splitSegments(cmd: string): string[] {
   const out: string[] = []
   let cur = ''
   let quote: string | null = null
+  let pending: Array<{ word: string; tabs: boolean }> = []
   for (let i = 0; i < cmd.length; i += 1) {
     const ch = cmd[i]!
     if (quote !== null) {
@@ -88,6 +112,18 @@ function splitSegments(cmd: string): string[] {
       out.push(cur)
       cur = ''
       i += 1
+    } else if (ch === '<' && cmd[i + 1] === '<') {
+      // A here-string's `<<<`, or a bare `<<`, is text.
+      const m = cmd[i + 2] === '<' ? null : HEREDOC.exec(cmd.slice(i))
+      const op = m === null ? (cmd[i + 2] === '<' ? '<<<' : '<<') : m[0]
+      if (m !== null) pending.push({ word: m[3]!, tabs: m[1] === '-' })
+      cur += op
+      i += op.length - 1
+    } else if (ch === '\n' && pending.length > 0) {
+      out.push(cur)
+      cur = ''
+      i = pastHeredocs(cmd, i + 1, pending) - 1
+      pending = []
     } else if (ch === ';' || ch === '|' || ch === '\n') {
       out.push(cur)
       cur = ''
@@ -251,11 +287,15 @@ export function leavesWorktree(cmd: string, cwd: string, root: string, home: str
   const top = posix.resolve(root)
   const inside = (a: string, b: string) => a === b || a.startsWith(b === '/' ? b : `${b}/`)
   if (inside(dir, top) || inside(top, dir) || !isDir(dir)) return false
+  // `..` and a second `cd` count only where the shell runs them, never in a
+  // heredoc's body (r4-fixes H15); the root's path counts anywhere, a body fed
+  // to a script included. `first` is `cmd`'s leading slice.
   const tail = rest.join('\n')
-  if (RE_ENTERS.test(tail) || tail.includes(top)) return false
+  const whole = cmd.slice((first ?? '').length)
+  if (RE_ENTERS.test(tail) || whole.includes(top)) return false
   if (homeDir !== null && inside(top, homeDir)) {
     const below = posix.relative(homeDir, top)
-    if (['~/', '$HOME/', '${HOME}/'].some((p) => tail.includes(`${p}${below}`))) return false
+    if (['~/', '$HOME/', '${HOME}/'].some((p) => whole.includes(`${p}${below}`))) return false
   }
   return true
 }

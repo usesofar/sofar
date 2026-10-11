@@ -495,6 +495,29 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     expect(stop(root, 's1').exitCode).toBe(2)
   })
 
+  it('a test run that cd-s out of the worktree first neither covers an edit here nor becomes the suite asked for (r4-fixes H15)', () => {
+    const root = repo()
+    emit(root, 'demo', 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'b', rule: 'Keep src/db/store.ts soft.' })
+    const bench = mkdtempSync(join(tmpdir(), 'sofar-bench-')) // another repo with its own suite
+    roots.push(bench)
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's0')
+    ran(root, 's0', 'npm test', true, 0) // this worktree's suite
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    const bash = shell(root, 's1')
+    const there = `cd ${bench} && bun test`
+    bash('pre', there, 't1')
+    bash('post', there, 't1') // #096f: the newest run, but of handoff-bench's suite
+    const log = readFileSync(join(root, '.sofar', 'initiatives', 'demo', 'events.jsonl'), 'utf8')
+    expect(log).toContain('"elsewhere":true')
+    const r = stop(root, 's1')
+    expect(r.exitCode).toBe(2)
+    expect(r.stderr).toContain('run `npm test` and fix any failure')
+    bash('pre', 'npm test', 't2')
+    bash('post', 'npm test', 't2')
+    expect(stop(root, 's1').exitCode).toBe(0)
+  })
+
   // r4-fixes H13: a file git names is this session's only when one of its
   // may-write commands was running when the file was last written.
   const shell = (root: string, session: string) => (phase: 'pre' | 'post', command: string, id: string, extra: Record<string, unknown> = {}) =>

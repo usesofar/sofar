@@ -29,3 +29,7 @@ Yeah that is a fix. If any session has been done as part of a particular initiat
 --- Operator, 2026-10-10 ---
 
 [Image #1] When running some agent workflow or dynamic workflow in Claude, our status line will not update properly
+
+--- Operator, 2026-10-10 ---
+
+When the daily limit is close, each stops at a clean point (never mid-merge or mid-migration), commits its work to its own branch, and pick up again when the limit renews.

@@ -169,14 +169,83 @@ fn strip_env_assignments(seg: &str) -> &str {
     &seg[end..]
 }
 
+/// A heredoc operator at `i` (`<<WORD`, `<<-WORD`, `<<'WORD'`, `<< "WORD"`):
+/// its terminator, whether leading tabs are stripped, and the index past it.
+/// A here-string (`<<<`) or a bare `<<` is none (`heredocAt`, r4-fixes H15).
+fn heredoc_at(b: &[u8], i: usize) -> Option<(&[u8], bool, usize)> {
+    if b.get(i) != Some(&b'<') || b.get(i + 1) != Some(&b'<') || b.get(i + 2) == Some(&b'<') {
+        return None;
+    }
+    let mut j = i + 2;
+    let tabs = b.get(j) == Some(&b'-');
+    if tabs {
+        j += 1;
+    }
+    while matches!(b.get(j), Some(b' ' | b'\t')) {
+        j += 1;
+    }
+    let quote = match b.get(j) {
+        Some(q @ (b'"' | b'\'')) => {
+            j += 1;
+            Some(*q)
+        }
+        _ => None,
+    };
+    let from = j;
+    while b
+        .get(j)
+        .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'.' | b'-'))
+    {
+        j += 1;
+    }
+    if j == from {
+        return None;
+    }
+    let word = &b[from..j];
+    if let Some(q) = quote {
+        if b.get(j) != Some(&q) {
+            return None;
+        }
+        j += 1;
+    }
+    Some((word, tabs, j))
+}
+
+/// The index past the heredoc bodies that begin at `pos`, each ended by a line
+/// that is its terminator (less leading tabs under `<<-`), or by the input's end.
+fn past_heredocs(b: &[u8], mut pos: usize, pending: &[(&[u8], bool)]) -> usize {
+    for &(word, tabs) in pending {
+        loop {
+            let end = b[pos..]
+                .iter()
+                .position(|&c| c == b'\n')
+                .map_or(b.len(), |at| pos + at);
+            let mut line = &b[pos..end];
+            if tabs {
+                while line.first() == Some(&b'\t') {
+                    line = &line[1..];
+                }
+            }
+            if line == word || end >= b.len() {
+                pos = (end + 1).min(b.len());
+                break;
+            }
+            pos = end + 1;
+        }
+    }
+    pos
+}
+
 /// Quote-aware split on the shell's sequencing operators (`splitSegments`).
 /// Every character that is not an operator lands in the current segment in
 /// order, so each segment is a contiguous slice of `cmd` and none is copied.
+/// A heredoc's body is data, never a segment (r4-fixes H15): it lands in none.
 fn split_segments(cmd: &str) -> Vec<&str> {
     let b = cmd.as_bytes();
     let mut out = Vec::new();
     let mut start = 0;
     let mut quote: Option<u8> = None;
+    let mut pending: Vec<(&[u8], bool)> = Vec::new();
     let mut i = 0;
     // Every byte tested below is ASCII, so a byte index never lands inside a
     // multi-byte character: skipping one "character" after a backslash is
@@ -205,6 +274,21 @@ fn split_segments(cmd: &str) -> Vec<&str> {
         } else if (ch == b'&' || ch == b'|') && b.get(i + 1) == Some(&ch) {
             out.push(&cmd[start..i]);
             i += 2;
+            start = i;
+            continue;
+        } else if ch == b'<' && b.get(i + 1) == Some(&b'<') {
+            if let Some((word, tabs, past)) = heredoc_at(b, i) {
+                pending.push((word, tabs));
+                i = past;
+            } else {
+                // A here-string's `<<<`, or a bare `<<`: text.
+                i += if b.get(i + 2) == Some(&b'<') { 3 } else { 2 };
+            }
+            continue;
+        } else if ch == b'\n' && !pending.is_empty() {
+            out.push(&cmd[start..i]);
+            i = past_heredocs(b, i + 1, &pending);
+            pending.clear();
             start = i;
             continue;
         } else if ch == b';' || ch == b'|' || ch == b'\n' {
@@ -418,6 +502,30 @@ mod tests {
         assert_eq!(split_segments("é\\é;ü && x\\"), ["é\\é", "ü ", " x\\"]);
         assert_eq!(split_segments("'😀;' ; b"), ["'😀;' ", " b"]);
         assert_eq!(split_segments("\"\\😀\";c"), ["\"\\😀\"", "c"]);
+    }
+
+    /// r4-fixes H15: a heredoc's body lands in no segment, as in splitSegments.
+    #[test]
+    fn heredoc_bodies_are_no_segments() {
+        assert_eq!(
+            split_segments("python3 - <<'EOF'\nbun test fires no hooks\nEOF\nls"),
+            ["python3 - <<'EOF'", "ls"]
+        );
+        assert_eq!(
+            split_segments("cat <<-X\n\tnpm test\n\tX"),
+            ["cat <<-X", ""]
+        );
+        assert_eq!(
+            split_segments("cat <<A <<\"B\"\n1\nA\n2\nB\nz"),
+            ["cat <<A <<\"B\"", "z"]
+        );
+        assert_eq!(split_segments("cat <<E\nno end"), ["cat <<E", ""]);
+        assert_eq!(split_segments("cat <<< x\ny"), ["cat <<< x", "y"]);
+        assert_eq!(
+            t("cat <<'EOF'\nnpm test\nEOF\nnpm test"),
+            Some("npm test".to_owned())
+        );
+        assert_eq!(t("python3 - <<'EOF'\nbun test x\nEOF"), None);
     }
 
     #[test]
@@ -831,8 +939,12 @@ pub fn leaves_worktree(
     if inside(&dir, &top) || inside(&top, &dir) || !is_dir(&dir) {
         return false;
     }
+    // `..` and a second `cd` count only where the shell runs them, never in a
+    // heredoc's body (r4-fixes H15); the root's path counts anywhere, a body
+    // fed to a script included. `first` is `cmd`'s leading slice.
     let tail = rest.join("\n");
-    if re_enters(&tail) || tail.contains(top.as_str()) {
+    let whole = &cmd[first.len()..];
+    if re_enters(&tail) || whole.contains(top.as_str()) {
         return false;
     }
     if let Some(h) = &home_dir
@@ -841,7 +953,7 @@ pub fn leaves_worktree(
         let below = posix_relative(h, &top);
         if ["~/", "$HOME/", "${HOME}/"]
             .iter()
-            .any(|p| tail.contains(&format!("{p}{below}")))
+            .any(|p| whole.contains(&format!("{p}{below}")))
         {
             return false;
         }
