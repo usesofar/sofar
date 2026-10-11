@@ -153,7 +153,7 @@ describe('sofar init on a fresh repo', () => {
         },
       ],
       PreToolUse: [
-        { matcher: 'Bash', hooks: [{ type: 'command', command: '$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use.sh' }] },
+        { matcher: 'Bash|mcp__.*__sofar_end_session', hooks: [{ type: 'command', command: '$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use.sh' }] },
       ],
       PostToolUse: [
         {
@@ -284,7 +284,7 @@ describe('sofar init merges — never clobbers — user files', () => {
     expect(merged.permissions).toEqual({ allow: ['Bash(npm test)'] })
     const hooks = merged.hooks as Record<string, unknown[]>
     // user's PreToolUse entry kept, ours (the read rewrite, memory-lead 4.3) appended after it
-    expect(hooks.PreToolUse).toEqual([...userSettings.hooks.PreToolUse, { matcher: 'Bash', hooks: [{ type: 'command', command: hookCommand('pre-tool-use.sh') }] }])
+    expect(hooks.PreToolUse).toEqual([...userSettings.hooks.PreToolUse, { matcher: 'Bash|mcp__.*__sofar_end_session', hooks: [{ type: 'command', command: hookCommand('pre-tool-use.sh') }] }])
     // user's SessionStart entry kept, ours appended after it
     expect(hooks.SessionStart).toEqual([
       { hooks: [{ type: 'command', command: 'echo user-start' }] },
@@ -989,6 +989,16 @@ describe('re-init widens a matcher sofar shipped earlier (memory-lead 2.1, D6)',
     expect(runInit(root).exitCode).toBe(0)
     // Widened, not duplicated: an entry is still ours, one per event.
     expect(postMatchers(root)).toEqual(['Edit|Write|MultiEdit|Bash|Read|Grep'])
+  })
+
+  it('our PreToolUse entry with the Bash-only matcher gains the write-back tool, in place (r4-fixes H17)', () => {
+    const root = freshRepo()
+    mkdirSync(join(root, '.claude'), { recursive: true })
+    const pre = hookCommand('pre-tool-use.sh')
+    writeFileSync(join(root, '.claude', 'settings.json'), JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: pre }] }] } }))
+    expect(runInit(root).exitCode).toBe(0)
+    const settings = readJSON(join(root, '.claude', 'settings.json')) as { hooks: { PreToolUse: Array<{ matcher?: string }> } }
+    expect(settings.hooks.PreToolUse.map((e) => e.matcher)).toEqual(['Bash|mcp__.*__sofar_end_session'])
   })
 
   it('a matcher the user wrote is theirs, and is kept', () => {

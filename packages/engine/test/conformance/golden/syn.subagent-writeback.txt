@@ -1,0 +1,31 @@
+# conformance golden: syn.subagent-writeback
+
+## step 1: a subagent's write-back
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-s","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","agent_id":"a515ac00","agent_type":"general-purpose","tool_name":"mcp__sofar__sofar_end_session","tool_input":{"summary":"s","next_action":"n"}}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"sofar: a subagent does not write back; its lead does, once per session (r4-fixes H17). Put your summary, decisions and next action in your final reply to the lead instead."}}
+--- stderr
+(empty)
+
+## step 2: the lead's write-back
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-s","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","tool_name":"mcp__sofar__sofar_end_session","tool_input":{"summary":"s","next_action":"n"}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 3: a subagent's note
+argv: ["event","pre-tool"]
+stdin: {"session_id":"sess-s","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PreToolUse","agent_id":"a515ac00","tool_name":"mcp__sofar__sofar_add_note","tool_input":{"text":"t"}}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## record delta
+(no change)

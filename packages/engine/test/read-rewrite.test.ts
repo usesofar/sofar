@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
-import { handlePreTool } from '../src/cli/event'
+import { handlePreTool, SUBAGENT_WRITEBACK_REFUSAL } from '../src/cli/event'
 import { forHost } from '../src/cli/host'
 import { runRead } from '../src/cli/read'
 import { makeEvent } from '../src/core/envelope'
@@ -222,5 +222,24 @@ describe('sofar read (D42, D45)', () => {
     const missing = runRead(root, ['nope.md'])
     expect(missing.exitCode).toBe(1)
     expect(missing.stderr).toContain('sofar read: nope.md:')
+  })
+})
+
+describe('a subagent write-back (r4-fixes H17)', () => {
+  const call = (fields: Record<string, unknown>) =>
+    handlePreTool(tmpdir(), JSON.stringify({ session_id: 's1', cwd: tmpdir(), hook_event_name: 'PreToolUse', tool_input: { summary: 's', next_action: 'n' }, ...fields }))
+
+  it('is refused with the reason shown to the subagent, under any server name', () => {
+    for (const tool_name of ['mcp__sofar__sofar_end_session', 'mcp__plugin_sofar_sofar__sofar_end_session']) {
+      const r = call({ tool_name, agent_id: 'a515ac00', agent_type: 'general-purpose' })
+      expect(r.exitCode).toBe(0)
+      expect(JSON.parse(r.stdout)).toEqual({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: SUBAGENT_WRITEBACK_REFUSAL } })
+    }
+  })
+
+  it("the lead's own write-back, and a subagent's other sofar calls, pass untouched", () => {
+    expect(call({ tool_name: 'mcp__sofar__sofar_end_session' }).stdout).toBe('')
+    expect(call({ tool_name: 'mcp__sofar__sofar_add_note', agent_id: 'a515ac00' }).stdout).toBe('')
+    expect(call({ tool_name: 'mcp____sofar_end_session', agent_id: 'a515ac00' }).stdout).toBe('')
   })
 })

@@ -227,7 +227,20 @@ fn begin_shell_write(root: &Path, hook: &Object, session: &str, cmd: &str, cwd: 
     crate::wrote::begin_write(&layout, session, &key, crate::date::now_ms());
 }
 
-/// `handlePreTool`: the host's own rewrite form, or no output.
+/// `SUBAGENT_WRITEBACK_REFUSAL` (r4-fixes H17): what a subagent is told when it
+/// calls `sofar_end_session`: the write-back is the lead's, once per session.
+pub const SUBAGENT_WRITEBACK_REFUSAL: &str = "sofar: a subagent does not write back; its lead does, once per session (r4-fixes H17). Put your summary, decisions and next action in your final reply to the lead instead.";
+
+/// `END_SESSION_TOOL`: `mcp__<server>__sofar_end_session`, whatever the host
+/// named sofar's MCP server.
+fn is_end_session_tool(tool: &str) -> bool {
+    tool.strip_prefix("mcp__")
+        .and_then(|rest| rest.strip_suffix("__sofar_end_session"))
+        .is_some_and(|server| !server.is_empty())
+}
+
+/// `handlePreTool`: the host's own rewrite form, a subagent's write-back
+/// refused, or no output.
 #[must_use]
 pub fn handle_pre_tool(root: &Path, input: &str) -> CmdResult {
     let silent = CmdResult {
@@ -236,7 +249,25 @@ pub fn handle_pre_tool(root: &Path, input: &str) -> CmdResult {
         stderr: String::new(),
     };
     let hook = parse_hook(input);
-    if str_field(&hook, "tool_name") != Some("Bash") {
+    let tool = str_field(&hook, "tool_name");
+    // agent_id rides only on a call made inside a subagent (Claude Code hooks).
+    if tool.is_some_and(is_end_session_tool) && str_field(&hook, "agent_id").is_some() {
+        let mut specific = Object::with_capacity(3);
+        specific.insert("hookEventName", Json::Str("PreToolUse".to_owned()));
+        specific.insert("permissionDecision", Json::Str("deny".to_owned()));
+        specific.insert(
+            "permissionDecisionReason",
+            Json::Str(SUBAGENT_WRITEBACK_REFUSAL.to_owned()),
+        );
+        let mut out = Object::with_capacity(1);
+        out.insert("hookSpecificOutput", Json::Obj(specific));
+        return CmdResult {
+            exit_code: 0,
+            stdout: format!("{}\n", json::stringify(&Json::Obj(out))),
+            stderr: String::new(),
+        };
+    }
+    if tool != Some("Bash") {
         return silent;
     }
     let Some(session) = str_field(&hook, "session_id") else {

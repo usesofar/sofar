@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r4-fixes H17** (main) from the TypeScript reference; the Rust
+core reproduces all 62. One new case, `syn.subagent-writeback`: a PreToolUse
+for `mcp__sofar__sofar_end_session` carrying `agent_id` is denied with the
+reason shown to the subagent; the lead's own and a subagent's add_note pass.
+The installed 0.37.0-rc.4 core prints nothing for step 1.
+
 ADDED for **r4-fixes H15** (main) from the TypeScript reference; the Rust
 core reproduces all 61. One new case, `syn.gate-elsewhere`: a `cd <HOME>/bench
 && bun test` run is logged with `elsewhere: true`, neither covers an edit here

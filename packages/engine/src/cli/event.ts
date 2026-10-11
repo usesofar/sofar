@@ -1287,10 +1287,28 @@ function classifyToolCall(hook: Obj, rootDir?: string): ClassifiedCall[] {
  * rest of the call's input is kept. Every other call, and every call under
  * SOFAR_READ_GATE=off, passes untouched: exit 0, no output.
  */
+/**
+ * What a subagent is told when it calls sofar_end_session (r4-fixes H17): the
+ * write-back is the lead's, once per session. In splen 59 subagent write-backs
+ * landed in the record, 27 of them as their lead's session_ended, each
+ * replacing the lead's next action with a subagent's.
+ */
+export const SUBAGENT_WRITEBACK_REFUSAL =
+  "sofar: a subagent does not write back; its lead does, once per session (r4-fixes H17). Put your summary, decisions and next action in your final reply to the lead instead."
+
+/** The sofar write-back tool, under whatever name the host gave its MCP server. */
+const END_SESSION_TOOL = /^mcp__.+__sofar_end_session$/
+
 export function handlePreTool(rootDir: string, input: string, declared?: HookHost): HookResult {
   try {
     const hook = parseHook(input)
-    if (strField(hook, 'tool_name') !== 'Bash') return { ...OK }
+    const tool = strField(hook, 'tool_name')
+    // agent_id rides only on a call made inside a subagent (Claude Code hooks).
+    if (tool !== null && END_SESSION_TOOL.test(tool) && strField(hook, 'agent_id') !== null) {
+      const out = { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: SUBAGENT_WRITEBACK_REFUSAL } }
+      return { ...OK, stdout: `${JSON.stringify(out)}\n` }
+    }
+    if (tool !== 'Bash') return { ...OK }
     const session = strField(hook, 'session_id')
     const toolInput = isObj(hook.tool_input) ? hook.tool_input : null
     const cmd = toolInput === null ? null : strField(toolInput, 'command')
