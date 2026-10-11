@@ -6,11 +6,11 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 2356 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 51 done, 6 dropped, 23 remaining
+Progress: 52 done, 6 dropped, 22 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
-## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 29/34 (3 dropped) done
+## Phase 2 — Build (from 1.8, ruled by the operator) [pending] — 30/34 (3 dropped) done
 
 - [x] A1 A1 In-band write-back: a fenced `sofar` block in the final reply is filed by the Stop handler (SOFAR_WRITEBACK). PREDICT Codex −0.15 to −0.20, Cursor −0.08 to −0.15, Claude −0.03 to −0.05
 - [x] A2 A2 Host-compiled payloads: AGENTS.md block ≤1.5k chars, CLI grammar moved to a skill, per-host budgets (SOFAR_PAYLOAD). PREDICT Codex −0.05 to −0.07, Cursor −0.05 to −0.10
@@ -45,7 +45,7 @@ Progress: 51 done, 6 dropped, 23 remaining
 - [ ] H17 H17 Subagent write-backs file as the lead's: in splen 572647db three sidechain agents (a515ac00, ab66b2dc, ae5e1d4e) called sofar_end_session and landed as the lead's session_ended, replacing its next action with a subagent's. Attribute or refuse a sidechain write-back (hook agent_id / isSidechain)
 - [x] H18 H18 Stop gate scopes edits to its worktree: a captured path outside the root (another repo, another checkout of sofar, ~/.claude/dev-mods, the scratchpad) is never an edit this worktree's tests can cover. Mention-suffix and guard matching tie such paths to this repo's rules (096f: handoff-bench …/runner/lib/paths.ts → self-improve D9). Replay over 75 real holds: up to 37 fully explained by out-of-root captures, at least 6
 - [x] H19 H19 MCP writes follow /clear: `sofar mcp` adopts CLAUDE_CODE_SESSION_ID once at spawn, and Claude Code keeps that stdio child across /clear while minting a new session id, so every later MCP write (write-backs included) files under the dead predecessor. splen 4d7f19fc (continues b4130fb7): 754 hook events, 0 MCP writes under its id, ~135 under b4130fb7, 48 false Stop write-back holds despite 83 end_session calls; this session 25758e11 (continues 2029729d) 3 writes, 1 false hold. Follow the parent process's registry entry (~/.claude/sessions/<ppid>.json) when it renamed the adopted id (formerNames).
-- [ ] H20 H20 Stop gate dirt a peer captured: a git-dirty file whose mtime matches another session's file_touched of that path (±slack) is that session's edit, whatever this session's may-write windows say. 93511017's 16:17/16:31 holds: drive 67067ce5 captured every edit within ~200 ms of its mtime, inside 93511017's ~30 one-second windows. 4 more holds explained (note 01M4KB7Q). Also the classifier gaps feeding windows: `T=/abs/elsewhere; …` reads as may-write, and leavesWorktree's RE_ENTERS scans heredoc bodies. Replay first (D24)
+- [x] H20 H20 Stop gate dirt a peer captured: a git-dirty file whose mtime matches another session's file_touched of that path (±slack) is that session's edit, whatever this session's may-write windows say. 93511017's 16:17/16:31 holds: drive 67067ce5 captured every edit within ~200 ms of its mtime, inside 93511017's ~30 one-second windows. 4 more holds explained (note 01M4KB7Q). Also the classifier gaps feeding windows: `T=/abs/elsewhere; …` reads as may-write, and leavesWorktree's RE_ENTERS scans heredoc bodies. Replay first (D24)
 
 ## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 6/19 (3 dropped) done
 
@@ -92,5 +92,5 @@ Progress: 51 done, 6 dropped, 23 remaining
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 - [ ] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3) (blocked)
 
-Next action: Install sofar.sh@next (0.37.0-rc.4) locally, then replay H20 (peer-captured dirt, stale wrote .git.json cache across upgrades) before building it.
+Next action: Ask drive-lanes to fix its two clippy float_cmp errors (fold.rs:1438, 3373 from 22023ca4), then take the next r4-fixes task (H17 subagent write-backs).
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).; task 4.2a: D57 and D58 built (handoff-bench round5-runner 0e5c5af). The host canary passes with 0 leaks under both scopes. Waiting on Chain N (4.3): clear Bun's @t@, then the canary and canary --full with Chain N, setup-sofar for the round's pin, doctor with the round's env, and the paid three-agent smoke (HARNESS-R5 §3).

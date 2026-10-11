@@ -418,5 +418,25 @@
  {
   "cmd": "python3 - <<'EOF'\nprint(1)\nEOF",
   "may_write": true
+ },
+ {
+  "cmd": "t=v0.34.0-rc.2; git grep -n isTTY $t -- src | head -5",
+  "may_write": false
+ },
+ {
+  "cmd": "f=\"a b\"; cat \"$f\"",
+  "may_write": false
+ },
+ {
+  "cmd": "f=x; echo hi > $f",
+  "may_write": true
+ },
+ {
+  "cmd": "f=$(mktemp); cat a",
+  "may_write": true
+ },
+ {
+  "cmd": "f=\"a b; cat a",
+  "may_write": true
  }
 ]

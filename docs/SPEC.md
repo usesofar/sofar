@@ -10601,6 +10601,14 @@ stay the underlying derivation's, and exit codes are styling-independent.
   handoff-bench's `bun test`: 7 no longer take that suite; the other 4 trace
   to a quoted `../lib/paths` in a sed expression, which H13's rule still
   reads as a possible re-entry.
+- **Bare assignments (r4-fixes H20):** a segment that only assigns a shell
+  variable (`t=v0.34.0-rc.2;`, `f="a b";`) never marks a command may-write;
+  a substitution or a redirect anywhere in the command still does. In real
+  transcripts 344 of 9,375 may-write marks (3.7%) came from such a segment
+  alone, each a window a peer's edit was blamed in; 1 more of 117 real holds
+  clears. A peer-capture rule (a dirty file whose mtime matches another
+  session's capture is that session's) would release 2 of 117 and is not
+  built (D24).
 - **Landing write (r4-fixes D61):** `sofar_update_task` with `"task_id":
   "m1, m2"` files a done task_status_changed for each, in order, and the
   statusline gauge reading the record goes 0/3 → 2/3; `m1,m9` (m9 not in

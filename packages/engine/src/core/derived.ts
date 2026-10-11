@@ -220,6 +220,9 @@ function redirectsToFile(cmd: string): boolean {
 }
 
 /** A segment that reads only: an allowlisted head, or git, sofar, find, sed, sort, tree or uniq doing nothing that writes. */
+/** A segment that only assigns a shell variable (`t=v0.34.0`, `f="a b"`): with no substitution or redirect anywhere, it writes no file. */
+const BARE_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^\s"']*)$/
+
 function readOnlySegment(seg: string): boolean {
   const tokens = seg.split(/\s+/).filter((t) => t.length > 0)
   const head = tokens[0] ?? ''
@@ -249,6 +252,9 @@ function readOnlySegment(seg: string): boolean {
 export function mayWriteCommand(cmd: string): boolean {
   if (redirectsToFile(cmd) || substitutes(cmd)) return true
   for (const raw of splitSegments(cmd)) {
+    // r4-fixes H20: 346 of 9,375 may-write commands in real transcripts were
+    // marked only by a `f=…;` segment, each a window a peer's edit was blamed in.
+    if (BARE_ASSIGN.test(raw.trim())) continue
     const seg = raw.replace(ENV_ASSIGN, '').trim()
     if (seg.length === 0) continue
     if (PKG_TEST.test(seg) || RUNNER.test(seg) || TOOL_TEST.test(seg)) {
