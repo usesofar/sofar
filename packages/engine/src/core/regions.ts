@@ -108,6 +108,27 @@ export function editRegions(file: string, content: string | null, call: EditCall
   return [...out.values()]
 }
 
+/**
+ * The regions a landed change touched in `file` (drive-lanes 3.3), whose text
+ * after the change is `content`: each zero-based line span `[first, last]`
+ * mapped to its deepest section or symbol, as an edit's text is. The file's
+ * top level and its imports name nothing a brief needs, and a file kind with
+ * no outline has no regions at all — the file itself is named elsewhere.
+ */
+export function spanRegions(file: string, content: string, spans: readonly (readonly [number, number])[]): Region[] {
+  const kind = outlineKind(file)
+  if (kind === null || spans.length === 0) return []
+  const lines = content.split('\n')
+  const nodes = kind === 'markdown' ? markdownOutline(lines) : codeOutline(lines, kind)
+  const out = new Map<string, Region>()
+  for (const [first, last] of spans) {
+    const region = { file, ...regionIn(nodes, first, Math.max(first, last)) }
+    if (region.path.length === 0 || !leasable(region)) continue
+    out.set(regionKey(region), region)
+  }
+  return [...out.values()]
+}
+
 /** One section or symbol: its name, its lines `[start, end)`, and what it holds. */
 export interface OutlineNode {
   name: string
@@ -129,6 +150,11 @@ const KINDS: ReadonlyArray<[RegExp, OutlineKind]> = [
 function outlineKind(file: string): OutlineKind | null {
   for (const [pattern, kind] of KINDS) if (pattern.test(file)) return kind
   return null
+}
+
+/** Whether a file is of a kind its sections or symbols can be read from. */
+export function outlined(file: string): boolean {
+  return outlineKind(file) !== null
 }
 
 /** Zero-based line of a character offset. */

@@ -2861,6 +2861,48 @@ again every 15 seconds, since that lease ending wakes nothing here. `ready` is
 the first ready task, whatever it will touch. The mode is the driver's: not
 recorded.
 
+**Context packets (drive-lanes 3.3, D35).** On a lanes run that leases
+(`--leases steer` or `deny`), what one lane is told of another travels as
+PACKETS: each ONE LINE, rendered from facts the run already holds — the lease
+files, git, the fold — so the same facts give the same bytes, and no model
+writes any of it (`core/packets.ts`). THE LEASE NOTICE says who holds which
+sections and symbols, for which task: in a lane session's opening prompt, every
+live lease another lane holds regions under, lane order (`sofar leases
+(drive-lanes 3.3) at launch: lane <k> holds <file> [<region>; …] for <task>
+"<title>"; …`); and at the lease hook, the first time a session edits a file
+in which OLDER tasks hold regions this edit did not meet, those holders, once
+per holder and file (`sofar lease (drive-lanes 3.3): in <file>, …`) — never a
+holder a steer in that file has already named. THE CHANGE BRIEF is what one
+landing put on the run's base: `<task> "<title>" landed (<from7>..<to7>) · <n>
+files +<ins> −<del>: <file> [<region>; …], … · logged D<n>, M<n> · write-back:
+"<summary>"`, a field with nothing in it left out — the files and their lines
+from `git diff --numstat` of the landing's range, `.sofar/` excluded; each
+outlined file's regions, the sections and symbols its changed lines sit in
+within the landed copy (named as region leases name them, top level and
+imports left out); the decisions and memories logged by the sessions that handed the
+task off in this run, numbered as decisions.md numbers them; the landing
+session's write-back. The coordinator appends it to every other lane's lease
+this run still holds (never creating one), and that lane's hook says it once,
+at the session's first edit of a file the landing changed (`sofar brief
+(drive-lanes 3.3): the run's base moved under <file> since your branch was cut
+— <brief>. …`), an imports-only edit included. A session handed a merge in
+progress is told, under the conflict line, the briefs of this run's landings
+the merge takes in — in what it merges, not yet on its branch, the latest 3 —
+as the other side's intent (`It takes in: <brief>`). THE RESUME PACKET opens
+a lane session whose task a session of this run already handed off (a park, a
+failed check, a merge conflict, a stall): `sofar resume (drive-lanes 3.3):
+session <id> last worked <task> and <how it ended>. Its write-back: "<summary>"
+— next: "<next action>". Your WIP: <branch> at <sha7>, <n> commits past the
+base[, <n> paths uncommitted].` — and, after a park, `What you waited for:`
+each lease it waited on, as the holder's brief when that landed after the
+parked session launched, else `lane <k>'s <task> let go without landing`
+(another run's: `… let go — its change is not on this run's base`). Each
+packet is bounded (a brief 800 characters, a notice 800, a resume packet
+1,600). The briefs and the parks are the driver's own: a resumed run starts
+with neither, and its resume packets say what the record and git hold.
+`--leases off`, 3.4's naive arm, delivers no packet. A packet that cannot be
+read is said as a warning and skipped, never a stop.
+
 **Tiered verify (drive-lanes 2.6, D29, D30).** `--verify-quick <cmd>`, with
 `--verify` (refused without it, before anything is recorded), makes the run
 TIERED; it is recorded in `run_started.verify_quick` and a resumed run keeps

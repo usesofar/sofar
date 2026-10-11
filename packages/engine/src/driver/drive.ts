@@ -26,7 +26,8 @@ import { applicableChecks, changedPaths, checkFailureLine, checksInForce, isAppr
 import { refreshGuards } from '../core/index-tier1'
 import { recordRoot } from '../core/git'
 import { claimRunLock, probeRunLock, type RunLockOptions } from '../core/run-lock'
-import { closeLease, LEASE_ENV, leaseFile, openLease, poolLeases, readLease, stillHeld, type Lease, type LeaseWait } from '../core/leases'
+import { closeLease, LEASE_ENV, leaseFile, openLease, poolLeases, postBrief, readLease, stillHeld, type Lease, type LeaseWait } from '../core/leases'
+import { changeBriefLine, leaseNotice, loggedBy, postedBrief, resumePacket, type ChangeBrief } from '../core/packets'
 import { byAge, conflictOf, footprints, readRepoView, repoRelative, type Holder, type RepoView } from '../core/footprint'
 import { describeRegion } from '../core/regions'
 import { noteLaunched, writeRunProgress } from '../core/run-progress'
@@ -199,6 +200,8 @@ const NAP_MAX_MS = 3_600_000
  * holds (3.1): its own lanes' leases end with their jobs, which wake it.
  */
 export const LEASE_POLL_MS = 15_000
+/** Briefs a merge's prompt names, the latest landings it takes in (drive-lanes 3.3). */
+const MERGE_BRIEFS = 3
 
 /** A park on a lease, as a handoff's detail says it (3.1, D33): who held what, for which task. */
 function parkNote(waits: readonly LeaseWait[]): string {
@@ -616,7 +619,15 @@ export function renderPrompt(
   task: DriveTask,
   policy: RunPolicy = 'task',
   failure?: string,
-  lane?: { id: number; dir: string; branch: string; base?: string; merge?: { onto: string; paths: string[] } },
+  lane?: {
+    id: number
+    dir: string
+    branch: string
+    base?: string
+    merge?: { onto: string; paths: string[]; briefs?: string[] }
+    /** Context packets (drive-lanes 3.3), one line each: the resume packet, the lease notice. */
+    packets?: string[]
+  },
 ): string {
   const scope =
     policy === 'threshold'
@@ -652,6 +663,7 @@ export function renderPrompt(
           '',
         ]
       : []),
+    ...(lane?.packets !== undefined && lane.packets.length > 0 ? [...lane.packets, ''] : []),
     // A merge handoff (drive-lanes 2.4, D24), read from the lane itself: the
     // merge queue merged the run's base into this branch and it stopped on
     // conflicts. Finishing it needs only `git add` and `git commit`.
@@ -661,6 +673,8 @@ export function renderPrompt(
           `(${lane.merge.onto.slice(0, 7)}) into this branch is in progress in this lane${
             lane.merge.paths.length > 0 ? `, stopped on conflicts in: ${lane.merge.paths.join(', ')}` : ', every conflict resolved but not committed'
           }.`,
+          // The other side's intent (3.3): what each landing the merge takes in did.
+          ...(lane.merge.briefs ?? []).map((b) => `It takes in: ${b}`),
           'Finish it first: resolve each conflict so both sides\' intent survives, `git add` the',
           'files and `git commit` to conclude the merge. Then check the task still does what it',
           'asks, and mark it done. The driver lands the branch only once the merge is concluded.',
@@ -1756,6 +1770,99 @@ async function driveHolding(
   }
 
   /**
+   * Context packets (drive-lanes 3.3), on a run that leases: each task's
+   * latest landing in this run as its change brief, and when it landed; and
+   * each task that parked on a lease, the leases it waited on and when the
+   * parked session was launched. Both are this driver's: a resumed run starts
+   * with neither, and its packets say what the record and git still hold.
+   */
+  const briefs = new Map<string, { brief: ChangeBrief; at: number }>()
+  const parks = new Map<string, { waits: LeaseWait[]; at: number }>()
+  /**
+   * A landing's brief (3.3), kept for the packets that cite it and left in
+   * every other lane's lease this run holds, for that lane's hook to say at
+   * its first edit of a file the landing changed. `session` is the one that
+   * handed the task off, when one did; a brief that cannot be read is said
+   * and skipped — a packet is context, never a reason to stop a landing.
+   */
+  const noteLanding = (taskId: string, from: string, to: string, landedFrom: Lane, session?: string): void => {
+    if (laneRun === undefined || leasing === undefined) return
+    let brief: ChangeBrief
+    try {
+      const state = ctx.foldState(initiative)
+      const task = state.phases.flatMap((p) => p.tasks).find((t) => t.id === taskId)
+      const worked = (state.runs.find((r) => r.id === runId)?.handoffs ?? []).filter((h) => h.task === taskId).map((h) => h.session_id)
+      const sessions = new Set([...worked, ...(session !== undefined ? [session] : [])])
+      const wrote = [...(session !== undefined ? [session] : []), ...[...worked].reverse()]
+        .map((id) => state.sessions.find((s) => s.id === id)?.summary)
+        .find((s) => s !== undefined)
+      brief = {
+        task: taskId,
+        title: task?.title ?? '',
+        from,
+        to,
+        files: laneRun.landedChange(from, to),
+        logged: loggedBy(state, eventsPath, sessions),
+        ...(wrote !== undefined ? { writeback: wrote } : {}),
+      }
+    } catch (err) {
+      progress(`warning: no change brief for ${taskId} — ${errorNote(err)}`)
+      return
+    }
+    briefs.delete(taskId)
+    briefs.set(taskId, { brief, at: Date.now() })
+    const posted = postedBrief(brief)
+    for (const lane of laneRun.lanes) if (lane.id !== landedFrom.id) postBrief(leaseFile(leasing.pool, lane.id), runId, posted)
+  }
+  /**
+   * A lane session's packets (3.3), one line each, on a run that leases: the
+   * resume packet when a session of this run already handed this task off,
+   * then the lease notice for what the other lanes hold now.
+   */
+  const lanePackets = (state: InitiativeState, taskId: string, where: LaneTask): string[] => {
+    if (laneRun === undefined || leasing === undefined) return []
+    const out: string[] = []
+    const last = (state.runs.find((r) => r.id === runId)?.handoffs ?? []).filter((h) => h.task === taskId).pop()
+    const park = parks.get(taskId)
+    parks.delete(taskId)
+    if (last !== undefined) {
+      try {
+        const ended = state.sessions.find((s) => s.id === last.session_id)
+        const waited = [...new Map((park?.waits ?? []).map((w) => [`${w.run} ${w.lane} ${w.task}`, w])).values()].map((w) => {
+          if (w.run !== runId) return { lane: w.lane, task: w.task, foreign: true }
+          const landed = briefs.get(w.task)
+          return { lane: w.lane, task: w.task, ...(landed !== undefined && landed.at >= park!.at ? { brief: landed.brief } : {}) }
+        })
+        // A park this driver saw is said from its waits, without the exit the record's detail adds.
+        const detail = park !== undefined ? parkNote(park.waits) : last.detail
+        const previous = {
+          session: last.session_id,
+          reason: last.reason,
+          ...(detail !== undefined ? { detail } : {}),
+          ...(ended?.summary !== undefined ? { summary: ended.summary } : {}),
+          ...(ended?.next_action !== undefined ? { next_action: ended.next_action } : {}),
+        }
+        out.push(resumePacket(taskId, previous, laneRun.wip(where), waited))
+      } catch (err) {
+        progress(`warning: no resume packet for ${taskId} — ${errorNote(err)}`)
+      }
+    }
+    const notice = leaseNotice(runId, poolLeases(leasing.pool).filter((l) => l.header.lane !== where.lane.id))
+    if (notice !== null) out.push(notice)
+    return out
+  }
+  /** The briefs of this run's landings a lane's merge in progress takes in (3.3): in what it merges, not yet on its branch. */
+  const mergeBriefs = (where: LaneTask, onto: string): string[] => {
+    if (laneRun === undefined || leasing === undefined) return []
+    const lanes = laneRun
+    return [...briefs.values()]
+      .map((b) => b.brief)
+      .filter((b) => lanes.holds(where.lane, b.to, onto) && !lanes.holds(where.lane, b.to))
+      .slice(-MERGE_BRIEFS)
+      .map(changeBriefLine)
+  }
+
+  /**
    * The merge queue (drive-lanes 2.4, D24): landings run one at a time, so the
    * base cannot move between a branch's integration, its re-verify and its
    * fast-forward. Each turn waits for the one before it, whatever it ended in.
@@ -1779,9 +1886,10 @@ async function driveHolding(
    * Land an accepted task's branch on the base, through the queue. A branch
    * the base moved past is integrated in its lane and gated again there,
    * since its tree is no longer the one that passed; only a pass lands it.
-   * `handoff` is false where no session hands off (a resumed run's recovery).
+   * `handoff` is false where no session hands off (a resumed run's recovery);
+   * `session` is the session handing it off, which the change brief quotes.
    */
-  const landTask = (taskId: string, where: LaneTask, handoff: boolean): Promise<Landed> =>
+  const landTask = (taskId: string, where: LaneTask, handoff: boolean, session?: string): Promise<Landed> =>
     merging(async (): Promise<Landed> => {
       const lanes = laneRun
       if (lanes === undefined) return { kind: 'landed' }
@@ -1818,7 +1926,10 @@ async function driveHolding(
           note: `${taskId} was accepted but ${landing.branch} (${landing.tip.slice(0, 7)}) still does not descend from ${lanes.base} after the merge queue integrated it — its work is on that branch, unlanded`,
         }
       }
-      if (landing.kind === 'landed') progress(`  landed ${taskId} on ${lanes.base} (${landing.from.slice(0, 7)}..${landing.to.slice(0, 7)})`)
+      if (landing.kind === 'landed') {
+        progress(`  landed ${taskId} on ${lanes.base} (${landing.from.slice(0, 7)}..${landing.to.slice(0, 7)})`)
+        noteLanding(taskId, landing.from, landing.to, where.lane, session)
+      }
       return { kind: 'landed' }
     })
 
@@ -2038,7 +2149,13 @@ async function driveHolding(
         policy,
         failure,
         laneTask !== undefined
-          ? { id: laneTask.lane.id, dir: laneTask.lane.dir, branch: laneTask.branch, ...(merge !== undefined ? { base: laneRun!.base, merge } : {}) }
+          ? {
+              id: laneTask.lane.id,
+              dir: laneTask.lane.dir,
+              branch: laneTask.branch,
+              ...(merge !== undefined ? { base: laneRun!.base, merge: { ...merge, briefs: mergeBriefs(laneTask, merge.onto) } } : {}),
+              packets: lanePackets(state, task.id, laneTask),
+            }
           : undefined,
       ),
       task: { id: task.id, title: task.title },
@@ -2131,6 +2248,8 @@ async function driveHolding(
       if (waits.length > 0) {
         parked = waits
         detail = `${parkNote(waits)}${detail !== undefined ? `; ${detail}` : ''}`
+        // From the launch: a holder that landed while this session still ran is what it waited for too.
+        parks.set(task.id, { waits, at: Date.parse(launchedAt) })
       }
     }
     // The gate (D19): a task_done is accepted only on a recorded pass. A
@@ -2162,7 +2281,7 @@ async function driveHolding(
           detail = g.line
           exhausted = g.exhausted
         } else if (laneTask !== undefined && done && !interrupted) {
-          const landed = await landTask(task.id, laneTask, true)
+          const landed = await landTask(task.id, laneTask, true, sessionId)
           if (fenced !== undefined) return { kind: 'fenced' }
           if (landed.kind === 'held' && landed.timedOut !== undefined) {
             detail = checked = landed.timedOut.line

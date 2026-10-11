@@ -209,7 +209,7 @@ function header(l: { lane: number; task: string; since: number; mode?: 'steer' |
   return { v: 1, run: 'RUN', initiative: 'demo', lane: l.lane, task: l.task, title: `task ${l.task}`, since: l.since, mode: l.mode ?? 'steer' }
 }
 
-const lease = (l: { lane: number; task: string; since: number }, claims: Region[] = []): Lease => ({ header: header(l), claims, waits: [] })
+const lease = (l: { lane: number; task: string; since: number }, claims: Region[] = []): Lease => ({ header: header(l), claims, waits: [], briefs: [], told: [] })
 
 describe('leases (D33): the older task wins', () => {
   const driver = md(['Spec', 'Driver'])

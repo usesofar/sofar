@@ -5,6 +5,8 @@ import { dirname, join } from 'node:path'
 import { writeFileAtomic } from '../core/atomic'
 import { commonGitDir, currentBranch, gitDir, markRecordCheckout } from '../core/git'
 import { closeLease, laneLockFile, leaseFile } from '../core/leases'
+import type { ChangedFile, Wip } from '../core/packets'
+import { outlined, spanRegions } from '../core/regions'
 import { claimLockAt, type RunLockOptions } from '../core/run-lock'
 import { cloneKey, resolvesInside, stateBase, type StateEnv } from '../core/state-dir'
 import { lowPriority } from './load'
@@ -125,6 +127,38 @@ function git(cwd: string, args: string[]): string {
     const why = typeof stderr === 'string' && stderr.trim().length > 0 ? stderr.trim().split('\n').pop()! : (err as Error).message
     throw new LaneError(`git ${args.join(' ')} failed in ${cwd}: ${why}`)
   }
+}
+
+/** Outlined files a landing's brief reads regions from, and the largest it reads. */
+export const LANDED_OUTLINE_MAX = 40
+export const LANDED_TEXT_MAX = 1_048_576
+
+/**
+ * Blobs by `<rev>:<path>`, in one `git cat-file --batch`; a missing object, or
+ * one over LANDED_TEXT_MAX bytes, is absent from the map.
+ */
+function catBlobs(cwd: string, specs: readonly string[]): Map<string, string> {
+  const out = new Map<string, string>()
+  if (specs.length === 0) return out
+  let raw: Buffer
+  try {
+    raw = execFileSync('git', ['cat-file', '--batch'], { cwd, input: `${specs.join('\n')}\n`, stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 256 * 1024 * 1024 })
+  } catch {
+    return out
+  }
+  let at = 0
+  for (const spec of specs) {
+    const eol = raw.indexOf(0x0a, at)
+    if (eol === -1) break
+    const header = raw.subarray(at, eol).toString('utf8')
+    at = eol + 1
+    const m = /^\S+ (\S+) (\d+)$/.exec(header)
+    if (m === null) continue // `<spec> missing`
+    const size = Number(m[2])
+    if (m[1] === 'blob' && size <= LANDED_TEXT_MAX) out.set(spec, raw.subarray(at, at + size).toString('utf8'))
+    at += size + 1
+  }
+  return out
 }
 
 function gitOk(cwd: string, args: string[]): boolean {
@@ -513,6 +547,63 @@ export class LaneRun {
   mergeInProgress(lane: Lane): { onto: string; paths: string[] } | undefined {
     const onto = revParse(lane.dir, 'MERGE_HEAD')
     return onto === undefined ? undefined : { onto, paths: unmergedPaths(lane.dir) }
+  }
+
+  /**
+   * What the base took in from `from` to `to` (drive-lanes 3.3), `.sofar/`
+   * excluded: each file's lines added and deleted, and the sections and
+   * symbols its changed lines sit in, read from `to`'s copy. Three git calls a
+   * landing; a file past the first LANDED_OUTLINE_MAX outlined ones, or over
+   * LANDED_TEXT_MAX bytes, is named with no regions.
+   */
+  landedChange(from: string, to: string): ChangedFile[] {
+    const scope = ['--', '.', ':(exclude,top).sofar']
+    const files: ChangedFile[] = []
+    const stat = git(this.rootDir, ['-c', 'core.quotePath=false', 'diff', '--numstat', '-z', '--no-renames', from, to, ...scope])
+    for (const entry of stat.split('\0')) {
+      const m = /^(-|\d+)\t(-|\d+)\t(.+)$/s.exec(entry)
+      if (m === null) continue
+      files.push({ path: m[3]!, insertions: m[1] === '-' ? null : Number(m[1]), deletions: m[2] === '-' ? null : Number(m[2]), regions: [] })
+    }
+    const read = files.filter((f) => f.insertions !== null && outlined(f.path)).slice(0, LANDED_OUTLINE_MAX)
+    if (read.length === 0) return files
+    const spans = new Map<string, [number, number][]>()
+    let file: string | undefined
+    let header = false
+    const hunks = git(this.rootDir, ['-c', 'core.quotePath=false', 'diff', '-U0', '--no-color', '--no-ext-diff', '--no-renames', from, to, '--', ...read.map((f) => f.path)])
+    for (const line of hunks.split('\n')) {
+      if (line.startsWith('diff --git ')) {
+        header = true
+        file = undefined
+      } else if (header && line.startsWith('+++ ')) {
+        file = line.startsWith('+++ b/') ? line.slice(6) : undefined
+      } else if (line.startsWith('@@ ')) {
+        header = false
+        const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line)
+        if (file === undefined || h === null) continue
+        const start = Math.max(0, Number(h[1]) - 1)
+        const count = h[2] === undefined ? 1 : Number(h[2])
+        spans.set(file, [...(spans.get(file) ?? []), [start, start + Math.max(0, count - 1)]])
+      }
+    }
+    const texts = catBlobs(this.rootDir, read.filter((f) => spans.has(f.path)).map((f) => `${to}:${f.path}`))
+    for (const f of read) {
+      const text = texts.get(`${to}:${f.path}`)
+      if (text !== undefined) f.regions = spanRegions(f.path, text, spans.get(f.path) ?? [])
+    }
+    return files
+  }
+
+  /** How a task's branch stands in its lane (3.3): its head, its commits past the base, its uncommitted paths. */
+  wip(task: LaneTask): Wip {
+    const head = headCommit(task.lane.dir)
+    const ahead = Number(git(task.lane.dir, ['rev-list', '--count', `${this.baseTip()}..HEAD`]).trim())
+    return { branch: task.branch, head, ahead: Number.isFinite(ahead) ? ahead : 0, dirty: dirtyPaths(task.lane.dir).length }
+  }
+
+  /** Whether `rev` in `lane` — its HEAD unless named — already holds `commit`. */
+  holds(lane: Lane, commit: string, rev = 'HEAD'): boolean {
+    return gitOk(lane.dir, ['merge-base', '--is-ancestor', commit, rev])
   }
 
   /** Whether the task has a branch the base does not hold yet. */

@@ -1,6 +1,7 @@
-import { appendFileSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { appendFileSync, closeSync, constants, openSync, readdirSync, readFileSync, rmSync, writeSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { writeFileAtomic } from './atomic'
+import { briefNotice, fileNotice, type PostedBrief } from './packets'
 import { describeRegion, editRegions, leasable, overlaps, regionKey, type EditCall, type Region } from './regions'
 import { probeLockAt, type RunLiveness } from './run-lock'
 
@@ -15,10 +16,12 @@ import { probeLockAt, type RunLiveness } from './run-lock'
  * assigns the lane, and deletes the file when the lane's job ends, after its
  * gate and landing: a lease lives exactly as long as the task holds the lane.
  * The lane's PreToolUse hook appends a line per region it claims and per
- * region it was steered off. Each lane has one writer at a time, and appends
- * of a short line are atomic, so parallel tool calls in one session interleave
- * whole lines. A lease counts only while its lane's lock is held: a driver
- * that died leaves a file no live lane stands behind.
+ * region it was steered off; the coordinator appends the change brief of each
+ * other lane's landing (3.3), and the hook a line per brief or notice it has
+ * said. Every line is one short append, and appends of a short line are
+ * atomic, so writers interleave whole lines. A lease counts only while its
+ * lane's lock is held: a driver that died leaves a file no live lane stands
+ * behind.
  *
  * The older task wins (D33): a lane is steered or denied only by a lease an
  * OLDER task holds — first assignment in the run, then lane number — and an
@@ -61,6 +64,10 @@ export interface Lease {
   header: LeaseHeader
   claims: Region[]
   waits: LeaseWait[]
+  /** Change briefs the coordinator left for this lane's session (3.3), oldest first. */
+  briefs: PostedBrief[]
+  /** What the hook already said: `brief <key>`, and `notice [run, lane, task, file]` per holder and file. */
+  told: string[]
 }
 
 /** `<pool>/lane-<k>.lease.jsonl` */
@@ -124,6 +131,8 @@ export function readLease(path: string): Lease | null {
   if (header === null) return null
   const claims = new Map<string, Region>()
   const waits: LeaseWait[] = []
+  const briefs = new Map<string, PostedBrief>()
+  const told = new Set<string>()
   for (const line of lines.slice(1)) {
     if (line.length === 0) continue
     let entry: unknown
@@ -140,8 +149,41 @@ export function readLease(path: string): Lease | null {
     if (wait !== null && region !== null && typeof wait.run === 'string' && typeof wait.lane === 'number' && typeof wait.task === 'string') {
       waits.push({ run: wait.run, lane: wait.lane, task: wait.task, region })
     }
+    const brief = asBrief(entry.brief)
+    if (brief !== null) briefs.set(brief.key, brief)
+    if (typeof entry.told === 'string') told.add(entry.told)
   }
-  return { header, claims: [...claims.values()], waits }
+  return { header, claims: [...claims.values()], waits, briefs: [...briefs.values()], told: [...told] }
+}
+
+function asBrief(v: unknown): PostedBrief | null {
+  if (!isObj(v) || typeof v.key !== 'string' || typeof v.line !== 'string' || !Array.isArray(v.files)) return null
+  if (!v.files.every((f) => typeof f === 'string')) return null
+  return { key: v.key, files: v.files as string[], line: v.line }
+}
+
+/**
+ * Leave a change brief in a lane's lease for its session's hook to say (3.3):
+ * only in a lease this run still holds, and never creating the file — a lease
+ * that ended meanwhile takes nothing. False when it was not left.
+ */
+export function postBrief(path: string, run: string, brief: PostedBrief): boolean {
+  const lease = readLease(path)
+  if (lease === null || lease.header.run !== run) return false
+  let fd: number
+  try {
+    fd = openSync(path, constants.O_WRONLY | constants.O_APPEND)
+  } catch {
+    return false
+  }
+  try {
+    writeSync(fd, `${JSON.stringify({ task: lease.header.task, brief })}\n`)
+    return true
+  } catch {
+    return false
+  } finally {
+    closeSync(fd)
+  }
 }
 
 /** The other lanes' leases in the pool `own` sits in, each still held by a live lane. */
@@ -295,8 +337,11 @@ export interface LeaseCheck {
  * The whole hook, past parsing: map the call to regions of `rel` (the
  * repo-relative path, whose text before the call is `content`), weigh them
  * against the other lanes' leases, append what this lane claims and was
- * steered off, and say what to tell the session. Null when the lane's lease is
- * gone or the call touches nothing leasable.
+ * steered off, and say what to tell the session. Two context packets (3.3)
+ * ride along, each said once: the lease notice, when older tasks hold parts of
+ * `rel` this edit did not touch, and the brief of every landing that changed
+ * `rel` since the lane's branch was cut. Null when the lane's lease is gone,
+ * or the call touches nothing leasable and no brief names the file.
  */
 export function checkLease(
   leasePath: string,
@@ -307,23 +352,43 @@ export function checkLease(
 ): LeaseCheck | null {
   const own = readLease(leasePath)
   if (own === null) return null
+  const said = new Set(own.told)
+  const briefs = own.briefs.filter((b) => b.files.includes(rel) && !said.has(`brief ${b.key}`))
   const regions = editRegions(rel, content, call).filter(leasable)
-  if (regions.length === 0) return null
-  const others = otherLeases(leasePath, probe)
+  if (regions.length === 0 && briefs.length === 0) return null
+  const others = regions.length > 0 ? otherLeases(leasePath, probe) : []
   const decision = decideLease(own, others, regions)
   const task = own.header.task
   const waitKey = (w: Pick<LeaseWait, 'run' | 'lane' | 'task' | 'region'>): string => JSON.stringify([w.run, w.lane, w.task, regionKey(w.region)])
   const told = new Set(own.waits.map(waitKey))
   const fresh = decision.blocked.filter((c) => !told.has(waitKey({ run: c.holder.run, lane: c.holder.lane, task: c.holder.task, region: c.theirs })))
+  // A steer says who holds what, now or before, in that file; the notice is for an edit no older task's region met.
+  const steeredBy = (h: LeaseHeader): boolean => own.waits.some((w) => w.run === h.run && w.lane === h.lane && w.task === h.task && w.region.file === rel)
+  const noticed =
+    regions.length > 0 && decision.blocked.length === 0
+      ? others
+          .filter((o) => olderTask(o.header, own.header) && !said.has(noticeKey(o.header, rel)) && !steeredBy(o.header))
+          .map((o) => ({ header: o.header, regions: o.claims.filter((r) => r.file === rel) }))
+          .filter((h) => h.regions.length > 0)
+      : []
   const lines = [
     ...decision.claim.map((claim) => JSON.stringify({ task, claim })),
     ...fresh.map((c) => JSON.stringify({ task, wait: { run: c.holder.run, lane: c.holder.lane, task: c.holder.task, region: c.theirs } })),
+    ...noticed.map((h) => JSON.stringify({ task, told: noticeKey(h.header, rel) })),
+    ...briefs.map((b) => JSON.stringify({ task, told: `brief ${b.key}` })),
   ]
   if (lines.length > 0) appendFileSync(leasePath, `${lines.join('\n')}\n`)
   const deny = own.header.mode === 'deny' && decision.blocked.length > 0
   // Told once in full: the same collision again is one line, not the paragraph.
-  if (decision.blocked.length > 0 && fresh.length === 0 && decision.won.length === 0) return { deny, text: againLine(own, decision.blocked) }
-  return { deny, text: leaseContext(own, decision, others) }
+  const lease =
+    decision.blocked.length > 0 && fresh.length === 0 && decision.won.length === 0 ? againLine(own, decision.blocked) : leaseContext(own, decision, others)
+  const text = [lease, fileNotice(rel, own.header, noticed), ...briefs.map((b) => briefNotice(rel, b))].filter((t): t is string => t !== null)
+  return { deny, text: text.length > 0 ? text.join('\n') : null }
+}
+
+/** What the hook keeps of a notice it gave: that holder, that file. */
+function noticeKey(holder: LeaseHeader, file: string): string {
+  return `notice ${JSON.stringify([holder.run, holder.lane, holder.task, file])}`
 }
 
 /** A collision this lane was already told about, said again in one line. */
