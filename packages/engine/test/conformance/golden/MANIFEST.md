@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r4-fixes H17** (main) from the TypeScript reference; the Rust
+core reproduces all 62. One new case, `syn.subagent-writeback`: a PreToolUse
+for `mcp__sofar__sofar_end_session` carrying `agent_id` is denied with the
+reason shown to the subagent; the lead's own and a subagent's add_note pass.
+The installed 0.37.0-rc.4 core prints nothing for step 1.
+
 RE-RECORDED for **drive-lanes 3.1** (main) from the TypeScript reference:
 `argv.fast-path` only, whose `sofar event --help` gains `lease [options]`, the
 lane lease hook (4 lines). sofar-core owns no new shape: `event lease` exits

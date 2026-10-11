@@ -6406,7 +6406,8 @@ re-points `current` atomically. No network, no new dependency. A Codex shim
 runs the activated core with `SOFAR_CORE_DISPATCHED=1` and hands its exit 64
 to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
 (agents-parity D5).
-- PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, Cursor
+- PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, on
+  Claude Code `Bash|mcp__.*__sofar_end_session` since r4-fixes H17, Cursor
   `preToolUse` matcher `Shell`, Codex `PreToolUse` matcher `Bash`, its entry
   added under D39, which supersedes agents-parity D5 for it alone) → `sofar
   event pre-tool`. It rewrites ONE kind of call, a whole-file read: a single
@@ -6424,7 +6425,17 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   replaced}}}`, Cursor `{"permission":"allow","updated_input":{…}}` (live docs,
   2026-10-04). Every other call (a grep, a pipe, the Read tool), and every
   call under `SOFAR_READ_GATE=off` (also `0`, `false`), gets exit 0 and no
-  output.
+  output. **A subagent's write-back (r4-fixes H17):** a `sofar_end_session`
+  call, under any MCP server name, whose hook input carries `agent_id` (the
+  field Claude Code sets only inside a subagent) gets
+  `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",
+  "permissionDecisionReason":"sofar: a subagent does not write back; its lead
+  does, once per session (r4-fixes H17). Put your summary, decisions and next
+  action in your final reply to the lead instead."}}`. The write-back is the
+  lead's, once per session: in splen 59 subagent write-backs landed, 27 as
+  their lead's session_ended, each replacing its next action. The lead's own
+  call and a subagent's other sofar calls pass untouched
+  (`syn.subagent-writeback`). Re-init widens our entry's shipped `Bash`.
 - SessionStart shim → `sofar event session-start` then prints the status
   projection to stdout (context injection). The block carries a
   `Session: <id> — when calling sofar_start_session, pass this as

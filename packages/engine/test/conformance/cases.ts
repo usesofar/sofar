@@ -1069,6 +1069,18 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes H17 on the hot path: a subagent's sofar_end_session (its hook
+    // input carries agent_id) is refused with the reason it is shown; the
+    // lead's own, and a subagent's other sofar call, pass untouched.
+    name: 'syn.subagent-writeback',
+    fixture: synthetic('baseline'),
+    steps: [
+      s("a subagent's write-back", ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-s', agent_id: 'a515ac00', agent_type: 'general-purpose', tool_name: 'mcp__sofar__sofar_end_session', tool_input: { summary: 's', next_action: 'n' } })),
+      s("the lead's write-back", ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-s', tool_name: 'mcp__sofar__sofar_end_session', tool_input: { summary: 's', next_action: 'n' } })),
+      s("a subagent's note", ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-s', agent_id: 'a515ac00', tool_name: 'mcp__sofar__sofar_add_note', tool_input: { text: 't' } })),
+    ],
+  },
+  {
     // r4-fixes A8 on the hot path: a check bound after the fact. The fixture's
     // guarded D1 takes its check by check_bound (what `sofar bind` appends) and
     // keeps its handle; the gate then holds an edit it governs until that test

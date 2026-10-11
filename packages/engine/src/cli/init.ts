@@ -2405,8 +2405,9 @@ export function shimsFor(host: ShimHome | 'codex'): readonly ShimSpec[] {
 export const SHIMS: readonly ShimSpec[] = [
   { file: 'session-start.sh', event: 'SessionStart', hook: 'session-start', text: sessionStartShim },
   { file: 'user-prompt-submit.sh', event: 'UserPromptSubmit', hook: 'user-prompt', text: userPromptSubmitShim },
-  // The raw-read rewrite (memory-lead 4.3 part C, D39): shell reads only.
-  { file: 'pre-tool-use.sh', event: 'PreToolUse', hook: 'pre-tool', matcher: 'Bash', text: preToolUseShim },
+  // The raw-read rewrite (memory-lead 4.3 part C, D39): shell reads only; and
+  // a subagent's write-back, refused (r4-fixes H17), under any server name.
+  { file: 'pre-tool-use.sh', event: 'PreToolUse', hook: 'pre-tool', matcher: 'Bash|mcp__.*__sofar_end_session', text: preToolUseShim },
   {
     file: 'post-tool-use.sh',
     event: 'PostToolUse',
@@ -2907,6 +2908,7 @@ function hasCommand(entries: unknown[], command: string): boolean {
  */
 const SHIPPED_MATCHERS: Partial<Record<ShimSpec['event'], readonly string[]>> = {
   PostToolUse: ['Edit|Write|MultiEdit|Bash'],
+  PreToolUse: ['Bash'],
 }
 const SHIPPED_CURSOR_MATCHERS: Partial<Record<ShimSpec['event'], readonly string[]>> = {
   PostToolUse: ['Shell|Write'],
