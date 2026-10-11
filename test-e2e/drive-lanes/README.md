@@ -56,6 +56,45 @@ lower, merge-conflict reopens are ≤ 10% of tasks done, tokens per task rise
 ≤ 5%. Its verdict is `keep`, `drop` (with the criteria missed) or
 `insufficient_reps`.
 
+### Conflict-aware lanes against naive lanes (drive-lanes 3.4)
+
+A lanes arm takes `--leases steer|deny|off` and `--schedule footprint|ready`
+(the driver's own flags; unset is its default). 2.5's naive lanes are
+`--leases off --schedule ready`. Each piece is judged against the arm without
+it, on same-day interleaved reps (D7, D36):
+
+```
+node run.mjs --label 3.4-naive-1     --arm lanes --leases off   --schedule ready
+node run.mjs --label 3.4-footprint-1 --arm lanes --leases off   --schedule footprint
+node run.mjs --label 3.4-default-1   --arm lanes                                    # steer + footprint
+node run.mjs --label 3.4-steer-1     --arm lanes --leases steer --schedule ready
+node run.mjs --label 3.4-deny-1      --arm lanes --leases deny  --schedule ready
+node measure.mjs --bar 3.4-naive && …    # one bar per arm
+node measure.mjs --pieces                # → results/3.4-pieces.json
+```
+
+`--pieces` applies 3.4's keep rule (`comparePiece`): the piece cuts rework
+sessions (sessions past one per task) with merge-conflict reopens ≤ 10%, and
+degrades nothing — every rep finishes the plan, tasks done and the gate pass
+rate no lower, duplicate work 0, tokens per task no higher, wall-clock no more
+than 20% higher. Parks (`sessions.parks`, a stall the driver says was a lease
+wait) and `lanes_busy_rate` are scored alongside. Each cell keeps sofar's state
+dir (`XDG_STATE_HOME`) inside itself, so a rep never writes `~/.local/state`.
+
+`conflict-replay.test.ts` replays the same five arms without an agent: the
+nine tasks as scripted sessions through the real driver at three lanes, each
+held as long as 2.5's agents took on that task and editing through the real
+lease hook as an agent that always obeys a steer. `agent-facts.mjs` reads those
+timings, and the files each session touched, from 2.5's cells into
+`results/3.4-agent-facts.json`. It runs in the unit suite (one fast rep); to score:
+
+```
+printf 'SOFAR_CONFLICT_REPLAY_WRITE=1\nSOFAR_CONFLICT_REPLAY_REPS=3\nSOFAR_CONFLICT_REPLAY_SCALE=0.04\n' > node_modules/.cache/conflict-replay.env
+node --env-file=node_modules/.cache/conflict-replay.env node_modules/vitest/vitest.mjs run --project unit test-e2e/drive-lanes/conflict-replay.test.ts
+```
+
+→ `results/3.4-replay.json`.
+
 ### Tiered verify against per-task full verify (drive-lanes 2.6)
 
 `tiered-replay.test.ts` replays the nine tasks without an agent (D29): the
@@ -96,6 +135,8 @@ CLAUDE.md loads); `results/<label>.json` keeps the score in the repo.
 | `wall_clock_s` | record | `run_started` → `run_stopped` |
 | `overhead_s` | record | wall-clock outside every registered session: agent boot, verify, fold, handoff (serial only — lanes overlap) |
 | `lanes_busy_rate` | record | lanes only: session time over wall-clock × lanes |
+| `sessions.parks` | record | handoffs the driver says parked on a lease (drive-lanes 3.1) |
+| `sessions.rework` | record | sessions past one per task done: merge-conflict, park and failed-check retries |
 | `tasks.done` | record | fixture tasks whose final status is done (a failed verify reopens, so done = accepted) |
 | `verify.gate_pass_rate` | record | passes / attempts at the gate a session's done meets, a merge re-verify included; `first_try_pass_rate` per task |
 | `verify.sweep_failures` | record | accepted tasks the closing sweep re-checked and failed |

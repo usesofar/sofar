@@ -1,0 +1,242 @@
+{
+  "label": "3.4-steer-1",
+  "arm": "lanes",
+  "lanes": 3,
+  "leases": "steer",
+  "schedule": "ready",
+  "started": "2026-10-11T00:32:14.720Z",
+  "engine": {
+    "version": "0.38.0-dev+trunk",
+    "commit": "9e5dad2d",
+    "dirty_src_paths": 4,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.bench/claude-2.1.278/claude",
+    "version": "2.1.278 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config-build",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "drive": {
+    "exit": 0,
+    "signal": null,
+    "ms": 184225
+  },
+  "score": {
+    "run": {
+      "id": "01M4M5ZS892T76SJ8D9N8CK106",
+      "lanes": 3,
+      "stop_reason": "needs_user",
+      "stop_note": "1.6 is blocked — read its note",
+      "surface": {
+        "allow": [
+          "mcp__sofar",
+          "Bash(sofar:*)",
+          "Bash(git status:*)",
+          "Bash(git diff:*)",
+          "Bash(git log:*)",
+          "Bash(git show:*)",
+          "Bash(git add:*)",
+          "Bash(git commit:*)",
+          "Bash(node:*)",
+          "Bash(npm test:*)"
+        ],
+        "model": "sonnet",
+        "permission_mode": "acceptEdits"
+      }
+    },
+    "wall_clock_s": 184,
+    "overhead_s": null,
+    "lanes_busy_rate": 0.724,
+    "tasks": {
+      "total": 9,
+      "done": 6,
+      "done_rate": 0.667,
+      "final_status": {
+        "1.1": "done",
+        "1.2": "done",
+        "1.3": "done",
+        "1.4": "done",
+        "1.5": "pending",
+        "1.6": "blocked",
+        "1.7": "done",
+        "1.8": "done",
+        "1.9": "pending"
+      }
+    },
+    "verify": {
+      "gate_attempts": 9,
+      "gate_passes": 9,
+      "gate_pass_rate": 1,
+      "first_try_pass_rate": 1,
+      "sweep_checks": 0,
+      "sweep_failures": 0
+    },
+    "sessions": {
+      "launched": 8,
+      "unresolved": 0,
+      "by_reason": {
+        "task_done": 6,
+        "needs_user": 1,
+        "stall": 1
+      },
+      "parks": 1,
+      "rework": 2,
+      "tasks_with_repeat_sessions": [],
+      "mean_seconds_per_handoff": 49.9
+    },
+    "tokens": {
+      "input": 151,
+      "cache_creation": 128073,
+      "cache_read": 2504275,
+      "output": 31888,
+      "total": 2664387,
+      "sessions_with_transcript": 8,
+      "per_task": 444065,
+      "output_per_task": 5315,
+      "context_at_handoff_mean": 329062
+    },
+    "cost": {
+      "usd": 1.33,
+      "per_task": 0.2217
+    },
+    "conflicts": {
+      "merge": 0,
+      "merge_reopen_rate": 0,
+      "regressions": 0,
+      "off_task_resolutions": 0,
+      "off_task": [],
+      "double_held": [],
+      "duplicate_work": 0
+    },
+    "per_task": [
+      {
+        "id": "1.1",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 30.9,
+        "tokens": 265522,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.2",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 59.9,
+        "tokens": 253504,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.3",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 49.8,
+        "tokens": 308598,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.4",
+        "shape": "shared",
+        "sessions": 1,
+        "seconds": 33.8,
+        "tokens": 331993,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.5",
+        "shape": "shared",
+        "sessions": 1,
+        "seconds": 92.9,
+        "tokens": 523667,
+        "reasons": [
+          "stall"
+        ]
+      },
+      {
+        "id": "1.6",
+        "shape": "shared",
+        "sessions": 1,
+        "seconds": 50,
+        "tokens": 293735,
+        "reasons": [
+          "needs_user"
+        ]
+      },
+      {
+        "id": "1.7",
+        "shape": "chain",
+        "sessions": 1,
+        "seconds": 34.6,
+        "tokens": 301146,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.8",
+        "shape": "chain",
+        "sessions": 1,
+        "seconds": 47.5,
+        "tokens": 386222,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      },
+      {
+        "id": "1.9",
+        "shape": "chain",
+        "sessions": 0,
+        "seconds": 0,
+        "tokens": 0,
+        "reasons": []
+      }
+    ]
+  },
+  "final_tree": {
+    "verify_passes": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.7",
+      "1.8"
+    ],
+    "commits": 2,
+    "dirty_paths": 10,
+    "note": "re-checked on the run base branch after the harness fix (lanes land there, D20)"
+  },
+  "ended": "2026-10-11T00:35:20.389Z"
+}

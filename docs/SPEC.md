@@ -2796,9 +2796,12 @@ through the same queue and reopens it the same way, filing no handoff. An
 interrupt or a takeover while a branch waits or re-verifies leaves it
 unlanded for a resumed run (D13).
 
-**Region leases (drive-lanes 3.1, D4, D14, D33).** `--leases <mode>` —
-`steer`, the default, `deny`, or `off` — governs what a lanes run's lanes may
-edit at once; a serial run leases nothing. A LEASE is one file per lane beside
+**Region leases (drive-lanes 3.1, D4, D14, D33, D37).** `--leases <mode>` —
+`off`, the default, `steer` or `deny` — governs what a lanes run's lanes may
+edit at once; a serial run leases nothing. Leasing is opt-in: on the 1.1
+fixture, footprint scheduling left leases nothing to meet, and a steered agent
+marked its task blocked rather than parking, which stops the run (drive-lanes
+3.4, D37). A LEASE is one file per lane beside
 the lane locks, `lane-<k>.lease.jsonl`, never the record: its first line, which
 the coordinator writes when it gives the lane a task, names the run, the task,
 its title, when this run first gave that task a lane (its AGE) and the mode;
@@ -2900,7 +2903,7 @@ parked session launched, else `lane <k>'s <task> let go without landing`
 packet is bounded (a brief 800 characters, a notice 800, a resume packet
 1,600). The briefs and the parks are the driver's own: a resumed run starts
 with neither, and its resume packets say what the record and git hold.
-`--leases off`, 3.4's naive arm, delivers no packet. A packet that cannot be
+`--leases off`, the default, delivers no packet. A packet that cannot be
 read is said as a warning and skipped, never a stop.
 
 **Tiered verify (drive-lanes 2.6, D29, D30).** `--verify-quick <cmd>`, with
@@ -7823,7 +7826,7 @@ deletes it with the worktree's gitdir.
   branch, and `--lane-setup` names the command a lane installs with
   (§Driver, lanes); STDOUT then adds one line naming the base to merge.
   `--leases` says what a lane is told, or refused, on an edit into a region an
-  older task in another lane holds (§Driver, region leases). `--schedule`
+  older task in another lane holds, off unless stated (§Driver, region leases). `--schedule`
   says which ready task a free lane takes (§Driver, footprint scheduling).
   `--agent-arg` repeats once per
   argument and appends verbatim to the argv of the agent `--agent` NAMED — the

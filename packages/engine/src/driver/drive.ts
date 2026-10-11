@@ -469,7 +469,7 @@ export interface DriveOptions {
    * overlaps an older task's lease in another lane, `deny` refuses it (D14). A
    * session that ends with no task change after a steer has parked: not a
    * stall, and its task waits until the lease it hit is gone. Absent leases
-   * nothing (3.4's naive arm); ignored on a serial run. A per-driver knob like
+   * nothing — the CLI's default since 3.4 (D37); ignored on a serial run. A per-driver knob like
    * `sessionTimeoutMs`: not recorded, and a resumed run takes the resuming
    * driver's.
    */

@@ -1,0 +1,80 @@
+{
+  "task": "drive-lanes 3.4",
+  "source": "2.5 agent reps (D27 stack): every handoff on a fixture task, its session from session_started to handoff, its edits from file_touched",
+  "cells": [
+    "2.5-lanes-1-20261010-191817",
+    "2.5-lanes-2-20261010-195028",
+    "2.5-lanes-3-20261010-200514",
+    "2.5-serial-1-20261010-190529",
+    "2.5-serial-2-20261010-193951",
+    "2.5-serial-3-20261010-195723"
+  ],
+  "tasks": {
+    "1.1": {
+      "first_session_s": 60.017,
+      "first_edit_fraction": 0.209,
+      "first_session_tokens": 334372.5,
+      "sessions": 6
+    },
+    "1.2": {
+      "first_session_s": 67.002,
+      "first_edit_fraction": 0.367,
+      "first_session_tokens": 318548,
+      "sessions": 6
+    },
+    "1.3": {
+      "first_session_s": 57.558,
+      "first_edit_fraction": 0.264,
+      "first_session_tokens": 290969.833,
+      "sessions": 6
+    },
+    "1.4": {
+      "first_session_s": 80.35,
+      "first_edit_fraction": 0.259,
+      "first_session_tokens": 310658.167,
+      "sessions": 6
+    },
+    "1.5": {
+      "first_session_s": 87.117,
+      "first_edit_fraction": 0.235,
+      "first_session_tokens": 322263.5,
+      "sessions": 6
+    },
+    "1.6": {
+      "first_session_s": 93.344,
+      "first_edit_fraction": 0.372,
+      "first_session_tokens": 364941,
+      "sessions": 6
+    },
+    "1.7": {
+      "first_session_s": 86.312,
+      "first_edit_fraction": 0.246,
+      "first_session_tokens": 320207.333,
+      "sessions": 6
+    },
+    "1.8": {
+      "first_session_s": 53.282,
+      "first_edit_fraction": 0.385,
+      "first_session_tokens": 300218,
+      "sessions": 6
+    },
+    "1.9": {
+      "first_session_s": 102.822,
+      "first_edit_fraction": 0.282,
+      "first_session_tokens": 429362.333,
+      "sessions": 6
+    }
+  },
+  "after_merge_conflict": {
+    "sessions": 9,
+    "session_s": 187.815,
+    "tokens": 618289.556,
+    "first_edit_fraction": 0.445
+  },
+  "first_edit_fraction_all": 0.291,
+  "footprint": {
+    "sessions": 63,
+    "outside_title": 0,
+    "touched_outside_title": []
+  }
+}

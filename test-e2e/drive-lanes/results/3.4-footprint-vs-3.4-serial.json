@@ -1,0 +1,49 @@
+{
+  "serial": "3.4-serial",
+  "lanes": "3.4-footprint",
+  "reps": {
+    "serial": 3,
+    "lanes": 3,
+    "min": 3
+  },
+  "verdict": "drop",
+  "failed": [
+    "tokens_per_task_rise_le_5pct"
+  ],
+  "criteria": {
+    "wall_clock_falls_40pct": {
+      "serial": 425.7667,
+      "lanes": 229.3667,
+      "change": -0.4613,
+      "pass": true
+    },
+    "duplicate_work_0": {
+      "lanes": [
+        0,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    "tasks_done_no_lower": {
+      "serial": 9,
+      "lanes": 9,
+      "pass": true
+    },
+    "gate_pass_rate_no_lower": {
+      "serial": 1,
+      "lanes": 1,
+      "pass": true
+    },
+    "merge_reopens_le_10pct": {
+      "lanes": 0,
+      "pass": true
+    },
+    "tokens_per_task_rise_le_5pct": {
+      "serial": 316923.3333,
+      "lanes": 344209.3333,
+      "change": 0.0861,
+      "pass": false
+    }
+  }
+}

@@ -755,7 +755,7 @@ program
   )
   .option(
     '--leases <mode>',
-    "region leases between lanes (drive-lanes 3.1): steer (default) tells a session its edit overlaps an older task's section or symbol in another lane and lets it work elsewhere or park; deny refuses that edit; off leases nothing",
+    "region leases between lanes (drive-lanes 3.1): off (default) leases nothing; steer tells a session its edit overlaps an older task's section or symbol in another lane and lets it work elsewhere or park; deny refuses that edit",
   )
   .option(
     '--schedule <mode>',

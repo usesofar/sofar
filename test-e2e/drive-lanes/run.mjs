@@ -24,7 +24,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { REFERENCE, SKELETON, SLUG, TASKS, GOAL, planPayload } from './fixture.mjs'
-import { compare, measure, measureCell } from './measure.mjs'
+import { compare, comparePiece, measure, measureCell } from './measure.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const HOME = homedir()
@@ -35,6 +35,8 @@ const { values: opt } = parseArgs({
     label: { type: 'string' },
     arm: { type: 'string', default: 'serial' },
     lanes: { type: 'string', default: '3' },
+    leases: { type: 'string' },
+    schedule: { type: 'string' },
     model: { type: 'string', default: 'sonnet' },
     effort: { type: 'string' },
     claude: { type: 'string', default: existsSync(join(HOME, '.bench', 'claude-2.1.278', 'claude')) ? join(HOME, '.bench', 'claude-2.1.278', 'claude') : 'claude' },
@@ -49,7 +51,7 @@ const { values: opt } = parseArgs({
   },
 })
 if (opt.help || !opt.label) {
-  console.log('usage: node run.mjs --label <name> [--arm serial|lanes] [--lanes 3] [--engine <checkout>] [--model sonnet] [--effort <e>] [--claude <bin>] [--claude-config <dir>] [--root <dir>] [--session-timeout 900] [--max-sessions 18] [--self-test | --preflight]')
+  console.log('usage: node run.mjs --label <name> [--arm serial|lanes] [--lanes 3] [--leases steer|deny|off] [--schedule footprint|ready] [--engine <checkout>] [--model sonnet] [--effort <e>] [--claude <bin>] [--claude-config <dir>] [--root <dir>] [--session-timeout 900] [--max-sessions 18] [--self-test | --preflight]')
   process.exit(opt.help ? 0 : 2)
 }
 if (opt.arm !== 'serial' && opt.arm !== 'lanes') {
@@ -59,6 +61,12 @@ if (opt.arm !== 'serial' && opt.arm !== 'lanes') {
 const lanes = opt.arm === 'lanes' ? Number(opt.lanes) : 1
 if (opt.arm === 'lanes' && !(Number.isInteger(lanes) && lanes >= 2)) {
   console.error(`--lanes ${opt.lanes}: a lanes arm runs at least 2`)
+  process.exit(2)
+}
+// 3.4's arms (drive-lanes D33, D34): unset is the driver's default, steer and
+// footprint; `--leases off --schedule ready` is 2.5's naive lanes.
+if ((opt.leases !== undefined || opt.schedule !== undefined) && opt.arm !== 'lanes') {
+  console.error('--leases and --schedule shape a lanes arm only')
   process.exit(2)
 }
 
@@ -116,8 +124,10 @@ function resolveEngine(checkout) {
   }
 }
 
+// The cell's own state dir: the lane pool, leases and fold snapshots stay out of
+// ~/.local/state, where this repo's vitest HOME canary would see them (M12).
 const engineEnv = (engine, extra = {}) => {
-  const env = scrubbedEnv({ SOFAR_CORE: '0', ...extra })
+  const env = scrubbedEnv({ SOFAR_CORE: '0', XDG_STATE_HOME: join(cell, 'state'), ...extra })
   env.PATH = `${engine.bin}:${env.PATH ?? ''}`
   return env
 }
@@ -224,6 +234,7 @@ function selfTest() {
   checks.measure = measureSelfTest()
   checks.measure_lanes = measureLanesSelfTest()
   checks.compare = compareSelfTest()
+  checks.pieces = pieceSelfTest()
   const pass =
     checks.all_red_on_skeleton &&
     Object.values(checks.green_alone).every(Boolean) &&
@@ -233,7 +244,8 @@ function selfTest() {
     checks.all_green_at_end &&
     checks.measure.pass &&
     checks.measure_lanes.pass &&
-    checks.compare.pass
+    checks.compare.pass &&
+    checks.pieces.pass
   return { pass, checks }
 }
 
@@ -365,6 +377,21 @@ function compareSelfTest() {
   return { pass: JSON.stringify(got) === JSON.stringify(want), ...(JSON.stringify(got) !== JSON.stringify(want) ? { got, want } : {}) }
 }
 
+/** 3.4's keep rule on synthetic bars: a piece that cuts rework, one that costs tokens, a run stopped short at one rep. */
+function pieceSelfTest() {
+  const barOf = (reps, metrics) => ({ reps, metrics: Object.fromEntries(Object.entries(metrics).map(([k, v]) => [k, Array.isArray(v) ? { mean: v.reduce((a, x) => a + x, 0) / v.length, values: v } : { mean: v, values: Array(reps).fill(v) }])) })
+  const naive = barOf(3, { wall_clock_s: 400, rework_sessions: 2, merge_reopen_rate: 0.22, tasks_done: 9, gate_pass_rate: 1, duplicate_work: 0, tokens_per_task: 500_000 })
+  const piece = (over = {}, reps = 3) => barOf(reps, { wall_clock_s: 440, rework_sessions: 0, merge_reopen_rate: 0, tasks_done: 9, gate_pass_rate: 1, duplicate_work: 0, tokens_per_task: 350_000, ...over })
+  const got = {
+    keep: comparePiece(naive, piece()).verdict,
+    costly: comparePiece(naive, piece({ tokens_per_task: 520_000, wall_clock_s: 500 })).failed,
+    stopped: comparePiece(naive, piece({ tasks_done: [6] }, 1)).verdict,
+    few: comparePiece(naive, piece({}, 2)).verdict,
+  }
+  const want = { keep: 'keep', costly: ['tokens_per_task_no_higher', 'wall_clock_rise_le_20pct'], stopped: 'drop', few: 'insufficient_reps' }
+  return { pass: JSON.stringify(got) === JSON.stringify(want), ...(JSON.stringify(got) !== JSON.stringify(want) ? { got, want } : {}) }
+}
+
 // ---------- the arm ----------
 function claudeInfo() {
   const env = scrubbedEnv({ CLAUDE_CONFIG_DIR: opt['claude-config'] })
@@ -387,6 +414,8 @@ function driveArgs(engine) {
     '--session-timeout', opt['session-timeout'],
     '--max-sessions', opt['max-sessions'],
     ...(lanes > 1 ? ['--lanes', String(lanes)] : []),
+    ...(opt.leases !== undefined ? ['--leases', opt.leases] : []),
+    ...(opt.schedule !== undefined ? ['--schedule', opt.schedule] : []),
     '--no-keep-awake',
     '--bin', opt.claude,
     '--agent-arg=--setting-sources', '--agent-arg=project,local',
@@ -433,7 +462,11 @@ function runDrive(engine) {
 }
 
 // ---------- main ----------
-const result = { label: opt.label, arm: opt.arm, ...(lanes > 1 ? { lanes } : {}), cell, started: new Date().toISOString(), engine: null, claude: null }
+const result = {
+  label: opt.label,
+  arm: opt.arm,
+  ...(lanes > 1 ? { lanes, leases: opt.leases ?? 'steer', schedule: opt.schedule ?? 'footprint' } : {}),
+  cell, started: new Date().toISOString(), engine: null, claude: null }
 let ok = false
 try {
   const engine = resolveEngine(resolve(opt.engine))
@@ -462,7 +495,9 @@ try {
       result.drive = await runDrive(engine)
       log(`drive exited ${result.drive.exit}${result.drive.signal ? ` (${result.drive.signal})` : ''} after ${Math.round(result.drive.ms / 1000)}s`)
       result.score = measureCell(cell, opt['claude-config'])
-      // The tree the run left, checked by the harness rather than the driver.
+      // The tree the run left, checked by the harness rather than the driver. A
+      // lanes run lands on its run base branch and leaves the checkout's own alone (D20).
+      if (lanes > 1 && result.score.run?.id) sh('git', ['checkout', '-q', `sofar/${SLUG}/${result.score.run.id}`], { cwd: repo, allowFail: true })
       result.final_tree = {
         verify_passes: TASKS.filter((t) => verifyPasses(t)).map((t) => t.id),
         commits: Number(sh('git', ['rev-list', '--count', 'HEAD'], { cwd: repo }).stdout.trim()),

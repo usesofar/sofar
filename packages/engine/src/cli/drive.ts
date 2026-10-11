@@ -57,7 +57,7 @@ export interface DriveCliOptions {
   lanes?: string
   /** The command a lane runs once to install dependencies; `none` runs nothing. */
   laneSetup?: string
-  /** Region leases between lanes (drive-lanes 3.1): steer (default), deny or off. */
+  /** Region leases between lanes (drive-lanes 3.1): off (default since 3.4, D37), steer or deny. */
   leases?: string
   /** How a free lane picks its task (drive-lanes 3.2): footprint (default) or ready. */
   schedule?: string
@@ -202,12 +202,13 @@ function positive(name: string, raw: string | undefined): number | undefined {
 }
 
 /**
- * `--leases` (drive-lanes 3.1, D33): steer unless stated, `off` leases
- * nothing. The hook a lane session runs is THIS build's own CLI — the entry
- * this process was started as — never whichever `sofar` the lane's PATH holds.
+ * `--leases` (drive-lanes 3.1, D33): off unless stated — 3.4 kept no lease
+ * mode as the default (D37) — and `steer` or `deny` lease. The hook a lane
+ * session runs is THIS build's own CLI — the entry this process was started
+ * as — never whichever `sofar` the lane's PATH holds.
  */
 export function leaseOption(raw: string | undefined, entry: readonly string[] = [process.execPath, process.argv[1]!]): DriveOptions['leases'] {
-  const mode = raw ?? 'steer'
+  const mode = raw ?? 'off'
   if (mode === 'off') return undefined
   if (mode !== 'steer' && mode !== 'deny') throw new ToolError('invalid_input', `sofar drive: --leases takes steer, deny or off, got "${mode}"`)
   return { mode, hook: `${entry.map(shellWord).join(' ')} event lease` }

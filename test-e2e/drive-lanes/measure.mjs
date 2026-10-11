@@ -198,6 +198,8 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
   const done = [...status.values()].filter((s) => s === 'done').length
   const reasons = {}
   for (const h of handoffs) reasons[h.payload.reason] = (reasons[h.payload.reason] ?? 0) + 1
+  // A park (3.1, D33): a stall the driver says was a lease wait, not counted toward --max-stalls.
+  const parks = handoffs.filter((h) => h.payload.reason === 'stall' && String(h.payload.detail ?? '').startsWith('parked on a lease')).length
   const gatePasses = gate.filter((v) => v.result === 'pass').length
   const regressions = sweep.filter((v) => v.result !== 'pass').length
   const mergeConflicts = reasons.merge_conflict ?? 0
@@ -232,6 +234,9 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
       launched: handoffs.length + drive.unresolved,
       unresolved: drive.unresolved,
       by_reason: reasons,
+      parks,
+      // Sessions past one per task done: a merge conflict's, a park's and a failed check's retries (3.4).
+      rework: Math.max(0, handoffs.length - done),
       tasks_with_repeat_sessions: [...perTask.values()].filter((r) => r.sessions > 1).map((r) => r.id),
       mean_seconds_per_handoff: handoffs.length > 0 ? round(inSessions / handoffs.length, 1) : null,
     },
@@ -280,6 +285,9 @@ export function headline(result) {
   return {
     wall_clock_s: s.wall_clock_s,
     overhead_s: s.overhead_s,
+    lanes_busy_rate: s.lanes_busy_rate,
+    rework_sessions: s.sessions.rework ?? null,
+    parks: s.sessions.parks ?? null,
     tasks_done: s.tasks.done,
     gate_pass_rate: s.verify.gate_pass_rate,
     first_try_pass_rate: s.verify.first_try_pass_rate,
@@ -325,6 +333,49 @@ export function compare(serial, lanes, { minReps = 3 } = {}) {
 }
 
 /**
+ * drive-lanes 3.4's keep rule for one conflict-aware piece, its arm against the
+ * arm without it (D36): the piece must cut rework sessions with merge-conflict
+ * reopens ≤ 10% of tasks done (2.5's missed bar), and degrade nothing — tasks
+ * done, the gate pass rate and every rep finishing the plan no lower, duplicate
+ * work 0, tokens per task no higher, wall-clock no more than 20% higher (the
+ * least n = 3 resolves, rust-core D12). A rep that stopped short of the plan
+ * decides at any count; otherwise fewer than 3 reps an arm is no verdict.
+ */
+export function comparePiece(without, withPiece, { minReps = 3 } = {}) {
+  const m = (b, k) => b.metrics[k]?.mean ?? null
+  const change = (k) => (m(without, k) > 0 && m(withPiece, k) !== null ? round(m(withPiece, k) / m(without, k) - 1, 4) : null)
+  const values = (b, k) => b.metrics[k]?.values ?? []
+  const criteria = {
+    rework_falls: { without: m(without, 'rework_sessions'), with: m(withPiece, 'rework_sessions'), pass: m(withPiece, 'rework_sessions') !== null && m(withPiece, 'rework_sessions') < m(without, 'rework_sessions') },
+    merge_reopens_le_10pct: { with: m(withPiece, 'merge_reopen_rate'), pass: m(withPiece, 'merge_reopen_rate') !== null && m(withPiece, 'merge_reopen_rate') <= 0.1 },
+    every_rep_finishes: { with: values(withPiece, 'tasks_done'), pass: values(withPiece, 'tasks_done').every((x) => x === TASKS.length) },
+    tasks_done_no_lower: { without: m(without, 'tasks_done'), with: m(withPiece, 'tasks_done'), pass: m(withPiece, 'tasks_done') !== null && m(withPiece, 'tasks_done') >= m(without, 'tasks_done') },
+    gate_pass_rate_no_lower: { without: m(without, 'gate_pass_rate'), with: m(withPiece, 'gate_pass_rate'), pass: m(withPiece, 'gate_pass_rate') !== null && m(withPiece, 'gate_pass_rate') >= m(without, 'gate_pass_rate') },
+    duplicate_work_0: { with: values(withPiece, 'duplicate_work'), pass: values(withPiece, 'duplicate_work').every((x) => x === 0) },
+    tokens_per_task_no_higher: { without: m(without, 'tokens_per_task'), with: m(withPiece, 'tokens_per_task'), change: change('tokens_per_task'), pass: change('tokens_per_task') !== null && change('tokens_per_task') <= 0 },
+    wall_clock_rise_le_20pct: { without: m(without, 'wall_clock_s'), with: m(withPiece, 'wall_clock_s'), change: change('wall_clock_s'), pass: change('wall_clock_s') !== null && change('wall_clock_s') <= 0.2 },
+  }
+  const failed = Object.entries(criteria).filter(([, c]) => !c.pass).map(([k]) => k)
+  const enough = without.reps >= minReps && withPiece.reps >= minReps
+  return {
+    reps: { without: without.reps, with: withPiece.reps, min: minReps },
+    verdict: !criteria.every_rep_finishes.pass ? 'drop' : !enough ? 'insufficient_reps' : failed.length === 0 ? 'keep' : 'drop',
+    failed,
+    lanes_busy_rate: { without: m(without, 'lanes_busy_rate'), with: m(withPiece, 'lanes_busy_rate') },
+    parks: { without: m(without, 'parks'), with: m(withPiece, 'parks') },
+    criteria,
+  }
+}
+
+/** 3.4's pieces, each the arm that adds it against the arm without it. */
+export const PIECES = [
+  { piece: 'footprint scheduling (3.2)', without: '3.4-naive', with: '3.4-footprint' },
+  { piece: 'leases steer + packets on footprint (3.1, 3.3: the default)', without: '3.4-footprint', with: '3.4-default' },
+  { piece: 'leases steer + packets on ready scheduling (3.1, 3.3)', without: '3.4-naive', with: '3.4-steer' },
+  { piece: 'leases deny over steer (D14)', without: '3.4-steer', with: '3.4-deny' },
+]
+
+/**
  * Mean and sample standard deviation of each headline number across reps of one
  * arm. A rep marked `invalid` (cut short by something outside the arm, such as
  * the profile's usage limit) is kept in results/ as evidence and left out here.
@@ -349,7 +400,17 @@ export function bar(all) {
   return out
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--compare') {
+if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--pieces') {
+  // node measure.mjs --pieces  → results/3.4-pieces.json from the 3.4-<arm> bars (each built first with --bar)
+  const dir = join(dirname(fileURLToPath(import.meta.url)), 'results')
+  const read = (s) => JSON.parse(readFileSync(join(dir, `${s}.bar.json`), 'utf8'))
+  const verdicts = PIECES.filter((p) => existsSync(join(dir, `${p.without}.bar.json`)) && existsSync(join(dir, `${p.with}.bar.json`))).map((p) => ({
+    ...p,
+    ...comparePiece(read(p.without), read(p.with)),
+  }))
+  writeFileSync(join(dir, '3.4-pieces.json'), `${JSON.stringify({ task: 'drive-lanes 3.4', rule: 'comparePiece (D36)', verdicts }, null, 2)}\n`)
+  console.log(JSON.stringify(verdicts.map((v) => ({ piece: v.piece, verdict: v.verdict, failed: v.failed })), null, 2))
+} else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--compare') {
   // node measure.mjs --compare 2.5-serial 2.5-lanes  → results/2.5-lanes-vs-2.5-serial.json
   // from the two series' bars (each built first with --bar)
   const [serialSeries, lanesSeries] = process.argv.slice(3, 5)

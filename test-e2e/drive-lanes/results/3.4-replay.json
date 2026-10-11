@@ -1,0 +1,386 @@
+{
+  "task": "drive-lanes 3.4",
+  "method": "replay: the nine tasks as obeying scripted sessions through the real driver at --lanes 3, the merge queue and each task's verify; session timings from 2.5's agent reps (results/3.4-agent-facts.json) × scale; edits through the real lease hook; arms interleaved (D36)",
+  "node": "v24.21.0",
+  "reps": 3,
+  "scale": 0.04,
+  "arms": [
+    {
+      "name": "naive",
+      "schedule": "ready",
+      "leases": "off"
+    },
+    {
+      "name": "footprint",
+      "schedule": "footprint",
+      "leases": "off"
+    },
+    {
+      "name": "steer",
+      "schedule": "ready",
+      "leases": "steer"
+    },
+    {
+      "name": "deny",
+      "schedule": "ready",
+      "leases": "deny"
+    },
+    {
+      "name": "default",
+      "schedule": "footprint",
+      "leases": "steer"
+    }
+  ],
+  "means": {
+    "naive": {
+      "wall_clock_s": 18.6,
+      "lanes_busy_rate": 0.836,
+      "sessions": 11,
+      "rework_sessions": 2,
+      "merge_conflicts": 2,
+      "parks": 0,
+      "packet_chars": 0
+    },
+    "footprint": {
+      "wall_clock_s": 16.333,
+      "lanes_busy_rate": 0.646,
+      "sessions": 9,
+      "rework_sessions": 0,
+      "merge_conflicts": 0,
+      "parks": 0,
+      "packet_chars": 0
+    },
+    "steer": {
+      "wall_clock_s": 17.033,
+      "lanes_busy_rate": 0.699,
+      "sessions": 12,
+      "rework_sessions": 3,
+      "merge_conflicts": 0,
+      "parks": 3,
+      "packet_chars": 5846
+    },
+    "deny": {
+      "wall_clock_s": 17.033,
+      "lanes_busy_rate": 0.699,
+      "sessions": 12,
+      "rework_sessions": 3,
+      "merge_conflicts": 0,
+      "parks": 3,
+      "packet_chars": 5537
+    },
+    "default": {
+      "wall_clock_s": 16.367,
+      "lanes_busy_rate": 0.649,
+      "sessions": 9,
+      "rework_sessions": 0,
+      "merge_conflicts": 0,
+      "parks": 0,
+      "packet_chars": 1274
+    }
+  },
+  "change_vs_naive_pct": {
+    "footprint": {
+      "wall_clock_s": -12.2,
+      "lanes_busy_rate": -22.7,
+      "sessions": -18.2,
+      "rework_sessions": -100,
+      "merge_conflicts": -100,
+      "parks": null,
+      "packet_chars": null
+    },
+    "steer": {
+      "wall_clock_s": -8.4,
+      "lanes_busy_rate": -16.4,
+      "sessions": 9.1,
+      "rework_sessions": 50,
+      "merge_conflicts": -100,
+      "parks": null,
+      "packet_chars": null
+    },
+    "deny": {
+      "wall_clock_s": -8.4,
+      "lanes_busy_rate": -16.4,
+      "sessions": 9.1,
+      "rework_sessions": 50,
+      "merge_conflicts": -100,
+      "parks": null,
+      "packet_chars": null
+    },
+    "default": {
+      "wall_clock_s": -12,
+      "lanes_busy_rate": -22.4,
+      "sessions": -18.2,
+      "rework_sessions": -100,
+      "merge_conflicts": -100,
+      "parks": null,
+      "packet_chars": null
+    }
+  },
+  "runs": {
+    "naive": [
+      {
+        "arm": "naive",
+        "stop": "closed",
+        "wall_clock_s": 18.5,
+        "lanes_busy_rate": 0.838,
+        "tasks_done": 9,
+        "sessions": 11,
+        "merge_conflicts": 2,
+        "parks": 0,
+        "rework_sessions": 2,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 0
+      },
+      {
+        "arm": "naive",
+        "stop": "closed",
+        "wall_clock_s": 18.8,
+        "lanes_busy_rate": 0.831,
+        "tasks_done": 9,
+        "sessions": 11,
+        "merge_conflicts": 2,
+        "parks": 0,
+        "rework_sessions": 2,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 0
+      },
+      {
+        "arm": "naive",
+        "stop": "closed",
+        "wall_clock_s": 18.5,
+        "lanes_busy_rate": 0.84,
+        "tasks_done": 9,
+        "sessions": 11,
+        "merge_conflicts": 2,
+        "parks": 0,
+        "rework_sessions": 2,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 0
+      }
+    ],
+    "footprint": [
+      {
+        "arm": "footprint",
+        "stop": "closed",
+        "wall_clock_s": 16.1,
+        "lanes_busy_rate": 0.648,
+        "tasks_done": 9,
+        "sessions": 9,
+        "merge_conflicts": 0,
+        "parks": 0,
+        "rework_sessions": 0,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 0
+      },
+      {
+        "arm": "footprint",
+        "stop": "closed",
+        "wall_clock_s": 16.1,
+        "lanes_busy_rate": 0.65,
+        "tasks_done": 9,
+        "sessions": 9,
+        "merge_conflicts": 0,
+        "parks": 0,
+        "rework_sessions": 0,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 0
+      },
+      {
+        "arm": "footprint",
+        "stop": "closed",
+        "wall_clock_s": 16.8,
+        "lanes_busy_rate": 0.641,
+        "tasks_done": 9,
+        "sessions": 9,
+        "merge_conflicts": 0,
+        "parks": 0,
+        "rework_sessions": 0,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 0
+      }
+    ],
+    "steer": [
+      {
+        "arm": "steer",
+        "stop": "closed",
+        "wall_clock_s": 17,
+        "lanes_busy_rate": 0.7,
+        "tasks_done": 9,
+        "sessions": 12,
+        "merge_conflicts": 0,
+        "parks": 3,
+        "rework_sessions": 3,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 3,
+        "denied": 0,
+        "packet_chars": 5846
+      },
+      {
+        "arm": "steer",
+        "stop": "closed",
+        "wall_clock_s": 17,
+        "lanes_busy_rate": 0.7,
+        "tasks_done": 9,
+        "sessions": 12,
+        "merge_conflicts": 0,
+        "parks": 3,
+        "rework_sessions": 3,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 3,
+        "denied": 0,
+        "packet_chars": 5846
+      },
+      {
+        "arm": "steer",
+        "stop": "closed",
+        "wall_clock_s": 17.1,
+        "lanes_busy_rate": 0.698,
+        "tasks_done": 9,
+        "sessions": 12,
+        "merge_conflicts": 0,
+        "parks": 3,
+        "rework_sessions": 3,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 3,
+        "denied": 0,
+        "packet_chars": 5846
+      }
+    ],
+    "deny": [
+      {
+        "arm": "deny",
+        "stop": "closed",
+        "wall_clock_s": 17,
+        "lanes_busy_rate": 0.7,
+        "tasks_done": 9,
+        "sessions": 12,
+        "merge_conflicts": 0,
+        "parks": 3,
+        "rework_sessions": 3,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 3,
+        "packet_chars": 5537
+      },
+      {
+        "arm": "deny",
+        "stop": "closed",
+        "wall_clock_s": 17,
+        "lanes_busy_rate": 0.7,
+        "tasks_done": 9,
+        "sessions": 12,
+        "merge_conflicts": 0,
+        "parks": 3,
+        "rework_sessions": 3,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 3,
+        "packet_chars": 5537
+      },
+      {
+        "arm": "deny",
+        "stop": "closed",
+        "wall_clock_s": 17.1,
+        "lanes_busy_rate": 0.698,
+        "tasks_done": 9,
+        "sessions": 12,
+        "merge_conflicts": 0,
+        "parks": 3,
+        "rework_sessions": 3,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 3,
+        "packet_chars": 5537
+      }
+    ],
+    "default": [
+      {
+        "arm": "default",
+        "stop": "closed",
+        "wall_clock_s": 16.4,
+        "lanes_busy_rate": 0.649,
+        "tasks_done": 9,
+        "sessions": 9,
+        "merge_conflicts": 0,
+        "parks": 0,
+        "rework_sessions": 0,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 1274
+      },
+      {
+        "arm": "default",
+        "stop": "closed",
+        "wall_clock_s": 16.2,
+        "lanes_busy_rate": 0.649,
+        "tasks_done": 9,
+        "sessions": 9,
+        "merge_conflicts": 0,
+        "parks": 0,
+        "rework_sessions": 0,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 1274
+      },
+      {
+        "arm": "default",
+        "stop": "closed",
+        "wall_clock_s": 16.5,
+        "lanes_busy_rate": 0.648,
+        "tasks_done": 9,
+        "sessions": 9,
+        "merge_conflicts": 0,
+        "parks": 0,
+        "rework_sessions": 0,
+        "gate_pass_rate": 1,
+        "duplicate_work": 0,
+        "final_tree_green": 9,
+        "steered": 0,
+        "denied": 0,
+        "packet_chars": 1274
+      }
+    ]
+  }
+}

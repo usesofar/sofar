@@ -1,0 +1,189 @@
+{
+  "reps": 3,
+  "labels": [
+    "3.4-naive-1",
+    "3.4-naive-2",
+    "3.4-naive-3"
+  ],
+  "excluded": [],
+  "engine": {
+    "version": "0.38.0-dev+trunk",
+    "commit": "9e5dad2d",
+    "dirty_src_paths": 4,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.bench/claude-2.1.278/claude",
+    "version": "2.1.278 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config-build",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "metrics": {
+    "wall_clock_s": {
+      "mean": 289.1667,
+      "sd": 16.6674,
+      "values": [
+        281.4,
+        277.8,
+        308.3
+      ]
+    },
+    "overhead_s": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "lanes_busy_rate": {
+      "mean": 0.669,
+      "sd": 0.018,
+      "values": [
+        0.674,
+        0.684,
+        0.649
+      ]
+    },
+    "rework_sessions": {
+      "mean": 2.6667,
+      "sd": 0.5774,
+      "values": [
+        3,
+        2,
+        3
+      ]
+    },
+    "parks": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "tasks_done": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    },
+    "gate_pass_rate": {
+      "mean": 1,
+      "sd": 0,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    "first_try_pass_rate": {
+      "mean": 1,
+      "sd": 0,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    "tokens_per_task": {
+      "mean": 486574,
+      "sd": 20863.3187,
+      "values": [
+        496038,
+        462656,
+        501028
+      ]
+    },
+    "output_tokens_per_task": {
+      "mean": 4867.3333,
+      "sd": 354.6284,
+      "values": [
+        4940,
+        4482,
+        5180
+      ]
+    },
+    "cost_per_task": {
+      "mean": 0.2237,
+      "sd": 0.0111,
+      "values": [
+        0.2278,
+        0.2111,
+        0.2322
+      ]
+    },
+    "sessions": {
+      "mean": 11.6667,
+      "sd": 0.5774,
+      "values": [
+        12,
+        11,
+        12
+      ]
+    },
+    "merge_conflicts": {
+      "mean": 2.6667,
+      "sd": 0.5774,
+      "values": [
+        3,
+        2,
+        3
+      ]
+    },
+    "merge_reopen_rate": {
+      "mean": 0.296,
+      "sd": 0.0641,
+      "values": [
+        0.333,
+        0.222,
+        0.333
+      ]
+    },
+    "regressions": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "off_task_resolutions": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "duplicate_work": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "final_tree_green": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    }
+  }
+}

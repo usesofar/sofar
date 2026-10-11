@@ -354,8 +354,9 @@ describe('sofar event lease: the hook (3.1)', () => {
     expect(specific.additionalContext).toBeUndefined()
   })
 
-  it('--leases: steer by default, deny on request, off leases nothing, anything else refused', () => {
-    expect(leaseOption(undefined, ['/usr/bin/node', '/opt/sofar/cli.js'])).toEqual({ mode: 'steer', hook: '/usr/bin/node /opt/sofar/cli.js event lease' })
+  it('--leases: off by default (D37), steer or deny on request, anything else refused', () => {
+    expect(leaseOption(undefined)).toBeUndefined()
+    expect(leaseOption('steer', ['/usr/bin/node', '/opt/sofar/cli.js'])).toEqual({ mode: 'steer', hook: '/usr/bin/node /opt/sofar/cli.js event lease' })
     expect(leaseOption('deny', ['/a b/node', '/c.js'])).toEqual({ mode: 'deny', hook: "'/a b/node' /c.js event lease" })
     expect(leaseOption('off')).toBeUndefined()
     expect(() => leaseOption('maybe')).toThrow(/--leases takes steer, deny or off/)
