@@ -758,6 +758,10 @@ program
     "region leases between lanes (drive-lanes 3.1): steer (default) tells a session its edit overlaps an older task's section or symbol in another lane and lets it work elsewhere or park; deny refuses that edit; off leases nothing",
   )
   .option(
+    '--schedule <mode>',
+    "how a free lane picks its task (drive-lanes 3.2): footprint (default) takes the first ready task whose predicted files miss every running task and live lease, else idles; ready takes the first ready task",
+  )
+  .option(
     '--agent <name>',
     'default headless agent: claude-code (default), codex or cursor (cursor-agent) — a task whose plan entry carries route.agent is launched with THAT one instead',
   )
@@ -822,6 +826,7 @@ program
         lanes?: string
         laneSetup?: string
         leases?: string
+        schedule?: string
         agent?: string
         bin?: string
         agentArg?: string[]
@@ -898,6 +903,7 @@ program
           ...(opts.lanes !== undefined ? { lanes: opts.lanes } : {}),
           ...(opts.laneSetup !== undefined ? { laneSetup: opts.laneSetup } : {}),
           ...(opts.leases !== undefined ? { leases: opts.leases } : {}),
+          ...(opts.schedule !== undefined ? { schedule: opts.schedule } : {}),
           ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
           ...(opts.bin !== undefined ? { bin: opts.bin } : {}),
           ...(opts.agentArg !== undefined ? { agentArgs: opts.agentArg } : {}),

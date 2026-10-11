@@ -6,16 +6,16 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1531 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 11/23 tasks done (47%)
+Progress: 12/23 tasks done (52%)
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
 ## Phase 2 — Local lanes [done] — 7/7 done — its tasks in phases/P2.md
 
-## Phase 3 — Conflict-aware orchestration [active] — 1/9 done
+## Phase 3 — Conflict-aware orchestration [active] — 2/9 done
 
-- [x] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane steers rather than denies, so r4-fixes D17 holds: the hook's context names the holding lane, its task, the region and what is free, and the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. A deny mode sits behind a flag, off, until the operator rules on D17 for driven lanes
-- [ ] 3.2 Footprint prediction and conflict-aware scheduling: task `touches`, the record's mention index, files earlier sessions on the task touched, git co-change. A free lane takes the first ready task that misses every live lease and footprint, else idles; skipped tasks age up
+- [x] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane steers rather than denies, so r4-fixes D17 holds: the hook's context names the holding lane, its task, the region and what is free, and the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. A deny mode sits behind a flag, off, until the operator rules on D17 for driven lanes — verified pass @fed90c0 (attempt 1)
+- [x] 3.2 Footprint prediction and conflict-aware scheduling: task `touches`, the record's mention index, files earlier sessions on the task touched, git co-change. A free lane takes the first ready task that misses every live lease and footprint, else idles; skipped tasks age up
 - [ ] 3.3 Context packets, deterministic and one line each: lease notice (who holds what, for which task), change brief on merge (task, regions, diffstat, decisions and memories logged, write-back), park/resume packet (own write-back, WIP sha, the brief it waited for)
 - [ ] 3.4 Measure conflict-aware lanes against naive lanes: merge-conflict rework sessions, parks, lanes busy, wall-clock. Keep each piece only if it improves on 2.5
 - [ ] 3.5 Peer hint: when 3.1 steers an edit away or 3.3 delivers a lease notice, name the lane holding the region as a reachable Claude Code peer (its SendMessage name from ~/.claude/sessions/<pid>.json, through core/peers.ts), so the blocked session can ask it directly. sofar never sends. The hint appears only on a live lease collision; Codex, Cursor and cloud lanes get the record packet alone. Driven `claude -p` sessions already register as peers (verified 2026-10-10: sofar-df was the 1.2 session)
@@ -32,4 +32,4 @@ Progress: 11/23 tasks done (47%)
 - [ ] 4.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 3 — Conflict-aware orchestration
-Next action: 3.2: footprint prediction and conflict-aware scheduling
+Next action: 3.3: context packets, deterministic and one line each

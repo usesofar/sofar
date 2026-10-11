@@ -59,6 +59,8 @@ export interface DriveCliOptions {
   laneSetup?: string
   /** Region leases between lanes (drive-lanes 3.1): steer (default), deny or off. */
   leases?: string
+  /** How a free lane picks its task (drive-lanes 3.2): footprint (default) or ready. */
+  schedule?: string
   /** Which agent to drive: `claude-code` (default), `codex` (3.1) or `cursor` (r1-fixes 6.8). */
   agent?: string
   /** Binary the adapter spawns (default: the agent's own — claude, codex, cursor-agent). */
@@ -211,6 +213,13 @@ export function leaseOption(raw: string | undefined, entry: readonly string[] = 
   return { mode, hook: `${entry.map(shellWord).join(' ')} event lease` }
 }
 
+/** `--schedule` (drive-lanes 3.2, D34): footprint unless stated; `ready` is 2.3's first ready task. */
+export function scheduleOption(raw: string | undefined): DriveOptions['schedule'] {
+  if (raw === undefined) return undefined
+  if (raw !== 'footprint' && raw !== 'ready') throw new ToolError('invalid_input', `sofar drive: --schedule takes footprint or ready, got "${raw}"`)
+  return raw
+}
+
 /** One shell word: bare when safe, single-quoted otherwise. */
 function shellWord(value: string): string {
   return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`
@@ -286,6 +295,7 @@ export async function runDrive(
     const maxVerifyAttempts = integer('--max-verify-attempts', options.maxVerifyAttempts)
     const lanes = integer('--lanes', options.lanes)
     const leases = leaseOption(options.leases)
+    const schedule = scheduleOption(options.schedule)
     // The surface is built HERE, before anything is recorded: a bad
     // --permission-mode is a preflight refusal with no run_started behind it,
     // not a run that starts and dies on its first launch.
@@ -325,6 +335,7 @@ export async function runDrive(
       ...(lanes !== undefined ? { lanes } : {}),
       ...(options.laneSetup !== undefined ? { laneSetup: options.laneSetup } : {}),
       ...(leases !== undefined ? { leases } : {}),
+      ...(schedule !== undefined ? { schedule } : {}),
       // Load control (drive-lanes 1.2): every CLI run yields to the
       // operator's foreground and verifies one suite at a time, and re-runs a
       // timed-out verification only once the load clears (2.7).

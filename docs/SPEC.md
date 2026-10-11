@@ -2740,7 +2740,8 @@ loop that runs its lanes AT ONCE. Each turn it folds the record and gives
 every free lane — no session running in it, not parked — the first ready task
 no lane holds, placed as above, skipping a task that waits on one a lane
 holds (a done task's work is not on the base until its lane has gated and
-landed it). Each assignment is appended as `lane_assigned` just before that
+landed it) and, under footprint scheduling below, one whose footprint meets
+a running task's or a live lease. Each assignment is appended as `lane_assigned` just before that
 lane's launch, and each lane's launch → gate → land → handoff runs alongside
 the others; a launch's end wakes the next turn. The budgets count every lane:
 `--max-sessions` counts launches in flight as launches, so N lanes never
@@ -2831,6 +2832,34 @@ only once every lease it hit is gone, and before it launches again its lane
 takes the base in as the merge queue does (rebased, else merged, a stopped
 merge left for its session). The mode is the driver's, like the hang guard:
 not recorded, and a resumed run takes the resuming driver's.
+
+**Footprint scheduling (drive-lanes 3.2, D34).** `--schedule <mode>` —
+`footprint`, the default, or `ready` — governs which ready task a free lane
+takes; a serial run ignores it. A task's FOOTPRINT is the files it is
+predicted to edit, read from four facts the record and the repo already hold:
+the files its title names; the files named in the record's sentences —
+decisions, memories, write-backs — that cite its id standing alone (never
+inside a longer number or id, never followed by `%`, `×` or ` of `, never
+qualified by another record's slug); the tracked files the sessions that
+worked it touched (sessions a driver handed off on it, and sessions whose only
+task change was it), named relative to the checkout or any lane; and the files
+that changed with any of those in at least 3 of the base's last 400 non-merge
+commits and in 60% of that file's own, the strongest 3, commits touching more
+than 30 files ignored. A mention resolves to the tracked paths it names; a bare
+name naming more than 3 names none; a pathed one naming none stays as written
+when the repo tracks its directory (a file a task will create). A HUB — in at
+least 10 of those commits and over a fifth of them — is in no footprint, and
+neither is `.sofar/` nor a merge=union path: region leases meet their
+collisions by section or symbol. Under `footprint` the coordinator gives a free
+lane the first ready task whose footprint MEETS no running task's footprint
+and no live lease's files — the same file, or a written-as-is mention naming
+it — else the lane idles; each turn a free lane passes a task over it AGES UP
+one, and the ready tasks are taken most-aged first, queue order among equals.
+Progress says once per cause `<task> waits — its footprint meets lane <k>
+(<task>) at <file>`. A task waiting only on another run's lease is looked at
+again every 15 seconds, since that lease ending wakes nothing here. `ready` is
+the first ready task, whatever it will touch. The mode is the driver's: not
+recorded.
 
 **Tiered verify (drive-lanes 2.6, D29, D30).** `--verify-quick <cmd>`, with
 `--verify` (refused without it, before anything is recorded), makes the run
@@ -7725,6 +7754,7 @@ deletes it with the worktree's gitdir.
   [--cost-cap <usd>] [--session-timeout <seconds>] [--cwd <dir>] [--model <m>]
   [--effort <e>] [--resume] [--verify <cmd>] [--verify-quick <cmd>]
   [--lanes <n>] [--lane-setup <cmd|none>] [--leases steer|deny|off]
+  [--schedule footprint|ready]
   [--agent claude-code|codex|cursor] [--bin <path>] [--agent-arg <arg>]
   [--permission-mode <mode>]
   [--allow <rule...>] [--deny <rule...>] [--bare-tools] [--detach] [--stop]
@@ -7751,7 +7781,8 @@ deletes it with the worktree's gitdir.
   branch, and `--lane-setup` names the command a lane installs with
   (§Driver, lanes); STDOUT then adds one line naming the base to merge.
   `--leases` says what a lane is told, or refused, on an edit into a region an
-  older task in another lane holds (§Driver, region leases).
+  older task in another lane holds (§Driver, region leases). `--schedule`
+  says which ready task a free lane takes (§Driver, footprint scheduling).
   `--agent-arg` repeats once per
   argument and appends verbatim to the argv of the agent `--agent` NAMED — the
   escape hatch past sofar's own flags, so its vocabulary falling behind an

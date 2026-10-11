@@ -146,7 +146,11 @@ export function readLease(path: string): Lease | null {
 
 /** The other lanes' leases in the pool `own` sits in, each still held by a live lane. */
 export function otherLeases(own: string, probe: (lock: string) => RunLiveness = probeLockAt): Lease[] {
-  const pool = dirname(own)
+  return poolLeases(dirname(own), probe, basename(own))
+}
+
+/** Every lease in the pool still held by a live lane — what the coordinator schedules around (3.2) — less the file named `except`. */
+export function poolLeases(pool: string, probe: (lock: string) => RunLiveness = probeLockAt, except?: string): Lease[] {
   let names: string[]
   try {
     names = readdirSync(pool)
@@ -156,7 +160,7 @@ export function otherLeases(own: string, probe: (lock: string) => RunLiveness = 
   const out: Lease[] = []
   for (const name of names.sort()) {
     const m = LEASE_NAME.exec(name)
-    if (m === null || name === basename(own)) continue
+    if (m === null || name === except) continue
     // A lane whose lock nobody holds is a driver gone: its file is a leftover.
     if (probe(laneLockFile(pool, Number(m[1]))) === 'free') continue
     const lease = readLease(join(pool, name))

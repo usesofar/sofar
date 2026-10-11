@@ -26,7 +26,8 @@ import { applicableChecks, changedPaths, checkFailureLine, checksInForce, isAppr
 import { refreshGuards } from '../core/index-tier1'
 import { recordRoot } from '../core/git'
 import { claimRunLock, probeRunLock, type RunLockOptions } from '../core/run-lock'
-import { closeLease, LEASE_ENV, leaseFile, openLease, readLease, stillHeld, type LeaseWait } from '../core/leases'
+import { closeLease, LEASE_ENV, leaseFile, openLease, poolLeases, readLease, stillHeld, type Lease, type LeaseWait } from '../core/leases'
+import { byAge, conflictOf, footprints, readRepoView, repoRelative, type Holder, type RepoView } from '../core/footprint'
 import { describeRegion } from '../core/regions'
 import { noteLaunched, writeRunProgress } from '../core/run-progress'
 import { cloneRealPath } from '../core/state-dir'
@@ -207,6 +208,18 @@ function parkNote(waits: readonly LeaseWait[]): string {
     holders.set(key, (holders.get(key) ?? new Set()).add(describeRegion(w.region)))
   }
   return `parked on a lease — ${[...holders].map(([who, regions]) => `${who} holds ${[...regions].join(', ')}`).join('; ')}`
+}
+
+/** A live lease as footprint scheduling meets it (3.2): the files its regions are in; another run's is named with its record. */
+function leaseHolder(lease: Lease, runId: string): Holder {
+  const { header } = lease
+  const foreign = header.run !== runId
+  return {
+    label: foreign ? `lane ${header.lane}'s lease (${header.initiative} ${header.task})` : `lane ${header.lane}'s lease (${header.task})`,
+    files: [...new Set(lease.claims.map((r) => r.file))].sort(byCodeUnit),
+    named: [],
+    ...(foreign ? { foreign } : {}),
+  }
 }
 
 /**
@@ -458,6 +471,15 @@ export interface DriveOptions {
    * driver's.
    */
   leases?: { mode: 'steer' | 'deny'; hook: string }
+  /**
+   * How a lanes run's coordinator picks a free lane's task (drive-lanes 3.2,
+   * D34). `footprint`, the default: the first ready task whose predicted files
+   * (core/footprint.ts) miss every running task's and every live lease, else
+   * the lane idles, and a task passed over goes first next time. `ready`: the
+   * first ready task, whatever it will touch (2.3, 3.4's naive arm). A
+   * per-driver knob like `leases`: not recorded; ignored on a serial run.
+   */
+  schedule?: 'footprint' | 'ready'
   /** Bound on one lane setup (default DEFAULT_LANE_SETUP_TIMEOUT_MS). */
   laneSetupTimeoutMs?: number
   /** Adopt the latest run when it has no stop, instead of refusing. */
@@ -979,6 +1001,11 @@ async function driveHolding(
           : leasing.mode === 'deny'
             ? "  leases: deny — an edit overlapping an older task's section or symbol in another lane is refused (drive-lanes D14)"
             : "  leases: steer — an edit overlapping an older task's section or symbol in another lane applies, and the session is told who holds it and what is free (drive-lanes 3.1)",
+      )
+      opening.push(
+        options.schedule === 'ready'
+          ? '  schedule: ready — a free lane takes the first ready task, whatever it will touch'
+          : '  schedule: footprint — a free lane takes the first ready task whose predicted files miss every running task and live lease, else idles; a task passed over goes first next time (drive-lanes 3.2)',
       )
       if (resuming && base.created) {
         opening.push(`warning: run ${runId}'s base branch ${laneRun.base} was gone — cut again from ${from.slice(0, 7)}, so what it had landed is not in it`)
@@ -2261,6 +2288,26 @@ async function driveHolding(
       leaseWaits.delete(id)
       return false
     }
+    // Footprint scheduling (3.2, D34): what each task is predicted to edit,
+    // against the repo as the base holds it, read again once the base moves.
+    const pool = lanePoolDir(rootDir, options.lock?.env)
+    let view: { tip: string; repo: RepoView | undefined } | undefined
+    const repoView = (): RepoView | undefined => {
+      if (options.schedule === 'ready') return undefined
+      const tip = lanes.baseTip()
+      if (view?.tip === tip) return view.repo
+      try {
+        view = { tip, repo: readRepoView(rootDir, tip) }
+      } catch (err) {
+        if (view === undefined) progress(`warning: no footprints — git could not read ${lanes.base}: ${errorNote(err)}; a free lane takes the first ready task`)
+        view = { tip, repo: undefined }
+      }
+      return view.repo
+    }
+    /** Task id → how many turns a free lane passed it over: its age (3.2). */
+    const skips = new Map<string, number>()
+    /** Task id → what was last said of why it waits, so no turn says it twice. */
+    const toldSkip = new Map<string, string>()
     let clock = 0
     let waiting: (() => void) | undefined
     let woken = false
@@ -2485,11 +2532,37 @@ async function driveHolding(
         let room = maxSessions === undefined ? Number.POSITIVE_INFINITY : maxSessions - launched
         let launchNo = launched
         let started = 0
-        for (const task of ready) {
+        // Footprints (3.2): read only when a lane is free to take a task.
+        const repo = busy.size < lanes.lanes.length ? repoView() : undefined
+        const prints =
+          repo !== undefined
+            ? footprints(state, [...new Set([...ready.map((t) => t.id), ...held])], repo, (path) => repoRelative(path, rootDir, pool))
+            : undefined
+        const holders: Holder[] =
+          prints !== undefined
+            ? [
+                ...[...jobs.values()].map((j) => ({ label: `lane ${j.lane.id} (${j.task.id})`, ...prints.get(j.task.id)! })),
+                ...poolLeases(pool).map((l) => leaseHolder(l, runId)),
+              ]
+            : []
+        const passed: { id: string; holder: Holder; file: string }[] = []
+        for (const task of prints !== undefined ? byAge(ready, skips) : ready) {
           if (room <= 0 || busy.size >= lanes.lanes.length) break
+          const print = prints?.get(task.id)
+          // A task that would meet a running one at merge waits, and the lane idles rather than take it.
+          const hit = print !== undefined ? conflictOf(print, holders) : undefined
+          if (hit !== undefined) {
+            passed.push({ id: task.id, ...hit })
+            continue
+          }
           const where = lanes.place(task.id, busy)
           if (where === undefined) continue
           busy.add(where.lane.id)
+          if (print !== undefined) {
+            holders.push({ label: `lane ${where.lane.id} (${task.id})`, ...print })
+            skips.delete(task.id)
+            toldSkip.delete(task.id)
+          }
           if (leasing !== undefined) {
             // A task back from a park takes in what landed while it waited, before it edits again.
             if (rejoin.delete(task.id)) rejoinBase(where, task.id)
@@ -2524,12 +2597,22 @@ async function driveHolding(
           started += 1
           start(task, where, state, watchFrom, launchNo)
         }
+        // A task passed over ages up: it goes first once what it meets is gone.
+        for (const { id, holder, file } of passed) {
+          skips.set(id, (skips.get(id) ?? 0) + 1)
+          const why = `${id} waits — its footprint meets ${holder.label} at ${file}`
+          if (toldSkip.get(id) === why) continue
+          toldSkip.set(id, why)
+          progress(`  ${why}`)
+        }
         if (started > 0) {
           const assigned = ctx.foldState(initiative)
           publish(assigned, heldByLanes(assigned) ?? null)
         }
         const unpark = parked.size > 0 ? Math.min(...parked.values()) : undefined
-        if (jobs.size === 0) {
+        // Another run's lease ending wakes nothing here, so a task waiting on one is looked at again.
+        const poll = passed.length > 0 && (jobs.size === 0 || passed.some((p) => p.holder.foreign === true)) ? Date.now() + LEASE_POLL_MS : undefined
+        if (jobs.size === 0 && poll === undefined) {
           if (unpark === undefined) {
             stop = { reason: 'error', note: lanes.whyNoLane(ready.map((t) => t.id).join(', ')) }
             continue
@@ -2541,7 +2624,8 @@ async function driveHolding(
             )
           }
         }
-        await nap(unpark === undefined ? undefined : unpark - Date.now())
+        const until = Math.min(unpark ?? Number.POSITIVE_INFINITY, poll ?? Number.POSITIVE_INFINITY)
+        await nap(Number.isFinite(until) ? until - Date.now() : undefined)
       }
     } catch (err) {
       stop ??= { reason: 'error', note: errorNote(err) }
