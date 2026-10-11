@@ -1434,6 +1434,10 @@ fn apply_event(
             // A lane holds one task and a task one lane: the new hold replaces both.
             let lane = req_num(p, "lane");
             let task = opt_str(p, "task");
+            #[allow(
+                clippy::float_cmp,
+                reason = "lane numbers are JSON integers: `a.lane !== lane`, verbatim"
+            )]
             run.assignments
                 .retain(|a| a.lane != lane && task.as_ref() != Some(&a.task));
             if let Some(task) = task {
@@ -3370,7 +3374,7 @@ mod tests {
             "{\"run\":\"R\",\"lane\":1,\"task\":\"1.1\"}",
         )]);
         assert_eq!(moved.assignments.len(), 1);
-        assert_eq!(moved.assignments[0].lane, 1.0);
+        assert_eq!(moved.assignments[0].lane.to_bits(), 1.0_f64.to_bits());
         let handed = fold_with(&[ev(
             5,
             "handoff",
