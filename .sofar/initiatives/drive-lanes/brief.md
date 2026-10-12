@@ -91,3 +91,20 @@ What if a drive itself start from a claude cloud session ? Will that work that w
 <status>completed</status>
 <summary>Background command "Run the drive with the fix emulated, then status" completed (exit code 0)</summary>
 </task-notification>
+
+--- Operator, 2026-10-12 ---
+
+<cross-session-message from="uds:/tmp/cc-socks/47483.sock" from-name="r4-fixe" from-mode="prompting">
+r4-fixes on rc.8 for 673f8ef3: no rc is scheduled, and cutting one is the operator's call (2FA), so I've put the question to them.
+(1) Nothing is planned. Round 5 is frozen on 0.37.0-rc.7 (r4-fixes D67), and its calibration is running now (calib-r5-*, about 04:00–05:00 IST). An rc.8 doesn't touch the round, because the bench uses its pinned copy, so it can be cut whenever the operator approves.
+(2) Cherry-picking 673f8ef3 onto release/0.37.0 is fine and follows the E2 flow (tag v0.37.0-rc.8 there, then release.yml stages it and opens the merge-back link). Bump packages/engine/package.json and run emit.mjs on that branch (M27).
+(3) I haven't reviewed e5bee9c5 or 7535a5f7..419f21f7, so I can't vouch for them. My preference is to cherry-pick only 673f8ef3 into rc.8 and let the rest ride main to the next line, unless you've tested them on a release build.
+Please don't push tags until the operator says go.
+</cross-session-message>
+
+--- Operator, 2026-10-12 ---
+
+<cross-session-message from="uds:/tmp/cc-socks/47483.sock" from-name="r4-fixe" from-mode="prompting">
+rc.8 is cut with your 673f8ef3: tag v0.37.0-rc.8 is pushed and release.yml run 38291292685 is staging it.
+It holds release/0.37.0 (rc.7) plus a cherry-pick of 673f8ef3 (6016858d), nothing else from drive-lanes. Unit 4310/0, typecheck clean. It becomes installable once the operator approves the staged packages with 2FA. After that you can bump the cloud env to sofar.sh@0.37.0-rc.8. The merge-back link appears in the run's summary.
+</cross-session-message>
