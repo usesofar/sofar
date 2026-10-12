@@ -526,6 +526,26 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
       JSON.stringify({ session_id: session, cwd: root, hook_event_name: phase === 'pre' ? 'PreToolUse' : 'PostToolUse', tool_name: 'Bash', tool_input: { command, ...extra }, tool_use_id: id, tool_response: { exit_code: 0 } }),
     )
 
+  it("a file git names that another session's hook captured as it wrote it is that session's, though one of mine was running (r4-fixes H20)", () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    startedAgo(root, 'demo', 's1', 600_000)
+    wroteBack(root, 's1')
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's2')
+    const bash = shell(root, 's1')
+    bash('pre', 'echo y > notes.txt', 't1') // s1's window opens
+    const peer = join(root, 'src', 'db', 'peer.ts')
+    writeFileSync(peer, 'export const p = 1\n') // a drive lane writes inside it…
+    touched(root, 's2', 'src/db/peer.ts') // …and its own hook captures the edit
+    bash('post', 'echo y > notes.txt', 't1')
+    expect(stop(root, 's1').exitCode).toBe(0)
+    const own = join(root, 'src', 'db', 'store.ts')
+    bash('pre', "sed -i '' s/a/b/ src/db/store.ts", 't2')
+    writeFileSync(own, 'export const x = 1\n') // nobody captured this one: s1's sed wrote it
+    bash('post', "sed -i '' s/a/b/ src/db/store.ts", 't2')
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
   it("a file git names that was written while none of this session's commands ran is a concurrent session's (r4-fixes H13)", () => {
     const root = repo()
     checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })

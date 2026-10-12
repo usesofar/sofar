@@ -945,6 +945,25 @@ export function lastTouch(index: FileIndex, path: string, session: string): stri
 }
 
 /**
+ * Whether a session other than `session` last captured a path within
+ * [mtime − before, mtime + after] (r4-fixes H20): the file's current content
+ * is that session's edit, captured by its own hook as it wrote it, so a
+ * concurrent session's may-write window that happens to span the write is not
+ * its author. Every record's captures count; a path is matched as lastTouch
+ * matches it.
+ */
+export function capturedByPeer(index: FileIndex, path: string, session: string, mtime: number, before: number, after: number): boolean {
+  for (const recorded of resolvePaths(index, path)) {
+    for (const [other, entry] of index.files.get(recorded) ?? []) {
+      if (other === session) continue
+      const at = Date.parse(entry.ts)
+      if (at >= mtime - before && at <= mtime + after) return true
+    }
+  }
+  return false
+}
+
+/**
  * Every session that ever touched a path, across ALL initiatives — the DERIVED
  * tier (D2), which may be offered as worth reading and never asserted as a
  * rule.

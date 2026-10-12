@@ -33,3 +33,25 @@ Yeah that is a fix. If any session has been done as part of a particular initiat
 --- Operator, 2026-10-10 ---
 
 When the daily limit is close, each stops at a clean point (never mid-merge or mid-migration), commits its work to its own branch, and pick up again when the limit renews.
+
+--- Operator, 2026-10-12 ---
+
+There's one thing that users are reporting: after installing software their workflow became slow because the stop hook is doing something in every action. Because of the stop hook their workflow is becoming slow. Is there any solution or engineering that we can do to make it better, maybe a background kind of sync or something (not sync exactly, but background updates or background stops, some kind of stuff)?
+
+--- Operator, 2026-10-12 ---
+
+<pasted_content id="7f02">
+ Recently I noticed that when stopbook is firing, sometimes stopbook blocks
+  some writing or maybe completing the stopbook. It says it should run the test
+  fine and once the test is completed, then only the stopbook starts approving.
+
+  I think that is actually coming for every execution. For one guy who is
+  working on a certain feature, by the end of the entire session maybe he will
+  be running the suite and everything before pushing or before migrating
+  anything. In that case every task completion, or maybe session-running
+  completion, runs the test. It is actually a slow process, right?
+</pasted_content id="7f02">
+
+--- Operator, 2026-10-12 ---
+
+That testing feature can maybe be in settings within the software. By default it will not need to be forced, right? That is the best UX and if the user really wanted a strict kind of thing, then they can turn on that ? is this the best solution?

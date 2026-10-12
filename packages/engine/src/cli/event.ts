@@ -58,6 +58,7 @@ import { readTravel } from '../core/index-links'
 import { elsewhereEnabled, readElsewhere } from '../core/index-mentions'
 import { elsewherePromptLines, glanceLine } from '../core/elsewhere-prompt'
 import {
+  capturedByPeer,
   foreignDecisions,
   lastTouch,
   refreshFiles,
@@ -1795,12 +1796,21 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     // from before windows existed keep the H1 rule.
     const started = Date.parse(session.started) - DIRT_SLACK_MS
     const windows = fromGit.length > 0 ? readWindows(sofarDir, session.id) : null
+    // A dirty file another session's hook captured as it wrote it is that
+    // session's edit (r4-fixes H20), whatever window of this one spans it.
+    let peers: FileIndex | undefined
     const files: string[] = []
     let editedAt: number | null = null
     for (const [p, fromTree] of [...captured.map((f) => [f, false] as const), ...fromGit.map((f) => [f, true] as const)]) {
       try {
         const mtime = statSync(isAbsolute(p) ? p : join(rootDir, p)).mtimeMs
-        if (fromTree && (mtime < started || (windows !== null && !inWindow(mtime, windows, DIRT_SLACK_MS)))) continue
+        if (
+          fromTree &&
+          (mtime < started ||
+            (windows !== null && !inWindow(mtime, windows, DIRT_SLACK_MS)) ||
+            capturedByPeer((peers ??= refreshFiles(sofarDir)), p, session.id, mtime, DIRT_SLACK_MS, DIRT_SLACK_MS))
+        )
+          continue
         if (editedAt === null || mtime > editedAt) editedAt = mtime
       } catch {
         // a deleted file has no mtime; its removal is still an edit git names

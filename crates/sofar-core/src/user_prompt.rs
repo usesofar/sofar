@@ -1289,6 +1289,31 @@ fn gate_index(
     index
 }
 
+/// Whether a dirty file git names is another session's edit, not this one's:
+/// written before this session began (r4-fixes H1), outside every one of its
+/// may-write windows (H13), or captured by another session's hook as it was
+/// written (H20). The file index loads only when the first two pass.
+fn anothers_dirt(
+    mtime: f64,
+    started: Option<f64>,
+    windows: Option<&[crate::wrote::WriteWindow]>,
+    peers: &mut Option<crate::index_tier1::FileIndex>,
+    layout: &Layout,
+    path: &str,
+    session: &str,
+) -> bool {
+    started.is_some_and(|at| mtime < at)
+        || windows.is_some_and(|w| !crate::wrote::in_window(mtime, w, DIRT_SLACK_MS))
+        || crate::index_tier1::captured_by_peer(
+            peers.get_or_insert_with(|| crate::index_tier1::refresh_files(layout)),
+            path,
+            session,
+            mtime,
+            DIRT_SLACK_MS,
+            DIRT_SLACK_MS,
+        )
+}
+
 /// `DIRT_SLACK_MS` (r4-fixes H1): how far before a session's start a
 /// git-named file must date to be another session's.
 const DIRT_SLACK_MS: f64 = 2_000.0;
@@ -1344,6 +1369,9 @@ fn stop_gate_for(
     } else {
         crate::wrote::read_windows(layout, &session.id)
     };
+    // A dirty file another session's hook captured as it wrote it is that
+    // session's edit (r4-fixes H20), whatever window of this one spans it.
+    let mut peers: Option<crate::index_tier1::FileIndex> = None;
     let mut files: Vec<String> = Vec::new();
     let mut edited_at: Option<f64> = None;
     let tagged = captured
@@ -1359,10 +1387,15 @@ fn stop_gate_for(
         if let Ok(meta) = std::fs::metadata(&path) {
             let mtime = crate::index_store::mtime_ms_of(&meta);
             if from_tree
-                && (started.is_some_and(|at| mtime < at)
-                    || windows
-                        .as_deref()
-                        .is_some_and(|w| !crate::wrote::in_window(mtime, w, DIRT_SLACK_MS)))
+                && anothers_dirt(
+                    mtime,
+                    started,
+                    windows.as_deref(),
+                    &mut peers,
+                    layout,
+                    &p,
+                    &session.id,
+                )
             {
                 continue;
             }

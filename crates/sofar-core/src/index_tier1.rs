@@ -1711,6 +1711,33 @@ pub fn resolve_paths(index: &FileIndex, path: &str) -> Vec<String> {
     matches
 }
 
+/// `capturedByPeer` (r4-fixes H20): whether a session other than `session`
+/// last captured the path within [mtime − before, mtime + after], so the
+/// file's current content is that session's edit.
+#[must_use]
+pub fn captured_by_peer(
+    index: &FileIndex,
+    path: &str,
+    session: &str,
+    mtime: f64,
+    before: f64,
+    after: f64,
+) -> bool {
+    resolve_paths(index, path).iter().any(|recorded| {
+        index
+            .files
+            .iter()
+            .find(|(p, _)| p == recorded)
+            .is_some_and(|(_, sessions)| {
+                sessions.iter().any(|(other, (ts, _))| {
+                    other != session
+                        && crate::date::js_date_parse(ts)
+                            .is_some_and(|at| at >= mtime - before && at <= mtime + after)
+                })
+            })
+    })
+}
+
 /// `lastTouch`: when this session last touched the path, as the index recorded it.
 #[must_use]
 pub fn last_touch(index: &FileIndex, path: &str, session: &str) -> Option<String> {
