@@ -28,7 +28,7 @@ describe('a hosted run (drive-lanes 5.5)', () => {
 
   it('asks the host to write back, detach, await, then print the patch and the record', () => {
     const p = hostedPrompt('lanes', ['lanes', '--max-sessions', '3', '--allow', 'Bash(node:*)'], 'abc', '01EVT')
-    expect(p).toContain(`sofar drive lanes --max-sessions 3 --allow 'Bash(node:*)' --detach`)
+    expect(p).toContain(`env -u CLAUDE_CODE_REMOTE_SESSION_ID sofar drive lanes --max-sessions 3 --allow 'Bash(node:*)' --detach`)
     expect(p).toContain('sofar drive lanes --await')
     expect(p).toContain("git format-patch abc..HEAD --stdout -- . ':(exclude).sofar'")
     expect(p).toContain(`sofar export lanes --since 01EVT | grep -v -e '"type":"command_run"' -e '"type":"file_touched"'`)
@@ -109,7 +109,7 @@ describe('a hosted run (drive-lanes 5.5)', () => {
     expect(outcome).toMatchObject({ ok: true, cloudId: 'session_01HOSTabcdefgh', commits: 2, events: 1 })
     // The prompt starts the run from HEAD and exports only what came after the local record.
     const prompt = readFileSync(join(root, 'prompt'), 'utf8')
-    expect(prompt).toContain('sofar drive lanes --max-sessions 2 --detach')
+    expect(prompt).toContain('env -u CLAUDE_CODE_REMOTE_SESSION_ID sofar drive lanes --max-sessions 2 --detach')
     expect(prompt).toContain(`git format-patch ${git(repo, 'rev-parse', 'HEAD~2').trim()}..HEAD`)
     expect(prompt).toContain('sofar export lanes --since 01A')
     expect(git(repo, 'log', '--format=%s', '-2').trim().split('\n')).toEqual(['1.2: c', '1.1: b'])

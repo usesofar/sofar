@@ -69,7 +69,9 @@ export const HOSTED_DONE = 'SOFAR-HOSTED-RUN-DONE'
 
 /** The host session's prompt: start the run, wait it out, print what comes back. */
 export function hostedPrompt(slug: string, driveArgs: string[], base: string, since: string | undefined): string {
-  const drive = ['sofar', 'drive', ...driveArgs.map(shellWord), '--detach'].join(' ')
+  // A cloud environment caches its setup for days, so its sofar can predate
+  // 0.37.0-rc.8's strip of the host's id: the host strips it itself (seen live).
+  const drive = ['env -u CLAUDE_CODE_REMOTE_SESSION_ID sofar', 'drive', ...driveArgs.map(shellWord), '--detach'].join(' ')
   const exportCmd = `sofar export ${shellWord(slug)}${since !== undefined ? ` --since ${since}` : ''} | grep -v -e '"type":"command_run"' -e '"type":"file_touched"'`
   return [
     `You host one sofar drive run of the initiative \`${slug}\` in this cloud session. Call no sofar MCP tool and do no task work yourself; run exactly these commands from the repository root, in order:`,
