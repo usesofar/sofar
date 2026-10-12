@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { TimedTestOutcome } from '../src/core/adjacency'
-import { stopGate, suiteOf, type PathKind } from '../src/core/checks'
+import { relatedTests, rootProbe, stopGate, suiteOf, type PathKind } from '../src/core/checks'
 import type { GuardIndex } from '../src/core/index-tier1'
 import { handlePostTool, handleStop } from '../src/cli/event'
 import { CODEX_HOST } from '../src/cli/host'
@@ -253,5 +253,88 @@ describe('no re-arm on unrelated edits (felt-latency L2)', () => {
     const g = gate({ 'src/a.ts': 1000, 'docs/notes.md': 3000 }, [green, red])
     expect(g.fails).toBe(true)
     expect(g.lines[0]).toContain('`npx vitest run` failed (exit 1)')
+  })
+})
+
+describe('related tests stand in for the suite (felt-latency L2 part B)', () => {
+  // One rule guards src/**; the session edited src/billing.ts at t=1000. The
+  // repo has a test named after it, and others.
+  const index = indexOf([{ id: 'd1', initiative: 'demo', ordinal: 1, rule: 'Rule 1.', guard: 'path:src/**' }])
+  const withRepo = (files: string[], body: (root: string) => void) => {
+    const root = mkdtempSync(join(tmpdir(), 'sofar-related-'))
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: root })
+      for (const f of files) {
+        mkdirSync(join(root, f, '..'), { recursive: true })
+        writeFileSync(join(root, f), '')
+      }
+      body(root)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+  const tree = ['src/billing.ts', 'test/billing.test.ts', 'test/billing-routes.test.ts', 'test/usage.test.ts']
+  const at = (ms: number, cmd: string, ok: boolean): Run => ({ cmd, ok, ts: new Date(ms).toISOString(), ...(ok ? {} : { exit: 1 }) })
+  const gate = (root: string, recent: Run[], files = ['src/billing.ts']) =>
+    stopGate(index, files, [], 'bun run test', 1000, rootProbe(root), true, {
+      mtimes: new Map(files.map((f) => [f, 1000])),
+      recentTests: recent,
+      root,
+    })
+
+  it('names the related tests, not the suite, in the ask', () => {
+    withRepo(tree, (root) => {
+      const g = gate(root, [])
+      expect(g.lines).toHaveLength(1)
+      expect(g.lines[0]).toContain('run `bun run test test/billing-routes.test.ts test/billing.test.ts`')
+    })
+  })
+
+  it('a passing run of every related file meets it, from any runner or a package directory', () => {
+    withRepo(tree, (root) => {
+      expect(gate(root, [at(2000, 'bun test test/billing.test.ts test/billing-routes.test.ts', true)]).lines).toEqual([])
+      expect(gate(root, [at(2000, 'bun test test', true)]).lines).toEqual([])
+      // One related file missing, or a name filter: not met.
+      expect(gate(root, [at(2000, 'bun test test/billing.test.ts', true)]).lines).toHaveLength(1)
+      expect(gate(root, [at(2000, 'bun test test/billing.test.ts test/billing-routes.test.ts -t "x"', true)]).lines).toHaveLength(1)
+    })
+  })
+
+  it('a related run that failed after the edit fails, and a failed suite run is never outvoted by a related pass', () => {
+    withRepo(tree, (root) => {
+      const red = gate(root, [at(2000, 'bun test test/billing.test.ts test/billing-routes.test.ts', false)])
+      expect(red.fails).toBe(true)
+      const suiteRed = gate(root, [at(2000, 'bun run test', false), at(3000, 'bun test test/billing.test.ts test/billing-routes.test.ts', true)])
+      expect(suiteRed.fails).toBe(true)
+      expect(suiteRed.lines[0]).toContain('`bun run test` failed (exit 1)')
+    })
+  })
+
+  it('an edited file with no related test keeps the suite ask; so does a repo without git', () => {
+    withRepo([...tree, 'src/ledger.ts'], (root) => {
+      const g = gate(root, [], ['src/billing.ts', 'src/ledger.ts'])
+      expect(g.lines[0]).toContain('run `bun run test` and')
+    })
+    const noGit = mkdtempSync(join(tmpdir(), 'sofar-related-'))
+    try {
+      expect(gate(noGit, [])).toMatchObject({ lines: [expect.stringContaining('run `bun run test` and')] })
+    } finally {
+      rmSync(noGit, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('relatedTests', () => {
+  const tests = ['test/checks.test.ts', 'test/checks-gate.test.ts', 'test/checksum.test.ts', 'app/invoices/page.test.tsx', 'pkg/x_test.go', 'tests/test_ledger.py']
+  it('relates by name, an edited test to itself, a generic file by its directory', () => {
+    expect(relatedTests(['src/core/checks.ts'], tests)).toEqual(['test/checks-gate.test.ts', 'test/checks.test.ts'])
+    expect(relatedTests(['test/usage.test.ts'], tests)).toEqual(['test/usage.test.ts'])
+    expect(relatedTests(['app/invoices/page.tsx'], tests)).toEqual(['app/invoices/page.test.tsx'])
+    expect(relatedTests(['pkg/x.go', 'lib/ledger.py'], tests)).toEqual(['pkg/x_test.go', 'tests/test_ledger.py'])
+  })
+  it('is null when a file has none, past the cap, or outside the suite directories', () => {
+    expect(relatedTests(['src/core/checks.ts', 'src/other.ts'], tests)).toBeNull()
+    expect(relatedTests(['src/a.ts'], Array.from({ length: 9 }, (_, i) => `t/a-${i}.test.ts`))).toBeNull()
+    expect(relatedTests(['src/core/checks.ts'], tests, ['other'])).toBeNull()
   })
 })

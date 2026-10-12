@@ -1442,6 +1442,7 @@ fn stop_gate_for(
     let edits = crate::checks::GateEdits {
         mtimes,
         recent_tests: activity.map(|a| a.recent_tests.clone()).unwrap_or_default(),
+        root: Some(root.to_path_buf()),
     };
     let probe = crate::checks::root_probe(root);
     let gate = crate::checks::stop_gate(

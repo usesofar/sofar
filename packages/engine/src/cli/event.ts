@@ -1824,7 +1824,7 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
     const probe = rootProbe(rootDir)
-    const edits = { mtimes, recentTests: session.activity?.recent_tests ?? [] }
+    const edits = { mtimes, recentTests: session.activity?.recent_tests ?? [], root: rootDir }
     const verdict = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown, edits)
     // An ask holds only in strict mode (r4-fixes D65); by default only a failed
     // covering run does, and an ask rides a write-back hold or reaches the operator.

@@ -901,6 +901,26 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   (deleted), the requirement falls back to `tests_since_edit` after the
   newest mtime among all the edited files. A failed run never covers, nor
   does one from before the edit it answers.
+- RELATED (felt-latency L2 part B): a suite requirement that no run covers
+  narrows to the tests related to the files its rules bear on. An edited test
+  file is its own. A source file's are the repo's test files named after it:
+  the stem, its base up to the first dot, lowercased, matches the test's stem
+  exactly or as a prefix before `-` or `_` (`checks.ts` relates
+  `checks.test.ts` and `checks-gate.test.ts`, never `checksum.test.ts`). A
+  test file is `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.*`, `*_spec.*` or
+  under `__tests__/`, and its stem drops `test_`, `_test` and `_spec`. The
+  stems `index`, `page`, `route`, `layout`, `mod`, `main`, `lib`, `__init__`,
+  `init`, `utils`, `util`, `types`, `helpers`, `constants` and `config` give
+  way to the parent directory's name. When the suite ran directories, only
+  test files under them count. The repo's test files are one `git ls-files
+  --cached --others --exclude-standard`, asked only on this path. If any
+  bearing file has no related test, or the set passes 8 files, or there is no
+  git, the requirement stays the suite. A narrowed requirement is covered by
+  a run of ANY runner with no narrowing flag or word whose operands reach
+  every related file: a file equal to it or a tail of it after a `/`, or a
+  directory holding it. A suite run that covers the requirement and failed
+  is never outvoted by a related pass: narrowing applies only when no run
+  covers the suite.
 - VERDICT: the newest covering run since the last edit decides each
   requirement. If it passed, the requirement is satisfied. If it failed, the
   line is `sofar: \`<run>\` failed (exit N) after your last edit, and it covers
@@ -909,7 +929,10 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   [<slug> D<n>] "<rule>"… bear on files you edited, and no covering test
   passed since your last edit — run \`<cmd>\` and fix any failure before
   stopping (fix: <hint>)`, one line per runner. For a lone ask, <cmd> is the
-  check's own command or the suite's. For several asks it is the runner on
+  check's own command or the suite's, or for a narrowed one the suite's runner
+  on its related files in code-unit order. For several asks all narrowed, it
+  is the runner on the union of their files, while that union holds at most 8.
+  Otherwise, for several asks it is the runner on
   the directory that holds every path they name, or the bare runner when one
   of them names no path or the paths share no directory. At most 5 lines,
   then a count line. Any line blocks: exit 2 with the lines on stderr, which

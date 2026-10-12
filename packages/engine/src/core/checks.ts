@@ -731,6 +731,80 @@ function covers(run: TestSpec, req: TestSpec): boolean {
   return req.operands.every((t) => run.operands.some((o) => (o.dir ? under(t.path, o.path) : t.path === o.path)))
 }
 
+/**
+ * The related-test reading (felt-latency L2 part B). A test file by name:
+ * `x.test.ts`, `x.spec.js`, `test_x.py`, `x_test.go`, `x_spec.rb`, or any
+ * file under `__tests__/`.
+ */
+const TEST_FILE = /(?:\.(?:test|spec)\.[^./]+|^test_[^/]+\.py|_(?:test|spec)\.[^./]+)$/
+export function isTestFile(path: string): boolean {
+  return TEST_FILE.test(path.slice(path.lastIndexOf('/') + 1)) || path.startsWith('__tests__/') || path.includes('/__tests__/')
+}
+
+/** Names too common to relate a test by: such a file goes by its directory's name (`app/invoices/page.tsx` is `invoices`). */
+const GENERIC_STEMS = new Set(['index', 'page', 'route', 'layout', 'mod', 'main', 'lib', '__init__', 'init', 'utils', 'util', 'types', 'helpers', 'constants', 'config'])
+
+/** The name a source or test file is related by: its base up to the first dot, less `test_`/`_test`/`_spec`, lowercased. */
+function stemOf(path: string): string {
+  const segs = path.split('/')
+  const base = segs[segs.length - 1]!.replace(/^test_/, '')
+  const dot = base.indexOf('.')
+  const stem = (dot === -1 ? base : base.slice(0, dot)).replace(/_(?:test|spec)$/, '')
+  return (GENERIC_STEMS.has(stem) && segs.length > 1 ? segs[segs.length - 2]! : stem).toLowerCase()
+}
+
+/** At most this many related test files stand in for the suite; more, and the ask stays the suite. */
+export const RELATED_TESTS_MAX = 8
+
+/**
+ * The repo's test files (felt-latency L2 part B), tracked and untracked but
+ * not ignored, repo-relative: one git spawn, asked only when a suite ask
+ * would otherwise stand. Null without git.
+ */
+export function repoTestFiles(rootDir: string): string[] | null {
+  const out = git(rootDir, ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--full-name'])
+  return out === null ? null : out.split('\0').filter((p) => p.length > 0 && !p.startsWith(RECORD) && isTestFile(p))
+}
+
+/**
+ * The test files related to the edited `paths` (repo-relative): an edited
+ * test file is its own; a source file's are the tests named after it
+ * (`checks.ts` → `checks.test.ts`, `checks-gate.test.ts`), under `dirs` when
+ * the suite ran some. Null when one path has none, or the set passes
+ * RELATED_TESTS_MAX: then nothing narrower than the suite is known.
+ */
+export function relatedTests(paths: readonly string[], testFiles: readonly string[], dirs: readonly string[] = []): string[] | null {
+  const pool = dirs.length === 0 ? testFiles : testFiles.filter((t) => dirs.some((d) => under(t, d)))
+  const out: string[] = []
+  for (const path of paths) {
+    let own: string[]
+    if (isTestFile(path)) own = [path]
+    else {
+      const stem = stemOf(path)
+      own = pool.filter((t) => {
+        const ts = stemOf(t)
+        return ts === stem || ts.startsWith(`${stem}-`) || ts.startsWith(`${stem}_`)
+      })
+    }
+    if (own.length === 0) return null
+    for (const t of own) if (!out.includes(t)) out.push(t)
+    if (out.length > RELATED_TESTS_MAX) return null
+  }
+  return out.length === 0 ? null : out.sort(byCodeUnit)
+}
+
+/**
+ * Whether a run covers related test files: whatever its runner, it names
+ * every file, by its path or a tail of it (a run from a package directory),
+ * or a directory holding it, and no filter narrows it.
+ */
+function coversFiles(run: TestSpec, files: readonly string[]): boolean {
+  if (run.filtered || run.narrowed || run.operands.length === 0) return false
+  return files.every((f) =>
+    run.operands.some((o) => (o.dir ? under(f, o.path) || f.includes(`/${o.path}/`) : f === o.path || f.endsWith(`/${o.path}`))),
+  )
+}
+
 interface GateRule {
   handle: string
   rule: string
@@ -745,6 +819,10 @@ interface Requirement {
   rules: GateRule[]
   /** The decision ids behind `rules`, for the edits they bear on. */
   ids: string[]
+  /** An ask for the suite, which related tests may stand in for (L2 part B). */
+  suite?: true
+  /** The related test files standing in for the suite. */
+  related?: string[]
 }
 
 export interface StopGate {
@@ -768,11 +846,16 @@ function namedRules(rules: readonly GateRule[]): string {
 
 /**
  * One command for every ask on one runner (r4-fixes U1): a lone ask's own;
+ * asks narrowed to related tests, the runner on all their files (L2 part B);
  * else the runner on the directory holding every path the asks name, or the
  * bare runner when one asks for the suite or the paths share no directory.
  */
 function askCommand(head: string, reqs: readonly Requirement[], probe: PathProbe): string {
   if (reqs.length === 1) return reqs[0]!.cmd
+  if (reqs.every((r) => r.related !== undefined)) {
+    const files = [...new Set(reqs.flatMap((r) => r.related!))].sort(byCodeUnit)
+    if (files.length <= RELATED_TESTS_MAX) return [head, ...files].join(' ')
+  }
   let common: string[] | null = null
   for (const req of reqs) {
     if (req.spec.operands.length === 0) return head
@@ -817,6 +900,8 @@ export interface GateEdits {
   mtimes: ReadonlyMap<string, number>
   /** The session's newest test outcomes, never cleared by an edit. */
   recentTests: readonly TimedTestOutcome[]
+  /** The repo root, for the related tests a suite ask may narrow to (L2 part B); without it the ask stays the suite. */
+  root?: string
 }
 
 export function stopGate(
@@ -881,7 +966,7 @@ export function stopGate(
       cmd = [known.head, ...args].join(' ')
     } else continue
     const key = `${spec.head}\0${[...spec.args].sort(byCodeUnit).join('\0')}`
-    const req = reqs.get(key) ?? { spec, cmd, rules: [], ids: [] }
+    const req = reqs.get(key) ?? { spec, cmd, rules: [], ids: [], ...(own === null ? { suite: true as const } : {}) }
     req.ids.push(d.id)
     req.rules.push({
       handle: qualifiedHandle(d.initiative, d.ordinal, d.id),
@@ -900,11 +985,38 @@ export function stopGate(
     return spec
   }
   const groups = new Map<string, { head: string; failed?: TestOutcome; reqs: Requirement[] }>()
-  for (const [key, req] of reqs) {
+  // An unmet suite ask narrows to the tests related to the files its rules
+  // bear on (L2 part B), and a passing run of them meets it. A suite run that
+  // failed after the edit still holds: related tests never outvote a failure.
+  let testFiles: string[] | null | undefined
+  const narrowed = (req: Requirement): string[] | null => {
+    if (edits?.root === undefined) return null
+    const root = edits.root
+    const paths: string[] = []
+    for (const id of req.ids) {
+      for (const p of bearsOn.get(id) ?? []) {
+        const rel = repoRelative(p, root)
+        if (rel === null || rel.length === 0) return null
+        if (!paths.includes(rel)) paths.push(rel)
+      }
+    }
+    if (testFiles === undefined) testFiles = repoTestFiles(root)
+    return testFiles === null ? null : relatedTests(paths, testFiles, suiteDirs.map((o) => o.path))
+  }
+  for (const [key, suiteReq] of reqs) {
+    let req = suiteReq
     const ran = runsFor(req.ids)
     let at = ran.length - 1
     while (at >= 0 && !covers(specOf(ran[at]!.cmd), req.spec)) at -= 1
-    const latest = at >= 0 ? ran[at]! : undefined
+    let latest = at >= 0 ? ran[at]! : undefined
+    const related = latest === undefined && req.suite === true ? narrowed(req) : null
+    if (related !== null) {
+      const operands = related.map((path) => ({ token: path, path, dir: false }))
+      req = { ...req, spec: { ...req.spec, args: related, operands }, cmd: [req.spec.head, ...related].join(' '), related }
+      at = ran.length - 1
+      while (at >= 0 && !coversFiles(specOf(ran[at]!.cmd), related)) at -= 1
+      latest = at >= 0 ? ran[at]! : undefined
+    }
     if (latest?.ok === true) continue
     const group = latest !== undefined ? `failed\0${latest.ts}\0${latest.cmd}` : req.spec.head.length > 0 ? `ask\0${req.spec.head}` : `ask\0\0${key}`
     const into = groups.get(group) ?? { head: req.spec.head, ...(latest !== undefined ? { failed: latest } : {}), reqs: [] }

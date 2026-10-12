@@ -1298,6 +1298,157 @@ fn covers(run: &TestSpec, req: &TestSpec) -> bool {
     })
 }
 
+/// `isTestFile` (felt-latency L2 part B): a test file by name — `x.test.ts`,
+/// `x.spec.js`, `test_x.py`, `x_test.go`, `x_spec.rb` — or any file under `__tests__/`.
+#[must_use]
+#[allow(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "TEST_FILE's regex is case-sensitive"
+)]
+pub fn is_test_file(path: &str) -> bool {
+    let base = path.rsplit('/').next().unwrap_or(path);
+    let parts: Vec<&str> = base.split('.').collect();
+    let n = parts.len();
+    let named = n >= 3 && matches!(parts[n - 2], "test" | "spec") && !parts[n - 1].is_empty();
+    let py = base.starts_with("test_") && base.ends_with(".py") && base.len() > "test_.py".len();
+    let suffixed = base.rsplit_once('.').is_some_and(|(stem, ext)| {
+        !ext.is_empty() && (stem.ends_with("_test") || stem.ends_with("_spec"))
+    });
+    named || py || suffixed || path.starts_with("__tests__/") || path.contains("/__tests__/")
+}
+
+/// `GENERIC_STEMS`: names too common to relate a test by; such a file goes by its directory's name.
+const GENERIC_STEMS: [&str; 15] = [
+    "index",
+    "page",
+    "route",
+    "layout",
+    "mod",
+    "main",
+    "lib",
+    "__init__",
+    "init",
+    "utils",
+    "util",
+    "types",
+    "helpers",
+    "constants",
+    "config",
+];
+
+/// `stemOf`: the name a source or test file is related by — its base up to
+/// the first dot, less `test_`/`_test`/`_spec`, lowercased.
+fn stem_of(path: &str) -> String {
+    let segs: Vec<&str> = path.split('/').collect();
+    let last = segs[segs.len() - 1];
+    let base = last.strip_prefix("test_").unwrap_or(last);
+    let head = base.split('.').next().unwrap_or(base);
+    let stem = head
+        .strip_suffix("_test")
+        .or_else(|| head.strip_suffix("_spec"))
+        .unwrap_or(head);
+    if GENERIC_STEMS.contains(&stem) && segs.len() > 1 {
+        segs[segs.len() - 2].to_lowercase()
+    } else {
+        stem.to_lowercase()
+    }
+}
+
+/// `RELATED_TESTS_MAX`: at most this many related test files stand in for the suite.
+pub const RELATED_TESTS_MAX: usize = 8;
+
+/// `repoTestFiles` (L2 part B): the repo's test files, tracked and untracked
+/// but not ignored, repo-relative — one git spawn, asked only when a suite
+/// ask would otherwise stand. `None` without git.
+#[must_use]
+pub fn repo_test_files(root: &Path) -> Option<Vec<String>> {
+    let out = checks_git(
+        root,
+        &[
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--full-name",
+        ],
+    )?;
+    Some(
+        out.split('\0')
+            .filter(|p| !p.is_empty() && !p.starts_with(RECORD) && is_test_file(p))
+            .map(str::to_owned)
+            .collect(),
+    )
+}
+
+/// `relatedTests` (L2 part B): the test files related to the edited `paths`
+/// (repo-relative) — an edited test file is its own; a source file's are the
+/// tests named after it, under `dirs` when the suite ran some. `None` when one
+/// path has none, or the set passes `RELATED_TESTS_MAX`.
+#[must_use]
+pub fn related_tests(
+    paths: &[String],
+    test_files: &[String],
+    dirs: &[String],
+) -> Option<Vec<String>> {
+    let pool: Vec<&String> = test_files
+        .iter()
+        .filter(|t| dirs.is_empty() || dirs.iter().any(|d| under(t, d)))
+        .collect();
+    let mut out: Vec<String> = Vec::new();
+    for path in paths {
+        let own: Vec<String> = if is_test_file(path) {
+            vec![path.clone()]
+        } else {
+            let stem = stem_of(path);
+            pool.iter()
+                .filter(|t| {
+                    let ts = stem_of(t);
+                    ts == stem
+                        || ts
+                            .strip_prefix(stem.as_str())
+                            .is_some_and(|rest| rest.starts_with('-') || rest.starts_with('_'))
+                })
+                .map(|t| (*t).clone())
+                .collect()
+        };
+        if own.is_empty() {
+            return None;
+        }
+        for t in own {
+            if !out.contains(&t) {
+                out.push(t);
+            }
+        }
+        if out.len() > RELATED_TESTS_MAX {
+            return None;
+        }
+    }
+    if out.is_empty() {
+        return None;
+    }
+    out.sort_by(|a, b| cmp_utf16(a, b));
+    Some(out)
+}
+
+/// `coversFiles` (L2 part B): whatever its runner, a run names every related
+/// file, by its path or a tail of it, or a directory holding it, and no filter
+/// narrows it.
+fn covers_files(run: &TestSpec, files: &[String]) -> bool {
+    if run.filtered || run.narrowed || run.operands.is_empty() {
+        return false;
+    }
+    files.iter().all(|f| {
+        run.operands.iter().any(|o| {
+            if o.dir {
+                under(f, &o.path) || f.contains(&format!("/{}/", o.path))
+            } else {
+                *f == o.path || f.ends_with(&format!("/{}", o.path))
+            }
+        })
+    })
+}
+
 /// One rule hanging on a requirement.
 struct GateRule {
     handle: String,
@@ -1313,6 +1464,10 @@ struct Requirement {
     rules: Vec<GateRule>,
     /// The decision ids behind `rules`, for the edits they bear on (felt-latency L2).
     ids: Vec<String>,
+    /// An ask for the suite, which related tests may stand in for (L2 part B).
+    suite: bool,
+    /// The related test files standing in for the suite.
+    related: Option<Vec<String>>,
 }
 
 /// `GateEdits` (felt-latency L2): per-file edit times and the session's
@@ -1324,6 +1479,8 @@ pub struct GateEdits {
     pub mtimes: HashMap<String, f64>,
     /// The session's newest test outcomes, never cleared by an edit.
     pub recent_tests: Vec<TimedTestOutcome>,
+    /// The repo root, for the related tests a suite ask may narrow to (L2 part B); without it the ask stays the suite.
+    pub root: Option<PathBuf>,
 }
 
 /// `StopGate`: ask and failure lines, and whether Stop holds the session for them.
@@ -1392,6 +1549,7 @@ fn gate_requirements(
     for d in bearing {
         let check_cmd = check_field(d, "cmd");
         let own = check_cmd.as_deref().and_then(test_shaped_command);
+        let suite = own.is_none();
         let (spec, cmd) = if let Some(own) = own {
             (test_spec(&own, probe), check_cmd.unwrap_or_default())
         } else if let Some(k) = known.filter(|k| !k.head.is_empty()) {
@@ -1433,6 +1591,8 @@ fn gate_requirements(
                     cmd,
                     rules: vec![rule],
                     ids: vec![d.id.clone()],
+                    suite,
+                    related: None,
                 },
             )),
         }
@@ -1441,12 +1601,27 @@ fn gate_requirements(
 }
 
 /// `askCommand` (r4-fixes U1): one command for every ask on one runner — a
-/// lone ask's own; else the runner on the directory holding every path the
+/// lone ask's own; asks narrowed to related tests, the runner on all their
+/// files (L2 part B); else the runner on the directory holding every path the
 /// asks name, or the bare runner when one asks for the suite or the paths
 /// share no directory.
 fn ask_command(head: &str, reqs: &[&Requirement], probe: PathProbe<'_>) -> String {
     if reqs.len() == 1 {
         return reqs[0].cmd.clone();
+    }
+    if reqs.iter().all(|r| r.related.is_some()) {
+        let mut files: Vec<&String> = reqs
+            .iter()
+            .flat_map(|r| r.related.iter().flatten())
+            .collect();
+        files.sort_by(|a, b| cmp_utf16(a, b));
+        files.dedup();
+        if files.len() <= RELATED_TESTS_MAX {
+            return std::iter::once(head)
+                .chain(files.into_iter().map(String::as_str))
+                .collect::<Vec<_>>()
+                .join(" ");
+        }
     }
     let mut common: Option<Vec<&str>> = None;
     for req in reqs {
@@ -1625,23 +1800,82 @@ pub fn stop_gate(
     }
 
     let known = known_test.map(|k| test_spec(k, probe));
-    let reqs = gate_requirements(bearing, known.as_ref(), probe);
-    // Asks on one runner fold into one line with one command; requirements a
-    // failed run covers, into that run's line.
-    let mut specs: HashMap<String, TestSpec> = HashMap::new();
-    let mut groups: Vec<Group<'_>> = Vec::new();
-    for (key, req) in &reqs {
-        let ran = runs_for(&req.ids);
-        let mut latest: Option<&TimedTestOutcome> = None;
-        for run in ran.iter().rev() {
-            let spec = specs
-                .entry(run.outcome.cmd.clone())
-                .or_insert_with(|| test_spec(&run.outcome.cmd, probe));
-            if covers(spec, &req.spec) {
-                latest = Some(run);
-                break;
+    let suite_dirs: Vec<String> = match &known {
+        Some(k) if !k.operands.iter().any(|o| o.dir && o.path.is_empty()) => k
+            .operands
+            .iter()
+            .filter(|o| o.dir)
+            .map(|o| o.path.clone())
+            .collect(),
+        _ => Vec::new(),
+    };
+    let mut reqs = gate_requirements(bearing, known.as_ref(), probe);
+    // An unmet suite ask narrows to the tests related to the files its rules
+    // bear on (L2 part B), and a passing run of them meets it. A suite run that
+    // failed after the edit still holds: related tests never outvote a failure.
+    let mut test_files: Option<Option<Vec<String>>> = None;
+    let mut narrowed = |req: &Requirement| -> Option<Vec<String>> {
+        let root = edits?.root.as_deref()?;
+        let mut paths: Vec<String> = Vec::new();
+        for id in &req.ids {
+            for p in bears_on
+                .iter()
+                .filter(|(d, _)| d == id)
+                .flat_map(|(_, on)| on)
+            {
+                let rel = repo_relative(p, root).filter(|r| !r.is_empty())?;
+                if !paths.contains(&rel) {
+                    paths.push(rel);
+                }
             }
         }
+        let files = test_files
+            .get_or_insert_with(|| repo_test_files(root))
+            .as_ref()?;
+        related_tests(&paths, files, &suite_dirs)
+    };
+    // Each requirement's newest covering run, an unmet suite ask narrowed first.
+    let mut specs: HashMap<String, TestSpec> = HashMap::new();
+    let mut latests: Vec<Option<&TimedTestOutcome>> = Vec::with_capacity(reqs.len());
+    for (_, req) in &mut reqs {
+        let ran = runs_for(&req.ids);
+        let mut newest = |hit: &dyn Fn(&TestSpec) -> bool| -> Option<&TimedTestOutcome> {
+            ran.iter()
+                .rev()
+                .find(|run| {
+                    hit(specs
+                        .entry(run.outcome.cmd.clone())
+                        .or_insert_with(|| test_spec(&run.outcome.cmd, probe)))
+                })
+                .copied()
+        };
+        let mut latest = newest(&|spec| covers(spec, &req.spec));
+        if latest.is_none()
+            && req.suite
+            && let Some(related) = narrowed(req)
+        {
+            latest = newest(&|spec| covers_files(spec, &related));
+            req.spec.args.clone_from(&related);
+            req.spec.operands = related
+                .iter()
+                .map(|p| Operand {
+                    token: p.clone(),
+                    path: p.clone(),
+                    dir: false,
+                })
+                .collect();
+            req.cmd = std::iter::once(req.spec.head.as_str())
+                .chain(related.iter().map(String::as_str))
+                .collect::<Vec<_>>()
+                .join(" ");
+            req.related = Some(related);
+        }
+        latests.push(latest);
+    }
+    // Asks on one runner fold into one line with one command; requirements a
+    // failed run covers, into that run's line.
+    let mut groups: Vec<Group<'_>> = Vec::new();
+    for ((key, req), latest) in reqs.iter().zip(latests) {
         if latest.is_some_and(|run| run.outcome.ok) {
             continue;
         }
@@ -2245,6 +2479,7 @@ mod gate_tests {
             let edits = GateEdits {
                 mtimes: mtimes.iter().map(|(p, m)| ((*p).to_owned(), *m)).collect(),
                 recent_tests: recent,
+                root: None,
             };
             stop_gate(
                 &idx,
@@ -2306,6 +2541,164 @@ mod gate_tests {
             "{:?}",
             red.lines
         );
+    }
+
+    /// felt-latency L2 part B, as stop-gate-coverage.test.ts: a rule guards
+    /// src/**; src/billing.ts was edited at t=1000; the repo has tests named
+    /// after it, and others.
+    #[test]
+    fn related_tests_stand_in_for_the_suite() {
+        let d = ScopedDecision {
+            id: "d1".to_owned(),
+            initiative: "demo".to_owned(),
+            ordinal: 1.0,
+            ts: String::new(),
+            chose: "c".to_owned(),
+            over: "o".to_owned(),
+            rule: Some("Rule 1.".to_owned()),
+            quote: None,
+            guard: Some("path:src/**".to_owned()),
+            check: None,
+            until: None,
+            superseded_by: None,
+            mentions: Vec::new(),
+        };
+        let idx = index(vec![d]);
+        let root = std::env::temp_dir().join(format!("sofar-related-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        for f in [
+            "src/billing.ts",
+            "src/ledger.ts",
+            "test/billing.test.ts",
+            "test/billing-routes.test.ts",
+            "test/usage.test.ts",
+        ] {
+            let p = root.join(f);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, "").unwrap();
+        }
+        assert!(checks_git(&root, &["init", "-q"]).is_some());
+        let run = |cmd: &str, ok: bool, ms: i64| TimedTestOutcome {
+            outcome: TestOutcome {
+                cmd: cmd.to_owned(),
+                ok,
+                exit: (!ok).then_some(1.0),
+            },
+            ts: crate::envelope::iso_from_epoch_ms(ms),
+        };
+        let probe = root_probe(&root);
+        let gate = |files: &[&str], recent: Vec<TimedTestOutcome>| {
+            let files: Vec<String> = files.iter().map(|f| (*f).to_owned()).collect();
+            let edits = GateEdits {
+                mtimes: files.iter().map(|f| (f.clone(), 1000.0)).collect(),
+                recent_tests: recent,
+                root: Some(root.clone()),
+            };
+            stop_gate(
+                &idx,
+                &files,
+                &[],
+                Some("bun run test"),
+                Some(1000.0),
+                &probe,
+                true,
+                Some(&edits),
+            )
+        };
+        let both = "bun test test/billing.test.ts test/billing-routes.test.ts";
+        let ask = gate(&["src/billing.ts"], Vec::new());
+        assert!(
+            ask.lines[0]
+                .contains("run `bun run test test/billing-routes.test.ts test/billing.test.ts`"),
+            "{:?}",
+            ask.lines
+        );
+        assert!(
+            gate(&["src/billing.ts"], vec![run(both, true, 2000)])
+                .lines
+                .is_empty()
+        );
+        assert!(
+            gate(&["src/billing.ts"], vec![run("bun test test", true, 2000)])
+                .lines
+                .is_empty()
+        );
+        assert_eq!(
+            gate(
+                &["src/billing.ts"],
+                vec![run("bun test test/billing.test.ts", true, 2000)]
+            )
+            .lines
+            .len(),
+            1
+        );
+        assert_eq!(
+            gate(
+                &["src/billing.ts"],
+                vec![run(&format!("{both} -t \"x\""), true, 2000)]
+            )
+            .lines
+            .len(),
+            1
+        );
+        assert!(gate(&["src/billing.ts"], vec![run(both, false, 2000)]).fails);
+        let suite_red = gate(
+            &["src/billing.ts"],
+            vec![run("bun run test", false, 2000), run(both, true, 3000)],
+        );
+        assert!(suite_red.fails);
+        assert!(
+            suite_red.lines[0].contains("`bun run test` failed (exit 1)"),
+            "{:?}",
+            suite_red.lines
+        );
+        let unrelated = gate(&["src/billing.ts", "src/ledger.ts"], Vec::new());
+        assert!(
+            unrelated.lines[0].contains("run `bun run test` and"),
+            "{:?}",
+            unrelated.lines
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn related_tests_relate_by_name() {
+        let tests: Vec<String> = [
+            "test/checks.test.ts",
+            "test/checks-gate.test.ts",
+            "test/checksum.test.ts",
+            "app/invoices/page.test.tsx",
+            "pkg/x_test.go",
+            "tests/test_ledger.py",
+        ]
+        .map(str::to_owned)
+        .to_vec();
+        let rel = |paths: &[&str], dirs: &[&str]| {
+            let paths: Vec<String> = paths.iter().map(|p| (*p).to_owned()).collect();
+            let dirs: Vec<String> = dirs.iter().map(|p| (*p).to_owned()).collect();
+            related_tests(&paths, &tests, &dirs)
+        };
+        let own = |v: &[&str]| Some(v.iter().map(|p| (*p).to_owned()).collect::<Vec<_>>());
+        assert_eq!(
+            rel(&["src/core/checks.ts"], &[]),
+            own(&["test/checks-gate.test.ts", "test/checks.test.ts"])
+        );
+        assert_eq!(
+            rel(&["test/usage.test.ts"], &[]),
+            own(&["test/usage.test.ts"])
+        );
+        assert_eq!(
+            rel(&["app/invoices/page.tsx"], &[]),
+            own(&["app/invoices/page.test.tsx"])
+        );
+        assert_eq!(
+            rel(&["pkg/x.go", "lib/ledger.py"], &[]),
+            own(&["pkg/x_test.go", "tests/test_ledger.py"])
+        );
+        assert_eq!(rel(&["src/core/checks.ts", "src/other.ts"], &[]), None);
+        assert_eq!(rel(&["src/core/checks.ts"], &["other"]), None);
+        let many: Vec<String> = (0..9).map(|i| format!("t/a-{i}.test.ts")).collect();
+        assert_eq!(related_tests(&["src/a.ts".to_owned()], &many, &[]), None);
     }
 
     /// The coverage matrix: bun, vitest, jest, pytest, cargo and go, rendered
