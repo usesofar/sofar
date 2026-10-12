@@ -43,6 +43,7 @@ import { activityEnabled, leavesWorktree, mayWriteHere, testShapedCommand } from
 import { retireEnabled, retiredOrdinals } from '../core/retire'
 import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, insideRoot, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGateHolds, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
 import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine, intendedRecord, intentLine } from '../core/carrier'
+import { keepOfferAllowed, pagedClauseLine } from '../core/paged-clauses'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -3388,7 +3389,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
-    const keep = prompt === null ? null : keepLine(rootDir, slug, sessionId, prompt)
+    const keepCaptured = prompt === null ? null : keepLine(rootDir, slug, sessionId, prompt)
     // Recall (memory-lead 4.3, D25) before the registration check too: the
     // first prompt is the cue, and in a bench session it is the only one.
     // Cursor's prompt hook cannot inject, so it is never spent there.
@@ -3405,8 +3406,17 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       carriedLine === null && prompt !== null && host.tool !== 'cursor' && elsewhereEnabled()
         ? glanceLine(ctx, slug, sessionId, prompt, (s) => recordOpen(ctx, s))
         : null
+    // The protocol's situational clauses (felt-latency L3), paged in by the
+    // prompt that calls for them; a first prompt is the likeliest to hand over
+    // a roadmap or ask for a drive, so this runs before the registration check.
+    const paged =
+      prompt !== null && host.tool === 'claude-code'
+        ? pagedClauseLine(rootDir, ctx.sofarDir, sessionId, prompt, initiativeSlugs(ctx.sofarDir).filter((s) => s !== slug))
+        : null
+    // The P<n> offer leans on PLAN; with PLAN paged out it waits for PLAN.
+    const keep = keepCaptured !== null && (host.tool !== 'claude-code' || keepOfferAllowed(rootDir, ctx.sofarDir, sessionId)) ? keepCaptured : null
     if (me === undefined) {
-      const first = [carriedLine, glance, recall, map, keep].filter((l): l is string => l !== null)
+      const first = [carriedLine, glance, recall, map, keep, paged].filter((l): l is string => l !== null)
       return withSessionTitle('user-prompt', first.length === 0 ? { ...OK } : { ...OK, stdout: first.join('\n') }, title) // not ours to nudge
     }
 
@@ -3524,6 +3534,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     if (recall !== null) lines.push(recall)
     if (map !== null) lines.push(map)
     if (keep !== null) lines.push(keep)
+    if (paged !== null) lines.push(paged)
     if (carriedLine !== null) lines.unshift(carriedLine)
 
     return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)

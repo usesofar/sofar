@@ -77,6 +77,7 @@ import postToolBatchShim from '../hooks/post-tool-batch.sh'
 import { AWAIT_HOOK_TIMEOUT_SEC } from '../core/run-await'
 import prepareCommitMsgShim from '../hooks/prepare-commit-msg.sh'
 import preCommitShim from '../hooks/pre-commit.sh'
+import { PAGED_CLAUSES, PAGED_POINTER } from '../core/paged-clauses'
 
 /** Identifies a prepare-commit-msg hook as sofar's, so ours can be kept current
  * while a hand-written one is left strictly alone. */
@@ -905,6 +906,25 @@ export const PROTOCOL_BLOCK_V14 = PROTOCOL_BLOCK_V13.replace(
 `,
 )
 
+/** One exact cut, or a loud failure: a block derived from a ledger entry never drifts silently. */
+function cut(block: string, from: string, to: string): string {
+  if (!block.includes(from)) throw new Error(`protocol block derivation: missing ${JSON.stringify(from.slice(0, 40))}`)
+  return block.replace(from, to)
+}
+
+/**
+ * felt-latency L3: V14 with its situational clauses (PLAN, LINKS, DRIVING —
+ * 2.2 of its 5.3 KB) paged out to the prompt hook (core/paged-clauses.ts),
+ * which serves each with the first prompt that calls for it. PAGED_POINTER
+ * stands where PLAN and LINKS stood; it is also the marker that tells the hook
+ * this CLAUDE.md no longer says them.
+ */
+export const PROTOCOL_BLOCK_V15 = cut(
+  cut(PROTOCOL_BLOCK_V14, PAGED_CLAUSES.plan + PAGED_CLAUSES.links, PAGED_POINTER),
+  PAGED_CLAUSES.driving,
+  '',
+)
+
 /**
  * r4-fixes A1 (SPEC §In-band write-back): the write-back is the fenced block
  * the final reply ends with, filed by the Stop hook — no start call and no
@@ -962,9 +982,14 @@ export const PROTOCOL_BLOCK = PROTOCOL_BLOCK_V13.replace(...INLINE_WRITEBACK.cla
   .replace(...INLINE_WRITEBACK.claude.during)
   .replace(...INLINE_WRITEBACK.claude.finish)
 
-/** The CLAUDE.md block for a write-back mode: V14 under the tool write-back, Claude Code's default (r4-fixes H5, D61). */
+/**
+ * The CLAUDE.md block for a write-back mode: V15 under the tool write-back,
+ * Claude Code's default (r4-fixes H5, D61; felt-latency L3). The inline block
+ * keeps every clause: the hook pages nothing in for a CLAUDE.md without
+ * PAGED_POINTER.
+ */
 export function protocolBlock(mode: WritebackMode = writebackModeFor('claude-code')): string {
-  return mode === 'inline' ? PROTOCOL_BLOCK : PROTOCOL_BLOCK_V14
+  return mode === 'inline' ? PROTOCOL_BLOCK : PROTOCOL_BLOCK_V15
 }
 
 /** Blocks init may refresh in a mode: the ledger, plus the other mode's current block. */
@@ -988,6 +1013,7 @@ export const SHIPPED_PROTOCOL_BLOCKS: readonly string[] = [
   PROTOCOL_BLOCK_V12,
   PROTOCOL_BLOCK_V13,
   PROTOCOL_BLOCK_V14,
+  PROTOCOL_BLOCK_V15,
 ]
 
 /**

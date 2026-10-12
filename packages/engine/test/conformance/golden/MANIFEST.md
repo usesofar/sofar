@@ -1,5 +1,12 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **felt-latency L3** (main) from the TypeScript reference; the Rust
+core reproduces all 64. One new case, `repo.paged-clauses`: with a CLAUDE.md
+carrying `PAGED_POINTER`, the prompt hook pages DRIVING, then PLAN and LINKS,
+in once per context; a block that still says every clause, an ordinary
+prompt and a Cursor payload get nothing; a long prompt's `P<n>` offer waits
+for PLAN. No other golden moved: the repo fixture has no CLAUDE.md.
+
 RE-RECORDED for **r4-fixes D65** (felt-latency L1, branch felt-latency-l1)
 from the TypeScript reference; the Rust core reproduces every case. The
 harness now runs every step under `SOFAR_TEST_GATE=hold`, the strict gate the

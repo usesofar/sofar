@@ -838,7 +838,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     let title = prompt_title(&hook, &slug, &state, session_id, &layout);
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
-    let keep = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
+    let keep_captured = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
     let (recall, map) = first_prompt_blocks(root, &layout, &hook, &state, session_id, prompt);
     let glance = prompt_glance(
         &layout,
@@ -848,8 +848,24 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         prompt,
         carried_line.is_some(),
     );
+    // The protocol's situational clauses (felt-latency L3), before the
+    // registration check: a first prompt is the likeliest to call for one.
+    let paged = prompt
+        .filter(|_| hook_host(&hook).tool == CLAUDE_CODE)
+        .and_then(|p| {
+            let others: Vec<String> = crate::layout::initiative_slugs(&layout)
+                .into_iter()
+                .filter(|s| *s != slug)
+                .collect();
+            crate::paged::paged_clause_line(root, &layout, session_id, p, &others)
+        });
+    // The P<n> offer leans on PLAN; with PLAN paged out it waits for PLAN.
+    let keep = keep_captured.filter(|_| {
+        hook_host(&hook).tool != CLAUDE_CODE
+            || crate::paged::keep_offer_allowed(root, &layout, session_id)
+    });
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        let first: Vec<String> = [carried_line, glance, recall, map, keep]
+        let first: Vec<String> = [carried_line, glance, recall, map, keep, paged]
             .into_iter()
             .flatten()
             .collect();
@@ -930,6 +946,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     lines.extend(recall);
     lines.extend(map);
     lines.extend(keep);
+    lines.extend(paged);
     lines.splice(0..0, carried_line); // the carrier's line leads (B14)
     let result = if lines.is_empty() {
         silent()

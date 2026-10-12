@@ -1825,6 +1825,13 @@ record's), and when a task cannot finish until another record moves, mark it
 `blocked` and declare `waits_on`. The AGENTS.md example appends a canonical
 handle, because `sofar event append` files the payload as written and the
 payload validator takes only canonical handles.
+Since felt-latency L3 the CLAUDE.md block (V15) does not carry PLAN, LINKS
+or DRIVING. A pointer line stands in their place, and the user-prompt hook
+pages each clause in, verbatim and once per context, with the first prompt
+that calls for it: a cue word, a list of three or more steps for PLAN, or
+another nameable record named for LINKS. The hook adds nothing when the
+repo's CLAUDE.md lacks the pointer (an older block or the inline block), or
+on Cursor, which reads AGENTS.md, whose blocks keep every clause.
 
 **Handle grammar.** One grammar for both kinds; canonical form is the
 lowercase slug, one space, the target:

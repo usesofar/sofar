@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { FixtureSpec, Materialized, Step } from './harness'
+import { PAGED_CLAUSES, PAGED_POINTER } from '../../src/core/paged-clauses'
 
 /**
  * The conformance catalogue (rust-core 1.2). One entry per golden file;
@@ -574,6 +575,27 @@ export const CASES: ConformanceCase[] = [
         },
       }),
       s('an id that session never captured is refused', ['event', 'append', '--type', 'brief_appended', '--session', 'cap-seeded', '--source', 'codex', '--payload', '{"prompt":"P7"}']),
+    ],
+  },
+  {
+    // felt-latency L3: the prompt hook pages the CLAUDE.md block's PLAN, LINKS
+    // and DRIVING clauses in, once per context, only when the repo's block
+    // carries PAGED_POINTER in their place; never for Cursor.
+    name: 'repo.paged-clauses',
+    fixture: REPO,
+    steps: [
+      s('a CLAUDE.md that still says every clause: nothing paged', ['event', 'user-prompt'], prompt({ session_id: 'paged-sess', prompt: 'run this in sofar drive' }), {
+        before: (m) => writeFileSync(join(m.root, 'CLAUDE.md'), `# r\n\n${PAGED_CLAUSES.plan}${PAGED_CLAUSES.links}${PAGED_CLAUSES.driving}`),
+      }),
+      s('the paged block: a drive ask pages DRIVING in', ['event', 'user-prompt'], prompt({ session_id: 'paged-sess', prompt: 'run this in sofar drive' }), {
+        before: (m) => writeFileSync(join(m.root, 'CLAUDE.md'), `# r\n\n${PAGED_POINTER}`),
+      }),
+      s('the same ask again: told once', ['event', 'user-prompt'], prompt({ session_id: 'paged-sess', prompt: 'drive it' })),
+      s('a roadmap that waits on another record: PLAN and LINKS', ['event', 'user-prompt'], prompt({ session_id: 'paged-sess', prompt: 'here is the roadmap; it waits on felt-cost' })),
+      s('an ordinary prompt: nothing', ['event', 'user-prompt'], prompt({ session_id: 'paged-other', prompt: 'fix the typo' })),
+      s('a long plain prompt, PLAN never paged in: captured, no P<n> offer', ['event', 'user-prompt'], prompt({ session_id: 'paged-other', prompt: `${CAPTURE_LONG} Plain work.` })),
+      s('a long roadmap prompt: PLAN paged in, and the offer with it', ['event', 'user-prompt'], prompt({ session_id: 'paged-other', prompt: `${CAPTURE_LONG} It is the roadmap.` })),
+      s('a Cursor payload: nothing', ['event', 'user-prompt'], prompt({ session_id: 'paged-cursor', prompt: 'run this in sofar drive', cursor_version: '2026.09.10' })),
     ],
   },
   {

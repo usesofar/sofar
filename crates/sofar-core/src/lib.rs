@@ -74,6 +74,7 @@ pub mod lock;
 pub mod log;
 pub mod merge;
 pub mod nudge;
+pub mod paged;
 pub mod payload;
 pub mod peers;
 pub mod post_tool;
