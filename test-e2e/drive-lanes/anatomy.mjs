@@ -4,6 +4,9 @@
 //
 //   node anatomy.mjs [--root /Users/Shared/drive-lanes] [--claude-config ~/.bench/claude-config-build]
 //     → results/4.1-anatomy.json
+//   node anatomy.mjs --driven 4.2-base,4.2-lean --out 4.2-anatomy \
+//     --claude-config ~/.bench/claude-config,~/.bench/claude-config-build
+//     (the config dirs are searched in order; native's reps ran on the build profile)
 //
 // Deterministic, from the transcripts alone. Every call re-reads its whole
 // context, so a block of context costs its size once per call that carries it:
@@ -312,12 +315,24 @@ function main() {
     options: {
       root: { type: 'string', default: '/Users/Shared/drive-lanes' },
       'claude-config': { type: 'string', default: join(homedir(), '.bench', 'claude-config-build') },
+      driven: { type: 'string', default: '3.4-serial,3.4-footprint' },
+      native: { type: 'string', default: '3.9-native' },
+      out: { type: 'string', default: '4.1-anatomy' },
     },
   })
+  const configs = opt['claude-config'].split(',').map((d) => d.replace(/^~(?=\/)/, homedir()))
+  const transcripts = (sid) => {
+    for (const c of configs) {
+      const found = findTranscripts(c, sid)
+      if (found.length > 0) return found
+    }
+    return []
+  }
+  const DRIVEN = opt.driven.split(',')
   const results = join(HERE, 'results')
   const cellOf = new Map(readdirSync(opt.root).map((d) => [d.replace(/-\d{8}-\d{6}$/, ''), d]))
   const arms = {}
-  for (const series of ['3.4-serial', '3.4-footprint']) {
+  for (const series of DRIVEN) {
     const list = []
     let done = 0
     for (const r of seriesOf(results, series)) {
@@ -327,7 +342,7 @@ function main() {
       const events = readEvents(join(opt.root, cell, 'repo', '.sofar', 'initiatives', SLUG, 'events.jsonl'))
       const runId = events.filter((e) => e.type === 'run_started').pop()?.payload.run
       for (const h of events.filter((e) => e.type === 'handoff' && e.payload.run === runId)) {
-        const main = findTranscripts(opt['claude-config'], h.payload.session_id).find((p) => !p.includes('/subagents/'))
+        const main = transcripts(h.payload.session_id).find((p) => !p.includes('/subagents/'))
         if (main !== undefined) list.push(anatomy(readFileSync(main, 'utf8')))
       }
     }
@@ -336,9 +351,9 @@ function main() {
   const mains = []
   const subs = []
   let nativeDone = 0
-  for (const r of seriesOf(results, '3.9-native')) {
+  for (const r of seriesOf(results, opt.native)) {
     nativeDone += r.score.tasks.done
-    for (const p of findTranscripts(opt['claude-config'], r.score.run.id)) {
+    for (const p of transcripts(r.score.run.id)) {
       const sub = p.includes('/subagents/')
       ;(sub ? subs : mains).push(anatomy(readFileSync(p, 'utf8'), { sidechains: sub }))
     }
@@ -347,11 +362,11 @@ function main() {
   arms['3.9-native subagents'] = sumAnatomies(subs, nativeDone)
   arms['3.9-native main thread'] = sumAnatomies(mains, nativeDone)
   const native = arms['3.9-native']
-  const gaps = Object.fromEntries(['3.4-serial', '3.4-footprint'].map((s) => [s, gapOf(arms[s], native)]))
+  const gaps = Object.fromEntries(DRIVEN.map((s) => [s, gapOf(arms[s], native)]))
   // What 4.2 and 4.3 aim at: a driven session's base and its calls against a native subagent's.
   const sub = arms['3.9-native subagents']
   const targets = Object.fromEntries(
-    ['3.4-serial', '3.4-footprint'].map((s) => [
+    DRIVEN.map((s) => [
       s,
       {
         base_context: { driven: arms[s].first_context_mean, native_subagent: sub.first_context_mean, cut: arms[s].first_context_mean - sub.first_context_mean },
@@ -360,14 +375,14 @@ function main() {
     ]),
   )
   const out = {
-    task: 'drive-lanes 4.1',
+    task: `drive-lanes ${opt.out.split('-')[0]}`,
     method: 'each call\'s new context tokens shared over the blocks added since the last call, by characters; a block costs its tokens once per call that carries it (raw) and is priced written once, read after (TOKEN_WEIGHTS); output tokens go to the source of the call\'s tool use',
     weights: TOKEN_WEIGHTS,
     arms,
     gaps,
     targets,
   }
-  writeFileSync(join(results, '4.1-anatomy.json'), `${JSON.stringify(out, null, 2)}\n`)
+  writeFileSync(join(results, `${opt.out}.json`), `${JSON.stringify(out, null, 2)}\n`)
   const brief = (a) => ({ sessions: a.sessions, calls_per_task: a.calls_per_task, first_context_mean: a.first_context_mean, tokens_per_task: a.tokens_per_task, weighted_per_task: a.weighted_per_task, residual_per_task: a.residual_per_task })
   console.log(JSON.stringify({ targets, arms: Object.fromEntries(Object.entries(arms).map(([k, a]) => [k, brief(a)])), gaps: Object.fromEntries(Object.entries(gaps).map(([k, g]) => [k, { gap_per_task: g.gap_per_task, weighted_gap_per_task: g.weighted_gap_per_task, ranked: g.ranked.slice(0, 8).map((r) => `${r.source} ${r.gap} (w ${r.weighted_gap})`), by_lever: g.by_lever, after_levers: g.after_levers, under_native: g.under_native }])) }, null, 2))
 }

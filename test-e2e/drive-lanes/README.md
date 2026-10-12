@@ -160,6 +160,21 @@ reconcile with `measure.mjs` to the token. The result ranks each source's gap
 over native per task and names the 4.2 or 4.3 lever that cuts it
 (`anatomy.test.ts` pins the arithmetic).
 
+### Lean driven base (drive-lanes 4.2)
+
+A pinned surface pins the built-in tools (D47): Bash, Read, Edit, Write and
+ToolSearch, plus any built-in an `--allow` rule names, and no skills. Measured
+as interleaved serial reps against the engine one commit back, on one profile:
+
+```
+node run.mjs --label 4.2-base-1 --engine <checkout at the commit before>
+node run.mjs --label 4.2-lean-1
+# … reps 2 and 3, alternating
+node measure.mjs --bar 4.2-base && node measure.mjs --bar 4.2-lean
+node anatomy.mjs --driven 4.2-base,4.2-lean --out 4.2-anatomy \
+  --claude-config ~/.bench/claude-config,~/.bench/claude-config-build
+```
+
 ### Tiered verify against per-task full verify (drive-lanes 2.6)
 
 `tiered-replay.test.ts` replays the nine tasks without an agent (D29): the

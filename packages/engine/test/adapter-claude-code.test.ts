@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { getPriority, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { ClaudeCodeAdapter, claudeArgs, LEASE_HOOK_MATCHER, LEASE_HOOK_TIMEOUT_S, pinLine, pinPrompt } from '../src/driver/claude-code'
+import { ClaudeCodeAdapter, claudeArgs, DRIVEN_TOOLS, LEASE_HOOK_MATCHER, LEASE_HOOK_TIMEOUT_S, pinLine, pinPrompt, surfaceTools } from '../src/driver/claude-code'
 import { LOW_NICE } from '../src/driver/load'
 import { NUDGE_ENV, readNudge } from '../src/driver/nudge'
 import type { LaunchRequest } from '../src/driver/adapter'
@@ -125,6 +125,19 @@ describe('argv', () => {
     expect(args[args.indexOf('--model') + 1]).toBe('claude-fable-5')
     expect(args[args.indexOf('--effort') + 1]).toBe('high')
     expect(args.slice(-2)).toEqual(['--permission-mode', 'acceptEdits'])
+  })
+
+  it('a pinned surface pins the tool set: the five a driven session uses plus each built-in a rule names, and no skills (drive-lanes 4.2)', () => {
+    expect(DRIVEN_TOOLS).toEqual(['Bash', 'Read', 'Edit', 'Write', 'ToolSearch'])
+    const surface = { permission_mode: 'acceptEdits', allow: ['mcp__sofar', 'Bash(git commit:*)', 'WebFetch(domain:example.com)', 'Agent', 'mcp__db__query'] }
+    expect(surfaceTools(surface)).toEqual(['Bash', 'Read', 'Edit', 'Write', 'ToolSearch', 'WebFetch', 'Agent'])
+    const args = claudeArgs({ cwd: '/w', initiative: 'demo', prompt: 'go', surface })
+    expect(args[args.indexOf('--tools') + 1]).toBe('Bash,Read,Edit,Write,ToolSearch,WebFetch,Agent')
+    expect(args).toContain('--disable-slash-commands')
+    // A run that pinned nothing pins no tools either: ambient stays ambient.
+    const ambient = claudeArgs({ cwd: '/w', initiative: 'demo', prompt: 'go' })
+    expect(ambient).not.toContain('--tools')
+    expect(ambient).not.toContain('--disable-slash-commands')
   })
 
   it('the pin names sofar_start_session and the initiative, so the session cannot follow the branch binding', () => {

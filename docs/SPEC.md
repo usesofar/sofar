@@ -2542,6 +2542,17 @@ receives no record and can call no sofar tool. So the surface can only WIDEN
 what the operator's configuration already permits, and the record says what
 the driver PINNED — never what the session could ultimately do.
 
+One exception, for tokens (drive-lanes 4.2, D47): a pinned surface also pins
+the BUILT-IN tool set. A Claude Code session is launched with `--tools`
+naming Bash, Read, Edit, Write and ToolSearch (which loads deferred MCP tools,
+sofar's among them) plus every built-in a rule names — `--allow WebFetch` or
+`--allow Agent` is how an operator hands driven sessions a tool beyond the
+five — and with `--disable-slash-commands`. Every call in the 2.5 and 3.4
+agent reps was one of those five or a sofar tool; the rest of the default set
+was schema re-read on every call and never used. MCP servers and setting
+sources stay as the operator configured them, and a run that pinned no surface
+pins no tools.
+
 **The threshold nudge (2.3, D4/D7).** Print mode consumes stdin as the
 prompt and has nothing to listen on afterwards, so the driver speaks to a
 RUNNING session through the filesystem: the child is launched with
@@ -9553,8 +9564,9 @@ stay the underlying derivation's, and exit codes are styling-independent.
   accepts what it wrote and REFUSES a path that lies about storing it (`/dev/null`);
   a launch whose surface cannot be proven throws, which the loop records as
   `error` with a `run_stopped` behind it and no handoff. Each launch writes its
-  OWN file; the argv carries `--permission-mode` and `--settings <path>` before
-  the caller's argv, and neither flag appears when the run pinned nothing. Every
+  OWN file; the argv carries `--permission-mode`, `--tools <the five plus each
+  built-in a rule names>`, `--disable-slash-commands` and `--settings <path>`
+  before the caller's argv, and none of them appears when the run pinned nothing. Every
   session in a run receives the run's surface, `--resume` keeps the RECORDED one
   over the new driver's flags and says so, and model/effort come from the surface
   when it carries them. The full status lists the rules whole; the budgeted
