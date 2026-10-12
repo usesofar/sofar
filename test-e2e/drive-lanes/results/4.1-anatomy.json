@@ -1,0 +1,694 @@
+{
+  "task": "drive-lanes 4.1",
+  "method": "each call's new context tokens shared over the blocks added since the last call, by characters; a block costs its tokens once per call that carries it (raw) and is priced written once, read after (TOKEN_WEIGHTS); output tokens go to the source of the call's tool use",
+  "weights": {
+    "input": 1,
+    "cache_creation": 2,
+    "cache_read": 0.1,
+    "output": 5
+  },
+  "arms": {
+    "3.4-serial": {
+      "sessions": 27,
+      "tasks_done": 27,
+      "calls_per_task": 9.4,
+      "first_context_mean": 29598,
+      "tokens_per_task": 316923,
+      "residual_per_task": 0,
+      "weighted_per_task": 73347,
+      "sources": {
+        "system_prompt": {
+          "added": 3942,
+          "raw_per_task": 37221,
+          "weighted_per_task": 3722
+        },
+        "tool_schemas_builtin": {
+          "added": 19043,
+          "raw_per_task": 179823,
+          "weighted_per_task": 20905
+        },
+        "tool_schemas_mcp": {
+          "added": 1072,
+          "raw_per_task": 10122,
+          "weighted_per_task": 3049
+        },
+        "claude_md": {
+          "added": 1405,
+          "raw_per_task": 13270,
+          "weighted_per_task": 3997
+        },
+        "session_start": {
+          "added": 569,
+          "raw_per_task": 5348,
+          "weighted_per_task": 1616
+        },
+        "hook_context": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "harness_reminders": {
+          "added": 3595,
+          "raw_per_task": 32192,
+          "weighted_per_task": 10051
+        },
+        "task_prompt": {
+          "added": 346,
+          "raw_per_task": 3260,
+          "weighted_per_task": 983
+        },
+        "sofar_protocol": {
+          "added": 2076,
+          "raw_per_task": 13291,
+          "weighted_per_task": 11779
+        },
+        "orchestration": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "verify": {
+          "added": 452,
+          "raw_per_task": 2738,
+          "weighted_per_task": 1988
+        },
+        "git": {
+          "added": 767,
+          "raw_per_task": 1819,
+          "weighted_per_task": 3413
+        },
+        "task_work": {
+          "added": 2165,
+          "raw_per_task": 17840,
+          "weighted_per_task": 11844
+        }
+      }
+    },
+    "3.4-footprint": {
+      "sessions": 27,
+      "tasks_done": 27,
+      "calls_per_task": 10.1,
+      "first_context_mean": 29972,
+      "tokens_per_task": 344209,
+      "residual_per_task": 0,
+      "weighted_per_task": 79556,
+      "sources": {
+        "system_prompt": {
+          "added": 3984,
+          "raw_per_task": 40142,
+          "weighted_per_task": 4014
+        },
+        "tool_schemas_builtin": {
+          "added": 19247,
+          "raw_per_task": 193935,
+          "weighted_per_task": 22784
+        },
+        "tool_schemas_mcp": {
+          "added": 1083,
+          "raw_per_task": 10916,
+          "weighted_per_task": 3150
+        },
+        "claude_md": {
+          "added": 1435,
+          "raw_per_task": 14458,
+          "weighted_per_task": 4172
+        },
+        "session_start": {
+          "added": 538,
+          "raw_per_task": 5469,
+          "weighted_per_task": 1569
+        },
+        "hook_context": {
+          "added": 3,
+          "raw_per_task": 33,
+          "weighted_per_task": 9
+        },
+        "harness_reminders": {
+          "added": 3606,
+          "raw_per_task": 34377,
+          "weighted_per_task": 10290
+        },
+        "task_prompt": {
+          "added": 465,
+          "raw_per_task": 4692,
+          "weighted_per_task": 1353
+        },
+        "sofar_protocol": {
+          "added": 2047,
+          "raw_per_task": 11875,
+          "weighted_per_task": 10573
+        },
+        "orchestration": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "verify": {
+          "added": 706,
+          "raw_per_task": 4620,
+          "weighted_per_task": 2922
+        },
+        "git": {
+          "added": 636,
+          "raw_per_task": 1851,
+          "weighted_per_task": 3162
+        },
+        "task_work": {
+          "added": 2663,
+          "raw_per_task": 21841,
+          "weighted_per_task": 15557
+        }
+      }
+    },
+    "3.9-native": {
+      "sessions": 26,
+      "tasks_done": 27,
+      "calls_per_task": 6.9,
+      "first_context_mean": 16502,
+      "tokens_per_task": 200728,
+      "residual_per_task": 0,
+      "weighted_per_task": 53637,
+      "sources": {
+        "system_prompt": {
+          "added": 1035,
+          "raw_per_task": 12458,
+          "weighted_per_task": 1296
+        },
+        "tool_schemas_builtin": {
+          "added": 12410,
+          "raw_per_task": 98321,
+          "weighted_per_task": 13682
+        },
+        "tool_schemas_mcp": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "claude_md": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "session_start": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "hook_context": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "harness_reminders": {
+          "added": 2909,
+          "raw_per_task": 21456,
+          "weighted_per_task": 7691
+        },
+        "task_prompt": {
+          "added": 496,
+          "raw_per_task": 3848,
+          "weighted_per_task": 1327
+        },
+        "sofar_protocol": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "orchestration": {
+          "added": 2040,
+          "raw_per_task": 27862,
+          "weighted_per_task": 12557
+        },
+        "verify": {
+          "added": 930,
+          "raw_per_task": 7662,
+          "weighted_per_task": 3693
+        },
+        "git": {
+          "added": 356,
+          "raw_per_task": 4566,
+          "weighted_per_task": 1699
+        },
+        "task_work": {
+          "added": 3067,
+          "raw_per_task": 24556,
+          "weighted_per_task": 11692
+        }
+      }
+    },
+    "3.9-native subagents": {
+      "sessions": 23,
+      "tasks_done": 27,
+      "calls_per_task": 4.4,
+      "first_context_mean": 15411,
+      "tokens_per_task": 80075,
+      "residual_per_task": 0,
+      "weighted_per_task": 24174,
+      "sources": {
+        "system_prompt": {
+          "added": 620,
+          "raw_per_task": 3191,
+          "weighted_per_task": 370
+        },
+        "tool_schemas_builtin": {
+          "added": 10405,
+          "raw_per_task": 53552,
+          "weighted_per_task": 8740
+        },
+        "tool_schemas_mcp": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "claude_md": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "session_start": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "hook_context": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "harness_reminders": {
+          "added": 2373,
+          "raw_per_task": 11337,
+          "weighted_per_task": 5642
+        },
+        "task_prompt": {
+          "added": 436,
+          "raw_per_task": 2520,
+          "weighted_per_task": 1081
+        },
+        "sofar_protocol": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "orchestration": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "verify": {
+          "added": 372,
+          "raw_per_task": 857,
+          "weighted_per_task": 1260
+        },
+        "git": {
+          "added": 94,
+          "raw_per_task": 259,
+          "weighted_per_task": 209
+        },
+        "task_work": {
+          "added": 2127,
+          "raw_per_task": 8357,
+          "weighted_per_task": 6872
+        }
+      }
+    },
+    "3.9-native main thread": {
+      "sessions": 3,
+      "tasks_done": 27,
+      "calls_per_task": 2.5,
+      "first_context_mean": 24869,
+      "tokens_per_task": 120654,
+      "residual_per_task": 0,
+      "weighted_per_task": 29463,
+      "sources": {
+        "system_prompt": {
+          "added": 415,
+          "raw_per_task": 9266,
+          "weighted_per_task": 927
+        },
+        "tool_schemas_builtin": {
+          "added": 2005,
+          "raw_per_task": 44768,
+          "weighted_per_task": 4942
+        },
+        "tool_schemas_mcp": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "claude_md": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "session_start": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "hook_context": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "harness_reminders": {
+          "added": 537,
+          "raw_per_task": 10119,
+          "weighted_per_task": 2049
+        },
+        "task_prompt": {
+          "added": 59,
+          "raw_per_task": 1328,
+          "weighted_per_task": 246
+        },
+        "sofar_protocol": {
+          "added": 0,
+          "raw_per_task": 0,
+          "weighted_per_task": 0
+        },
+        "orchestration": {
+          "added": 2040,
+          "raw_per_task": 27862,
+          "weighted_per_task": 12557
+        },
+        "verify": {
+          "added": 558,
+          "raw_per_task": 6805,
+          "weighted_per_task": 2433
+        },
+        "git": {
+          "added": 262,
+          "raw_per_task": 4307,
+          "weighted_per_task": 1490
+        },
+        "task_work": {
+          "added": 940,
+          "raw_per_task": 16198,
+          "weighted_per_task": 4820
+        }
+      }
+    }
+  },
+  "gaps": {
+    "3.4-serial": {
+      "gap_per_task": 116195,
+      "weighted_gap_per_task": 19710,
+      "ranked": [
+        {
+          "source": "tool_schemas_builtin",
+          "lever": "4.2",
+          "driven": 179823,
+          "native": 98321,
+          "gap": 81502,
+          "weighted_gap": 7223
+        },
+        {
+          "source": "system_prompt",
+          "lever": "4.2",
+          "driven": 37221,
+          "native": 12458,
+          "gap": 24763,
+          "weighted_gap": 2426
+        },
+        {
+          "source": "sofar_protocol",
+          "lever": "4.3",
+          "driven": 13291,
+          "native": 0,
+          "gap": 13291,
+          "weighted_gap": 11779
+        },
+        {
+          "source": "claude_md",
+          "lever": "4.2",
+          "driven": 13270,
+          "native": 0,
+          "gap": 13270,
+          "weighted_gap": 3997
+        },
+        {
+          "source": "harness_reminders",
+          "lever": "4.2",
+          "driven": 32192,
+          "native": 21456,
+          "gap": 10736,
+          "weighted_gap": 2360
+        },
+        {
+          "source": "tool_schemas_mcp",
+          "lever": "4.2",
+          "driven": 10122,
+          "native": 0,
+          "gap": 10122,
+          "weighted_gap": 3049
+        },
+        {
+          "source": "session_start",
+          "lever": "4.2",
+          "driven": 5348,
+          "native": 0,
+          "gap": 5348,
+          "weighted_gap": 1616
+        },
+        {
+          "source": "hook_context",
+          "lever": "4.2",
+          "driven": 0,
+          "native": 0,
+          "gap": 0,
+          "weighted_gap": 0
+        },
+        {
+          "source": "task_prompt",
+          "lever": "4.2",
+          "driven": 3260,
+          "native": 3848,
+          "gap": -588,
+          "weighted_gap": -344
+        },
+        {
+          "source": "git",
+          "lever": "4.3",
+          "driven": 1819,
+          "native": 4566,
+          "gap": -2747,
+          "weighted_gap": 1714
+        },
+        {
+          "source": "verify",
+          "lever": "4.3",
+          "driven": 2738,
+          "native": 7662,
+          "gap": -4924,
+          "weighted_gap": -1705
+        },
+        {
+          "source": "task_work",
+          "lever": null,
+          "driven": 17840,
+          "native": 24556,
+          "gap": -6716,
+          "weighted_gap": 152
+        },
+        {
+          "source": "orchestration",
+          "lever": null,
+          "driven": 0,
+          "native": 27862,
+          "gap": -27862,
+          "weighted_gap": -12557
+        }
+      ],
+      "by_lever": {
+        "4.2": {
+          "raw_per_task": 145741,
+          "weighted_per_task": 20671,
+          "sources": [
+            "tool_schemas_builtin",
+            "system_prompt",
+            "claude_md",
+            "harness_reminders",
+            "tool_schemas_mcp",
+            "session_start"
+          ]
+        },
+        "4.3": {
+          "raw_per_task": 13291,
+          "weighted_per_task": 11779,
+          "sources": [
+            "sofar_protocol"
+          ]
+        }
+      },
+      "after_levers": {
+        "tokens_per_task": 157891,
+        "weighted_per_task": 40897
+      },
+      "under_native": true
+    },
+    "3.4-footprint": {
+      "gap_per_task": 143481,
+      "weighted_gap_per_task": 25919,
+      "ranked": [
+        {
+          "source": "tool_schemas_builtin",
+          "lever": "4.2",
+          "driven": 193935,
+          "native": 98321,
+          "gap": 95614,
+          "weighted_gap": 9102
+        },
+        {
+          "source": "system_prompt",
+          "lever": "4.2",
+          "driven": 40142,
+          "native": 12458,
+          "gap": 27684,
+          "weighted_gap": 2718
+        },
+        {
+          "source": "claude_md",
+          "lever": "4.2",
+          "driven": 14458,
+          "native": 0,
+          "gap": 14458,
+          "weighted_gap": 4172
+        },
+        {
+          "source": "harness_reminders",
+          "lever": "4.2",
+          "driven": 34377,
+          "native": 21456,
+          "gap": 12921,
+          "weighted_gap": 2599
+        },
+        {
+          "source": "sofar_protocol",
+          "lever": "4.3",
+          "driven": 11875,
+          "native": 0,
+          "gap": 11875,
+          "weighted_gap": 10573
+        },
+        {
+          "source": "tool_schemas_mcp",
+          "lever": "4.2",
+          "driven": 10916,
+          "native": 0,
+          "gap": 10916,
+          "weighted_gap": 3150
+        },
+        {
+          "source": "session_start",
+          "lever": "4.2",
+          "driven": 5469,
+          "native": 0,
+          "gap": 5469,
+          "weighted_gap": 1569
+        },
+        {
+          "source": "task_prompt",
+          "lever": "4.2",
+          "driven": 4692,
+          "native": 3848,
+          "gap": 844,
+          "weighted_gap": 26
+        },
+        {
+          "source": "hook_context",
+          "lever": "4.2",
+          "driven": 33,
+          "native": 0,
+          "gap": 33,
+          "weighted_gap": 9
+        },
+        {
+          "source": "git",
+          "lever": "4.3",
+          "driven": 1851,
+          "native": 4566,
+          "gap": -2715,
+          "weighted_gap": 1463
+        },
+        {
+          "source": "task_work",
+          "lever": null,
+          "driven": 21841,
+          "native": 24556,
+          "gap": -2715,
+          "weighted_gap": 3865
+        },
+        {
+          "source": "verify",
+          "lever": "4.3",
+          "driven": 4620,
+          "native": 7662,
+          "gap": -3042,
+          "weighted_gap": -771
+        },
+        {
+          "source": "orchestration",
+          "lever": null,
+          "driven": 0,
+          "native": 27862,
+          "gap": -27862,
+          "weighted_gap": -12557
+        }
+      ],
+      "by_lever": {
+        "4.2": {
+          "raw_per_task": 167939,
+          "weighted_per_task": 23345,
+          "sources": [
+            "tool_schemas_builtin",
+            "system_prompt",
+            "claude_md",
+            "harness_reminders",
+            "tool_schemas_mcp",
+            "session_start",
+            "task_prompt",
+            "hook_context"
+          ]
+        },
+        "4.3": {
+          "raw_per_task": 11875,
+          "weighted_per_task": 10573,
+          "sources": [
+            "sofar_protocol"
+          ]
+        }
+      },
+      "after_levers": {
+        "tokens_per_task": 164395,
+        "weighted_per_task": 45638
+      },
+      "under_native": true
+    }
+  },
+  "targets": {
+    "3.4-serial": {
+      "base_context": {
+        "driven": 29598,
+        "native_subagent": 15411,
+        "cut": 14187
+      },
+      "calls_per_task": {
+        "driven": 9.4,
+        "native_subagent": 4.4,
+        "native": 6.9
+      }
+    },
+    "3.4-footprint": {
+      "base_context": {
+        "driven": 29972,
+        "native_subagent": 15411,
+        "cut": 14561
+      },
+      "calls_per_task": {
+        "driven": 10.1,
+        "native_subagent": 4.4,
+        "native": 6.9
+      }
+    }
+  }
+}

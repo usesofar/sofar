@@ -142,6 +142,24 @@ rediscovery, or replaying all of it. Then it applies the gate: a lever goes
 ahead only where both bounds beat both fresh sessions and the arm beats the
 native arm per task (`thread-gate.test.ts` pins the arithmetic).
 
+### Token anatomy (drive-lanes 4.1)
+
+```
+node anatomy.mjs                         # → results/4.1-anatomy.json
+```
+
+`anatomy.mjs` splits the 3.4 serial and footprint sessions' tokens, and the 3.9
+native main thread's and subagents', by the source that put them in context:
+the system prompt, built-in and MCP tool schemas, CLAUDE.md, the SessionStart
+injection, per-tool hook context, harness reminders, the task prompt, sofar
+protocol calls, orchestration, verify, git and the task's own work. Each call's
+new context tokens are shared over the blocks added since the last call, by
+characters (the transcript's `prompt_snapshot` carries the system prompt and
+tool list); a block costs its tokens once per call that carries it. Totals
+reconcile with `measure.mjs` to the token. The result ranks each source's gap
+over native per task and names the 4.2 or 4.3 lever that cuts it
+(`anatomy.test.ts` pins the arithmetic).
+
 ### Tiered verify against per-task full verify (drive-lanes 2.6)
 
 `tiered-replay.test.ts` replays the nine tasks without an agent (D29): the
