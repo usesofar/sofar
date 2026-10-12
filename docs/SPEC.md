@@ -10240,9 +10240,13 @@ stay the underlying derivation's, and exit codes are styling-independent.
   a substitution or a redirect anywhere in the command still does. In real
   transcripts 344 of 9,375 may-write marks (3.7%) came from such a segment
   alone, each a window a peer's edit was blamed in; 1 more of 117 real holds
-  clears. A peer-capture rule (a dirty file whose mtime matches another
-  session's capture is that session's) would release 2 of 117 and is not
-  built (D24).
+  clears.
+- **Whose capture (r4-fixes H20):** a dirty file git names whose mtime
+  another session's own hook captured within ±2 s (its latest file_touched
+  of that path, in any record) is that session's edit, whatever window of
+  this one spans it: a drive lane writing while this session's one-second
+  commands run is not this session's author (`syn.gate-peer-capture`). A
+  file nobody captured still bears. Replay: 2 of 117 real holds release.
 - **Landing write (r4-fixes D61):** `sofar_update_task` with `"task_id":
   "m1, m2"` files a done task_status_changed for each, in order, and the
   statusline gauge reading the record goes 0/3 → 2/3; `m1,m9` (m9 not in

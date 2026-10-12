@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **r4-fixes H20** (main) from the TypeScript reference; the Rust
+core reproduces all 63. One new case, `syn.gate-peer-capture`: a peer's
+captured edit written inside this session's may-write window no longer holds
+its stop; an uncaptured write in its next command does. The installed
+0.37.0-rc.4 core fails step 7.
+
 ADDED for **r4-fixes H17** (main) from the TypeScript reference; the Rust
 core reproduces all 62. One new case, `syn.subagent-writeback`: a PreToolUse
 for `mcp__sofar__sofar_end_session` carrying `agent_id` is denied with the

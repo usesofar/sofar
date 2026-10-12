@@ -1081,6 +1081,42 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // r4-fixes H20 on the hot path: a peer (a drive lane) writes a guarded
+    // file while one of this session's may-write commands runs, and its own
+    // hook captures the edit. That file is the peer's: this session's stop is
+    // not held for it. A file nobody captured, written inside this session's
+    // next command, still bears.
+    name: 'syn.gate-peer-capture',
+    fixture: { ...synthetic('baseline'), git: undefined },
+    steps: [
+      s('session-start: the tree', ['event', 'session-start'], start({ session_id: 'sess-p' }), {
+        before: (m) => {
+          execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: m.root, stdio: 'ignore' })
+          // Written ten minutes before the session: never its edits (H1).
+          const before = new Date(Date.now() - 600_000)
+          for (const rel of ['src/stock.ts', 'src/peer.ts', 'tests/rules/one.test.ts']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+            utimesSync(join(m.root, rel), before, before)
+          }
+        },
+      }),
+      s('a rule checked by one test file', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-p', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', guard: 'path:src/**', check: { cmd: 'bun test tests/rules/one.test.ts', hint: 'reject the move before it lands' }, supersedes: 'none' })]),
+      s('sess-p writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-p', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('a may-write command starts', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-p', tool_name: 'Bash', tool_input: { command: 'echo y > notes.txt' }, tool_use_id: 'p1' })),
+      s("a peer writes a guarded file inside it, and its hook captures the edit", ['event', 'post-tool'], edit('<ROOT>/src/peer.ts', { session_id: 'sess-lane' }), {
+        before: (m) => writeFileSync(join(m.root, 'src', 'peer.ts'), 'export const p = 1\n'),
+      }),
+      s('the command ends', ['event', 'post-tool'], bash('echo y > notes.txt', { session_id: 'sess-p', tool_use_id: 'p1' })),
+      s("stop: the peer's captured edit is not this session's", ['event', 'stop'], stop({ session_id: 'sess-p' })),
+      s('another may-write command starts', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-p', tool_name: 'Bash', tool_input: { command: "sed -i '' s/a/b/ src/stock.ts" }, tool_use_id: 'p2' })),
+      s('it writes a guarded file nobody captured, and ends', ['event', 'post-tool'], bash("sed -i '' s/a/b/ src/stock.ts", { session_id: 'sess-p', tool_use_id: 'p2' }), {
+        before: (m) => writeFileSync(join(m.root, 'src', 'stock.ts'), 'export const x = 1\n'),
+      }),
+      s('stop: that one bears', ['event', 'stop'], stop({ session_id: 'sess-p' })),
+    ],
+  },
+  {
     // r4-fixes A8 on the hot path: a check bound after the fact. The fixture's
     // guarded D1 takes its check by check_bound (what `sofar bind` appends) and
     // keeps its handle; the gate then holds an edit it governs until that test
