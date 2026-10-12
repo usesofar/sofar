@@ -40,6 +40,8 @@ export interface FakeScript {
    * driven agent's needs_user lever (session-driver D5).
    */
   block?: string
+  /** The waits_on that block sets, as sofar_update_task writes it (drive-lanes 3.10). */
+  block_waits_on?: string[]
   /** What the session does to the tree it was launched in, before it touches the record (drive-lanes 2.2). */
   work?: (cwd: string) => void
   /** Settles when the session may go on: until then it is running, so lanes can be caught at once (drive-lanes 2.3). */
@@ -87,7 +89,7 @@ export class FakeSession implements AgentSession {
     if (script.session_id !== undefined && taskId !== undefined) {
       const change =
         script.block !== undefined
-          ? { id: taskId, status: 'blocked', note: script.block }
+          ? { id: taskId, status: 'blocked', note: script.block, ...(script.block_waits_on !== undefined ? { waits_on: script.block_waits_on } : {}) }
           : script.complete === true
             ? { id: taskId, status: 'done' }
             : undefined

@@ -1,0 +1,79 @@
+{
+  "task": "drive-lanes 3.10",
+  "rule": "comparePiece (D36)",
+  "verdicts": [
+    {
+      "piece": "leases steer + packets + integrate at edit on footprint, hub pair (3.10)",
+      "without": "3.10-footprint",
+      "with": "3.10-steer",
+      "reps": {
+        "without": 3,
+        "with": 3,
+        "min": 3
+      },
+      "verdict": "drop",
+      "failed": [
+        "merge_reopens_le_10pct",
+        "tokens_per_task_no_higher",
+        "wall_clock_rise_le_20pct"
+      ],
+      "lanes_busy_rate": {
+        "without": 0.6497,
+        "with": 0.6617
+      },
+      "parks": {
+        "without": 0,
+        "with": 0.3333
+      },
+      "criteria": {
+        "rework_falls": {
+          "without": 1,
+          "with": 0.6667,
+          "pass": true
+        },
+        "merge_reopens_le_10pct": {
+          "with": 0.1667,
+          "pass": false
+        },
+        "every_rep_finishes": {
+          "with": [
+            2,
+            2,
+            2
+          ],
+          "pass": true
+        },
+        "tasks_done_no_lower": {
+          "without": 2,
+          "with": 2,
+          "pass": true
+        },
+        "gate_pass_rate_no_lower": {
+          "without": 1,
+          "with": 1,
+          "pass": true
+        },
+        "duplicate_work_0": {
+          "with": [
+            0,
+            0,
+            0
+          ],
+          "pass": true
+        },
+        "tokens_per_task_no_higher": {
+          "without": 549605.3333,
+          "with": 582583.3333,
+          "change": 0.06,
+          "pass": false
+        },
+        "wall_clock_rise_le_20pct": {
+          "without": 119.3333,
+          "with": 162.2667,
+          "change": 0.3598,
+          "pass": false
+        }
+      }
+    }
+  ]
+}

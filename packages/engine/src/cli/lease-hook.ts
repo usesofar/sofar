@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { laneOf } from '../core/git'
-import { checkLease, LEASE_ENV, unionMerged, type LeaseHolder } from '../core/leases'
+import { catchUp, checkLease, LEASE_ENV, unionMerged, type LeaseHolder } from '../core/leases'
 import { peerHint } from '../core/packets'
 import { resolvePeers } from '../core/peers'
 import type { EditCall } from '../core/regions'
@@ -20,8 +20,11 @@ import type { HookResult } from './event'
  * is `additionalContext` with no permission decision, so the edit applies and
  * the host's own permission flow is unchanged (r4-fixes D17); the deny mode
  * (D14) is `permissionDecision: "deny"` with the same text as its reason.
- * Every failure is silence: a lease is advice about a merge, never a reason
- * to break an edit.
+ * Before either, a landing the lane's branch lacks under the file is merged
+ * in where it cannot conflict, and the edit written against the old text is
+ * refused in both modes (3.10, D44); where the lane's uncommitted changes meet
+ * it, how to clear them rides the context. Every failure is silence: a lease is
+ * advice about a merge, never a reason to break an edit.
  */
 export function handleLease(rootDir: string, input: string, env: NodeJS.ProcessEnv = process.env): HookResult {
   const OK: HookResult = { exitCode: 0, stdout: '', stderr: '' }
@@ -43,6 +46,11 @@ export function handleLease(rootDir: string, input: string, env: NodeJS.ProcessE
     const path = rel.split(sep).join('/')
     // The record is the blackboard and merges by union; so does any file the repo says merges that way.
     if (path === '.sofar' || path.startsWith('.sofar/') || unionMerged(lane.worktree, path)) return OK
+    // A landing this branch lacks under the file is taken in first (3.10, D44), and the edit made against the old text refused.
+    const caught = catchUp(leasePath, lane.worktree, path)
+    if (caught?.refuse === true) {
+      return { ...OK, stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: caught.text } })}\n` }
+    }
     let content: string | null = null
     try {
       content = readFileSync(abs, 'utf8')
@@ -51,10 +59,11 @@ export function handleLease(rootDir: string, input: string, env: NodeJS.ProcessE
     }
     const session = str(hook.session_id) ?? undefined
     const check = checkLease(leasePath, path, content, call, undefined, session)
-    if (check === null || check.text === null) return OK
-    const hint = session !== undefined && check.holders !== undefined ? peers(session, check.holders, env) : null
-    const text = hint === null ? check.text : `${check.text}\n${hint}`
-    const specific = check.deny
+    const said = [check?.text ?? null, caught?.text ?? null].filter((t): t is string => t !== null)
+    if (said.length === 0) return OK
+    const hint = session !== undefined && check?.holders !== undefined ? peers(session, check.holders, env) : null
+    const text = [...said, ...(hint !== null ? [hint] : [])].join('\n')
+    const specific = check?.deny === true
       ? { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: text }
       : { hookEventName: 'PreToolUse', additionalContext: text }
     return { ...OK, stdout: `${JSON.stringify({ hookSpecificOutput: specific })}\n` }

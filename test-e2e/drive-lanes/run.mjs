@@ -6,6 +6,7 @@
 //   node run.mjs --label serial-1                       # serial drive, this checkout's build
 //   node run.mjs --label lanes-1 --arm lanes --lanes 3  # the same plan on three lanes (drive-lanes 2.5)
 //   node run.mjs --label native-1 --arm native          # one Claude Code session and its subagents, no sofar (3.9)
+//   node run.mjs --label hub-1 --fixture hub --arm lanes --lanes 2   # the pair whose footprints miss (3.10)
 //   node run.mjs --label serial-1 --model opus --effort high
 //   node run.mjs --label selftest --self-test           # no Claude: fixture properties only
 //   node run.mjs --label preflight --preflight          # engine, claude and profile, then stop
@@ -24,8 +25,8 @@ import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
-import { REFERENCE, SKELETON, SLUG, TASKS, GOAL, nativePrompt, planPayload } from './fixture.mjs'
-import { compare, comparePiece, measure, measureCell, measureNative } from './measure.mjs'
+import { nativePrompt } from './fixture.mjs'
+import { compare, comparePiece, fixtureOf, measure, measureCell, measureNative } from './measure.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const HOME = homedir()
@@ -34,6 +35,7 @@ const { values: opt } = parseArgs({
   options: {
     engine: { type: 'string', default: resolve(HERE, '..', '..') },
     label: { type: 'string' },
+    fixture: { type: 'string', default: 'nine' },
     arm: { type: 'string', default: 'serial' },
     lanes: { type: 'string', default: '3' },
     leases: { type: 'string' },
@@ -52,9 +54,20 @@ const { values: opt } = parseArgs({
   },
 })
 if (opt.help || !opt.label) {
-  console.log('usage: node run.mjs --label <name> [--arm serial|lanes|native] [--lanes 3] [--leases steer|deny|off] [--schedule footprint|ready] [--engine <checkout>] [--model sonnet] [--effort <e>] [--claude <bin>] [--claude-config <dir>] [--root <dir>] [--session-timeout 900] [--max-sessions 18] [--self-test | --preflight]')
+  console.log('usage: node run.mjs --label <name> [--fixture nine|hub] [--arm serial|lanes|native] [--lanes 3] [--leases steer|deny|off] [--schedule footprint|ready] [--engine <checkout>] [--model sonnet] [--effort <e>] [--claude <bin>] [--claude-config <dir>] [--root <dir>] [--session-timeout 900] [--max-sessions 18] [--self-test | --preflight]')
   process.exit(opt.help ? 0 : 2)
 }
+// The nine-task fixture (1.1), or the pair whose footprints miss (3.10).
+const fixture = fixtureOf(opt.fixture)
+if (fixture === undefined) {
+  console.error(`--fixture ${opt.fixture}: the fixtures are \`nine\` and \`hub\``)
+  process.exit(2)
+}
+if (fixture.NAME === 'hub' && opt.arm === 'native') {
+  console.error('--fixture hub drives lanes or serial; the native arm (3.9) plays the nine-task plan')
+  process.exit(2)
+}
+const { REFERENCE, SKELETON, SLUG, TASKS, GOAL, planPayload } = fixture
 if (!['serial', 'lanes', 'native'].includes(opt.arm)) {
   console.error(`--arm ${opt.arm}: the arms are \`serial\`, \`lanes\` and \`native\` — later drive-lanes steps add theirs here`)
   process.exit(2)
@@ -264,6 +277,48 @@ function selfTest() {
     checks.measure.pass &&
     checks.measure_lanes.pass &&
     checks.compare.pass &&
+    checks.pieces.pass
+  return { pass, checks }
+}
+
+/**
+ * The hub fixture's shape (3.10), no agent: every verify red on the skeleton,
+ * neither title naming the hub, each reference green alone, the second merge
+ * conflicting in the hub and nowhere else, and the hand-merged hub green.
+ */
+function selfTestHub() {
+  const git = (...a) => sh('git', a, { cwd: repo, allowFail: true })
+  const checks = {}
+  const commitFiles = (files, message) => {
+    writeFiles(files)
+    git('add', '-A')
+    git('commit', '-qm', message)
+  }
+  checks.all_red_on_skeleton = TASKS.every((t) => !verifyPasses(t))
+  checks.hub_unnamed = TASKS.every((t) => !t.title.includes(fixture.HUB))
+  checks.green_alone = {}
+  for (const t of TASKS) {
+    git('checkout', '-qb', `task-${t.id}`, 'main')
+    commitFiles(REFERENCE[t.id], `${t.id} (reference)`)
+    checks.green_alone[t.id] = verifyPasses(t)
+    git('checkout', '-q', 'main')
+  }
+  checks.merge_conflicts = []
+  for (const t of TASKS) {
+    if (git('merge', '--no-edit', '-q', `task-${t.id}`).status === 0) continue
+    checks.merge_conflicts.push({ id: t.id, paths: git('diff', '--name-only', '--diff-filter=U').stdout.trim().split('\n') })
+    git('merge', '--abort')
+  }
+  const last = TASKS[TASKS.length - 1]
+  commitFiles({ ...REFERENCE[last.id], ...REFERENCE['hub-merged'] }, `${last.id} with the hub resolved by hand (reference)`)
+  checks.all_green_merged = TASKS.every((t) => verifyPasses(t))
+  checks.pieces = pieceSelfTest()
+  const pass =
+    checks.all_red_on_skeleton &&
+    checks.hub_unnamed &&
+    Object.values(checks.green_alone).every(Boolean) &&
+    JSON.stringify(checks.merge_conflicts) === JSON.stringify([{ id: last.id, paths: [fixture.HUB] }]) &&
+    checks.all_green_merged &&
     checks.pieces.pass
   return { pass, checks }
 }
@@ -540,6 +595,7 @@ function finalTree() {
 // ---------- main ----------
 const result = {
   label: opt.label,
+  fixture: fixture.NAME,
   arm: opt.arm,
   ...(native ? { native_prompt: nativePrompt() } : {}),
   ...(lanes > 1 ? { lanes, leases: opt.leases ?? 'steer', schedule: opt.schedule ?? 'footprint' } : {}),
@@ -563,7 +619,7 @@ try {
       log(`probe: ${JSON.stringify(result.probe)}`)
       ok = result.probe.exit === 0
     } else if (opt['self-test']) {
-      result.self_test = selfTest()
+      result.self_test = fixture.NAME === 'hub' ? selfTestHub() : selfTest()
       log(`self-test: ${result.self_test.pass ? 'PASS' : 'FAIL'} ${JSON.stringify(result.self_test.checks)}`)
       ok = result.self_test.pass
     } else {
@@ -583,7 +639,7 @@ try {
       } else {
         result.drive = await runDrive(engine)
         log(`drive exited ${result.drive.exit}${result.drive.signal ? ` (${result.drive.signal})` : ''} after ${Math.round(result.drive.ms / 1000)}s`)
-        result.score = measureCell(cell, opt['claude-config'])
+        result.score = measureCell(cell, opt['claude-config'], TASKS)
         // A lanes run lands on its run base branch and leaves the checkout's own alone (D20).
         if (lanes > 1 && result.score.run?.id) sh('git', ['checkout', '-q', `sofar/${SLUG}/${result.score.run.id}`], { cwd: repo, allowFail: true })
         result.final_tree = finalTree()

@@ -95,6 +95,27 @@ node --env-file=node_modules/.cache/conflict-replay.env node_modules/vitest/vite
 
 → `results/3.4-replay.json`.
 
+### Steer against footprint alone where footprints miss (drive-lanes 3.10)
+
+3.4 found leases met nothing on top of footprint scheduling, because on the
+nine-task plan the footprints never missed. `--fixture hub` (`fixture-hub.mjs`)
+is the case they cannot see: two tasks whose titles name only their own module
+and spec (`formatBytes` in src/bytes.mjs, `formatDuration` in src/duration.mjs),
+while each spec also calls `format(kind, …)` from src/index.mjs. So both register
+their kind in the same `FORMATTERS` table, a hub neither title names. Footprint
+scheduling runs them at once, and the second merge conflicts there. The hub's
+imports are in the skeleton, so the only conflict is a region leases can hold.
+`--self-test` proves it: every verify red on the skeleton, neither title naming
+the hub, each reference green alone, the second merge conflicting in
+src/index.mjs alone, and the hand-merged hub green.
+
+```
+node run.mjs --label 3.10-footprint-1 --fixture hub --arm lanes --lanes 2 --leases off     # then 3.10-steer-1, 3.10-footprint-2, …
+node run.mjs --label 3.10-steer-1     --fixture hub --arm lanes --lanes 2 --leases steer
+node measure.mjs --bar 3.10-footprint && node measure.mjs --bar 3.10-steer
+node measure.mjs --pieces 3.10           # → results/3.10-pieces.json, comparePiece as in 3.4
+```
+
 ### The thread gate: native Claude Code against threads (drive-lanes 3.9)
 
 `--arm native` runs the plan without sofar: one Claude Code session is handed

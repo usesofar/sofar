@@ -213,6 +213,20 @@ function parkNote(waits: readonly LeaseWait[]): string {
   return `parked on a lease — ${[...holders].map(([who, regions]) => `${who} holds ${[...regions].join(', ')}`).join('; ')}`
 }
 
+/**
+ * Whether a session steered or refused by a lease set its task blocked on
+ * nothing but the holders (3.10): waits_on empty, or naming only tasks the
+ * leases it met hold in this run. That is a park — in all three of 3.4's
+ * leasing reps the agent said it so — and anything else it waits on is the
+ * operator's question.
+ */
+function blockedOnHolders(after: InitiativeState, taskId: string, waits: readonly LeaseWait[], runId: string): boolean {
+  const task = after.phases.flatMap((p) => p.tasks).find((t) => t.id === taskId)
+  if (task?.status !== 'blocked') return false
+  const holders = new Set(waits.filter((w) => w.run === runId).flatMap((w) => [w.task, `${after.slug} ${w.task}`]))
+  return (task.waits_on ?? []).every((h) => holders.has(h))
+}
+
 /** A live lease as footprint scheduling meets it (3.2): the files its regions are in; another run's is named with its record. */
 function leaseHolder(lease: Lease, runId: string): Holder {
   const { header } = lease
@@ -467,8 +481,9 @@ export interface DriveOptions {
    * lane session gets a PreToolUse hook running `hook` (the CLI passes
    * `sofar event lease` on its own build): `steer` adds context to an edit that
    * overlaps an older task's lease in another lane, `deny` refuses it (D14). A
-   * session that ends with no task change after a steer has parked: not a
-   * stall, and its task waits until the lease it hit is gone. Absent leases
+   * session that ends with no task change after a steer has parked, and so
+   * has one that set its task blocked on the holder alone (3.10): not a stall,
+   * and its task waits until the lease it hit is gone. Absent leases
    * nothing — the CLI's default since 3.4 (D37); ignored on a serial run. A per-driver knob like
    * `sessionTimeoutMs`: not recorded, and a resumed run takes the resuming
    * driver's.
@@ -2234,24 +2249,34 @@ async function driveHolding(
     const sessionId = resolved.session.id
     let reason = handoffReason(beforeStatuses, after, task.id, sessionId, gauge?.nudged() === true, lane?.others())
     const tokens = exit.usage?.context_tokens
-    // How the process ended travels with the handoff when it is worth
-    // reading — a stall, or any exit that was not clean (D9). A clean
-    // task_done says nothing a reader needs.
-    let detail = reason === 'stall' || !cleanExit(exit) ? describeExit(exit) : undefined
     // A session steered off another lane's lease that then ended with no task
     // change has parked (3.1, D33): said in the handoff's detail, since the
     // reason stays `stall` — nothing resolved — and the coordinator does not
-    // count it as one.
+    // count it as one. So has one that set its task blocked on the holder
+    // (3.10): its task goes back to the queue rather than the run stopping.
     let parked: LeaseWait[] | undefined
-    if (reason === 'stall' && leasing !== undefined && laneTask !== undefined) {
+    if ((reason === 'stall' || reason === 'needs_user') && leasing !== undefined && laneTask !== undefined) {
       const waits = readLease(leaseFile(leasing.pool, laneTask.lane.id))?.waits ?? []
-      if (waits.length > 0) {
+      if (waits.length > 0 && (reason === 'stall' || blockedOnHolders(after, task.id, waits, runId))) {
+        if (reason === 'needs_user') {
+          reason = 'stall'
+          ctx.appendAndProject(
+            initiative,
+            'task_status_changed',
+            { id: task.id, status: beforeStatuses.get(task.id) === 'pending' ? 'pending' : 'active', note: `parked by the driver, not blocked on the operator — ${parkNote(waits)} (drive-lanes 3.10)` },
+            { session: 'cli', source: 'cli', actor: 'human' },
+          )
+        }
         parked = waits
-        detail = `${parkNote(waits)}${detail !== undefined ? `; ${detail}` : ''}`
         // From the launch: a holder that landed while this session still ran is what it waited for too.
         parks.set(task.id, { waits, at: Date.parse(launchedAt) })
       }
     }
+    // How the process ended travels with the handoff when it is worth
+    // reading — a stall, or any exit that was not clean (D9). A clean
+    // task_done says nothing a reader needs.
+    let detail = reason === 'stall' || !cleanExit(exit) ? describeExit(exit) : undefined
+    if (parked !== undefined) detail = `${parkNote(parked)}${detail !== undefined ? `; ${detail}` : ''}`
     // The gate (D19): a task_done is accepted only on a recorded pass. A
     // dropped task is never verified — it resolved, it was not tested.
     let exhausted: string | undefined

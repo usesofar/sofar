@@ -18,7 +18,17 @@
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SLUG, TASKS } from './fixture.mjs'
+import * as NINE from './fixture.mjs'
+import * as HUB from './fixture-hub.mjs'
+
+const { SLUG, TASKS } = NINE
+
+/** A fixture by name: the nine-task plan (1.1), or the hub pair whose footprints miss (3.10). Both drive the record `lanes`. */
+export function fixtureOf(name = 'nine') {
+  if (name === 'nine') return { ...NINE, NAME: 'nine' }
+  if (name === 'hub') return HUB
+  return undefined
+}
 
 /** Every parseable line of a log; a torn or foreign line is skipped, as the fold does. */
 export function readEvents(path) {
@@ -130,7 +140,7 @@ export function splitPerTask(tokens, done) {
  * The score. `usageOf(sessionId)` returns a transcriptUsage or null; `drive` is
  * parseDriveStdout's result. The LAST run in the log is the one scored.
  */
-export function measure(events, { usageOf = () => null, drive = { cost_usd: null, unresolved: 0 } } = {}) {
+export function measure(events, { usageOf = () => null, drive = { cost_usd: null, unresolved: 0 }, tasks: TASKS = NINE.TASKS } = {}) {
   const started = events.filter((e) => e.type === 'run_started').pop()
   if (started === undefined) return { error: 'no run_started in the log' }
   const runId = started.payload.run
@@ -298,8 +308,8 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
   }
 }
 
-/** Score a cell directory run.mjs left behind. */
-export function measureCell(cell, claudeConfig) {
+/** Score a cell directory run.mjs left behind, against its fixture's tasks. */
+export function measureCell(cell, claudeConfig, tasks = TASKS) {
   const repo = join(cell, 'repo')
   const events = readEvents(join(repo, '.sofar', 'initiatives', SLUG, 'events.jsonl'))
   const stdoutPath = join(cell, 'artifacts', 'drive.stdout.txt')
@@ -309,7 +319,7 @@ export function measureCell(cell, claudeConfig) {
     const paths = findTranscripts(claudeConfig, id)
     return paths.length > 0 ? transcriptUsage(paths) : null
   }
-  return measure(events, { usageOf, drive })
+  return measure(events, { usageOf, drive, tasks })
 }
 
 /**
@@ -368,6 +378,7 @@ export function headline(result) {
     lanes_busy_rate: s.lanes_busy_rate,
     rework_sessions: s.sessions.rework ?? null,
     parks: s.sessions.parks ?? null,
+    tasks_total: s.tasks.total,
     tasks_done: s.tasks.done,
     gate_pass_rate: s.verify.gate_pass_rate,
     first_try_pass_rate: s.verify.first_try_pass_rate,
@@ -433,7 +444,7 @@ export function comparePiece(without, withPiece, { minReps = 3 } = {}) {
   const criteria = {
     rework_falls: { without: m(without, 'rework_sessions'), with: m(withPiece, 'rework_sessions'), pass: m(withPiece, 'rework_sessions') !== null && m(withPiece, 'rework_sessions') < m(without, 'rework_sessions') },
     merge_reopens_le_10pct: { with: m(withPiece, 'merge_reopen_rate'), pass: m(withPiece, 'merge_reopen_rate') !== null && m(withPiece, 'merge_reopen_rate') <= 0.1 },
-    every_rep_finishes: { with: values(withPiece, 'tasks_done'), pass: values(withPiece, 'tasks_done').every((x) => x === TASKS.length) },
+    every_rep_finishes: { with: values(withPiece, 'tasks_done'), pass: values(withPiece, 'tasks_done').every((x) => x === (m(withPiece, 'tasks_total') ?? TASKS.length)) },
     tasks_done_no_lower: { without: m(without, 'tasks_done'), with: m(withPiece, 'tasks_done'), pass: m(withPiece, 'tasks_done') !== null && m(withPiece, 'tasks_done') >= m(without, 'tasks_done') },
     gate_pass_rate_no_lower: { without: m(without, 'gate_pass_rate'), with: m(withPiece, 'gate_pass_rate'), pass: m(withPiece, 'gate_pass_rate') !== null && m(withPiece, 'gate_pass_rate') >= m(without, 'gate_pass_rate') },
     duplicate_work_0: { with: values(withPiece, 'duplicate_work'), pass: values(withPiece, 'duplicate_work').every((x) => x === 0) },
@@ -452,13 +463,17 @@ export function comparePiece(without, withPiece, { minReps = 3 } = {}) {
   }
 }
 
-/** 3.4's pieces, each the arm that adds it against the arm without it. */
-export const PIECES = [
-  { piece: 'footprint scheduling (3.2)', without: '3.4-naive', with: '3.4-footprint' },
-  { piece: 'leases steer + packets on footprint (3.1, 3.3: the default)', without: '3.4-footprint', with: '3.4-default' },
-  { piece: 'leases steer + packets on ready scheduling (3.1, 3.3)', without: '3.4-naive', with: '3.4-steer' },
-  { piece: 'leases deny over steer (D14)', without: '3.4-steer', with: '3.4-deny' },
-]
+/** Each measuring task's pieces, each the arm that adds it against the arm without it. */
+export const PIECES = {
+  '3.4': [
+    { piece: 'footprint scheduling (3.2)', without: '3.4-naive', with: '3.4-footprint' },
+    { piece: 'leases steer + packets on footprint (3.1, 3.3: the default)', without: '3.4-footprint', with: '3.4-default' },
+    { piece: 'leases steer + packets on ready scheduling (3.1, 3.3)', without: '3.4-naive', with: '3.4-steer' },
+    { piece: 'leases deny over steer (D14)', without: '3.4-steer', with: '3.4-deny' },
+  ],
+  // The hub pair (fixture-hub.mjs), footprints missing: leases as 3.10 left them, on footprint scheduling.
+  '3.10': [{ piece: 'leases steer + packets + integrate at edit on footprint, hub pair (3.10)', without: '3.10-footprint', with: '3.10-steer' }],
+}
 
 /**
  * Mean and sample standard deviation of each headline number across reps of one
@@ -486,14 +501,15 @@ export function bar(all) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--pieces') {
-  // node measure.mjs --pieces  → results/3.4-pieces.json from the 3.4-<arm> bars (each built first with --bar)
+  // node measure.mjs --pieces [3.4|3.10]  → results/<task>-pieces.json from that task's arm bars (each built first with --bar)
+  const task = process.argv[3] ?? '3.4'
   const dir = join(dirname(fileURLToPath(import.meta.url)), 'results')
   const read = (s) => JSON.parse(readFileSync(join(dir, `${s}.bar.json`), 'utf8'))
-  const verdicts = PIECES.filter((p) => existsSync(join(dir, `${p.without}.bar.json`)) && existsSync(join(dir, `${p.with}.bar.json`))).map((p) => ({
+  const verdicts = (PIECES[task] ?? []).filter((p) => existsSync(join(dir, `${p.without}.bar.json`)) && existsSync(join(dir, `${p.with}.bar.json`))).map((p) => ({
     ...p,
     ...comparePiece(read(p.without), read(p.with)),
   }))
-  writeFileSync(join(dir, '3.4-pieces.json'), `${JSON.stringify({ task: 'drive-lanes 3.4', rule: 'comparePiece (D36)', verdicts }, null, 2)}\n`)
+  writeFileSync(join(dir, `${task}-pieces.json`), `${JSON.stringify({ task: `drive-lanes ${task}`, rule: 'comparePiece (D36)', verdicts }, null, 2)}\n`)
   console.log(JSON.stringify(verdicts.map((v) => ({ piece: v.piece, verdict: v.verdict, failed: v.failed })), null, 2))
 } else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--compare') {
   // node measure.mjs --compare 2.5-serial 2.5-lanes  → results/2.5-lanes-vs-2.5-serial.json
@@ -530,7 +546,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '-
   const score =
     result.arm === 'native'
       ? measureNative({ stdout: existsSync(nativeOut) ? readFileSync(nativeOut, 'utf8') : '', claudeConfig: result.claude?.config, wallMs: result.native?.ms ?? 0, passes: result.final_tree?.verify_passes ?? [] })
-      : measureCell(cell, result.claude?.config)
+      : measureCell(cell, result.claude?.config, fixtureOf(result.fixture ?? 'nine').TASKS)
   const why = process.argv.indexOf('--invalid')
   if (process.argv.includes('--write')) {
     const next = { ...result, ...(why > 0 ? { invalid: process.argv[why + 1] } : {}), score }

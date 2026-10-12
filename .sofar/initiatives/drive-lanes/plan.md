@@ -6,13 +6,13 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1600 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 16 done, 3 dropped, 10 remaining
+Progress: 17 done, 3 dropped, 9 remaining
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
 ## Phase 2 — Local lanes [done] — 7/7 done — its tasks in phases/P2.md
 
-## Phase 3 — Conflict-aware orchestration [active] — 6/10 (3 dropped) done
+## Phase 3 — Conflict-aware orchestration [active] — 7/10 (3 dropped) done
 
 - [x] 3.1 Region leases at PreToolUse: an Edit's old_string maps to its markdown section or enclosing symbol, else the whole file. An overlap with another lane steers rather than denies, so r4-fixes D17 holds: the hook's context names the holding lane, its task, the region and what is free, and the session works elsewhere or parks (WIP commit, write-back, leases released). Older task wins, so no deadlock; union-merge files never lease. A deny mode sits behind a flag, off, until the operator rules on D17 for driven lanes
 - [x] 3.2 Footprint prediction and conflict-aware scheduling: task `touches`, the record's mention index, files earlier sessions on the task touched, git co-change. A free lane takes the first ready task that misses every live lease and footprint, else idles; skipped tasks age up
@@ -23,7 +23,7 @@ Progress: 16 done, 3 dropped, 10 remaining
 - [-] 3.7 Thread cost levers (D15). (a) Shared warm prefix: the session-start injection is byte-identical across lanes with per-session lines last, and lane starts are staggered so lanes 2..N read lane 1's cache. (b) Warm-cache scheduling: resume inside the cache TTL, else refresh. (c) Fork at a checkpoint: a retry forks from the end of exploration, not from the failed attempt. (d) A parked thread holds no process. (e) A batched inbox: an FYI packet waits for the next boundary and never wakes a thread. (f) A per-thread context ceiling that hands off instead of compacting (dropped)
 - [-] 3.8 Measure threads against fresh sessions on the 1.1 fixture: tokens per task split into cache read, cache write and fresh input (from transcripts, never handoff.tokens, which carries the whole session's summed usage, r4-fixes note 01M4K3G1), rework sessions and wall-clock. Keep each 3.7 lever only where it lowers cost with no drop in tasks done or verify pass rate (dropped)
 - [x] 3.9 Thread gate, before any thread code (operator 2026-10-11: build threads only once proven efficient; they must save tokens against native workflows). Add `--arm native` to the fixture harness: one Claude Code session drives all 9 fixture tasks with its own subagents, scored on tokens per task split into cache read, cache write and fresh input, tasks done and wall-clock. Then project from the 2.5 reps' transcripts what each retry and park would cost as a warm resume, a cold resume, a checkpoint fork and a fresh 3.3-packet session. 3.6-3.8 go ahead only for the cases where the projection beats both fresh sessions and the native arm; otherwise drop them, citing the numbers
-- [ ] 3.10 A lane session steered or denied by a lease that sets its task blocked on the holding lane's task is a park, not needs_user: in all 3 of 3.4's leasing reps the agent did that and stopped the run (D37). Close the younger-claims-first gap too (2 of 3 still conflicted). Then re-measure steer against footprint alone on a fixture pair whose footprints miss (a hub both edit outside their titles) before leases can return as a default
+- [x] 3.10 A lane session steered or denied by a lease that sets its task blocked on the holding lane's task is a park, not needs_user: in all 3 of 3.4's leasing reps the agent did that and stopped the run (D37). Close the younger-claims-first gap too (2 of 3 still conflicted). Then re-measure steer against footprint alone on a fixture pair whose footprints miss (a hub both edit outside their titles) before leases can return as a default
 
 ## Phase 4 — Below native on tokens [pending] — 0/5 done
 

@@ -2843,14 +2843,46 @@ holds which region for which task, what is free, and to work on a free part or
 park — commit its WIP on the branch, write back, end its turn; under `deny` it
 is refused (`permissionDecision: deny`, the same text as the reason). An edit
 overlapping only younger tasks' leases claims its regions, and the session is
-told the region is now its own. Every wait points at an older task, so nothing
-deadlocks. The hook appends each region it claims, and each it was steered off,
-to the lane's file. A session that ends with no task change after a steer HAS
-PARKED: its handoff is `stall` with detail `parked on a lease — lane <k>
-(<task>) holds <region>`, counted toward no stop rule; its task is ready again
-only once every lease it hit is gone, and before it launches again its lane
-takes the base in as the merge queue does (rebased, else merged, a stopped
-merge left for its session). The mode is the driver's, like the hang guard:
+told the region is now its own. The younger lane that held it has LOST it: at
+its next edit, whatever that edit touches, it is told once (`sofar lease
+(drive-lanes 3.10): lane <k> now also edits <region> for <task> …`) to undo its
+change there or park — steered, never refused, the edit in hand applying
+(drive-lanes 3.10). Every wait points at an older task, so nothing deadlocks.
+The hook appends each region it claims, and each it was steered off or lost, to
+the lane's file. A session that ends with no task change after a steer HAS
+PARKED, and so has one that sets its own task `blocked` with `waits_on` empty
+or naming only tasks whose leases it was steered off in this run (3.10): the
+driver puts the task back to the status it had before the session, `waits_on`
+as the agent left it, with the note `parked by the driver, not blocked on the
+operator — …`. A blocked task waiting on anything else is the operator's
+question, `needs_user`, and stops the run. A park's handoff is `stall` with
+detail `parked on a lease — lane <k> (<task>) holds <region>`, counted toward
+no stop rule; its task is ready again only once every lease it hit is gone,
+and before it launches again its lane takes the base in as the merge queue
+does (rebased, else merged, a stopped merge left for its session).
+A steer, a refusal and a loss each tell the session to undo the held edit
+and make it again as its last step, where integrate at edit takes the holder's
+landing in first. INTEGRATE AT EDIT (drive-lanes 3.10, D44): before any edit a
+lane session makes to a file that another lane's landing changed after this
+lane's branch was cut (a change brief, below, names the file and the branch
+lacks the landing), the hook takes the newest landing the lane was told of into
+its branch — a fast-forward when the branch has no commits of its own, else a
+merge commit `<task>: take in <sha7> before editing <file> (sofar drive)` — but
+only where nothing the lane changed since the merge base (its commits,
+uncommitted and untracked paths, `.sofar/` aside) is a file the base changed,
+and never over a merge, rebase, cherry-pick or revert under way. Having moved
+the file under the edit, it refuses that one edit in either mode
+(`permissionDecision: deny`, reason `sofar brief (drive-lanes 3.10): this edit
+was refused because <file> changed under it — <brief>. That landing is now
+merged into your branch (<sha7>), so read <file> again and redo the edit on top
+of it: …`, at most 1,600 characters) — the one refusal steer mode makes, since
+an edit or a Write made against the old text would undo the landing. Where only
+the lane's uncommitted changes meet the landing, nothing moves, and the brief is
+said once with what meets and how to clear it (`… You have uncommitted changes
+to <files> too, so the two conflict when your task lands. To build on it
+instead, undo your change to <files> with an edit, then make it again: …`);
+where a commit of the lane's own meets it, the merge queue meets it at landing
+and the brief is said as below. The mode is the driver's, like the hang guard:
 not recorded, and a resumed run takes the resuming driver's.
 
 **Footprint scheduling (drive-lanes 3.2, D34).** `--schedule <mode>` —

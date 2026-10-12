@@ -14,6 +14,7 @@ import {
   LEASE_ENV,
   openLease,
   otherLeases,
+  postBrief,
   readLease,
   stillHeld,
   unionMerged,
@@ -231,7 +232,32 @@ describe('leases (D33): the older task wins', () => {
   it('claims what no lane holds, never twice, and never the imports', () => {
     const own = lease({ lane: 2, task: '1.2', since: 200 }, [md(['Spec', 'Hooks'])])
     const d = decideLease(own, [lease({ lane: 1, task: '1.1', since: 100 }, [driver])], [md(['Spec', 'Hooks']), md(['Spec', 'Driver', 'Lanes']), { file: 'x.ts', path: [IMPORTS], deep: false }])
-    expect(d).toEqual({ claim: [md(['Spec', 'Driver', 'Lanes'])], blocked: [], won: [] })
+    expect(d).toEqual({ claim: [md(['Spec', 'Driver', 'Lanes'])], blocked: [], won: [], lost: [] })
+  })
+
+  it('a younger lane whose region an older task took is told at its next edit, whatever it touches — once, as a wait, never a refusal (3.10)', () => {
+    const DOC = '# Spec\n## Driver\ndriver text\n## Hooks\nhooks\n'
+    // 1.2 (lane 2, younger) claimed § Driver first; 1.1 (lane 1, older) then edited it and took it.
+    const dir = pool('lost', [
+      { lane: 1, task: '1.1', since: 1, claims: [driver] },
+      { lane: 2, task: '1.2', since: 2, mode: 'deny', claims: [driver] },
+    ])
+    expect(decideLease(readLease(leaseFile(dir, 2))!, otherLeases(leaseFile(dir, 2), () => 'held'), []).lost).toEqual([
+      { mine: driver, holder: header({ lane: 1, task: '1.1', since: 1 }), theirs: driver },
+    ])
+    // Its next edit is elsewhere in the file: it applies, even in deny mode, and the session hears what it lost.
+    const told = checkLease(leaseFile(dir, 2), 'a.md', DOC, edit('hooks'), () => 'held')
+    expect(told?.deny).toBe(false)
+    expect(told?.text).toMatch(
+      /^sofar lease \(drive-lanes 3\.10\): lane 1 now also edits a\.md › Spec › Driver for 1\.1 "task 1\.1", a task older than yours \(1\.2\) — its change lands first, and yours there will conflict with it at merge\. Undo your uncommitted change there, and make it again as your last step — once that lane has landed, the edit takes its change into your branch first\. Free: the rest of a\.md/,
+    )
+    expect(told?.text).toContain("park: commit your WIP on this branch, write back with sofar_end_session naming what 1.2 waits for, and end your turn — your leases are released, and the driver relaunches 1.2 once lane 1's lease is gone.")
+    // Kept as a wait, so a session that parks after it has parked on that lease.
+    expect(readLease(leaseFile(dir, 2))?.waits).toEqual([{ run: 'RUN', lane: 1, task: '1.1', region: driver }])
+    // Said once: the next edit elsewhere says nothing of it.
+    expect(checkLease(leaseFile(dir, 2), 'a.md', DOC, edit('hooks'), () => 'held')).toEqual({ deny: false, text: null })
+    // The older lane is never told it lost anything.
+    expect(decideLease(readLease(leaseFile(dir, 1))!, otherLeases(leaseFile(dir, 1), () => 'held'), []).lost).toEqual([])
   })
 
   it('reads a lease past a bad line and another task\'s lines; a lane whose lock is free holds nothing', () => {
@@ -251,9 +277,11 @@ describe('leases (D33): the older task wins', () => {
     const check = checkLease(leaseFile(dir, 2), 'a.md', DOC, edit('driver text'), () => 'held')
     expect(check?.deny).toBe(false)
     expect(check?.text).toContain('lane 1 holds a.md › Spec › Driver for 1.1 "task 1.1", a task older than yours (1.2)')
-    expect(check?.text).toContain('The edit was applied: undo it unless 1.2 cannot go on without it.')
+    expect(check?.text).toContain(
+      'The edit was applied: undo it, and make it again as your last step — once that lane has landed, the edit takes its change into your branch first, and nothing conflicts.',
+    )
     expect(check?.text).toContain('Free: the rest of a.md, and every region no lane holds. Lanes hold: L1 1.1 — a.md › Spec › Driver.')
-    expect(check?.text).toContain('or park: commit your WIP on this branch, write back with sofar_end_session')
+    expect(check?.text).toContain('Work on a free part of 1.2 meanwhile; if it is still held when nothing else is left, park: commit your WIP on this branch, write back with sofar_end_session')
     expect(readLease(leaseFile(dir, 2))?.waits).toEqual([{ run: 'RUN', lane: 1, task: '1.1', region: driver }])
     // Told once in full: the same collision again is one line, and no second wait.
     expect(checkLease(leaseFile(dir, 2), 'a.md', DOC, edit('driver text'), () => 'held')?.text).toBe(
@@ -449,6 +477,112 @@ describe('sofar event lease: the hook (3.1)', () => {
     })
   })
 
+  describe('integrate at edit (3.10, D44)', () => {
+    const DOC = '# A\n\n## One\n\none\n\n## Two\n\ntwo\n'
+    const LINE = '1.1 "task 1.1" landed · 1 file +1 −1: docs/a.md › A › One'
+
+    /** Lane 2 on 1.2's branch, cut from the run base before lane 1 landed § One there; the coordinator left the brief in lane 2's lease. */
+    function landed(name: string, cutAfter = false): { root: string; lane: string; lease: string; tip: string; fork: string } {
+      const root = scratch(name)
+      mkdirSync(join(root, '.sofar'))
+      mkdirSync(join(root, 'docs'))
+      writeFileSync(join(root, 'docs', 'a.md'), DOC)
+      writeFileSync(join(root, 'docs', 'b.md'), 'b\n')
+      git(root, 'init', '-q', '-b', 'main')
+      git(root, 'config', 'user.email', 't@t.t')
+      git(root, 'config', 'user.name', 't')
+      git(root, 'add', '-A')
+      git(root, 'commit', '-qm', 'base')
+      const fork = git(root, 'rev-parse', 'HEAD').trim()
+      git(root, 'checkout', '-qb', 'run-base')
+      writeFileSync(join(root, 'docs', 'a.md'), DOC.replace('one\n', 'ONE\n'))
+      git(root, 'commit', '-qam', '1.1: ONE')
+      const tip = git(root, 'rev-parse', 'HEAD').trim()
+      git(root, 'checkout', '-q', 'main')
+      const dir = scratch(`${name}-pool`)
+      const lane = join(dir, 'lane-2')
+      git(root, 'worktree', 'add', '-q', '-b', 'task-1.2', lane, cutAfter ? tip : fork)
+      markRecordCheckout(lane, root)
+      const lease = leaseFile(dir, 2)
+      openLease(lease, header({ lane: 2, task: '1.2', since: 2 }))
+      postBrief(lease, 'RUN', { key: tip, files: ['docs/a.md'], line: LINE })
+      return { root, lane, lease, tip, fork }
+    }
+
+    const hook = (lane: string, lease: string, old: string): { exitCode: number; stdout: string } =>
+      handleLease(lane, JSON.stringify({ session_id: 's', cwd: lane, tool_name: 'Edit', tool_input: { file_path: join(lane, 'docs', 'a.md'), old_string: old, new_string: 'y' } }), { [LEASE_ENV]: lease })
+    const said = (out: { stdout: string }): Record<string, unknown> => (JSON.parse(out.stdout) as { hookSpecificOutput: Record<string, unknown> }).hookSpecificOutput
+
+    it('fast-forwards a branch with no commits of its own, keeps the WIP elsewhere, and refuses the stale edit even in steer mode', () => {
+      const { lane, lease, tip } = landed('catch-ff')
+      writeFileSync(join(lane, 'docs', 'b.md'), 'b wip\n')
+      const out = said(hook(lane, lease, 'two\n'))
+      expect(out.permissionDecision).toBe('deny')
+      expect(out.permissionDecisionReason).toBe(
+        `sofar brief (drive-lanes 3.10): this edit was refused because docs/a.md changed under it — ${LINE}. That landing is now merged into your branch (${tip.slice(0, 7)}), so read docs/a.md again and redo the edit on top of it: building on it here is what keeps the two from conflicting when your task lands.`,
+      )
+      expect(git(lane, 'rev-parse', 'HEAD').trim()).toBe(tip)
+      expect(readFileSync(join(lane, 'docs', 'a.md'), 'utf8')).toContain('ONE\n')
+      expect(readFileSync(join(lane, 'docs', 'b.md'), 'utf8')).toBe('b wip\n')
+      // Taken in and said: the edit again, on the new text, passes untouched.
+      expect(readLease(lease)?.told).toEqual([`brief ${tip}`])
+      expect(hook(lane, lease, 'two\n').stdout).toBe('')
+    })
+
+    it('takes a merge commit on a branch with commits of its own', () => {
+      const { lane, lease, tip } = landed('catch-merge')
+      writeFileSync(join(lane, 'docs', 'b.md'), 'B\n')
+      git(lane, 'commit', '-qam', '1.2: B')
+      expect(said(hook(lane, lease, 'two\n')).permissionDecision).toBe('deny')
+      expect(git(lane, 'rev-list', '--parents', '-n', '1', 'HEAD').trim().split(' ')).toHaveLength(3)
+      expect(git(lane, 'merge-base', '--is-ancestor', tip, 'HEAD')).toBe('')
+      expect(readFileSync(join(lane, 'docs', 'a.md'), 'utf8')).toContain('ONE\n')
+      expect(git(lane, 'log', '-1', '--format=%s')).toBe(`1.2: take in ${tip.slice(0, 7)} before editing docs/a.md (sofar drive)\n`)
+    })
+
+    it('touches nothing while an uncommitted change meets the landing, says how to clear it once, and takes it in at the next edit once undone (3.4 steer-3)', () => {
+      const { lane, lease, fork, tip } = landed('catch-meet')
+      writeFileSync(join(lane, 'docs', 'a.md'), DOC.replace('two\n', 'TWO\n'))
+      const out = said(hook(lane, lease, 'TWO\n'))
+      expect(out.permissionDecision).toBeUndefined()
+      expect(out.additionalContext).toBe(
+        `sofar brief (drive-lanes 3.10): the run's base moved under docs/a.md since your branch was cut — ${LINE}. You have uncommitted changes to docs/a.md too, so the two conflict when your task lands. To build on it instead, undo your change to docs/a.md with an edit, then make it again: once nothing of yours is left where it landed, that next edit takes it into your branch first.`,
+      )
+      expect(git(lane, 'rev-parse', 'HEAD').trim()).toBe(fork)
+      expect(readFileSync(join(lane, 'docs', 'a.md'), 'utf8')).toContain('one\n')
+      // Said once: the undo itself passes with nothing more.
+      expect(hook(lane, lease, 'TWO\n').stdout).toBe('')
+      writeFileSync(join(lane, 'docs', 'a.md'), DOC)
+      // Undone: the next edit takes the landing in, the brief said already or not.
+      expect(said(hook(lane, lease, 'two\n')).permissionDecision).toBe('deny')
+      expect(git(lane, 'rev-parse', 'HEAD').trim()).toBe(tip)
+    })
+
+    it('leaves a committed change that meets the landing to the merge queue — the brief says it, as in 3.3', () => {
+      const { lane, lease, fork } = landed('catch-committed')
+      writeFileSync(join(lane, 'docs', 'a.md'), DOC.replace('two\n', 'TWO\n'))
+      git(lane, 'commit', '-qam', '1.2: TWO')
+      const head = git(lane, 'rev-parse', 'HEAD').trim()
+      const out = said(hook(lane, lease, 'TWO\n'))
+      expect(out.permissionDecision).toBeUndefined()
+      expect(out.additionalContext).toBe(`sofar brief (drive-lanes 3.3): the run's base moved under docs/a.md since your branch was cut — ${LINE}. Your branch takes it in when it lands: build on it, or keep clear of what it changed.`)
+      expect(git(lane, 'rev-parse', 'HEAD').trim()).toBe(head)
+      expect(git(lane, 'merge-base', 'HEAD', 'run-base').trim()).toBe(fork)
+    })
+
+    it('never merges over a merge under way, and says nothing of a landing the branch already holds', () => {
+      const busy = landed('catch-busy')
+      // A merge under way, as git leaves one: MERGE_HEAD in the worktree's own gitdir.
+      const mergeHead = git(busy.lane, 'rev-parse', '--git-path', 'MERGE_HEAD').trim()
+      writeFileSync(mergeHead.startsWith('/') ? mergeHead : join(busy.lane, mergeHead), `${busy.tip}\n`)
+      expect(said(hook(busy.lane, busy.lease, 'two\n')).permissionDecision).toBeUndefined()
+      expect(git(busy.lane, 'rev-parse', 'HEAD').trim()).toBe(busy.fork)
+      const held = landed('catch-held', true)
+      expect(hook(held.lane, held.lease, 'two\n').stdout).toBe('')
+      expect(readLease(held.lease)?.told).toEqual([`brief ${held.tip}`])
+    })
+  })
+
   it('--leases: off by default (D37), steer or deny on request, anything else refused', () => {
     expect(leaseOption(undefined)).toBeUndefined()
     expect(leaseOption('steer', ['/usr/bin/node', '/opt/sofar/cli.js'])).toEqual({ mode: 'steer', hook: '/usr/bin/node /opt/sofar/cli.js event lease' })
@@ -566,6 +700,83 @@ describe('sofar drive --lanes with leases (3.1)', () => {
     expect(existsSync(leaseFile(dir, 1))).toBe(false)
     expect(existsSync(leaseFile(dir, 2))).toBe(false)
     expect(foldLog(logPath(root)).state.phases[0]!.tasks.map((t) => t.status)).toEqual(['done', 'done'])
+  })
+
+  describe('a steered session that sets its task blocked on the holder has parked (3.10)', () => {
+    /** 1.1 claims § One in lane 1 and holds it; 1.2 is steered off it in lane 2, then does what `steered` says; a third session takes what is left. */
+    async function steeredRun(name: string, steered: Partial<FakeScript>) {
+      const root = repo(name)
+      let parkedDone!: () => void
+      const parkedNow = new Promise<void>((resolve) => (parkedDone = resolve))
+      let claimedDone!: () => void
+      const claimedNow = new Promise<void>((resolve) => (claimedDone = resolve))
+      const lines: string[] = []
+      const hookEdit = (i: number) => {
+        const request = adapter.sessions[i]!.request
+        return checkLease(request.env![LEASE_ENV]!, 'docs/a.md', readFileSync(join(request.cwd, 'docs', 'a.md'), 'utf8'), edit('one\n', 'x\n'))
+      }
+      const adapter: FakeAdapter = new FakeAdapter([
+        worker(root, 'S1', {
+          hold: async () => {
+            hookEdit(0)
+            claimedDone()
+            await parkedNow
+          },
+          work: (cwd) => {
+            writeFileSync(join(cwd, 'docs', 'a.md'), readFileSync(join(cwd, 'docs', 'a.md'), 'utf8').replace('one\n', 'ONE\n'))
+            git(cwd, 'commit', '-qam', '1.1: ONE')
+          },
+        }),
+        worker(root, 'S2', {
+          complete: false,
+          hold: async () => {
+            await claimedNow
+            expect(hookEdit(1)?.text).toContain('lane 1 holds docs/a.md › A › One for 1.1')
+            parkedDone()
+          },
+          ...steered,
+        }),
+        worker(root, 'S3', { work: (cwd) => expect(readFileSync(join(cwd, 'docs', 'a.md'), 'utf8')).toContain('ONE\n') }),
+      ])
+      const outcome = await drive(root, 'demo', {
+        adapter,
+        lanes: 2,
+        laneSetup: 'none',
+        maxStalls: 1,
+        leases: { mode: 'steer', hook: 'HOOK event lease' },
+        onProgress: (l) => lines.push(l),
+      })
+      return { outcome, lines, adapter, state: foldLog(logPath(root)).state }
+    }
+
+    it('waits_on the holder\'s task: a park, the task back in the queue with what the agent said it waits on, the run on to the end', async () => {
+      const { outcome, lines, adapter, state } = await steeredRun('park-blocked', { block: "parked: lane 1's lease on § One for 1.1 is older", block_waits_on: ['demo 1.1'] })
+      expect(outcome.stop.reason).toBe('closed')
+      const parked = outcome.handoffs.find((h) => h.session_id === 'S2')!
+      expect(parked.reason).toBe('stall')
+      expect(parked.detail).toMatch(/^parked on a lease — lane 1 \(1\.1\) holds docs\/a\.md › A › One/)
+      expect(lines).toContain('  lane 2: 1.2 parked on a lease — not a stall; it waits until lane 1 (1.1) lets go')
+      expect(adapter.sessions).toHaveLength(3)
+      expect(adapter.sessions[2]!.request.task?.id).toBe('1.2')
+      expect(state.phases[0]!.tasks.map((t) => t.status)).toEqual(['done', 'done'])
+      expect(state.phases[0]!.tasks[1]!.waits_on).toEqual(['demo 1.1'])
+    })
+
+    it('waits_on nothing: a park too — one of 3.4\'s three reps said it in the note alone', async () => {
+      const { outcome, adapter, state } = await steeredRun('park-blocked-bare', { block: 'Blocked on lane 1 releasing its lease on § One' })
+      expect(outcome.stop.reason).toBe('closed')
+      expect(outcome.handoffs.find((h) => h.session_id === 'S2')!.reason).toBe('stall')
+      expect(adapter.sessions).toHaveLength(3)
+      expect(state.phases[0]!.tasks.map((t) => t.status)).toEqual(['done', 'done'])
+    })
+
+    it('waits_on anything else is still the operator\'s question: needs_user stops the run', async () => {
+      const { outcome, adapter, state } = await steeredRun('park-blocked-other', { block: 'which currency rounding does the operator want?', block_waits_on: ['demo D1'] })
+      expect(outcome.stop).toEqual({ reason: 'needs_user', note: '1.2 is blocked — read its note' })
+      expect(outcome.handoffs.find((h) => h.session_id === 'S2')!.reason).toBe('needs_user')
+      expect(adapter.sessions).toHaveLength(2)
+      expect(state.phases[0]!.tasks[1]!.status).toBe('blocked')
+    })
   })
 
   it('leases nothing without --leases: no hook, no lease file', async () => {

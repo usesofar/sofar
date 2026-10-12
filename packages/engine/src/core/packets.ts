@@ -70,6 +70,7 @@ const BRIEF_MAX = 800
 const NOTICE_MAX = 800
 const RESUME_MAX = 1600
 const PEER_MAX = 400
+const CAUGHT_UP_MAX = 1600
 
 /** Collapse whitespace and bound a string: every packet is one line. */
 function clip(text: string, max: number): string {
@@ -137,6 +138,32 @@ export function postedBrief(b: ChangeBrief): PostedBrief {
 /** What the hook says when a session first edits a file a landing changed since its branch was cut. */
 export function briefNotice(file: string, brief: PostedBrief): string {
   return `sofar brief (drive-lanes 3.3): the run's base moved under ${file} since your branch was cut — ${brief.line}. Your branch takes it in when it lands: build on it, or keep clear of what it changed.`
+}
+
+/**
+ * Why the hook refused an edit after merging the base into the lane (3.10,
+ * D44): what landed under `file`, that the branch now holds it at `head`, and
+ * to redo the edit on the text as it is now. Bounded like the lease context.
+ */
+export function caughtUpNotice(file: string, briefs: readonly PostedBrief[], head: string): string {
+  return clip(
+    `sofar brief (drive-lanes 3.10): this edit was refused because ${file} changed under it — ${briefs.map((b) => b.line).join('; ')}. That landing is now merged into your branch (${sha7(head)}), so read ${file} again and redo the edit on top of it: building on it here is what keeps the two from conflicting when your task lands.`,
+    CAUGHT_UP_MAX,
+  )
+}
+
+/**
+ * What the hook says, once, when a landing changed `file` and the lane's
+ * uncommitted changes meet it, so the branch cannot take it in yet (3.10): the
+ * brief, what meets, and how to clear it — undo those changes, and the next
+ * edit takes the landing in first.
+ */
+export function behindNotice(file: string, briefs: readonly PostedBrief[], meets: readonly string[]): string {
+  const where = meets.join(', ')
+  return clip(
+    `sofar brief (drive-lanes 3.10): the run's base moved under ${file} since your branch was cut — ${briefs.map((b) => b.line).join('; ')}. You have uncommitted changes to ${where} too, so the two conflict when your task lands. To build on it instead, undo your change to ${where} with an edit, then make it again: once nothing of yours is left where it landed, that next edit takes it into your branch first.`,
+    CAUGHT_UP_MAX,
+  )
 }
 
 /**
