@@ -26,11 +26,13 @@ const BLOCK = '```sofar\n{"summary":"did it","next_action":"next","tasks":[{"tas
 describe('the cloud transcript (D51)', () => {
   it('reads a finished session: its last reply and the patch its last command printed', () => {
     const patch = `From ${'a'.repeat(40)} Mon Sep 17 00:00:00 2001\nSubject: [PATCH] x\n`
+    // Seen live: tests, commit and format-patch in one command, so the patch follows other output.
+    const printed = `# pass 5\n# fail 0\n${patch}`
     const t = readCloudTranscript(
       [
         row('user', 'do the task'),
         row('assistant', [{ type: 'tool_use', id: 't1', name: 'Bash', input: {} }]),
-        row('user', [{ type: 'tool_result', tool_use_id: 't1', content: patch }]),
+        row('user', [{ type: 'tool_result', tool_use_id: 't1', content: printed }]),
         row('assistant', [{ type: 'text', text: `done\n${BLOCK}` }]),
         row('system', null),
         // The teleport's own turn is not the cloud session's.

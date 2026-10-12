@@ -19,6 +19,7 @@ import { launchEnv, launchPrompt } from './adapter'
  * - POLL: `claude --teleport <id> -p . --model <unrecognized>` writes the
  *   whole cloud transcript into a fresh LOCAL transcript and exits 1 having
  *   called no model: $0 a poll, and nothing goes back to the cloud session.
+ *   Teleport refuses a dirty tree, so it runs in a clean detached worktree.
  * - END: the cloud part of that transcript ends on a `system` stop record
  *   after an assistant text.
  * - WORK: the session's last command is `git format-patch`, whose tool
@@ -61,13 +62,18 @@ export const CLAUDE_CLOUD_CAPABILITIES: AdapterCapabilities = {
   cost: false,
 }
 
-/** A model id no API knows: the teleport poll fails before it calls one (D51). */
-export const NO_MODEL = 'sofar-poll-no-model'
+/**
+ * A model id no API knows (D51): the teleport poll writes the transcript, then
+ * fails at the API having spent nothing. It must look like a Claude id — one
+ * that does not (`sofar-…`) is refused at startup, before the teleport runs.
+ */
+export const NO_MODEL = 'claude-none-0'
 export const DEFAULT_POLL_MS = 30_000
 /** The user line a teleport adds where the cloud part of the transcript ends. */
 const TELEPORT_MARKER = 'This session is being continued from another machine'
 const CLOUD_ID = /session_[A-Za-z0-9]{8,}/
-const PATCH_HEAD = /^From [0-9a-f]{40} /
+/** git format-patch's mbox separator line; a command may print other output before it. */
+const PATCH_HEAD = /^From [0-9a-f]{40} Mon Sep 17 00:00:00 2001$/m
 
 /**
  * The prompt a cloud session gets: the frame first (no system prompt to put it
@@ -110,7 +116,7 @@ export interface CloudTranscript {
   ended: boolean
   /** The text of its last assistant reply. */
   finalText: string | null
-  /** The last `git format-patch` output a command returned, verbatim. */
+  /** The last `git format-patch` output a command returned, verbatim from its first separator line. */
   patch: string | null
 }
 
@@ -164,7 +170,8 @@ export function readCloudTranscript(jsonl: string): CloudTranscript {
       for (const b of blocks(row)) {
         if (b.type !== 'tool_result') continue
         const out = text(b.content)
-        if (out !== null && PATCH_HEAD.test(out)) patch = out
+        const at = out === null ? -1 : out.search(PATCH_HEAD)
+        if (at >= 0) patch = out!.slice(at)
       }
     }
   })
@@ -232,18 +239,28 @@ export class ClaudeCloudSession implements AgentSession {
       const registered = await run(sofar, ['event', 'append', request.initiative, '--session', this.sessionId, '--source', 'claude-cloud', '--type', 'session_started', '--payload', JSON.stringify({ tool: 'claude-cloud' })], cwd, this.env)
       if (registered.code !== 0) return { code: 1, stderr_tail: `claude-cloud: could not register the session: ${registered.stderr.trim()}` }
 
+      // Teleport refuses a dirty tree, and the lane's is dirty with the record's
+      // write-backs (D48): poll from a clean detached worktree of the same repo,
+      // which also inherits the repo's folder trust.
+      const pollDir = join(dir, 'poll')
+      const added = await run('git', ['worktree', 'add', '--detach', pollDir, base], cwd, this.env)
+      if (added.code !== 0) return { code: 1, stderr_tail: `claude-cloud: no clean worktree to poll from: ${added.stderr.trim()}` }
       let seen: CloudTranscript | undefined
-      for (;;) {
-        if (this.killed !== undefined) return { code: null, signal: this.killed, session_id: this.sessionId }
-        seen = await this.poll(bin, cwd)
+      try {
+        for (;;) {
+          if (this.killed !== undefined) return { code: null, signal: this.killed, session_id: this.sessionId }
+          seen = await this.poll(bin, pollDir)
         if (seen?.ended === true) break
-        await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, options.pollMs ?? DEFAULT_POLL_MS)
-          this.wake = () => {
-            clearTimeout(timer)
-            resolve()
-          }
-        })
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, options.pollMs ?? DEFAULT_POLL_MS)
+            this.wake = () => {
+              clearTimeout(timer)
+              resolve()
+            }
+          })
+        }
+      } finally {
+        await run('git', ['worktree', 'remove', '--force', pollDir], cwd, this.env)
       }
 
       const notes: string[] = []
