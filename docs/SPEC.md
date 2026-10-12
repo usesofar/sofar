@@ -746,7 +746,8 @@ and "allow Stop to block", memory-lead D37 superseding D10). It qualifies
 drift-hardening D3 rather than overturning it: a GUARD still never changes an
 exit code.
 - Stop: the TEST GATE below holds a session on its own, write-back done or
-  not. When the write-back block also fires, the gate's lines ride it, and the
+  not, for a failed covering run, and in STRICT mode for an ask too (MODE
+  below, r4-fixes D65). When the write-back block also fires, the gate's lines ride it, and the
   approved checks the gate cannot judge (not test-shaped) run there as before,
   over the session's touched files (every check when its file list
   overflowed), within 45 s in total, with the unapproved line and a budget
@@ -766,6 +767,22 @@ exit code.
 THE TEST GATE (r3-fixes 2.10, D10, D11). sofar executes nothing: the agent
 runs the tests under its host's permissions, and the gate reads what it ran
 from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
+- MODE (r4-fixes D65; operator: "By default it will not need to be forced …
+  if the user really wanted a strict kind of thing, then they can turn on
+  that"). An ASK is a requirement with no covering run since the last edit; a
+  FAILURE is one whose latest covering run failed after it. A failure holds
+  the Stop in every mode, because nothing has to run. An ask holds only in
+  STRICT mode: `SOFAR_TEST_GATE=hold` (also `strict`), else the clone's
+  `sofar check --strict-tests on` (`strict_tests: true` in the trust file
+  beside the approvals). `SOFAR_TEST_GATE=advise` (or unset, with no opt-in)
+  is the default ADVISE mode. There an ask rides a write-back hold the session
+  owes anyway, returns in sofar_end_session's `test_asks`, and otherwise
+  reaches the operator as the Stop's `systemMessage`, exit 0. That is the path
+  an unverifiable host's ask already takes (U1b). A session that `sofar drive`
+  launches runs STRICT unless the driver's own environment sets the variable:
+  nobody waits on its turns. Why: over 14 days of Claude Code transcripts, 426
+  of 547 Stop holds were asks, held turns were 17.6% of active time, and a
+  held full-suite run took 22.3 s at the median.
 - EDITS: the session's captured `file_touched` paths, plus, when the session
   ran a command that MAY WRITE a file (2.13, D23), what `git status
   --porcelain=v1 -z --untracked-files=all --no-renames` reports changed
@@ -5648,8 +5665,12 @@ sofar_start_session.`
   and the side-index workaround for it is already rejected.
 - sofar_end_session({session_id?, summary, next_action, tasks?, phases?,
   decisions?, memories?, notes?, brief_append?}) → {ok, event_id, not_filed?, tasks_applied?,
-  decisions?, memories?, warnings?, parallel_writebacks?, rebound?}  # the
-  write-back. `session_id` is optional since memory-lead D3: omitted, the
+  decisions?, memories?, test_asks?, warnings?, parallel_writebacks?, rebound?}  # the
+  write-back. `test_asks` (r4-fixes D65) is the test gate's lines for the
+  session just written back, its asks and failures, as the Stop would print
+  them. The write-back is where an agent says it is done, so it runs them in
+  the same turn and no Stop hold is needed. It is omitted when the gate says
+  nothing, and under `SOFAR_ENFORCE=off`. `session_id` is optional since memory-lead D3: omitted, the
   ACTIVE session (adopted or started) is ended; with none, `invalid_input`
   names the injected "Session:" line.
   THE BATCH (r1-fixes 2.1, D10 for `tasks`; memory-lead 1.1, D3 for the rest)
@@ -7704,7 +7725,7 @@ deletes it with the worktree's gitdir.
   list of the queued tasks a `waits_on` still holds, each handle followed by
   its link state from the links tier. An unknown slug fails with the usage.
 - `sofar check [--staged|--all|--base <rev>] [--strict] [--list] [--approve <handle>]
-  [--block-commits on|off]` (memory-lead 2.3, D9; §Decision checks) — run
+  [--block-commits on|off] [--strict-tests on|off]` (memory-lead 2.3, D9; §Decision checks) — run
   the approved in-force decision checks that apply to the working tree's
   changes (tracked against HEAD plus untracked, `.sofar/` excluded), print each
   failure line, the unapproved line and `sofar check: N check(s) ran on M
@@ -7718,7 +7739,9 @@ deletes it with the worktree's gitdir.
   `--list` prints each check, approved or not, and its scope. `--approve`
   asks on a terminal and refuses without one (a bare `D<n>` resolves in the
   bound initiative). `--block-commits on|off` sets the clone's pre-commit
-  opt-in.
+  opt-in. `--strict-tests on|off` (r4-fixes D65) sets the clone's strict test
+  gate (THE TEST GATE, MODE); `off` refuses without a terminal, since an agent
+  the gate holds must not release itself.
   `--base <rev>` (r4-fixes E4) is the pull request check, for CI, where a
   fresh clone has approved nothing: the paths are those the commits changed
   since the merge base with `<rev>` (the working tree is not the pull request:
@@ -10474,7 +10497,14 @@ stay the underlying derivation's, and exit codes are styling-independent.
   test/x.test.ts`), and with no test command anywhere in the record it asks
   nothing. Rules bear repo-wide; a retired rule and a file no rule names do
   not. Owing a write-back, the gate's lines ride the block after its first
-  line; `SOFAR_ENFORCE=off` releases the written-back session. A file written
+  line; `SOFAR_ENFORCE=off` releases the written-back session. These hold
+  under `SOFAR_TEST_GATE=hold` (the conformance harness default); unset, the
+  default ADVISE mode's ask exits 0 with the line as the `systemMessage`, a
+  failed covering run still holds, an owed write-back's hold carries the
+  ask, sofar_end_session returns it as `test_asks`, `sofar check
+  --strict-tests on` makes the clone hold, and a driven session holds
+  (r4-fixes D65; `syn.surfacing`, test/decision-checks.test.ts,
+  test/adapter-contract.test.ts). A file written
   by a shell command (a `command_run`, no `file_touched`) bears once git
   reports it changed, a run that finished before its mtime does not count,
   and one after does (D11). `bun run test` covers `bun run test 2>&1`.

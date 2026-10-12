@@ -903,6 +903,11 @@ export const CASES: ConformanceCase[] = [
       s('gate: sess-a writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-a', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
       s('gate: the written-back session is held for its test', ['event', 'stop'], stop({ session_id: 'sess-a' })),
       s('gate: one ask per stop', ['event', 'stop'], stop({ session_id: 'sess-a', stop_hook_active: true })),
+      // r4-fixes D65: the steps here run the strict gate (the harness default);
+      // the product default advises — the ask reaches the operator, nothing held.
+      s('gate: by default the ask advises and holds nothing', ['event', 'stop'], stop({ session_id: 'sess-a' }), { env: { SOFAR_TEST_GATE: undefined } }),
+      s('gate: the covering test fails', ['event', 'post-tool-failure'], hook('PostToolUseFailure', { session_id: 'sess-a', tool_name: 'Bash', tool_input: { command: 'bun test test/legacy.test.ts', description: 'x' }, error: 'Exit code 1', exit_code: 1 })),
+      s('gate: by default a failed covering run still holds', ['event', 'stop'], stop({ session_id: 'sess-a' }), { env: { SOFAR_TEST_GATE: undefined } }),
       s('gate: the suite passes', ['event', 'post-tool'], bash('bun test', { session_id: 'sess-a' })),
       s('gate: released', ['event', 'stop'], stop({ session_id: 'sess-a' })),
       // r3-fixes 2.12: a host runs hooks in the agent's current directory. From

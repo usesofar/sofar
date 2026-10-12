@@ -246,6 +246,8 @@ interface TrustFile {
   approved: Record<string, { handle: string; cmd: string; ts: string }>
   /** The pre-commit opt-in (D9): a failed approved check fails the commit. */
   block_commits?: boolean
+  /** The strict test gate (r4-fixes D65): Stop holds for an ask, not only a failure. */
+  strict_tests?: boolean
 }
 
 /**
@@ -265,7 +267,12 @@ function readTrust(path: string | null): TrustFile {
   try {
     const decoded = JSON.parse(readFileSync(path, 'utf8')) as Partial<TrustFile> | null
     if (decoded === null || typeof decoded !== 'object' || typeof decoded.approved !== 'object' || decoded.approved === null) return empty
-    return { version: 1, approved: decoded.approved, ...(decoded.block_commits === true ? { block_commits: true } : {}) }
+    return {
+      version: 1,
+      approved: decoded.approved,
+      ...(decoded.block_commits === true ? { block_commits: true } : {}),
+      ...(decoded.strict_tests === true ? { strict_tests: true } : {}),
+    }
   } catch {
     return empty // an unreadable file approves nothing
   }
@@ -308,6 +315,33 @@ export function setBlocksCommits(rootDir: string, on: boolean, env: StateEnv = p
   const trust = readTrust(path)
   if (on) trust.block_commits = true
   else delete trust.block_commits
+  writeTrust(path, trust)
+}
+
+/**
+ * `SOFAR_TEST_GATE=hold` (also `strict`) holds a Stop for an ask, `advise`
+ * never does; unset, the clone's `sofar check --strict-tests on` decides.
+ */
+export const TEST_GATE_ENV = 'SOFAR_TEST_GATE'
+
+/**
+ * Whether Stop holds a session for an ask — a rule-bearing edit with no
+ * covering pass after it (r4-fixes D65). Default no: the ask rides a
+ * write-back hold or reaches the operator, and only a failed covering run holds.
+ */
+export function testGateHolds(rootDir: string, env: StateEnv = process.env): boolean {
+  const v = env[TEST_GATE_ENV]?.trim().toLowerCase()
+  if (v === 'hold' || v === 'strict') return true
+  if (v === 'advise') return false
+  return readTrust(trustPath(rootDir, env)).strict_tests === true
+}
+
+export function setStrictTests(rootDir: string, on: boolean, env: StateEnv = process.env): void {
+  const path = trustPath(rootDir, env)
+  if (path === null) throw new Error('the sofar state dir resolves inside this clone — set XDG_STATE_HOME elsewhere')
+  const trust = readTrust(path)
+  if (on) trust.strict_tests = true
+  else delete trust.strict_tests
   writeTrust(path, trust)
 }
 
@@ -716,6 +750,8 @@ export interface StopGate {
   lines: string[]
   /** Whether Stop holds the session for them: false when the only line is the unverifiable one (U1b). */
   blocks: boolean
+  /** A covering run failed after the last edit: it holds whatever the mode (D65). */
+  fails: boolean
 }
 
 const flatClip = (text: string, max: number): string => {
@@ -790,7 +826,7 @@ export function stopGate(
       bearing.set(d.id, d)
     }
   }
-  if (bearing.size === 0) return { lines: [], blocks: false }
+  if (bearing.size === 0) return { lines: [], blocks: false, fails: false }
 
   // The suite: the known command's runner on the directories it ran, never its files or filters.
   const known = knownTest === null ? null : testSpec(knownTest, probe)
@@ -864,7 +900,11 @@ export function stopGate(
   }
   const shown = lines.slice(0, STOP_GATE_LINES)
   if (lines.length > STOP_GATE_LINES) shown.push(`sofar: +${lines.length - STOP_GATE_LINES} more test requirement(s) bear on this session's edits — \`sofar check\` lists the rules`)
-  return { lines: shown, blocks: lines.length > (unverified === null ? 0 : 1) }
+  return {
+    lines: shown,
+    blocks: lines.length > (unverified === null ? 0 : 1),
+    fails: [...groups.values()].some((g) => g.failed !== undefined),
+  }
 }
 
 // ---------------------------------------------------------------------------

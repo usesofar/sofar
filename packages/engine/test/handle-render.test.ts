@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest'
 import { makeEvent } from '../src/core/envelope'
 import { foldLog, type DecisionState } from '../src/core/fold'
 import { handleSuffix, relogAliases, suffixedHandle } from '../src/core/handle'
@@ -210,6 +210,10 @@ describe('an r1-style merge: both branches minted the same ordinal', () => {
     emit(root, 'file_touched', { path: 'src/db/store.ts', op: 'edit' }, 's1')
     emit(root, 'session_ended', { session_id: 's1', summary: 's', next_action: 'n' }, 's1')
     const sfx = handleSuffix(branch)
+    process.env.SOFAR_TEST_GATE = 'hold' // the strict gate prints the hold (r4-fixes D65)
+    onTestFinished(() => {
+      delete process.env.SOFAR_TEST_GATE
+    })
     const pre = stop(root, 's1').stderr
     expect(pre).toContain(`[demo D3·${sfx}] "Cap an order at 12 cases."`)
 

@@ -133,19 +133,57 @@ pub fn trust_path(root: &Path) -> Option<PathBuf> {
 /// clone. An unreadable file approves nothing.
 #[must_use]
 pub fn is_approved(root: &Path, cmd: &str) -> bool {
-    let Some(path) = trust_path(root) else {
-        return false;
-    };
-    let Ok(bytes) = std::fs::read(path) else {
-        return false;
-    };
-    let Ok(Json::Obj(trust)) = json::parse(&String::from_utf8_lossy(&bytes)) else {
+    let Some(trust) = read_trust(root) else {
         return false;
     };
     let digest = crate::sha256::hex_digest(cmd.as_bytes());
     match trust.get("approved") {
         Some(Json::Obj(approved)) => approved.contains_key(&digest),
         _ => false,
+    }
+}
+
+/// `readTrust`: the clone's trust file, or None when it is absent or unreadable.
+fn read_trust(root: &Path) -> Option<crate::json::Object> {
+    let bytes = std::fs::read(trust_path(root)?).ok()?;
+    match json::parse(&String::from_utf8_lossy(&bytes)) {
+        Ok(Json::Obj(trust)) => Some(trust),
+        _ => None,
+    }
+}
+
+/// `testGateHolds` (r4-fixes D65): whether Stop holds a session for an ask —
+/// a rule-bearing edit with no covering pass after it. `SOFAR_TEST_GATE=hold`
+/// (also `strict`) holds and `advise` never does; otherwise the clone's
+/// `sofar check --strict-tests on` decides. Default no: the ask rides a
+/// write-back hold or reaches the operator, and only a failed covering run holds.
+#[must_use]
+pub fn test_gate_holds(root: &Path) -> bool {
+    let env = std::env::var_os("SOFAR_TEST_GATE").map(|v| v.to_string_lossy().into_owned());
+    gate_holds(env.as_deref(), || read_trust(root))
+}
+
+/// The gate's verdict under this clone's mode (r4-fixes D65): an ask holds
+/// only in strict mode; by default only a failed covering run does, and an
+/// ask rides a write-back hold or reaches the operator.
+#[must_use]
+pub fn in_mode(gate: StopGate, root: &Path) -> StopGate {
+    if test_gate_holds(root) {
+        gate
+    } else {
+        StopGate {
+            blocks: gate.fails,
+            ..gate
+        }
+    }
+}
+
+/// `testGateHolds` over its inputs: the env value, else the trust file's opt-in.
+fn gate_holds(env: Option<&str>, trust: impl FnOnce() -> Option<crate::json::Object>) -> bool {
+    match env.map(|v| js_trim(v).to_lowercase()).as_deref() {
+        Some("hold" | "strict") => true,
+        Some("advise") => false,
+        _ => trust().is_some_and(|t| t.get("strict_tests") == Some(&Json::Bool(true))),
     }
 }
 
@@ -1279,6 +1317,8 @@ struct Requirement {
 pub struct StopGate {
     pub lines: Vec<String>,
     pub blocks: bool,
+    /// A covering run failed after the last edit: it holds whatever the mode (D65).
+    pub fails: bool,
 }
 
 /// `flatClip`: one line, clipped to `max` UTF-16 units with an ellipsis.
@@ -1559,6 +1599,7 @@ pub fn stop_gate(
     }
     let (mut lines, unverified) = group_lines(&groups, outcomes_known, probe);
     let blocks = lines.len() > usize::from(unverified);
+    let fails = groups.iter().any(|g| g.failed.is_some());
     let more = lines.len().saturating_sub(STOP_GATE_LINES);
     lines.truncate(STOP_GATE_LINES);
     if more > 0 {
@@ -1566,7 +1607,11 @@ pub fn stop_gate(
             "sofar: +{more} more test requirement(s) bear on this session's edits — `sofar check` lists the rules"
         ));
     }
-    StopGate { lines, blocks }
+    StopGate {
+        lines,
+        blocks,
+        fails,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1843,6 +1888,21 @@ pub fn diff_from(root: &Path, base: &str, paths: &[String]) -> Option<String> {
 #[cfg(test)]
 mod gate_tests {
     use super::*;
+
+    #[test]
+    fn the_test_gate_advises_unless_strict_is_asked_for() {
+        let strict = || match json::parse(r#"{"version":1,"approved":{},"strict_tests":true}"#) {
+            Ok(Json::Obj(o)) => Some(o),
+            _ => None,
+        };
+        assert!(!gate_holds(None, || None));
+        assert!(gate_holds(None, strict));
+        assert!(gate_holds(Some(" Hold "), || None));
+        assert!(gate_holds(Some("strict"), || None));
+        assert!(!gate_holds(Some("advise"), strict));
+        assert!(gate_holds(Some("bogus"), strict));
+        assert!(!gate_holds(Some(""), || None));
+    }
 
     #[test]
     fn assertion_lines_are_words_in_any_runner() {

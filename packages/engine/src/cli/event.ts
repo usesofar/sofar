@@ -41,7 +41,7 @@ import {
 import { cachedAttribution, commitsByTask, readAttribution, readShippingFrom, type CommitAttribution } from '../core/attribution'
 import { activityEnabled, leavesWorktree, mayWriteHere, testShapedCommand } from '../core/derived'
 import { retireEnabled, retiredOrdinals } from '../core/retire'
-import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, insideRoot, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
+import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, insideRoot, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGateHolds, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
 import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine, intendedRecord, intentLine } from '../core/carrier'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
@@ -1770,8 +1770,8 @@ export function handleStop(
 /** How far before a session's start a git-named file must date to be another session's (r4-fixes H1). */
 export const DIRT_SLACK_MS = 2_000
 
-function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState, outcomesKnown: boolean): StopGate {
-  const none: StopGate = { lines: [], blocks: false }
+export function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState, outcomesKnown: boolean): StopGate {
+  const none: StopGate = { lines: [], blocks: false, fails: false }
   try {
     // A capture outside the root is an edit to another repo or another
     // checkout (r4-fixes H18): no test this worktree runs covers it, yet a
@@ -1821,9 +1821,12 @@ function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: Ini
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
     const probe = rootProbe(rootDir)
-    const gate = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown)
+    const verdict = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown)
+    // An ask holds only in strict mode (r4-fixes D65); by default only a failed
+    // covering run does, and an ask rides a write-back hold or reaches the operator.
+    const gate = testGateHolds(rootDir) ? verdict : { ...verdict, blocks: verdict.fails }
     const loss = testGuardEnabled() ? stopTestLoss(rootDir, sofarDir, session, index, files, probe) : []
-    return loss.length === 0 ? gate : { lines: [...loss, ...gate.lines], blocks: true }
+    return loss.length === 0 ? gate : { lines: [...loss, ...gate.lines], blocks: true, fails: true }
   } catch {
     return none
   }

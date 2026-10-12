@@ -129,7 +129,39 @@ exit: 0
 --- stderr
 (empty)
 
-## step 15: gate: the suite passes
+## step 15: gate: by default the ask advises and holds nothing
+argv: ["event","stop"]
+stdin: {"session_id":"sess-a","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+env: {}
+exit: 0
+--- stdout
+{"systemMessage":"sofar: [surf D9·<SFX>] \"Keep the legacy tree frozen.\" bear on files you edited, and no covering test passed since your last edit — run `bun test test/legacy.test.ts` and fix any failure before stopping (fix: restore src/legacy/old.ts)"}
+<no trailing newline>
+--- stderr
+(empty)
+
+## step 16: gate: the covering test fails
+argv: ["event","post-tool-failure"]
+stdin: {"session_id":"sess-a","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"bun test test/legacy.test.ts","description":"x"},"error":"Exit code 1","exit_code":1}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## step 17: gate: by default a failed covering run still holds
+argv: ["event","stop"]
+stdin: {"session_id":"sess-a","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
+env: {}
+exit: 2
+--- stdout
+(empty)
+--- stderr
+sofar: [surf D1·984a] "Never edit files under src/legacy/." bear on files you edited, and no covering test passed since your last edit — run `bun test` and fix any failure before stopping (fix: restore src/legacy from git)
+sofar: `bun test test/legacy.test.ts` failed (exit 1) after your last edit, and it covers [surf D9·<SFX>] "Keep the legacy tree frozen." — fix: restore src/legacy/old.ts
+Then end on one line restating your answer: it is what the operator reads last.
+
+## step 18: gate: the suite passes
 argv: ["event","post-tool"]
 stdin: {"session_id":"sess-a","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"bun test","description":"x"},"tool_response":{}}
 exit: 0
@@ -138,7 +170,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 16: gate: released
+## step 19: gate: released
 argv: ["event","stop"]
 stdin: {"session_id":"sess-a","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"Stop","stop_hook_active":false}
 exit: 0
@@ -147,7 +179,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 17: subdir: an Edit run from src/legacy lands in the record above
+## step 20: subdir: an Edit run from src/legacy lands in the record above
 argv: ["event","post-tool"]
 stdin: {"session_id":"sess-a","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>/src/legacy","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"<ROOT>/src/legacy/old.ts","old_string":"a","new_string":"b"},"tool_response":{}}
 exit: 0
@@ -156,7 +188,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 18: subdir: Stop holds again from there — edited after the pass
+## step 21: subdir: Stop holds again from there — edited after the pass
 argv: ["event","stop"]
 stdin: {"session_id":"sess-a","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>/src/legacy","hook_event_name":"Stop","stop_hook_active":false}
 exit: 2
@@ -166,7 +198,7 @@ exit: 2
 sofar: [surf D1·984a] "Never edit files under src/legacy/."; [surf D9·<SFX>] "Keep the legacy tree frozen." bear on files you edited, and no covering test passed since your last edit — run `bun test` and fix any failure before stopping (fix: restore src/legacy from git)
 Then end on one line restating your answer: it is what the operator reads last.
 
-## step 19: unbound: a read still surfaces, every handle qualified
+## step 22: unbound: a read still surfaces, every handle qualified
 argv: ["event","post-tool"]
 stdin: {"session_id":"sess-u","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"<ROOT>/src/core/fold.ts"},"tool_response":{}}
 exit: 0
@@ -175,7 +207,7 @@ exit: 0
 --- stderr
 (empty)
 
-## step 20: status
+## step 23: status
 argv: ["status","surf"]
 exit: 0
 --- stdout
@@ -307,7 +339,7 @@ over: editing it
 because: b
 guard: path:src/legacy/**
 check: bun test test/legacy.test.ts
-=== .sofar/initiatives/surf/events.jsonl (appended 2225 bytes after 4062 unchanged)
+=== .sofar/initiatives/surf/events.jsonl (appended 2457 bytes after 4062 unchanged)
 {"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"command_run","payload":{"cmd":"cat src/legacy/old.ts scripts/check-legacy.sh | head -5 <<EOF docs/SPEC.md","ok":true}}
 {"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"edit","path":"<ROOT>/src/legacy/old.ts"}}
 {"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"delete","path":"<ROOT>/src/a.ts"}}
@@ -315,6 +347,7 @@ check: bun test test/legacy.test.ts
 {"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"write","path":"<ROOT>/src/legacy/new.ts"}}
 {"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"claude-code","actor":"agent","user":"conformance@example.invalid","type":"decision_logged","payload":{"because":"b","check":{"cmd":"bun test test/legacy.test.ts","hint":"restore src/legacy/old.ts"},"chose":"freeze legacy","guard":"path:src/legacy/**","over":"editing it","rule":"Keep the legacy tree frozen."}}
 {"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"claude-code","actor":"agent","user":"conformance@example.invalid","type":"session_ended","payload":{"next_action":"n","summary":"s"}}
+{"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"command_run","payload":{"cmd":"bun test test/legacy.test.ts","exit":1,"ok":false}}
 {"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"command_run","payload":{"cmd":"bun test","ok":true}}
 {"v":1,"id":"<ULID>","ts":"<TS>","initiative":"surf","session":"sess-a","source":"hook","actor":"agent","user":"conformance@example.invalid","type":"file_touched","payload":{"ok":true,"op":"edit","path":"<ROOT>/src/legacy/old.ts"}}
 === .sofar/initiatives/surf/plan.md (added, 272 bytes)
@@ -332,7 +365,7 @@ Progress: 0/1 tasks done (0%)
 
 Active phase: Build
 Next action: n
-=== .sofar/initiatives/surf/sessions/sess-a.md (added, 594 bytes)
+=== .sofar/initiatives/surf/sessions/sess-a.md (added, 616 bytes)
 <!-- generated by sofar — do not hand-edit; truth lives in events.jsonl -->
 
 # Session sess-a
@@ -352,12 +385,12 @@ n
 
 ## Activity (derived from mechanical events)
 
-- Derived: 5 files (src/legacy/old.ts, <ROOT>/src/legacy/old.ts, <ROOT>/src/a.ts, <ROOT>/src/b.ts, <ROOT>/src/legacy/new.ts), 2 commands, tests pass
+- Derived: 5 files (src/legacy/old.ts, <ROOT>/src/legacy/old.ts, <ROOT>/src/a.ts, <ROOT>/src/b.ts, <ROOT>/src/legacy/new.ts), 3 commands (1 failed), tests pass
 - Files:
   - src/legacy/old.ts
   - <ROOT>/src/legacy/old.ts
   - <ROOT>/src/a.ts
   - <ROOT>/src/b.ts
   - <ROOT>/src/legacy/new.ts
-- Commands run: 2
+- Commands run: 3 (1 failed)
 - Last test: pass — bun test

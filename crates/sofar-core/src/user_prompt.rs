@@ -1429,6 +1429,7 @@ fn stop_gate_for(
         &probe,
         outcomes_known,
     );
+    let gate = crate::checks::in_mode(gate, root);
     let loss = if crate::checks::test_guard_enabled() {
         stop_test_loss(root, layout, session, &index, &files, &probe)
     } else {
@@ -1442,6 +1443,7 @@ fn stop_gate_for(
     crate::checks::StopGate {
         lines,
         blocks: true,
+        fails: true,
     }
 }
 

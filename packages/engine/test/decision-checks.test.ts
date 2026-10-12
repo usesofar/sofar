@@ -12,6 +12,8 @@ import {
   checksInForce,
   isApproved,
   setBlocksCommits,
+  setStrictTests,
+  testGateHolds,
   trustPath,
   type InForceCheck,
 } from '../src/core/checks'
@@ -352,8 +354,87 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     emit(root, 'demo', 'session_started', { tool: 'claude-code' }, id)
     touched(root, id, 'src/db/store.ts')
   }
+  // These pin the strict gate; the default advises (r4-fixes D65, below).
+  beforeEach(() => {
+    process.env.SOFAR_TEST_GATE = 'hold'
+  })
   afterEach(() => {
     delete process.env.SOFAR_ENFORCE
+    delete process.env.SOFAR_TEST_GATE
+  })
+
+  it('by default an ask never holds — the operator sees it — and a failed covering run still does (r4-fixes D65)', () => {
+    delete process.env.SOFAR_TEST_GATE
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    const asked = stop(root, 's1')
+    expect(asked.exitCode).toBe(0)
+    expect(bare(JSON.parse(asked.stdout).systemMessage)).toContain(
+      'no covering test passed since your last edit — run `cd apps/web && bun test test/store.test.ts`',
+    )
+    ran(root, 's1', 'cd apps/web && bun test test/store.test.ts', false, 1)
+    const failed = stop(root, 's1')
+    expect(failed.exitCode).toBe(2)
+    expect(bare(failed.stderr)).toContain('`bun test test/store.test.ts` failed (exit 1) after your last edit')
+    ran(root, 's1', 'cd apps/web && bun test test/store.test.ts', true, 0)
+    expect(stop(root, 's1')).toMatchObject({ exitCode: 0, stdout: '' })
+  })
+
+  it('by default an ask rides the write-back hold a session owes anyway (r4-fixes D65)', () => {
+    delete process.env.SOFAR_TEST_GATE
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    const r = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 1)
+    expect(r.exitCode).toBe(2)
+    expect(r.stderr.split('\n')[0]).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
+    expect(bare(r.stderr)).toContain('no covering test passed since your last edit')
+  })
+
+  it('`sofar check --strict-tests` holds this clone for an ask; SOFAR_TEST_GATE wins either way; off needs a terminal (r4-fixes D65)', async () => {
+    delete process.env.SOFAR_TEST_GATE
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    expect(testGateHolds(root)).toBe(false)
+    expect(stop(root, 's1').exitCode).toBe(0)
+    expect((await runCheck(root, { strictTests: 'on' }, { confirm: null })).exitCode).toBe(0)
+    expect(testGateHolds(root)).toBe(true)
+    expect(stop(root, 's1').exitCode).toBe(2)
+    process.env.SOFAR_TEST_GATE = 'advise'
+    expect(stop(root, 's1').exitCode).toBe(0)
+    delete process.env.SOFAR_TEST_GATE
+    const refused = await runCheck(root, { strictTests: 'off' }, { confirm: null })
+    expect(refused.exitCode).not.toBe(0)
+    expect(refused.stderr).toContain('on a terminal')
+    expect(testGateHolds(root)).toBe(true)
+    expect((await runCheck(root, { strictTests: 'off' }, { confirm: yes })).exitCode).toBe(0)
+    expect(testGateHolds(root)).toBe(false)
+    setStrictTests(root, true)
+    process.env.SOFAR_TEST_GATE = 'hold'
+    expect(testGateHolds(root)).toBe(true)
+    setStrictTests(root, false)
+    expect(testGateHolds(root)).toBe(true)
+  })
+
+  it('sofar_end_session hands the ask back in-band, so the agent runs it before the Stop (r4-fixes D65)', async () => {
+    delete process.env.SOFAR_TEST_GATE
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    const { client } = await connectServer(root)
+    const started = await callTool<{ session_id: string }>(client, 'sofar_start_session', { tool: 'claude-code', initiative: 'demo' })
+    const id = started.body.session_id
+    touched(root, id, 'src/db/store.ts')
+    const ended = await callTool<{ test_asks?: string[] }>(client, 'sofar_end_session', { session_id: id, summary: 's', next_action: 'n' })
+    expect(ended.isError).toBe(false)
+    expect(bare((ended.body.test_asks ?? []).join('\n'))).toContain('run `cd apps/web && bun test test/store.test.ts`')
+    ran(root, id, 'cd apps/web && bun test test/store.test.ts', true, 0)
+    const again = await callTool<{ test_asks?: string[] }>(client, 'sofar_end_session', { session_id: id, summary: 's2', next_action: 'n2' })
+    expect(again.body.test_asks).toBeUndefined()
+    await client.close()
   })
 
   it('holds a session that wrote back until a covering test passed after its last edit — once per stop', () => {
@@ -718,9 +799,11 @@ describe('binding a rule to its test (r3-fixes 2.10c)', () => {
     emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's1')
     emit(root, 'demo', 'file_touched', { path: 'src/db/store.ts', op: 'edit' }, 's1')
     emit(root, 'demo', 'session_ended', { session_id: 's1', summary: 's', next_action: 'n' }, 's1')
-    const held = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 0)
-    expect(bare(held.stderr)).toContain('[demo D1]')
-    expect(held.stderr).toContain('run `bun test test/db`')
+    // The default gate advises (r4-fixes D65): the ask reaches the operator.
+    const asked = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 0)
+    const said = JSON.parse(asked.stdout).systemMessage as string
+    expect(bare(said)).toContain('[demo D1]')
+    expect(said).toContain('run `bun test test/db`')
   })
 
   it('refuses what it cannot bind, and says when the command is not a test', () => {

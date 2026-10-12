@@ -1,5 +1,14 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **r4-fixes D65** (felt-latency L1, branch felt-latency-l1)
+from the TypeScript reference; the Rust core reproduces every case. The
+harness now runs every step under `SOFAR_TEST_GATE=hold`, the strict gate the
+goldens always pinned, so none of them moved except `syn.surfacing`. That case
+gains three steps after "gate: one ask per stop". With the variable unset, the
+default gate's ask reaches the operator as a `systemMessage` and holds nothing.
+A `PostToolUseFailure` of the covering test follows. Then, still under the
+default, the failed run holds the Stop (exit 2), and the ask rides that hold.
+
 ADDED for **r4-fixes H20** (main) from the TypeScript reference; the Rust
 core reproduces all 63. One new case, `syn.gate-peer-capture`: a peer's
 captured edit written inside this session's may-write window no longer holds

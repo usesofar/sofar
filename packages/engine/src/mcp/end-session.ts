@@ -1,4 +1,7 @@
 import type { EndSessionArgs } from '@sofar/schema/tool-inputs'
+import { stopGateFor } from '../cli/event'
+import { enforceEnabled } from '../core/checks'
+import type { InitiativeState } from '../core/fold'
 import { decisionJudgeWarnings } from '../core/decision-judge'
 import { evidenceWarnings, filingWarnings, type DoneTask, type FiledEntry } from '../core/filing-judge'
 import { refreshBuiltReach } from '../core/index-reach'
@@ -40,7 +43,10 @@ export async function endSessionJudged(
   args: EndSessionArgs,
   judgeOpts?: JudgeOptions,
 ): Promise<EndSessionResult> {
-  const { result, batch, after, sessionId } = endSessionFiled(ctx, args, { refreshReach: refreshBuiltReach })
+  const filed0 = endSessionFiled(ctx, args, { refreshReach: refreshBuiltReach })
+  const { batch, after, sessionId } = filed0
+  const asks = testAsks(ctx, after, sessionId)
+  const result = asks.length === 0 ? filed0.result : { ...filed0.result, test_asks: asks }
   const opts = judgeOpts ?? judgeOptionsFor(ctx)
   const filed: FiledEntry[] = [
     ...batch.drafts.map((d): FiledEntry => ({ kind: 'decision', label: d.handle ?? `D${d.ordinal}`, text: { chose: d.chose, over: d.over, because: d.because } })),
@@ -66,6 +72,17 @@ export async function endSessionJudged(
   }
   if (judged.length === 0) return result
   return { ...result, warnings: [...(result.warnings ?? []), ...judged] }
+}
+
+/**
+ * The test gate's lines for the session just written back (r4-fixes D65):
+ * the write-back is where an agent says it is done, so the ask comes back with
+ * it and the agent runs the tests in the same turn, with no Stop hold.
+ */
+function testAsks(ctx: ToolContext, after: InitiativeState, sessionId: string): string[] {
+  if (!enforceEnabled()) return []
+  const session = after.sessions.find((s) => s.id === sessionId)
+  return session === undefined ? [] : stopGateFor(ctx.rootDir, ctx.sofarDir, after.slug, after, session, true).lines
 }
 
 /** This record's notes with their event ids, for the relevance pass (5.1): the fold keeps only un-absorbed ones, without ids. */

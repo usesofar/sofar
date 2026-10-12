@@ -87,8 +87,10 @@ function matrixGate(c: MatrixCase) {
   return stopGate(index, matrix.files, c.runs, c.known ?? null, Date.parse(matrix.edited_at), probe, c.outcomes_known ?? true)
 }
 
-const replay = (h: Hold, runs: readonly Run[] = h.tests_since_edit) =>
-  stopGate(indexOf(h.decisions), h.files, runs, h.known_test, null, (p) => h.tree[p] ?? null, h.host !== 'codex')
+const replay = (h: Hold, runs: readonly Run[] = h.tests_since_edit): { lines: string[]; blocks: boolean } => {
+  const { lines, blocks } = stopGate(indexOf(h.decisions), h.files, runs, h.known_test, null, (p) => h.tree[p] ?? null, h.host !== 'codex')
+  return { lines, blocks }
+}
 
 describe('the coverage matrix (r4-fixes U1)', () => {
   it('covers every runner the spec names', () => {
@@ -214,9 +216,12 @@ describe('Codex: an outcome sofar cannot see is unverifiable, never unpassed (r4
         'sofar: [demo D1] "Keep a.ts whole." bear on files you edited, but this host reports no test exit status, so sofar cannot verify their tests and does not hold the stop — check them yourself: `bun test tests/a.test.ts`',
       )
       expect(stop(true, CODEX_HOST)).toEqual({ exitCode: 0, stdout: '', stderr: '' }) // once per stop
-      // A host that reports outcomes still holds for the same missing pass.
+      // A host that reports outcomes still holds for the same missing pass,
+      // under the strict gate (r4-fixes D65); the default only tells.
+      process.env.SOFAR_TEST_GATE = 'hold'
       expect(stop(false).exitCode).toBe(2)
     } finally {
+      delete process.env.SOFAR_TEST_GATE
       rmSync(root, { recursive: true, force: true })
     }
   })

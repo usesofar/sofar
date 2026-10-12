@@ -280,6 +280,9 @@ export function childEnv(m: Materialized, extra: Record<string, string | undefin
     CLAUDE_CONFIG_DIR: join(m.home, '.claude'),
     GIT_CONFIG_NOSYSTEM: '1',
     SOFAR_NO_UPDATE_CHECK: '1',
+    // The goldens pin the strict test gate (r4-fixes D65); a step that unsets
+    // this runs the default, which advises.
+    SOFAR_TEST_GATE: 'hold',
     // The stub's dispatch target (rust-core 3.1); absent = TypeScript throughout.
     SOFAR_CORE: CORE,
     // A candidate run directly hands an in-band write-back back to THIS
