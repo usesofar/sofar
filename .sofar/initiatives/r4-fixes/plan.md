@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 3986 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 55 done, 6 dropped, 26 remaining
+Progress: 56 done, 12 dropped, 19 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -69,14 +69,14 @@ Progress: 55 done, 6 dropped, 26 remaining
 - [x] B18 B5 elsewhere half: mentions tier, inbound digest block, prompt line and glance (SOFAR_ELSEWHERE)
 - [x] B19 B19 Elsewhere view at scale: mentions-tier pass costs native user-prompt +6-7 ms (+12.8%) at 1000 records (i1000-10mb, SOFAR_ELSEWHERE arm)
 
-## Phase 2c — Wave C: distribution and ecosystem [pending] — 2/8 done
+## Phase 2c — Wave C: distribution and ecosystem [pending] — 3/8 done
 
 - [ ] E1 E1 Host plugins as the primary install (Claude Code, Codex, Cursor); doctor detects double wiring (after A12; R21)
 - [x] E2 E2 Release pipeline: release.yml builds 5 cores, OIDC trusted publishing, staged publish, provenance, attestations, automatic merge-back (bypass-2FA tokens end Jan 2027)
 - [ ] E3 E3 Interop: sofar export/import --amr (Agent Memory Repo), import --beads, spec-kit extension
 - [x] E4 E4 GitHub Action example: sofar check + sofar diff in the user's own CI (after B7)
 - [ ] E5 E5 Docs and site: per-host quickstarts, llms.txt, How-we-measure page, behaviour-diff changelog, published byte budget
-- [ ] E6 E6 Homebrew formula (stuck at 0.11.0) with the native core, bumped from release.yml (after E2)
+- [x] E6 E6 Homebrew formula (stuck at 0.11.0) with the native core, bumped from release.yml (after E2)
 - [ ] E7 E7 Line provenance: refs/notes/sofar-trace, sofar why file:line, sofar handoff task --for host
 - [ ] E8 E8 After round 5: one engine (napi-rs or rmcp), shadow-hook canary upgrades, hook budget governor, Claude Code mod meter (R19, R20)
 
@@ -92,16 +92,9 @@ Progress: 55 done, 6 dropped, 26 remaining
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 - [ ] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3) (blocked)
 
-## Phase L — Felt latency [active] — 1/7 done
+## Phase L — Felt latency [done] — 1/7 (6 dropped) done — its tasks in phases/P7.md
 
-- [x] L1 Test gate as a setting: background default (scoped tests run detached, only failures surface), strict opt-in, off; operator ruling + SPEC decision; probe Stop asyncRewake first
-- [ ] L2 Narrow the gate: rule-bearing files only, ask related tests not the suite, accept file-scoped runs, no re-arm on unrelated edits
-- [ ] L3 Context diet: halve the +4.5-5.3k per-call prefix (CLAUDE.md block, alwaysLoad schemas, MCP instructions, digest), proven by the A/B
-- [ ] L4 Write-back cadence: once per session; drop the sofar_start_session ask from the CLAUDE.md block
-- [ ] L5 Native everywhere: refresh stale shims, core owns --host codex, native statusline/drive-await/pre-commit, Cursor fence scan of last entry only
-- [ ] L6 Decision checks off the turn: background at Stop, budgeted at pre-commit
-- [ ] L7 Explain MCP write tails: add_note p99 47 s, remember p99 61 s vs 4-12 ms on replay
+> L1 shipped in rc.6; L2–L7 moved to felt-latency.
 
-Active phase: Phase L — Felt latency
-Next action: Check main's CI run for 5254e448 (first CI on drive-lanes plus r4-fixes together) and fix anything red; then build E6, the Homebrew formula (stuck at 0.11.0), bumped from release.yml.
+Next action: Operator: create public repo usesofar/homebrew-tap with Formula/sofar.rb and packaging/homebrew/tap-bump.yml as .github/workflows/bump.yml
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).; task 4.2a: D57 and D58 built (handoff-bench round5-runner 0e5c5af). The host canary passes with 0 leaks under both scopes. Waiting on Chain N (4.3): clear Bun's @t@, then the canary and canary --full with Chain N, setup-sofar for the round's pin, doctor with the round's env, and the paid three-agent smoke (HARNESS-R5 §3).
