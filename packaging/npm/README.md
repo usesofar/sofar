@@ -93,3 +93,18 @@ must land before sofar.sh or the install has no core to find. Binaries are
 never committed (each package ignores its own). Every package names
 `usesofar/sofar` as its repository: provenance refuses a package whose
 repository is not the one the workflow ran in.
+
+## Homebrew (r4-fixes E6)
+
+`packaging/homebrew/sofar.rb` is generated: `node packaging/homebrew/formula.mjs
+[<version>]` hashes sofar.sh's tarball and the four unix core tarballs from the
+registry (no version: `latest`) and writes the formula, each core a
+per-platform resource. The formula installs the core itself because Homebrew
+runs npm with `--ignore-scripts` (no postinstall) and `--min-release-age=1`.
+
+The tap is `usesofar/homebrew-tap`: `Formula/sofar.rb` plus
+`packaging/homebrew/tap-bump.yml` as `.github/workflows/bump.yml`. It polls
+`latest` every six hours, proves the new formula (install from source,
+`brew test`, `brew audit --strict`) and commits only then. Approval is the
+event that makes a version `latest`, and no workflow sees it, so release.yml
+cannot do the bump; run the tap's workflow by hand to bump at once.

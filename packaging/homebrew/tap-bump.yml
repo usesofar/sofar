@@ -1,0 +1,64 @@
+# The tap's own bump (r4-fixes E6): copy to usesofar/homebrew-tap as
+# .github/workflows/bump.yml, next to Formula/sofar.rb.
+#
+# Why here and not release.yml: release.yml only STAGES a release; it becomes
+# `latest` when the operator approves it with 2FA, an event no workflow sees.
+# So the tap polls `latest`, renders the formula with this repo's
+# packaging/homebrew/formula.mjs, proves it (install from source, brew test,
+# brew audit --strict), and commits only then. It writes to its own repo with
+# its own GITHUB_TOKEN: no secret, no cross-repo token.
+name: bump
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: usesofar/sofar
+          path: sofar
+          sparse-checkout: packaging
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Render the formula for latest
+        id: render
+        run: |
+          node sofar/packaging/homebrew/formula.mjs --out Formula/sofar.rb
+          if git diff --quiet -- Formula/sofar.rb; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prove it
+        if: steps.render.outputs.changed == 'true'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: |
+          brew tap-new --no-git local/proof
+          cp Formula/sofar.rb "$(brew --repository local/proof)/Formula/sofar.rb"
+          brew install --build-from-source local/proof/sofar
+          brew test local/proof/sofar
+          brew audit --strict --formula local/proof/sofar
+      - name: Commit
+        if: steps.render.outputs.changed == 'true'
+        run: |
+          version=$(sed -n 's|^  url ".*/sofar.sh-\(.*\)\.tgz"$|\1|p' Formula/sofar.rb)
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "sofar $version" -- Formula/sofar.rb
+          git push

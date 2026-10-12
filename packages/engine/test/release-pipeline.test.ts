@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
+import { BREW_PLATFORMS, renderFormula, tarballUrl } from '../../../packaging/homebrew/formula.mjs'
 import { coreDigests, PLATFORMS, packageDir, packageName, syncLock } from '../../../packaging/npm/emit.mjs'
 import { releaseVersion } from '../../../packaging/npm/release-version.mjs'
 import { approvalOrder, stagedId } from '../../../packaging/npm/stage-approve.mjs'
@@ -220,6 +221,51 @@ describe('release.yml', () => {
     }
     expect(shell.length).toBeGreaterThan(10)
     expect(shell.filter((l) => l.includes('${{'))).toEqual([])
+  })
+})
+
+describe('homebrew formula (E6)', () => {
+  const urls = (v: string): string[] => [tarballUrl('sofar.sh', v), ...BREW_PLATFORMS.map((p) => tarballUrl(packageName(p), v))]
+  const fake = (v: string): Record<string, string> => Object.fromEntries(urls(v).map((u, i) => [u, String(i).repeat(64)]))
+
+  it('pins sofar.sh and each unix core by url and sha256, one resource per os and cpu', () => {
+    const rb = renderFormula('1.2.3', fake('1.2.3'))
+    expect(BREW_PLATFORMS.map((p) => p.platform).sort()).toEqual(['darwin', 'darwin', 'linux', 'linux'])
+    const lines = rb.split('\n').map((l) => l.trim())
+    for (const [url, sha] of Object.entries(fake('1.2.3'))) expect(lines[lines.indexOf(`url "${url}"`) + 1]).toBe(`sha256 "${sha}"`)
+    expect(lines).toContain('url "https://registry.npmjs.org/@sofar.sh/core-darwin-arm64/-/core-darwin-arm64-1.2.3.tgz"')
+    expect(rb.match(/resource "core" do/g)).toHaveLength(4)
+    expect(rb).toMatch(/on_macos do\n {4}on_arm do/)
+    expect(rb).toMatch(/on_linux do\n {4}on_intel do/)
+  })
+
+  it('does what --ignore-scripts skips: the core where the CLI resolves it, and over the bin shim', () => {
+    const rb = renderFormula('1.2.3', fake('1.2.3'))
+    expect(rb).toContain('node_modules/@sofar.sh/core-#{platform}-#{arch}')
+    expect(rb).toContain('cp core/"sofar-core", pkg/"bin/sofar-core"')
+    expect(rb).toContain('refute_match(/script/, shell_output("file -L #{bin}/sofar-core"))')
+  })
+
+  it('refuses to render without every sha256', () => {
+    const shas = fake('1.2.3')
+    delete shas[tarballUrl('@sofar.sh/core-linux-arm64', '1.2.3')]
+    expect(() => renderFormula('1.2.3', shas)).toThrow(/no sha256 for .*core-linux-arm64-1\.2\.3\.tgz/)
+  })
+
+  it('commits sofar.rb exactly as the renderer writes it, never hand-edited', () => {
+    const committed = readFileSync(join(repo, 'packaging', 'homebrew', 'sofar.rb'), 'utf8')
+    const version = /sofar\.sh-(.+)\.tgz"/.exec(committed)![1]!
+    const shas = Object.fromEntries(urls(version).map((u) => [u, new RegExp(`url "${u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\n\\s*sha256 "([0-9a-f]{64})"`).exec(committed)![1]!]))
+    expect(renderFormula(version, shas)).toBe(committed)
+  })
+
+  it('the tap bump proves the formula before it commits, with no secret', () => {
+    const yml = readFileSync(join(repo, 'packaging', 'homebrew', 'tap-bump.yml'), 'utf8')
+    expect(yml).not.toMatch(/secrets\./)
+    const prove = yml.indexOf('brew test local/proof/sofar')
+    expect(yml.indexOf('brew install --build-from-source local/proof/sofar')).toBeLessThan(prove)
+    expect(prove).toBeLessThan(yml.indexOf('git push'))
+    expect(yml).toContain('brew audit --strict --formula local/proof/sofar')
   })
 })
 
