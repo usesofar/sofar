@@ -4,7 +4,7 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages), and a driven task costs fewer tokens than native Claude Code (one session with its own subagents) on the same fixture.
 
-Brief: the operator's words, 5699 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 6617 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
 Progress: 24 done, 3 dropped, 3 remaining
 
@@ -25,4 +25,4 @@ Progress: 24 done, 3 dropped, 3 remaining
 - [ ] 5.5 Drive hosted in a cloud session (P24): `sofar drive --detach` started inside ONE Claude Code cloud session, its tasks run by the claude-code adapter as `claude -p` children in that VM, so a whole run is one entry in the operator's list. Probe: does the VM give child sessions auth, does a detached run survive the turn ending, and how the result comes back (patch or push). Compare against claude-cloud lanes on leftovers, wall-clock and done rate (active)
 
 Active phase: Phase 5 — Cloud lanes
-Next action: After rc.8 publishes: bump cloud env setup to sofar.sh@0.37.0-rc.8
+Next action: 5.5: bring a cloud-hosted run's commits back as patches

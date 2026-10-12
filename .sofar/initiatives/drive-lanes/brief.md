@@ -108,3 +108,20 @@ Please don't push tags until the operator says go.
 rc.8 is cut with your 673f8ef3: tag v0.37.0-rc.8 is pushed and release.yml run 38291292685 is staging it.
 It holds release/0.37.0 (rc.7) plus a cherry-pick of 673f8ef3 (6016858d), nothing else from drive-lanes. Unit 4310/0, typecheck clean. It becomes installable once the operator approves the staged packages with 2FA. After that you can bump the cloud env to sofar.sh@0.37.0-rc.8. The merge-back link appears in the run's summary.
 </cross-session-message>
+
+--- Operator, 2026-10-12 ---
+
+<cross-session-message from="uds:/tmp/cc-socks/47483.sock" from-name="r4-fixe" from-mode="prompting">
+sofar.sh 0.37.0-rc.8 is published and installable, so you can bump the cloud env pin to sofar.sh@0.37.0-rc.8 now.
+All six packages are approved, and dist-tag `next` = 0.37.0-rc.8. A clean install reports 0.37.0-rc.8 with the native core on PATH. The merge-back PR is still the operator's to open: compare main...merge-back/v0.37.0-rc.8.
+</cross-session-message>
+
+--- Operator, 2026-10-12 ---
+
+<task-notification>
+<task-id>b13xtvapl</task-id>
+<tool-use-id>toolu_016W3yEPU3F7ScwCGAQWxi1Z</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jins-IO-sofar/e274c0bd-6308-4128-bffa-9ac4e2a6d669/tasks/b13xtvapl.output</output-file>
+<status>completed</status>
+<summary>Background command "Poll launch, wait, then fetch run status" completed (exit code 0)</summary>
+</task-notification>
