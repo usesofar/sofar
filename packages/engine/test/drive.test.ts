@@ -10,6 +10,7 @@ import { appendEvent } from '../src/core/log'
 import type { Adapter, AgentSession, LaunchRequest, SessionExit } from '../src/driver/adapter'
 import {
   awaitSession,
+  bindsTo,
   describeExit,
   drive,
   DriveFenced,
@@ -390,9 +391,29 @@ describe('the loop', () => {
     expect(adapter.sessions[1]!.request.cwd).toBe(root)
     expect(first.initiative).toBe('demo')
     expect(first.prompt).toContain('Task 1.1 — first')
-    expect(first.prompt).toContain('sofar_end_session')
+    expect(first.prompt).toContain('```sofar')
     expect(first.prompt).toContain('blocked')
     expect(renderPrompt('demo', { phase: 'Phase 1', id: '1.1', title: 'first' })).toContain('THIS TASK ONLY')
+  })
+
+  it('keeps the record for the session: a closing block, no sofar tool, the gate command named, and no pin where the binding resolves (drive-lanes 4.3)', async () => {
+    const root = repo('keeper')
+    const adapter = new FakeAdapter([worker(root, 'S1'), worker(root, 'S2')])
+    await drive(root, 'demo', { adapter })
+    const first = adapter.sessions[0]!.request
+    expect(first.env?.SOFAR_WRITEBACK).toBe('inline')
+    // No branch here, so no binding: the pin stays.
+    expect(first.pin).toBeUndefined()
+    // A branch bound to the record needs none.
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root })
+    writeFileSync(join(root, '.sofar', 'bindings.json'), JSON.stringify({ main: 'demo' }))
+    expect(bindsTo(root, 'demo')).toBe(true)
+    expect(bindsTo(root, 'other')).toBe(false)
+    expect(first.prompt).toContain('call no sofar tool for it')
+    expect(first.prompt).toContain('{"task_id":"1.1","status":"done"}')
+    const named = renderPrompt('demo', { phase: 'Phase 1', id: '1.1', title: 'first' }, 'task', undefined, undefined, 'npm test')
+    expect(named).toContain('The task is accepted when `npm test` exits 0')
+    expect(renderPrompt('demo', { phase: 'Phase 1', id: '1.1', title: 'first' })).not.toContain('is accepted when')
   })
 
   it('stops on needs_user when the session blocks its task, and does not relaunch onto it', async () => {

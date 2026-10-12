@@ -140,6 +140,11 @@ describe('argv', () => {
     expect(ambient).not.toContain('--disable-slash-commands')
   })
 
+  it('drops the pin when the driver says the launch directory already binds to the record (drive-lanes 4.3)', () => {
+    expect(pinPrompt({ cwd: '/w', initiative: 'demo', prompt: 'go', pin: false })).toBe('go')
+    expect(pinPrompt({ cwd: '/w', initiative: 'demo', prompt: 'go' })).toBe(`${pinLine('demo')}\n\ngo`)
+  })
+
   it('the pin names sofar_start_session and the initiative, so the session cannot follow the branch binding', () => {
     const text = pinPrompt({ cwd: '/w', initiative: 'session-driver', prompt: 'go' })
     expect(text).toContain('sofar_start_session with initiative "session-driver"')

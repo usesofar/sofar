@@ -45,11 +45,13 @@ import { lowPriority } from './load'
  * unparseable line is skipped too — the fold's tolerance rule, applied to a
  * stream.
  *
- * Two facts the driver leans on. The initiative is PINNED through the
- * prompt: the engine has no env override for the branch binding, and adding
- * one would be a second binding source to keep honest, whereas the prompt
- * already reaches the one call that pins a session (sofar_start_session's
- * `initiative`). The nudge is a FILE: `nudge()` creates it at the path the
+ * Two facts the driver leans on. Where the launch directory's binding does
+ * not already resolve to the initiative, it is PINNED through the prompt: the
+ * engine has no env override for the branch binding, and adding one would be
+ * a second binding source to keep honest, whereas the prompt already reaches
+ * the one call that pins a session (sofar_start_session's `initiative`).
+ * Where it does resolve, the driver passes `pin: false` and the call is
+ * skipped (drive-lanes 4.3, D48). The nudge is a FILE: `nudge()` creates it at the path the
  * child received in `SOFAR_DRIVE_NUDGE`, and the PostToolUse hook (2.3)
  * turns its existence into "finish the current task, write back, end your
  * turn" — print mode has no stdin to speak through once it has started.
@@ -154,7 +156,7 @@ export function pinLine(initiative: string): string {
 }
 
 export function pinPrompt(request: LaunchRequest): string {
-  return `${pinLine(request.initiative)}\n\n${request.prompt}`
+  return request.pin === false ? request.prompt : `${pinLine(request.initiative)}\n\n${request.prompt}`
 }
 
 /**

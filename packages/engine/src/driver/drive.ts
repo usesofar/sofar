@@ -26,6 +26,7 @@ import { applicableChecks, changedPaths, checkFailureLine, checksInForce, isAppr
 import { refreshGuards } from '../core/index-tier1'
 import { recordRoot } from '../core/git'
 import { claimRunLock, probeRunLock, type RunLockOptions } from '../core/run-lock'
+import { WRITEBACK_ENV } from '../core/inline-block'
 import { closeLease, LEASE_ENV, leaseFile, openLease, poolLeases, postBrief, readLease, stillHeld, type Lease, type LeaseWait } from '../core/leases'
 import { changeBriefLine, leaseNotice, loggedBy, postedBrief, resumePacket, type ChangeBrief } from '../core/packets'
 import { byAge, conflictOf, footprints, readRepoView, repoRelative, type Holder, type RepoView } from '../core/footprint'
@@ -643,15 +644,17 @@ export function renderPrompt(
     /** Context packets (drive-lanes 3.3), one line each: the resume packet, the lease notice. */
     packets?: string[]
   },
+  /** The command the gate will run on this task (drive-lanes 4.3): named so the session runs it once itself. */
+  verify?: string,
 ): string {
   const scope =
     policy === 'threshold'
       ? [
           'Start with THIS task, and when it is finished take the next one from the plan',
-          'the same way — done, written back, committed — until sofar tells you the context',
+          'the same way — done and committed — until sofar tells you the context',
           'is nearly full. That message names a percentage and asks you to finish the',
           'current task and hand off; when it arrives, finish that task and end your turn',
-          'without starting another.',
+          'without starting another. Your closing block lists every task you finished.',
         ]
       : [
           'Do THIS TASK ONLY, to the acceptance criteria the record names. Do not start the',
@@ -692,7 +695,7 @@ export function renderPrompt(
           ...(lane.merge.briefs ?? []).map((b) => `It takes in: ${b}`),
           'Finish it first: resolve each conflict so both sides\' intent survives, `git add` the',
           'files and `git commit` to conclude the merge. Then check the task still does what it',
-          'asks, and mark it done. The driver lands the branch only once the merge is concluded.',
+          'asks, and mark it done in your closing block. The driver lands the branch only once the merge is concluded.',
           '',
         ]
       : []),
@@ -707,14 +710,25 @@ export function renderPrompt(
           '',
         ]
       : []),
-    'Finish the way the protocol says: log decisions as you make them, mark the task',
-    'done with sofar_update_task, write back with sofar_end_session (summary + the',
-    lane !== undefined ? 'single next action), then commit your code on the lane\'s branch.' : 'single next action), then commit code and record together.',
+    // The driver keeps the record (drive-lanes 4.3, D48): the session spends
+    // no call on the protocol. Its closing block is the write-back the Stop
+    // hook files, and the driver's gate re-runs the command named here.
+    ...(verify !== undefined ? [`The task is accepted when \`${verify}\` exits 0: run it once before you finish; the driver re-runs it.`, ''] : []),
+    lane !== undefined ? 'Commit your code on the lane\'s branch (git add, git commit).' : 'Commit your code (git add, git commit).',
+    'The driver keeps this session\'s record: call no sofar tool for it — no',
+    'sofar_start_session, sofar_update_task or sofar_end_session. Instead, end your',
+    'final reply with one fenced block whose info string is sofar, holding JSON:',
+    '',
+    '```sofar',
+    `{"summary":"<what you did, one or two sentences>","next_action":"<the next step>","tasks":[{"task_id":"${task.id}","status":"done"}]}`,
+    '```',
+    '',
+    'Add "decisions" only for a choice between approaches a later session must know.',
     '',
     'If the task needs a decision only the operator can take, do NOT guess and do not',
-    'do the work anyway: mark the task blocked with sofar_update_task (status',
-    '"blocked", note = the question), write back, and end your turn. That is the',
-    'signal that stops the run and puts your question in front of the operator.',
+    `do the work anyway: end with the block giving task ${task.id} status "blocked" and the`,
+    'question as its "note". That is the signal that stops the run and puts your',
+    'question in front of the operator.',
   ].join('\n')
 }
 
@@ -2155,9 +2169,14 @@ async function driveHolding(
       }
       for (const line of verdict.lines) progress(line)
     }
+    // The command the gate will run, named in the prompt (4.3).
+    const taskState = state.phases.flatMap((p) => p.tasks).find((t) => t.id === task.id)
+    const verifyCmd = taskState !== undefined ? resolveVerify(taskState, runVerify, verifyTimeoutMs)?.cmd : undefined
     const session = routed.launch({
       cwd: launchDir,
       initiative,
+      // A new session here already lands in this record: no pin call (4.3).
+      ...(bindsTo(launchDir, initiative) ? { pin: false } : {}),
       prompt: renderPrompt(
         initiative,
         task,
@@ -2172,16 +2191,21 @@ async function driveHolding(
               packets: lanePackets(state, task.id, laneTask),
             }
           : undefined,
+        verifyCmd,
       ),
       task: { id: task.id, title: task.title },
       ...(route.model !== undefined ? { model: route.model } : {}),
       ...(route.effort !== undefined ? { effort: route.effort } : {}),
       ...(surface !== undefined ? { surface } : {}),
       ...(options.lowPriority === true ? { lowPriority: true } : {}),
-      // The lane's lease file and the hook that reads it (3.1, D33).
-      ...(leasing !== undefined && laneTask !== undefined
-        ? { env: { [LEASE_ENV]: leaseFile(leasing.pool, laneTask.lane.id) }, leaseHook: leasing.hook }
-        : {}),
+      // The write-back is the closing block (4.3, D48): no operator reads a
+      // driven session's last screen, which is why Claude Code's default is
+      // the tool (r4-fixes H5). The lane's lease file rides the same env (3.1, D33).
+      env: {
+        [WRITEBACK_ENV]: 'inline',
+        ...(leasing !== undefined && laneTask !== undefined ? { [LEASE_ENV]: leaseFile(leasing.pool, laneTask.lane.id) } : {}),
+      },
+      ...(leasing !== undefined && laneTask !== undefined ? { leaseHook: leasing.hook } : {}),
     })
     liveSessions.add(session)
     const unwatch = watchRunEvents(
@@ -2988,13 +3012,22 @@ function assertSameRecord(cwd: string, initiative: string, target: string): void
  * opens on the wrong digest, so say so rather than let it be discovered from
  * the transcript.
  */
-function warnOnForeignBinding(cwd: string, initiative: string, progress: (line: string) => void): void {
-  let bound: string | null = null
+/** The record a new session in `cwd` homes to — what its SessionStart would resolve — or null. */
+function boundIn(cwd: string): string | null {
   try {
-    bound = createToolContext(recordRoot(cwd)).resolveInitiative()
+    return createToolContext(recordRoot(cwd)).resolveInitiative()
   } catch {
-    bound = null
+    return null
   }
+}
+
+/** Whether a session launched in `cwd` lands in `initiative` with no pin call (drive-lanes 4.3). */
+export function bindsTo(cwd: string, initiative: string): boolean {
+  return boundIn(cwd) === initiative
+}
+
+function warnOnForeignBinding(cwd: string, initiative: string, progress: (line: string) => void): void {
+  const bound = boundIn(cwd)
   if (bound === initiative) return
   progress(
     `warning: ${cwd} binds to ${bound ?? 'no initiative'}, not "${initiative}" — driven sessions will be injected with that record's digest and must re-home; the prompt still pins their writes`,

@@ -1302,7 +1302,7 @@ describe('sofar event post-tool — the driver nudge (session-driver 2.3)', () =
     const context = out.hookSpecificOutput.additionalContext
     expect(context).toContain('context at 84%')
     expect(context).toContain('168800 tokens')
-    expect(context).toContain('sofar_end_session')
+    expect(context).toContain('closing sofar block')
     expect(context).toContain('Do not start another task')
   })
 

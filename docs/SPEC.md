@@ -2726,6 +2726,21 @@ resolves to no session, or to several, is counted as a stall and carries NO
 handoff: a handoff names a session, and naming the wrong one files a run's
 history on someone else's work.
 
+**The driver keeps the session's record (drive-lanes 4.3, D48).** A driven
+session calls no sofar tool for bookkeeping. Every launch carries
+`SOFAR_WRITEBACK=inline`, and the prompt asks the session to end its final reply
+with one fenced `sofar` block: summary, next action, and the task's status
+(`done`, or `blocked` with the question as its note). The Stop hook files that
+block through the same write-back path the tool uses, so the fold sees the
+write-back and the status exactly as before, and the reasons above are
+unchanged. Claude Code's interactive default stays the tool (r4-fixes H5),
+because there the final reply is the operator's last screen; no operator reads
+a driven session's. The prompt names the command the gate will run, so the
+session runs it once itself. The pin line that has a Claude Code session call
+`sofar_start_session` is sent only where the launch directory's binding does
+not already resolve to the initiative (`pin: false` on the launch request
+otherwise): a session registered there is home already.
+
 **One launch directory per run (D6).** `sofar drive` creates no worktree and
 switches no branch: sessions in a run are sequential and cumulative, so a
 fresh checkout per session would discard the previous one's uncommitted work

@@ -110,6 +110,14 @@ export interface LaunchRequest {
   initiative: string
   /** The opening prompt — the driver renders it from the record digest and the task. */
   prompt: string
+  /**
+   * False when a session launched in `cwd` already homes to `initiative` (the
+   * branch binding resolves there), so the adapter need not open the prompt
+   * with the pin that has the session call sofar_start_session (drive-lanes
+   * 4.3, D48): that call bought nothing a binding did not, and cost two calls.
+   * Absent keeps the pin.
+   */
+  pin?: boolean
   /** The task this session is for, when the policy names one; absent leaves it to the record's next action. */
   task?: { id: string; title: string }
   /** Routing hints from the task (3.2); an adapter whose capabilities say no ignores them. */

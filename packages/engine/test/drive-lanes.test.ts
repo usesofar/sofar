@@ -273,7 +273,7 @@ describe('sofar drive --lanes (2.2, D20)', () => {
     expect(s1!.request.cwd.startsWith(lanePoolDir(root))).toBe(true)
     expect(s2!.request.cwd).not.toBe(s1!.request.cwd) // the next clean lane in rotation
     expect(s1!.request.prompt).toContain(`on the\nbranch ${taskBranch('demo', run.id, '1.1')}`)
-    expect(s1!.request.prompt).toContain("then commit your code on the lane's branch.")
+    expect(s1!.request.prompt).toContain("Commit your code on the lane's branch (git add, git commit).")
     expect(lines.some((l) => l.startsWith(`  lane 1: ${s1!.request.cwd} on ${taskBranch('demo', run.id, '1.1')}`))).toBe(true)
     expect(lines.filter((l) => /^ {2}landed 1\.[12] on /.test(l))).toHaveLength(2)
     expect(lines).toContain(`lanes: what this run landed is on ${base} (${outcome.base!.tip.slice(0, 7)}) — \`git merge ${base}\` brings it into your branch`)

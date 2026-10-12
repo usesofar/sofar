@@ -175,6 +175,22 @@ node anatomy.mjs --driven 4.2-base,4.2-lean --out 4.2-anatomy \
   --claude-config ~/.bench/claude-config,~/.bench/claude-config-build
 ```
 
+### The driver keeps the record (drive-lanes 4.3)
+
+A driven session calls no sofar tool (D48): it ends its final reply with a
+` ```sofar ` block (summary, next action, its task's status), the launch's
+`SOFAR_WRITEBACK=inline` has the Stop hook file it, the prompt names the gate's
+command, and the pin is sent only where the binding does not already resolve.
+Measured as for 4.2, against the engine one commit back:
+
+```
+node run.mjs --label 4.3-base-1 --engine <checkout at the commit before>
+node run.mjs --label 4.3-keep-1
+node measure.mjs --bar 4.3-base && node measure.mjs --bar 4.3-keep
+node anatomy.mjs --driven 4.3-base,4.3-keep --out 4.3-anatomy \
+  --claude-config ~/.bench/claude-config,~/.bench/claude-config-build
+```
+
 ### Tiered verify against per-task full verify (drive-lanes 2.6)
 
 `tiered-replay.test.ts` replays the nine tasks without an agent (D29): the
