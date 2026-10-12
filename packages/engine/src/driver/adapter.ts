@@ -145,6 +145,11 @@ export const CALLER_SESSION_ENV: readonly string[] = [
   'CLAUDECODE',
   'CLAUDE_CODE_SESSION_ID',
   'CLAUDE_CODE_BRIDGE_SESSION_ID',
+  // A cloud session's own (drive-lanes 5.5): a `claude -p` launched inside a
+  // Claude Code cloud session takes the HOST's session id from it even with
+  // CLAUDE_CODE_SESSION_ID unset, so every driven session would register as
+  // the host (probed in session_01JqcwwQkcqvRFbV8hXd1nJc, claude 2.1.296).
+  'CLAUDE_CODE_REMOTE_SESSION_ID',
   'CLAUDE_CODE_MESSAGING_SOCKET',
   'CLAUDE_CODE_MESSAGING_TOKEN',
   'CLAUDE_CODE_CHILD_SESSION',
