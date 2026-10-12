@@ -2,6 +2,8 @@
 //! (`core/index-pass.ts`, record-index 3.1): a tier supplies its reducer;
 //! the five "resuming is unsound" cases here fall back to a full read.
 
+use std::collections::{HashMap, HashSet};
+
 use crate::index_store::{Cursor, IndexMeta, read_index_meta, write_index_meta};
 use crate::index_tail::{IndexedEvent, LineFilter, read_since};
 use crate::json::Json;
@@ -89,14 +91,32 @@ pub fn pass_over_record<R: SlugReducer>(
     let mut states: Vec<(String, R::State)> = Vec::new();
     let mut changed = prior.is_none();
     let mut state_changed = prior.is_none();
+    // Slug → position, built once (r4-fixes B19): a linear find per slug made
+    // each tier's pass O(n²) — at 1,000 records most of a quiet pass.
+    let prior_at: HashMap<&str, usize> = prior
+        .map(|p| {
+            p.iter()
+                .enumerate()
+                .map(|(i, (s, _))| (s.as_str(), i))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut meta_at: HashMap<String, usize> = meta
+        .cursors
+        .iter()
+        .enumerate()
+        .map(|(i, (s, _))| (s.clone(), i))
+        .collect();
 
     for slug in initiative_slugs(layout) {
         let log = layout.events_path(&slug);
-        let prior_state = prior.and_then(|p| p.iter().find(|(s, _)| *s == slug).map(|(_, st)| st));
+        let prior_state = prior
+            .zip(prior_at.get(slug.as_str()))
+            .map(|(p, &i)| &p[i].1);
         let cursor: Option<Cursor> = if prior_state.is_none() {
             None
         } else {
-            meta.get(&slug).cloned()
+            meta_at.get(&slug).map(|&i| meta.cursors[i].1.clone())
         };
         let mut read = read_since(&log, cursor.as_ref(), reducer.lines());
         let mut voided: Vec<String> = cursor
@@ -167,6 +187,12 @@ pub fn pass_over_record<R: SlugReducer>(
             None => {
                 if meta.remove(&slug) {
                     changed = true;
+                    meta_at = meta
+                        .cursors
+                        .iter()
+                        .enumerate()
+                        .map(|(i, (s, _))| (s.clone(), i))
+                        .collect();
                 }
             }
             Some(mut next) => {
@@ -181,16 +207,23 @@ pub fn pass_over_record<R: SlugReducer>(
                     sorted.sort_by(|a, b| cmp_utf16(a, b));
                     next.voided = Some(sorted);
                 }
-                meta.set(&slug, next);
+                // `IndexMeta::set`: in place, else appended — the same order.
+                if let Some(&i) = meta_at.get(&slug) {
+                    meta.cursors[i].1 = next;
+                } else {
+                    meta_at.insert(slug.clone(), meta.cursors.len());
+                    meta.cursors.push((slug.clone(), next));
+                }
             }
         }
         states.push((slug, state));
     }
 
+    let present: HashSet<&str> = states.iter().map(|(s, _)| s.as_str()).collect();
     let stale: Vec<String> = meta
         .cursors
         .iter()
-        .filter(|(s, _)| !states.iter().any(|(t, _)| t == s))
+        .filter(|(s, _)| !present.contains(s.as_str()))
         .map(|(s, _)| s.clone())
         .collect();
     for slug in stale {
@@ -198,9 +231,7 @@ pub fn pass_over_record<R: SlugReducer>(
         changed = true;
     }
     if let Some(prior) = prior
-        && prior
-            .iter()
-            .any(|(s, _)| !states.iter().any(|(t, _)| t == s))
+        && prior.iter().any(|(s, _)| !present.contains(s.as_str()))
     {
         changed = true;
         state_changed = true;

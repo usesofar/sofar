@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 3986 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 53 done, 6 dropped, 28 remaining
+Progress: 55 done, 6 dropped, 26 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -47,7 +47,7 @@ Progress: 53 done, 6 dropped, 28 remaining
 - [x] H19 H19 MCP writes follow /clear: `sofar mcp` adopts CLAUDE_CODE_SESSION_ID once at spawn, and Claude Code keeps that stdio child across /clear while minting a new session id, so every later MCP write (write-backs included) files under the dead predecessor. splen 4d7f19fc (continues b4130fb7): 754 hook events, 0 MCP writes under its id, ~135 under b4130fb7, 48 false Stop write-back holds despite 83 end_session calls; this session 25758e11 (continues 2029729d) 3 writes, 1 false hold. Follow the parent process's registry entry (~/.claude/sessions/<ppid>.json) when it renamed the adopted id (formerNames).
 - [x] H20 H20 Stop gate dirt a peer captured: a git-dirty file whose mtime matches another session's file_touched of that path (±slack) is that session's edit, whatever this session's may-write windows say. 93511017's 16:17/16:31 holds: drive 67067ce5 captured every edit within ~200 ms of its mtime, inside 93511017's ~30 one-second windows. 4 more holds explained (note 01M4KB7Q). Also the classifier gaps feeding windows: `T=/abs/elsewhere; …` reads as may-write, and leavesWorktree's RE_ENTERS scans heredoc bodies. Replay first (D24)
 
-## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 6/19 (3 dropped) done
+## Phase 2b — Wave B (rc 0.36.0): the larger bets [pending] — 7/19 (3 dropped) done
 
 - [x] B1 B1 Work maps: ≤1.5k-char focus-task map (files, last test cmd+exit, entry points) ranked by PageRank+BM25F, stamped verified-at-sha (SOFAR_WORKMAP). PREDICT Claude −0.05 to −0.10
 - [-] B2 B2 Rules compiled to checks: opt-in forbid, PreToolUse deny + check --staged + Stop gate (SOFAR_FORBID; R13 Decision vs drift-hardening D3 first). PREDICT GV −0.5 to −1 (dropped)
@@ -67,7 +67,7 @@ Progress: 53 done, 6 dropped, 28 remaining
 - [x] B16 A14's 24h abandoned rule on hot-path notices, not only doctor
 - [-] B17 Cut habitual raw reads of record projections: round 4 cost about 55k attributed tokens per sofar Claude session (native about 1k). Cover memory.md, decisions.md and plan.md partial reads, and the read rewrite inflating `tail` reads (5.1k vs 2.1k chars). Find why agents re-read delivered content before choosing a lever (D29) (dropped)
 - [x] B18 B5 elsewhere half: mentions tier, inbound digest block, prompt line and glance (SOFAR_ELSEWHERE)
-- [ ] B19 B19 Elsewhere view at scale: mentions-tier pass costs native user-prompt +6-7 ms (+12.8%) at 1000 records (i1000-10mb, SOFAR_ELSEWHERE arm)
+- [x] B19 B19 Elsewhere view at scale: mentions-tier pass costs native user-prompt +6-7 ms (+12.8%) at 1000 records (i1000-10mb, SOFAR_ELSEWHERE arm)
 
 ## Phase 2c — Wave C: distribution and ecosystem [pending] — 2/8 done
 
@@ -92,11 +92,9 @@ Progress: 53 done, 6 dropped, 28 remaining
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
 - [ ] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3) (blocked)
 
-## Phase L — Felt latency [pending] — 0/7 done
+## Phase L — Felt latency [active] — 1/7 done
 
-> From the 2026-10-12 audit (note 01M4QAJFGTRERWBD7PNCRSXYX5).
-
-- [ ] L1 Test gate as a setting: background default (scoped tests run detached, only failures surface), strict opt-in, off; operator ruling + SPEC decision; probe Stop asyncRewake first (active)
+- [x] L1 Test gate as a setting: background default (scoped tests run detached, only failures surface), strict opt-in, off; operator ruling + SPEC decision; probe Stop asyncRewake first
 - [ ] L2 Narrow the gate: rule-bearing files only, ask related tests not the suite, accept file-scoped runs, no re-arm on unrelated edits
 - [ ] L3 Context diet: halve the +4.5-5.3k per-call prefix (CLAUDE.md block, alwaysLoad schemas, MCP instructions, digest), proven by the A/B
 - [ ] L4 Write-back cadence: once per session; drop the sofar_start_session ask from the CLAUDE.md block
@@ -104,5 +102,6 @@ Progress: 53 done, 6 dropped, 28 remaining
 - [ ] L6 Decision checks off the turn: background at Stop, budgeted at pre-commit
 - [ ] L7 Explain MCP write tails: add_note p99 47 s, remember p99 61 s vs 4-12 ms on replay
 
-Next action: When the rc.6 release run passes, the operator runs node packaging/npm/stage-approve.mjs 0.37.0-rc.6 (expect E409 for a few minutes) and installs sofar.sh@next --include=optional, twice if the core package is missed.
+Active phase: Phase L — Felt latency
+Next action: Install rc.6 (operator), then cut rc.7 with B19 after a D18 gate against rc.6; next candidates: E6 Homebrew or Phase L with felt-latency.
 Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).; task 4.2a: D57 and D58 built (handoff-bench round5-runner 0e5c5af). The host canary passes with 0 leaks under both scopes. Waiting on Chain N (4.3): clear Bun's @t@, then the canary and canary --full with Chain N, setup-sofar for the round's pin, doctor with the round's env, and the paid three-agent smoke (HARNESS-R5 §3).
