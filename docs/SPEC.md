@@ -7970,7 +7970,7 @@ deletes it with the worktree's gitdir.
   [--effort <e>] [--resume] [--verify <cmd>] [--verify-quick <cmd>]
   [--lanes <n>] [--lane-setup <cmd|none>] [--leases steer|deny|off]
   [--schedule footprint|ready]
-  [--agent claude-code|codex|cursor|claude-cloud] [--bin <path>] [--agent-arg <arg>]
+  [--agent claude-code|codex|cursor|claude-cloud] [--hosted cloud] [--bin <path>] [--agent-arg <arg>]
   [--permission-mode <mode>]
   [--allow <rule...>] [--deny <rule...>] [--bare-tools] [--detach] [--stop]
   [--await] [--follow] [--keep-awake|--no-keep-awake]

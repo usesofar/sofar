@@ -157,7 +157,7 @@ export function scriptArgv(platform: NodeJS.Platform, log: string, cmd: string[]
   return ['-q', log, ...cmd]
 }
 
-function shellWord(value: string): string {
+export function shellWord(value: string): string {
   return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`
 }
 
@@ -175,6 +175,8 @@ export interface CloudTranscript {
   finalText: string | null
   /** The last `git format-patch` output a command returned, verbatim from its first separator line. */
   patch: string | null
+  /** Every command output, in order (a hosted run reads its exported events from here). */
+  outputs: string[]
 }
 
 type Row = Record<string, unknown>
@@ -215,6 +217,7 @@ export function readCloudTranscript(jsonl: string): CloudTranscript {
   let finalText: string | null = null
   let blockText: string | null = null
   let patch: string | null = null
+  const outputs: string[] = []
   let lastText = -1
   rows.forEach((row, i) => {
     if (row.type === 'assistant') {
@@ -229,6 +232,7 @@ export function readCloudTranscript(jsonl: string): CloudTranscript {
       for (const b of blocks(row)) {
         if (b.type !== 'tool_result') continue
         const out = text(b.content)
+        if (out !== null) outputs.push(out)
         const at = out === null ? -1 : out.search(PATCH_HEAD)
         if (at >= 0) patch = out!.slice(at)
       }
@@ -239,17 +243,17 @@ export function readCloudTranscript(jsonl: string): CloudTranscript {
   // The repo's own Stop hook runs in the cloud too, against the cloud's copy of
   // the record, and can ask for a write-back the session answers with a reply
   // holding no block: the block is in the last reply that has one (seen live, 5.2).
-  return { started: rows.some((r) => r.type === 'user'), ended, finalText: blockText ?? finalText, patch }
+  return { started: rows.some((r) => r.type === 'user'), ended, finalText: blockText ?? finalText, patch, outputs }
 }
 
-interface Ran {
+export interface Ran {
   code: number | null
   stdout: string
   stderr: string
   error?: string
 }
 
-function run(bin: string, args: string[], cwd: string, env: NodeJS.ProcessEnv, input?: string): Promise<Ran> {
+export function run(bin: string, args: string[], cwd: string, env: NodeJS.ProcessEnv, input?: string): Promise<Ran> {
   return new Promise((resolve) => {
     const child = spawn(bin, args, { cwd, env, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] })
     let stdout = ''
@@ -379,22 +383,8 @@ export class ClaudeCloudSession implements AgentSession {
     }
   }
 
-  /** One $0 poll: teleport into a fresh local transcript and read the cloud part of it. */
-  private async poll(bin: string, cwd: string): Promise<CloudTranscript | undefined> {
-    const out = await run(bin, ['--teleport', this.cloudId!, '-p', '.', '--model', NO_MODEL, '--output-format', 'json'], cwd, this.env)
-    let local: string | undefined
-    try {
-      const parsed: unknown = JSON.parse(out.stdout)
-      if (isObj(parsed) && typeof parsed.session_id === 'string') local = parsed.session_id
-    } catch {
-      return undefined
-    }
-    if (local === undefined) return undefined
-    const path = findTranscript(this.options.configDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), local)
-    if (path === undefined) return undefined
-    const read = readCloudTranscript(readFileSync(path, 'utf8'))
-    forgetTranscript(path)
-    return read
+  private poll(bin: string, cwd: string): Promise<CloudTranscript | undefined> {
+    return pollCloud(bin, this.cloudId!, cwd, this.env, this.options.configDir)
   }
 
   usage(): Usage | undefined {
@@ -427,6 +417,28 @@ export function forgetTranscript(path: string): void {
   } catch {
     // already gone
   }
+}
+
+/**
+ * One $0 poll (D51): teleport into a fresh local transcript from `cwd` (a clean
+ * checkout of the session's repo), read the cloud part of it, and remove the
+ * local session the teleport made. Undefined when the teleport wrote nothing.
+ */
+export async function pollCloud(bin: string, cloudId: string, cwd: string, env: NodeJS.ProcessEnv, configDir?: string): Promise<CloudTranscript | undefined> {
+  const out = await run(bin, ['--teleport', cloudId, '-p', '.', '--model', NO_MODEL, '--output-format', 'json'], cwd, env)
+  let local: string | undefined
+  try {
+    const parsed: unknown = JSON.parse(out.stdout)
+    if (isObj(parsed) && typeof parsed.session_id === 'string') local = parsed.session_id
+  } catch {
+    return undefined
+  }
+  if (local === undefined) return undefined
+  const path = findTranscript(configDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), local)
+  if (path === undefined) return undefined
+  const read = readCloudTranscript(readFileSync(path, 'utf8'))
+  forgetTranscript(path)
+  return read
 }
 
 /** A local transcript by session id, under the config dir's projects/. */

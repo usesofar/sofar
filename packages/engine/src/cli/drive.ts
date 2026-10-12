@@ -12,6 +12,7 @@ import { ClaudeCodeAdapter } from '../driver/claude-code'
 import { CodexAdapter } from '../driver/codex'
 import { CursorAdapter } from '../driver/cursor'
 import { ClaudeCloudAdapter } from '../driver/claude-cloud'
+import { cloudDriveArgs, driveHosted } from '../driver/hosted'
 import { appendedBytesScan, drive, STOP_POLL_MS, type DriveOptions } from '../driver/drive'
 import { buildSurface, SurfaceError } from '../driver/permissions'
 import { launchEnv, type Adapter } from '../driver/adapter'
@@ -887,4 +888,33 @@ export async function runDriveDetached(
   return fail(
     `sofar drive --detach: driver pid ${child.pid} has not confirmed a start within ${Math.round((options.startTimeoutMs ?? DETACH_START_TIMEOUT_MS) / 1000)}s and was left running. \`sofar status ${initiative}\` shows whether a run began; its log is ${logPath}`,
   )
+}
+
+/**
+ * `sofar drive <slug> --hosted cloud` (drive-lanes 5.5): the whole run in ONE
+ * Claude Code cloud session, its commits and record brought back here.
+ * `argv` is the command line after `sofar`; the cloud-side drive gets it
+ * minus what only means something on this machine.
+ */
+export async function runDriveHosted(
+  rootDir: string,
+  slug: string | undefined,
+  options: { where: string; argv: string[]; bin?: string; onProgress?: (line: string) => void },
+): Promise<CmdResult> {
+  if (options.where !== 'cloud') return fail(`sofar drive --hosted: the only host is \`cloud\` (a Claude Code cloud session), got "${options.where}"`)
+  let initiative: string
+  try {
+    initiative = createToolContext(rootDir).resolveInitiative(slug)
+  } catch (err) {
+    return fail(errMessage(err))
+  }
+  const argv = options.argv[0] === 'drive' ? options.argv.slice(1) : options.argv
+  const driveArgs = cloudDriveArgs(argv)
+  if (!driveArgs.includes(initiative)) driveArgs.unshift(initiative)
+  const outcome = await driveHosted(rootDir, initiative, {
+    driveArgs,
+    ...(options.bin !== undefined ? { bin: options.bin } : {}),
+    ...(options.onProgress !== undefined ? { onProgress: options.onProgress } : {}),
+  })
+  return outcome.ok ? ok(`${outcome.lines.join('\n')}\n`) : fail(outcome.lines.join('\n'))
 }

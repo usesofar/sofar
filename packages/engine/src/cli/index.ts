@@ -26,6 +26,7 @@ import {
   runDrive,
   runDriveAwait,
   runDriveDetached,
+  runDriveHosted,
   runDriveFollow,
   runDriveStop,
   runKeepAwakeSetting,
@@ -783,6 +784,10 @@ program
   .option('--deny <rule...>', 'permission rules denied to every session in the run')
   .option('--bare-tools', "drop sofar's default allow-list; --allow then states the whole surface")
   .option(
+    '--hosted <where>',
+    'run the whole drive in ONE Claude Code cloud session (`cloud`) and bring its commits and record back here — one entry in your session list per run (needs sofar.sh 0.37.0-rc.8+ in the cloud environment)',
+  )
+  .option(
     '--detach',
     "start the run as a process that outlives this shell — how an agent session starts one; returns once the run is certain to start",
   )
@@ -835,6 +840,7 @@ program
         allow?: string[]
         deny?: string[]
         bareTools?: boolean
+        hosted?: string
         detach?: boolean
         stop?: boolean
         await?: boolean
@@ -870,6 +876,17 @@ program
             : only === 'await'
               ? await runDriveAwait(rootOf(opts), slug)
               : await runDriveFollow(rootOf(opts), slug),
+        )
+        return
+      }
+      if (opts.hosted !== undefined) {
+        emit(
+          await runDriveHosted(rootOf(opts), slug, {
+            where: opts.hosted,
+            argv: process.argv.slice(2),
+            ...(opts.bin !== undefined ? { bin: opts.bin } : {}),
+            onProgress: (line) => process.stderr.write(`${line}\n`),
+          }),
         )
         return
       }

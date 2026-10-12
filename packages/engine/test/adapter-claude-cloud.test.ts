@@ -43,7 +43,7 @@ describe('the cloud transcript (D51)', () => {
         row('assistant', [{ type: 'text', text: "There's an issue with the selected model" }]),
       ].join('\n'),
     )
-    expect(t).toEqual({ started: true, ended: true, finalText: `done\n${BLOCK}`, patch })
+    expect(t).toEqual({ started: true, ended: true, finalText: `done\n${BLOCK}`, patch, outputs: [printed] })
   })
 
   it('takes the reply holding the block when a cloud Stop hook made the session answer again (seen live)', () => {
@@ -62,7 +62,7 @@ describe('the cloud transcript (D51)', () => {
 
   it('a session mid-tool, or not started, has not ended', () => {
     expect(readCloudTranscript([row('user', 'go'), row('assistant', [{ type: 'tool_use', id: 't', name: 'Bash', input: {} }])].join('\n')).ended).toBe(false)
-    expect(readCloudTranscript(row('user', 'This session is being continued from another machine.'))).toEqual({ started: false, ended: false, finalText: null, patch: null })
+    expect(readCloudTranscript(row('user', 'This session is being continued from another machine.'))).toEqual({ started: false, ended: false, finalText: null, patch: null, outputs: [] })
   })
 
   it('names the cloud session from the launch log, and spells script(1) per platform', () => {
