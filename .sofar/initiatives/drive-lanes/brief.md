@@ -57,3 +57,7 @@ Sofar drive in cloud creating and leaving those session there which creates left
 <status>completed</status>
 <summary>Background command "Run setup-token under the Python pty helper" completed (exit code 0)</summary>
 </task-notification>
+
+--- Operator, 2026-10-12 ---
+
+What if a drive itself start from a claude cloud session ? Will that work that will also create separe separate sesisosn ?
