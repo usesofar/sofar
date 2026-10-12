@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import type { Adapter, AdapterCapabilities, AgentSession, LaunchRequest, SessionExit, Usage } from './adapter'
 import { launchEnv, launchPrompt } from './adapter'
 import { mayHoldBlock } from '../core/inline-block'
@@ -300,7 +300,10 @@ export class ClaudeCloudSession implements AgentSession {
     }
     if (local === undefined) return undefined
     const path = findTranscript(this.options.configDir ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), local)
-    return path === undefined ? undefined : readCloudTranscript(readFileSync(path, 'utf8'))
+    if (path === undefined) return undefined
+    const read = readCloudTranscript(readFileSync(path, 'utf8'))
+    forgetTranscript(path)
+    return read
   }
 
   usage(): Usage | undefined {
@@ -315,6 +318,23 @@ export class ClaudeCloudSession implements AgentSession {
 
   wait(): Promise<SessionExit> {
     return this.exit
+  }
+}
+
+/**
+ * Remove a poll's local session — its transcript, its sidecar directory, and
+ * the project directory when nothing else is in it — so polling leaves no
+ * session behind in `claude --resume` (the operator's list, P16). The poll
+ * made it; nothing else reads it.
+ */
+export function forgetTranscript(path: string): void {
+  rmSync(path, { force: true })
+  rmSync(path.replace(/\.jsonl$/, ''), { recursive: true, force: true })
+  const project = dirname(path)
+  try {
+    if (readdirSync(project).length === 0) rmSync(project, { recursive: true, force: true })
+  } catch {
+    // already gone
   }
 }
 

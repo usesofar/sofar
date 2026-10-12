@@ -118,7 +118,7 @@ describe('ClaudeCloudAdapter', () => {
         '  *--cloud*) echo "View: https://claude.ai/code/session_01TESTabcdefgh?from=cli"; printf "%s" "$*" > ' + join(root, 'launch-args') + '; exit 0 ;;',
         'esac',
         `n=$(($(cat ${join(root, 'polls')} 2>/dev/null || echo 0) + 1)); echo $n > ${join(root, 'polls')}`,
-        `cp ${root}/poll-$n.jsonl ${config}/projects/p/local-$n.jsonl`,
+        `mkdir -p ${config}/projects/p && cp ${root}/poll-$n.jsonl ${config}/projects/p/local-$n.jsonl`,
         'echo "{\\"session_id\\":\\"local-$n\\",\\"total_cost_usd\\":0}"',
         'exit 1',
       ].join('\n'),
@@ -151,6 +151,8 @@ describe('ClaudeCloudAdapter', () => {
       last_assistant_message: BLOCK,
     })
     expect(existsSync(join(repo, '.git', 'rebase-apply'))).toBe(false)
+    // Each poll's local session is gone: nothing left in the operator's resume list (P16).
+    expect(existsSync(join(config, 'projects', 'p'))).toBe(false)
   })
 
   it('stops polling when killed, and reports the signal', async () => {
