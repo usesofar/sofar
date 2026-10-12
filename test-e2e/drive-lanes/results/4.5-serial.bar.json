@@ -1,0 +1,261 @@
+{
+  "reps": 3,
+  "labels": [
+    "4.5-serial-1",
+    "4.5-serial-2",
+    "4.5-serial-3"
+  ],
+  "excluded": [],
+  "engine": {
+    "version": "0.38.0-dev+trunk",
+    "commit": "572ad94a",
+    "dirty_src_paths": 0,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.bench/claude-2.1.278/claude",
+    "version": "2.1.278 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "metrics": {
+    "wall_clock_s": {
+      "mean": 270.4333,
+      "sd": 2.8885,
+      "values": [
+        267.1,
+        272,
+        272.2
+      ]
+    },
+    "overhead_s": {
+      "mean": 81.3667,
+      "sd": 26.3238,
+      "values": [
+        52.3,
+        103.6,
+        88.2
+      ]
+    },
+    "lanes_busy_rate": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "rework_sessions": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "parks": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "tasks_total": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    },
+    "tasks_done": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    },
+    "gate_pass_rate": {
+      "mean": 1,
+      "sd": 0,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    "first_try_pass_rate": {
+      "mean": 1,
+      "sd": 0,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    "tokens_per_task": {
+      "mean": 109367.6667,
+      "sd": 5722.9332,
+      "values": [
+        109487,
+        115030,
+        103586
+      ]
+    },
+    "output_tokens_per_task": {
+      "mean": 1840,
+      "sd": 120.6524,
+      "values": [
+        1833,
+        1964,
+        1723
+      ]
+    },
+    "input_tokens_per_task": {
+      "mean": 11.6667,
+      "sd": 0.5774,
+      "values": [
+        12,
+        12,
+        11
+      ]
+    },
+    "cache_write_tokens_per_task": {
+      "mean": 7485.3333,
+      "sd": 856.8993,
+      "values": [
+        8466,
+        7109,
+        6881
+      ]
+    },
+    "cache_read_tokens_per_task": {
+      "mean": 100031,
+      "sd": 5536.2398,
+      "values": [
+        99176,
+        105945,
+        94972
+      ]
+    },
+    "first_call_write": {
+      "mean": 4581.3333,
+      "sd": 812.9707,
+      "values": [
+        5520,
+        4102,
+        4122
+      ]
+    },
+    "first_call_read": {
+      "mean": 12256.6667,
+      "sd": 816.3733,
+      "values": [
+        11314,
+        12728,
+        12728
+      ]
+    },
+    "weighted_tokens_per_task": {
+      "mean": 34185.3333,
+      "sd": 2110.7132,
+      "values": [
+        36029,
+        34644,
+        31883
+      ]
+    },
+    "cost_per_task": {
+      "mean": 0.0681,
+      "sd": 0.0045,
+      "values": [
+        0.0722,
+        0.0689,
+        0.0633
+      ]
+    },
+    "sessions": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    },
+    "subagents": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "merge_conflicts": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "merge_reopen_rate": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "regressions": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "off_task_resolutions": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "duplicate_work": {
+      "mean": 0,
+      "sd": 0,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    "final_tree_green": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    }
+  }
+}
