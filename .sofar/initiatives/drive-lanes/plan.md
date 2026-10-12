@@ -4,7 +4,7 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages), and a driven task costs fewer tokens than native Claude Code (one session with its own subagents) on the same fixture.
 
-Brief: the operator's words, 1740 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 2587 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
 Progress: 24 done, 3 dropped, 2 remaining
 
@@ -24,4 +24,4 @@ Progress: 24 done, 3 dropped, 2 remaining
 - [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 5 — Cloud lanes
-Next action: Operator: SOFAR_CLOUD_TOKEN from the Mac, then 5.3 cloud lanes
+Next action: Operator: archive leftovers in claude.ai UI; decide archive path
