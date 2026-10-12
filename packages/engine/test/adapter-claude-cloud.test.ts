@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -168,7 +170,15 @@ describe('ClaudeCloudAdapter', () => {
     const sofar = join(root, 'sofar')
     writeFileSync(sofar, '#!/bin/sh\nexit 0\n')
     for (const b of [bin, script, sofar]) chmodSync(b, 0o755)
-    const session = new ClaudeCloudAdapter({ bin, scriptBin: script, sofarBin: sofar, configDir: join(root, 'none'), pollMs: 60_000, platform: 'darwin' }).launch({
+    // The operator handed a token (P16): the abandoned session is archived with it.
+    const calls: { url?: string; auth?: string }[] = []
+    const server = createServer((req, res) => {
+      calls.push({ url: req.url, auth: req.headers.authorization })
+      res.writeHead(200).end('{}')
+    })
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
+    const apiBase = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+    const session = new ClaudeCloudAdapter({ bin, scriptBin: script, sofarBin: sofar, configDir: join(root, 'none'), pollMs: 60_000, platform: 'darwin', archiveToken: 'tok', apiBase }).launch({
       cwd: root,
       initiative: 'demo',
       prompt: 'Task 1.1',
@@ -176,5 +186,8 @@ describe('ClaudeCloudAdapter', () => {
     await new Promise((r) => setTimeout(r, 300))
     session.kill()
     expect(await session.wait()).toEqual({ code: null, signal: 'SIGTERM', session_id: session.sessionId })
+    server.close()
+    expect(calls).toEqual([{ url: '/v1/code/sessions/session_01TESTabcdefgh/archive', auth: 'Bearer tok' }])
+    expect(session.archived).toBe(true)
   })
 })

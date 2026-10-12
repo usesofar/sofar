@@ -52,6 +52,37 @@ export interface ClaudeCloudOptions {
   platform?: NodeJS.Platform
   /** script(1) itself; default `script`. */
   scriptBin?: string
+  /**
+   * A claude.ai token the operator handed sofar (`claude setup-token`) to
+   * archive each cloud session once its task is landed or abandoned (P16):
+   * default $SOFAR_CLOUD_TOKEN. Absent, nothing is sent and the session stays
+   * in the operator's list. sofar never reads the keychain for one.
+   */
+  archiveToken?: string
+  /** The API the archive call goes to; default https://api.anthropic.com. */
+  apiBase?: string
+}
+
+export const CLOUD_TOKEN_ENV = 'SOFAR_CLOUD_TOKEN'
+
+/**
+ * Archive a cloud session: the call Claude Code itself makes when it ends one
+ * of its own (`POST /v1/code/sessions/<id>/archive`, 200 or 409 = archived).
+ * No model call and no content: the id of a session this operator's own CLI
+ * created. Returns why it failed, or undefined.
+ */
+export async function archiveCloudSession(id: string, token: string, apiBase = 'https://api.anthropic.com'): Promise<string | undefined> {
+  try {
+    const res = await fetch(`${apiBase}/v1/code/sessions/${encodeURIComponent(id)}/archive`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-client-platform': 'cli' },
+      body: '{}',
+      signal: AbortSignal.timeout(10_000),
+    })
+    return res.status === 200 || res.status === 409 ? undefined : `HTTP ${res.status}`
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err)
+  }
 }
 
 export const CLAUDE_CLOUD_CAPABILITIES: AdapterCapabilities = {
@@ -211,6 +242,8 @@ export class ClaudeCloudSession implements AgentSession {
   readonly sessionId = randomUUID()
   /** The cloud session's own id, once the launch log names it. */
   cloudId: string | undefined
+  /** True once the cloud session was archived. */
+  archived = false
   private killed: NodeJS.Signals | undefined
   private wake: (() => void) | undefined
   private readonly exit: Promise<SessionExit>
@@ -219,7 +252,20 @@ export class ClaudeCloudSession implements AgentSession {
     private readonly request: LaunchRequest,
     private readonly options: ClaudeCloudOptions,
   ) {
-    this.exit = this.drive().catch((err: unknown) => ({ code: 1, stderr_tail: err instanceof Error ? err.message : String(err) }))
+    this.exit = this.drive()
+      .catch((err: unknown): SessionExit => ({ code: 1, stderr_tail: err instanceof Error ? err.message : String(err) }))
+      .then((exit) => this.archive(exit))
+  }
+
+  /** The session is done with, landed or not: archive it when the operator gave a token (P16). */
+  private async archive(exit: SessionExit): Promise<SessionExit> {
+    const token = this.options.archiveToken ?? process.env[CLOUD_TOKEN_ENV]
+    if (this.cloudId === undefined || token === undefined || token.length === 0) return exit
+    const failed = await archiveCloudSession(this.cloudId, token, this.options.apiBase)
+    this.archived = failed === undefined
+    if (failed === undefined) return exit
+    const note = `claude-cloud: could not archive ${this.cloudId}: ${failed}`
+    return { ...exit, stderr_tail: exit.stderr_tail !== undefined ? `${exit.stderr_tail}\n${note}` : note }
   }
 
   private get env(): NodeJS.ProcessEnv {
