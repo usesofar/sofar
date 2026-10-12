@@ -4,7 +4,7 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages), and a driven task costs fewer tokens than native Claude Code (one session with its own subagents) on the same fixture.
 
-Brief: the operator's words, 2741 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 4034 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
 Progress: 24 done, 3 dropped, 3 remaining
 
@@ -22,7 +22,7 @@ Progress: 24 done, 3 dropped, 3 remaining
 - [x] 5.2 Cloud lane adapter: a lane is a cloud session on its task branch. The local coordinator polls and fetches, verifies locally, merges through the queue, and `--resume` re-attaches after the laptop sleeps (the record is the queue)
 - [ ] 5.3 Conflicts in cloud lanes: no edit-time leases (a cloud VM cannot read the local lease store), so scheduling by footprint plus the merge queue. Measure conflict rework against local lanes
 - [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
-- [ ] 5.5 Drive hosted in a cloud session (P24): `sofar drive --detach` started inside ONE Claude Code cloud session, its tasks run by the claude-code adapter as `claude -p` children in that VM, so a whole run is one entry in the operator's list. Probe: does the VM give child sessions auth, does a detached run survive the turn ending, and how the result comes back (patch or push). Compare against claude-cloud lanes on leftovers, wall-clock and done rate
+- [ ] 5.5 Drive hosted in a cloud session (P24): `sofar drive --detach` started inside ONE Claude Code cloud session, its tasks run by the claude-code adapter as `claude -p` children in that VM, so a whole run is one entry in the operator's list. Probe: does the VM give child sessions auth, does a detached run survive the turn ending, and how the result comes back (patch or push). Compare against claude-cloud lanes on leftovers, wall-clock and done rate (active)
 
 Active phase: Phase 5 — Cloud lanes
-Next action: 5.5: probe sofar drive hosted inside one cloud session
+Next action: Release with 673f8ef3, then bump the cloud env's sofar
