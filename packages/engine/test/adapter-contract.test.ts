@@ -61,6 +61,9 @@ describe('launchEnv (in-session-drive D3)', () => {
     CLAUDECODE: '1',
     CLAUDE_CODE_SESSION_ID: 'parent',
     CLAUDE_CODE_BRIDGE_SESSION_ID: 'session_parent',
+    // Inside a cloud session (drive-lanes 5.5): the id stripped, the remote routing kept.
+    CLAUDE_CODE_REMOTE_SESSION_ID: 'cse_parent',
+    CLAUDE_CODE_REMOTE: 'true',
     CLAUDE_EFFORT: 'xhigh',
     CODEX_SANDBOX: 'seatbelt',
     CODEX_SANDBOX_NETWORK_DISABLED: '1',
@@ -75,6 +78,8 @@ describe('launchEnv (in-session-drive D3)', () => {
     const env = launchEnv(undefined, caller)
     for (const name of CALLER_SESSION_ENV) expect(env[name]).toBeUndefined()
     expect(env.PATH).toBe('/bin')
+    expect(env.CLAUDE_CODE_REMOTE_SESSION_ID).toBeUndefined()
+    expect(env.CLAUDE_CODE_REMOTE).toBe('true')
   })
 
   it("keeps the variables that route the operator's own auth and installation (D1)", () => {
