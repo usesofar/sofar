@@ -110,3 +110,24 @@ describe('UserPromptSubmit pages the clauses in (felt-latency L3)', () => {
     expect(said(root, 'run this in sofar drive', { cursor_version: '1.7' })).not.toContain('paged in')
   })
 })
+
+describe('the MCP surface beside the paged block (felt-latency L3, D2)', () => {
+  it('always-loads only sofar_end_session, whose decisions say their own fields', async () => {
+    const { ALWAYS_LOADED_TOOLS } = await import('../src/mcp/server')
+    const { TOOL_INPUT_SCHEMAS } = await import('@sofar/schema/tool-inputs')
+    expect([...ALWAYS_LOADED_TOOLS]).toEqual(['sofar_end_session'])
+    const decisions = (TOOL_INPUT_SCHEMAS.sofar_end_session.properties as Record<string, { description?: string }>).decisions!
+    for (const field of ['chose', 'over', 'because', 'rule', 'quote']) expect(decisions.description).toContain(field)
+  })
+
+  it('an adopted tool-mode server points at the block when CLAUDE.md carries V15, and keeps the CLI sentence', async () => {
+    const { serverInstructions } = await import('../src/mcp/server')
+    const short = serverInstructions(true, null, 'tool', true)
+    expect(short).toContain('protocol block in CLAUDE.md')
+    expect(short).toContain('`sofar review`')
+    expect(short.length).toBeLessThan(serverInstructions(true, null, 'tool', false).length / 2)
+    // Not adopted, inline, or a partial tool list: the full text.
+    for (const full of [serverInstructions(false, null, 'tool', true), serverInstructions(true, null, 'inline', true), serverInstructions(true, ['sofar_end_session'], 'tool', true)])
+      expect(full).not.toContain('protocol block in CLAUDE.md')
+  })
+})

@@ -5614,9 +5614,13 @@ nothing is pinned and the agent is asked to call sofar_start_session, as
 before. The serve daemon never passes the flag; tests opt in. Off by
 `SOFAR_ADOPT=off`. tools/list carries
 `_meta: {"anthropic/alwaysLoad": true}` on ALWAYS_LOADED_TOOLS —
-sofar_end_session and sofar_log_decision — which Claude Code honours by
-skipping tool-search deferral for that tool (verified in 2.1.270–2.1.274,
-memory-lead M1); the other seven stay deferred. The SessionStart `Session:`
+sofar_end_session alone since felt-latency D2, which deferred
+sofar_log_decision; the write-back's `decisions` description names its
+fields — which Claude Code honours by skipping tool-search deferral for that
+tool (verified in 2.1.270–2.1.274, memory-lead M1); the other eight stay
+deferred. An adopted tool-mode server whose root CLAUDE.md carries the V15
+block (felt-latency L3) sends short instructions: the loop is that block,
+plus the CLI sentence. The SessionStart `Session:`
 line reads `Session: <id> — adopted on Claude Code; else pass to
 sofar_start_session.`
 - sofar_get_state({initiative?, view?}) → progressive disclosure (token-opt):
@@ -10429,8 +10433,8 @@ stay the underlying derivation's, and exit codes are styling-independent.
   explicit sofar_start_session still wins; an unbound branch with no home
   pins nothing and log_decision returns `unknown_initiative`; with no host
   id and no start, end_session without session_id is `invalid_input` naming
-  the "Session:" line. tools/list marks exactly sofar_end_session and
-  sofar_log_decision with `_meta["anthropic/alwaysLoad"]` and still lists
+  the "Session:" line. tools/list marks exactly sofar_end_session (felt-latency
+  D2) with `_meta["anthropic/alwaysLoad"]` and still lists
   sofar_update_plan. One end_session call files tasks (two existing, one
   added into the active phase, one added into phase "2"), two phase changes,
   two decisions (D1, D2, the rule-fidelity warning for D1), a memory
@@ -10628,7 +10632,8 @@ stay the underlying derivation's, and exit codes are styling-independent.
   B's recall block counted; every projection emptied gives 39.5%, the floor
   while agent behaviour is frozen. Tests: test/index-shards.test.ts.
 - **Per-turn byte budget (memory-lead 4.4, L34):** the always-loaded tool
-  definitions as served stay ≤3,500 chars (3,370 on 2026-10-04), the server
+  definitions as served stay ≤2,300 chars (2,158 on 2026-10-12, after
+  felt-latency D2; 3,370 on 2026-10-04), the server
   instructions ≤800 (722), and the digest's cap ≤6,000. Tests:
   test/overhead-cut.test.ts.
 - **Merge block (r3-fixes 2.11, D19):** after two worktree branches merge

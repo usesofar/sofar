@@ -19,4 +19,4 @@ Progress: 0/7 tasks done (0%)
 - [ ] L8 Strict-gate false holds: a peer's uncaptured shell write inside this session's may-write window counts as its edit; and a load-flaky suite (shim-latency) never records a pass, so a strict gate re-asks forever
 
 Active phase: Phase 1 — Felt latency
-Next action: L3 lever 2: cut alwaysLoad schemas and MCP instructions, A/B'd the same way.
+Next action: L3 lever 3: trim the SessionStart digest (its share of the per-call prefix), A/B'd the same way.
