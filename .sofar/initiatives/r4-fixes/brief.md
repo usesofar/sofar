@@ -55,3 +55,7 @@ There's one thing that users are reporting: after installing software their work
 --- Operator, 2026-10-12 ---
 
 That testing feature can maybe be in settings within the software. By default it will not need to be forced, right? That is the best UX and if the user really wanted a strict kind of thing, then they can turn on that ? is this the best solution?
+
+--- Operator, 2026-10-12 ---
+
+no its okay basically we want a faster execution that dont consume more tokens but more efficient at the same time not compormising on sofar values functionalities and memory and abilities
