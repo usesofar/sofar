@@ -160,7 +160,10 @@ fn marked_checkout(worktree: &Path) -> Option<PathBuf> {
     } else {
         std::env::current_dir().unwrap_or_default().join(joined)
     };
-    Some(PathBuf::from(posix_normalize(&joined.to_string_lossy(), false)))
+    Some(PathBuf::from(posix_normalize(
+        &joined.to_string_lossy(),
+        false,
+    )))
 }
 
 const MAX_LISTED: usize = 10;
