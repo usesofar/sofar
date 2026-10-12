@@ -461,7 +461,9 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     expect(stop(root, 's1').exitCode).toBe(2)
     ran(root, 's1', 'bun test test/other.test.ts test/store.test.ts', true, 0)
     expect(stop(root, 's1').exitCode).toBe(0)
-    touched(root, 's1', 'src/db/store.ts') // a re-touch voids every run before it
+    // A re-edit voids every run before it: the gate reads the file's mtime (felt-latency L2).
+    writeFileSync(join(root, 'src/db/store.ts'), 'export const again = 1\n')
+    touched(root, 's1', 'src/db/store.ts')
     expect(stop(root, 's1').exitCode).toBe(2)
     ran(root, 's1', 'cd apps/web && bun test', true, 0)
     expect(stop(root, 's1').exitCode).toBe(0)

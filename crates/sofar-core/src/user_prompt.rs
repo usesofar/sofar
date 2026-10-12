@@ -1340,6 +1340,7 @@ const DIRT_SLACK_MS: f64 = 2_000.0;
 /// asked only when the session ran a command; a run counts only once it
 /// finished after the newest of those files' mtimes. The suite is the
 /// session's own newest test command, else the record's.
+#[allow(clippy::too_many_lines, reason = "stopGateFor, step for step")]
 fn stop_gate_for(
     root: &Path,
     layout: &Layout,
@@ -1390,6 +1391,7 @@ fn stop_gate_for(
     // session's edit (r4-fixes H20), whatever window of this one spans it.
     let mut peers: Option<crate::index_tier1::FileIndex> = None;
     let mut files: Vec<String> = Vec::new();
+    let mut mtimes: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     let mut edited_at: Option<f64> = None;
     let tagged = captured
         .into_iter()
@@ -1419,6 +1421,7 @@ fn stop_gate_for(
             if edited_at.is_none_or(|at| mtime > at) {
                 edited_at = Some(mtime);
             }
+            mtimes.insert(p.clone(), mtime);
         }
         files.push(p);
     }
@@ -1436,6 +1439,10 @@ fn stop_gate_for(
         })
         .map(|t| t.cmd.as_str());
     let tests = activity.map_or(&[][..], |a| a.tests_since_edit.as_slice());
+    let edits = crate::checks::GateEdits {
+        mtimes,
+        recent_tests: activity.map(|a| a.recent_tests.clone()).unwrap_or_default(),
+    };
     let probe = crate::checks::root_probe(root);
     let gate = crate::checks::stop_gate(
         &index,
@@ -1445,6 +1452,7 @@ fn stop_gate_for(
         edited_at,
         &probe,
         outcomes_known,
+        Some(&edits),
     );
     let gate = crate::checks::in_mode(gate, root);
     let loss = if crate::checks::test_guard_enabled() {

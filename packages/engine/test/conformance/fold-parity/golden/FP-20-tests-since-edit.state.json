@@ -73,6 +73,49 @@
             "cmd": "bun test test/t9.test.ts",
             "ok": true
           },
+          "recent_tests": [
+            {
+              "cmd": "bun test test/t2.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:08.000Z"
+            },
+            {
+              "cmd": "bun test test/t3.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:09.000Z"
+            },
+            {
+              "cmd": "bun test test/t4.test.ts",
+              "exit": 1,
+              "ok": false,
+              "ts": "2026-01-01T00:00:10.000Z"
+            },
+            {
+              "cmd": "bun test test/t5.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:11.000Z"
+            },
+            {
+              "cmd": "bun test test/t6.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:12.000Z"
+            },
+            {
+              "cmd": "bun test test/t7.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:13.000Z"
+            },
+            {
+              "cmd": "bun test test/t8.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:14.000Z"
+            },
+            {
+              "cmd": "bun test test/t9.test.ts",
+              "ok": true,
+              "ts": "2026-01-01T00:00:15.000Z"
+            }
+          ],
           "task_changes": [],
           "tests_since_edit": [
             {
@@ -131,6 +174,13 @@
             "cmd": "cargo test",
             "ok": true
           },
+          "recent_tests": [
+            {
+              "cmd": "cargo test",
+              "ok": true,
+              "ts": "2026-01-01T00:00:19.000Z"
+            }
+          ],
           "task_changes": [],
           "tests_since_edit": [
             {

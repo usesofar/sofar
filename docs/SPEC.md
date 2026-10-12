@@ -895,8 +895,12 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   run's directories, or equals one of its files. A requirement with no
   operand, such as the suite, is covered by a run with a directory. A sibling
   directory never covers. A run counts only when its event's ts is after the
-  newest mtime among the edited files that exist. A failed run never covers,
-  nor does one from before the last edit.
+  newest mtime among the edited files THE REQUIREMENT'S RULES BEAR ON
+  (felt-latency L2): an edit no rule bears on never re-arms an ask, and the
+  runs are the session's `recent_tests`. When one of those files has no mtime
+  (deleted), the requirement falls back to `tests_since_edit` after the
+  newest mtime among all the edited files. A failed run never covers, nor
+  does one from before the edit it answers.
 - VERDICT: the newest covering run since the last edit decides each
   requirement. If it passed, the requirement is satisfied. If it failed, the
   line is `sofar: \`<run>\` failed (exit N) after your last edit, and it covers
@@ -6335,7 +6339,9 @@ test-shaped command with a known `ok` — the task_files window. On finalize a
 session's activity gains OPTIONAL `failed` (ok:false only; an absent `ok` is
 UNKNOWN, never a failure), `last_test` {cmd, ok, exit?} and `tests_since_edit`
 (the test-shaped outcomes since the session's latest `touched` edge, a re-touch
-included, oldest first, the newest 8 kept; r3-fixes D10), and the state
+included, oldest first, the newest 8 kept; r3-fixes D10), `recent_tests` (the
+session's newest 8 test-shaped outcomes, never cleared by a touch; felt-latency
+L2, read by the Stop gate per rule), and the state
 gains OPTIONAL `task_tests` (task id → latest {cmd, ok, exit?, ts, event_id}),
 present only when non-empty — a record without outcome fields folds
 byte-identically, so every fold-parity golden and pre-capture projection is

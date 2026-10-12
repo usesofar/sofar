@@ -743,6 +743,8 @@ interface Requirement {
   /** What the ask line tells the agent to run. */
   cmd: string
   rules: GateRule[]
+  /** The decision ids behind `rules`, for the edits they bear on. */
+  ids: string[]
 }
 
 export interface StopGate {
@@ -805,6 +807,18 @@ function askCommand(head: string, reqs: readonly Requirement[], probe: PathProbe
  * session's files, its tests since the last edit, and the tree the commands'
  * paths name.
  */
+/**
+ * Per-file edit times and the session's recent runs (felt-latency L2): with
+ * them, a requirement needs a pass after the newest edit to the files ITS
+ * rules bear on, so an edit elsewhere never re-arms it.
+ */
+export interface GateEdits {
+  /** mtime (ms) per edited path; a path without one (deleted) falls back to the whole-session rule. */
+  mtimes: ReadonlyMap<string, number>
+  /** The session's newest test outcomes, never cleared by an edit. */
+  recentTests: readonly TimedTestOutcome[]
+}
+
 export function stopGate(
   index: GuardIndex,
   files: readonly string[],
@@ -813,18 +827,37 @@ export function stopGate(
   editedAtMs: number | null = null,
   probe: PathProbe = NO_TREE,
   outcomesKnown = true,
+  edits: GateEdits | null = null,
 ): StopGate {
   // A run counts only if it finished after the newest edit on disk: edits the
   // hooks never saw (Bash writes, lost captures) void earlier runs too.
-  const runs = editedAtMs === null ? testsSinceEdit : testsSinceEdit.filter((r) => Date.parse(r.ts) > editedAtMs)
+  const sessionRuns = editedAtMs === null ? testsSinceEdit : testsSinceEdit.filter((r) => Date.parse(r.ts) > editedAtMs)
   const bearing = new Map<string, (typeof index.scoped)[number]>()
+  const bearsOn = new Map<string, string[]>() // decision id → the edited paths it bears on
   for (const path of files) {
     if (path.startsWith('+')) continue // the overflow sentinel, not a path
     for (const hit of scopeHitsForSubject(index, 'path', path)) {
       const d = hit.decision
       if (d.rule === undefined || d.superseded_by !== undefined) continue
       bearing.set(d.id, d)
+      const on = bearsOn.get(d.id) ?? []
+      if (!on.includes(path)) on.push(path)
+      bearsOn.set(d.id, on)
     }
+  }
+  // The runs that count for a requirement: after the newest edit to the files
+  // its rules bear on (L2), or, without every such file's mtime, the old rule.
+  const runsFor = (ids: readonly string[]): readonly TimedTestOutcome[] => {
+    if (edits === null) return sessionRuns
+    let at = -Infinity
+    for (const id of ids) {
+      for (const path of bearsOn.get(id) ?? []) {
+        const m = edits.mtimes.get(path)
+        if (m === undefined) return sessionRuns
+        if (m > at) at = m
+      }
+    }
+    return edits.recentTests.filter((r) => Date.parse(r.ts) > at)
   }
   if (bearing.size === 0) return { lines: [], blocks: false, fails: false }
 
@@ -848,7 +881,8 @@ export function stopGate(
       cmd = [known.head, ...args].join(' ')
     } else continue
     const key = `${spec.head}\0${[...spec.args].sort(byCodeUnit).join('\0')}`
-    const req = reqs.get(key) ?? { spec, cmd, rules: [] }
+    const req = reqs.get(key) ?? { spec, cmd, rules: [], ids: [] }
+    req.ids.push(d.id)
     req.rules.push({
       handle: qualifiedHandle(d.initiative, d.ordinal, d.id),
       rule: d.rule!,
@@ -859,14 +893,20 @@ export function stopGate(
 
   // Asks on one runner fold into one line with one command; requirements a
   // failed run covers, into that run's line.
-  const ran = runs.map((run) => ({ run, spec: testSpec(run.cmd, probe) }))
+  const specs = new Map<string, TestSpec>()
+  const specOf = (cmd: string): TestSpec => {
+    let spec = specs.get(cmd)
+    if (spec === undefined) specs.set(cmd, (spec = testSpec(cmd, probe)))
+    return spec
+  }
   const groups = new Map<string, { head: string; failed?: TestOutcome; reqs: Requirement[] }>()
   for (const [key, req] of reqs) {
+    const ran = runsFor(req.ids)
     let at = ran.length - 1
-    while (at >= 0 && !covers(ran[at]!.spec, req.spec)) at -= 1
-    const latest = at >= 0 ? ran[at]!.run : undefined
+    while (at >= 0 && !covers(specOf(ran[at]!.cmd), req.spec)) at -= 1
+    const latest = at >= 0 ? ran[at]! : undefined
     if (latest?.ok === true) continue
-    const group = latest !== undefined ? `failed\0${at}` : req.spec.head.length > 0 ? `ask\0${req.spec.head}` : `ask\0\0${key}`
+    const group = latest !== undefined ? `failed\0${latest.ts}\0${latest.cmd}` : req.spec.head.length > 0 ? `ask\0${req.spec.head}` : `ask\0\0${key}`
     const into = groups.get(group) ?? { head: req.spec.head, ...(latest !== undefined ? { failed: latest } : {}), reqs: [] }
     into.reqs.push(req)
     groups.set(group, into)

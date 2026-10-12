@@ -226,3 +226,32 @@ describe('Codex: an outcome sofar cannot see is unverifiable, never unpassed (r4
     }
   })
 })
+
+describe('no re-arm on unrelated edits (felt-latency L2)', () => {
+  // One rule guards src/**; the session edited src/a.ts, ran the suite green
+  // at t=2000, then edited docs/notes.md (bears on nothing) at t=3000. The
+  // fold's tests_since_edit was cleared by that docs touch.
+  const index = indexOf([{ id: 'd1', initiative: 'demo', ordinal: 1, rule: 'Rule 1.', guard: 'path:src/**' }])
+  const files = ['src/a.ts', 'docs/notes.md']
+  const green: Run = { cmd: 'npx vitest run', ok: true, ts: new Date(2000).toISOString() }
+  const gate = (mtimes: Record<string, number>, recent: Run[]) =>
+    stopGate(index, files, [], 'npx vitest run', 3000, () => null, true, { mtimes: new Map(Object.entries(mtimes)), recentTests: recent })
+
+  it('a pass after the last edit to the files a rule bears on holds, whatever was edited since', () => {
+    expect(gate({ 'src/a.ts': 1000, 'docs/notes.md': 3000 }, [green]).lines).toEqual([])
+    // Without per-file edits (the old rule), the docs edit re-arms the ask.
+    expect(stopGate(index, files, [], 'npx vitest run', 3000, () => null, true).lines).toHaveLength(1)
+  })
+
+  it('an edit to a bearing file after the pass asks again; a missing mtime falls back to the old rule', () => {
+    expect(gate({ 'src/a.ts': 2500, 'docs/notes.md': 3000 }, [green]).lines).toHaveLength(1)
+    expect(gate({ 'docs/notes.md': 3000 }, [green]).lines).toHaveLength(1) // src/a.ts deleted: no mtime
+  })
+
+  it('a failed run after the bearing edit still fails, and holds', () => {
+    const red: Run = { cmd: 'npx vitest run', ok: false, exit: 1, ts: new Date(2600).toISOString() }
+    const g = gate({ 'src/a.ts': 1000, 'docs/notes.md': 3000 }, [green, red])
+    expect(g.fails).toBe(true)
+    expect(g.lines[0]).toContain('`npx vitest run` failed (exit 1)')
+  })
+})

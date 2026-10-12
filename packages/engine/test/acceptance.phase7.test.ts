@@ -194,6 +194,7 @@ describe('acceptance 1+2+4 — two interleaved sessions on ONE initiative', () =
       commands: 1,
       last_test: { cmd: 'npm test', ok: true },
       tests_since_edit: [{ cmd: 'npm test', ok: true, ts: expect.any(String) }],
+      recent_tests: [{ cmd: 'npm test', ok: true, ts: expect.any(String) }], // felt-latency L2
       task_changes: ['1.2 → active'],
     })
     expect(state.files_touched).toEqual(['src/a.ts']) // global aggregation unchanged

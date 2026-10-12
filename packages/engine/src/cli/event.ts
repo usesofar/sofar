@@ -1801,6 +1801,7 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
     // session's edit (r4-fixes H20), whatever window of this one spans it.
     let peers: FileIndex | undefined
     const files: string[] = []
+    const mtimes = new Map<string, number>()
     let editedAt: number | null = null
     for (const [p, fromTree] of [...captured.map((f) => [f, false] as const), ...fromGit.map((f) => [f, true] as const)]) {
       try {
@@ -1813,6 +1814,7 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
         )
           continue
         if (editedAt === null || mtime > editedAt) editedAt = mtime
+        mtimes.set(p, mtime)
       } catch {
         // a deleted file has no mtime; its removal is still an edit git names
       }
@@ -1822,7 +1824,8 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
     const probe = rootProbe(rootDir)
-    const verdict = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown)
+    const edits = { mtimes, recentTests: session.activity?.recent_tests ?? [] }
+    const verdict = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown, edits)
     // An ask holds only in strict mode (r4-fixes D65); by default only a failed
     // covering run does, and an ask rides a write-back hold or reaches the operator.
     const gate = testGateHolds(rootDir) ? verdict : { ...verdict, blocks: verdict.fails }

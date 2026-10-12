@@ -203,6 +203,10 @@ pub struct SessionActivity {
     /// first, the newest [`TESTS_SINCE_EDIT_CAP`] kept; empty (absent) when none
     /// (r3-fixes 2.10, D10). What Stop's gate reads.
     pub tests_since_edit: Vec<TimedTestOutcome>,
+    /// The session's newest test outcomes, never cleared by an edit; empty
+    /// (absent) when none (felt-latency L2). Stop's gate weighs each rule
+    /// against the edits of the files it bears on.
+    pub recent_tests: Vec<TimedTestOutcome>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -1778,6 +1782,9 @@ pub struct ActivityAcc {
     last_test: Option<TestOutcome>,
     /// Test outcomes since the last `touched` edge, oldest first (r3-fixes D10).
     tests_since_edit: Vec<TimedTestOutcome>,
+    /// The newest test outcomes whatever was touched since (felt-latency L2).
+    #[serde(default)]
+    recent_tests: Vec<TimedTestOutcome>,
     task_changes: Vec<String>,
     task_changes_overflow: u64,
 }
@@ -1860,12 +1867,17 @@ impl EdgeAccumulator {
                             a.failed += 1;
                         }
                         if let Some(outcome) = attrs.outcome().filter(|_| !attrs.elsewhere) {
-                            a.tests_since_edit.push(TimedTestOutcome {
+                            let run = TimedTestOutcome {
                                 outcome: outcome.clone(),
                                 ts: edge.ts.clone().unwrap_or_default(),
-                            });
+                            };
+                            a.tests_since_edit.push(run.clone());
                             if a.tests_since_edit.len() > TESTS_SINCE_EDIT_CAP {
                                 a.tests_since_edit.remove(0);
+                            }
+                            a.recent_tests.push(run);
+                            if a.recent_tests.len() > TESTS_SINCE_EDIT_CAP {
+                                a.recent_tests.remove(0);
                             }
                             a.last_test = Some(outcome);
                         }
@@ -1935,6 +1947,7 @@ impl EdgeAccumulator {
                         failed: (a.failed > 0).then_some(a.failed),
                         last_test: a.last_test.clone(),
                         tests_since_edit: a.tests_since_edit.clone(),
+                        recent_tests: a.recent_tests.clone(),
                     },
                 )
             })
@@ -2353,9 +2366,14 @@ impl SessionActivity {
         if let Some(t) = &self.last_test {
             o.insert("last_test", t.to_json());
         }
-        if !self.tests_since_edit.is_empty() {
-            let runs = self
-                .tests_since_edit
+        for (key, runs) in [
+            ("tests_since_edit", &self.tests_since_edit),
+            ("recent_tests", &self.recent_tests),
+        ] {
+            if runs.is_empty() {
+                continue;
+            }
+            let runs = runs
                 .iter()
                 .map(|t| {
                     let Json::Obj(mut to) = t.outcome.to_json() else {
@@ -2365,7 +2383,7 @@ impl SessionActivity {
                     Json::Obj(to)
                 })
                 .collect();
-            o.insert("tests_since_edit", Json::Arr(runs));
+            o.insert(key, Json::Arr(runs));
         }
         o.insert("task_changes", str_arr(&self.task_changes));
         Json::Obj(o)
@@ -2931,20 +2949,8 @@ impl SessionState {
                             None => None,
                             Some(t) => Some(TestOutcome::from_json(t.as_obj()?)?),
                         },
-                        tests_since_edit: match a.get("tests_since_edit") {
-                            None => Vec::new(),
-                            Some(runs) => runs
-                                .as_arr()?
-                                .iter()
-                                .map(|r| {
-                                    let r = r.as_obj()?;
-                                    Some(TimedTestOutcome {
-                                        outcome: TestOutcome::from_json(r)?,
-                                        ts: rs(r, "ts")?,
-                                    })
-                                })
-                                .collect::<Option<Vec<_>>>()?,
-                        },
+                        tests_since_edit: timed_runs(a, "tests_since_edit")?,
+                        recent_tests: timed_runs(a, "recent_tests")?,
                     })
                 }
             },
@@ -3255,6 +3261,24 @@ impl OrphanTaskEvent {
             task_id: rs(o, "task_id")?,
             status: rs(o, "status")?,
         })
+    }
+}
+
+/// A run list of a session's activity JSON (`tests_since_edit`, `recent_tests`); empty when absent.
+fn timed_runs(a: &Object, key: &str) -> Option<Vec<TimedTestOutcome>> {
+    match a.get(key) {
+        None => Some(Vec::new()),
+        Some(runs) => runs
+            .as_arr()?
+            .iter()
+            .map(|r| {
+                let r = r.as_obj()?;
+                Some(TimedTestOutcome {
+                    outcome: TestOutcome::from_json(r)?,
+                    ts: rs(r, "ts")?,
+                })
+            })
+            .collect(),
     }
 }
 

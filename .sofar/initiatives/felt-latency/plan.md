@@ -6,12 +6,12 @@ Goal: Cut sofar's felt cost per session (forced turns, injected tokens, extra ro
 
 Brief: the operator's words, 1978 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 0/7 tasks done (0%)
+Progress: 1/7 tasks done (14%)
 
-## Phase 1 — Felt latency [active] — 0/7 done
+## Phase 1 — Felt latency [active] — 1/7 done
 
-- [ ] L3 Context diet: halve the +4.5-5.3k per-call prefix (CLAUDE.md block, alwaysLoad schemas, MCP instructions, digest); first lever: serve the protocol's situational sections (DRIVING 1.1 KB, PLAN 0.7 KB, LINKS 0.5 KB) only when a prompt needs them (r4-fixes B9), proven by the A/B (active)
-- [ ] L2 Narrow the gate: rule-bearing files only, ask related tests not the suite, accept file-scoped runs, no re-arm on unrelated edits
+- [x] L3 Context diet: halve the +4.5-5.3k per-call prefix (CLAUDE.md block, alwaysLoad schemas, MCP instructions, digest); first lever: serve the protocol's situational sections (DRIVING 1.1 KB, PLAN 0.7 KB, LINKS 0.5 KB) only when a prompt needs them (r4-fixes B9), proven by the A/B
+- [ ] L2 Narrow the gate: rule-bearing files only, ask related tests not the suite, accept file-scoped runs, no re-arm on unrelated edits (active)
 - [ ] L4 Write-back cadence: ~7 sofar_end_session per session, ~1,340 of 1,792 voluntary; cut them without staling next_action (r4-fixes H5 keeps Claude Code on the tool)
 - [ ] L5 Native everywhere: refresh stale shims, core owns --host codex, native statusline/drive-await/pre-commit, Cursor fence scan of last entry only
 - [ ] L6 Decision checks off the turn: background at Stop, budgeted at pre-commit
@@ -19,4 +19,4 @@ Progress: 0/7 tasks done (0%)
 - [ ] L8 Strict-gate false holds: a peer's uncaptured shell write inside this session's may-write window counts as its edit; and a load-flaky suite (shim-latency) never records a pass, so a strict gate re-asks forever
 
 Active phase: Phase 1 — Felt latency
-Next action: L3 lever 3: trim the SessionStart digest (its share of the per-call prefix), A/B'd the same way.
+Next action: L2 part B: accept file-scoped passing runs and ask related tests instead of the bare suite, without losing r3-fixes D11's catch.

@@ -8,6 +8,7 @@
 //! sofar runs nothing for it. `SOFAR_ENFORCE=off` restores D10, where a check
 //! only rides the write-back block and never causes one.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -1310,6 +1311,19 @@ struct Requirement {
     /// What the ask line tells the agent to run.
     cmd: String,
     rules: Vec<GateRule>,
+    /// The decision ids behind `rules`, for the edits they bear on (felt-latency L2).
+    ids: Vec<String>,
+}
+
+/// `GateEdits` (felt-latency L2): per-file edit times and the session's
+/// recent runs. With them, a requirement needs a pass after the newest edit to
+/// the files ITS rules bear on, so an edit elsewhere never re-arms it.
+#[derive(Debug, Clone, Default)]
+pub struct GateEdits {
+    /// mtime (ms) per edited path; a path without one (deleted) falls back to the whole-session rule.
+    pub mtimes: HashMap<String, f64>,
+    /// The session's newest test outcomes, never cleared by an edit.
+    pub recent_tests: Vec<TimedTestOutcome>,
 }
 
 /// `StopGate`: ask and failure lines, and whether Stop holds the session for them.
@@ -1408,13 +1422,17 @@ fn gate_requirements(
             hint: check_field(d, "hint"),
         };
         match reqs.iter_mut().find(|(k, _)| *k == key) {
-            Some((_, req)) => req.rules.push(rule),
+            Some((_, req)) => {
+                req.rules.push(rule);
+                req.ids.push(d.id.clone());
+            }
             None => reqs.push((
                 key,
                 Requirement {
                     spec,
                     cmd,
                     rules: vec![rule],
+                    ids: vec![d.id.clone()],
                 },
             )),
         }
@@ -1529,6 +1547,11 @@ fn group_lines(
 /// into one unverifiable line that never holds the stop; only a known failure
 /// does (U1b, memory-lead D37).
 #[must_use]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    reason = "stopGate's signature and order, as the TypeScript gate"
+)]
 pub fn stop_gate(
     index: &GuardIndex,
     files: &[String],
@@ -1537,8 +1560,9 @@ pub fn stop_gate(
     edited_at_ms: Option<f64>,
     probe: PathProbe<'_>,
     outcomes_known: bool,
+    edits: Option<&GateEdits>,
 ) -> StopGate {
-    let runs: Vec<&TimedTestOutcome> = match edited_at_ms {
+    let session_runs: Vec<&TimedTestOutcome> = match edited_at_ms {
         None => tests_since_edit.iter().collect(),
         Some(at) => tests_since_edit
             .iter()
@@ -1546,6 +1570,7 @@ pub fn stop_gate(
             .collect(),
     };
     let mut bearing: Vec<&ScopedDecision> = Vec::new();
+    let mut bears_on: Vec<(String, Vec<&str>)> = Vec::new(); // decision id → edited paths
     for path in files {
         if path.starts_with('+') {
             continue; // the overflow sentinel, not a path
@@ -1558,8 +1583,43 @@ pub fn stop_gate(
             if !bearing.iter().any(|b| b.id == d.id) {
                 bearing.push(d);
             }
+            match bears_on.iter_mut().find(|(id, _)| *id == d.id) {
+                Some((_, on)) => {
+                    if !on.contains(&path.as_str()) {
+                        on.push(path);
+                    }
+                }
+                None => bears_on.push((d.id.clone(), vec![path])),
+            }
         }
     }
+    // The runs that count for a requirement: after the newest edit to the
+    // files its rules bear on (L2), or, without every such file's mtime, the old rule.
+    let runs_for = |ids: &[String]| -> Vec<&TimedTestOutcome> {
+        let Some(edits) = edits else {
+            return session_runs.clone();
+        };
+        let mut at = f64::NEG_INFINITY;
+        for id in ids {
+            for path in bears_on
+                .iter()
+                .filter(|(d, _)| d == id)
+                .flat_map(|(_, on)| on)
+            {
+                let Some(&m) = edits.mtimes.get(*path) else {
+                    return session_runs.clone();
+                };
+                if m > at {
+                    at = m;
+                }
+            }
+        }
+        edits
+            .recent_tests
+            .iter()
+            .filter(|r| js_date_parse(&r.ts).is_some_and(|ts| ts > at))
+            .collect()
+    };
     if bearing.is_empty() {
         return StopGate::default();
     }
@@ -1568,22 +1628,25 @@ pub fn stop_gate(
     let reqs = gate_requirements(bearing, known.as_ref(), probe);
     // Asks on one runner fold into one line with one command; requirements a
     // failed run covers, into that run's line.
-    let ran: Vec<(&TimedTestOutcome, TestSpec)> = runs
-        .iter()
-        .map(|r| (*r, test_spec(&r.outcome.cmd, probe)))
-        .collect();
+    let mut specs: HashMap<String, TestSpec> = HashMap::new();
     let mut groups: Vec<Group<'_>> = Vec::new();
     for (key, req) in &reqs {
-        let latest = ran
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, (_, spec))| covers(spec, &req.spec));
-        if latest.is_some_and(|(_, (run, _))| run.outcome.ok) {
+        let ran = runs_for(&req.ids);
+        let mut latest: Option<&TimedTestOutcome> = None;
+        for run in ran.iter().rev() {
+            let spec = specs
+                .entry(run.outcome.cmd.clone())
+                .or_insert_with(|| test_spec(&run.outcome.cmd, probe));
+            if covers(spec, &req.spec) {
+                latest = Some(run);
+                break;
+            }
+        }
+        if latest.is_some_and(|run| run.outcome.ok) {
             continue;
         }
         let group = match latest {
-            Some((at, _)) => format!("failed\0{at}"),
+            Some(run) => format!("failed\0{}\0{}", run.ts, run.outcome.cmd),
             None if !req.spec.head.is_empty() => format!("ask\0{}", req.spec.head),
             None => format!("ask\0\0{key}"),
         };
@@ -1592,7 +1655,7 @@ pub fn stop_gate(
             None => groups.push(Group {
                 key: group,
                 head: req.spec.head.clone(),
-                failed: latest.map(|(_, (run, _))| *run),
+                failed: latest,
                 reqs: vec![req],
             }),
         }
@@ -2147,6 +2210,104 @@ mod gate_tests {
         }
     }
 
+    /// felt-latency L2, as stop-gate-coverage.test.ts: a rule guards src/**;
+    /// src/a.ts was edited, the suite passed at t=2000, then docs/notes.md
+    /// (bears on nothing) was edited at t=3000.
+    #[test]
+    fn an_edit_elsewhere_never_re_arms_a_covered_rule() {
+        let d = ScopedDecision {
+            id: "d1".to_owned(),
+            initiative: "demo".to_owned(),
+            ordinal: 1.0,
+            ts: String::new(),
+            chose: "c".to_owned(),
+            over: "o".to_owned(),
+            rule: Some("Rule 1.".to_owned()),
+            quote: None,
+            guard: Some("path:src/**".to_owned()),
+            check: None,
+            until: None,
+            superseded_by: None,
+            mentions: Vec::new(),
+        };
+        let idx = index(vec![d]);
+        let files = vec!["src/a.ts".to_owned(), "docs/notes.md".to_owned()];
+        let run = |ok: bool, ms: i64| TimedTestOutcome {
+            outcome: TestOutcome {
+                cmd: "npx vitest run".to_owned(),
+                ok,
+                exit: (!ok).then_some(1.0),
+            },
+            ts: crate::envelope::iso_from_epoch_ms(ms),
+        };
+        let probe = |_: &str| None;
+        let gate = |mtimes: &[(&str, f64)], recent: Vec<TimedTestOutcome>| {
+            let edits = GateEdits {
+                mtimes: mtimes.iter().map(|(p, m)| ((*p).to_owned(), *m)).collect(),
+                recent_tests: recent,
+            };
+            stop_gate(
+                &idx,
+                &files,
+                &[],
+                Some("npx vitest run"),
+                Some(3000.0),
+                &probe,
+                true,
+                Some(&edits),
+            )
+        };
+        let green = run(true, 2000);
+        assert!(
+            gate(
+                &[("src/a.ts", 1000.0), ("docs/notes.md", 3000.0)],
+                vec![green.clone()]
+            )
+            .lines
+            .is_empty()
+        );
+        assert_eq!(
+            stop_gate(
+                &idx,
+                &files,
+                &[],
+                Some("npx vitest run"),
+                Some(3000.0),
+                &probe,
+                true,
+                None
+            )
+            .lines
+            .len(),
+            1
+        );
+        assert_eq!(
+            gate(
+                &[("src/a.ts", 2500.0), ("docs/notes.md", 3000.0)],
+                vec![green.clone()]
+            )
+            .lines
+            .len(),
+            1
+        );
+        assert_eq!(
+            gate(&[("docs/notes.md", 3000.0)], vec![green.clone()])
+                .lines
+                .len(),
+            1
+        );
+        let red = gate(
+            &[("src/a.ts", 1000.0), ("docs/notes.md", 3000.0)],
+            vec![green, run(false, 2600)],
+        );
+        assert!(red.fails);
+        assert!(
+            red.lines[0].contains("`npx vitest run` failed (exit 1)"),
+            "{:?}",
+            red.lines
+        );
+    }
+
     /// The coverage matrix: bun, vitest, jest, pytest, cargo and go, rendered
     /// byte for byte as the TypeScript gate renders it.
     #[test]
@@ -2206,6 +2367,7 @@ mod gate_tests {
                 edited_at,
                 &probe,
                 outcomes_known,
+                None,
             );
             assert_eq!(
                 gate.blocks,
@@ -2242,7 +2404,16 @@ mod gate_tests {
             let tests = runs(h.get("tests_since_edit"), None);
             // Codex reports no test outcome (U1b).
             let outcomes_known = text(h, "host") != "codex";
-            let gate = stop_gate(&index, &files, &tests, known, None, &probe, outcomes_known);
+            let gate = stop_gate(
+                &index,
+                &files,
+                &tests,
+                known,
+                None,
+                &probe,
+                outcomes_known,
+                None,
+            );
             let u1 = h.get("u1").and_then(Json::as_obj).unwrap();
             assert_eq!(
                 gate.blocks,
@@ -2258,7 +2429,7 @@ mod gate_tests {
                 red.ts = "2099-01-01T00:00:00.000Z".to_owned();
                 let mut seeded = tests.clone();
                 seeded.push(red);
-                let held = stop_gate(&index, &files, &seeded, known, None, &probe, true);
+                let held = stop_gate(&index, &files, &seeded, known, None, &probe, true, None);
                 assert!(held.blocks, "{block}");
                 assert!(
                     held.lines[0].contains("failed (exit 1) after your last edit"),

@@ -1,5 +1,12 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **felt-latency L2** (main) from the TypeScript reference; the
+Rust core reproduces all 64. `syn.gate-elsewhere` gains four steps: an edit
+to a file no rule bears on leaves the covered rule covered, and a re-edit of
+the governed file brings the ask back. Its edit steps and `syn.gate-coverage`'s
+"Edit again" now write the file, as a real Edit does: the gate weighs each rule
+by its files' mtimes. Three fold-parity goldens gain `recent_tests`.
+
 ADDED for **felt-latency L3** (main) from the TypeScript reference; the Rust
 core reproduces all 64. One new case, `repo.paged-clauses`: with a CLAUDE.md
 carrying `PAGED_POINTER`, the prompt hook pages DRIVING, then PLAN and LINKS,

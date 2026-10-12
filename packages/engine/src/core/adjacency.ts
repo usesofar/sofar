@@ -310,6 +310,13 @@ export interface SessionActivity {
    * holds only if a covering test passed AFTER the last one.
    */
   tests_since_edit?: TimedTestOutcome[]
+  /**
+   * The session's newest test-shaped outcomes, oldest first, never cleared by
+   * an edit; absent when none (felt-latency L2). Stop's gate weighs each rule
+   * against the edits of the files it bears on, so an edit elsewhere does not
+   * void a run that already covered it.
+   */
+  recent_tests?: TimedTestOutcome[]
 }
 
 /** How many test outcomes since the last edit a session keeps (r3-fixes D10). */
@@ -360,6 +367,8 @@ export interface ActivityAcc {
   lastTest?: TestOutcome
   /** Test outcomes since the last `touched` edge, oldest first (r3-fixes D10). */
   testsSinceEdit: TimedTestOutcome[]
+  /** The newest test outcomes whatever was touched since (felt-latency L2). */
+  recentTests: TimedTestOutcome[]
   taskChanges: string[]
   taskChangesOverflow: number
 }
@@ -434,6 +443,8 @@ export class EdgeAccumulator {
               a.lastTest = outcome
               a.testsSinceEdit.push({ ...outcome, ts: edge.ts ?? '' })
               if (a.testsSinceEdit.length > TESTS_SINCE_EDIT_CAP) a.testsSinceEdit.shift()
+              a.recentTests.push({ ...outcome, ts: edge.ts ?? '' })
+              if (a.recentTests.length > TESTS_SINCE_EDIT_CAP) a.recentTests.shift()
             }
           }
           break
@@ -453,7 +464,7 @@ export class EdgeAccumulator {
     const id = sessionNode.slice('session:'.length)
     let a = this.sessions.get(id)
     if (a === undefined) {
-      a = { files: [], seen: new Set(), filesOverflow: 0, commands: 0, failed: 0, testsSinceEdit: [], taskChanges: [], taskChangesOverflow: 0 }
+      a = { files: [], seen: new Set(), filesOverflow: 0, commands: 0, failed: 0, testsSinceEdit: [], recentTests: [], taskChanges: [], taskChangesOverflow: 0 }
       this.sessions.set(id, a)
     }
     return a
@@ -481,6 +492,7 @@ export class EdgeAccumulator {
         ...(a.failed > 0 ? { failed: a.failed } : {}),
         ...(a.lastTest !== undefined ? { last_test: { ...a.lastTest } } : {}),
         ...(a.testsSinceEdit.length > 0 ? { tests_since_edit: a.testsSinceEdit.map((t) => ({ ...t })) } : {}),
+        ...(a.recentTests.length > 0 ? { recent_tests: a.recentTests.map((t) => ({ ...t })) } : {}),
         task_changes:
           a.taskChangesOverflow > 0 ? [...a.taskChanges, `+${a.taskChangesOverflow} more`] : [...a.taskChanges],
       })

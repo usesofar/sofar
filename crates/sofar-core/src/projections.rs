@@ -1884,6 +1884,7 @@ mod tests {
                 exit: Some(1.0),
             }),
             tests_since_edit: Vec::new(),
+            recent_tests: Vec::new(),
         };
         assert_eq!(
             describe_activity(&a),
@@ -1896,6 +1897,7 @@ mod tests {
             failed: None,
             last_test: None,
             tests_since_edit: Vec::new(),
+            recent_tests: Vec::new(),
         };
         assert_eq!(describe_activity(&empty), "(no mechanical events)");
     }
