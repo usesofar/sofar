@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **felt-latency L4** (main) from the TypeScript reference; the
+Rust core reproduces all 64. Eleven goldens change one line each: the
+tool-mode write-back hold now names the owing session (`call sofar_end_session
+with session_id <id>`), so a write-back filed under another id settles in one
+retry instead of re-holding every stop.
+
 RE-RECORDED for **felt-latency L2** (main) from the TypeScript reference; the
 Rust core reproduces all 64. `syn.gate-elsewhere` gains four steps: an edit
 to a file no rule bears on leaves the covered rule covered, and a re-edit of

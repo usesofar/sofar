@@ -5750,7 +5750,10 @@ sofar_start_session.`
   via session_started (idempotently, under the registration lock, so a hook
   registering the same id in between makes this adoption — r1-fixes 1.2);
   omitted → mint a fresh ulid. No open-session heuristic (adopt-by-id,
-  Phase 7, BD43).
+  Phase 7, BD43). A server the host named its session to (`sofar mcp` with
+  CLAUDE_CODE_SESSION_ID) fills an omitted session_id with that id
+  (felt-latency L4): it is the caller's own session, and minting one orphaned
+  the hook-registered id, so Stop held it on every stop.
   Adopting an ended id is pin-only (record-integrity 5.1): no append, and
   `ended`/`summary` are left standing as history. It used to be a typed
   invalid_input on the principle that a finished identity is never resumed
@@ -7196,9 +7199,14 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   AND gate-relevant drift is nonzero → exit 2 with stderr: "Write back to
   the sofar record before finishing: end your reply with a ```sofar block —
   {"summary":"…","next_action":"…"} plus any tasks, decisions, memories,
-  notes — or call sofar_end_session." (`SOFAR_WRITEBACK=tool`: "Write back to
-  the sofar record before finishing: call sofar_end_session (or append
-  session_ended via `sofar event append`).") Else exit 0.
+  notes — or call sofar_end_session." (`SOFAR_WRITEBACK=tool`, Claude Code's
+  default: "Write back to the sofar record before finishing: call
+  sofar_end_session with session_id <id> (or append session_ended via `sofar
+  event append`).", naming the stopping session (felt-latency L4): a
+  write-back filed under another id, by a server spawned before a /clear
+  renamed the conversation or by a start call that minted one, never settles
+  this session, and without the id the hold repeated on every stop.) Else
+  exit 0.
   Gate-relevant drift (drift-signal 1.2, superseding speed T1) =
   sessionDebt(state, session): the stopping session's OWN unwritten
   mutations plus freshness.unattributed_mutations. Read-side, zero new

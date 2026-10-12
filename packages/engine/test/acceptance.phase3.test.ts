@@ -18,6 +18,7 @@ import {
 import { hookContext } from './helpers/hook-output'
 import { makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
 import { scaled } from './helpers/tracked'
+import { unnamed } from './helpers/hold'
 
 /**
  * Phase 3 acceptance (SPEC §Acceptance criteria):
@@ -244,7 +245,7 @@ describe('acceptance 2+3+4 — end-to-end smoke through the built CLI', () => {
     // Stop without write-back: blocked, exit 2, exact message (acceptance 2a)
     const blocked = runEvent(fixture, 'stop', { ...base, hook_event_name: 'Stop', stop_hook_active: false })
     expect(blocked.status).toBe(2)
-    expect(blocked.stderr.trim()).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(blocked.stderr.trim())).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
 
     // Loop guard: same unwritten state but stop_hook_active → exit 0 (acceptance 3)
     const looped = runEvent(fixture, 'stop', { ...base, hook_event_name: 'Stop', stop_hook_active: true })

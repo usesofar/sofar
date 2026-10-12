@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { afterAll, describe, expect, it } from 'vitest'
-import { runAppend } from '../src/cli/event'
+import { runAppend, STOP_BLOCK_MESSAGE, stopBlockMessage } from '../src/cli/event'
 import { foldLog } from '../src/core/fold'
 import { ToolError, createToolContext, type ToolContext } from '../src/mcp/context'
 import { endSession } from '../src/mcp/end-session'
@@ -212,5 +212,35 @@ describe('the CLI write-back path, the same way (r4-fixes U6)', () => {
     expect(append(f, 'session_ended', { session_id: 'S2', summary: 's', next_action: 'n' }, { session: 'S2' }).exitCode).toBe(0)
     const added = readFileSync(f.ctx.eventsPath('other'), 'utf8').split('\n').filter(Boolean).slice(before).map((l) => (JSON.parse(l) as { type: string }).type)
     expect(added).toEqual(['session_ended'])
+  })
+})
+
+describe('a write-back never orphans the host session (felt-latency L4)', () => {
+  it('a start call without an id re-homes the session the host named, and the write-back settles it', async () => {
+    const f = fx()
+    const { client } = await connectServer(f.root, { hostSessionId: 'host-l4' })
+    const started = await callTool<{ session_id: string }>(client, 'sofar_start_session', { tool: 'claude-code', initiative: 'other' })
+    expect(started.body.session_id).toBe('host-l4')
+    const ok = await callTool<{ ok: boolean }>(client, 'sofar_end_session', { summary: 's', next_action: 'n' })
+    expect(ok.isError).toBe(false)
+    const host = foldLog(f.ctx.eventsPath('other')).state.sessions.find((s) => s.id === 'host-l4')
+    expect(host?.summary).toBe('s')
+    await client.close()
+  })
+
+  it('a server with no host session still mints one', async () => {
+    const f = fx()
+    const { client } = await connectServer(f.root)
+    const started = await callTool<{ session_id: string }>(client, 'sofar_start_session', { tool: 'claude-code', initiative: 'other' })
+    expect(started.body.session_id).not.toBe('host-l4')
+    expect(started.body.session_id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    await client.close()
+  })
+
+  it('the tool-mode hold names the session that owes', () => {
+    expect(stopBlockMessage('tool', 'S9')).toBe(
+      'Write back to the sofar record before finishing: call sofar_end_session with session_id S9 (or append session_ended via `sofar event append`).',
+    )
+    expect(stopBlockMessage('inline', 'S9')).toBe(STOP_BLOCK_MESSAGE)
   })
 })

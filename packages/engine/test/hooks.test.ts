@@ -24,6 +24,7 @@ import { NUDGE_ENV } from '../src/driver/nudge'
 import { sessionTitle } from '../src/cli/host'
 import { STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
 import { callTool, connectServer, makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
+import { unnamed } from './helpers/hold'
 
 /**
  * Phase 3 hook surface: shim scripts (3.1) + `sofar event` handlers.
@@ -791,7 +792,7 @@ describe('sofar event stop — write-back enforcement (3.4, BD2)', () => {
 
     const result = handleStop(fixture.root, stopStdin())
     expect(result.exitCode).toBe(2)
-    expect(result.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(result.stderr)).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
     // Claude Code writes back through the tool (r4-fixes H5): its hold is 0.34's
     // line; the in-band one (r4-fixes A1) asks Codex and Cursor for the block.
     expect(STOP_BLOCK_MESSAGE).toBe(
@@ -953,7 +954,7 @@ describe('sofar event stop — drift gate (speed T1)', () => {
 
     const result = handleStop(fixture.root, stopStdin())
     expect(result.exitCode).toBe(2)
-    expect(result.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(result.stderr)).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
   })
 
   it('drift computation error gates (fail closed) — a throw or NaN is never a silent skip (acceptance)', () => {
@@ -966,7 +967,7 @@ describe('sofar event stop — drift gate (speed T1)', () => {
       throw new Error('drift computation broke')
     })
     expect(thrown.exitCode).toBe(2)
-    expect(thrown.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(thrown.stderr)).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
 
     expect(handleStop(fixture.root, stopStdin(), () => Number.NaN).exitCode).toBe(2)
   })
@@ -1045,7 +1046,7 @@ describe('sofar event stop — drift gate (speed T1)', () => {
     // S2 (own activity) still gates; S3 (nothing) ends silently
     const gated = handleStop(fixture.root, stopStdin({ session_id: S2 }))
     expect(gated.exitCode).toBe(2)
-    expect(gated.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(gated.stderr)).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
     expect(handleStop(fixture.root, stopStdin({ session_id: S3 }))).toEqual({
       exitCode: 0,
       stdout: '',
@@ -1138,7 +1139,7 @@ describe('drift is per-session and command-free (drift-signal 1.1/1.2)', () => {
     // the sibling, meanwhile, owes every one of those edits
     const gated = handleStop(fixture.root, stopStdin({ session_id: SIBLING }))
     expect(gated.exitCode).toBe(2)
-    expect(gated.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(gated.stderr)).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
   })
 
   it('my own write-back clears my debt; a sibling’s does not', () => {
@@ -1186,7 +1187,7 @@ describe('drift is per-session and command-free (drift-signal 1.1/1.2)', () => {
     expect(foldLog(fixture.eventsPath).state.freshness.unattributed_mutations).toBe(1)
     const gated = handleStop(fixture.root, stopStdin())
     expect(gated.exitCode).toBe(2)
-    expect(gated.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(gated.stderr)).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
   })
 })
 

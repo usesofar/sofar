@@ -209,8 +209,20 @@ export function holdClose(lines: string[], env: Record<string, string | undefine
   return env.SOFAR_HOLD_CLOSE === 'off' ? lines : [...lines, HOLD_CLOSE_LINE]
 }
 
-export function stopBlockMessage(mode: WritebackMode = writebackMode()): string {
-  return mode === 'inline' ? STOP_BLOCK_MESSAGE : STOP_BLOCK_MESSAGE_TOOL
+/**
+ * The tool-mode hold names the session that owes (felt-latency L4): a write
+ * filed under another id — a server spawned before a /clear renamed the
+ * conversation, or a start call that minted one — never settles this one, and
+ * the generic line held it again on every stop (41 holds in one session).
+ */
+export function stopBlockMessage(mode: WritebackMode = writebackMode(), session?: string): string {
+  if (mode === 'inline') return STOP_BLOCK_MESSAGE
+  return session === undefined ? STOP_BLOCK_MESSAGE_TOOL : toolStopMessage(session)
+}
+
+/** STOP_BLOCK_MESSAGE_TOOL naming the session that owes. */
+export function toolStopMessage(session: string): string {
+  return STOP_BLOCK_MESSAGE_TOOL.replace('call sofar_end_session', `call sofar_end_session with session_id ${session}`)
 }
 
 /**
@@ -1752,7 +1764,7 @@ export function handleStop(
     return {
       exitCode: 2,
       stdout: '',
-      stderr: holdClose([filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId, mode) : stopBlockMessage(mode)), ...crossings, ...checks, ...merge, ...links]).join('\n'),
+      stderr: holdClose([filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId, mode) : stopBlockMessage(mode, sessionId)), ...crossings, ...checks, ...merge, ...links]).join('\n'),
     }
   } catch {
     return { ...OK }

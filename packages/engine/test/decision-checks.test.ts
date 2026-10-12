@@ -32,6 +32,7 @@ import { buildSurface } from '../src/driver/permissions'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
 import { bare } from './helpers/handles'
 import { callTool, callToolExpectError, connectServer } from './helpers/mcp'
+import { unnamed } from './helpers/hold'
 
 /**
  * memory-lead 2.3 (D9, D10) — executable decision checks.
@@ -323,7 +324,7 @@ describe('Stop: failures ride the write-back block, never cause one', () => {
     const r = stop(root, 's1')
     expect(r.exitCode).toBe(2)
     const lines = r.stderr.split('\n')
-    expect(lines[0]).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
+    expect(unnamed(lines[0])).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
     expect(bare(r.stderr)).toContain('sofar: check for [demo D1] failed (exit 2): nope — rule: "Never hard-delete anything the traveller made." — fix: restore soft delete')
     expect(bare(r.stderr)).toContain('[demo D2] `touch never.txt`')
     expect(existsSync(join(root, 'never.txt'))).toBe(false)
@@ -389,7 +390,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     edited(root, 's1')
     const r = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 1)
     expect(r.exitCode).toBe(2)
-    expect(r.stderr.split('\n')[0]).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
+    expect(unnamed(r.stderr.split('\n')[0])).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
     expect(bare(r.stderr)).toContain('no covering test passed since your last edit')
   })
 
@@ -768,7 +769,7 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
     edited(root, 's1')
     const owed = handleStop(root, JSON.stringify({ session_id: 's1', hook_event_name: 'Stop', stop_hook_active: false, cwd: root }), () => 1)
-    expect(owed.stderr.split('\n')[0]).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
+    expect(unnamed(owed.stderr.split('\n')[0])).toBe(STOP_BLOCK_MESSAGE_TOOL.split('\n')[0])
     expect(owed.stderr).toContain('no covering test passed since your last edit')
     wroteBack(root, 's1')
     process.env.SOFAR_ENFORCE = 'off'

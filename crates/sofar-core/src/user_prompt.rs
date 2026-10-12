@@ -39,6 +39,17 @@ use crate::told::{add_told, read_told, told_key};
 use crate::version::engine_version;
 
 pub const STOP_BLOCK_MESSAGE: &str = "Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).";
+
+/// `toolStopMessage` (felt-latency L4): the tool-mode hold naming the session
+/// that owes, so a write-back filed under another id settles in one retry.
+#[must_use]
+pub fn tool_stop_message(session_id: &str) -> String {
+    STOP_BLOCK_MESSAGE.replacen(
+        "call sofar_end_session",
+        &format!("call sofar_end_session with session_id {session_id}"),
+        1,
+    )
+}
 /// The close line every Stop hold ends with (r4-fixes H3); `SOFAR_HOLD_CLOSE=off` drops it.
 pub const HOLD_CLOSE_LINE: &str =
     "Then end on one line restating your answer: it is what the operator reads last.";
@@ -1124,7 +1135,7 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
         if crate::inline::writeback_inline_for(crate::host::hook_host(&hook).tool) {
             crate::inline::STOP_BLOCK_MESSAGE_INLINE.to_owned()
         } else {
-            STOP_BLOCK_MESSAGE.to_owned()
+            tool_stop_message(session_id)
         },
     ];
     lines.extend(guard_violation_lines(

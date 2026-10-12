@@ -333,12 +333,20 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
       if (adoptWorktree && name !== 'sofar_start_session' && context.session.get() === null) {
         adoptWorktreeSession(context, toolOfClient(server.getClientVersion()?.name), startedAtMs)
       }
+      // A start call without an id, on a server the host named its session to,
+      // re-homes THAT session (felt-latency L4). Minting one orphaned the
+      // hook-registered id: every write-back filed under the new id, and Stop
+      // held the host's session on each stop after (28 holds in one session).
+      const callArgs =
+        name === 'sofar_start_session' && hostId !== undefined && (args as { session_id?: unknown }).session_id === undefined
+          ? { ...(args as object), session_id: cloudHostSession(rootDir, hostId, options.hostEntrypoint) }
+          : args
       // Runtime-validated above; the registry's per-tool arg types are
       // narrower than `unknown`, hence the cast.
       const handler = handlers[name] as (ctx: ToolContext, a: unknown) => unknown
-      let target = writeTarget(context, name, args)
+      let target = writeTarget(context, name, callArgs)
       // Awaited: the two write tools finish with the write-time judge (typed-judge 3.1).
-      const value = await handler(context, args)
+      const value = await handler(context, callArgs)
       if (name === 'sofar_start_session') target = context.session.get()?.initiative ?? null
       const result = okResult(withCopyLag(context, target, value))
       recordCall(context, name, { ok: true, ms: Date.now() - started })
