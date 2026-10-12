@@ -1661,14 +1661,15 @@ fn union_files(states: &[(String, SlugFileState)]) -> FileIndex {
     let mut slugs: Vec<&(String, SlugFileState)> = states.iter().collect();
     slugs.sort_by(|a, b| cmp_utf16(&a.0, &b.0));
     let mut files: Vec<(String, PathSessions)> = Vec::new();
+    // Path → position, first seen first (r4-fixes B19): a linear position per
+    // path made the union O(paths²) at 1,000 records.
+    let mut at: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     for (_, state) in slugs {
         for (path, sessions) in &state.files {
-            let i = if let Some(i) = files.iter().position(|(p, _)| p == path) {
-                i
-            } else {
+            let i = *at.entry(path.as_str()).or_insert_with(|| {
                 files.push((path.clone(), Vec::new()));
                 files.len() - 1
-            };
+            });
             let by_session = &mut files[i].1;
             for (session, (ts, touches)) in sessions {
                 match by_session.iter_mut().find(|(s, _)| s == session) {
