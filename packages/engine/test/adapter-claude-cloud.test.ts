@@ -44,6 +44,20 @@ describe('the cloud transcript (D51)', () => {
     expect(t).toEqual({ started: true, ended: true, finalText: `done\n${BLOCK}`, patch })
   })
 
+  it('takes the reply holding the block when a cloud Stop hook made the session answer again (seen live)', () => {
+    const t = readCloudTranscript(
+      [
+        row('user', 'go'),
+        row('assistant', [{ type: 'text', text: `done\n${BLOCK}` }]),
+        row('user', 'Stop hook feedback: Write back to the sofar record before finishing'),
+        row('assistant', [{ type: 'text', text: 'No response requested.' }]),
+        row('system', null),
+      ].join('\n'),
+    )
+    expect(t.ended).toBe(true)
+    expect(t.finalText).toBe(`done\n${BLOCK}`)
+  })
+
   it('a session mid-tool, or not started, has not ended', () => {
     expect(readCloudTranscript([row('user', 'go'), row('assistant', [{ type: 'tool_use', id: 't', name: 'Bash', input: {} }])].join('\n')).ended).toBe(false)
     expect(readCloudTranscript(row('user', 'This session is being continued from another machine.'))).toEqual({ started: false, ended: false, finalText: null, patch: null })

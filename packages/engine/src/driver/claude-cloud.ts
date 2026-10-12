@@ -5,6 +5,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Adapter, AdapterCapabilities, AgentSession, LaunchRequest, SessionExit, Usage } from './adapter'
 import { launchEnv, launchPrompt } from './adapter'
+import { mayHoldBlock } from '../core/inline-block'
 
 /**
  * The cloud lane adapter (drive-lanes 5.2): a task runs as a Claude Code cloud
@@ -114,7 +115,7 @@ export interface CloudTranscript {
   started: boolean
   /** Its last turn ended: a stop record after an assistant text. */
   ended: boolean
-  /** The text of its last assistant reply. */
+  /** Its last assistant reply holding a sofar block, else its last reply. */
   finalText: string | null
   /** The last `git format-patch` output a command returned, verbatim from its first separator line. */
   patch: string | null
@@ -156,6 +157,7 @@ export function readCloudTranscript(jsonl: string): CloudTranscript {
     if (row.type === 'user' || row.type === 'assistant' || row.type === 'system') rows.push(row)
   }
   let finalText: string | null = null
+  let blockText: string | null = null
   let patch: string | null = null
   let lastText = -1
   rows.forEach((row, i) => {
@@ -164,6 +166,7 @@ export function readCloudTranscript(jsonl: string): CloudTranscript {
       if (t !== null && t.trim().length > 0) {
         finalText = t
         lastText = i
+        if (mayHoldBlock(t)) blockText = t
       }
     }
     if (row.type === 'user') {
@@ -177,7 +180,10 @@ export function readCloudTranscript(jsonl: string): CloudTranscript {
   })
   const last = rows[rows.length - 1]
   const ended = last !== undefined && last.type === 'system' && lastText >= 0 && !rows.slice(lastText + 1).some((r) => r.type !== 'system')
-  return { started: rows.some((r) => r.type === 'user'), ended, finalText, patch }
+  // The repo's own Stop hook runs in the cloud too, against the cloud's copy of
+  // the record, and can ask for a write-back the session answers with a reply
+  // holding no block: the block is in the last reply that has one (seen live, 5.2).
+  return { started: rows.some((r) => r.type === 'user'), ended, finalText: blockText ?? finalText, patch }
 }
 
 interface Ran {
