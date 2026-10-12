@@ -6,7 +6,7 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1600 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 22 done, 3 dropped, 4 remaining
+Progress: 23 done, 3 dropped, 3 remaining
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
@@ -16,12 +16,13 @@ Progress: 22 done, 3 dropped, 4 remaining
 
 ## Phase 4 — Below native on tokens [done] — 5/5 done — its tasks in phases/P4.md
 
-## Phase 5 — Cloud lanes [active] — 0/4 done
+## Phase 5 — Cloud lanes [active] — 1/4 done
 
-- [ ] 5.1 Cloud launch and readback without a TTY: `claude --cloud` refuses a non-TTY (r4-fixes M24). Verify a scriptable launch (routines via API call, or a pty), a branch per task, results back through pushed branches (needs the Claude GitHub App on the repo), and session end detected from the branch's record (active)
-- [ ] 5.2 Cloud lane adapter: a lane is a cloud session on its task branch. The local coordinator polls and fetches, verifies locally, merges through the queue, and `--resume` re-attaches after the laptop sleeps (the record is the queue)
+- [x] 5.1 Cloud launch and readback without a TTY: `claude --cloud` refuses a non-TTY (r4-fixes M24). Verify a scriptable launch (routines via API call, or a pty), a branch per task, results back through pushed branches (needs the Claude GitHub App on the repo), and session end detected from the branch's record
+- [ ] 5.2 Cloud lane adapter: a lane is a cloud session on its task branch. The local coordinator polls and fetches, verifies locally, merges through the queue, and `--resume` re-attaches after the laptop sleeps (the record is the queue) (blocked)
 - [ ] 5.3 Conflicts in cloud lanes: no edit-time leases (a cloud VM cannot read the local lease store), so scheduling by footprint plus the merge queue. Measure conflict rework against local lanes
 - [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 5 — Cloud lanes
-Next action: 5.1: end detection without polling cost, then 5.2
+Next action: 5.2: operator trusts /Users/Shared/drive-lanes once, then probe a no-remote cloud launch
+Blocked on: task 5.2: claude --cloud is interactive and stops on the folder-trust dialog in an untrusted dir (a fresh no-remote repo in scratchpad); the bench profile also stops on first-run onboarding. Writing trust into ~/.claude.json was denied by the auto-mode classifier (self-modification), so the operator must trust the cell root once. Still unknown: whether a repo with no GitHub remote can launch a cloud session at all
