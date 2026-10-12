@@ -152,7 +152,15 @@ fn marked_checkout(worktree: &Path) -> Option<PathBuf> {
     if named.is_empty() {
         return None;
     }
-    Some(PathBuf::from(posix_resolve(&dir.to_string_lossy(), named)))
+    // Node's platform `resolve`, not `posix_resolve`: a Windows marker names
+    // `C:\…`, which `Path::join` takes whole and a `/` test would not.
+    let joined = dir.join(named);
+    let joined = if joined.is_absolute() {
+        joined
+    } else {
+        std::env::current_dir().unwrap_or_default().join(joined)
+    };
+    Some(PathBuf::from(posix_normalize(&joined.to_string_lossy(), false)))
 }
 
 const MAX_LISTED: usize = 10;
