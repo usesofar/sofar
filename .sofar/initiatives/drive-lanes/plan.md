@@ -6,7 +6,7 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1740 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 23 done, 3 dropped, 3 remaining
+Progress: 24 done, 3 dropped, 2 remaining
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
@@ -16,12 +16,12 @@ Progress: 23 done, 3 dropped, 3 remaining
 
 ## Phase 4 — Below native on tokens [done] — 5/5 done — its tasks in phases/P4.md
 
-## Phase 5 — Cloud lanes [active] — 1/4 done
+## Phase 5 — Cloud lanes [active] — 2/4 done
 
 - [x] 5.1 Cloud launch and readback without a TTY: `claude --cloud` refuses a non-TTY (r4-fixes M24). Verify a scriptable launch (routines via API call, or a pty), a branch per task, results back through pushed branches (needs the Claude GitHub App on the repo), and session end detected from the branch's record
-- [ ] 5.2 Cloud lane adapter: a lane is a cloud session on its task branch. The local coordinator polls and fetches, verifies locally, merges through the queue, and `--resume` re-attaches after the laptop sleeps (the record is the queue) (active)
+- [x] 5.2 Cloud lane adapter: a lane is a cloud session on its task branch. The local coordinator polls and fetches, verifies locally, merges through the queue, and `--resume` re-attaches after the laptop sleeps (the record is the queue)
 - [ ] 5.3 Conflicts in cloud lanes: no edit-time leases (a cloud VM cannot read the local lease store), so scheduling by footprint plus the merge queue. Measure conflict rework against local lanes
 - [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 5 — Cloud lanes
-Next action: Operator: set SOFAR_CLOUD_TOKEN, then verify live archive
+Next action: Operator: SOFAR_CLOUD_TOKEN from the Mac, then 5.3 cloud lanes
