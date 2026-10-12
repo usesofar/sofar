@@ -6,7 +6,7 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 1600 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 20 done, 3 dropped, 6 remaining
+Progress: 21 done, 3 dropped, 5 remaining
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
@@ -14,12 +14,12 @@ Progress: 20 done, 3 dropped, 6 remaining
 
 ## Phase 3 — Conflict-aware orchestration [done] — 7/10 (3 dropped) done — its tasks in phases/P3.md
 
-## Phase 4 — Below native on tokens [active] — 3/5 done
+## Phase 4 — Below native on tokens [active] — 4/5 done
 
 - [x] 4.1 Token anatomy, deterministic, from the 3.4 and 3.9 transcripts: split a driven session's and a native subagent's tokens by source (system prompt and tool schemas, built-in and MCP; the SessionStart injection; each hook's added context; sofar protocol calls and their results; the task's own work; verify runs). results/4.1-anatomy.json ranks the sources by tokens per task and names what 4.2-4.4 must cut to land under native (driven today: 29.6k base, 9.4 calls per task; native subagent: 15.4k, 4.4)
 - [x] 4.2 Lean driven base: a driven session starts at or under a native subagent's base context. The driver hands a task packet (the task, its verify, the decisions and memories that name its files) instead of the full SessionStart digest; per-tool hook context is off in driven sessions unless it carries a rule the edit breaks; the MCP tool list is trimmed to what a driven session calls. Keep only if tasks done and gate pass rate hold
 - [x] 4.3 Bookkeeping by the driver, not the session: the driver records session start, task status and the write-back from what it already sees (the launch, the commit, its own verify, the session's last message), so a driven session spends no calls on the protocol; the prompt names the verify command so the session runs it once before it ends. Target at most 4.4 calls per task
-- [ ] 4.4 Cache-shaped launches: every driven session in a run starts on a byte-identical prefix (system, tools, packet frame) with per-task lines last, so session N reads session N-1's cache inside the TTL, and lanes stagger their starts so lanes 2..N read lane 1's. Measure cache write per task against native's 11.8k
+- [x] 4.4 Cache-shaped launches: every driven session in a run starts on a byte-identical prefix (system, tools, packet frame) with per-task lines last, so session N reads session N-1's cache inside the TTL, and lanes stagger their starts so lanes 2..N read lane 1's. Measure cache write per task against native's 11.8k
 - [ ] 4.5 Measure serial and footprint lanes with 4.2-4.4 against native, 3 interleaved reps each on D27's stack. Keep each lever only where it lowers tokens per task (raw and priced) with no drop in tasks done or gate pass. The phase is done only when serial drive sits below native on tokens per task; otherwise name the remaining gap and the next lever as a task
 
 ## Phase 5 — Cloud lanes [pending] — 0/4 done
@@ -30,4 +30,4 @@ Progress: 20 done, 3 dropped, 6 remaining
 - [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
 
 Active phase: Phase 4 — Below native on tokens
-Next action: 4.4: cache-shaped launches, then 4.5 lanes vs native
+Next action: 4.5: lanes and serial vs native, 3 interleaved reps

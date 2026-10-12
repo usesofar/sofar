@@ -140,6 +140,13 @@ describe('argv', () => {
     expect(ambient).not.toContain('--disable-slash-commands')
   })
 
+  it('puts the run\'s frame in the system prompt and keeps the task in -p (drive-lanes 4.4)', () => {
+    const args = claudeArgs({ cwd: '/w', initiative: 'demo', prompt: 'go', frame: 'shared', pin: false })
+    expect(args.slice(0, 2)).toEqual(['-p', 'go'])
+    expect(args[args.indexOf('--append-system-prompt') + 1]).toBe('shared')
+    expect(claudeArgs({ cwd: '/w', initiative: 'demo', prompt: 'go' })).not.toContain('--append-system-prompt')
+  })
+
   it('drops the pin when the driver says the launch directory already binds to the record (drive-lanes 4.3)', () => {
     expect(pinPrompt({ cwd: '/w', initiative: 'demo', prompt: 'go', pin: false })).toBe('go')
     expect(pinPrompt({ cwd: '/w', initiative: 'demo', prompt: 'go' })).toBe(`${pinLine('demo')}\n\ngo`)

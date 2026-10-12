@@ -201,6 +201,14 @@ const NAP_MAX_MS = 3_600_000
  * holds (3.1): its own lanes' leases end with their jobs, which wake it.
  */
 export const LEASE_POLL_MS = 15_000
+/**
+ * A lanes run's first launch goes alone (drive-lanes 4.4): the others wait
+ * until its first reply lands — the provider writes the shared prefix to its
+ * cache then, and every later session reads it instead of writing its own —
+ * polled this often, and for at most STAGGER_MAX_MS.
+ */
+export const STAGGER_POLL_MS = 500
+export const STAGGER_MAX_MS = 30_000
 /** Briefs a merge's prompt names, the latest landings it takes in (drive-lanes 3.3). */
 const MERGE_BRIEFS = 3
 
@@ -629,8 +637,15 @@ export function handoffReason(
  * the `task` policy by construction; `threshold` only exists if the prompt
  * says to keep taking tasks, and the nudge is what ends it (2.3). Telling a
  * threshold session to stop after one task would make the gauge decorative.
+ *
+ * It comes in two parts (drive-lanes 4.4): the FRAME, byte-identical for every
+ * session of a run (it names the initiative and the policy, and whether the
+ * run has lanes, but no task), and the per-task lines. An adapter that can
+ * put the frame in the system prompt does, so it sits inside the prefix the
+ * provider caches and session N reads it from session N-1 instead of writing
+ * it again; one that cannot sends the two joined, frame first.
  */
-export function renderPrompt(
+export function renderLaunch(
   initiative: string,
   task: DriveTask,
   policy: RunPolicy = 'task',
@@ -646,41 +661,13 @@ export function renderPrompt(
   },
   /** The command the gate will run on this task (drive-lanes 4.3): named so the session runs it once itself. */
   verify?: string,
-): string {
-  const scope =
-    policy === 'threshold'
-      ? [
-          'Start with THIS task, and when it is finished take the next one from the plan',
-          'the same way — done and committed — until sofar tells you the context',
-          'is nearly full. That message names a percentage and asks you to finish the',
-          'current task and hand off; when it arrives, finish that task and end your turn',
-          'without starting another. Your closing block lists every task you finished.',
-        ]
-      : [
-          'Do THIS TASK ONLY, to the acceptance criteria the record names. Do not start the',
-          'next one: the driver launches a fresh session for it, and running on costs the',
-          'context that session needs.',
-        ]
-  return [
+): { frame: string; prompt: string } {
+  const prompt = [
     `Task ${task.id} — ${task.title}`,
-    '',
-    `You are one session in a driven run of the initiative \`${initiative}\`. The record —`,
-    'goal, standing constraints, decisions, next action — is injected at session start;',
-    `if you did not receive it, run \`sofar status ${initiative}\` before anything else.`,
-    '',
-    ...scope,
     '',
     // A lane (drive-lanes 2.2, D20): its own worktree and branch. Absent on a
     // serial run, whose prompt is unchanged.
-    ...(lane !== undefined
-      ? [
-          `You are in lane ${lane.id}, a worktree of this repository at ${lane.dir}, on the`,
-          `branch ${lane.branch}. Work and commit there; the driver lands the branch once the`,
-          'task is accepted. The record is the run checkout\'s: sofar reads and writes it from',
-          'this lane, and it is committed from that checkout, never from a lane.',
-          '',
-        ]
-      : []),
+    ...(lane !== undefined ? [`You are in lane ${lane.id}, a worktree of this repository at ${lane.dir}, on the`, `branch ${lane.branch}.`, ''] : []),
     ...(lane?.packets !== undefined && lane.packets.length > 0 ? [...lane.packets, ''] : []),
     // A merge handoff (drive-lanes 2.4, D24), read from the lane itself: the
     // merge queue merged the run's base into this branch and it stopped on
@@ -710,26 +697,75 @@ export function renderPrompt(
           '',
         ]
       : []),
-    // The driver keeps the record (drive-lanes 4.3, D48): the session spends
-    // no call on the protocol. Its closing block is the write-back the Stop
-    // hook files, and the driver's gate re-runs the command named here.
+    // The driver keeps the record (drive-lanes 4.3, D48): the gate re-runs the command named here.
     ...(verify !== undefined ? [`The task is accepted when \`${verify}\` exits 0: run it once before you finish; the driver re-runs it.`, ''] : []),
-    lane !== undefined ? 'Commit your code on the lane\'s branch (git add, git commit).' : 'Commit your code (git add, git commit).',
+    `Close with the \`\`\`sofar block for task ${task.id}.`,
+  ].join('\n')
+  return { frame: renderFrame(initiative, policy, lane !== undefined), prompt }
+}
+
+/**
+ * The part of the opening prompt every session of a run shares (4.4): no task
+ * id, lane number, path or command in it, so it stays byte-identical across
+ * the run's launches and the provider's cache can hold it.
+ */
+export function renderFrame(initiative: string, policy: RunPolicy = 'task', lanes = false): string {
+  const scope =
+    policy === 'threshold'
+      ? [
+          'Start with THIS task, and when it is finished take the next one from the plan',
+          'the same way — done and committed — until sofar tells you the context',
+          'is nearly full. That message names a percentage and asks you to finish the',
+          'current task and hand off; when it arrives, finish that task and end your turn',
+          'without starting another. Your closing block lists every task you finished.',
+        ]
+      : [
+          'Do THIS TASK ONLY, to the acceptance criteria the record names. Do not start the',
+          'next one: the driver launches a fresh session for it, and running on costs the',
+          'context that session needs.',
+        ]
+  return [
+    `You are one session in a driven run of the initiative \`${initiative}\`. Your task is`,
+    'named in the prompt. The record — goal, standing constraints, decisions, next action —',
+    `is injected at session start; if you did not receive it, run \`sofar status ${initiative}\``,
+    'before anything else.',
+    '',
+    ...scope,
+    '',
+    ...(lanes
+      ? [
+          'This run has lanes: the prompt names yours, a worktree of this repository on a',
+          'branch of its own. Work and commit there; the driver lands the branch once the',
+          'task is accepted. The record is the run checkout\'s: sofar reads and writes it from',
+          'the lane, and it is committed from that checkout, never from a lane.',
+          '',
+        ]
+      : []),
+    lanes ? 'Commit your code on the lane\'s branch (git add, git commit).' : 'Commit your code (git add, git commit).',
+    // The driver keeps the record (drive-lanes 4.3, D48): the session spends
+    // no call on the protocol. Its closing block is the write-back the Stop hook files.
     'The driver keeps this session\'s record: call no sofar tool for it — no',
     'sofar_start_session, sofar_update_task or sofar_end_session. Instead, end your',
-    'final reply with one fenced block whose info string is sofar, holding JSON:',
+    'final reply with one fenced block whose info string is sofar, holding JSON, with',
+    'your task\'s id:',
     '',
     '```sofar',
-    `{"summary":"<what you did, one or two sentences>","next_action":"<the next step>","tasks":[{"task_id":"${task.id}","status":"done"}]}`,
+    '{"summary":"<what you did, one or two sentences>","next_action":"<the next step>","tasks":[{"task_id":"<your task\'s id>","status":"done"}]}',
     '```',
     '',
     'Add "decisions" only for a choice between approaches a later session must know.',
     '',
     'If the task needs a decision only the operator can take, do NOT guess and do not',
-    `do the work anyway: end with the block giving task ${task.id} status "blocked" and the`,
+    'do the work anyway: end with the block giving your task status "blocked" and the',
     'question as its "note". That is the signal that stops the run and puts your',
     'question in front of the operator.',
   ].join('\n')
+}
+
+/** The frame and the task's lines joined, frame first: what an adapter with no system prompt to put the frame in sends. */
+export function renderPrompt(...args: Parameters<typeof renderLaunch>): string {
+  const { frame, prompt } = renderLaunch(...args)
+  return `${frame}\n\n${prompt}`
 }
 
 /**
@@ -2177,7 +2213,7 @@ async function driveHolding(
       initiative,
       // A new session here already lands in this record: no pin call (4.3).
       ...(bindsTo(launchDir, initiative) ? { pin: false } : {}),
-      prompt: renderPrompt(
+      ...renderLaunch(
         initiative,
         task,
         policy,
@@ -2625,6 +2661,14 @@ async function driveHolding(
     }
 
     let saidParked: number | undefined
+    // The stagger (4.4): primed once any launch of this run has had a reply or
+    // ended. An adapter with no live usage cannot say, and is not held back.
+    let firstLaunchAt: number | undefined
+    const primed = (): boolean =>
+      !adapter.capabilities.usage ||
+      history.some((j) => j.to !== undefined) ||
+      [...liveSessions].some((session) => session.usage() !== undefined) ||
+      (firstLaunchAt !== undefined && Date.now() - firstLaunchAt >= STAGGER_MAX_MS)
     try {
       for (;;) {
         settle()
@@ -2714,8 +2758,13 @@ async function driveHolding(
               ]
             : []
         const passed: { id: string; holder: Holder; file: string }[] = []
+        let staggered = false
         for (const task of prints !== undefined ? byAge(ready, skips) : ready) {
           if (room <= 0 || busy.size >= lanes.lanes.length) break
+          if (firstLaunchAt !== undefined && !primed() && jobs.size > 0) {
+            staggered = true
+            break
+          }
           const print = prints?.get(task.id)
           // A task that would meet a running one at merge waits, and the lane idles rather than take it.
           const hit = print !== undefined ? conflictOf(print, holders) : undefined
@@ -2763,6 +2812,7 @@ async function driveHolding(
           room -= 1
           launchNo += 1
           started += 1
+          firstLaunchAt ??= Date.now()
           start(task, where, state, watchFrom, launchNo)
         }
         // A task passed over ages up: it goes first once what it meets is gone.
@@ -2792,7 +2842,8 @@ async function driveHolding(
             )
           }
         }
-        const until = Math.min(unpark ?? Number.POSITIVE_INFINITY, poll ?? Number.POSITIVE_INFINITY)
+        const stagger = staggered ? Date.now() + STAGGER_POLL_MS : undefined
+        const until = Math.min(unpark ?? Number.POSITIVE_INFINITY, poll ?? Number.POSITIVE_INFINITY, stagger ?? Number.POSITIVE_INFINITY)
         await nap(Number.isFinite(until) ? until - Date.now() : undefined)
       }
     } catch (err) {

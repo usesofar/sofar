@@ -182,6 +182,9 @@ export function claudeArgs(
     // A pinned surface also pins the tool set (4.2): only what it can use, and no skills.
     ...(request.surface !== undefined ? ['--tools', surfaceTools(request.surface).join(','), '--disable-slash-commands'] : []),
     ...(settingsPath !== undefined ? ['--settings', settingsPath] : []),
+    // The run's shared frame goes in the system prompt (4.4): inside the cached
+    // prefix, so each session reads it rather than writing it again.
+    ...(request.frame !== undefined ? ['--append-system-prompt', request.frame] : []),
     ...(options.args ?? []),
   ]
 }

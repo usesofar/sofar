@@ -2768,6 +2768,20 @@ session runs it once itself. The pin line that has a Claude Code session call
 not already resolve to the initiative (`pin: false` on the launch request
 otherwise): a session registered there is home already.
 
+**Cache-shaped launches (drive-lanes 4.4, D49).** The opening prompt comes in
+two parts. The FRAME — the run's initiative, its policy, whether it has lanes,
+the closing-block contract — names no task, lane, path or command, so it is
+byte-identical for every launch of a run. The PROMPT holds only the task's own
+lines: its id and title, its lane, packets, merge and gate failure, the gate's
+command, and a one-line reminder to close with the block for that task id.
+Claude Code takes the frame as `--append-system-prompt`, inside the prefix the
+provider caches, so session N reads it rather than writing it again; an
+adapter with no system prompt to append to sends the two joined, frame first.
+A lanes run launches its first task alone and holds the other lanes until a
+session of the run has reported usage (its first reply has landed, so the
+cached prefix exists) or ended, polling every 500 ms for at most 30 s; an
+adapter with no live usage is not held.
+
 **One launch directory per run (D6).** `sofar drive` creates no worktree and
 switches no branch: sessions in a run are sequential and cumulative, so a
 fresh checkout per session would discard the previous one's uncommitted work

@@ -111,6 +111,13 @@ export interface LaunchRequest {
   /** The opening prompt — the driver renders it from the record digest and the task. */
   prompt: string
   /**
+   * The part of the opening prompt every session of the run shares (drive-lanes
+   * 4.4): an adapter that can append to the agent's system prompt puts it
+   * there, inside the prefix the provider caches; the others send it ahead of
+   * `prompt` (`launchPrompt`). Absent means `prompt` is the whole of it.
+   */
+  frame?: string
+  /**
    * False when a session launched in `cwd` already homes to `initiative` (the
    * branch binding resolves there), so the adapter need not open the prompt
    * with the pin that has the session call sofar_start_session (drive-lanes
@@ -425,4 +432,9 @@ export function resolveLaunchedSession(
   if (candidates.length === 1) return { kind: 'found', session: candidates[0]! }
   if (candidates.length === 0) return { kind: 'none' }
   return { kind: 'ambiguous', candidates: candidates.map((s) => s.id) }
+}
+
+/** The frame and the prompt as one text, frame first — for an adapter with no system prompt to put the frame in (4.4). */
+export function launchPrompt(request: LaunchRequest): string {
+  return request.frame !== undefined ? `${request.frame}\n\n${request.prompt}` : request.prompt
 }

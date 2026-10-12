@@ -14,7 +14,7 @@ import type {
   SessionExit,
   Usage,
 } from './adapter'
-import { drivenPinLine, launchEnv } from './adapter'
+import { drivenPinLine, launchEnv, launchPrompt } from './adapter'
 import { lowPriority } from './load'
 
 /**
@@ -155,7 +155,7 @@ export function codexPinLine(initiative: string, sessionId: string, sofarBin = '
 }
 
 export function codexPrompt(request: LaunchRequest, sessionId: string, sofarBin?: string): string {
-  return `${codexPinLine(request.initiative, sessionId, sofarBin)}\n\n${request.prompt}`
+  return `${codexPinLine(request.initiative, sessionId, sofarBin)}\n\n${launchPrompt(request)}`
 }
 
 /**

@@ -14,7 +14,7 @@ import { heldByLanes, taskInFlight } from '../src/core/drive-queue'
 import { factsOf } from '../src/core/statusline-facts'
 import { describeRun } from '../src/projections/templates/shared'
 import { rejectedLimit } from '../src/driver/claude-code'
-import { describeExit, drive, renderPrompt } from '../src/driver/drive'
+import { describeExit, drive, renderPrompt, STAGGER_POLL_MS } from '../src/driver/drive'
 import {
   claimLanePool,
   detectLaneSetup,
@@ -273,7 +273,7 @@ describe('sofar drive --lanes (2.2, D20)', () => {
     expect(s1!.request.cwd.startsWith(lanePoolDir(root))).toBe(true)
     expect(s2!.request.cwd).not.toBe(s1!.request.cwd) // the next clean lane in rotation
     expect(s1!.request.prompt).toContain(`on the\nbranch ${taskBranch('demo', run.id, '1.1')}`)
-    expect(s1!.request.prompt).toContain("Commit your code on the lane's branch (git add, git commit).")
+    expect(s1!.request.frame).toContain("Commit your code on the lane's branch (git add, git commit).")
     expect(lines.some((l) => l.startsWith(`  lane 1: ${s1!.request.cwd} on ${taskBranch('demo', run.id, '1.1')}`))).toBe(true)
     expect(lines.filter((l) => /^ {2}landed 1\.[12] on /.test(l))).toHaveLength(2)
     expect(lines).toContain(`lanes: what this run landed is on ${base} (${outcome.base!.tip.slice(0, 7)}) — \`git merge ${base}\` brings it into your branch`)
@@ -345,6 +345,40 @@ describe('sofar drive --lanes (2.2, D20)', () => {
 })
 
 describe('the coordinator (2.3, D21)', () => {
+  it('launches one lane alone until its session has replied, then the rest at once (drive-lanes 4.4)', async () => {
+    // Usage-capable, but S1 reports none while held: it has not replied, so
+    // the provider has no cached prefix for lane 2 to read yet.
+    const root = repo('stagger')
+    let replied = false
+    let launchedWhileSilent = 0
+    const adapter: FakeAdapter = new FakeAdapter([
+      worker(root, 'S1', {
+        capabilities: { usage: true },
+        hold: async () => {
+          await sleep(STAGGER_POLL_MS * 3)
+          launchedWhileSilent = adapter.sessions.length
+          replied = true
+        },
+      }),
+      worker(root, 'S2'),
+    ])
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none' })
+    expect(outcome.stop.reason).toBe('closed')
+    expect(replied).toBe(true)
+    expect(launchedWhileSilent).toBe(1)
+    expect(adapter.sessions).toHaveLength(2)
+
+    // One that has replied lets the second lane in while it still runs.
+    const root2 = repo('stagger-replied')
+    let release!: () => void
+    const second = new Promise<void>((resolve) => (release = resolve))
+    const adapter2 = new FakeAdapter([
+      worker(root2, 'S1', { usage: [{ context_tokens: 100, output_tokens: 1 }], hold: () => second }),
+      worker(root2, 'S2', { hold: async () => release() }),
+    ])
+    expect((await drive(root2, 'demo', { adapter: adapter2, lanes: 2, laneSetup: 'none' })).stop.reason).toBe('closed')
+  })
+
   it('runs ready tasks in free lanes at once, and the record shows which lane holds which', async () => {
     const root = repo('concurrent')
     let release!: () => void
