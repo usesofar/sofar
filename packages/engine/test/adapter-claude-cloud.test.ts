@@ -157,20 +157,35 @@ describe('ClaudeCloudAdapter', () => {
     expect(existsSync(join(config, 'projects', 'p'))).toBe(false)
   })
 
-  it('stops polling when killed, and reports the signal', async () => {
+  it('a killed session is kept for a resumed driver, which re-attaches to it; its result taken, it is archived (5.2, P16)', async () => {
     const root = tmp()
     git(root, 'init', '-q', '-b', 'main')
+    git(root, 'config', 'user.name', 'lane')
+    git(root, 'config', 'user.email', 'lane@example.com')
     writeFileSync(join(root, 'a.txt'), 'a\n')
     git(root, 'add', 'a.txt')
     git(root, 'commit', '-qm', 'init')
+    const config = join(root, 'config')
+    // Polls report a running session until `finish` exists, then a finished one.
+    const finished = [row('user', 'go'), row('assistant', [{ type: 'text', text: BLOCK }]), row('system', null)].join('\n')
+    writeFileSync(join(root, 'finished.jsonl'), finished)
+    writeFileSync(join(root, 'running.jsonl'), row('user', 'go'))
     const bin = join(root, 'claude')
-    writeFileSync(bin, '#!/bin/sh\ncase "$*" in *--cloud*) echo session_01TESTabcdefgh ;; *) echo "{}" ;; esac\n')
+    writeFileSync(
+      bin,
+      [
+        '#!/bin/sh',
+        `case "$*" in *--cloud*) echo x >> ${join(root, 'launches')}; echo session_01TESTabcdefgh; exit 0 ;; esac`,
+        `id=p$(date +%s%N); mkdir -p ${config}/projects/p`,
+        `if [ -f ${join(root, 'finish')} ]; then cp ${join(root, 'finished.jsonl')} ${config}/projects/p/$id.jsonl; else cp ${join(root, 'running.jsonl')} ${config}/projects/p/$id.jsonl; fi`,
+        'echo "{\\"session_id\\":\\"$id\\"}"; exit 1',
+      ].join('\n'),
+    )
     const script = join(root, 'script')
     writeFileSync(script, '#!/bin/sh\nlog="$2"; shift 2; "$@" > "$log" 2>&1\n')
     const sofar = join(root, 'sofar')
-    writeFileSync(sofar, '#!/bin/sh\nexit 0\n')
+    writeFileSync(sofar, `#!/bin/sh\necho "$*" >> ${join(root, 'sofar-calls')}\n`)
     for (const b of [bin, script, sofar]) chmodSync(b, 0o755)
-    // The operator handed a token (P16): the abandoned session is archived with it.
     const calls: { url?: string; auth?: string }[] = []
     const server = createServer((req, res) => {
       calls.push({ url: req.url, auth: req.headers.authorization })
@@ -178,16 +193,27 @@ describe('ClaudeCloudAdapter', () => {
     })
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
     const apiBase = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
-    const session = new ClaudeCloudAdapter({ bin, scriptBin: script, sofarBin: sofar, configDir: join(root, 'none'), pollMs: 60_000, platform: 'darwin', archiveToken: 'tok', apiBase }).launch({
-      cwd: root,
-      initiative: 'demo',
-      prompt: 'Task 1.1',
-    })
+    const adapter = new ClaudeCloudAdapter({ bin, scriptBin: script, sofarBin: sofar, configDir: config, pollMs: 50, platform: 'darwin', archiveToken: 'tok', apiBase })
+    const request = { cwd: root, initiative: 'demo', prompt: 'Task 1.1', task: { id: '1.1', title: 't' } }
+
+    const first = adapter.launch(request)
     await new Promise((r) => setTimeout(r, 300))
-    session.kill()
-    expect(await session.wait()).toEqual({ code: null, signal: 'SIGTERM', session_id: session.sessionId })
+    first.kill()
+    expect(await first.wait()).toEqual({ code: null, signal: 'SIGTERM', session_id: first.sessionId })
+    // Not archived, and the marker names it.
+    expect(calls).toEqual([])
+    expect(JSON.parse(readFileSync(join(root, '.git', 'sofar-cloud.json'), 'utf8'))).toMatchObject({ initiative: 'demo', task: '1.1', cloud: 'session_01TESTabcdefgh', session: first.sessionId })
+
+    // A resumed driver: the same task on the same base re-attaches — no second cloud launch, the same record session.
+    writeFileSync(join(root, 'finish'), '')
+    const second = adapter.launch(request)
+    expect(await second.wait()).toEqual({ code: 0, session_id: first.sessionId })
     server.close()
+    expect(second.reattached).toBe(true)
+    expect(readFileSync(join(root, 'launches'), 'utf8').trim().split('\n')).toHaveLength(1)
+    expect(readFileSync(join(root, 'sofar-calls'), 'utf8').match(/session_started/g)).toHaveLength(1)
+    expect(existsSync(join(root, '.git', 'sofar-cloud.json'))).toBe(false)
     expect(calls).toEqual([{ url: '/v1/code/sessions/session_01TESTabcdefgh/archive', auth: 'Bearer tok' }])
-    expect(session.archived).toBe(true)
+    expect(second.archived).toBe(true)
   })
 })

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import type { Adapter, AdapterCapabilities, AgentSession, LaunchRequest, SessionExit, Usage } from './adapter'
 import { launchEnv, launchPrompt } from './adapter'
 import { mayHoldBlock } from '../core/inline-block'
@@ -64,6 +64,31 @@ export interface ClaudeCloudOptions {
 }
 
 export const CLOUD_TOKEN_ENV = 'SOFAR_CLOUD_TOKEN'
+
+/** The re-attach handle, in the lane's git dir (beside D18's record-checkout marker). */
+export const CLOUD_MARKER = 'sofar-cloud.json'
+
+export interface CloudMarker {
+  initiative: string
+  task?: string
+  /** The commit the cloud session started on: a lane that moved since is not re-attached. */
+  base: string
+  cloud: string
+  /** The record session registered for it. */
+  session: string
+}
+
+function readMarker(path: string): CloudMarker | undefined {
+  try {
+    const m: unknown = JSON.parse(readFileSync(path, 'utf8'))
+    if (isObj(m) && typeof m.initiative === 'string' && typeof m.base === 'string' && typeof m.cloud === 'string' && typeof m.session === 'string') {
+      return { initiative: m.initiative, base: m.base, cloud: m.cloud, session: m.session, ...(typeof m.task === 'string' ? { task: m.task } : {}) }
+    }
+  } catch {
+    // none, or unreadable: launch afresh
+  }
+  return undefined
+}
 
 /**
  * Archive a cloud session: the call Claude Code itself makes when it ends one
@@ -238,8 +263,12 @@ function run(bin: string, args: string[], cwd: string, env: NodeJS.ProcessEnv, i
 }
 
 export class ClaudeCloudSession implements AgentSession {
-  /** The record session the adapter registers for this launch. */
-  readonly sessionId = randomUUID()
+  /** The record session the adapter registers for this launch — or, re-attached, the one it registered before. */
+  sessionId: string = randomUUID()
+  /** True when this launch re-attached to a cloud session an earlier driver left running. */
+  reattached = false
+  /** True once the session's result was taken: only then is it archived. */
+  private done = false
   /** The cloud session's own id, once the launch log names it. */
   cloudId: string | undefined
   /** True once the cloud session was archived. */
@@ -260,7 +289,8 @@ export class ClaudeCloudSession implements AgentSession {
   /** The session is done with, landed or not: archive it when the operator gave a token (P16). */
   private async archive(exit: SessionExit): Promise<SessionExit> {
     const token = this.options.archiveToken ?? process.env[CLOUD_TOKEN_ENV]
-    if (this.cloudId === undefined || token === undefined || token.length === 0) return exit
+    // A killed session keeps running for a resumed driver to re-attach to.
+    if (!this.done || this.cloudId === undefined || token === undefined || token.length === 0) return exit
     const failed = await archiveCloudSession(this.cloudId, token, this.options.apiBase)
     this.archived = failed === undefined
     if (failed === undefined) return exit
@@ -280,16 +310,29 @@ export class ClaudeCloudSession implements AgentSession {
     const base = (await run('git', ['rev-parse', 'HEAD'], cwd, this.env)).stdout.trim()
     if (!/^[0-9a-f]{40}$/.test(base)) return { code: 1, stderr_tail: `claude-cloud: ${cwd} has no commit to start a cloud session from` }
 
+    // The handle a resumed driver re-attaches by (5.2): the cloud session lives
+    // on when this driver stops or the laptop sleeps, so a marker in the lane's
+    // git dir names it until its result is taken.
+    const marker = join(resolve(cwd, (await run('git', ['rev-parse', '--git-dir'], cwd, this.env)).stdout.trim()), CLOUD_MARKER)
+    const prior = readMarker(marker)
     const dir = mkdtempSync(join(tmpdir(), 'sofar-cloud-'))
     try {
-      const log = join(dir, 'launch.log')
-      const launch = await run(options.scriptBin ?? 'script', scriptArgv(options.platform ?? process.platform, log, [bin, ...(options.args ?? []), '--cloud', cloudPrompt(request, base)]), cwd, this.env)
-      if (launch.error !== undefined) return { code: 127, spawn_error: launch.error }
-      this.cloudId = cloudSessionId(existsSync(log) ? readFileSync(log, 'utf8') : '')
-      if (this.cloudId === undefined) return { code: launch.code ?? 1, stderr_tail: `claude-cloud: the launch named no cloud session (exit ${launch.code})` }
+      if (prior !== undefined && prior.initiative === request.initiative && prior.task === request.task?.id && prior.base === base) {
+        this.cloudId = prior.cloud
+        this.sessionId = prior.session
+        this.reattached = true
+      } else {
+        const log = join(dir, 'launch.log')
+        const launch = await run(options.scriptBin ?? 'script', scriptArgv(options.platform ?? process.platform, log, [bin, ...(options.args ?? []), '--cloud', cloudPrompt(request, base)]), cwd, this.env)
+        if (launch.error !== undefined) return { code: 127, spawn_error: launch.error }
+        this.cloudId = cloudSessionId(existsSync(log) ? readFileSync(log, 'utf8') : '')
+        if (this.cloudId === undefined) return { code: launch.code ?? 1, stderr_tail: `claude-cloud: the launch named no cloud session (exit ${launch.code})` }
 
-      const registered = await run(sofar, ['event', 'append', request.initiative, '--session', this.sessionId, '--source', 'claude-cloud', '--type', 'session_started', '--payload', JSON.stringify({ tool: 'claude-cloud' })], cwd, this.env)
-      if (registered.code !== 0) return { code: 1, stderr_tail: `claude-cloud: could not register the session: ${registered.stderr.trim()}` }
+        const registered = await run(sofar, ['event', 'append', request.initiative, '--session', this.sessionId, '--source', 'claude-cloud', '--type', 'session_started', '--payload', JSON.stringify({ tool: 'claude-cloud' })], cwd, this.env)
+        if (registered.code !== 0) return { code: 1, stderr_tail: `claude-cloud: could not register the session: ${registered.stderr.trim()}` }
+        const handle: CloudMarker = { initiative: request.initiative, ...(request.task !== undefined ? { task: request.task.id } : {}), base, cloud: this.cloudId, session: this.sessionId }
+        writeFileSync(marker, `${JSON.stringify(handle)}\n`)
+      }
 
       // Teleport refuses a dirty tree, and the lane's is dirty with the record's
       // write-backs (D48): poll from a clean detached worktree of the same repo,
@@ -302,7 +345,7 @@ export class ClaudeCloudSession implements AgentSession {
         for (;;) {
           if (this.killed !== undefined) return { code: null, signal: this.killed, session_id: this.sessionId }
           seen = await this.poll(bin, pollDir)
-        if (seen?.ended === true) break
+          if (seen?.ended === true) break
           await new Promise<void>((resolve) => {
             const timer = setTimeout(resolve, options.pollMs ?? DEFAULT_POLL_MS)
             this.wake = () => {
@@ -328,6 +371,8 @@ export class ClaudeCloudSession implements AgentSession {
       // The block files through the local Stop hook, final on its one call.
       const hook = { session_id: this.sessionId, cwd, hook_event_name: 'Stop', stop_hook_active: true, last_assistant_message: seen.finalText ?? '' }
       await run(sofar, ['event', 'stop'], cwd, { ...this.env, SOFAR_WRITEBACK: 'inline' }, JSON.stringify(hook))
+      this.done = true
+      rmSync(marker, { force: true })
       return { code: 0, session_id: this.sessionId, ...(notes.length > 0 ? { stderr_tail: notes.join('\n') } : {}) }
     } finally {
       rmSync(dir, { recursive: true, force: true })
