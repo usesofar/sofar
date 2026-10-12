@@ -12,7 +12,7 @@ import {
   checksInForce,
   isApproved,
   runChecks,
-  setBlocksCommits,
+  setBlocksCommits, setStrictTests,
   throttledUnapprovedLine,
   unapprovedLine,
   unmergedLine,
@@ -54,6 +54,8 @@ export interface CheckOptions {
   approve?: string
   /** Turn the pre-commit opt-in on or off for this clone. */
   blockCommits?: string
+  /** Turn the strict test gate on or off for this clone (r4-fixes D65). */
+  strictTests?: string
   /**
    * The pull request mode (r4-fixes E4): the paths changed since the merge
    * base with this revision, and the checks in force at it count as approved
@@ -115,6 +117,22 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
         value === 'on'
           ? 'sofar check: commits on this clone now FAIL when an approved decision check fails (pre-commit). `sofar check --block-commits off` undoes it.\n'
           : 'sofar check: commits on this clone only WARN when a decision check fails.\n',
+      )
+    }
+
+    if (opts.strictTests !== undefined) {
+      const value = opts.strictTests.trim().toLowerCase()
+      if (value !== 'on' && value !== 'off') return fail('sofar check: --strict-tests takes on or off')
+      // Turning it off is the operator's act (D9's reasoning): an agent held by
+      // the gate must not release itself from a piped shell.
+      if (value === 'off' && (io.confirm === undefined || io.confirm === null)) {
+        return fail('sofar check: --strict-tests off is the operator\'s to run, on a terminal')
+      }
+      setStrictTests(rootDir, value === 'on', env)
+      return ok(
+        value === 'on'
+          ? 'sofar check: Stop now HOLDS a session on this clone until a covering test passes after its rule-bearing edits. `sofar check --strict-tests off` undoes it.\n'
+          : 'sofar check: Stop on this clone asks for covering tests without holding; only a failed covering run holds.\n',
       )
     }
 

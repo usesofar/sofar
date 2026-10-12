@@ -1,4 +1,5 @@
 import type { RunPolicy } from '@sofar/schema'
+import { TEST_GATE_ENV } from '../core/checks'
 import type { InitiativeState, SessionState } from '../core/fold'
 import type { NudgeDetail } from './nudge'
 import type { PermissionSurface } from './permissions'
@@ -177,6 +178,9 @@ export function launchEnv(
 ): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...base }
   for (const name of CALLER_SESSION_ENV) delete env[name]
+  // Nobody waits on a driven session's turns, so its test gate holds as
+  // before (r4-fixes D65) unless the driver's own env says otherwise.
+  env[TEST_GATE_ENV] ??= 'hold'
   return { ...env, ...extra }
 }
 

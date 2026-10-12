@@ -77,6 +77,11 @@ export interface EndSessionResult extends ToolOkResult {
   /** Handles the batched `memories` took, in order (`<slug> M<n>`). */
   memories?: string[]
   /**
+   * The test gate's lines for this session (r4-fixes D65): tests to run before
+   * finishing, or a covering run that failed. Omitted when there are none.
+   */
+  test_asks?: string[]
+  /**
    * Declared waits_on warnings and cite nudges (linked-context 2.3, 5.3), then
    * rule-fidelity warnings for the batched decisions (memory-lead D2), then the
    * write-time judges' lines (typed-judge 3.1, 3.3, 3.2); never a refusal.

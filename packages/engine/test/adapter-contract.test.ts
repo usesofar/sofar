@@ -91,6 +91,11 @@ describe('launchEnv (in-session-drive D3)', () => {
     expect(env.FOO).toBe('bar')
   })
 
+  it('runs a driven session under the strict test gate unless the driver says otherwise (r4-fixes D65)', () => {
+    expect(launchEnv(undefined, caller).SOFAR_TEST_GATE).toBe('hold')
+    expect(launchEnv(undefined, { ...caller, SOFAR_TEST_GATE: 'advise' }).SOFAR_TEST_GATE).toBe('advise')
+  })
+
   it('never mutates the environment it was given', () => {
     const base = { ...caller }
     launchEnv(undefined, base)
