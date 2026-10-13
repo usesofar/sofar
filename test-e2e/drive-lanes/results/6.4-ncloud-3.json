@@ -1,0 +1,120 @@
+{
+  "label": "6.4-ncloud-3",
+  "fixture": "nine",
+  "arm": "native-cloud",
+  "native_prompt": "A small utility library, built task by task — the drive-lanes fixture. Each task names the test file that is its spec; its verify command runs it.\n\nThe plan, 9 tasks:\n- 1.1 slugify(text) in src/slug.mjs — make test/slug.test.mjs pass\n  verify: node --test test/slug.test.mjs\n- 1.2 parseDuration(text) in src/duration.mjs — make test/duration.test.mjs pass\n  verify: node --test test/duration.test.mjs\n- 1.3 toRoman(n) and fromRoman(text) in src/roman.mjs — make test/roman.test.mjs pass\n  verify: node --test test/roman.test.mjs\n- 1.4 formatPrice currency symbol option (symbol, symbolAfter) in src/price.mjs — make test/price-symbol.test.mjs pass and keep test/price.test.mjs passing\n  verify: node --test test/price.test.mjs test/price-symbol.test.mjs\n- 1.5 formatPrice digit grouping option (grouping, separator, decimal) in src/price.mjs — make test/price-grouping.test.mjs pass and keep test/price.test.mjs passing\n  verify: node --test test/price.test.mjs test/price-grouping.test.mjs\n- 1.6 formatPrice accounting negatives option (accounting) in src/price.mjs — make test/price-accounting.test.mjs pass and keep test/price.test.mjs passing\n  verify: node --test test/price.test.mjs test/price-accounting.test.mjs\n- 1.7 createStore() key-value store in src/store.mjs — make test/store.test.mjs pass\n  verify: node --test test/store.test.mjs\n- 1.8 Store TTL: set(key, value, { ttlMs }), ttlAt(key) and an injectable clock in src/store.mjs — make test/store-ttl.test.mjs pass and keep test/store.test.mjs passing\n  verify: node --test test/store.test.mjs test/store-ttl.test.mjs\n  waits on: 1.7\n- 1.9 Store snapshots: toJSON() and restoreStore(json, { now }) in src/store.mjs — make test/store-snapshot.test.mjs pass and keep the other store tests passing\n  verify: node --test test/store.test.mjs test/store-ttl.test.mjs test/store-snapshot.test.mjs\n  waits on: 1.8\n\nWork through the whole plan with your own subagents (the Agent tool): hand each task to a subagent, and run tasks in parallel wherever the plan allows. A task is done when its verify command exits 0; commit it then (git add, git commit). A task that waits on another starts only once that one is done. Finish when every task verifies.",
+  "started": "2026-10-13T05:04:46.923Z",
+  "engine": {
+    "version": "0.39.0-dev+trunk",
+    "commit": "f09c3208",
+    "dirty_src_paths": 0,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.local/bin/claude",
+    "version": "2.1.296 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "native": {
+    "exit": 0,
+    "ms": 139681,
+    "cloud_session": "session_01RoGo7W9zT4eBe3XhhcR7Bg"
+  },
+  "final_tree": {
+    "verify_passes": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "1.7",
+      "1.8",
+      "1.9"
+    ],
+    "commits": 10,
+    "dirty_paths": 0
+  },
+  "score": {
+    "run": {
+      "id": "854e6795-ecdc-426c-b5ac-e94a3f5bbbe4",
+      "lanes": 1,
+      "arm": "native-cloud",
+      "stop_reason": "success",
+      "is_error": false,
+      "num_turns": 4
+    },
+    "wall_clock_s": 139.7,
+    "overhead_s": null,
+    "lanes_busy_rate": null,
+    "tasks": {
+      "total": 9,
+      "done": 9,
+      "done_rate": 1,
+      "final_status": {
+        "1.1": "done",
+        "1.2": "done",
+        "1.3": "done",
+        "1.4": "done",
+        "1.5": "done",
+        "1.6": "done",
+        "1.7": "done",
+        "1.8": "done",
+        "1.9": "done"
+      }
+    },
+    "verify": {
+      "gate_attempts": null,
+      "gate_passes": null,
+      "gate_pass_rate": null,
+      "first_try_pass_rate": null,
+      "sweep_checks": 0,
+      "sweep_failures": 0
+    },
+    "sessions": {
+      "launched": 1,
+      "subagents": 0,
+      "unresolved": 0,
+      "by_reason": {},
+      "parks": null,
+      "rework": null,
+      "tasks_with_repeat_sessions": [],
+      "mean_seconds_per_handoff": null
+    },
+    "tokens": {
+      "input": 0,
+      "cache_creation": 0,
+      "cache_read": 0,
+      "output": 0,
+      "total": 0,
+      "sessions_with_transcript": 0,
+      "per_task": null,
+      "output_per_task": null,
+      "split_per_task": null,
+      "weighted_per_task": null,
+      "main": null,
+      "subagents": null,
+      "models": {}
+    },
+    "cost": {
+      "usd": 0.5290237,
+      "per_task": 0.0588
+    },
+    "conflicts": {
+      "merge": null,
+      "merge_reopen_rate": null,
+      "regressions": null,
+      "off_task_resolutions": null,
+      "off_task": [],
+      "double_held": [],
+      "duplicate_work": null
+    },
+    "per_task": []
+  },
+  "ended": "2026-10-13T05:07:10.487Z"
+}

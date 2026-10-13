@@ -1,0 +1,277 @@
+{
+  "label": "6.4-serial-3",
+  "fixture": "nine",
+  "arm": "serial",
+  "started": "2026-10-13T05:07:10.527Z",
+  "engine": {
+    "version": "0.39.0-dev+trunk",
+    "commit": "f09c3208",
+    "dirty_src_paths": 0,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.bench/claude-2.1.278/claude",
+    "version": "2.1.278 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "drive": {
+    "exit": 0,
+    "signal": null,
+    "ms": 269725
+  },
+  "score": {
+    "run": {
+      "id": "01M4STGNCC8PGF0VFT29HM5N8F",
+      "lanes": 1,
+      "stop_reason": "closed",
+      "stop_note": "no task left to run — every task is done, dropped or blocked",
+      "surface": {
+        "allow": [
+          "mcp__sofar",
+          "Bash(sofar:*)",
+          "Bash(git status:*)",
+          "Bash(git diff:*)",
+          "Bash(git log:*)",
+          "Bash(git show:*)",
+          "Bash(git add:*)",
+          "Bash(git commit:*)",
+          "Bash(node:*)",
+          "Bash(npm test:*)"
+        ],
+        "model": "sonnet",
+        "permission_mode": "acceptEdits"
+      }
+    },
+    "wall_clock_s": 269.6,
+    "overhead_s": 79.1,
+    "lanes_busy_rate": null,
+    "tasks": {
+      "total": 9,
+      "done": 9,
+      "done_rate": 1,
+      "final_status": {
+        "1.1": "done",
+        "1.2": "done",
+        "1.3": "done",
+        "1.4": "done",
+        "1.5": "done",
+        "1.6": "done",
+        "1.7": "done",
+        "1.8": "done",
+        "1.9": "done"
+      }
+    },
+    "verify": {
+      "gate_attempts": 9,
+      "gate_passes": 9,
+      "gate_pass_rate": 1,
+      "first_try_pass_rate": 1,
+      "sweep_checks": 8,
+      "sweep_failures": 0
+    },
+    "sessions": {
+      "launched": 9,
+      "unresolved": 0,
+      "by_reason": {
+        "task_done": 9
+      },
+      "parks": 0,
+      "rework": 0,
+      "tasks_with_repeat_sessions": [],
+      "mean_seconds_per_handoff": 21.2
+    },
+    "tokens": {
+      "input": 106,
+      "cache_creation": 64037,
+      "cache_read": 929715,
+      "output": 16570,
+      "total": 1010428,
+      "sessions_with_transcript": 9,
+      "per_task": 112270,
+      "output_per_task": 1841,
+      "split_per_task": {
+        "input": 12,
+        "cache_creation": 7115,
+        "cache_read": 103302,
+        "output": 1841
+      },
+      "weighted_per_task": 33778,
+      "first_call": {
+        "write_mean": 4377,
+        "read_mean": 12800,
+        "cold": 0
+      },
+      "context_at_handoff_mean": 110429
+    },
+    "cost": {
+      "usd": 0.61,
+      "per_task": 0.0678
+    },
+    "record": {
+      "sessions": 9,
+      "writebacks": 9,
+      "decisions": 1,
+      "memories": 7,
+      "notes": 0,
+      "activity_events": 40,
+      "summary_chars_mean": 356
+    },
+    "conflicts": {
+      "merge": 0,
+      "merge_reopen_rate": 0,
+      "regressions": 0,
+      "off_task_resolutions": 0,
+      "off_task": [],
+      "double_held": [],
+      "duplicate_work": 0
+    },
+    "per_task": [
+      {
+        "id": "1.1",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 17.8,
+        "tokens": 86634,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "sweep:pass"
+        ]
+      },
+      {
+        "id": "1.2",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 24.6,
+        "tokens": 127133,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "sweep:pass"
+        ]
+      },
+      {
+        "id": "1.3",
+        "shape": "independent",
+        "sessions": 1,
+        "seconds": 23.9,
+        "tokens": 132250,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "sweep:pass"
+        ]
+      },
+      {
+        "id": "1.4",
+        "shape": "shared",
+        "sessions": 1,
+        "seconds": 16.4,
+        "tokens": 94109,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "sweep:pass"
+        ]
+      },
+      {
+        "id": "1.5",
+        "shape": "shared",
+        "sessions": 1,
+        "seconds": 18,
+        "tokens": 94149,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "sweep:pass"
+        ]
+      },
+      {
+        "id": "1.6",
+        "shape": "shared",
+        "sessions": 1,
+        "seconds": 25,
+        "tokens": 115179,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "sweep:pass"
+        ]
+      },
+      {
+        "id": "1.7",
+        "shape": "chain",
+        "sessions": 1,
+        "seconds": 21.2,
+        "tokens": 130403,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "sweep:pass"
+        ]
+      },
+      {
+        "id": "1.8",
+        "shape": "chain",
+        "sessions": 1,
+        "seconds": 23.5,
+        "tokens": 98246,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass",
+          "sweep:pass"
+        ]
+      },
+      {
+        "id": "1.9",
+        "shape": "chain",
+        "sessions": 1,
+        "seconds": 20.2,
+        "tokens": 132325,
+        "reasons": [
+          "task_done"
+        ],
+        "verify": [
+          "gate:pass"
+        ]
+      }
+    ]
+  },
+  "final_tree": {
+    "verify_passes": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "1.7",
+      "1.8",
+      "1.9"
+    ],
+    "commits": 11,
+    "dirty_paths": 15
+  },
+  "ended": "2026-10-13T05:11:42.678Z"
+}

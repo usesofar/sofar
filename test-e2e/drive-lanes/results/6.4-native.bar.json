@@ -1,0 +1,315 @@
+{
+  "reps": 3,
+  "labels": [
+    "6.4-native-1",
+    "6.4-native-2",
+    "6.4-native-3"
+  ],
+  "excluded": [],
+  "engine": {
+    "version": "0.39.0-dev+trunk",
+    "commit": "f09c3208",
+    "dirty_src_paths": 0,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.bench/claude-2.1.278/claude",
+    "version": "2.1.278 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "metrics": {
+    "wall_clock_s": {
+      "mean": 323.4,
+      "sd": 86.6874,
+      "values": [
+        253.5,
+        420.4,
+        296.3
+      ]
+    },
+    "overhead_s": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "lanes_busy_rate": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "rework_sessions": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "parks": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "tasks_total": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    },
+    "tasks_done": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    },
+    "gate_pass_rate": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "first_try_pass_rate": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "tokens_per_task": {
+      "mean": 256690.3333,
+      "sd": 18210.0111,
+      "values": [
+        274429,
+        257599,
+        238043
+      ]
+    },
+    "output_tokens_per_task": {
+      "mean": 2358,
+      "sd": 328.7613,
+      "values": [
+        2720,
+        2078,
+        2276
+      ]
+    },
+    "input_tokens_per_task": {
+      "mean": 17,
+      "sd": 1.7321,
+      "values": [
+        16,
+        19,
+        16
+      ]
+    },
+    "cache_write_tokens_per_task": {
+      "mean": 14523.6667,
+      "sd": 1298.1053,
+      "values": [
+        14865,
+        15617,
+        13089
+      ]
+    },
+    "cache_read_tokens_per_task": {
+      "mean": 239791.3333,
+      "sd": 17083.1885,
+      "values": [
+        256828,
+        239884,
+        222662
+      ]
+    },
+    "first_call_write": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "first_call_read": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "weighted_tokens_per_task": {
+      "mean": 64835,
+      "sd": 4646.9372,
+      "values": [
+        69030,
+        65635,
+        59840
+      ]
+    },
+    "cost_per_task": {
+      "mean": 0.13,
+      "sd": 0.0069,
+      "values": [
+        0.135,
+        0.1328,
+        0.1221
+      ]
+    },
+    "sessions": {
+      "mean": 1,
+      "sd": 0,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    "subagents": {
+      "mean": 9.6667,
+      "sd": 0.5774,
+      "values": [
+        10,
+        10,
+        9
+      ]
+    },
+    "merge_conflicts": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "merge_reopen_rate": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "regressions": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "off_task_resolutions": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "duplicate_work": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "final_tree_green": {
+      "mean": 9,
+      "sd": 0,
+      "values": [
+        9,
+        9,
+        9
+      ]
+    },
+    "writeback_rate": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "decisions": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "memories": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "notes": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "activity_events": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    },
+    "summary_chars": {
+      "mean": null,
+      "sd": 0,
+      "values": [
+        null,
+        null,
+        null
+      ]
+    }
+  }
+}
