@@ -1,6 +1,7 @@
 //! `sofar-core` — the native hook binary. Parses the shim argv grammar and
 //! dispatches: the six hooks (2.5), the hidden `fold` conformance command
-//! (2.3, D15), plain `status` (2.4, D14) and the statusline (2.6). A shape
+//! (2.3, D15), plain `status` (2.4, D14), the statusline (2.6), and the
+//! drive-await hook and the pre-commit worker (felt-latency L5b). A shape
 //! the TypeScript CLI owns exits 64 (`EX_USAGE`) so no caller can mistake it
 //! for a handled hook; the `sofar` boot stub (rust-core 3.1, `cli/boot.ts`)
 //! treats that exit as "run the TypeScript CLI instead" and announces itself
@@ -16,12 +17,13 @@ use sofar_core::cli::{Color, Declared, Dispatch, Owned, dispatch};
 use sofar_core::fold_cli::{CmdResult, run_fold};
 use sofar_core::hook::read_stdin;
 use sofar_core::host::for_host;
-use sofar_core::inline::handed_back;
+use sofar_core::inline::{hand_back, handed_back};
 use sofar_core::post_tool::{handle_post_tool, handle_post_tool_failure};
 use sofar_core::resolve::resolve_root;
 use sofar_core::session_start::handle_session_start;
 use sofar_core::status_cli::{run_status, with_update_notice};
 use sofar_core::statusline::run_statusline;
+use sofar_core::update_cache::refresh_due;
 use sofar_core::user_prompt::{handle_session_end, handle_stop, handle_user_prompt};
 
 /// `mirror` in cli/index.ts: stdout verbatim, stderr with one trailing newline.
@@ -164,6 +166,36 @@ fn main() -> ExitCode {
             host: Some(_),
             ..
         }) => not_ours("post-tool-batch has no declared host — use the `sofar` CLI"),
+        Dispatch::Owned(Owned::Event {
+            hook: Hook::DriveAwait,
+            root,
+            host: None,
+        }) => {
+            // The wait is TypeScript's (felt-latency L5b): the core only says
+            // "this Bash call started no run", the answer to nearly every one.
+            let root = resolve_root(root.as_deref());
+            let input = read_stdin();
+            if !sofar_core::drive_await::awaits(&input) {
+                return ExitCode::SUCCESS;
+            }
+            match hand_back(Hook::DriveAwait, &root, &input, None) {
+                Some(result) => mirror(&result),
+                None => ExitCode::SUCCESS,
+            }
+        }
+        // Claude Code's rewake hook only: no Codex shim names it.
+        Dispatch::Owned(Owned::Event {
+            hook: Hook::DriveAwait,
+            host: Some(_),
+            ..
+        }) => not_ours("drive-await has no declared host — use the `sofar` CLI"),
+        Dispatch::Owned(Owned::CheckStaged { root }) => {
+            match sofar_core::git_hooks::check_staged(root.as_deref()) {
+                Some(result) => mirror(&result),
+                // The shim runs `sofar check --staged` on this exit; no line.
+                None => ExitCode::from(64),
+            }
+        }
         Dispatch::Owned(Owned::Event { hook, root, host }) => {
             let root = root.as_deref();
             match hook {
@@ -176,10 +208,16 @@ fn main() -> ExitCode {
                 Hook::UserPrompt => hosted_hook(hook, root, host, handle_user_prompt),
                 Hook::Stop => closing_hook(hook, root, host, handle_stop),
                 Hook::SessionEnd => closing_hook(hook, root, host, handle_session_end),
-                Hook::PostToolBatch => unreachable!("matched above"),
+                Hook::PostToolBatch | Hook::DriveAwait => unreachable!("matched above"),
             }
         }
         Dispatch::Owned(Owned::Statusline { root, color }) => {
+            // Run from settings with no stub in front (felt-latency L5b), a due
+            // update claim is the stub's to make: exit 64 before reading stdin,
+            // and the entry's `|| sofar statusline` renders and claims.
+            if !dispatched() && refresh_due(sofar_core::date::now_ms()) {
+                return ExitCode::from(64);
+            }
             // Styled by default (the status bar renders ANSI even piped);
             // `--no-color` or NO_COLOR present opts back into plain (D7).
             let plain = color == Color::Off || std::env::var_os("NO_COLOR").is_some();

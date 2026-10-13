@@ -733,6 +733,19 @@ pub fn worktree_changes(root: &Path, pathspecs: Option<&[String]>) -> Option<Vec
     Some(paths)
 }
 
+/// `changedPaths(root, 'staged')`: the index's paths, the record excluded.
+/// `None` without git.
+#[must_use]
+pub fn staged_changes(root: &Path) -> Option<Vec<String>> {
+    let out = checks_git(root, &["diff", "--cached", "--name-only", "-z"])?;
+    Some(
+        out.split('\0')
+            .filter(|p| !p.is_empty() && !p.starts_with(RECORD))
+            .map(str::to_owned)
+            .collect(),
+    )
+}
+
 /// `globSpec` (r3-fixes D26): a git glob pathspec covering every path one
 /// sofar path glob or file token matches, by tail, or `None` when git's glob
 /// cannot be trusted to (a `[`, `]` or `\\`, a `**` inside a segment, a

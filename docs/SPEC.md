@@ -7478,8 +7478,12 @@ deletes it with the worktree's gitdir.
   caused a second initiative's state to leak into Claude Code native memory
   + a scratch dir — jurisdiction must be total, not per-file.]
   With `--statusline`, init also merges the rent-meter wiring
-  `"statusLine": { "type": "command", "command": "sofar statusline",
-  "refreshInterval": 10 }` into .claude/settings.json — ONLY when the key is
+  `"statusLine": { "type": "command", "command": "sofar-core statusline ||
+  sofar statusline", "refreshInterval": 10 }` (felt-latency L5b: the native
+  core renders with no node in front, and exits 64 before reading stdin when
+  the daily update check is due, so the `sofar` fallback renders and claims
+  it; an entry carrying the earlier `sofar statusline` is still sofar's) into
+  .claude/settings.json — ONLY when the key is
   absent: an existing statusLine, whatever its value, is the user's and wins
   (felt-cost D4's clobber concern, honored under explicit opt-in — D4
   informed re-test, init-statusline D1). `refreshInterval` ships in the

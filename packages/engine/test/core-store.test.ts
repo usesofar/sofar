@@ -352,12 +352,15 @@ describe.skipIf(!posix)('first TypeScript boot activates; the next hook execs th
   })
 
   it('every Claude Code / Cursor shim then execs it directly, stdin and all', () => {
-    for (const shim of SHIMS.filter((s) => s.file !== 'drive-await.sh')) {
+    for (const shim of SHIMS) {
       rmSync(trace, { force: true })
       writeFileSync(join(root, shim.file), shim.text, { mode: 0o755 })
       const r = spawnSync('sh', [join(root, shim.file)], { cwd: repo, encoding: 'utf8', env: env({ FAKE_READ_STDIN: '1' }), input: '{"session_id":"s"}' })
       expect(r.status, `${shim.file}: ${r.stderr}`).toBe(0)
-      expect(readFileSync(trace, 'utf8')).toBe(`core argv=event ${shim.hook} dispatched=unset\ncore stdin={"session_id":"s"}\n`)
+      // drive-await runs it rather than exec'ing it (felt-latency L5b): an
+      // older core's exit 64 hands the wait to the CLI, so it is told to be quiet.
+      const dispatched = shim.file === 'drive-await.sh' ? '1' : 'unset'
+      expect(readFileSync(trace, 'utf8')).toBe(`core argv=event ${shim.hook} dispatched=${dispatched}\ncore stdin={"session_id":"s"}\n`)
     }
   })
 
@@ -420,7 +423,7 @@ describe.skipIf(!posix)('first TypeScript boot activates; the next hook execs th
 
   it('the routing forks nothing before the exec: shell builtins only', () => {
     // `[ -x ]`, `case`, `read` and parameter expansion — no command substitution.
-    for (const shim of SHIMS.filter((s) => s.file !== 'drive-await.sh')) {
+    for (const shim of SHIMS) {
       const routing = shim.text.slice(shim.text.indexOf('core="${SOFAR_CORE-}"'))
       expect(routing, shim.file).not.toMatch(/\$\(|`/)
     }

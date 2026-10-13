@@ -20,6 +20,18 @@ IN (the hot path — fires per tool use, per prompt, per status-bar render):
 - `sofar event append` (the MCP-less write surface, SPEC §CLI)
 - `sofar statusline` (SPEC §CLI)
 - `sofar status [slug]` (one-shot; `--watch` is interactive and OUT)
+- felt-latency L5b, run by their shims on the core with no node in front:
+  `event drive-await` (Claude Code's rewake hook, after every Bash call —
+  the core answers a call that started no detached run and hands the wait to
+  TypeScript through `inline::hand_back`), and `check --staged` (the
+  pre-commit hook — the core answers a commit no APPROVED check bears on,
+  which runs nothing: the once-a-day unapproved line, then the summary; it
+  exits 64 for a drive lane or an approved check that applies). `commit-trailer`
+  stays TypeScript (O5). The installed statusLine entry runs `sofar-core
+  statusline || sofar statusline`: the core exits 64 before reading stdin,
+  only when not dispatched, when the update cache EXISTS and its claim is
+  due, so the fallback renders and claims once a day. The shims and the
+  entry treat 64 as "run the `sofar` CLI", which an older core also answers.
 
 ADJACENT, not in the plan's list, decision needed (§Open decisions):
 - `sofar commit-trailer <msgfile>` — git's prepare-commit-msg worker, fires

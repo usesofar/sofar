@@ -21,7 +21,8 @@
 //! [`ui`], [`update_cache`]); rule fidelity (memory-lead 1.4: [`rule_fidelity`]);
 //! trunk mirrors since main 72146d9: the run lock's probe (drive-visibility
 //! 2.3: [`run_lock`]); the progress file and launch index's read side
-//! (drive-reach 1.3: [`run_progress`]).
+//! (drive-reach 1.3: [`run_progress`]); hot paths with no node in front
+//! (felt-latency L5b: [`drive_await`], the pre-commit worker [`git_hooks`]).
 
 pub mod append;
 pub mod atomic;
@@ -37,6 +38,7 @@ pub mod derived;
 pub mod diagnostics;
 pub mod digest_cache;
 pub mod digest_state;
+pub mod drive_await;
 pub mod drive_queue;
 pub mod drive_seen;
 pub mod elsewhere;
@@ -47,6 +49,7 @@ pub mod fold;
 pub mod fold_checkpoint;
 pub mod fold_cli;
 pub mod git;
+pub mod git_hooks;
 pub mod guards;
 pub mod home;
 pub mod hook;

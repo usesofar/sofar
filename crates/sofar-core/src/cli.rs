@@ -30,6 +30,10 @@ pub enum Hook {
     UserPrompt,
     Stop,
     SessionEnd,
+    /// `drive-await` (drive-visibility 3.7, felt-latency L5b): the core answers
+    /// every Bash call that started no detached run and hands the wait itself
+    /// back to TypeScript.
+    DriveAwait,
 }
 
 impl Hook {
@@ -45,6 +49,7 @@ impl Hook {
             Hook::UserPrompt => "user-prompt",
             Hook::Stop => "stop",
             Hook::SessionEnd => "session-end",
+            Hook::DriveAwait => "drive-await",
         }
     }
 
@@ -58,6 +63,7 @@ impl Hook {
             "user-prompt" => Hook::UserPrompt,
             "stop" => Hook::Stop,
             "session-end" => Hook::SessionEnd,
+            "drive-await" => Hook::DriveAwait,
             _ => return None,
         })
     }
@@ -102,6 +108,12 @@ pub enum Owned {
         slug: Option<String>,
         root: Option<PathBuf>,
         color: Color,
+    },
+    /// `check --staged [--root D]` (felt-latency L5b): the pre-commit hook.
+    /// The core answers a commit no check bears on and exits 64 for
+    /// everything else before writing a byte.
+    CheckStaged {
+        root: Option<PathBuf>,
     },
 }
 
@@ -162,6 +174,14 @@ where
             Dispatch::Owned(Owned::Statusline { root, color })
         }
         Some("fold") => Dispatch::Owned(Owned::Fold { args: rest }),
+        // The pre-commit worker (felt-latency L5b): exactly the argv the shim
+        // emits, plus `--root`. `commit-trailer` stays TypeScript (O5).
+        Some("check") => match parse_root(rest) {
+            Some((root, extra)) if extra.len() == 1 && extra[0] == "--staged" => {
+                Dispatch::Owned(Owned::CheckStaged { root })
+            }
+            _ => Dispatch::NotOurs,
+        },
         Some("status") => {
             let Some((root, extra)) = parse_root(rest) else {
                 return Dispatch::NotOurs;
@@ -250,6 +270,7 @@ mod tests {
             ("user-prompt", Hook::UserPrompt),
             ("stop", Hook::Stop),
             ("session-end", Hook::SessionEnd),
+            ("drive-await", Hook::DriveAwait),
         ] {
             assert_eq!(
                 d(&["event", name]),
@@ -334,6 +355,24 @@ mod tests {
         assert_eq!(d(&["status", "-x"]), Dispatch::NotOurs);
         assert_eq!(d(&["--version"]), Dispatch::NotOurs);
         assert_eq!(d(&["statusline", "--json"]), Dispatch::NotOurs);
+        assert_eq!(d(&["check"]), Dispatch::NotOurs);
+        assert_eq!(d(&["check", "--all"]), Dispatch::NotOurs);
+        assert_eq!(d(&["check", "--staged", "--strict"]), Dispatch::NotOurs);
+        assert_eq!(d(&["commit-trailer", "msg"]), Dispatch::NotOurs);
+    }
+
+    #[test]
+    fn check_staged_shape() {
+        assert_eq!(
+            d(&["check", "--staged"]),
+            Dispatch::Owned(Owned::CheckStaged { root: None })
+        );
+        assert_eq!(
+            d(&["check", "--root", "/r", "--staged"]),
+            Dispatch::Owned(Owned::CheckStaged {
+                root: Some("/r".into())
+            })
+        );
     }
 
     #[test]

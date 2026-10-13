@@ -85,7 +85,8 @@ pub fn resolve_root(root: Option<&Path>) -> PathBuf {
 
 /// `laneOf(start) !== null`: `start` is in a linked worktree carrying the
 /// record-checkout marker.
-fn in_marked_lane(start: &Path) -> bool {
+#[must_use]
+pub fn in_marked_lane(start: &Path) -> bool {
     let mut dir = start.to_path_buf();
     loop {
         if let Ok(meta) = std::fs::metadata(dir.join(".git")) {
