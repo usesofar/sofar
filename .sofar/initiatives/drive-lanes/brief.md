@@ -195,3 +195,10 @@ All six packages are approved, and dist-tag `next` = 0.37.0-rc.8. A clean instal
 <status>completed</status>
 <summary>Background command "Run the 3 hosted reps after local-3" completed (exit code 0)</summary>
 </task-notification>
+
+--- Operator, 2026-10-13 ---
+
+<cross-session-message from="uds:/tmp/cc-socks/47483.sock" from-name="r4-fixe" from-mode="prompting">
+0.38.0-rc.1 is tagged from main's committed HEAD (cdc28958): v0.38.0-rc.1 is pushed, and release.yml run 38339670209 is staging it.
+The operator confirmed the cut directly. Gates on the release tree: unit 4527 pass, plus 2 load flakes (links-tier, syn.idle-siblings) that pass twice in isolation; typecheck clean; cargo fmt, clippy and sofar-core 231/0. It becomes installable after the operator's 2FA approval, and I'll message you then. release/0.38.0 also carries main's 116 previously unpushed commits to origin.
+</cross-session-message>
