@@ -2569,6 +2569,17 @@ receives no record and can call no sofar tool. So the surface can only WIDEN
 what the operator's configuration already permits, and the record says what
 the driver PINNED — never what the session could ultimately do.
 
+One key the file carries on EVERY launch, surface or none (drive-lanes 7.1):
+`"crossSessionInbound": "refuse"`. A peer's cross-session broadcast reaches
+every live Claude Code session on the machine, and an unattended session
+cannot tell a peer's PAUSE from its operator's — in context-ceiling run
+01M4T8WNP5HKFGW3S1VPN9PC22 one reached lanes 1 and 3 and stalled both. A
+driven session's work arrives through its prompt and the record, so nothing
+else may steer it; the key is written and read back with the rest of the
+file, so a launch whose refusal could not be verified does not happen. This
+is the one setting the file restricts rather than widens, and it restricts
+only inbound messages, never a tool or a source.
+
 One exception, for tokens (drive-lanes 4.2, D47): a pinned surface also pins
 the BUILT-IN tool set. A Claude Code session is launched with `--tools`
 naming Bash, Read, Edit, Write and ToolSearch (which loads deferred MCP tools,
@@ -3120,6 +3131,14 @@ reads; a child that neither starts nor exits within 60s is reported as not
 confirmed, exit 1, with the log path. A warning stated only to a log file is
 exactly the silent trap D9 forbids, which is why the handshake waits for the
 opening rather than returning on spawn.
+
+Readying lanes counts as progress (drive-lanes 7.4): each lane line the child
+logs — created, setting up, set up — restarts the 60s window, and a window
+that lapses after one is answered "still setting up lanes", naming the setup
+still running (else the last lane line), with the log path and the stop
+command, exit 0: a first `npm ci` per lane outlasts the window and the driver
+is healthy. The child's start notice may then find its caller gone; a send
+down a closed channel is dropped, never fatal, and the driver runs on.
 
 `--detach` REFUSES, before spawning:
 - while the CALLING session is registered on the driven initiative with no

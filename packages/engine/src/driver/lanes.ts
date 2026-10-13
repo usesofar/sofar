@@ -300,6 +300,62 @@ export async function claimLanePool(rootDir: string, count: number, base: string
   return { lanes, held, warnings, created }
 }
 
+/** How many commits `to` holds past `from`. */
+function aheadOf(cwd: string, from: string, to: string): number {
+  const n = Number(git(cwd, ['rev-list', '--count', `${from}..${to}`]).trim())
+  return Number.isFinite(n) ? n : 0
+}
+
+/** A task branch of an earlier run whose commits a new run carries forward (7.3). */
+export interface StrandedTask {
+  taskId: string
+  /** The earlier run's branch the work is on. */
+  branch: string
+  tip: string
+  /** Its commits past where the new run's base starts. */
+  commits: number
+}
+
+export interface Stranded {
+  /** An earlier run's unmerged base the new run's base is cut from: HEAD is its ancestor. */
+  base?: { branch: string; tip: string; commits: number }
+  tasks: StrandedTask[]
+  /** An earlier base with work HEAD lacks, but not cut from HEAD: said, never carried. */
+  warnings: string[]
+}
+
+/**
+ * What earlier stopped lanes runs of `slug` left unlanded (drive-lanes 7.3),
+ * newest run first: the first base branch holding commits `head` lacks — taken
+ * only when `head` is its ancestor, so nothing the checkout moved on to is
+ * dropped — and, for each task in `taskIds` (those still to do), the newest
+ * earlier branch holding commits that base would not.
+ */
+export function findStranded(rootDir: string, slug: string, runIds: readonly string[], head: string, taskIds: readonly string[]): Stranded {
+  const out: Stranded = { tasks: [], warnings: [] }
+  for (const runId of runIds) {
+    const branch = runBaseBranch(slug, runId)
+    const tip = revParse(rootDir, `refs/heads/${branch}`)
+    if (tip === undefined || tip === head || gitOk(rootDir, ['merge-base', '--is-ancestor', tip, head])) continue
+    if (gitOk(rootDir, ['merge-base', '--is-ancestor', head, tip])) {
+      out.base = { branch, tip, commits: aheadOf(rootDir, head, tip) }
+      break
+    }
+    out.warnings.push(`${branch} (${tip.slice(0, 7)}) holds work this checkout's HEAD (${head.slice(0, 7)}) lacks, and HEAD has moved on from it — not carried; \`git merge ${branch}\` brings it in`)
+  }
+  const start = out.base?.tip ?? head
+  for (const taskId of taskIds) {
+    for (const runId of runIds) {
+      const branch = taskBranch(slug, runId, taskId)
+      const tip = revParse(rootDir, `refs/heads/${branch}`)
+      if (tip === undefined || tip === start || gitOk(rootDir, ['merge-base', '--is-ancestor', tip, start])) continue
+      out.tasks.push({ taskId, branch, tip, commits: aheadOf(rootDir, start, tip) })
+      break
+    }
+  }
+  return out
+}
+
 export interface LaneRunOptions {
   slug: string
   runId: string
@@ -346,6 +402,8 @@ export type Leftovers =
 export class LaneRun {
   readonly base: string
   private cursor = 0
+  /** Tasks carried from an earlier run (7.3), by id, until their first placement integrates them. */
+  private readonly carried = new Map<string, StrandedTask>()
 
   constructor(
     private readonly rootDir: string,
@@ -419,14 +477,19 @@ export class LaneRun {
     const branch = this.branchOf(taskId)
     const base = this.baseTip()
     const tip = revParse(this.rootDir, `refs/heads/${branch}`)
-    let lane = this.holding(branch)
+    const carried = this.carried.get(taskId)
+    // A carried task's earlier lane may still hold its old branch, uncommitted work and all.
+    const old = carried !== undefined && this.holding(branch) === undefined ? this.holding(carried.branch) : undefined
+    let lane = old ?? this.holding(branch)
     if (lane !== undefined && busy.has(lane.id)) return undefined
     if (lane === undefined) {
       lane = this.cleanLanes(busy)[0]
       if (lane === undefined) return undefined
     }
     this.cursor = (this.lanes.indexOf(lane) + 1) % this.lanes.length
-    if (tip === undefined) {
+    if (old !== undefined) {
+      git(lane.dir, ['checkout', '-q', '-B', branch])
+    } else if (tip === undefined) {
       git(lane.dir, ['checkout', '-q', '-b', branch, base])
     } else if (tip !== base && gitOk(this.rootDir, ['merge-base', '--is-ancestor', tip, base])) {
       git(lane.dir, ['checkout', '-q', '-B', branch, base])
@@ -434,7 +497,51 @@ export class LaneRun {
       git(lane.dir, ['checkout', '-q', branch])
     }
     this.setUp(lane)
+    if (carried !== undefined) this.resume(taskId, { lane, branch }, carried)
     return { lane, branch }
+  }
+
+  /**
+   * Carry an earlier run's task branch into this run (7.3): this run's branch
+   * for the task starts at its tip, and the task's first placement brings the
+   * base into it, so the session continues that work rather than redoing it.
+   */
+  carry(task: StrandedTask): void {
+    const branch = this.branchOf(task.taskId)
+    if (revParse(this.rootDir, `refs/heads/${branch}`) === undefined) git(this.rootDir, ['branch', '--no-track', branch, task.tip])
+    this.carried.set(task.taskId, task)
+  }
+
+  /** A carried task's first placement: the base integrated into its branch, and said. */
+  private resume(taskId: string, task: LaneTask, from: StrandedTask): void {
+    this.carried.delete(taskId)
+    const what = `lane ${task.lane.id}: ${taskId} resumes from ${from.branch} (${from.commits} commit${from.commits === 1 ? '' : 's'}) on ${task.branch}`
+    const dirty = dirtyPaths(task.lane.dir).length
+    if (dirty > 0) {
+      this.options.progress(`${what}, with the ${dirty} uncommitted path${dirty === 1 ? '' : 's'} its lane held — the merge queue brings ${this.base} in when it lands`)
+      return
+    }
+    const into = this.integrate(task, taskId)
+    this.options.progress(
+      into.kind === 'current'
+        ? `${what}, already on ${this.base}`
+        : into.kind === 'conflict'
+          ? `${what} — merging ${this.base} (${into.onto.slice(0, 7)}) stopped on ${into.paths.join(', ')}, left for its session`
+          : `${what}, ${into.kind} onto ${this.base} (${into.onto.slice(0, 7)})`,
+    )
+  }
+
+  /** Task branches of this run holding commits its base does not, with how many (7.3) — what a stop leaves stranded. */
+  strandedBranches(taskIds: readonly string[]): { taskId: string; branch: string; commits: number }[] {
+    const base = this.baseTip()
+    const out: { taskId: string; branch: string; commits: number }[] = []
+    for (const taskId of taskIds) {
+      if (!this.unlanded(taskId)) continue
+      const branch = this.branchOf(taskId)
+      const commits = aheadOf(this.rootDir, base, branch)
+      if (commits > 0) out.push({ taskId, branch, commits })
+    }
+    return out
   }
 
   /**

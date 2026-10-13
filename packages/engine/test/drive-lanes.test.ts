@@ -14,7 +14,7 @@ import { heldByLanes, taskInFlight } from '../src/core/drive-queue'
 import { factsOf } from '../src/core/statusline-facts'
 import { describeRun } from '../src/projections/templates/shared'
 import { rejectedLimit } from '../src/driver/claude-code'
-import { describeExit, drive, renderPrompt, STAGGER_POLL_MS } from '../src/driver/drive'
+import { describeExit, drive, renderPrompt, STAGGER_POLL_MS, STOP_REQUEST_NOTE } from '../src/driver/drive'
 import {
   claimLanePool,
   detectLaneSetup,
@@ -295,6 +295,52 @@ describe('sofar drive --lanes (2.2, D20)', () => {
     expect(git(root, 'show', `${outcome.base!.branch}:half.txt`)).toBe('half\n')
   })
 
+  it('a new run carries a stopped run\'s unmerged base and unlanded task branch forward, redoing nothing (7.3)', async () => {
+    const root = repo('carry', {}, tasks(2, { '1.2': ['1.1'] }))
+    const commitFile = (file: string, message: string) => (cwd: string): void => {
+      writeFileSync(join(cwd, file), `${file}\n`)
+      git(cwd, 'add', file)
+      git(cwd, 'commit', '-qm', message)
+    }
+    const first: string[] = []
+    // 1.1 lands; 1.2 commits its work and stalls, so the stop strands it.
+    const one = new FakeAdapter([
+      worker(root, 'S1', { work: commitFile('a.txt', '1.1: a') }),
+      worker(root, 'S2', { complete: false, write_back: false, work: commitFile('b.txt', '1.2: b') }),
+    ])
+    const stopped = await drive(root, 'demo', { adapter: one, lanes: 2, laneSetup: 'none', maxStalls: 1, onProgress: (l) => first.push(l) })
+    expect(stopped.handoffs.map((h) => [h.task, h.reason])).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'stall'],
+    ])
+    const r1 = state(root).runs[0]!.id
+    const stranded = taskBranch('demo', r1, '1.2')
+    expect(stopped.unlanded).toEqual([{ task: '1.2', branch: stranded, commits: 1 }])
+    expect(first).toContain(`lanes: unlanded task branches with commits — 1.2 on ${stranded} (1 commit) — a new lanes run of demo carries them forward`)
+
+    // The new run: its base starts at the earlier one, and 1.2 resumes from its branch.
+    const lines: string[] = []
+    const two = new FakeAdapter([
+      worker(root, 'S3', {
+        work: (cwd) => {
+          expect(readFileSync(join(cwd, 'a.txt'), 'utf8')).toBe('a.txt\n')
+          expect(readFileSync(join(cwd, 'b.txt'), 'utf8')).toBe('b.txt\n')
+        },
+      }),
+    ])
+    const outcome = await drive(root, 'demo', { adapter: two, lanes: 2, laneSetup: 'none', onProgress: (l) => lines.push(l) })
+    const r2 = state(root).runs[1]!.id
+    expect(outcome.stop.reason).toBe('closed')
+    expect(two.sessions.map((s) => s.request.task?.id)).toEqual(['1.2'])
+    const oldBase = runBaseBranch('demo', r1)
+    expect(lines.some((l) => l.startsWith(`  carried forward: ${oldBase} (`) && l.includes("this run's base starts there"))).toBe(true)
+    expect(lines).toContain(`  carried forward: 1.2 from ${stranded} (1 commit) — it resumes there on ${taskBranch('demo', r2, '1.2')}, not from scratch`)
+    expect(lines.some((l) => new RegExp(`^lane \\d: 1\\.2 resumes from ${stranded.replaceAll('.', '\\.')} \\(1 commit\\) on `).test(l))).toBe(true)
+    // Each task's commit is on the new base once, and nothing is stranded now.
+    expect(git(root, 'log', '--format=%s', outcome.base!.branch).trim().split('\n')).toEqual(['1.2: b', '1.1: a', 'base'])
+    expect(outcome.unlanded).toBeUndefined()
+  })
+
   it('refuses what a lanes run cannot honour, before anything is recorded', async () => {
     const root = repo('refuse')
     const adapter = (): FakeAdapter => new FakeAdapter([worker(root, 'S1', { usage: [{ context_tokens: 1 }] })])
@@ -469,28 +515,106 @@ describe('the coordinator (2.3, D21)', () => {
     expect(adapter.sessions[1]!.killed).toBeUndefined()
   })
 
-  it('a stop request signals every lane\'s session', async () => {
+  it('a repeat stop request signals every lane\'s session', async () => {
     const root = repo('stop')
     const both = async (): Promise<void> => {
       while (adapter.sessions.length < 2 || adapter.sessions.some((s) => s.killed === undefined)) await sleep(5)
     }
+    const request = (): void => {
+      const run = state(root).runs[0]!.id
+      appendEvent(logPath(root), makeEvent({ initiative: 'demo', session: 'cli', type: 'run_stop_requested', payload: { run }, source: 'cli', actor: 'human' }))
+    }
     const idle = { complete: false, write_back: false }
+    const lines: string[] = []
     const adapter: FakeAdapter = new FakeAdapter([
       worker(root, 'S1', { ...idle, hold: both }),
       worker(root, 'S2', {
         ...idle,
         hold: async () => {
-          const run = state(root).runs[0]!.id
-          appendEvent(logPath(root), makeEvent({ initiative: 'demo', session: 'cli', type: 'run_stop_requested', payload: { run }, source: 'cli', actor: 'human' }))
+          request()
+          // The first request drains (7.2): nothing is signalled until the second.
+          while (!lines.some((l) => l.startsWith('stop requested — launching nothing more'))) await sleep(5)
+          expect(adapter.sessions.map((s) => s.killed)).toEqual([undefined, undefined])
+          request()
           await both()
         },
       }),
     ])
-    const lines: string[] = []
     const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', stopPollMs: 10, onProgress: (l) => lines.push(l) })
-    expect(outcome.stop.reason).toBe('interrupted')
+    expect(outcome.stop).toEqual({ reason: 'interrupted', note: STOP_REQUEST_NOTE })
     expect(adapter.sessions.map((s) => s.killed)).toEqual(['SIGTERM', 'SIGTERM'])
     expect(lines).toContain('stop requested — signalling 2 sessions; request again to kill it outright')
+  })
+
+  it('a stall stop while another lane\'s done task is mid-gate still verifies and lands it (7.2)', async () => {
+    const root = repo('stall-mid-gate')
+    const gating = join(root, '..', `${root.split('/').pop()!}-gating`)
+    roots.push(gating)
+    const lines: string[] = []
+    const adapter = new FakeAdapter([
+      worker(root, 'S1', { work: (cwd) => writeFileSync(join(cwd, 'a.txt'), 'one\n') }),
+      // Stalls once 1.1's gate is running: the stop fires mid-gate.
+      worker(root, 'S2', {
+        complete: false,
+        write_back: false,
+        hold: async () => {
+          while (!existsSync(gating)) await sleep(5)
+        },
+      }),
+    ])
+    // The gate marks that it runs, then outlasts the stall.
+    const verify = `touch '${gating}' && sleep 1 && test -f a.txt`
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', maxStalls: 1, verify, onProgress: (l) => lines.push(l) })
+
+    expect(outcome.stop.reason).toBe('stall')
+    expect(outcome.handoffs.map((h) => [h.task, h.reason]).sort()).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'stall'],
+    ])
+    const run = state(root).runs[0]!
+    expect(run.verifications.map((v) => [v.task, v.result])).toEqual([['1.1', 'pass']])
+    expect(git(root, 'show', `${runBaseBranch('demo', run.id)}:a.txt`)).toBe('one\n')
+    expect(lines.some((l) => /^ {2}landed 1\.1 on /.test(l))).toBe(true)
+    expect(adapter.sessions).toHaveLength(2)
+    // The stop is recorded only after the landing it waited for.
+    const types = readFileSync(logPath(root), 'utf8').trim().split('\n').map((l) => (JSON.parse(l) as { type: string }).type)
+    expect(types[types.length - 1]).toBe('run_stopped')
+    expect(types.lastIndexOf('verification_recorded')).toBeLessThan(types.lastIndexOf('run_stopped'))
+  })
+
+  it('a first stop request drains: a lane\'s session, gate and landing finish before the stop (7.2)', async () => {
+    const root = repo('stop-drain')
+    const gating = join(root, '..', `${root.split('/').pop()!}-gating`)
+    roots.push(gating)
+    const adapter = new FakeAdapter([
+      worker(root, 'S1', { work: (cwd) => writeFileSync(join(cwd, 'a.txt'), 'one\n') }),
+      worker(root, 'S2', {
+        work: (cwd) => writeFileSync(join(cwd, 'b.txt'), 'two\n'),
+        // Asks the run to stop once 1.1's gate runs, then finishes its own task.
+        hold: async () => {
+          while (!existsSync(gating)) await sleep(5)
+          const run = state(root).runs[0]!.id
+          appendEvent(logPath(root), makeEvent({ initiative: 'demo', session: 'cli', type: 'run_stop_requested', payload: { run }, source: 'cli', actor: 'human' }))
+          await sleep(50)
+        },
+      }),
+    ])
+    const verify = `touch '${gating}' && sleep 1 && test -f a.txt -o -f b.txt`
+    const outcome = await drive(root, 'demo', { adapter, lanes: 2, laneSetup: 'none', stopPollMs: 10, verify })
+
+    expect(outcome.stop).toEqual({ reason: 'interrupted', note: STOP_REQUEST_NOTE })
+    expect(adapter.sessions.map((s) => s.killed)).toEqual([undefined, undefined])
+    expect(outcome.handoffs.map((h) => [h.task, h.reason]).sort()).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'task_done'],
+    ])
+    const run = state(root).runs[0]!
+    // 1.2's branch may be verified again once rebased onto 1.1's landing.
+    expect(run.verifications.length).toBeGreaterThanOrEqual(2)
+    expect(run.verifications.every((v) => v.result === 'pass')).toBe(true)
+    const base = runBaseBranch('demo', run.id)
+    expect(git(root, 'show', `${base}:a.txt`)).toBe('one\n')
+    expect(git(root, 'show', `${base}:b.txt`)).toBe('two\n')
   })
 
   it('parks a lane a usage limit refused instead of stalling, and its task waits for that lane', async () => {
@@ -504,7 +628,9 @@ describe('the coordinator (2.3, D21)', () => {
         initiative: 'demo',
         exit: { code: 1, rate_limit: limit },
         hold: async () => {
-          limit.resets_at = new Date(Date.now() + 1000).toISOString()
+          // Long enough that lane 2 lands 1.2 before it under suite load, or the
+          // lane unparks first and "no lane can take a task" is never said.
+          limit.resets_at = new Date(Date.now() + 4000).toISOString()
         },
       },
       // Ends only once lane 1 has parked, so 1.1 then finds its lane parked.

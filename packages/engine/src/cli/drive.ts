@@ -439,6 +439,11 @@ export async function runDrive(
   if (outcome.base !== undefined) {
     lines.push(`landed on ${outcome.base.branch} (${outcome.base.tip.slice(0, 7)}) — \`git merge ${outcome.base.branch}\` brings it into your branch`)
   }
+  if (outcome.unlanded !== undefined) {
+    lines.push(
+      `unlanded: ${outcome.unlanded.map((u) => `${u.task} on ${u.branch} (${u.commits} commit${u.commits === 1 ? '' : 's'})`).join('; ')} — a new lanes run carries them forward`,
+    )
+  }
   const stdout = `${lines.join('\n')}\n`
   return outcome.stop.reason === 'error' ? { exitCode: 1, stdout, stderr: '' } : ok(stdout)
 }
@@ -481,6 +486,7 @@ export async function runDriveStop(
   let initiative: string
   let runId: string
   let requests: number
+  let lanes = false
   const ctx = createToolContext(rootDir)
   try {
     initiative = ctx.resolveInitiative(slug)
@@ -490,6 +496,7 @@ export async function runDriveStop(
       return fail(`sofar drive --stop: nothing to stop — the latest run on "${initiative}" already ended (${describeRun(run)})`)
     }
     runId = run.id
+    lanes = (run.lanes ?? 1) > 1
     if (probeRunLock(rootDir, runId, options.lock) === 'free') {
       return fail(
         `sofar drive --stop: run ${runId} on "${initiative}" has no stop, but its driver is gone — the run lock on this machine is free, so no driver is left to read a request and none was appended. ${resumeThenStop(initiative)}`,
@@ -516,16 +523,20 @@ export async function runDriveStop(
     if (Date.now() >= deadline) break
     await new Promise((resolve) => setTimeout(resolve, options.pollMs ?? 500))
   }
-  const escalation =
-    requests > 1
-      ? 'this was a repeat request, which kills the session outright'
-      : 'a second `--stop` kills the session outright'
+  // A lanes run's first request drains (drive-lanes 7.2): its lanes finish first.
+  const escalation = lanes
+    ? requests > 1
+      ? "A lanes run signals its lanes' sessions on a repeat request, and stops once they exit; this was one"
+      : 'A lanes run launches nothing more and stops once every lane in flight has finished its session, gate and landing; a second `--stop` signals their sessions'
+    : `A driver waiting on a session signals it and stops once the session exits; ${
+        requests > 1 ? 'this was a repeat request, which kills the session outright' : 'a second `--stop` kills the session outright'
+      }`
   return {
     exitCode: 1,
     stdout: '',
     stderr: [
       `sofar drive --stop: stop requested for run ${runId}, but no run_stopped within ${Math.round((options.waitMs ?? STOP_WAIT_MS) / 1000)}s.`,
-      `A driver waiting on a session signals it and stops once the session exits; ${escalation}.`,
+      `${escalation}.`,
       liveness === 'held'
         ? 'Its driver is alive — it still holds the run lock on this machine — so the stop lands once its session exits; `sofar status` shows it.'
         : `If no driver is running this run, it will never acknowledge — \`sofar drive ${initiative} --resume\` adopts the run, and a --stop after that ends it.`,
@@ -783,14 +794,54 @@ export const DETACH_START_TIMEOUT_MS = 60_000
  * The detached child's side of the handshake: tell the parent the run started,
  * then let go of the channel. Undefined when this process is not a detached
  * child, so a foreground drive does nothing extra.
+ *
+ * The parent may be gone by then — it stops waiting once a lane setup outlasts
+ * its start confirmation (drive-lanes 7.4) — and a send down a closed channel
+ * surfaces as an `error` (EPIPE) the process would die of. Nobody is left to
+ * hear the notice, so its failure is dropped and the driver runs on.
  */
-export function detachedStartNotifier(env: NodeJS.ProcessEnv = process.env): ((run: string) => void) | undefined {
-  if (env[DETACH_ENV] !== '1' || typeof process.send !== 'function') return undefined
+export function detachedStartNotifier(
+  env: NodeJS.ProcessEnv = process.env,
+  proc: Pick<NodeJS.Process, 'send' | 'connected' | 'disconnect'> = process,
+): ((run: string) => void) | undefined {
+  if (env[DETACH_ENV] !== '1' || typeof proc.send !== 'function') return undefined
   return (run) => {
-    if (!process.connected) return
-    process.send!({ type: DETACH_STARTED, run })
-    process.disconnect?.()
+    if (!proc.connected) return
+    try {
+      // With a callback, a failed send is handed to it instead of emitted.
+      proc.send!({ type: DETACH_STARTED, run }, undefined, {}, () => {
+        try {
+          if (proc.connected) proc.disconnect?.()
+        } catch {
+          // already closed
+        }
+      })
+    } catch {
+      // the channel closed between the check and the send
+    }
   }
+}
+
+/** A child log's lane lines: a lane created, its setup begun, its setup done. */
+const LANE_LINE = /^\s*lane (\S+): (created at |setting up — |set up in \d+s)/
+
+/**
+ * Where the child's lane readying stands, read from its log: the setup it has
+ * begun and not finished, else its last lane line. Lanes are readied before a
+ * run starts, so a child with any lane line and no start notice is still
+ * readying them. Undefined when the log has none.
+ */
+export function pendingLaneSetup(log: string): string | undefined {
+  const pending = new Map<string, string>()
+  let last: string | undefined
+  for (const line of log.split('\n')) {
+    const m = LANE_LINE.exec(line)
+    if (m === null) continue
+    last = line.trim()
+    if (m[2]!.startsWith('setting up')) pending.set(m[1]!, last)
+    else pending.delete(m[1]!)
+  }
+  return [...pending.values()].at(-1) ?? last
 }
 
 export interface DriveDetachOptions {
@@ -894,11 +945,36 @@ export async function runDriveDetached(
     closeSync(fd)
   }
 
-  type Outcome = { kind: 'started'; run: string } | { kind: 'exited'; code: number | null } | { kind: 'error'; message: string } | { kind: 'timeout' }
+  // Lane setup counts as progress (drive-lanes 7.4): a first `npm ci` per lane
+  // can outlast the confirmation window, so each lane line the child logs
+  // restarts the window, and a window that lapses mid-setup is answered as
+  // "still setting up" — the driver is healthy, only slow to its first launch.
+  const startTimeoutMs = options.startTimeoutMs ?? DETACH_START_TIMEOUT_MS
+  type Outcome =
+    | { kind: 'started'; run: string }
+    | { kind: 'exited'; code: number | null }
+    | { kind: 'error'; message: string }
+    | { kind: 'setting-up'; line: string }
+    | { kind: 'timeout' }
   const outcome = await new Promise<Outcome>((resolve) => {
-    const timer = setTimeout(() => resolve({ kind: 'timeout' }), options.startTimeoutMs ?? DETACH_START_TIMEOUT_MS)
+    let deadline = Date.now() + startTimeoutMs
+    let setupLines = 0
+    const timer = setInterval(
+      () => {
+        const log = readLog()
+        const lines = log.split('\n').filter((line) => LANE_LINE.test(line)).length
+        if (lines !== setupLines) {
+          setupLines = lines
+          deadline = Date.now() + startTimeoutMs
+        }
+        if (Date.now() < deadline) return
+        const pending = pendingLaneSetup(log)
+        settle(pending !== undefined ? { kind: 'setting-up', line: pending } : { kind: 'timeout' })
+      },
+      Math.min(250, startTimeoutMs),
+    )
     const settle = (o: Outcome): void => {
-      clearTimeout(timer)
+      clearInterval(timer)
       resolve(o)
     }
     child.on('message', (message: unknown) => {
@@ -927,6 +1003,21 @@ export async function runDriveDetached(
         .join('\n'),
     )
   }
+  if (outcome.kind === 'setting-up') {
+    const opening = readLog()
+    return ok(
+      [
+        opening.trimEnd(),
+        `detached: driver pid ${child.pid} is still setting up lanes on "${initiative}" (${outcome.line}); its run starts once setup is done`,
+        `  progress: ${logPath}`,
+        `  status:   sofar status ${initiative}`,
+        `  stop:     sofar drive ${initiative} --stop`,
+        '',
+      ]
+        .filter((line, i) => i > 0 || line.length > 0)
+        .join('\n'),
+    )
+  }
   if (outcome.kind === 'exited') {
     return fail(`sofar drive --detach: the driver did not start (exit ${outcome.code ?? 'by signal'}):\n${readLog().trimEnd()}`)
   }
@@ -934,7 +1025,7 @@ export async function runDriveDetached(
     return fail(`sofar drive --detach: could not start the driver: ${outcome.message}`)
   }
   return fail(
-    `sofar drive --detach: driver pid ${child.pid} has not confirmed a start within ${Math.round((options.startTimeoutMs ?? DETACH_START_TIMEOUT_MS) / 1000)}s and was left running. \`sofar status ${initiative}\` shows whether a run began; its log is ${logPath}`,
+    `sofar drive --detach: driver pid ${child.pid} has not confirmed a start within ${Math.round(startTimeoutMs / 1000)}s and was left running. \`sofar status ${initiative}\` shows whether a run began; its log is ${logPath}`,
   )
 }
 

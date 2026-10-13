@@ -11,7 +11,7 @@ import {
   SurfaceError,
   writeVerifiedSettings,
 } from '../src/driver/permissions'
-import { claudeArgs, ClaudeCodeAdapter, SETTINGS_FILE, settingsFor } from '../src/driver/claude-code'
+import { claudeArgs, ClaudeCodeAdapter, DRIVEN_SETTINGS, SETTINGS_FILE, settingsFor } from '../src/driver/claude-code'
 
 /**
  * The permission surface for unattended sessions (session-driver 2.4, D8).
@@ -166,7 +166,7 @@ exit 0
     })
     expect(session.settingsPath).toBeDefined()
     expect(session.settingsPath!.endsWith(SETTINGS_FILE)).toBe(true)
-    expect(JSON.parse(readFileSync(session.settingsPath!, 'utf8'))).toEqual(settingsFor(surface))
+    expect(JSON.parse(readFileSync(session.settingsPath, 'utf8'))).toEqual({ ...DRIVEN_SETTINGS, ...settingsFor(surface) })
     await session.wait()
     const argv = readFileSync(join(c.out, 'argv'), 'utf8').split('\n')
     expect(argv[argv.indexOf('--permission-mode') + 1]).toBe('acceptEdits')
@@ -183,7 +183,7 @@ exit 0
     await Promise.all([a.wait(), b.wait()])
   })
 
-  it('pins nothing and passes no settings flag when the run pinned no surface', async () => {
+  it('pins no permissions when the run pinned no surface — the file then only refuses peers', async () => {
     const c = cell('no-surface')
     const session = new ClaudeCodeAdapter().launch({
       cwd: c.cwd,
@@ -191,11 +191,26 @@ exit 0
       prompt: 'go',
       env: c.env,
     })
-    expect(session.settingsPath).toBeUndefined()
+    expect(JSON.parse(readFileSync(session.settingsPath, 'utf8'))).toEqual({ crossSessionInbound: 'refuse' })
     await session.wait()
-    const argv = readFileSync(join(c.out, 'argv'), 'utf8')
-    expect(argv).not.toContain('--settings')
+    const argv = readFileSync(join(c.out, 'argv'), 'utf8').split('\n')
+    expect(argv[argv.indexOf('--settings') + 1]).toBe(session.settingsPath)
     expect(argv).not.toContain('--permission-mode')
+  })
+
+  it('refuses cross-session messages in every launch, read back from the written file (drive-lanes 7.1)', async () => {
+    const c = cell('refuse-peers')
+    const adapter = new ClaudeCodeAdapter()
+    const launches = [
+      adapter.launch({ cwd: c.cwd, initiative: 'demo', prompt: 'go', env: c.env }),
+      adapter.launch({ cwd: c.cwd, initiative: 'demo', prompt: 'go', surface: buildSurface(), env: c.env }),
+      adapter.launch({ cwd: c.cwd, initiative: 'demo', prompt: 'go', surface: buildSurface(), leaseHook: 'h', env: c.env }),
+    ]
+    for (const s of launches) {
+      const written = JSON.parse(readFileSync(s.settingsPath, 'utf8')) as Record<string, unknown>
+      expect(written.crossSessionInbound).toBe('refuse')
+    }
+    await Promise.all(launches.map((s) => s.wait()))
   })
 
   it('argv puts the surface flags before the caller args, which stay last', () => {
