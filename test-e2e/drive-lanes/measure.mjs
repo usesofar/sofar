@@ -145,6 +145,24 @@ export function splitPerTask(tokens, done) {
  * The score. `usageOf(sessionId)` returns a transcriptUsage or null; `drive` is
  * parseDriveStdout's result. The LAST run in the log is the one scored.
  */
+/** Record completeness of a run (drive-lanes 6.2): write-backs, captured knowledge, activity, handoff detail. */
+export function recordOf(inRun, handoffs) {
+  const driven = new Set(handoffs.map((h) => h.payload.session_id).filter(Boolean))
+  const of = (type) => inRun.filter((e) => e.type === type && driven.has(e.session))
+  const ended = of('session_ended')
+  const wroteBack = new Set(ended.map((e) => e.session))
+  const summaries = ended.map((e) => (e.payload.summary ?? '').length)
+  return {
+    sessions: driven.size,
+    writebacks: [...driven].filter((s) => wroteBack.has(s)).length,
+    decisions: of('decision_logged').length,
+    memories: of('memory_promoted').length,
+    notes: of('note_added').length,
+    activity_events: of('command_run').length + of('file_touched').length,
+    summary_chars_mean: summaries.length > 0 ? Math.round(summaries.reduce((a, n) => a + n, 0) / summaries.length) : null,
+  }
+}
+
 export function measure(events, { usageOf = () => null, drive = { cost_usd: null, unresolved: 0 }, tasks: TASKS = NINE.TASKS } = {}) {
   const started = events.filter((e) => e.type === 'run_started').pop()
   if (started === undefined) return { error: 'no run_started in the log' }
@@ -309,6 +327,9 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
           : null,
     },
     cost: { usd: drive.cost_usd, per_task: drive.cost_usd !== null && done > 0 ? round(drive.cost_usd / done, 4) : null },
+    // What the run left in the record (6.2): the side effects the token levers
+    // could cost. Counted over the run's driven sessions only.
+    record: recordOf(inRun, handoffs),
     conflicts: {
       merge: mergeConflicts,
       // Tasks reopened by a merge conflict, over tasks done — the 2.5 bar is ≤ 10%.
@@ -415,6 +436,12 @@ export function headline(result) {
     off_task_resolutions: s.conflicts.off_task_resolutions,
     duplicate_work: s.conflicts.duplicate_work ?? s.conflicts.off_task_resolutions,
     final_tree_green: result.final_tree?.verify_passes.length ?? null,
+    writeback_rate: s.record?.sessions > 0 ? round(s.record.writebacks / s.record.sessions) : null,
+    decisions: s.record?.decisions ?? null,
+    memories: s.record?.memories ?? null,
+    notes: s.record?.notes ?? null,
+    activity_events: s.record?.activity_events ?? null,
+    summary_chars: s.record?.summary_chars_mean ?? null,
   }
 }
 

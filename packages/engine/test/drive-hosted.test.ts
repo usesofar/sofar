@@ -44,13 +44,13 @@ describe('a hosted run (drive-lanes 5.5)', () => {
     expect(p).toContain(HOSTED_DONE)
   })
 
-  it('has the host run the same published sofar as this driver, and names none for a dev build', () => {
+  it('has the host run the same published sofar as this driver, or the newest pre-release for a dev build', () => {
     expect(hostVersion('0.38.0-rc.1')).toBe('0.38.0-rc.1')
     expect(hostVersion('0.38.0')).toBe('0.38.0')
-    expect(hostVersion('0.38.0-dev+trunk')).toBeUndefined()
+    expect(hostVersion('0.38.0-dev+trunk')).toBe('next')
     const p = hostedPrompt('lanes', ['lanes'], 'abc', undefined, '0.38.0-rc.1')
     expect(p).toContain('[ "$(sofar --version)" = "0.38.0-rc.1" ] || npm install -g --prefer-online sofar.sh@0.38.0-rc.1')
-    expect(hostedPrompt('lanes', ['lanes'], 'abc', undefined, undefined)).not.toContain('npm install')
+    expect(hostedPrompt('lanes', ['lanes'], 'abc', undefined, 'next')).toContain('npm install -g --prefer-online sofar.sh@next')
   })
 
   it("takes a lanes run's work from its run base branch, not the host's HEAD (D20)", () => {

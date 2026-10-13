@@ -26,6 +26,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { nativePrompt } from './fixture.mjs'
+import { hostRun, nativeHostPrompt } from './cloud-host.mjs'
 import { compare, comparePiece, fixtureOf, measure, measureCell, measureNative } from './measure.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -38,6 +39,7 @@ const { values: opt } = parseArgs({
     fixture: { type: 'string', default: 'nine' },
     arm: { type: 'string', default: 'serial' },
     agent: { type: 'string', default: 'claude-code' },
+    'knowledge-probe': { type: 'boolean', default: false },
     lanes: { type: 'string', default: '3' },
     leases: { type: 'string' },
     schedule: { type: 'string' },
@@ -69,11 +71,23 @@ if (fixture.NAME === 'hub' && opt.arm === 'native') {
   process.exit(2)
 }
 const { REFERENCE, SKELETON, SLUG, TASKS, GOAL, planPayload } = fixture
-if (!['serial', 'lanes', 'native', 'hosted'].includes(opt.arm)) {
+// The knowledge probe (drive-lanes 6.2): task 1.3 also asks for one decision
+// and one memory, so whether a mode's sessions can still put knowledge in the
+// record shows as a count. It tests the channel, not natural capture.
+export const PROBE_ASK =
+  ' — and in your write-back record one decision (how fromRoman treats a non-canonical numeral such as IIII, and the alternative you rejected) and one memory (the exact command that runs this task\'s tests)'
+function probed(payload) {
+  if (!opt['knowledge-probe']) return payload
+  for (const phase of payload.plan.phases) for (const t of phase.tasks) if (t.id === '1.3') t.title += PROBE_ASK
+  return payload
+}
+if (!['serial', 'lanes', 'native', 'hosted', 'native-cloud'].includes(opt.arm)) {
   console.error(`--arm ${opt.arm}: the arms are \`serial\`, \`lanes\` and \`native\` — later drive-lanes steps add theirs here`)
   process.exit(2)
 }
-const native = opt.arm === 'native'
+// The native-cloud arm (6.3): the native arm's own `claude -p` run, inside one cloud session.
+const nativeCloud = opt.arm === 'native-cloud'
+const native = opt.arm === 'native' || nativeCloud
 // Cloud lanes (5.2): every task a Claude Code cloud session (D51). They run on
 // the operator's own profile — the bench one stops on first-run onboarding in
 // an interactive launch (M22) — and need the cell's repo trusted, which this
@@ -82,8 +96,8 @@ const native = opt.arm === 'native'
 // and record brought back; `--lanes` is passed to the cloud-side driver.
 const hosted = opt.arm === 'hosted'
 const hostedLanes = hosted ? Number(opt.lanes) : 1
-const cloud = opt.agent === 'claude-cloud' || hosted
-if (!['claude-code', 'claude-cloud'].includes(opt.agent) || (cloud && native)) {
+const cloud = opt.agent === 'claude-cloud' || hosted || nativeCloud
+if (!['claude-code', 'claude-cloud'].includes(opt.agent) || (opt.agent === 'claude-cloud' && native)) {
   console.error(`--agent ${opt.agent}: a drive arm takes claude-code or claude-cloud`)
   process.exit(2)
 }
@@ -221,7 +235,7 @@ function initRepo(engine) {
 
   sh(engine.sofar, ['new', SLUG, '--goal', GOAL, '--root', repo], { cwd: repo, env })
   const planFile = join(artifacts, 'plan.json')
-  writeFileSync(planFile, `${JSON.stringify(planPayload(), null, 2)}\n`)
+  writeFileSync(planFile, `${JSON.stringify(probed(planPayload()), null, 2)}\n`)
   sh(engine.sofar, ['event', 'append', SLUG, '--type', 'plan_updated', '--payload', `@${planFile}`, '--actor', 'human', '--session', 'fixture', '--root', repo], { cwd: repo, env })
   git('add', '-A')
   git('commit', '-qm', 'sofar init, the lanes plan')
@@ -666,7 +680,28 @@ try {
       result.claude = claudeInfo()
       log(`claude: ${result.claude.version}, ${result.claude.authMethod ?? 'auth unknown'} ${result.claude.subscription ?? ''}, ${opt.model}${opt.effort ? `/${opt.effort}` : ''}`)
       if (!result.claude.loggedIn) throw new Error(`the Claude profile at ${opt['claude-config']} is not logged in — refusing to spend anything`)
-      if (native) {
+      if (nativeCloud) {
+        await awaitTrust()
+        const q = (a) => `'${a.replace(/'/g, `'\\''`)}'`
+        const flags = ['--model', opt.model, ...(opt.effort !== undefined ? ['--effort', opt.effort] : []), '--permission-mode', 'acceptEdits', '--allowedTools', ...NATIVE_ALLOW.map(q), '--strict-mcp-config', '--mcp-config', q('{"mcpServers":{}}')]
+        const base = sh('git', ['rev-parse', 'HEAD'], { cwd: repo }).stdout.trim()
+        const started = Date.now()
+        const hosted = await hostRun(repo, opt.claude, nativeHostPrompt(nativePrompt(), flags, base), { log })
+        const wallMs = Date.now() - started
+        writeFileSync(join(artifacts, 'native-cloud.result.json'), hosted.payload)
+        if (hosted.patch.trim().length > 0) {
+          writeFileSync(join(artifacts, 'native-cloud.patch'), hosted.patch)
+          sh('git', ['am', '--3way', join(artifacts, 'native-cloud.patch')], { cwd: repo })
+        }
+        result.native = { exit: 0, ms: wallMs, cloud_session: hosted.id }
+        log(`native-cloud ${hosted.id} done after ${Math.round(wallMs / 1000)}s`)
+        result.final_tree = finalTree()
+        result.score = measureNative({ stdout: hosted.payload, claudeConfig: undefined, wallMs, passes: result.final_tree.verify_passes })
+        result.score.run.arm = 'native-cloud'
+        const s = result.score
+        log(`SCORE ${opt.label}: ${s.tasks.done}/${s.tasks.total} green on the final tree in ${s.wall_clock_s}s; $${s.cost.usd ?? '?'}`)
+        ok = true
+      } else if (native) {
         const { stdout, ...run } = await runNative()
         result.native = run
         log(`native session exited ${run.exit}${run.signal ? ` (${run.signal})` : ''} after ${Math.round(run.ms / 1000)}s`)

@@ -77,11 +77,12 @@ export const HOSTED_DONE = 'SOFAR-HOSTED-RUN-DONE'
  * published one. A cloud environment caches its setup for days (M26), so its
  * sofar can lag the pin; a dev build (`-dev`) is not installable and names none.
  */
-export function hostVersion(version: string = localVersion): string | undefined {
-  return /^\d+\.\d+\.\d+(-rc\.\d+)?$/.test(version) ? version : undefined
+export function hostVersion(version: string = localVersion): string {
+  // A dev build is not on the registry: its host takes the newest pre-release.
+  return /^\d+\.\d+\.\d+(-rc\.\d+)?$/.test(version) ? version : 'next'
 }
 
-export function hostedPrompt(slug: string, driveArgs: string[], base: string, since: string | undefined, want: string | undefined = hostVersion()): string {
+export function hostedPrompt(slug: string, driveArgs: string[], base: string, since: string | undefined, want: string = hostVersion()): string {
   // A cloud environment caches its setup for days, so its sofar can predate
   // 0.37.0-rc.8's strip of the host's id: the host strips it itself (seen live).
   const drive = ['env -u CLAUDE_CODE_REMOTE_SESSION_ID sofar', 'drive', ...driveArgs.map(shellWord), '--detach'].join(' ')
@@ -97,9 +98,9 @@ export function hostedPrompt(slug: string, driveArgs: string[], base: string, si
   return [
     `You host one sofar drive run of the initiative \`${slug}\` in this cloud session. Call no sofar MCP tool and do no task work yourself; run exactly these commands from the repository root, in order:`,
     '',
-    ...(want !== undefined
-      ? [`0. Match this driver's sofar (${want}): [ "$(sofar --version)" = "${want}" ] || npm install -g --prefer-online sofar.sh@${want} 2>&1 | tail -2; hash -r; sofar --version`]
-      : []),
+    want === 'next'
+      ? '0. Install the newest pre-release sofar: npm install -g --prefer-online sofar.sh@next 2>&1 | tail -2; hash -r; sofar --version'
+      : `0. Match this driver's sofar (${want}): [ "$(sofar --version)" = "${want}" ] || npm install -g --prefer-online sofar.sh@${want} 2>&1 | tail -2; hash -r; sofar --version`,
     `1. Write back first, or the run will not start: sofar event append ${shellWord(slug)} --session "$CLAUDE_CODE_SESSION_ID" --source claude-code --type session_ended --payload '{"summary":"hosting a sofar drive run","next_action":"the run"}'`,
     `2. ${drive}`,
     `3. Wait for the run: timeout 540 sofar drive ${shellWord(slug)} --await ; echo "await exit $?" — repeat this exact command until it prints an exit other than 124.`,
