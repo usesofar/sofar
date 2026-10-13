@@ -68,6 +68,11 @@ window holds; a peer's later edit no longer voids the passing run; a
 backgrounded command that leaves the worktree first opens no window. The
 installed 0.36.0-rc.3 core fails steps 11 and 14.
 
+Re-recorded on **main** at the 0.38.0-rc.1 merge-back (r4-fixes E2): main moves to `0.39.0-dev+trunk` (D14's
+rule: at or above the newest tag, nothing published). `0.38.0-rc.1` is published, so keeping it let `npm ci` install
+the registry core over the tracked shim. The version string is the whole diff on `argv.fast-path` and
+`open.O2-update-segment`.
+
 Merged on **main** at the 0.37.0-rc.2 merge-back (r4-fixes E2): main keeps
 `0.38.0-dev+trunk`, so `argv.fast-path` and `open.O2-update-segment` keep
 main's version.
