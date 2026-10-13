@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFileAtomic } from './atomic'
 import { ensureIndexDir, indexDir } from './index-store'
@@ -182,6 +182,58 @@ export function inWindow(mtime: number, windows: readonly WriteWindow[], slack: 
   return windows.some(([s, e]) => mtime >= s - slack && (e === null || mtime <= e + slack))
 }
 
+/**
+ * The width of the narrowest window that holds `mtime`, give or take `slack`:
+ * Infinity for an open one, null when none does (felt-latency L8).
+ */
+export function narrowestWindow(mtime: number, windows: readonly WriteWindow[], slack: number): number | null {
+  let best: number | null = null
+  for (const [s, e] of windows) {
+    if (mtime < s - slack || (e !== null && mtime > e + slack)) continue
+    const width = e === null ? Infinity : e - s
+    if (best === null || width < best) best = width
+  }
+  return best
+}
+
+/**
+ * Every other session's windows (felt-latency L8): a peer's shell write is
+ * captured by no hook, so the only trace of who ran it is the windows its
+ * may-write commands left. Sessions with no windows are skipped.
+ */
+export function peerWindows(sofarDir: string, session: string): WriteWindow[][] {
+  const own = `${safe(session)}.json`
+  let names: string[]
+  try {
+    names = readdirSync(join(indexDir(sofarDir), WROTE_DIR))
+  } catch {
+    return []
+  }
+  const out: WriteWindow[][] = []
+  // A session's own file is `<safe>.json`; a dot before `.json` is a cache, a loss or a held file.
+  for (const name of names) {
+    if (name === own || !name.endsWith('.json') || name.slice(0, -5).includes('.')) continue
+    const w = readWindows(sofarDir, name.slice(0, -5))
+    if (w !== null && w.length > 0) out.push(w)
+  }
+  return out
+}
+
+/**
+ * Whether a peer's may-write command is the likelier writer of a file
+ * written at `mtime` (felt-latency L8): a peer window holds it that is
+ * narrower than the narrowest of this session's that does. A 50 ms `sed`
+ * says more about who wrote a file than a 3-minute build running alongside.
+ */
+export function peerWroteIt(mtime: number, own: readonly WriteWindow[], peers: readonly WriteWindow[][], slack: number): boolean {
+  const mine = narrowestWindow(mtime, own, slack)
+  if (mine === null) return false
+  return peers.some((w) => {
+    const theirs = narrowestWindow(mtime, w, slack)
+    return theirs !== null && theirs < mine
+  })
+}
+
 /** The key a cached git answer is good for: the pathspecs it was asked with. */
 export function pathspecKey(specs: readonly string[] | null): string {
   return createHash('sha256').update(JSON.stringify(specs)).digest('hex').slice(0, 16)
@@ -216,4 +268,32 @@ export function readLossAsked(sofarDir: string, session: string): string[] {
 export function markLossAsked(sofarDir: string, session: string, keys: readonly string[]): void {
   if (keys.length === 0) return
   write(sofarDir, lossFile(sofarDir, session), { v: 1, asked: [...new Set([...readLossAsked(sofarDir, session), ...keys])] })
+}
+
+function heldFile(sofarDir: string, session: string): string {
+  return join(indexDir(sofarDir), WROTE_DIR, `${safe(session)}.held.json`)
+}
+
+/** Failure holds kept per session; past it the oldest go, which can only hold once more. */
+export const HELD_MAX = 32
+
+/**
+ * The failure holds Stop already made this session (felt-latency L8), each
+ * keyed by its lines and the edit time they stood at: a covering run that
+ * fails again with no edit between holds once, never at every Stop after. A
+ * lost file holds once more.
+ */
+export function heldKey(editedAt: number | null, lines: readonly string[]): string {
+  return createHash('sha256').update(`${editedAt ?? ''}\0${lines.join('\n')}`).digest('hex').slice(0, 16)
+}
+
+export function wasHeld(sofarDir: string, session: string, key: string): boolean {
+  const raw = readJson(heldFile(sofarDir, session))
+  return raw !== null && raw.v === 1 && Array.isArray(raw.held) && raw.held.includes(key)
+}
+
+export function markHeld(sofarDir: string, session: string, key: string): void {
+  const raw = readJson(heldFile(sofarDir, session))
+  const prior = raw !== null && raw.v === 1 && Array.isArray(raw.held) ? raw.held.filter((k): k is string => typeof k === 'string' && k !== key) : []
+  write(sofarDir, heldFile(sofarDir, session), { v: 1, held: [...prior, key].slice(-HELD_MAX) })
 }

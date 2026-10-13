@@ -151,6 +151,26 @@ describe('the block grammar', () => {
     expect(lastAssistantText(claude)).toBe('final')
     expect(lastAssistantText(join(dir, 'missing.jsonl'))).toBeNull()
   })
+
+  it('reads back only to the last assistant entry, within the window', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sofar-inline-last-entry-'))
+    roots.push(dir)
+    const path = join(dir, 't.jsonl')
+    const entry = (text: string) => JSON.stringify({ role: 'assistant', message: { content: [{ type: 'text', text }] } })
+    const read = (body: string) => {
+      writeFileSync(path, body)
+      return lastAssistantText(path)
+    }
+    // An earlier turn's block is not the final reply.
+    expect(read(`${entry(reply(WRITEBACK))}\n${JSON.stringify({ role: 'user', message: { content: 'next' } })}\n${entry('done')}\n`)).toBe('done')
+    // A reply longer than one read, the file's only line, with no final newline.
+    const long = `${'x'.repeat(40 * 1024)}\n${reply(WRITEBACK)}`
+    expect(read(entry(long))).toBe(long)
+    // A reply wider than the window is cut, so it is skipped.
+    expect(read(entry('y'.repeat(TRANSCRIPT_TAIL_BYTES + 1024)))).toBeNull()
+    const pad = JSON.stringify({ pad: 'p'.repeat(TRANSCRIPT_TAIL_BYTES) })
+    expect(read(`${entry('early')}\n${pad}\n`)).toBeNull()
+  })
 })
 
 describe('Stop files the block', () => {

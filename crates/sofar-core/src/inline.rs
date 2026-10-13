@@ -82,10 +82,16 @@ pub fn stash_path(layout: &Layout, session: &str) -> PathBuf {
     layout.index_dir().join("inline").join(stash_name(session))
 }
 
-/// Does the last `TRANSCRIPT_TAIL_BYTES` of the file hold the fence? A
-/// superset of `transcriptTail`'s window (which starts at its first whole
-/// line); the fence is ASCII, so bytes answer it.
-fn tail_holds_fence(path: &str) -> bool {
+/// How much of a transcript one read takes, walking back from its end
+/// (`TRANSCRIPT_CHUNK_BYTES`).
+const TRANSCRIPT_CHUNK_BYTES: u64 = 16 * 1024;
+
+/// Does the last assistant entry with text in the transcript hold the fence?
+/// `lastAssistantText` then `mayHoldBlock`, exactly: the same window (the last
+/// `TRANSCRIPT_TAIL_BYTES`, from its first whole line), read back from the end
+/// a chunk at a time, so a Stop reads its final entry and not the turns before
+/// it — an earlier turn's block never hands a Stop back.
+fn last_entry_holds_fence(path: &str) -> bool {
     let Ok(mut file) = std::fs::File::open(path) else {
         return false;
     };
@@ -93,21 +99,70 @@ fn tail_holds_fence(path: &str) -> bool {
         return false;
     };
     let start = size.saturating_sub(TRANSCRIPT_TAIL_BYTES);
-    if file.seek(SeekFrom::Start(start)).is_err() {
-        return false;
+    let mut pos = size;
+    let mut carry: Vec<u8> = Vec::new();
+    while pos > start {
+        let from = pos.saturating_sub(TRANSCRIPT_CHUNK_BYTES).max(start);
+        let mut chunk = vec![0; usize::try_from(pos - from).unwrap_or(0)];
+        let read = file
+            .seek(SeekFrom::Start(from))
+            .and_then(|_| file.read_exact(&mut chunk));
+        if read.is_err() {
+            return false;
+        }
+        chunk.extend_from_slice(&carry);
+        carry = chunk;
+        pos = from;
+        // Every line after the first newline is whole; the bytes before it wait for the next chunk.
+        while let Some(nl) = carry.iter().rposition(|&b| b == b'\n') {
+            if let Some(holds) = assistant_entry_holds_fence(&carry[nl + 1..]) {
+                return holds;
+            }
+            carry.truncate(nl);
+        }
     }
-    let mut buf = Vec::with_capacity(usize::try_from(size - start).unwrap_or(0));
-    if file.read_to_end(&mut buf).is_err() {
-        return false;
+    // What is left is the file's first line, or the cut line before the window's first newline.
+    start == 0 && assistant_entry_holds_fence(&carry).unwrap_or(false)
+}
+
+/// None when the line is not an assistant entry with text (`lastAssistantText`
+/// skips it), else whether that text holds the fence.
+fn assistant_entry_holds_fence(line: &[u8]) -> Option<bool> {
+    let line = String::from_utf8_lossy(line);
+    let line = crate::text::js_trim(&line);
+    if line.is_empty() {
+        return None;
     }
-    let fence = INLINE_FENCE.as_bytes();
-    buf.windows(fence.len()).any(|w| w == fence)
+    let Ok(Json::Obj(entry)) = json::parse(line) else {
+        return None;
+    };
+    let is = |key: &str| entry.get(key).and_then(Json::as_str) == Some("assistant");
+    if !is("role") && !is("type") {
+        return None;
+    }
+    let content = entry
+        .get("message")
+        .and_then(Json::as_obj)?
+        .get("content")?;
+    if let Some(text) = content.as_str() {
+        return (!text.is_empty()).then(|| text.contains(INLINE_FENCE));
+    }
+    let texts: Vec<&str> = content
+        .as_arr()?
+        .iter()
+        .filter_map(Json::as_obj)
+        .filter(|part| part.get("type").and_then(Json::as_str) == Some("text"))
+        .filter_map(|part| part.get("text").and_then(Json::as_str))
+        .collect();
+    // Joined by a newline, which no fence spans: any part holding it is the answer.
+    (!texts.is_empty()).then(|| texts.iter().any(|t| t.contains(INLINE_FENCE)))
 }
 
 /// Should this hook be handed to the TypeScript engine? Only a Stop or a
 /// `SessionEnd`, only with the in-band write-back on, and only when the payload
-/// may carry a block — `last_assistant_message`, or on Cursor the transcript
-/// its payload names — or an earlier ask left a stash for its session.
+/// may carry a block — `last_assistant_message`, or on Cursor the last
+/// assistant entry of the transcript its payload names — or an earlier ask
+/// left a stash for its session.
 #[must_use]
 pub fn hands_back(hook: Hook, root: &Path, input: &str) -> bool {
     if !matches!(hook, Hook::Stop | Hook::SessionEnd) {
@@ -127,7 +182,7 @@ pub fn hands_back(hook: Hook, root: &Path, input: &str) -> bool {
         return true;
     }
     if text("cursor_version").is_some()
-        && text("transcript_path").is_some_and(|p| !p.is_empty() && tail_holds_fence(p))
+        && text("transcript_path").is_some_and(|p| !p.is_empty() && last_entry_holds_fence(p))
     {
         return true;
     }
@@ -278,5 +333,52 @@ mod tests {
         // Not on a Claude Code payload: its transcript is never read.
         let claude = cursor.replace("\"cursor_version\":\"1\",", "");
         assert!(!hands_back(Hook::SessionEnd, &dir, &claude));
+        // An earlier turn's block does not hand back a Stop whose final reply has none.
+        let lines = [&entry("```sofar\n{}\n```"), USER, &entry("done"), ""];
+        std::fs::write(&transcript, lines.join("\n")).unwrap();
+        assert!(!hands_back(Hook::Stop, &dir, &cursor));
+    }
+
+    const USER: &str = r#"{"role":"user","message":{"content":"next"}}"#;
+    const TURN_ENDED: &str = r#"{"type":"turn_ended"}"#;
+    const TOOL_CALL: &str = r#"{"role":"assistant","message":{"content":[{"type":"tool_use"}]}}"#;
+    const STRING_BLOCK: &str = r#"{"type":"assistant","message":{"content":"```sofar"}}"#;
+    const STRING_EMPTY: &str = r#"{"type":"assistant","message":{"content":""}}"#;
+
+    fn entry(text: &str) -> String {
+        let text = crate::json::stringify(&Json::Str(text.to_owned()));
+        let tool = r#"{"type":"tool_use","name":"Shell"}"#;
+        format!(
+            r#"{{"role":"assistant","message":{{"content":[{{"type":"text","text":{text}}},{tool}]}}}}"#
+        )
+    }
+
+    #[test]
+    fn the_fence_scan_reads_the_last_assistant_entry_as_last_assistant_text_does() {
+        let dir = crate::testing::scratch_dir("inline-last-entry");
+        let path = dir.join("t.jsonl");
+        let holds = |lines: &[&str]| {
+            std::fs::write(&path, lines.join("\n")).unwrap();
+            last_entry_holds_fence(&path.to_string_lossy())
+        };
+        let block = entry("done\n```sofar\n{}\n```");
+        // Entries after the reply that are not assistant text are skipped; no final newline.
+        assert!(holds(&[&block, TURN_ENDED, "", TOOL_CALL]));
+        assert!(!holds(&[&block, &entry("done"), ""]));
+        // A string content, under `type` rather than `role`; an empty one is skipped.
+        assert!(holds(&[STRING_BLOCK, STRING_EMPTY, ""]));
+        // A reply longer than one chunk, the file's only line.
+        let long = entry(&format!("{}\n```sofar\n{{}}\n```", "x".repeat(40 * 1024)));
+        assert!(holds(&[&long]));
+        // A reply wider than the window is cut, so it is skipped.
+        let wide = entry(&format!("```sofar\n{}", "x".repeat(300 * 1024)));
+        assert!(!holds(&[&wide]));
+        // A block only before the window is out of reach.
+        let pad = format!(r#"{{"pad":"{}"}}"#, "p".repeat(300 * 1024));
+        assert!(!holds(&[&block, &pad, ""]));
+        assert!(holds(&[&pad, &block, ""]));
+        assert!(!last_entry_holds_fence(
+            &dir.join("missing.jsonl").to_string_lossy()
+        ));
     }
 }

@@ -1161,6 +1161,43 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // felt-latency L8 on the hot path: a peer's shell write that no hook
+    // captured, inside a narrower window of the peer's than this session's
+    // build, is the peer's; and a covering run that fails again with no edit
+    // between holds the stop once, the second time reaching the operator.
+    name: 'syn.gate-hold-once',
+    fixture: { ...synthetic('baseline'), git: undefined },
+    steps: [
+      s('session-start: the tree', ['event', 'session-start'], start({ session_id: 'sess-h' }), {
+        before: (m) => {
+          execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: m.root, stdio: 'ignore' })
+          const before = new Date(Date.now() - 600_000)
+          for (const rel of ['src/stock.ts', 'src/peer.ts', 'tests/rules/one.test.ts']) {
+            mkdirSync(join(m.root, rel, '..'), { recursive: true })
+            writeFileSync(join(m.root, rel), 'export {}\n')
+            utimesSync(join(m.root, rel), before, before)
+          }
+        },
+      }),
+      s('a rule checked by one test file', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-h', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', guard: 'path:src/**', check: { cmd: 'bun test tests/rules/one.test.ts', hint: 'reject the move before it lands' }, supersedes: 'none' })]),
+      s('sess-h writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-h', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
+      s('a build starts', ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-h', tool_name: 'Bash', tool_input: { command: 'npm run build' }, tool_use_id: 'h1' })),
+      s("a peer's script starts", ['event', 'pre-tool'], hook('PreToolUse', { session_id: 'sess-lane', tool_name: 'Bash', tool_input: { command: 'python3 fix.py' }, tool_use_id: 'l1' })),
+      s('it writes a guarded file no hook captures, and ends', ['event', 'post-tool'], bash('python3 fix.py', { session_id: 'sess-lane', tool_use_id: 'l1' }), {
+        before: (m) => writeFileSync(join(m.root, 'src', 'peer.ts'), 'export const p = 1\n'),
+      }),
+      s('the build ends', ['event', 'post-tool'], bash('npm run build', { session_id: 'sess-h', tool_use_id: 'h1' })),
+      s("stop: the peer's write is not this session's", ['event', 'stop'], stop({ session_id: 'sess-h' })),
+      s('sess-h edits the guarded file', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-h' }), {
+        before: (m) => writeFileSync(join(m.root, 'src', 'stock.ts'), 'export const x = 1\n'),
+      }),
+      s('the covering test fails', ['event', 'post-tool-failure'], hook('PostToolUseFailure', { session_id: 'sess-h', tool_name: 'Bash', tool_input: { command: 'bun test tests/rules/one.test.ts', description: 'x' }, error: 'Exit code 1', exit_code: 1 })),
+      s('stop: held for the failure', ['event', 'stop'], stop({ session_id: 'sess-h' })),
+      s('it fails again, no edit between', ['event', 'post-tool-failure'], hook('PostToolUseFailure', { session_id: 'sess-h', tool_name: 'Bash', tool_input: { command: 'bun test tests/rules/one.test.ts', description: 'x' }, error: 'Exit code 1', exit_code: 1 })),
+      s('stop: not held again', ['event', 'stop'], stop({ session_id: 'sess-h' })),
+    ],
+  },
+  {
     // r4-fixes A8 on the hot path: a check bound after the fact. The fixture's
     // guarded D1 takes its check by check_bound (what `sofar bind` appends) and
     // keeps its handle; the gate then holds an edit it governs until that test

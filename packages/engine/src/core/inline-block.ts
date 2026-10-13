@@ -16,9 +16,10 @@ import { ensureIndexDir, indexDir } from './index-store'
  * block in the final text, parsing it, the `because` cap, the reply text read
  * from a host transcript, and the stash a repair ask leaves. Filing is
  * mcp/inline-writeback.ts, through the same write-back path the tool uses.
- * The native core mirrors exactly two facts from here, both as a superset:
- * a text that may hold a block (`mayHoldBlock`) and a stash on disk
- * (`stashPath`) — on either it hands the hook to this engine (HOTPATH §stop).
+ * The native core mirrors three facts from here: a text that may hold a
+ * block (`mayHoldBlock`), Cursor's final reply (`lastAssistantText`) and a
+ * stash on disk (`stashPath`) — on any it hands the hook to this engine
+ * (HOTPATH §stop).
  */
 
 /** `SOFAR_WRITEBACK=tool` is the ablation arm: 0.34's tool-only write-back, untouched. */
@@ -197,8 +198,20 @@ export function finalReplyText(hook: Record<string, unknown>, isCursor: boolean)
   return null
 }
 
-/** The last TRANSCRIPT_TAIL_BYTES of a file, from the first whole line. Null when unreadable. */
-export function transcriptTail(path: string): string | null {
+/** How much of a transcript one read takes, walking back from its end. */
+const TRANSCRIPT_CHUNK_BYTES = 16 * 1024
+
+/**
+ * The text of the last assistant entry in a JSONL transcript's last
+ * TRANSCRIPT_TAIL_BYTES (from that window's first whole line): Cursor's
+ * `{"role":"assistant","message":{"content":[{"type":"text","text":…}]}}`, or
+ * the same message under `"type":"assistant"`. Text parts are joined by a
+ * newline; an entry with none (a tool call alone) is skipped. The window is
+ * read back from the end a chunk at a time, so a Stop reads its final entry,
+ * not the turns before it; the native core reads it the same way. Null when
+ * unreadable.
+ */
+export function lastAssistantText(path: string): string | null {
   let fd: number
   try {
     fd = openSync(path, 'r')
@@ -208,17 +221,28 @@ export function transcriptTail(path: string): string | null {
   try {
     const size = fstatSync(fd).size
     const start = Math.max(0, size - TRANSCRIPT_TAIL_BYTES)
-    const buf = Buffer.alloc(size - start)
-    let read = 0
-    while (read < buf.length) {
-      const n = readSync(fd, buf, read, buf.length - read, start + read)
-      if (n === 0) break
-      read += n
+    let pos = size
+    let carry = Buffer.alloc(0)
+    while (pos > start) {
+      const from = Math.max(start, pos - TRANSCRIPT_CHUNK_BYTES)
+      const chunk = Buffer.alloc(pos - from)
+      let read = 0
+      while (read < chunk.length) {
+        const n = readSync(fd, chunk, read, chunk.length - read, from + read)
+        if (n === 0) return null
+        read += n
+      }
+      carry = Buffer.concat([chunk, carry])
+      pos = from
+      // Every line after the first newline is whole; the bytes before it wait for the next chunk.
+      for (let nl = carry.lastIndexOf(0x0a); nl >= 0; nl = carry.lastIndexOf(0x0a)) {
+        const text = assistantEntryText(carry.subarray(nl + 1))
+        if (text !== null) return text
+        carry = carry.subarray(0, nl)
+      }
     }
-    const text = buf.subarray(0, read).toString('utf8')
-    if (start === 0) return text
-    const nl = text.indexOf('\n')
-    return nl < 0 ? '' : text.slice(nl + 1)
+    // What is left is the file's first line, or the cut line before the window's first newline.
+    return start === 0 ? assistantEntryText(carry) : null
   } catch {
     return null
   } finally {
@@ -226,34 +250,23 @@ export function transcriptTail(path: string): string | null {
   }
 }
 
-/**
- * The text of the last assistant entry in a JSONL transcript's tail: Cursor's
- * `{"role":"assistant","message":{"content":[{"type":"text","text":…}]}}`, or
- * the same message under `"type":"assistant"`. Text parts are joined by a
- * newline; an entry with none (a tool call alone) is skipped.
- */
-export function lastAssistantText(path: string): string | null {
-  const tail = transcriptTail(path)
-  if (tail === null) return null
-  const lines = tail.split('\n')
-  for (let i = lines.length - 1; i >= 0; i -= 1) {
-    const line = lines[i]!.trim()
-    if (line.length === 0) continue
-    let entry: unknown
-    try {
-      entry = JSON.parse(line)
-    } catch {
-      continue
-    }
-    if (!isObj(entry) || (entry.role !== 'assistant' && entry.type !== 'assistant')) continue
-    const message = entry.message
-    const content = isObj(message) ? message.content : undefined
-    if (typeof content === 'string' && content.length > 0) return content
-    if (!Array.isArray(content)) continue
-    const texts = content.filter((c): c is { text: string } => isObj(c) && c.type === 'text' && typeof c.text === 'string').map((c) => c.text)
-    if (texts.length > 0) return texts.join('\n')
+/** One transcript line's assistant text, or null when it is not an assistant entry with text. */
+function assistantEntryText(bytes: Buffer): string | null {
+  const line = bytes.toString('utf8').trim()
+  if (line.length === 0) return null
+  let entry: unknown
+  try {
+    entry = JSON.parse(line)
+  } catch {
+    return null
   }
-  return null
+  if (!isObj(entry) || (entry.role !== 'assistant' && entry.type !== 'assistant')) return null
+  const message = entry.message
+  const content = isObj(message) ? message.content : undefined
+  if (typeof content === 'string' && content.length > 0) return content
+  if (!Array.isArray(content)) return null
+  const texts = content.filter((c): c is { text: string } => isObj(c) && c.type === 'text' && typeof c.text === 'string').map((c) => c.text)
+  return texts.length > 0 ? texts.join('\n') : null
 }
 
 // ---------------------------------------------------------------------------

@@ -108,7 +108,7 @@ import { handleLease } from './lease-hook'
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
 import { redactCommand } from '../core/redact'
-import { beginWrite, cacheChanges, cachedChanges, inWindow, markLossAsked, markWrote, pathspecKey, readLossAsked, readWindows, readWrote, writeKey } from '../core/wrote'
+import { beginWrite, cacheChanges, cachedChanges, heldKey, inWindow, markHeld, markLossAsked, markWrote, pathspecKey, peerWindows, peerWroteIt, readLossAsked, readWindows, readWrote, wasHeld, writeKey, type WriteWindow } from '../core/wrote'
 import { readGateEnabled, rewriteRawRead, rewriteRawReadSegments } from '../core/read-rewrite'
 import { cappedRecallBlock, RECALL_TOLD_KEY, recallBlock, recallEnabled, recallV034 } from '../core/recall'
 import { WORKMAP_TOLD_KEY, workmapBlock, workmapEnabled } from '../core/workmap'
@@ -1715,7 +1715,7 @@ export function handleStop(
     // exit status, read from codex 0.160.0) cannot show a pass: the gate's asks
     // there are unverifiable and never hold (r4-fixes U1b).
     const outcomesKnown = postToolProvesSuccess(host ?? hookHost(hook))
-    const gate = enforceEnabled() ? stopGateFor(rootDir, ctx.sofarDir, slug, state, session, outcomesKnown) : null
+    const gate = enforceEnabled() ? holdOnce(ctx.sofarDir, session.id, stopGateFor(rootDir, ctx.sofarDir, slug, state, session, outcomesKnown)) : null
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop: a rule it filed naming nothing it replaces. SOFAR_LINK_ASK=off
     // is its ablation arm.
@@ -1775,6 +1775,22 @@ export function handleStop(
   }
 }
 
+/** What a failure hold Stop already made says the next time, holding nothing (felt-latency L8). */
+export const HELD_ONCE_LINE = 'sofar: the stop was held once for this with no edit since, so it is not held again: a failure that survives a re-run unchanged may be load-flaky or not this session\'s — your next edit re-arms it'
+
+/**
+ * Stop's hold, once per failure-only key (felt-latency L8): a suite that
+ * fails at load (shim-latency) records no pass however often it re-runs, and
+ * each hold forced a full run. The second time its lines reach the operator,
+ * or ride a write-back hold, and hold nothing.
+ */
+export function holdOnce(sofarDir: string, session: string, gate: StopGate): StopGate {
+  if (gate.once === undefined || !gate.blocks) return gate
+  if (wasHeld(sofarDir, session, gate.once)) return { ...gate, blocks: false, lines: [...gate.lines, HELD_ONCE_LINE] }
+  markHeld(sofarDir, session, gate.once)
+  return gate
+}
+
 /**
  * The test gate's verdict for this session (r3-fixes D10, D11), from its edits
  * and the tests it ran since the last one. Edits are the hooks' captures plus
@@ -1788,7 +1804,7 @@ export function handleStop(
 export const DIRT_SLACK_MS = 2_000
 
 export function stopGateFor(rootDir: string, sofarDir: string, slug: string, state: InitiativeState, session: SessionState, outcomesKnown: boolean): StopGate {
-  const none: StopGate = { lines: [], blocks: false, fails: false }
+  const none: StopGate = { lines: [], blocks: false, fails: false, asks: false }
   try {
     // A capture outside the root is an edit to another repo or another
     // checkout (r4-fixes H18): no test this worktree runs covers it, yet a
@@ -1814,8 +1830,11 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
     const started = Date.parse(session.started) - DIRT_SLACK_MS
     const windows = fromGit.length > 0 ? readWindows(sofarDir, session.id) : null
     // A dirty file another session's hook captured as it wrote it is that
-    // session's edit (r4-fixes H20), whatever window of this one spans it.
+    // session's edit (r4-fixes H20), whatever window of this one spans it;
+    // so is one no hook captured that a narrower window of a peer's holds
+    // (felt-latency L8): its shell write, during a longer command of ours.
     let peers: FileIndex | undefined
+    let peerWs: WriteWindow[][] | undefined
     const files: string[] = []
     const mtimes = new Map<string, number>()
     let editedAt: number | null = null
@@ -1826,7 +1845,8 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
           fromTree &&
           (mtime < started ||
             (windows !== null && !inWindow(mtime, windows, DIRT_SLACK_MS)) ||
-            capturedByPeer((peers ??= refreshFiles(sofarDir)), p, session.id, mtime, DIRT_SLACK_MS, DIRT_SLACK_MS))
+            capturedByPeer((peers ??= refreshFiles(sofarDir)), p, session.id, mtime, DIRT_SLACK_MS, DIRT_SLACK_MS) ||
+            (windows !== null && peerWroteIt(mtime, windows, (peerWs ??= peerWindows(sofarDir, session.id)), DIRT_SLACK_MS)))
         )
           continue
         if (editedAt === null || mtime > editedAt) editedAt = mtime
@@ -1844,9 +1864,13 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
     const verdict = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown, edits)
     // An ask holds only in strict mode (r4-fixes D65); by default only a failed
     // covering run does, and an ask rides a write-back hold or reaches the operator.
-    const gate = testGateHolds(rootDir) ? verdict : { ...verdict, blocks: verdict.fails }
+    const strict = testGateHolds(rootDir)
+    const moded = strict ? verdict : { ...verdict, blocks: verdict.fails }
+    // A hold for failures alone is keyed by its lines at this edit time
+    // (felt-latency L8), so Stop holds for it once: a strict ask still holds.
+    const gate = moded.blocks && !(strict && verdict.asks) ? { ...moded, once: heldKey(editedAt, moded.lines) } : moded
     const loss = testGuardEnabled() ? stopTestLoss(rootDir, sofarDir, session, index, files, probe) : []
-    return loss.length === 0 ? gate : { lines: [...loss, ...gate.lines], blocks: true, fails: true }
+    return loss.length === 0 ? gate : { lines: [...loss, ...gate.lines], blocks: true, fails: true, asks: gate.asks }
   } catch {
     return none
   }

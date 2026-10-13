@@ -1,5 +1,13 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **felt-latency L8** (lane) from the TypeScript reference; the Rust
+core (debug build) reproduces all 65. One new case, `syn.gate-hold-once`: a
+peer's uncaptured shell write inside a narrower window of the peer's than
+this session's build no longer holds its stop (step 8); a covering run that
+fails again with no edit between holds once, then reaches the operator with
+one line saying so (step 13). No existing golden moved. The core installed
+under ~/.local/share/sofar/core/current fails steps 8 and 13.
+
 RE-RECORDED for **felt-latency L4** (main) from the TypeScript reference; the
 Rust core reproduces all 64. Eleven goldens change one line each: the
 tool-mode write-back hold now names the owing session (`call sofar_end_session

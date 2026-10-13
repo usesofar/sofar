@@ -1,8 +1,27 @@
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { beginWrite, inWindow, markWrote, PENDING_MAX_MS, readWindows, readWrote, WINDOWS_MAX, writeKey } from '../src/core/wrote'
+import {
+  beginWrite,
+  HELD_MAX,
+  heldKey,
+  inWindow,
+  markHeld,
+  markLossAsked,
+  markWrote,
+  narrowestWindow,
+  peerWindows,
+  peerWroteIt,
+  PENDING_MAX_MS,
+  readWindows,
+  readWrote,
+  wasHeld,
+  WINDOWS_MAX,
+  writeKey,
+  type WriteWindow,
+} from '../src/core/wrote'
 
 /**
  * r4-fixes H13: each may-write command's run, PreToolUse to PostToolUse, so
@@ -94,5 +113,41 @@ describe('write windows (r4-fixes H13)', () => {
     expect(writeKey('toolu_9', 'x')).toBe('toolu_9')
     expect(writeKey(null, 'make')).toMatch(/^cmd:[0-9a-f]{16}$/)
     expect(writeKey(null, 'make')).toBe(writeKey(null, 'make'))
+  })
+})
+
+describe("a peer's window, and holding once (felt-latency L8)", () => {
+  it('the narrowest window holding a write names its likelier writer; an open one never wins', () => {
+    const own: WriteWindow[] = [[0, 120_000], [200_000, 201_000]]
+    expect(narrowestWindow(60_000, own, 0)).toBe(120_000)
+    expect(narrowestWindow(200_500, own, 0)).toBe(1_000)
+    expect(narrowestWindow(150_000, own, 0)).toBeNull()
+    expect(narrowestWindow(9e9, [[5, null]], 0)).toBe(Infinity)
+    expect(peerWroteIt(60_000, own, [[[59_000, 61_000]]], 0)).toBe(true)
+    expect(peerWroteIt(200_500, own, [[[100_000, 300_000]]], 0)).toBe(false)
+    expect(peerWroteIt(60_000, own, [[[50_000, null]]], 0)).toBe(false)
+    expect(peerWroteIt(150_000, own, [[[149_000, 151_000]]], 0)).toBe(false) // outside every window of mine: H13 already rules
+  })
+
+  it("peerWindows reads every other session's windows, never its own or a cache, loss or held file", () => {
+    const dir = sofar()
+    markWrote(dir, 's1', run('a', 2_000, { durationMs: 1_000 }))
+    markWrote(dir, 's2', run('b', 5_000, { durationMs: 1_000 }))
+    markLossAsked(dir, 's2', ['x'])
+    markHeld(dir, 's2', 'k')
+    expect(peerWindows(dir, 's1')).toEqual([[[4_000, 5_000]]])
+    expect(peerWindows(dir, 's2')).toEqual([[[1_000, 2_000]]])
+  })
+
+  it('a held key is the edit time and the lines; both engines hash the same text', () => {
+    expect(heldKey(1760000000123.5, ['a', 'b'])).toBe(createHash('sha256').update('1760000000123.5\0a\nb').digest('hex').slice(0, 16))
+    expect(heldKey(null, ['a'])).toBe(createHash('sha256').update('\0a').digest('hex').slice(0, 16))
+    const dir = sofar()
+    expect(wasHeld(dir, 's1', 'k1')).toBe(false)
+    markHeld(dir, 's1', 'k1')
+    expect(wasHeld(dir, 's1', 'k1')).toBe(true)
+    for (let i = 0; i < HELD_MAX; i += 1) markHeld(dir, 's1', `n${i}`)
+    expect(wasHeld(dir, 's1', 'k1')).toBe(false) // the oldest go: it can only hold once more
+    expect(wasHeld(dir, 's1', `n${HELD_MAX - 1}`)).toBe(true)
   })
 })

@@ -1490,6 +1490,12 @@ pub struct StopGate {
     pub blocks: bool,
     /// A covering run failed after the last edit: it holds whatever the mode (D65).
     pub fails: bool,
+    /// A requirement has no covering run at all: what holds only in strict
+    /// mode (felt-latency L8).
+    pub asks: bool,
+    /// Set when only failures hold (felt-latency L8): the key of this hold,
+    /// its lines at this edit time. Stop holds once per key.
+    pub once: Option<String>,
 }
 
 /// `flatClip`: one line, clipped to `max` UTF-16 units with an ellipsis.
@@ -1897,6 +1903,7 @@ pub fn stop_gate(
     let (mut lines, unverified) = group_lines(&groups, outcomes_known, probe);
     let blocks = lines.len() > usize::from(unverified);
     let fails = groups.iter().any(|g| g.failed.is_some());
+    let asks = outcomes_known && groups.iter().any(|g| g.failed.is_none());
     let more = lines.len().saturating_sub(STOP_GATE_LINES);
     lines.truncate(STOP_GATE_LINES);
     if more > 0 {
@@ -1908,6 +1915,8 @@ pub fn stop_gate(
         lines,
         blocks,
         fails,
+        asks,
+        once: None,
     }
 }
 
