@@ -23,7 +23,7 @@ import {
 } from '../src/driver/drive'
 import { readyTasks, waitingTasks } from '../src/core/drive-queue'
 import { buildSurface } from '../src/driver/permissions'
-import { runDrive, runDriveStop } from '../src/cli/drive'
+import { autoLanes, lanesOption, runDrive, runDriveStop } from '../src/cli/drive'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
 
 /**
@@ -1764,5 +1764,39 @@ describe('fencing a takeover (drive-visibility 2.2) — one event per takeover, 
     const res = await runDrive(root, 'demo', { adapter }, () => {})
     expect(res.exitCode).toBe(1)
     expect(res.stderr).toContain('stepped down, filing no handoff and no stop')
+  })
+})
+
+describe('--lanes auto, the default (drive-lanes D59)', () => {
+  const plan = (tasks: { id: string; waits_on?: string[] }[]) => ({
+    plan: { goal: 'g', phases: [{ name: 'Phase 1', status: 'active', tasks: tasks.map((t) => ({ title: t.id, status: 'pending', ...t })) }] },
+  })
+  const gitRepo = (name: string, payload: Record<string, unknown>): string => {
+    const root = repo(name, [{ type: 'plan_updated', payload }])
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root })
+    return root
+  }
+
+  it('opens a lane per ready task, up to 3, and runs serial when fewer than 2 are ready', () => {
+    expect(autoLanes(gitRepo('auto-two', TWO_TASKS), 'demo', {})).toEqual({ lanes: 2, why: '2 tasks ready' })
+    const five = plan(['1.1', '1.2', '1.3', '1.4', '1.5'].map((id) => ({ id })))
+    expect(autoLanes(gitRepo('auto-five', five), 'demo', {}).lanes).toBe(3)
+    // A chain has one ready task: serial, no lane setup.
+    const chain = plan([{ id: '1.1' }, { id: '1.2', waits_on: ['demo 1.1'] }, { id: '1.3', waits_on: ['demo 1.2'] }])
+    expect(autoLanes(gitRepo('auto-chain', chain), 'demo', {})).toEqual({ lanes: 1, why: '1 task(s) ready' })
+  })
+
+  it('runs serial where lanes cannot go, and an explicit --lanes always wins', () => {
+    const root = gitRepo('auto-rules', TWO_TASKS)
+    expect(autoLanes(root, 'demo', { resume: true }).lanes).toBe(1)
+    expect(autoLanes(root, 'demo', { cwd: '/elsewhere' }).lanes).toBe(1)
+    expect(autoLanes(root, 'demo', { policy: 'threshold' }).lanes).toBe(1)
+    expect(autoLanes(repo('auto-nogit'), 'demo', {})).toEqual({ lanes: 1, why: 'not a git checkout' })
+    const said: string[] = []
+    expect(lanesOption(root, 'demo', {}, (l) => said.push(l))).toBe(2)
+    expect(said).toEqual(['lanes: auto — 2 tasks ready, so 2 lanes (--lanes 1 for a serial run)'])
+    expect(lanesOption(root, 'demo', { lanes: 'auto' })).toBe(2)
+    expect(lanesOption(root, 'demo', { lanes: '1' })).toBe(1)
+    expect(lanesOption(root, 'demo', { lanes: '4' })).toBe(4)
   })
 })

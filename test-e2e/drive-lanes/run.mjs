@@ -516,14 +516,15 @@ function driveArgs(engine) {
     '--allow', 'Bash(node:*)', 'Bash(npm test:*)',
     '--session-timeout', opt['session-timeout'],
     '--max-sessions', opt['max-sessions'],
-    ...(lanes > 1 ? ['--lanes', String(lanes)] : []),
+    // Serial is stated: a bare `sofar drive` now picks its own lanes (D59).
+    ...(hosted ? [] : ['--lanes', String(lanes)]),
     ...(opt.leases !== undefined ? ['--leases', opt.leases] : []),
     ...(opt.schedule !== undefined ? ['--schedule', opt.schedule] : []),
     '--no-keep-awake',
     '--bin', opt.claude,
     ...(cloud
       ? hosted
-        ? ['--hosted', 'cloud', ...(hostedLanes > 1 ? ['--lanes', String(hostedLanes)] : [])]
+        ? ['--hosted', 'cloud', '--lanes', String(hostedLanes)]
         : ['--agent', 'claude-cloud']
       : ['--agent-arg=--setting-sources', '--agent-arg=project,local', '--agent-arg=--strict-mcp-config', '--agent-arg=--mcp-config', `--agent-arg=${join(repo, '.mcp.json')}`]),
   ]

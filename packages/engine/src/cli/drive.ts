@@ -1,10 +1,11 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { ToolError, createToolContext } from '../mcp/context'
 import { latestRun, stopRequestsInForce, type RunState } from '../core/fold'
+import { readyTasks } from '../core/drive-queue'
 import { awaitRun, awaitLiveness, blockedQuestion, stillRunning } from '../core/run-await'
 import { probeRunLock, type RunLiveness, type RunLockOptions } from '../core/run-lock'
 import { describeRun } from '../projections/templates/shared'
@@ -281,6 +282,53 @@ function buildAgents(options: DriveCliOptions): { adapter: Adapter; agents: Map<
   return { adapter, agents }
 }
 
+/** The most lanes `--lanes auto` opens (D59): the count 6.4 measured; more burns the quota faster, unmeasured. */
+export const AUTO_LANES_MAX = 3
+
+/**
+ * `--lanes auto`, the default (drive-lanes D59, superseding D28): lanes when
+ * the plan has tasks to run side by side, serial when it has not. Serial for
+ * a resumed run (it keeps its recorded count), a `--cwd` or threshold run
+ * (lanes refuse both), a checkout git does not know, or fewer than two ready
+ * tasks; else min(AUTO_LANES_MAX, ready). The ready count is read once, at the
+ * start: a chain that widens later stays serial, which costs only time.
+ */
+export function autoLanes(
+  rootDir: string,
+  slug: string | undefined,
+  options: Pick<DriveCliOptions, 'resume' | 'cwd' | 'policy'>,
+): { lanes: number; why: string } {
+  if (options.resume === true) return { lanes: 1, why: 'a resumed run keeps its recorded lanes' }
+  if (options.cwd !== undefined) return { lanes: 1, why: '--cwd runs serial' }
+  if (options.policy === 'threshold') return { lanes: 1, why: 'the threshold policy runs serial' }
+  if (spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: rootDir, encoding: 'utf8' }).stdout.trim() !== 'true') {
+    return { lanes: 1, why: 'not a git checkout' }
+  }
+  let ready: number
+  try {
+    const ctx = createToolContext(rootDir)
+    ready = readyTasks(ctx.foldState(ctx.resolveInitiative(slug))).length
+  } catch {
+    return { lanes: 1, why: 'no plan to read' }
+  }
+  if (ready < 2) return { lanes: 1, why: `${ready} task(s) ready` }
+  const lanes = Math.min(AUTO_LANES_MAX, ready)
+  return { lanes, why: `${ready} tasks ready` }
+}
+
+/** `--lanes`: a whole number, or `auto` (the default) for autoLanes. */
+export function lanesOption(
+  rootDir: string,
+  slug: string | undefined,
+  options: Pick<DriveCliOptions, 'lanes' | 'resume' | 'cwd' | 'policy'>,
+  say: (line: string) => void = () => {},
+): number | undefined {
+  if (options.lanes !== undefined && options.lanes !== 'auto') return integer('--lanes', options.lanes)
+  const auto = autoLanes(rootDir, slug, options)
+  if (auto.lanes > 1) say(`lanes: auto — ${auto.why}, so ${auto.lanes} lanes (--lanes 1 for a serial run)`)
+  return auto.lanes > 1 ? auto.lanes : undefined
+}
+
 export async function runDrive(
   rootDir: string,
   slug: string | undefined,
@@ -297,7 +345,7 @@ export async function runDrive(
     const sessionTimeoutSec = positive('--session-timeout', options.sessionTimeout)
     const verifyTimeoutSec = positive('--verify-timeout', options.verifyTimeout)
     const maxVerifyAttempts = integer('--max-verify-attempts', options.maxVerifyAttempts)
-    const lanes = integer('--lanes', options.lanes)
+    const lanes = lanesOption(rootDir, slug, options, onProgress)
     const leases = leaseOption(options.leases)
     const schedule = scheduleOption(options.schedule)
     // The surface is built HERE, before anything is recorded: a bad
@@ -911,6 +959,15 @@ export async function runDriveHosted(
   const argv = options.argv[0] === 'drive' ? options.argv.slice(1) : options.argv
   const driveArgs = cloudDriveArgs(argv)
   if (!driveArgs.includes(initiative)) driveArgs.unshift(initiative)
+  // The cloud's sofar may predate `--lanes auto` (D59): the count is settled
+  // here and handed over explicitly.
+  if (!driveArgs.some((a) => a === '--lanes' || a.startsWith('--lanes='))) {
+    const auto = autoLanes(rootDir, initiative, {})
+    if (auto.lanes > 1) {
+      driveArgs.push('--lanes', String(auto.lanes))
+      options.onProgress?.(`lanes: auto — ${auto.why}, so ${auto.lanes} lanes in the cloud (--lanes 1 for a serial run)`)
+    }
+  }
   const outcome = await driveHosted(rootDir, initiative, {
     driveArgs,
     ...(options.bin !== undefined ? { bin: options.bin } : {}),

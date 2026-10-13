@@ -1,4 +1,5 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { gunzipSync } from 'node:zlib'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -34,6 +35,8 @@ export interface HostedOptions {
   platform?: NodeJS.Platform
   pollMs?: number
   configDir?: string
+  /** Where the progress file goes; default $XDG_STATE_HOME/sofar or ~/.local/state/sofar. */
+  stateDir?: string
   /** Gives up waiting after this long; default 6 hours. */
   timeoutMs?: number
   onProgress?: (line: string) => void
@@ -47,6 +50,44 @@ export interface HostedOutcome {
   /** Events imported into the local record. */
   events: number
   lines: string[]
+}
+
+export type HostedStage = 'launching' | 'running' | 'landing' | 'done' | 'failed'
+
+/**
+ * A hosted run's progress file, `<state>/hosted/<slug>.json`, for whatever
+ * shows a run live (the drive panel): nothing local watches a cloud run
+ * otherwise. Rewritten whole on every line, atomically; the last 20 lines.
+ */
+export function hostedProgressPath(slug: string, stateDir?: string): string {
+  const base = stateDir ?? join(process.env.XDG_STATE_HOME !== undefined && process.env.XDG_STATE_HOME.length > 0 ? process.env.XDG_STATE_HOME : join(homedir(), '.local', 'state'), 'sofar')
+  return join(base, 'hosted', `${slug}.json`)
+}
+
+export function writeHostedProgress(
+  worktree: string,
+  slug: string,
+  at: { stage: HostedStage; started: number; lines: string[]; cloudId?: string },
+  stateDir?: string,
+): void {
+  try {
+    const path = hostedProgressPath(slug, stateDir)
+    mkdirSync(join(path, '..'), { recursive: true })
+    const body = {
+      slug,
+      // The real path, as a panel compares it with its own session root.
+      worktree: realpathSync(worktree),
+      ...(at.cloudId !== undefined ? { cloud_id: at.cloudId, url: `https://claude.ai/code/${at.cloudId}` } : {}),
+      state: at.stage,
+      started_ms: at.started,
+      updated_ms: Date.now(),
+      lines: at.lines.slice(-20),
+    }
+    writeFileSync(`${path}.tmp`, `${JSON.stringify(body)}\n`)
+    renameSync(`${path}.tmp`, path)
+  } catch {
+    // a panel that cannot see the run never stops the run
+  }
 }
 
 /** The flags a local `sofar drive` line carries that mean nothing in the cloud: where to run, which binary, this checkout. */
@@ -180,14 +221,24 @@ export function exportedEvents(transcript: CloudTranscript): string | null {
 
 export async function driveHosted(rootDir: string, slug: string, options: HostedOptions): Promise<HostedOutcome> {
   const lines: string[] = []
+  const started = Date.now()
+  let stage: HostedStage = 'launching'
+  let cloud: string | undefined
+  const progress = (): void => writeHostedProgress(rootDir, slug, { stage, started, lines, ...(cloud !== undefined ? { cloudId: cloud } : {}) }, options.stateDir)
   const say = (line: string): void => {
     lines.push(line)
     options.onProgress?.(line)
+    progress()
+  }
+  const to = (next: HostedStage): void => {
+    stage = next
+    progress()
   }
   const env = launchEnv(undefined)
   const bin = options.bin ?? 'claude'
   const sofar = options.sofarBin ?? 'sofar'
   const fail = (line: string, extra: Partial<HostedOutcome> = {}): HostedOutcome => {
+    stage = 'failed'
     say(line)
     return { ok: false, commits: 0, events: 0, lines, ...extra }
   }
@@ -207,6 +258,8 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
     if (launch.error !== undefined) return fail(`sofar drive --hosted: could not run ${bin}: ${launch.error}`)
     const cloudId = cloudSessionId(existsSync(log) ? readFileSync(log, 'utf8') : '')
     if (cloudId === undefined) return fail(`sofar drive --hosted: the launch named no cloud session (exit ${launch.code})`)
+    cloud = cloudId
+    stage = 'running'
     say(`hosted: cloud session ${cloudId} runs ${slug} — https://claude.ai/code/${cloudId}`)
 
     // Teleport refuses a dirty tree: poll from a clean detached worktree (D51).
@@ -229,6 +282,7 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
     // No run_started among the exported events: the cloud drive never started
     // (an older sofar in a cached environment refuses a flag it lacks, seen live
     // with --lanes on 0.36). Say so with the host's own words, never "0 commits".
+    to('landing')
     const bundle = hostedBundle(seen.outputs)
     if ('missing' in bundle) return fail(`sofar drive --hosted: nothing came back from ${cloudId} — ${bundle.missing}`, { cloudId })
     const ndjsonSeen = bundle.events.trim().length > 0 ? `${bundle.events.trim()}\n` : null
@@ -278,6 +332,8 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
     // The cloud driver's own cost line, passed through as the local driver prints it (its sessions' cost; the host's is not in it).
     const cost = seen.outputs.map((o) => /cost reported by the adapter: \$[0-9.]+/.exec(o)?.[0]).filter((c): c is string => c !== undefined).pop()
     if (cost !== undefined) say(cost)
+    stage = 'done'
+    progress()
     return { ok: true, cloudId, commits, events, lines }
   } finally {
     rmSync(dir, { recursive: true, force: true })

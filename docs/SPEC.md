@@ -2797,8 +2797,13 @@ prompt still pins the writes (D4), but the child's SessionStart hook will
 inject that other record's digest.
 
 **Lanes (drive-lanes 2.2, D3, D19, D20).** `--lanes <n>` with n ≥2 is the one
-exception to D6; `--lanes 1`, the default, is the serial run above, byte for
-byte. A lanes run claims n lanes from a persistent pool of linked worktrees at
+exception to D6; `--lanes 1` is the serial run above, byte for byte. The
+default is `--lanes auto` (drive-lanes D59, superseding D28): read once at the
+start, it opens min(3, ready tasks) lanes when at least two tasks are ready,
+and runs serial for fewer, a resumed run (which keeps its recorded count), a
+`--cwd` or `threshold` run, or a checkout git does not know; it says so on one
+progress line. `--hosted cloud` settles the count the same way and hands the
+cloud's driver an explicit `--lanes`. A lanes run claims n lanes from a persistent pool of linked worktrees at
 `<state base>/<clone key>/lanes/lane-<k>` — outside the clone, kept across
 runs and initiatives — holding a flock per lane (`lane-<k>.lock`, the run
 lock's primitive) for the driver's life and skipping a lane another driver
@@ -7988,7 +7993,7 @@ deletes it with the worktree's gitdir.
   [--context-window <tokens>] [--max-sessions <n>] [--max-stalls <n>]
   [--cost-cap <usd>] [--session-timeout <seconds>] [--cwd <dir>] [--model <m>]
   [--effort <e>] [--resume] [--verify <cmd>] [--verify-quick <cmd>]
-  [--lanes <n>] [--lane-setup <cmd|none>] [--leases steer|deny|off]
+  [--lanes <n>|auto] [--lane-setup <cmd|none>] [--leases steer|deny|off]
   [--schedule footprint|ready]
   [--agent claude-code|codex|cursor|claude-cloud] [--hosted cloud] [--bin <path>] [--agent-arg <arg>]
   [--permission-mode <mode>]

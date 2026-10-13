@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { gzipSync } from 'node:zlib'
 import { join } from 'node:path'
@@ -143,9 +143,15 @@ describe('a hosted run (drive-lanes 5.5)', () => {
       pollMs: 10,
       platform: 'darwin',
       onProgress: (l) => progress.push(l),
+      stateDir: join(root, 'state'),
     })
 
     expect(outcome).toMatchObject({ ok: true, cloudId: 'session_01HOSTabcdefgh', commits: 2, events: 1 })
+    // The progress file a live panel reads (D59 follow-up): the last stage and the cloud link.
+    const live = JSON.parse(readFileSync(join(root, 'state', 'hosted', 'lanes.json'), 'utf8'))
+    expect(live).toMatchObject({ slug: 'lanes', state: 'done', cloud_id: 'session_01HOSTabcdefgh', url: 'https://claude.ai/code/session_01HOSTabcdefgh' })
+    expect(live.worktree).toBe(realpathSync(repo))
+    expect(live.lines).toContain('hosted: 2 commit(s) applied, 1 event(s) imported from session_01HOSTabcdefgh')
     // The prompt starts the run from HEAD and exports only what came after the local record.
     const prompt = readFileSync(join(root, 'prompt'), 'utf8')
     expect(prompt).toContain('env -u CLAUDE_CODE_REMOTE_SESSION_ID sofar drive lanes --max-sessions 2 --detach')
