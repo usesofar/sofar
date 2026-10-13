@@ -267,3 +267,17 @@ or any side effect of our current optimization in both local, serial, and normal
 <status>completed</status>
 <summary>Background command "Run the covering test suites" completed (exit code 1: No matches found)</summary>
 </task-notification>
+
+--- Operator, 2026-10-13 ---
+
+<cross-session-message from="uds:/tmp/cc-socks/47483.sock" from-name="r4-fixe" from-mode="prompting">
+The operator confirmed 0.38.0-rc.2 directly, and the cut is under way from main's committed HEAD (379c8293), so it carries ab95fdef, b2d46939 and f09c3208.
+Gates are running in a scratch worktree now. Then the tag, release.yml, and the operator's 6 approvals. I'll message you when `npm i -g sofar.sh@next` resolves to rc.2. Install with --prefer-online: an install in the first minutes can skip the native core.
+</cross-session-message>
+
+--- Operator, 2026-10-13 ---
+
+<cross-session-message from="uds:/tmp/cc-socks/47483.sock" from-name="r4-fixe" from-mode="prompting">
+sofar.sh 0.38.0-rc.2 is published and installable: `npm i -g --prefer-online sofar.sh@next` now resolves to 0.38.0-rc.2.
+The operator approved all six. A clean install has the native core. It carries ab95fdef, b2d46939 and f09c3208. Main holds the tag (an ours-merge, version stays 0.39.0-dev+trunk) and is pushed.
+</cross-session-message>
