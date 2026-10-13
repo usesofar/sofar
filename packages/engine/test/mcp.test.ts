@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { findFrom } from '../src/core/index-reach'
+import { recordRoot } from '../src/core/git'
 import { describe, expect, it } from 'vitest'
 import { TOOL_INPUT_SCHEMAS, TOOL_NAMES, type ToolName } from '@sofar/schema/tool-inputs'
 import { ALWAYS_LOADED_TOOLS, createSofarServer, SERVER_INSTRUCTIONS, SERVER_NAME, serverInstructions } from '../src/mcp/server'
@@ -27,7 +28,8 @@ describe('MCP server skeleton (2.1)', () => {
 
   it('resolves rootDir to an absolute path with cwd as default', () => {
     expect(createSofarServer({ rootDir: '.' }).rootDir).toBe(process.cwd())
-    expect(createSofarServer().rootDir).toBe(process.cwd())
+    // the default follows recordRoot — in a drive lane that names the run checkout, not cwd
+    expect(createSofarServer().rootDir).toBe(recordRoot(process.cwd()))
   })
 })
 

@@ -80,6 +80,7 @@ import {
   type ScopedMemory,
 } from '../core/index-tier1'
 import { rankByRelevance, refreshRelevance, relevance, type RelevanceRow } from '../core/index-relevance'
+import { rememberTranscript } from '../core/context-boundary'
 import {
   addTold,
   clearTold,
@@ -1008,6 +1009,10 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     // it was told must be told again (memory-lead 2.1, D6).
     const source = strField(hook, 'source')
     if (sessionId !== null && (source === 'compact' || source === 'clear')) clearTold(ctx.sofarDir, sessionId)
+    // The MCP server is not handed the transcript; the task-boundary nudge
+    // reads the gauge from the one this hook saw (context-ceiling 3.2).
+    const transcriptPath = strField(hook, 'transcript_path')
+    if (sessionId !== null && transcriptPath !== null) rememberTranscript(ctx.sofarDir, sessionId, transcriptPath)
 
     // The gap is measured to the prior session's last event; with lazy
     // registration this hook writes nothing, so no bookkeeping of ours can

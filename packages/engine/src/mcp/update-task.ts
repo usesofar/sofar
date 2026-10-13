@@ -1,5 +1,9 @@
 import { taskIdsOf, type UpdateTaskArgs, type UpdateTaskResult } from '@sofar/schema/tool-inputs'
+import { userConfigPath } from '../client/config'
+import { taskBoundaryNudge } from '../core/context-boundary'
+import { readContextSettings } from '../core/context-settings'
 import { evidenceWarnings } from '../core/filing-judge'
+import { hostSessionFromEnv, readSessionPointer } from '../core/session-pointer'
 import type { InitiativeState } from '../core/fold'
 import type { JudgeOptions } from '../core/judge'
 import { ToolError, type ToolContext } from './context'
@@ -44,11 +48,24 @@ export async function updateTaskJudged(ctx: ToolContext, args: UpdateTaskArgs, j
   const ids = new Set(taskIdsOf(args.task_id))
   const tasks = ctx.foldState(slug).phases.flatMap((p) => p.tasks).filter((t) => ids.has(t.id))
   if (tasks.length === 0) return result
-  const lines = await evidenceWarnings(
+  const judged = await evidenceWarnings(
     tasks.map((t) => ({ id: t.id, title: t.title, note: args.note })),
     judgeOpts ?? judgeOptionsFor(ctx),
   )
+  const boundary = taskBoundaryLine(ctx, tasks.map((t) => t.id))
+  const lines = boundary === null ? judged : [...judged, boundary]
   return lines.length === 0 ? result : { ...result, warnings: [...(result.warnings ?? []), ...lines] }
+}
+
+/**
+ * The task-boundary nudge (context-ceiling 3.2): past `context.warn`, a task
+ * just marked done is the cheapest point to hand off. The session is this
+ * server's active one, else the id the host exports, else the hooks' pointer.
+ */
+function taskBoundaryLine(ctx: ToolContext, taskIds: readonly string[]): string | null {
+  const session = ctx.session.get()?.id ?? hostSessionFromEnv(process.env) ?? readSessionPointer(ctx.rootDir)?.session ?? null
+  const settings = readContextSettings({ userConfig: userConfigPath(process.env), repoRoot: ctx.rootDir })
+  return taskBoundaryNudge({ sofarDir: ctx.sofarDir, session, taskIds, settings })
 }
 
 /**
