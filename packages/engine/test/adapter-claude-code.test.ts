@@ -245,20 +245,21 @@ describe('spawn', () => {
 
   it('kill() ends the child; the exit carries the signal and a null code', async () => {
     const c = cell('kill')
-    const adapter = new ClaudeCodeAdapter()
+    // A drain grace far past any load delay, so only a failed group kill waits it out.
+    const adapter = new ClaudeCodeAdapter({ drainGraceMs: 20_000 })
     const session = adapter.launch(c.request({ env: { STUB_SLEEP: '30' } }))
     await untilWritten(join(c.out, 'argv'))
     // The stub's `sleep` is a grandchild holding the stdout pipe — the way a
     // real claude's MCP servers would. A group kill reaps it, so the exit
-    // settles at once; only a failed group kill would wait out the drain grace
-    // (2 s) — the bound sits just under it, since a loaded box (verify runs
-    // beside other sessions) took >1.5 s to deliver a prompt exit.
+    // settles at once; only a failed group kill would wait out the drain
+    // grace. The bound sits well under that grace and well over a loaded
+    // box's delivery (verify runs beside other sessions: >2 s seen at load 40).
     const before = Date.now()
     session.kill()
     const exit = await session.wait()
     expect(exit.code).toBeNull()
     expect(exit.signal).toBe('SIGTERM')
-    expect(Date.now() - before).toBeLessThan(1_900)
+    expect(Date.now() - before).toBeLessThan(10_000)
   })
 })
 

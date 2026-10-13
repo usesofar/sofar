@@ -62,6 +62,8 @@ export interface ClaudeCodeOptions {
   bin?: string
   /** Extra argv appended after the adapter's own flags — the operator's escape hatch. */
   args?: string[]
+  /** Test seam: how long after exit to wait for stdout to drain (default STDOUT_DRAIN_GRACE_MS). */
+  drainGraceMs?: number
 }
 
 /**
@@ -338,7 +340,7 @@ export class ClaudeCodeSession implements AgentSession {
       this.child.on('exit', (code, signal) => {
         exited = { code, signal }
         if (drained) settle(code, signal)
-        else setTimeout(() => settle(code, signal), STDOUT_DRAIN_GRACE_MS).unref()
+        else setTimeout(() => settle(code, signal), options.drainGraceMs ?? STDOUT_DRAIN_GRACE_MS).unref()
       })
       this.child.on('error', (err) => {
         this.spawnError = err.message
