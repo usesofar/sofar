@@ -158,6 +158,14 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
       await run('git', ['worktree', 'remove', '--force', pollDir], rootDir, env)
     }
 
+    // No run_started among the exported events: the cloud drive never started
+    // (an older sofar in a cached environment refuses a flag it lacks, seen live
+    // with --lanes on 0.36). Say so with the host's own words, never "0 commits".
+    const ndjsonSeen = exportedEvents(seen)
+    if (ndjsonSeen === null || !ndjsonSeen.includes('"type":"run_started"')) {
+      const why = (seen.finalText ?? '').replace(HOSTED_DONE, '').trim().split('\n').slice(0, 6).join('\n')
+      return fail(`sofar drive --hosted: the drive never started in ${cloudId} — the host said:\n${why}`, { cloudId })
+    }
     let commits = 0
     if (seen.patch !== null) {
       const file = join(dir, 'run.patch')
@@ -170,8 +178,8 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
       commits = (seen.patch.match(/^From [0-9a-f]{40} /gm) ?? []).length
     }
     let events = 0
-    const ndjson = exportedEvents(seen)
-    if (ndjson !== null) {
+    const ndjson = ndjsonSeen
+    {
       const file = join(dir, 'events.ndjson')
       writeFileSync(file, ndjson)
       const imported = await run(sofar, ['import', file, slug], rootDir, env)

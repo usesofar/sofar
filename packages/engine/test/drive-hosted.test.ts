@@ -64,7 +64,7 @@ describe('a hosted run (drive-lanes 5.5)', () => {
       git(cloud, 'commit', '-qm', msg!)
     }
     const patch = git(cloud, 'format-patch', 'HEAD~2..HEAD', '--stdout')
-    const ev = '{"v":1,"id":"01B","initiative":"lanes","type":"handoff","payload":{"reason":"task_done"}}'
+    const ev = '{"v":1,"id":"01B","initiative":"lanes","type":"run_started","payload":{}}'
     const config = join(root, 'config')
     // First poll: still running; second: the host's turn ended on the done mark.
     writeFileSync(join(root, 'poll-1.jsonl'), [row('user', 'go'), row('assistant', [{ type: 'tool_use', id: 't', name: 'Bash', input: {} }])].join('\n'))
@@ -123,6 +123,44 @@ describe('a hosted run (drive-lanes 5.5)', () => {
     expect(readFileSync(join(root, 'imported-slug'), 'utf8').trim()).toBe('lanes')
     expect(progress).toContain('cost reported by the adapter: $0.21')
     expect(progress[0]).toBe('hosted: cloud session session_01HOSTabcdefgh runs lanes — https://claude.ai/code/session_01HOSTabcdefgh')
+  })
+
+  it('fails loudly, with the host words, when the cloud drive never started (seen live: --lanes on 0.36)', async () => {
+    const root = tmp()
+    const repo = join(root, 'repo')
+    mkdirSync(repo)
+    git(repo, 'init', '-q', '-b', 'main')
+    writeFileSync(join(repo, 'a.txt'), 'a\n')
+    git(repo, 'add', 'a.txt')
+    git(repo, 'commit', '-qm', 'init')
+    const config = join(root, 'config')
+    writeFileSync(
+      join(root, 'poll-1.jsonl'),
+      [
+        row('user', 'go'),
+        row('user', [{ type: 'tool_result', tool_use_id: 'e', content: '{"v":1,"id":"01C","type":"session_ended","payload":{}}\n' }]),
+        row('assistant', [{ type: 'text', text: `Step 2 failed: this sofar has no --lanes.\n${HOSTED_DONE}` }]),
+        row('system', null),
+      ].join('\n'),
+    )
+    const claude = join(root, 'claude')
+    writeFileSync(
+      claude,
+      [
+        '#!/bin/sh',
+        'case "$*" in *--cloud*) echo session_01HOSTabcdefgh; exit 0 ;; esac',
+        `mkdir -p ${config}/projects/p && cp ${root}/poll-1.jsonl ${config}/projects/p/l1.jsonl`,
+        'echo "{\\"session_id\\":\\"l1\\"}"; exit 1',
+      ].join('\n'),
+    )
+    const script = join(root, 'script')
+    writeFileSync(script, '#!/bin/sh\nlog="$2"; shift 2; "$@" > "$log" 2>&1\n')
+    const sofar = join(root, 'sofar')
+    writeFileSync(sofar, '#!/bin/sh\nexit 0\n')
+    for (const b of [claude, script, sofar]) chmodSync(b, 0o755)
+    const outcome = await driveHosted(repo, 'lanes', { driveArgs: ['lanes', '--lanes', '3'], bin: claude, scriptBin: script, sofarBin: sofar, configDir: config, pollMs: 10, platform: 'darwin' })
+    expect(outcome.ok).toBe(false)
+    expect(outcome.lines.at(-1)).toBe('sofar drive --hosted: the drive never started in session_01HOSTabcdefgh — the host said:\nStep 2 failed: this sofar has no --lanes.')
   })
 
   it('refuses uncommitted work: the cloud session starts from HEAD', async () => {
