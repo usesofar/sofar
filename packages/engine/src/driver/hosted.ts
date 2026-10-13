@@ -1,4 +1,5 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { launchEnv } from './adapter'
@@ -84,12 +85,45 @@ export function hostedPrompt(slug: string, driveArgs: string[], base: string, si
     `1. Write back first, or the run will not start: sofar event append ${shellWord(slug)} --session "$CLAUDE_CODE_SESSION_ID" --source claude-code --type session_ended --payload '{"summary":"hosting a sofar drive run","next_action":"the run"}'`,
     `2. ${drive}`,
     `3. Wait for the run: timeout 540 sofar drive ${shellWord(slug)} --await ; echo "await exit $?" — repeat this exact command until it prints an exit other than 124.`,
-    `4. git format-patch ${base}..${tip} --stdout -- . ':(exclude).sofar'`,
-    `5. ${exportCmd}`,
+    `4. Pack what the run made: { git format-patch ${base}..${tip} --stdout -- . ':(exclude).sofar'; echo ${BUNDLE_SEP}; ${exportCmd}; } | gzip -9 | base64 -w0 > /tmp/sofar-hosted.b64; echo "SOFAR-CHUNKS $(( ($(wc -c < /tmp/sofar-hosted.b64) + ${CHUNK - 1}) / ${CHUNK} ))"`,
+    `5. For each i from 1 to that count, run this as its OWN command (one command per chunk, never combined, nothing piped after it): i=<i>; echo "SOFAR-CHUNK $i"; cut -c $(( (i-1)*${CHUNK} + 1 ))-$(( i*${CHUNK} )) /tmp/sofar-hosted.b64`,
     `6. tail -3 "$(ls -t /tmp/sofar-drive/${slug}-*.log | head -1)"`,
     '',
     `Then end your reply with the line ${HOSTED_DONE}. If a step fails, say which and still run steps 4 and 5.`,
   ].join('\n')
+}
+
+/**
+ * What a hosted run sends back travels as ONE gzip+base64 blob printed in
+ * numbered chunks, each its own command: Claude Code cuts a command's output
+ * at about 30k characters, and a nine-task run's patch and events exceed it
+ * (seen live: the run finished 9/9, and its events never arrived whole).
+ */
+export const CHUNK = 24_000
+export const BUNDLE_SEP = 'SOFAR-HOSTED-EVENTS'
+
+/** The patch and the exported events the host's chunks carry, or why they cannot be read. */
+export function hostedBundle(outputs: string[]): { patch: string; events: string } | { missing: string } {
+  let count: number | undefined
+  const chunks = new Map<number, string>()
+  for (const out of outputs) {
+    const total = /^SOFAR-CHUNKS (\d+)\s*$/m.exec(out)
+    if (total !== null) count = Number(total[1])
+    const chunk = /^SOFAR-CHUNK (\d+)\n([A-Za-z0-9+/=\s]*)$/.exec(out)
+    if (chunk !== null) chunks.set(Number(chunk[1]), chunk[2]!.replace(/\s+/g, ''))
+  }
+  if (count === undefined) return { missing: 'the host never packed the run (no SOFAR-CHUNKS line)' }
+  const absent = Array.from({ length: count }, (_, i) => i + 1).filter((i) => !chunks.has(i))
+  if (absent.length > 0) return { missing: `chunk(s) ${absent.join(', ')} of ${count} never printed` }
+  let text: string
+  try {
+    text = gunzipSync(Buffer.from(Array.from({ length: count }, (_, i) => chunks.get(i + 1)!).join(''), 'base64')).toString('utf8')
+  } catch (err) {
+    return { missing: `the chunks do not decode: ${err instanceof Error ? err.message : String(err)}` }
+  }
+  const at = text.indexOf(`\n${BUNDLE_SEP}\n`)
+  const [patch, events] = at >= 0 ? [text.slice(0, at + 1), text.slice(at + BUNDLE_SEP.length + 2)] : text.startsWith(`${BUNDLE_SEP}\n`) ? ['', text.slice(BUNDLE_SEP.length + 1)] : [text, '']
+  return { patch, events }
 }
 
 /** The exported events among a host's command outputs: the last output whose lines are event JSON. */
@@ -161,21 +195,23 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
     // No run_started among the exported events: the cloud drive never started
     // (an older sofar in a cached environment refuses a flag it lacks, seen live
     // with --lanes on 0.36). Say so with the host's own words, never "0 commits".
-    const ndjsonSeen = exportedEvents(seen)
+    const bundle = hostedBundle(seen.outputs)
+    if ('missing' in bundle) return fail(`sofar drive --hosted: nothing came back from ${cloudId} — ${bundle.missing}`, { cloudId })
+    const ndjsonSeen = bundle.events.trim().length > 0 ? `${bundle.events.trim()}\n` : null
     if (ndjsonSeen === null || !ndjsonSeen.includes('"type":"run_started"')) {
       const why = (seen.finalText ?? '').replace(HOSTED_DONE, '').trim().split('\n').slice(0, 6).join('\n')
       return fail(`sofar drive --hosted: the drive never started in ${cloudId} — the host said:\n${why}`, { cloudId })
     }
     let commits = 0
-    if (seen.patch !== null) {
+    if (bundle.patch.trim().length > 0) {
       const file = join(dir, 'run.patch')
-      writeFileSync(file, seen.patch)
+      writeFileSync(file, bundle.patch)
       const am = await run('git', ['am', '--3way', file], rootDir, env)
       if (am.code !== 0) {
         await run('git', ['am', '--abort'], rootDir, env)
         return fail(`sofar drive --hosted: the run's commits did not apply: ${am.stderr.trim().split('\n').slice(-1)[0] ?? ''}`, { cloudId })
       }
-      commits = (seen.patch.match(/^From [0-9a-f]{40} /gm) ?? []).length
+      commits = (bundle.patch.match(/^From [0-9a-f]{40} /gm) ?? []).length
     }
     let events = 0
     const ndjson = ndjsonSeen

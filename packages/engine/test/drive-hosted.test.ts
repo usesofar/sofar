@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { gzipSync } from 'node:zlib'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { cloudDriveArgs, driveHosted, exportedEvents, hostedPrompt, HOSTED_DONE } from '../src/driver/hosted'
+import { BUNDLE_SEP, cloudDriveArgs, driveHosted, exportedEvents, hostedBundle, hostedPrompt, HOSTED_DONE } from '../src/driver/hosted'
 
 const dirs: string[] = []
 const tmp = (): string => {
@@ -16,6 +17,12 @@ afterAll(() => {
 })
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+/** The host's step 4 and 5 outputs for a patch and events, cut into `size`-character chunks. */
+const chunked = (patch: string, events: string, size = 40): string[] => {
+  const b64 = gzipSync(Buffer.from(`${patch}${BUNDLE_SEP}\n${events}`)).toString('base64')
+  const n = Math.ceil(b64.length / size)
+  return [`SOFAR-CHUNKS ${n}`, ...Array.from({ length: n }, (_, i) => `SOFAR-CHUNK ${i + 1}\n${b64.slice(i * size, (i + 1) * size)}\n`)]
+}
 const row = (type: string, content: unknown): string =>
   JSON.stringify({ type, ...(type === 'system' ? { subtype: 'stop_hook_summary' } : { message: { content } }) })
 
@@ -38,6 +45,17 @@ describe('a hosted run (drive-lanes 5.5)', () => {
   it("takes a lanes run's work from its run base branch, not the host's HEAD (D20)", () => {
     const p = hostedPrompt('lanes', ['lanes', '--lanes', '3'], 'abc', undefined)
     expect(p).toContain(`git format-patch abc.."$(git for-each-ref --sort=-creatordate --format='%(refname:short)' 'refs/heads/sofar/lanes/' | grep -E '^sofar/lanes/[0-9A-Z]{26}$' | head -1)" --stdout`)
+  })
+
+  it('reassembles the chunked bundle in order, and names what is missing', () => {
+    const patch = 'From ' + 'a'.repeat(40) + ' Mon Sep 17 00:00:00 2001\nSubject: x\n'
+    const events = '{"v":1,"id":"01A","type":"run_started","payload":{}}\n'
+    const outs = chunked(patch, events, 16)
+    expect(outs.length).toBeGreaterThan(3)
+    expect(hostedBundle([...outs].reverse())).toEqual({ patch, events })
+    expect(hostedBundle(outs.filter((o) => !o.startsWith('SOFAR-CHUNK 2\n')))).toEqual({ missing: `chunk(s) 2 of ${outs.length - 1} never printed` })
+    expect(hostedBundle(['nothing'])).toEqual({ missing: 'the host never packed the run (no SOFAR-CHUNKS line)' })
+    expect(hostedBundle(chunked('', events))).toEqual({ patch: '', events })
   })
 
   it('reads the exported events as the last output made only of event lines', () => {
@@ -73,8 +91,7 @@ describe('a hosted run (drive-lanes 5.5)', () => {
       [
         row('user', 'go'),
         row('user', [{ type: 'tool_result', tool_use_id: 't', content: 'await exit 0' }]),
-        row('user', [{ type: 'tool_result', tool_use_id: 'p', content: patch }]),
-        row('user', [{ type: 'tool_result', tool_use_id: 'e', content: `${ev}\n` }]),
+        ...chunked(patch, `${ev}\n`).map((out, i) => row('user', [{ type: 'tool_result', tool_use_id: `c${i}`, content: out }])),
         row('user', [{ type: 'tool_result', tool_use_id: 'l', content: 'run 01X via claude-code — 2 handoffs\ncost reported by the adapter: $0.21' }]),
         row('assistant', [{ type: 'text', text: `Run done.\n${HOSTED_DONE}` }]),
         row('system', null),
@@ -138,7 +155,7 @@ describe('a hosted run (drive-lanes 5.5)', () => {
       join(root, 'poll-1.jsonl'),
       [
         row('user', 'go'),
-        row('user', [{ type: 'tool_result', tool_use_id: 'e', content: '{"v":1,"id":"01C","type":"session_ended","payload":{}}\n' }]),
+        ...chunked('', '{"v":1,"id":"01C","type":"session_ended","payload":{}}\n').map((out, i) => row('user', [{ type: 'tool_result', tool_use_id: `c${i}`, content: out }])),
         row('assistant', [{ type: 'text', text: `Step 2 failed: this sofar has no --lanes.\n${HOSTED_DONE}` }]),
         row('system', null),
       ].join('\n'),
