@@ -4,7 +4,7 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages), and a driven task costs fewer tokens than native Claude Code (one session with its own subagents) on the same fixture.
 
-Brief: the operator's words, 7455 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 7883 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
 Progress: 25 done, 3 dropped, 2 remaining
 
@@ -21,8 +21,9 @@ Progress: 25 done, 3 dropped, 2 remaining
 - [x] 5.1 Cloud launch and readback without a TTY: `claude --cloud` refuses a non-TTY (r4-fixes M24). Verify a scriptable launch (routines via API call, or a pty), a branch per task, results back through pushed branches (needs the Claude GitHub App on the repo), and session end detected from the branch's record
 - [x] 5.2 Cloud lane adapter: a lane is a cloud session on its task branch. The local coordinator polls and fetches, verifies locally, merges through the queue, and `--resume` re-attaches after the laptop sleeps (the record is the queue)
 - [ ] 5.3 Conflicts in cloud lanes: no edit-time leases (a cloud VM cannot read the local lease store), so scheduling by footprint plus the merge queue. Measure conflict rework against local lanes
-- [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
+- [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate (blocked)
 - [x] 5.5 Drive hosted in a cloud session (P24): `sofar drive --detach` started inside ONE Claude Code cloud session, its tasks run by the claude-code adapter as `claude -p` children in that VM, so a whole run is one entry in the operator's list. Probe: does the VM give child sessions auth, does a detached run survive the turn ending, and how the result comes back (patch or push). Compare against claude-cloud lanes on leftovers, wall-clock and done rate
 
 Active phase: Phase 5 — Cloud lanes
-Next action: 5.3/5.4: hosted cloud vs local lanes, 3 reps on the nine-task fixture
+Next action: Operator: re-login bench profile; ship lanes in a release, then rerun 5.4
+Blocked on: task 5.4: Reps 5.4-local-1..3 and 5.4-hosted-1..3 (2026-10-13) invalid: ~/.bench/claude-config is not logged in (operator re-login needed); the cloud env's cached sofar is 0.36.0-rc.3, and no release (rc.8 included) has drive --lanes, so hosted lanes cannot run until a release carries drive-lanes. Hosted serial is measurable now
