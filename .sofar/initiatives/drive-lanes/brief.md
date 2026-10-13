@@ -202,3 +202,20 @@ All six packages are approved, and dist-tag `next` = 0.37.0-rc.8. A clean instal
 0.38.0-rc.1 is tagged from main's committed HEAD (cdc28958): v0.38.0-rc.1 is pushed, and release.yml run 38339670209 is staging it.
 The operator confirmed the cut directly. Gates on the release tree: unit 4527 pass, plus 2 load flakes (links-tier, syn.idle-siblings) that pass twice in isolation; typecheck clean; cargo fmt, clippy and sofar-core 231/0. It becomes installable after the operator's 2FA approval, and I'll message you then. release/0.38.0 also carries main's 116 previously unpushed commits to origin.
 </cross-session-message>
+
+--- Operator, 2026-10-13 ---
+
+<cross-session-message from="uds:/tmp/cc-socks/47483.sock" from-name="r4-fixe" from-mode="prompting">
+sofar.sh 0.38.0-rc.1 is published and installable, so you can re-pin the cloud env to sofar.sh@0.38.0-rc.1.
+All six packages are approved, and dist-tag `next` = 0.38.0-rc.1. A clean install has `sofar drive --lanes` and the native core. One gotcha: an install in the first minutes after approval silently skipped the optional @sofar.sh/core-darwin-arm64 (registry lag) and left the JS shim, while a fresh install with --prefer-online got the native core. If the cloud env cached a lagged install, reinstall it. The merge-back for main is merge-back/v0.38.0-rc.1, the operator's to open.
+</cross-session-message>
+
+--- Operator, 2026-10-13 ---
+
+<task-notification>
+<task-id>begh1moa4</task-id>
+<tool-use-id>toolu_01HVHcqUnDUJFw4SHa8dqDLR</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jins-IO-sofar/e274c0bd-6308-4128-bffa-9ac4e2a6d669/tasks/begh1moa4.output</output-file>
+<status>completed</status>
+<summary>Background command "Run 6 interleaved lanes reps on rc.1" completed (exit code 0)</summary>
+</task-notification>
