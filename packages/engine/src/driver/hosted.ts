@@ -72,6 +72,11 @@ export function hostedPrompt(slug: string, driveArgs: string[], base: string, si
   // A cloud environment caches its setup for days, so its sofar can predate
   // 0.37.0-rc.8's strip of the host's id: the host strips it itself (seen live).
   const drive = ['env -u CLAUDE_CODE_REMOTE_SESSION_ID sofar', 'drive', ...driveArgs.map(shellWord), '--detach'].join(' ')
+  // A lanes run lands on its run base branch and leaves the checkout alone (D20): the newest one is this run's.
+  const lanes = driveArgs.some((a) => a === '--lanes' || a.startsWith('--lanes='))
+  const tip = lanes
+    ? `"$(git for-each-ref --sort=-creatordate --format='%(refname:short)' 'refs/heads/sofar/${slug}/' | grep -E '^sofar/${slug}/[0-9A-Z]{26}$' | head -1)"`
+    : 'HEAD'
   const exportCmd = `sofar export ${shellWord(slug)}${since !== undefined ? ` --since ${since}` : ''} | grep -v -e '"type":"command_run"' -e '"type":"file_touched"'`
   return [
     `You host one sofar drive run of the initiative \`${slug}\` in this cloud session. Call no sofar MCP tool and do no task work yourself; run exactly these commands from the repository root, in order:`,
@@ -79,8 +84,9 @@ export function hostedPrompt(slug: string, driveArgs: string[], base: string, si
     `1. Write back first, or the run will not start: sofar event append ${shellWord(slug)} --session "$CLAUDE_CODE_SESSION_ID" --source claude-code --type session_ended --payload '{"summary":"hosting a sofar drive run","next_action":"the run"}'`,
     `2. ${drive}`,
     `3. Wait for the run: timeout 540 sofar drive ${shellWord(slug)} --await ; echo "await exit $?" — repeat this exact command until it prints an exit other than 124.`,
-    `4. git format-patch ${base}..HEAD --stdout -- . ':(exclude).sofar'`,
+    `4. git format-patch ${base}..${tip} --stdout -- . ':(exclude).sofar'`,
     `5. ${exportCmd}`,
+    `6. tail -3 "$(ls -t /tmp/sofar-drive/${slug}-*.log | head -1)"`,
     '',
     `Then end your reply with the line ${HOSTED_DONE}. If a step fails, say which and still run steps 4 and 5.`,
   ].join('\n')
@@ -173,6 +179,9 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
       events = ndjson.trim().split('\n').length
     }
     say(`hosted: ${commits} commit(s) applied, ${events} event(s) imported from ${cloudId}`)
+    // The cloud driver's own cost line, passed through as the local driver prints it (its sessions' cost; the host's is not in it).
+    const cost = seen.outputs.map((o) => /cost reported by the adapter: \$[0-9.]+/.exec(o)?.[0]).filter((c): c is string => c !== undefined).pop()
+    if (cost !== undefined) say(cost)
     return { ok: true, cloudId, commits, events, lines }
   } finally {
     rmSync(dir, { recursive: true, force: true })

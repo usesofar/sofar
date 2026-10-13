@@ -35,6 +35,11 @@ describe('a hosted run (drive-lanes 5.5)', () => {
     expect(p).toContain(HOSTED_DONE)
   })
 
+  it("takes a lanes run's work from its run base branch, not the host's HEAD (D20)", () => {
+    const p = hostedPrompt('lanes', ['lanes', '--lanes', '3'], 'abc', undefined)
+    expect(p).toContain(`git format-patch abc.."$(git for-each-ref --sort=-creatordate --format='%(refname:short)' 'refs/heads/sofar/lanes/' | grep -E '^sofar/lanes/[0-9A-Z]{26}$' | head -1)" --stdout`)
+  })
+
   it('reads the exported events as the last output made only of event lines', () => {
     const ev = '{"v":1,"id":"01A","type":"handoff","payload":{}}'
     expect(exportedEvents({ started: true, ended: true, finalText: null, patch: null, outputs: [`${ev}\n${ev}\n`, 'await exit 0'] })).toBe(`${ev}\n${ev}\n`)
@@ -70,6 +75,7 @@ describe('a hosted run (drive-lanes 5.5)', () => {
         row('user', [{ type: 'tool_result', tool_use_id: 't', content: 'await exit 0' }]),
         row('user', [{ type: 'tool_result', tool_use_id: 'p', content: patch }]),
         row('user', [{ type: 'tool_result', tool_use_id: 'e', content: `${ev}\n` }]),
+        row('user', [{ type: 'tool_result', tool_use_id: 'l', content: 'run 01X via claude-code — 2 handoffs\ncost reported by the adapter: $0.21' }]),
         row('assistant', [{ type: 'text', text: `Run done.\n${HOSTED_DONE}` }]),
         row('system', null),
       ].join('\n'),
@@ -115,6 +121,7 @@ describe('a hosted run (drive-lanes 5.5)', () => {
     expect(git(repo, 'log', '--format=%s', '-2').trim().split('\n')).toEqual(['1.2: c', '1.1: b'])
     expect(readFileSync(join(root, 'imported'), 'utf8')).toBe(`${ev}\n`)
     expect(readFileSync(join(root, 'imported-slug'), 'utf8').trim()).toBe('lanes')
+    expect(progress).toContain('cost reported by the adapter: $0.21')
     expect(progress[0]).toBe('hosted: cloud session session_01HOSTabcdefgh runs lanes — https://claude.ai/code/session_01HOSTabcdefgh')
   })
 
