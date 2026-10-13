@@ -3580,8 +3580,8 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
 }
 
 /**
- * The context-ceiling line for this prompt (context-ceiling 3.1, SPEC §Context
- * ceiling): the gauge is the transcript tail's latest main-chain call, the
+ * The context-ceiling line for this prompt (context-ceiling 3.1, SPEC
+ * §Context ceiling): the gauge is the transcript tail's latest main-chain call, the
  * window only one the statusline stated. Null on any failure — a setting or a
  * gauge never costs the prompt its other lines.
  */

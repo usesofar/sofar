@@ -19,8 +19,8 @@ import { appendEvent } from '../src/core/log'
 import { NUDGE_ENV } from '../src/driver/nudge'
 
 /**
- * The prompt hook's context-ceiling line (context-ceiling 3.1, SPEC §Context
- * ceiling): past warn one terse line, past the ceiling the write-back and
+ * The prompt hook's context-ceiling line (context-ceiling 3.1, SPEC
+ * §Context ceiling): past warn one terse line, past the ceiling the write-back and
  * /clear ask; once per crossing under nudge, every prompt under insist.
  */
 

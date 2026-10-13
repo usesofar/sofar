@@ -6,8 +6,8 @@ import { readContextSettings, thresholdTokens, type ContextSettings } from './co
 import { cloneKey, resolvesInside, stateBase, type StateEnv } from './state-dir'
 
 /**
- * The prompt hook's context-ceiling line (context-ceiling 3.1, SPEC §Context
- * ceiling): past `warn` one terse line, past `ceiling` a line asking the
+ * The prompt hook's context-ceiling line (context-ceiling 3.1, SPEC
+ * §Context ceiling): past `warn` one terse line, past `ceiling` a line asking the
  * session to write back with sofar_end_session and then ask the operator to
  * /clear. Under `nudge` each is told once per crossing — the told set's
  * `ctx=<band>` fragment holds the band last told; under `insist` the ceiling
