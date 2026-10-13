@@ -295,6 +295,52 @@ describe('sofar drive --lanes (2.2, D20)', () => {
     expect(git(root, 'show', `${outcome.base!.branch}:half.txt`)).toBe('half\n')
   })
 
+  it('a new run carries a stopped run\'s unmerged base and unlanded task branch forward, redoing nothing (7.3)', async () => {
+    const root = repo('carry', {}, tasks(2, { '1.2': ['1.1'] }))
+    const commitFile = (file: string, message: string) => (cwd: string): void => {
+      writeFileSync(join(cwd, file), `${file}\n`)
+      git(cwd, 'add', file)
+      git(cwd, 'commit', '-qm', message)
+    }
+    const first: string[] = []
+    // 1.1 lands; 1.2 commits its work and stalls, so the stop strands it.
+    const one = new FakeAdapter([
+      worker(root, 'S1', { work: commitFile('a.txt', '1.1: a') }),
+      worker(root, 'S2', { complete: false, write_back: false, work: commitFile('b.txt', '1.2: b') }),
+    ])
+    const stopped = await drive(root, 'demo', { adapter: one, lanes: 2, laneSetup: 'none', maxStalls: 1, onProgress: (l) => first.push(l) })
+    expect(stopped.handoffs.map((h) => [h.task, h.reason])).toEqual([
+      ['1.1', 'task_done'],
+      ['1.2', 'stall'],
+    ])
+    const r1 = state(root).runs[0]!.id
+    const stranded = taskBranch('demo', r1, '1.2')
+    expect(stopped.unlanded).toEqual([{ task: '1.2', branch: stranded, commits: 1 }])
+    expect(first).toContain(`lanes: unlanded task branches with commits — 1.2 on ${stranded} (1 commit) — a new lanes run of demo carries them forward`)
+
+    // The new run: its base starts at the earlier one, and 1.2 resumes from its branch.
+    const lines: string[] = []
+    const two = new FakeAdapter([
+      worker(root, 'S3', {
+        work: (cwd) => {
+          expect(readFileSync(join(cwd, 'a.txt'), 'utf8')).toBe('a.txt\n')
+          expect(readFileSync(join(cwd, 'b.txt'), 'utf8')).toBe('b.txt\n')
+        },
+      }),
+    ])
+    const outcome = await drive(root, 'demo', { adapter: two, lanes: 2, laneSetup: 'none', onProgress: (l) => lines.push(l) })
+    const r2 = state(root).runs[1]!.id
+    expect(outcome.stop.reason).toBe('closed')
+    expect(two.sessions.map((s) => s.request.task?.id)).toEqual(['1.2'])
+    const oldBase = runBaseBranch('demo', r1)
+    expect(lines.some((l) => l.startsWith(`  carried forward: ${oldBase} (`) && l.includes("this run's base starts there"))).toBe(true)
+    expect(lines).toContain(`  carried forward: 1.2 from ${stranded} (1 commit) — it resumes there on ${taskBranch('demo', r2, '1.2')}, not from scratch`)
+    expect(lines.some((l) => new RegExp(`^lane \\d: 1\\.2 resumes from ${stranded.replaceAll('.', '\\.')} \\(1 commit\\) on `).test(l))).toBe(true)
+    // Each task's commit is on the new base once, and nothing is stranded now.
+    expect(git(root, 'log', '--format=%s', outcome.base!.branch).trim().split('\n')).toEqual(['1.2: b', '1.1: a', 'base'])
+    expect(outcome.unlanded).toBeUndefined()
+  })
+
   it('refuses what a lanes run cannot honour, before anything is recorded', async () => {
     const root = repo('refuse')
     const adapter = (): FakeAdapter => new FakeAdapter([worker(root, 'S1', { usage: [{ context_tokens: 1 }] })])

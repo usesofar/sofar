@@ -439,6 +439,11 @@ export async function runDrive(
   if (outcome.base !== undefined) {
     lines.push(`landed on ${outcome.base.branch} (${outcome.base.tip.slice(0, 7)}) — \`git merge ${outcome.base.branch}\` brings it into your branch`)
   }
+  if (outcome.unlanded !== undefined) {
+    lines.push(
+      `unlanded: ${outcome.unlanded.map((u) => `${u.task} on ${u.branch} (${u.commits} commit${u.commits === 1 ? '' : 's'})`).join('; ')} — a new lanes run carries them forward`,
+    )
+  }
   const stdout = `${lines.join('\n')}\n`
   return outcome.stop.reason === 'error' ? { exitCode: 1, stdout, stderr: '' } : ok(stdout)
 }

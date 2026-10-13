@@ -75,7 +75,7 @@ import {
   type VerificationProcess,
 } from './verify'
 import { claimVerifySlot, waitForLoad, type LoadWaitOptions } from './load'
-import { claimLanePool, detectLaneSetup, dirtyPaths, headCommit, lanePoolDir, LaneRun, type Lane, type LaneTask } from './lanes'
+import { claimLanePool, detectLaneSetup, dirtyPaths, findStranded, headCommit, lanePoolDir, LaneRun, type Lane, type LaneTask } from './lanes'
 import { version as ENGINE_VERSION } from '../../package.json'
 import { resolveJudgeProvider } from '../client/judge'
 import type { JudgeOptions } from '../core/judge'
@@ -572,6 +572,8 @@ export interface DriveOutcome {
   stop: { reason: RunStopReason; note?: string }
   /** A lanes run's base branch, holding every task it landed (D20); absent on a serial run. */
   base?: { branch: string; tip: string }
+  /** A lanes run's task branches holding commits its base does not (7.3); absent when there are none. */
+  unlanded?: { task: string; branch: string; commits: number }[]
 }
 
 /** How one launch ended, for the loop that launched it to apply its stop rules to. */
@@ -1057,7 +1059,19 @@ async function driveHolding(
   let leasing: { mode: 'steer' | 'deny'; hook: string; pool: string } | undefined
   if (lanes > 1) {
     try {
-      const from = headCommit(rootDir)
+      const head = headCommit(rootDir)
+      // What an earlier stopped lanes run left unlanded carries forward (7.3):
+      // its base when HEAD is its ancestor, and its branches for tasks still to do.
+      const stranded = resuming
+        ? undefined
+        : findStranded(
+            rootDir,
+            initiative,
+            before0.runs.map((r) => r.id).reverse(),
+            head,
+            before0.phases.flatMap((p) => p.tasks).filter((t) => t.status !== 'done' && t.status !== 'dropped').map((t) => t.id),
+          )
+      const from = stranded?.base?.tip ?? head
       const setup =
         options.laneSetup === 'none' || options.laneSetup?.trim() === '' ? undefined : (options.laneSetup ?? detectLaneSetup(rootDir))
       const pool = await claimLanePool(rootDir, lanes, from, options.lock !== undefined ? { lock: options.lock } : {})
@@ -1074,10 +1088,22 @@ async function driveHolding(
         progress,
       })
       const base = laneRun.ensureBase(from)
+      for (const task of stranded?.tasks ?? []) laneRun.carry(task)
       const primed = laneRun.prime()
       opening.push(
         `  lanes: ${pool.lanes.map((l) => l.id).join(', ')} in ${lanePoolDir(rootDir, options.lock?.env)}; each task branches from ${laneRun.base} (${base.tip.slice(0, 7)})${setup !== undefined ? `, set up with \`${setup}\`` : ''}`,
       )
+      if (stranded?.base !== undefined) {
+        opening.push(
+          `  carried forward: ${stranded.base.branch} (${stranded.base.tip.slice(0, 7)}), an earlier run's unmerged base ${stranded.base.commits} commit${stranded.base.commits === 1 ? '' : 's'} past HEAD (${head.slice(0, 7)}) — this run's base starts there`,
+        )
+      }
+      for (const task of stranded?.tasks ?? []) {
+        opening.push(
+          `  carried forward: ${task.taskId} from ${task.branch} (${task.commits} commit${task.commits === 1 ? '' : 's'}) — it resumes there on ${laneRun.branchOf(task.taskId)}, not from scratch`,
+        )
+      }
+      for (const line of stranded?.warnings ?? []) opening.push(`warning: ${line}`)
       if (options.leases !== undefined) leasing = { ...options.leases, pool: lanePoolDir(rootDir, options.lock?.env) }
       opening.push(
         leasing === undefined
@@ -1098,7 +1124,7 @@ async function driveHolding(
       const dirty = dirtyPaths(rootDir).length
       if (dirty > 0) {
         opening.push(
-          `warning: ${rootDir} holds ${dirty} uncommitted path${dirty === 1 ? '' : 's'} outside .sofar — lanes start from its last commit (${from.slice(0, 7)}) and do not see them`,
+          `warning: ${rootDir} holds ${dirty} uncommitted path${dirty === 1 ? '' : 's'} outside .sofar — lanes start from its last commit (${head.slice(0, 7)}) and do not see them`,
         )
       }
     } catch (err) {
@@ -3020,10 +3046,20 @@ async function driveHolding(
   publish(ctx.foldState(initiative), null, ended.reason)
   // A lanes run's work is on its base branch, never the checkout's (D20).
   let base: DriveOutcome['base']
+  let unlanded: DriveOutcome['unlanded']
   if (laneRun !== undefined) {
     try {
       base = { branch: laneRun.base, tip: laneRun.baseTip() }
       progress(`lanes: what this run landed is on ${base.branch} (${base.tip.slice(0, 7)}) — \`git merge ${base.branch}\` brings it into your branch`)
+      // Work with commits no landing took in (7.3): named, so it is never lost
+      // track of; a new lanes run of this initiative carries it forward.
+      const stranded = laneRun.strandedBranches(ctx.foldState(initiative).phases.flatMap((p) => p.tasks).map((t) => t.id))
+      if (stranded.length > 0) {
+        unlanded = stranded.map((s) => ({ task: s.taskId, branch: s.branch, commits: s.commits }))
+        progress(
+          `lanes: unlanded task branches with commits — ${stranded.map((s) => `${s.taskId} on ${s.branch} (${s.commits} commit${s.commits === 1 ? '' : 's'})`).join('; ')} — a new lanes run of ${initiative} carries them forward`,
+        )
+      }
     } catch (err) {
       progress(`warning: ${err instanceof Error ? err.message : String(err)}`)
     }
@@ -3038,6 +3074,7 @@ async function driveHolding(
     cost_usd: cost,
     stop: ended,
     ...(base !== undefined ? { base } : {}),
+    ...(unlanded !== undefined ? { unlanded } : {}),
   }
 }
 
