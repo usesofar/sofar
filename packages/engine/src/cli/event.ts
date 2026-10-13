@@ -43,6 +43,7 @@ import { activityEnabled, leavesWorktree, mayWriteHere, testShapedCommand } from
 import { retireEnabled, retiredOrdinals } from '../core/retire'
 import { applicableChecks, assertionDelta, boundTestsTouched, checkFailureLine, checksInForce, diffFrom, enforceEnabled, gatePathspecs, insideRoot, isApproved, rootProbe, rulesCanBear, runChecks, sessionBase, stopGate, suiteOf, testGateHolds, testGuardEnabled, testLossLines, throttledUnapprovedLine, worktreeChanges, type InForceCheck, type PathProbe, type StopGate } from '../core/checks'
 import { CARRIER_TOLD_KEY, carriedRecord, carrierEnabled, carrierLine, intendedRecord, intentLine } from '../core/carrier'
+import { keepOfferAllowed, pagedClauseLine } from '../core/paged-clauses'
 import { runVerification } from '../driver/verify'
 import { readGitState, type GitState } from '../core/git'
 import { noteEngine, noteUpstream } from '../core/shipwatch'
@@ -208,8 +209,20 @@ export function holdClose(lines: string[], env: Record<string, string | undefine
   return env.SOFAR_HOLD_CLOSE === 'off' ? lines : [...lines, HOLD_CLOSE_LINE]
 }
 
-export function stopBlockMessage(mode: WritebackMode = writebackMode()): string {
-  return mode === 'inline' ? STOP_BLOCK_MESSAGE : STOP_BLOCK_MESSAGE_TOOL
+/**
+ * The tool-mode hold names the session that owes (felt-latency L4): a write
+ * filed under another id — a server spawned before a /clear renamed the
+ * conversation, or a start call that minted one — never settles this one, and
+ * the generic line held it again on every stop (41 holds in one session).
+ */
+export function stopBlockMessage(mode: WritebackMode = writebackMode(), session?: string): string {
+  if (mode === 'inline') return STOP_BLOCK_MESSAGE
+  return session === undefined ? STOP_BLOCK_MESSAGE_TOOL : toolStopMessage(session)
+}
+
+/** STOP_BLOCK_MESSAGE_TOOL naming the session that owes. */
+export function toolStopMessage(session: string): string {
+  return STOP_BLOCK_MESSAGE_TOOL.replace('call sofar_end_session', `call sofar_end_session with session_id ${session}`)
 }
 
 /**
@@ -1751,7 +1764,7 @@ export function handleStop(
     return {
       exitCode: 2,
       stdout: '',
-      stderr: holdClose([filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId, mode) : stopBlockMessage(mode)), ...crossings, ...checks, ...merge, ...links]).join('\n'),
+      stderr: holdClose([filing?.ask ?? (host?.tool === 'codex' ? codexStopMessage(slug, sessionId, mode) : stopBlockMessage(mode, sessionId)), ...crossings, ...checks, ...merge, ...links]).join('\n'),
     }
   } catch {
     return { ...OK }
@@ -1800,6 +1813,7 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
     // session's edit (r4-fixes H20), whatever window of this one spans it.
     let peers: FileIndex | undefined
     const files: string[] = []
+    const mtimes = new Map<string, number>()
     let editedAt: number | null = null
     for (const [p, fromTree] of [...captured.map((f) => [f, false] as const), ...fromGit.map((f) => [f, true] as const)]) {
       try {
@@ -1812,6 +1826,7 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
         )
           continue
         if (editedAt === null || mtime > editedAt) editedAt = mtime
+        mtimes.set(p, mtime)
       } catch {
         // a deleted file has no mtime; its removal is still an edit git names
       }
@@ -1821,7 +1836,8 @@ export function stopGateFor(rootDir: string, sofarDir: string, slug: string, sta
     let known = session.activity?.last_test?.cmd ?? null
     for (let i = state.sessions.length - 1; known === null && i >= 0; i -= 1) known = state.sessions[i]!.activity?.last_test?.cmd ?? null
     const probe = rootProbe(rootDir)
-    const verdict = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown)
+    const edits = { mtimes, recentTests: session.activity?.recent_tests ?? [], root: rootDir }
+    const verdict = stopGate(index, files, session.activity?.tests_since_edit ?? [], known, editedAt, probe, outcomesKnown, edits)
     // An ask holds only in strict mode (r4-fixes D65); by default only a failed
     // covering run does, and an ask rides a write-back hold or reaches the operator.
     const gate = testGateHolds(rootDir) ? verdict : { ...verdict, blocks: verdict.fails }
@@ -3388,7 +3404,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       host.tool === 'claude-code' ? titleToApply(hook, sessionTitle(slug, focusTask(state)?.task.id ?? null, sessionId), ctx.sofarDir) : null
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
-    const keep = prompt === null ? null : keepLine(rootDir, slug, sessionId, prompt)
+    const keepCaptured = prompt === null ? null : keepLine(rootDir, slug, sessionId, prompt)
     // Recall (memory-lead 4.3, D25) before the registration check too: the
     // first prompt is the cue, and in a bench session it is the only one.
     // Cursor's prompt hook cannot inject, so it is never spent there.
@@ -3405,8 +3421,17 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       carriedLine === null && prompt !== null && host.tool !== 'cursor' && elsewhereEnabled()
         ? glanceLine(ctx, slug, sessionId, prompt, (s) => recordOpen(ctx, s))
         : null
+    // The protocol's situational clauses (felt-latency L3), paged in by the
+    // prompt that calls for them; a first prompt is the likeliest to hand over
+    // a roadmap or ask for a drive, so this runs before the registration check.
+    const paged =
+      prompt !== null && host.tool === 'claude-code'
+        ? pagedClauseLine(rootDir, ctx.sofarDir, sessionId, prompt, initiativeSlugs(ctx.sofarDir).filter((s) => s !== slug))
+        : null
+    // The P<n> offer leans on PLAN; with PLAN paged out it waits for PLAN.
+    const keep = keepCaptured !== null && (host.tool !== 'claude-code' || keepOfferAllowed(rootDir, ctx.sofarDir, sessionId)) ? keepCaptured : null
     if (me === undefined) {
-      const first = [carriedLine, glance, recall, map, keep].filter((l): l is string => l !== null)
+      const first = [carriedLine, glance, recall, map, keep, paged].filter((l): l is string => l !== null)
       return withSessionTitle('user-prompt', first.length === 0 ? { ...OK } : { ...OK, stdout: first.join('\n') }, title) // not ours to nudge
     }
 
@@ -3524,6 +3549,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     if (recall !== null) lines.push(recall)
     if (map !== null) lines.push(map)
     if (keep !== null) lines.push(keep)
+    if (paged !== null) lines.push(paged)
     if (carriedLine !== null) lines.unshift(carriedLine)
 
     return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)

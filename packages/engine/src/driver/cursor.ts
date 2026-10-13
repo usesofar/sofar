@@ -10,7 +10,7 @@ import type {
   SessionExit,
   Usage,
 } from './adapter'
-import { drivenPinLine, launchEnv } from './adapter'
+import { drivenPinLine, launchEnv, launchPrompt } from './adapter'
 import { lowPriority } from './load'
 
 /**
@@ -122,7 +122,7 @@ export function cursorPinLine(initiative: string, sessionId: string, sofarBin = 
 }
 
 export function cursorPrompt(request: LaunchRequest, sessionId: string, sofarBin?: string): string {
-  return `${cursorPinLine(request.initiative, sessionId, sofarBin)}\n\n${request.prompt}`
+  return `${cursorPinLine(request.initiative, sessionId, sofarBin)}\n\n${launchPrompt(request)}`
 }
 
 /**

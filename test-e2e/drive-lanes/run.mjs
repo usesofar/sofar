@@ -37,6 +37,7 @@ const { values: opt } = parseArgs({
     label: { type: 'string' },
     fixture: { type: 'string', default: 'nine' },
     arm: { type: 'string', default: 'serial' },
+    agent: { type: 'string', default: 'claude-code' },
     lanes: { type: 'string', default: '3' },
     leases: { type: 'string' },
     schedule: { type: 'string' },
@@ -68,11 +69,25 @@ if (fixture.NAME === 'hub' && opt.arm === 'native') {
   process.exit(2)
 }
 const { REFERENCE, SKELETON, SLUG, TASKS, GOAL, planPayload } = fixture
-if (!['serial', 'lanes', 'native'].includes(opt.arm)) {
+if (!['serial', 'lanes', 'native', 'hosted'].includes(opt.arm)) {
   console.error(`--arm ${opt.arm}: the arms are \`serial\`, \`lanes\` and \`native\` — later drive-lanes steps add theirs here`)
   process.exit(2)
 }
 const native = opt.arm === 'native'
+// Cloud lanes (5.2): every task a Claude Code cloud session (D51). They run on
+// the operator's own profile — the bench one stops on first-run onboarding in
+// an interactive launch (M22) — and need the cell's repo trusted, which this
+// harness waits for rather than writes (the operator's profile is not its to edit).
+// A hosted run (5.5, D55): the whole drive in one cloud session, its commits
+// and record brought back; `--lanes` is passed to the cloud-side driver.
+const hosted = opt.arm === 'hosted'
+const hostedLanes = hosted ? Number(opt.lanes) : 1
+const cloud = opt.agent === 'claude-cloud' || hosted
+if (!['claude-code', 'claude-cloud'].includes(opt.agent) || (cloud && native)) {
+  console.error(`--agent ${opt.agent}: a drive arm takes claude-code or claude-cloud`)
+  process.exit(2)
+}
+const profileEnv = () => (cloud ? {} : { CLAUDE_CONFIG_DIR: opt['claude-config'] })
 const lanes = opt.arm === 'lanes' ? Number(opt.lanes) : 1
 if (opt.arm === 'lanes' && !(Number.isInteger(lanes) && lanes >= 2)) {
   console.error(`--lanes ${opt.lanes}: a lanes arm runs at least 2`)
@@ -468,7 +483,7 @@ function pieceSelfTest() {
 
 // ---------- the arm ----------
 function claudeInfo() {
-  const env = scrubbedEnv({ CLAUDE_CONFIG_DIR: opt['claude-config'] })
+  const env = scrubbedEnv(profileEnv())
   const version = sh(opt.claude, ['--version'], { env }).stdout.trim()
   const auth = sh(opt.claude, ['auth', 'status'], { env, allowFail: true, cwd: HOME })
   let status = {}
@@ -492,8 +507,11 @@ function driveArgs(engine) {
     ...(opt.schedule !== undefined ? ['--schedule', opt.schedule] : []),
     '--no-keep-awake',
     '--bin', opt.claude,
-    '--agent-arg=--setting-sources', '--agent-arg=project,local',
-    '--agent-arg=--strict-mcp-config', '--agent-arg=--mcp-config', `--agent-arg=${join(repo, '.mcp.json')}`,
+    ...(cloud
+      ? hosted
+        ? ['--hosted', 'cloud', ...(hostedLanes > 1 ? ['--lanes', String(hostedLanes)] : [])]
+        : ['--agent', 'claude-cloud']
+      : ['--agent-arg=--setting-sources', '--agent-arg=project,local', '--agent-arg=--strict-mcp-config', '--agent-arg=--mcp-config', `--agent-arg=${join(repo, '.mcp.json')}`]),
   ]
 }
 
@@ -515,8 +533,30 @@ function probe(engine) {
   return { exit: r.status, signal: r.signal, ms: Date.now() - started, stderr_tail: (r.stderr ?? '').slice(-600), lines: lines.length, result_lines: kept }
 }
 
-function runDrive(engine) {
-  const env = engineEnv(engine, { CLAUDE_CONFIG_DIR: opt['claude-config'] })
+/** Wait until the operator's profile trusts the cell's repo: `claude --cloud` is interactive and stops on the trust dialog (M22). */
+async function awaitTrust() {
+  const trusted = () => {
+    try {
+      return JSON.parse(readFileSync(join(HOME, '.claude.json'), 'utf8')).projects?.[repo]?.hasTrustDialogAccepted === true
+    } catch {
+      return false
+    }
+  }
+  if (trusted()) return
+  log(`TRUST NEEDED: mark ${repo} trusted in ~/.claude.json (hasTrustDialogAccepted); waiting up to 10 min`)
+  for (let i = 0; i < 600 && !trusted(); i++) await new Promise((r) => setTimeout(r, 1000))
+  if (!trusted()) throw new Error(`${repo} was never trusted — a cloud launch would stop on the trust dialog`)
+}
+
+async function runDrive(engine) {
+  if (hosted) {
+    // The cloud copy has no cell bin/: its hooks and MCP server use sofar on PATH (the env installs it).
+    sh('sh', ['-c', `sed -i '' "s#'[^']*/bin/sofar'#sofar#g" .claude/hooks/*.sh && sed -i '' 's#"/[^"]*/bin/sofar"#"sofar"#' .mcp.json`], { cwd: repo })
+    sh('git', ['add', '.claude', '.mcp.json'], { cwd: repo })
+    sh('git', ['commit', '-qm', 'hooks and MCP server use sofar on PATH (hosted arm)'], { cwd: repo })
+  }
+  if (cloud) await awaitTrust()
+  const env = engineEnv(engine, profileEnv())
   env.PATH = `${dirname(opt.claude)}:${env.PATH}`
   const args = driveArgs(engine)
   writeFileSync(join(artifacts, 'drive.argv.json'), `${JSON.stringify(args, null, 2)}\n`)

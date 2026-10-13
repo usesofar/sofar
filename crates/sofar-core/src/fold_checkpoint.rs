@@ -31,7 +31,8 @@ use crate::snapshot::current_version;
 const IMPL: &str = "rs";
 const FOLDS_DIR: &str = "folds";
 /// 2: `ActivityAcc` gained `tests_since_edit` (r3-fixes D10), so a v1 file would resume without it.
-const FOLD_CHECKPOINT_VERSION: u32 = 2;
+/// 3: and `recent_tests` (felt-latency L2).
+const FOLD_CHECKPOINT_VERSION: u32 = 3;
 /// How much of the log's head a resumed log must still match.
 const HEAD_BYTES: u64 = 4096;
 /// Rewrite after a resume once the tail passes either bound (`REWRITE_TAIL_*`).

@@ -895,8 +895,32 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   run's directories, or equals one of its files. A requirement with no
   operand, such as the suite, is covered by a run with a directory. A sibling
   directory never covers. A run counts only when its event's ts is after the
-  newest mtime among the edited files that exist. A failed run never covers,
-  nor does one from before the last edit.
+  newest mtime among the edited files THE REQUIREMENT'S RULES BEAR ON
+  (felt-latency L2): an edit no rule bears on never re-arms an ask, and the
+  runs are the session's `recent_tests`. When one of those files has no mtime
+  (deleted), the requirement falls back to `tests_since_edit` after the
+  newest mtime among all the edited files. A failed run never covers, nor
+  does one from before the edit it answers.
+- RELATED (felt-latency L2 part B): a suite requirement that no run covers
+  narrows to the tests related to the files its rules bear on. An edited test
+  file is its own. A source file's are the repo's test files named after it:
+  the stem, its base up to the first dot, lowercased, matches the test's stem
+  exactly or as a prefix before `-` or `_` (`checks.ts` relates
+  `checks.test.ts` and `checks-gate.test.ts`, never `checksum.test.ts`). A
+  test file is `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.*`, `*_spec.*` or
+  under `__tests__/`, and its stem drops `test_`, `_test` and `_spec`. The
+  stems `index`, `page`, `route`, `layout`, `mod`, `main`, `lib`, `__init__`,
+  `init`, `utils`, `util`, `types`, `helpers`, `constants` and `config` give
+  way to the parent directory's name. When the suite ran directories, only
+  test files under them count. The repo's test files are one `git ls-files
+  --cached --others --exclude-standard`, asked only on this path. If any
+  bearing file has no related test, or the set passes 8 files, or there is no
+  git, the requirement stays the suite. A narrowed requirement is covered by
+  a run of ANY runner with no narrowing flag or word whose operands reach
+  every related file: a file equal to it or a tail of it after a `/`, or a
+  directory holding it. A suite run that covers the requirement and failed
+  is never outvoted by a related pass: narrowing applies only when no run
+  covers the suite.
 - VERDICT: the newest covering run since the last edit decides each
   requirement. If it passed, the requirement is satisfied. If it failed, the
   line is `sofar: \`<run>\` failed (exit N) after your last edit, and it covers
@@ -905,7 +929,10 @@ from the session's activity (`tests_since_edit`, §Hooks, Derived activity).
   [<slug> D<n>] "<rule>"… bear on files you edited, and no covering test
   passed since your last edit — run \`<cmd>\` and fix any failure before
   stopping (fix: <hint>)`, one line per runner. For a lone ask, <cmd> is the
-  check's own command or the suite's. For several asks it is the runner on
+  check's own command or the suite's, or for a narrowed one the suite's runner
+  on its related files in code-unit order. For several asks all narrowed, it
+  is the runner on the union of their files, while that union holds at most 8.
+  Otherwise, for several asks it is the runner on
   the directory that holds every path they name, or the bare runner when one
   of them names no path or the paths share no directory. At most 5 lines,
   then a count line. Any line blocks: exit 2 with the lines on stderr, which
@@ -1825,6 +1852,13 @@ record's), and when a task cannot finish until another record moves, mark it
 `blocked` and declare `waits_on`. The AGENTS.md example appends a canonical
 handle, because `sofar event append` files the payload as written and the
 payload validator takes only canonical handles.
+Since felt-latency L3 the CLAUDE.md block (V15) does not carry PLAN, LINKS
+or DRIVING. A pointer line stands in their place, and the user-prompt hook
+pages each clause in, verbatim and once per context, with the first prompt
+that calls for it: a cue word, a list of three or more steps for PLAN, or
+another nameable record named for LINKS. The hook adds nothing when the
+repo's CLAUDE.md lacks the pointer (an older block or the inline block), or
+on Cursor, which reads AGENTS.md, whose blocks keep every clause.
 
 **Handle grammar.** One grammar for both kinds; canonical form is the
 lowercase slug, one space, the target:
@@ -2535,6 +2569,17 @@ receives no record and can call no sofar tool. So the surface can only WIDEN
 what the operator's configuration already permits, and the record says what
 the driver PINNED — never what the session could ultimately do.
 
+One exception, for tokens (drive-lanes 4.2, D47): a pinned surface also pins
+the BUILT-IN tool set. A Claude Code session is launched with `--tools`
+naming Bash, Read, Edit, Write and ToolSearch (which loads deferred MCP tools,
+sofar's among them) plus every built-in a rule names — `--allow WebFetch` or
+`--allow Agent` is how an operator hands driven sessions a tool beyond the
+five — and with `--disable-slash-commands`. Every call in the 2.5 and 3.4
+agent reps was one of those five or a sofar tool; the rest of the default set
+was schema re-read on every call and never used. MCP servers and setting
+sources stay as the operator configured them, and a run that pinned no surface
+pins no tools.
+
 **The threshold nudge (2.3, D4/D7).** Print mode consumes stdin as the
 prompt and has nothing to listen on afterwards, so the driver speaks to a
 RUNNING session through the filesystem: the child is launched with
@@ -2707,6 +2752,35 @@ write-back prose is matched and no exit code is trusted. A launch that
 resolves to no session, or to several, is counted as a stall and carries NO
 handoff: a handoff names a session, and naming the wrong one files a run's
 history on someone else's work.
+
+**The driver keeps the session's record (drive-lanes 4.3, D48).** A driven
+session calls no sofar tool for bookkeeping. Every launch carries
+`SOFAR_WRITEBACK=inline`, and the prompt asks the session to end its final reply
+with one fenced `sofar` block: summary, next action, and the task's status
+(`done`, or `blocked` with the question as its note). The Stop hook files that
+block through the same write-back path the tool uses, so the fold sees the
+write-back and the status exactly as before, and the reasons above are
+unchanged. Claude Code's interactive default stays the tool (r4-fixes H5),
+because there the final reply is the operator's last screen; no operator reads
+a driven session's. The prompt names the command the gate will run, so the
+session runs it once itself. The pin line that has a Claude Code session call
+`sofar_start_session` is sent only where the launch directory's binding does
+not already resolve to the initiative (`pin: false` on the launch request
+otherwise): a session registered there is home already.
+
+**Cache-shaped launches (drive-lanes 4.4, D49).** The opening prompt comes in
+two parts. The FRAME — the run's initiative, its policy, whether it has lanes,
+the closing-block contract — names no task, lane, path or command, so it is
+byte-identical for every launch of a run. The PROMPT holds only the task's own
+lines: its id and title, its lane, packets, merge and gate failure, the gate's
+command, and a one-line reminder to close with the block for that task id.
+Claude Code takes the frame as `--append-system-prompt`, inside the prefix the
+provider caches, so session N reads it rather than writing it again; an
+adapter with no system prompt to append to sends the two joined, frame first.
+A lanes run launches its first task alone and holds the other lanes until a
+session of the run has reported usage (its first reply has landed, so the
+cached prefix exists) or ended, polling every 500 ms for at most 30 s; an
+adapter with no live usage is not held.
 
 **One launch directory per run (D6).** `sofar drive` creates no worktree and
 switches no branch: sessions in a run are sequential and cumulative, so a
@@ -5596,9 +5670,13 @@ nothing is pinned and the agent is asked to call sofar_start_session, as
 before. The serve daemon never passes the flag; tests opt in. Off by
 `SOFAR_ADOPT=off`. tools/list carries
 `_meta: {"anthropic/alwaysLoad": true}` on ALWAYS_LOADED_TOOLS —
-sofar_end_session and sofar_log_decision — which Claude Code honours by
-skipping tool-search deferral for that tool (verified in 2.1.270–2.1.274,
-memory-lead M1); the other seven stay deferred. The SessionStart `Session:`
+sofar_end_session alone since felt-latency D2, which deferred
+sofar_log_decision; the write-back's `decisions` description names its
+fields — which Claude Code honours by skipping tool-search deferral for that
+tool (verified in 2.1.270–2.1.274, memory-lead M1); the other eight stay
+deferred. An adopted tool-mode server whose root CLAUDE.md carries the V15
+block (felt-latency L3) sends short instructions: the loop is that block,
+plus the CLI sentence. The SessionStart `Session:`
 line reads `Session: <id> — adopted on Claude Code; else pass to
 sofar_start_session.`
 - sofar_get_state({initiative?, view?}) → progressive disclosure (token-opt):
@@ -5672,7 +5750,10 @@ sofar_start_session.`
   via session_started (idempotently, under the registration lock, so a hook
   registering the same id in between makes this adoption — r1-fixes 1.2);
   omitted → mint a fresh ulid. No open-session heuristic (adopt-by-id,
-  Phase 7, BD43).
+  Phase 7, BD43). A server the host named its session to (`sofar mcp` with
+  CLAUDE_CODE_SESSION_ID) fills an omitted session_id with that id
+  (felt-latency L4): it is the caller's own session, and minting one orphaned
+  the hook-registered id, so Stop held it on every stop.
   Adopting an ended id is pin-only (record-integrity 5.1): no append, and
   `ended`/`summary` are left standing as history. It used to be a typed
   invalid_input on the principle that a finished identity is never resumed
@@ -6298,7 +6379,9 @@ test-shaped command with a known `ok` — the task_files window. On finalize a
 session's activity gains OPTIONAL `failed` (ok:false only; an absent `ok` is
 UNKNOWN, never a failure), `last_test` {cmd, ok, exit?} and `tests_since_edit`
 (the test-shaped outcomes since the session's latest `touched` edge, a re-touch
-included, oldest first, the newest 8 kept; r3-fixes D10), and the state
+included, oldest first, the newest 8 kept; r3-fixes D10), `recent_tests` (the
+session's newest 8 test-shaped outcomes, never cleared by a touch; felt-latency
+L2, read by the Stop gate per rule), and the state
 gains OPTIONAL `task_tests` (task id → latest {cmd, ok, exit?, ts, event_id}),
 present only when non-empty — a record without outcome fields folds
 byte-identically, so every fold-parity golden and pre-capture projection is
@@ -7116,9 +7199,14 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   AND gate-relevant drift is nonzero → exit 2 with stderr: "Write back to
   the sofar record before finishing: end your reply with a ```sofar block —
   {"summary":"…","next_action":"…"} plus any tasks, decisions, memories,
-  notes — or call sofar_end_session." (`SOFAR_WRITEBACK=tool`: "Write back to
-  the sofar record before finishing: call sofar_end_session (or append
-  session_ended via `sofar event append`).") Else exit 0.
+  notes — or call sofar_end_session." (`SOFAR_WRITEBACK=tool`, Claude Code's
+  default: "Write back to the sofar record before finishing: call
+  sofar_end_session with session_id <id> (or append session_ended via `sofar
+  event append`).", naming the stopping session (felt-latency L4): a
+  write-back filed under another id, by a server spawned before a /clear
+  renamed the conversation or by a start call that minted one, never settles
+  this session, and without the id the hold repeated on every stop.) Else
+  exit 0.
   Gate-relevant drift (drift-signal 1.2, superseding speed T1) =
   sessionDebt(state, session): the stopping session's OWN unwritten
   mutations plus freshness.unattributed_mutations. Read-side, zero new
@@ -7882,7 +7970,7 @@ deletes it with the worktree's gitdir.
   [--effort <e>] [--resume] [--verify <cmd>] [--verify-quick <cmd>]
   [--lanes <n>] [--lane-setup <cmd|none>] [--leases steer|deny|off]
   [--schedule footprint|ready]
-  [--agent claude-code|codex|cursor] [--bin <path>] [--agent-arg <arg>]
+  [--agent claude-code|codex|cursor|claude-cloud] [--hosted cloud] [--bin <path>] [--agent-arg <arg>]
   [--permission-mode <mode>]
   [--allow <rule...>] [--deny <rule...>] [--bare-tools] [--detach] [--stop]
   [--await] [--follow] [--keep-awake|--no-keep-awake]
@@ -9546,8 +9634,9 @@ stay the underlying derivation's, and exit codes are styling-independent.
   accepts what it wrote and REFUSES a path that lies about storing it (`/dev/null`);
   a launch whose surface cannot be proven throws, which the loop records as
   `error` with a `run_stopped` behind it and no handoff. Each launch writes its
-  OWN file; the argv carries `--permission-mode` and `--settings <path>` before
-  the caller's argv, and neither flag appears when the run pinned nothing. Every
+  OWN file; the argv carries `--permission-mode`, `--tools <the five plus each
+  built-in a rule names>`, `--disable-slash-commands` and `--settings <path>`
+  before the caller's argv, and none of them appears when the run pinned nothing. Every
   session in a run receives the run's surface, `--resume` keeps the RECORDED one
   over the new driver's flags and says so, and model/effort come from the surface
   when it carries them. The full status lists the rules whole; the budgeted
@@ -10410,8 +10499,8 @@ stay the underlying derivation's, and exit codes are styling-independent.
   explicit sofar_start_session still wins; an unbound branch with no home
   pins nothing and log_decision returns `unknown_initiative`; with no host
   id and no start, end_session without session_id is `invalid_input` naming
-  the "Session:" line. tools/list marks exactly sofar_end_session and
-  sofar_log_decision with `_meta["anthropic/alwaysLoad"]` and still lists
+  the "Session:" line. tools/list marks exactly sofar_end_session (felt-latency
+  D2) with `_meta["anthropic/alwaysLoad"]` and still lists
   sofar_update_plan. One end_session call files tasks (two existing, one
   added into the active phase, one added into phase "2"), two phase changes,
   two decisions (D1, D2, the rule-fidelity warning for D1), a memory
@@ -10609,7 +10698,8 @@ stay the underlying derivation's, and exit codes are styling-independent.
   B's recall block counted; every projection emptied gives 39.5%, the floor
   while agent behaviour is frozen. Tests: test/index-shards.test.ts.
 - **Per-turn byte budget (memory-lead 4.4, L34):** the always-loaded tool
-  definitions as served stay ≤3,500 chars (3,370 on 2026-10-04), the server
+  definitions as served stay ≤2,300 chars (2,158 on 2026-10-12, after
+  felt-latency D2; 3,370 on 2026-10-04), the server
   instructions ≤800 (722), and the digest's cap ≤6,000. Tests:
   test/overhead-cut.test.ts.
 - **Merge block (r3-fixes 2.11, D19):** after two worktree branches merge

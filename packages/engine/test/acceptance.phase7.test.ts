@@ -13,6 +13,7 @@ import {
 } from '../src/cli/event'
 import { STATUS_CHAR_LIMIT } from '../src/projections/templates/status'
 import { callTool, connectServer, makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
+import { unnamed } from './helpers/hold'
 
 /**
  * Phase 7 acceptance (tasks 7.1–7.3, BD43/BD44): parallel sessions on ONE
@@ -163,7 +164,7 @@ describe('acceptance 1+2+4 — two interleaved sessions on ONE initiative', () =
     expect(handleStop(fixture.root, stopStdin(A))).toEqual({ exitCode: 0, stdout: '', stderr: '' })
     const blockedB = handleStop(fixture.root, stopStdin(B))
     expect(blockedB.exitCode).toBe(2)
-    expect(blockedB.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(blockedB.stderr)).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
     // Each server still holds its OWN session and only its own — the write-back
     // no longer clears A's box (4.5), and it never reached across to B's.
     expect(serverA.handle.getActiveSession()!.id).toBe(A)
@@ -194,6 +195,7 @@ describe('acceptance 1+2+4 — two interleaved sessions on ONE initiative', () =
       commands: 1,
       last_test: { cmd: 'npm test', ok: true },
       tests_since_edit: [{ cmd: 'npm test', ok: true, ts: expect.any(String) }],
+      recent_tests: [{ cmd: 'npm test', ok: true, ts: expect.any(String) }], // felt-latency L2
       task_changes: ['1.2 → active'],
     })
     expect(state.files_touched).toEqual(['src/a.ts']) // global aggregation unchanged

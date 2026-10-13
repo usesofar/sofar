@@ -46,6 +46,7 @@ import {
   AGENTS_PROTOCOL_BLOCK_V13,
   PROTOCOL_BLOCK_V13,
   PROTOCOL_BLOCK_V14,
+  PROTOCOL_BLOCK_V15,
   INLINE_WRITEBACK,
   INLINE_WRITEBACK_AGENTS,
   protocolBlock,
@@ -56,6 +57,7 @@ import {
   WRITE_SKILL_PATHS,
 } from '../src/cli/init'
 import { runDoctor } from '../src/cli/doctor'
+import { PAGED_CLAUSES, PAGED_POINTER } from '../src/core/paged-clauses'
 
 /**
  * Task 4.1 — `sofar init`. Fresh-repo artifact contents, merge-not-clobber
@@ -197,7 +199,7 @@ describe('sofar init on a fresh repo', () => {
 
     // CLAUDE.md protocol block: markers + the three BD19 clauses + the loop
     const claudeMd = readFileSync(join(root, 'CLAUDE.md'), 'utf8')
-    expect(claudeMd).toBe(PROTOCOL_BLOCK_V14) // Claude Code writes back through the tool (r4-fixes H5, D61)
+    expect(claudeMd).toBe(PROTOCOL_BLOCK_V15) // Claude Code writes back through the tool (r4-fixes H5, D61), clauses paged (felt-latency L3)
     expect(claudeMd).toContain(PROTOCOL_START)
     expect(claudeMd).toContain(PROTOCOL_END)
     expect(claudeMd).toMatch(/never in tool memory/i) // (a) total jurisdiction
@@ -818,9 +820,9 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     const claude = INLINE_WRITEBACK.claude
     expect(back(PROTOCOL_BLOCK, [claude.start, claude.during, claude.finish])).toBe(PROTOCOL_BLOCK_V13)
     expect(back(AGENTS_PROTOCOL_BLOCK, [INLINE_WRITEBACK_AGENTS.block, INLINE_WRITEBACK_AGENTS.finish])).toBe(AGENTS_PROTOCOL_BLOCK_V13)
-    expect(SHIPPED_PROTOCOL_BLOCKS.at(-1)).toBe(PROTOCOL_BLOCK_V14)
+    expect(SHIPPED_PROTOCOL_BLOCKS.at(-1)).toBe(PROTOCOL_BLOCK_V15)
     expect(SHIPPED_AGENTS_PROTOCOL_BLOCKS.at(-1)).toBe(AGENTS_PROTOCOL_BLOCK_V13)
-    expect(protocolBlock('tool')).toBe(PROTOCOL_BLOCK_V14)
+    expect(protocolBlock('tool')).toBe(PROTOCOL_BLOCK_V15)
     expect(agentsProtocolBlock('tool')).toBe(AGENTS_PROTOCOL_BLOCK_V13)
     // Either arm refreshes the other's untouched block.
     expect(classifyProtocolBlock(PROTOCOL_BLOCK_V13, protocolBlock('inline'), shippedProtocolBlocks('inline'))).toBe('stale')
@@ -842,6 +844,20 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     expect(PROTOCOL_BLOCK).not.toContain('sofar_update_task')
     expect(classifyProtocolBlock(PROTOCOL_BLOCK_V13, protocolBlock('tool'), shippedProtocolBlocks('tool'))).toBe('stale')
     expect(classifyProtocolBlock(PROTOCOL_BLOCK_V14, protocolBlock('inline'), shippedProtocolBlocks('inline'))).toBe('stale')
+  })
+
+  it('V15 (felt-latency L3) pages out exactly PLAN, LINKS and DRIVING, and a V14 repo refreshes to it', () => {
+    const back = PROTOCOL_BLOCK_V15.replace(PAGED_POINTER, PAGED_CLAUSES.plan + PAGED_CLAUSES.links).replace(
+      '- BEFORE FINISHING:',
+      `${PAGED_CLAUSES.driving}- BEFORE FINISHING:`,
+    )
+    expect(back).toBe(PROTOCOL_BLOCK_V14)
+    for (const c of ['- PLAN:', '- LINKS:', '- DRIVING:']) expect(PROTOCOL_BLOCK_V15).not.toContain(c)
+    expect(Buffer.byteLength(PROTOCOL_BLOCK_V15)).toBeLessThan(Buffer.byteLength(PROTOCOL_BLOCK_V14) * 0.65)
+    // The inline block keeps every clause, so the hook pages nothing in for it.
+    expect(PROTOCOL_BLOCK).not.toContain(PAGED_POINTER)
+    expect(classifyProtocolBlock(PROTOCOL_BLOCK_V14, protocolBlock('tool'), shippedProtocolBlocks('tool'))).toBe('stale')
+    expect(classifyProtocolBlock(PROTOCOL_BLOCK_V15, protocolBlock('inline'), shippedProtocolBlocks('inline'))).toBe('stale')
   })
 
   it('keeps every block sofar ever shipped classifiable as stale, in both dialects', () => {
@@ -884,7 +900,7 @@ describe('re-homing instruction (session-orientation 1.1)', () => {
     const claude = readFileSync(join(root, 'CLAUDE.md'), 'utf8')
     expect(claude.startsWith('# My repo\n\nMy own notes.\n\n')).toBe(true)
     expect(claude).toContain('- RE-HOME the moment')
-    expect(claude).toContain('sofar drive <slug> --detach')
+    expect(claude).toContain(PAGED_POINTER) // DRIVING is paged in by the prompt hook (felt-latency L3)
     expect(claude.split(PROTOCOL_START).length - 1).toBe(1)
     expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_THIN_PROTOCOL_BLOCK_INLINE)
   })

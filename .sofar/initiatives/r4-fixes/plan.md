@@ -6,7 +6,7 @@ Goal: After 0.34.0: find every place sofar loses or only ties (rounds 1–4), re
 
 Brief: the operator's words, 3986 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 56 done, 12 dropped, 19 remaining
+Progress: 57 done, 12 dropped, 18 remaining
 
 ## Phase 1 — Loss analysis and research [done] — 10/10 done — its tasks in phases/P1.md
 
@@ -82,19 +82,19 @@ Progress: 56 done, 12 dropped, 19 remaining
 
 ## Phase 3 — Release candidate [done] — 2/2 done — its tasks in phases/P5.md
 
-## Phase 4 — Round 5 on a harder held-out chain [pending] — 2/7 done
+## Phase 4 — Round 5 on a harder held-out chain [pending] — 3/7 done
 
 - [x] 4.1 CHAIN-N-DESIGN.md (from 1.6 §4 and 1.3 §6 stressors; claims C1–C6 from 1.5 §8) for the operator's approval; then a fresh blind author session in a new chain-n-author record
 - [x] 4.2 Round-5 harness: decision-application (DA) scoring, hierarchical bootstrap analysis, cost in dollars from pinned price vectors (R3), Codex model pinned, Bonferroni and ceiling stop (R6), two-lane option (R8), hermetic runner (A13)
-- [ ] 4.3 Calibration: a sealed bounds pilot (~50 short sessions; amnesia ≤25% DA pass, oracle ≥90%) plus a naive-notes rehearsal (~26 sessions), on non-scored arms only (R5)
+- [ ] 4.3 Calibration: a sealed bounds pilot (~50 short sessions; amnesia ≤25% DA pass, oracle ≥90%) plus a naive-notes rehearsal (~26 sessions), on non-scored arms only (R5) (active)
 - [ ] 4.4 PRE-REGISTRATION-R5: claims (R5-F primary, R5-F+ reported, R5-A/C/B, R5-$ parity), units, stopping rules; public signed tag (R9); frozen in the operator's own words
 - [ ] 4.5 Run round 5 (3 reps, per-rep scoring, ceiling and futility stops, conditional reps 4–5), readout per claim, D19 gate ruling, stable 0.36.x
 - [ ] 4.6 Unscored C2 probe vs Claude Code Projects (a thread whose PR is closed, then trunk sessions), as R7 rules
-- [ ] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3) (blocked)
+- [x] 4.2a Round-5 host checks before the freeze: clear Bun's transpiler cache, run the canary, run doctor, confirm bd snapshots write nothing into the repo (HARNESS-R5.md §3)
 
 ## Phase L — Felt latency [done] — 1/7 (6 dropped) done — its tasks in phases/P7.md
 
 > L1 shipped in rc.6; L2–L7 moved to felt-latency.
 
-Next action: At the next stable release, check that the tap bump run proves the formula and commits it. Otherwise resume felt-latency L2/L3 or r4-fixes Wave B.
-Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).; task 4.2a: D57 and D58 built (handoff-bench round5-runner 0e5c5af). The host canary passes with 0 leaks under both scopes. Waiting on Chain N (4.3): clear Bun's @t@, then the canary and canary --full with Chain N, setup-sofar for the round's pin, doctor with the round's env, and the paid three-agent smoke (HARNESS-R5 §3).
+Next action: When calib-r5/run-calibration.out prints 'calibration done', run `cd ~/IO/bench-sealed/shiftbook-chain-n && python3 harness/calibration.py` and report only its aggregates against the targets
+Blocked on: task B4: D22: deferred until round 5's T-DUP fixture shows a loss (2 genuine duplicates in 215 real claims).; task B5: Elsewhere half shipped as B18 (D45). The ancestry-rules half stays deferred under D24 until round 5's T-CURRENCY fixture.; task B6: D26: deferred until round 5's T-FORK fixture (forks 1/143 bench, 0/26 real; the one post-merge loss is already fixed by projection merge=union).; task B8: D28: replay missed (precision 0/20; the narrowed form found 3/268, covered by B3). Not built; the operator closes or redesigns it.; task B9: D29: replay upper bound 1.8% of cache reads, and agents re-read delivered content anyway. Not built; the measured loss moves to B17.; task B10: D31: HLC half has 0 skew flips in 523 keys; notify half waits on B4 (deferred, D22) and round 5's T-ORCH.; task B11: D32: no measured loss (17 benign fold warnings in about 45k events); the TS hot path belongs to the rust-core lane; trace and explain have no loss metric.; task B12: D33: no measured loss (round-4 version failures 0/0/0; A5's round-3 replay 0/101; 15 of 172 raw reads touched shards or events).; task B13: D34: deferred to round 5. Round 4 had 0 version failures and 0 guarded violations; round 3's losses resisted every word-matching design (A6 base rate, A7 0/27, B2 2/9).

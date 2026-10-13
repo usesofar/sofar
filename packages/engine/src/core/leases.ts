@@ -336,7 +336,7 @@ export function leaseContext(own: Lease, decision: LeaseDecision, others: readon
     })
     parts.push(`Free: ${free.join(', ')}, and every region no lane holds. Lanes hold: ${holdings(others)}.`)
     parts.push(
-      `Work on a free part of ${me} meanwhile; if it is still held when nothing else is left, park: commit your WIP on this branch, write back with sofar_end_session naming what ${me} waits for, and end your turn — your leases are released, and the driver relaunches ${me} once ${lanes}'s lease is gone.`,
+      `Work on a free part of ${me} meanwhile; if it is still held when nothing else is left, park: commit your WIP on this branch, end with your closing sofar block, its next_action naming what ${me} waits for, and end your turn — your leases are released, and the driver relaunches ${me} once ${lanes}'s lease is gone.`,
     )
   }
   if (decision.won.length > 0) {

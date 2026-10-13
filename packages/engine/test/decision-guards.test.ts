@@ -16,6 +16,7 @@ import {
   STOP_BLOCK_MESSAGE_TOOL,
 } from '../src/cli/event'
 import { hookContext } from './helpers/hook-output'
+import { unnamed } from './helpers/hold'
 
 /**
  * Decision guards (drift-hardening Phase 5, D3) — the mechanical tier.
@@ -317,7 +318,7 @@ describe('gate surface (5.2) — guards ride the block, never cause one', () => 
   it('Stop names the crossed rule alongside the write-back demand', () => {
     const result = handleStop(crossedRepo(), hookStdin())
     expect(result.exitCode).toBe(2)
-    expect(result.stderr).toContain(STOP_BLOCK_MESSAGE_TOOL)
+    expect(unnamed(result.stderr)).toContain(STOP_BLOCK_MESSAGE_TOOL)
     expect(result.stderr).toMatch(/\[D1·[0-9a-z]{4}\] guard crossed/)
     expect(result.stderr).toContain(`"${RULE}"`)
   })
@@ -339,7 +340,8 @@ describe('gate surface (5.2) — guards ride the block, never cause one', () => 
       ev('session_started', { tool: 'claude-code' }),
       ev('file_touched', { path: '/repo/src/a.ts', op: 'edit' }),
     ])
-    expect(handleStop(root, hookStdin())).toEqual({
+    const held = handleStop(root, hookStdin())
+    expect({ ...held, stderr: unnamed(held.stderr) }).toEqual({
       exitCode: 2,
       stdout: '',
       stderr: `${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`, // the pre-guard message, plus H3's close line

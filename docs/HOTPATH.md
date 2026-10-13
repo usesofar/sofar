@@ -387,6 +387,12 @@ session's "silent" prompt is `{"hookSpecificOutput":{"hookEventName":"UserPrompt
    session — if the current batch of work is complete, write back now with
    sofar_end_session (summary + next action) while context is warm; an
    unwritten session gets force-blocked at Stop.`
+10. paged protocol clauses (felt-latency L3; Claude Code only, also before
+   the registration check): `sofar protocol, paged in for this prompt:` then
+   each clause the prompt calls for and this context was not yet told
+   (told keys `%paged:<clause>`), only when the root's CLAUDE.md contains
+   `PAGED_POINTER`. Cue words are compared on the lowercased prompt split on
+   `[^a-z0-9'_-]`; a list item is `^\s*([-*]|\d+[.)])\s` (JS whitespace).
 
 ### stop
 

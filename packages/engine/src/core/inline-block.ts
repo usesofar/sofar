@@ -24,8 +24,11 @@ import { ensureIndexDir, indexDir } from './index-store'
 /** `SOFAR_WRITEBACK=tool` is the ablation arm: 0.34's tool-only write-back, untouched. */
 export type WritebackMode = 'inline' | 'tool'
 
+/** The switch's name; `sofar drive` sets it to `inline` for every session it launches (drive-lanes 4.3). */
+export const WRITEBACK_ENV = 'SOFAR_WRITEBACK'
+
 export function writebackMode(env: NodeJS.ProcessEnv = process.env): WritebackMode {
-  return env.SOFAR_WRITEBACK === 'tool' ? 'tool' : 'inline'
+  return env[WRITEBACK_ENV] === 'tool' ? 'tool' : 'inline'
 }
 
 /**
@@ -36,7 +39,7 @@ export function writebackMode(env: NodeJS.ProcessEnv = process.env): WritebackMo
  * SOFAR_WRITEBACK=tool or =inline decides for every host.
  */
 export function writebackModeFor(tool: string | undefined, env: NodeJS.ProcessEnv = process.env): WritebackMode {
-  const set = env.SOFAR_WRITEBACK
+  const set = env[WRITEBACK_ENV]
   if (set === 'tool' || set === 'inline') return set
   return tool === 'claude-code' ? 'tool' : 'inline'
 }

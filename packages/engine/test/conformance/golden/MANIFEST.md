@@ -1,5 +1,25 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **felt-latency L4** (main) from the TypeScript reference; the
+Rust core reproduces all 64. Eleven goldens change one line each: the
+tool-mode write-back hold now names the owing session (`call sofar_end_session
+with session_id <id>`), so a write-back filed under another id settles in one
+retry instead of re-holding every stop.
+
+RE-RECORDED for **felt-latency L2** (main) from the TypeScript reference; the
+Rust core reproduces all 64. `syn.gate-elsewhere` gains four steps: an edit
+to a file no rule bears on leaves the covered rule covered, and a re-edit of
+the governed file brings the ask back. Its edit steps and `syn.gate-coverage`'s
+"Edit again" now write the file, as a real Edit does: the gate weighs each rule
+by its files' mtimes. Three fold-parity goldens gain `recent_tests`.
+
+ADDED for **felt-latency L3** (main) from the TypeScript reference; the Rust
+core reproduces all 64. One new case, `repo.paged-clauses`: with a CLAUDE.md
+carrying `PAGED_POINTER`, the prompt hook pages DRIVING, then PLAN and LINKS,
+in once per context; a block that still says every clause, an ordinary
+prompt and a Cursor payload get nothing; a long prompt's `P<n>` offer waits
+for PLAN. No other golden moved: the repo fixture has no CLAUDE.md.
+
 RE-RECORDED for **r4-fixes D65** (felt-latency L1, branch felt-latency-l1)
 from the TypeScript reference; the Rust core reproduces every case. The
 harness now runs every step under `SOFAR_TEST_GATE=hold`, the strict gate the
@@ -47,6 +67,11 @@ the gate can ask git: a Bash write inside its own PreToolUse→PostToolUse
 window holds; a peer's later edit no longer voids the passing run; a
 backgrounded command that leaves the worktree first opens no window. The
 installed 0.36.0-rc.3 core fails steps 11 and 14.
+
+Re-recorded on **main** at the 0.38.0-rc.1 merge-back (r4-fixes E2): main moves to `0.39.0-dev+trunk` (D14's
+rule: at or above the newest tag, nothing published). `0.38.0-rc.1` is published, so keeping it let `npm ci` install
+the registry core over the tracked shim. The version string is the whole diff on `argv.fast-path` and
+`open.O2-update-segment`.
 
 Merged on **main** at the 0.37.0-rc.2 merge-back (r4-fixes E2): main keeps
 `0.38.0-dev+trunk`, so `argv.fast-path` and `open.O2-update-segment` keep

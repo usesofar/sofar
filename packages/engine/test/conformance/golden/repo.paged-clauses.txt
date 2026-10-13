@@ -1,0 +1,76 @@
+# conformance golden: repo.paged-clauses
+
+## step 1: a CLAUDE.md that still says every clause: nothing paged
+argv: ["event","user-prompt"]
+stdin: {"session_id":"paged-sess","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"run this in sofar drive"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: what this record holds on your prompt, strongest first (`sofar show <id>` prints any entry whole):\n- [D1·1x01] rule: \"Hot-path event and projection behaviour is defined by docs/SPEC.md plus the conformance suite and must pass against both the TypeScript and Rust implementations; Rust schema types are generated from packages/schema/src, never hand-written.\"","sessionTitle":"rust-core 1.2 #page"}}
+--- stderr
+(empty)
+
+## step 2: the paged block: a drive ask pages DRIVING in
+argv: ["event","user-prompt"]
+stdin: {"session_id":"paged-sess","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"run this in sofar drive"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar protocol, paged in for this prompt:\n- DRIVING: when the operator asks for the work to run under sofar drive\n  (\"run this in sofar drive\"), write back FIRST with `sofar_end_session`\n  — the run's first session resumes from your next action — then start it\n  with `sofar drive <slug> --detach`, adding `--allow` for what proving\n  a task needs (the test command) and `--session-timeout`. Relay what it\n  prints: the run id, every warning, how to stop it. When it says\n  keep-awake is unset, ask the operator and save the answer with\n  `sofar drive --keep-awake-setting on|off`. Do not start a watcher:\n  sofar's rewake hook watches the run you detached and, when it stops or\n  its driver dies, wakes this session with ONE line — relay it (a\n  needs_user stop carries the operator's question). Only when\n  `.claude/hooks/drive-await.sh` is absent, run\n  `sofar drive <slug> --await` in a background shell instead; it prints\n  that same line and exits. Do not write to that record again while the\n  run goes. `sofar drive <slug> --stop` ends it.","sessionTitle":"rust-core 1.2 #page"}}
+--- stderr
+(empty)
+
+## step 3: the same ask again: told once
+argv: ["event","user-prompt"]
+stdin: {"session_id":"paged-sess","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"drive it"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #page"}}
+--- stderr
+(empty)
+
+## step 4: a roadmap that waits on another record: PLAN and LINKS
+argv: ["event","user-prompt"]
+stdin: {"session_id":"paged-sess","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"here is the roadmap; it waits on felt-cost"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: your prompt names felt-cost — its latest write-back (2026-07-12T13:17Z): next: None — initiative complete. Other repos: one-time `sofar init` re-run each for the UserPromptSubmit shim (doctor flags them); statusLine can live once in ~/.claude/settings.json. Next engine work starts a new initiative (sofar new). — summary: felt-cost CLOSED: 0.8.1 confirmed on registry + global, doctor clean, 12/12 tasks across 5 phases, D1-D10. Binding removed (main unbound, close precedent).. Read it whole with sofar_get_state({\"initiative\":\"felt-cost\"}); this session still serves rust-core.\nsofar protocol, paged in for this prompt:\n- PLAN: when the operator hands you a roadmap, a spec or a list of steps,\n  put their words in the plan's `brief` VERBATIM (`sofar_update_plan`)\n  before you decompose them into phases and tasks. Tasks are your summary\n  and lose words; the brief is what \"the next item on the roadmap\" means in\n  a later session, and a finished task list does not finish the brief. A\n  replace that omits `brief` keeps the last one. Never retype or resend\n  it to add to it: sofar keeps a session's prompts as P1, P2, … (the prompt\n  hook names a long one), so keep the operator's by id —\n  `sofar_end_session` `brief_append: [\"P1\"]` — and sofar copies it\n  verbatim; words with no id go in `brief_append` as they are.\n- LINKS: name another record's task, decision or memory as `<slug> <id>`\n  (`billing 2.3`, `billing D4`, `billing M2`) — a bare id means this\n  record's. When a task cannot finish until something in another record\n  moves, mark it blocked AND declare it: `waits_on: [\"<slug> <id>\"]` (or\n  the whole `<slug>`) on the task change. A cite is only offered as worth\n  reading; a declared wait is what the Travel block reports as moved or\n  resolved.","sessionTitle":"rust-core 1.2 #page"}}
+--- stderr
+(empty)
+
+## step 5: an ordinary prompt: nothing
+argv: ["event","user-prompt"]
+stdin: {"session_id":"paged-other","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"fix the typo"}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #page"}}
+--- stderr
+(empty)
+
+## step 6: a long plain prompt, PLAN never paged in: captured, no P<n> offer
+argv: ["event","user-prompt"]
+stdin: {"session_id":"paged-other","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓. Plain work."}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","sessionTitle":"rust-core 1.2 #page"}}
+--- stderr
+(empty)
+
+## step 7: a long roadmap prompt: PLAN paged in, and the offer with it
+argv: ["event","user-prompt"]
+stdin: {"session_id":"paged-other","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"Next: refunds. A refund never exceeds what was paid, and support sees every refund on the invoice it came from — “verbatim” ✓. It is the roadmap."}
+exit: 0
+--- stdout
+{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"sofar: this prompt is P3 — if it is roadmap or spec, keep it in the brief by id at write-back (brief_append [\"P3\"]); sofar copies it verbatim.\nsofar protocol, paged in for this prompt:\n- PLAN: when the operator hands you a roadmap, a spec or a list of steps,\n  put their words in the plan's `brief` VERBATIM (`sofar_update_plan`)\n  before you decompose them into phases and tasks. Tasks are your summary\n  and lose words; the brief is what \"the next item on the roadmap\" means in\n  a later session, and a finished task list does not finish the brief. A\n  replace that omits `brief` keeps the last one. Never retype or resend\n  it to add to it: sofar keeps a session's prompts as P1, P2, … (the prompt\n  hook names a long one), so keep the operator's by id —\n  `sofar_end_session` `brief_append: [\"P1\"]` — and sofar copies it\n  verbatim; words with no id go in `brief_append` as they are.","sessionTitle":"rust-core 1.2 #page"}}
+--- stderr
+(empty)
+
+## step 8: a Cursor payload: nothing
+argv: ["event","user-prompt"]
+stdin: {"session_id":"paged-cursor","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","hook_event_name":"UserPromptSubmit","prompt":"run this in sofar drive","cursor_version":"2026.09.10"}
+exit: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+
+## record delta
+(no change)

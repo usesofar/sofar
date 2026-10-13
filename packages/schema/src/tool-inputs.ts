@@ -587,7 +587,12 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
       // Items are shaped by sofar_log_decision's schema (always loaded beside
       // this tool) and checked by its validators; restating the properties
       // here would pay for them twice in the budgeted surface (2.4, D13).
-      decisions: { type: 'array', description: 'Decisions not yet logged, each as sofar_log_decision args.', items: { type: 'object' } },
+      decisions: {
+        type: 'array',
+        // Self-contained since felt-latency L3: sofar_log_decision is deferred, so its schema is not in context.
+        description: "Decisions not yet logged: chose, over, because; a standing rule adds rule (operator's wording) and quote (exact words).",
+        items: { type: 'object' },
+      },
       memories: { type: 'array', description: 'Facts to promote (sofar_remember).', items: { type: 'string' } },
       notes: { type: 'array', items: { type: 'string' } },
       brief_append: { type: 'array', description: 'Operator roadmap/spec words for the brief: a captured prompt id (P1, copied verbatim) or the words.', items: { type: 'string' } },
@@ -716,7 +721,7 @@ export const TOOL_DEFS: readonly ToolDef[] = [
   {
     name: 'sofar_end_session',
     description:
-      "Write back once, at wrap-up: summary, the single next action, and the session's unlogged decisions, task and phase changes, memories and notes — filed first; a bad entry comes back in `not_filed`. A returned `parallel_writebacks` lists concurrent sessions with a DIFFERENT next action: reconcile (`peer` is reachable by SendMessage; with `peer_cwd`, confirm first).",
+      "Write back once, at wrap-up: summary, the single next action, and the session's unlogged decisions, task and phase changes, memories and notes A returned `parallel_writebacks` lists concurrent sessions with a DIFFERENT next action: reconcile (`peer` is reachable by SendMessage; with `peer_cwd`, confirm first).",
     inputSchema: TOOL_INPUT_SCHEMAS.sofar_end_session,
   },
   {

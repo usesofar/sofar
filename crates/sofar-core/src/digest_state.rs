@@ -27,6 +27,7 @@ fn empty_activity() -> SessionActivity {
         failed: None,
         last_test: None,
         tests_since_edit: Vec::new(),
+        recent_tests: Vec::new(),
     }
 }
 

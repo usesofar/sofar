@@ -110,6 +110,21 @@ export interface LaunchRequest {
   initiative: string
   /** The opening prompt — the driver renders it from the record digest and the task. */
   prompt: string
+  /**
+   * The part of the opening prompt every session of the run shares (drive-lanes
+   * 4.4): an adapter that can append to the agent's system prompt puts it
+   * there, inside the prefix the provider caches; the others send it ahead of
+   * `prompt` (`launchPrompt`). Absent means `prompt` is the whole of it.
+   */
+  frame?: string
+  /**
+   * False when a session launched in `cwd` already homes to `initiative` (the
+   * branch binding resolves there), so the adapter need not open the prompt
+   * with the pin that has the session call sofar_start_session (drive-lanes
+   * 4.3, D48): that call bought nothing a binding did not, and cost two calls.
+   * Absent keeps the pin.
+   */
+  pin?: boolean
   /** The task this session is for, when the policy names one; absent leaves it to the record's next action. */
   task?: { id: string; title: string }
   /** Routing hints from the task (3.2); an adapter whose capabilities say no ignores them. */
@@ -159,6 +174,11 @@ export const CALLER_SESSION_ENV: readonly string[] = [
   'CLAUDECODE',
   'CLAUDE_CODE_SESSION_ID',
   'CLAUDE_CODE_BRIDGE_SESSION_ID',
+  // A cloud session's own (drive-lanes 5.5): a `claude -p` launched inside a
+  // Claude Code cloud session takes the HOST's session id from it even with
+  // CLAUDE_CODE_SESSION_ID unset, so every driven session would register as
+  // the host (probed in session_01JqcwwQkcqvRFbV8hXd1nJc, claude 2.1.296).
+  'CLAUDE_CODE_REMOTE_SESSION_ID',
   'CLAUDE_CODE_MESSAGING_SOCKET',
   'CLAUDE_CODE_MESSAGING_TOKEN',
   'CLAUDE_CODE_CHILD_SESSION',
@@ -417,4 +437,9 @@ export function resolveLaunchedSession(
   if (candidates.length === 1) return { kind: 'found', session: candidates[0]! }
   if (candidates.length === 0) return { kind: 'none' }
   return { kind: 'ambiguous', candidates: candidates.map((s) => s.id) }
+}
+
+/** The frame and the prompt as one text, frame first — for an adapter with no system prompt to put the frame in (4.4). */
+export function launchPrompt(request: LaunchRequest): string {
+  return request.frame !== undefined ? `${request.frame}\n\n${request.prompt}` : request.prompt
 }

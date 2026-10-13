@@ -17,7 +17,9 @@ import { homeInitiative, resolveSessionFirst, toSource, type ToolContext } from 
  *  - session_id is unknown → append session_started WITH that id as
  *    envelope.session (registers it — MCP-only setups have no hook to do it).
  *  - session_id omitted → mint a fresh ulid and register it. NEVER adopts:
- *    another agent's open session is not ours to take.
+ *    another agent's open session is not ours to take. A server the host
+ *    named its session to passes that id instead (felt-latency L4): that
+ *    session is the caller's own.
  *
  * Either way the session becomes the server process's active session
  * (BD15): subsequent appends carry its id in envelope.session and its tool

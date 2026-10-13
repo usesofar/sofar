@@ -39,6 +39,17 @@ use crate::told::{add_told, read_told, told_key};
 use crate::version::engine_version;
 
 pub const STOP_BLOCK_MESSAGE: &str = "Write back to the sofar record before finishing: call sofar_end_session (or append session_ended via `sofar event append`).";
+
+/// `toolStopMessage` (felt-latency L4): the tool-mode hold naming the session
+/// that owes, so a write-back filed under another id settles in one retry.
+#[must_use]
+pub fn tool_stop_message(session_id: &str) -> String {
+    STOP_BLOCK_MESSAGE.replacen(
+        "call sofar_end_session",
+        &format!("call sofar_end_session with session_id {session_id}"),
+        1,
+    )
+}
 /// The close line every Stop hold ends with (r4-fixes H3); `SOFAR_HOLD_CLOSE=off` drops it.
 pub const HOLD_CLOSE_LINE: &str =
     "Then end on one line restating your answer: it is what the operator reads last.";
@@ -838,7 +849,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     let title = prompt_title(&hook, &slug, &state, session_id, &layout);
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
-    let keep = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
+    let keep_captured = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
     let (recall, map) = first_prompt_blocks(root, &layout, &hook, &state, session_id, prompt);
     let glance = prompt_glance(
         &layout,
@@ -848,8 +859,24 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         prompt,
         carried_line.is_some(),
     );
+    // The protocol's situational clauses (felt-latency L3), before the
+    // registration check: a first prompt is the likeliest to call for one.
+    let paged = prompt
+        .filter(|_| hook_host(&hook).tool == CLAUDE_CODE)
+        .and_then(|p| {
+            let others: Vec<String> = crate::layout::initiative_slugs(&layout)
+                .into_iter()
+                .filter(|s| *s != slug)
+                .collect();
+            crate::paged::paged_clause_line(root, &layout, session_id, p, &others)
+        });
+    // The P<n> offer leans on PLAN; with PLAN paged out it waits for PLAN.
+    let keep = keep_captured.filter(|_| {
+        hook_host(&hook).tool != CLAUDE_CODE
+            || crate::paged::keep_offer_allowed(root, &layout, session_id)
+    });
     let Some(me) = state.sessions.iter().find(|s| s.id == session_id) else {
-        let first: Vec<String> = [carried_line, glance, recall, map, keep]
+        let first: Vec<String> = [carried_line, glance, recall, map, keep, paged]
             .into_iter()
             .flatten()
             .collect();
@@ -930,6 +957,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     lines.extend(recall);
     lines.extend(map);
     lines.extend(keep);
+    lines.extend(paged);
     lines.splice(0..0, carried_line); // the carrier's line leads (B14)
     let result = if lines.is_empty() {
         silent()
@@ -1107,7 +1135,7 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
         if crate::inline::writeback_inline_for(crate::host::hook_host(&hook).tool) {
             crate::inline::STOP_BLOCK_MESSAGE_INLINE.to_owned()
         } else {
-            STOP_BLOCK_MESSAGE.to_owned()
+            tool_stop_message(session_id)
         },
     ];
     lines.extend(guard_violation_lines(
@@ -1323,6 +1351,7 @@ const DIRT_SLACK_MS: f64 = 2_000.0;
 /// asked only when the session ran a command; a run counts only once it
 /// finished after the newest of those files' mtimes. The suite is the
 /// session's own newest test command, else the record's.
+#[allow(clippy::too_many_lines, reason = "stopGateFor, step for step")]
 fn stop_gate_for(
     root: &Path,
     layout: &Layout,
@@ -1373,6 +1402,7 @@ fn stop_gate_for(
     // session's edit (r4-fixes H20), whatever window of this one spans it.
     let mut peers: Option<crate::index_tier1::FileIndex> = None;
     let mut files: Vec<String> = Vec::new();
+    let mut mtimes: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     let mut edited_at: Option<f64> = None;
     let tagged = captured
         .into_iter()
@@ -1402,6 +1432,7 @@ fn stop_gate_for(
             if edited_at.is_none_or(|at| mtime > at) {
                 edited_at = Some(mtime);
             }
+            mtimes.insert(p.clone(), mtime);
         }
         files.push(p);
     }
@@ -1419,6 +1450,11 @@ fn stop_gate_for(
         })
         .map(|t| t.cmd.as_str());
     let tests = activity.map_or(&[][..], |a| a.tests_since_edit.as_slice());
+    let edits = crate::checks::GateEdits {
+        mtimes,
+        recent_tests: activity.map(|a| a.recent_tests.clone()).unwrap_or_default(),
+        root: Some(root.to_path_buf()),
+    };
     let probe = crate::checks::root_probe(root);
     let gate = crate::checks::stop_gate(
         &index,
@@ -1428,6 +1464,7 @@ fn stop_gate_for(
         edited_at,
         &probe,
         outcomes_known,
+        Some(&edits),
     );
     let gate = crate::checks::in_mode(gate, root);
     let loss = if crate::checks::test_guard_enabled() {

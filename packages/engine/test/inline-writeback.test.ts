@@ -23,6 +23,7 @@ import { runNew } from '../src/cli/new'
 import { createToolContext } from '../src/mcp/context'
 import { endSession } from '../src/mcp/end-session'
 import type { EndSessionArgs } from '@sofar/schema/tool-inputs'
+import { unnamed } from './helpers/hold'
 
 /**
  * r4-fixes A1 — the in-band write-back: the final reply's ```sofar block is
@@ -255,7 +256,7 @@ describe('Stop files the block', () => {
     const root = repo()
     const before = events(root).length
     const r = stop(root, reply(WRITEBACK)) // a Claude Code payload: its block is not read
-    expect(r).toEqual({ exitCode: 2, stdout: '', stderr: `${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}` })
+    expect({ ...r, stderr: unnamed(r.stderr) }).toEqual({ exitCode: 2, stdout: '', stderr: `${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}` })
     expect(events(root).length).toBe(before)
   })
 
@@ -264,7 +265,7 @@ describe('Stop files the block', () => {
     const root = repo()
     const before = events(root).length
     const r = stop(root, reply(WRITEBACK))
-    expect(r).toEqual({ exitCode: 2, stdout: '', stderr: `${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}` })
+    expect({ ...r, stderr: unnamed(r.stderr) }).toEqual({ exitCode: 2, stdout: '', stderr: `${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}` })
     expect(events(root).length).toBe(before)
     expect(stop(root, reply(WRITEBACK), { stop_hook_active: true })).toEqual({ exitCode: 0, stdout: '', stderr: '' })
     expect(codexStopMessage(SLUG, 's1')).toMatch(/^Write back to the sofar record before finishing: call sofar_end_session with session_id s1/)

@@ -43,6 +43,13 @@
             "cmd": "npm test",
             "ok": true
           },
+          "recent_tests": [
+            {
+              "cmd": "npm test",
+              "ok": true,
+              "ts": "2026-01-01T00:00:03.000Z"
+            }
+          ],
           "task_changes": []
         },
         "ended": "2026-01-01T00:00:09.000Z",

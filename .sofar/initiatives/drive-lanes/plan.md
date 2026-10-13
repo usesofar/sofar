@@ -4,9 +4,9 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages), and a driven task costs fewer tokens than native Claude Code (one session with its own subagents) on the same fixture.
 
-Brief: the operator's words, 1600 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 9561 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 18 done, 3 dropped, 8 remaining
+Progress: 25 done, 3 dropped, 2 remaining
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
@@ -14,20 +14,16 @@ Progress: 18 done, 3 dropped, 8 remaining
 
 ## Phase 3 — Conflict-aware orchestration [done] — 7/10 (3 dropped) done — its tasks in phases/P3.md
 
-## Phase 4 — Below native on tokens [active] — 1/5 done
+## Phase 4 — Below native on tokens [done] — 5/5 done — its tasks in phases/P4.md
 
-- [x] 4.1 Token anatomy, deterministic, from the 3.4 and 3.9 transcripts: split a driven session's and a native subagent's tokens by source (system prompt and tool schemas, built-in and MCP; the SessionStart injection; each hook's added context; sofar protocol calls and their results; the task's own work; verify runs). results/4.1-anatomy.json ranks the sources by tokens per task and names what 4.2-4.4 must cut to land under native (driven today: 29.6k base, 9.4 calls per task; native subagent: 15.4k, 4.4)
-- [ ] 4.2 Lean driven base: a driven session starts at or under a native subagent's base context. The driver hands a task packet (the task, its verify, the decisions and memories that name its files) instead of the full SessionStart digest; per-tool hook context is off in driven sessions unless it carries a rule the edit breaks; the MCP tool list is trimmed to what a driven session calls. Keep only if tasks done and gate pass rate hold
-- [ ] 4.3 Bookkeeping by the driver, not the session: the driver records session start, task status and the write-back from what it already sees (the launch, the commit, its own verify, the session's last message), so a driven session spends no calls on the protocol; the prompt names the verify command so the session runs it once before it ends. Target at most 4.4 calls per task
-- [ ] 4.4 Cache-shaped launches: every driven session in a run starts on a byte-identical prefix (system, tools, packet frame) with per-task lines last, so session N reads session N-1's cache inside the TTL, and lanes stagger their starts so lanes 2..N read lane 1's. Measure cache write per task against native's 11.8k
-- [ ] 4.5 Measure serial and footprint lanes with 4.2-4.4 against native, 3 interleaved reps each on D27's stack. Keep each lever only where it lowers tokens per task (raw and priced) with no drop in tasks done or gate pass. The phase is done only when serial drive sits below native on tokens per task; otherwise name the remaining gap and the next lever as a task
+## Phase 5 — Cloud lanes [active] — 3/5 done
 
-## Phase 5 — Cloud lanes [pending] — 0/4 done
-
-- [ ] 5.1 Cloud launch and readback without a TTY: `claude --cloud` refuses a non-TTY (r4-fixes M24). Verify a scriptable launch (routines via API call, or a pty), a branch per task, results back through pushed branches (needs the Claude GitHub App on the repo), and session end detected from the branch's record
-- [ ] 5.2 Cloud lane adapter: a lane is a cloud session on its task branch. The local coordinator polls and fetches, verifies locally, merges through the queue, and `--resume` re-attaches after the laptop sleeps (the record is the queue)
+- [x] 5.1 Cloud launch and readback without a TTY: `claude --cloud` refuses a non-TTY (r4-fixes M24). Verify a scriptable launch (routines via API call, or a pty), a branch per task, results back through pushed branches (needs the Claude GitHub App on the repo), and session end detected from the branch's record
+- [x] 5.2 Cloud lane adapter: a lane is a cloud session on its task branch. The local coordinator polls and fetches, verifies locally, merges through the queue, and `--resume` re-attaches after the laptop sleeps (the record is the queue)
 - [ ] 5.3 Conflicts in cloud lanes: no edit-time leases (a cloud VM cannot read the local lease store), so scheduling by footprint plus the merge queue. Measure conflict rework against local lanes
-- [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate
+- [ ] 5.4 Measure cloud lanes against local lanes: wall-clock, cost per task, tasks finished with the laptop closed, verify pass rate (blocked)
+- [x] 5.5 Drive hosted in a cloud session (P24): `sofar drive --detach` started inside ONE Claude Code cloud session, its tasks run by the claude-code adapter as `claude -p` children in that VM, so a whole run is one entry in the operator's list. Probe: does the VM give child sessions auth, does a detached run survive the turn ending, and how the result comes back (patch or push). Compare against claude-cloud lanes on leftovers, wall-clock and done rate
 
-Active phase: Phase 4 — Below native on tokens
-Next action: 4.2: lean driven base (trim tools, system prompt, CLAUDE.md)
+Active phase: Phase 5 — Cloud lanes
+Next action: Ship drive-lanes in a 0.38 rc, then hosted lanes vs local lanes
+Blocked on: task 5.4: Serial half done (D56): results/5.4s-local.bar.json, 5.4s-hosted.bar.json. Lanes half waits on a release that carries drive --lanes (none up to 0.37.0-rc.8)

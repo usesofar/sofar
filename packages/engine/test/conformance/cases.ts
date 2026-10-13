@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { FixtureSpec, Materialized, Step } from './harness'
+import { PAGED_CLAUSES, PAGED_POINTER } from '../../src/core/paged-clauses'
 
 /**
  * The conformance catalogue (rust-core 1.2). One entry per golden file;
@@ -577,6 +578,27 @@ export const CASES: ConformanceCase[] = [
     ],
   },
   {
+    // felt-latency L3: the prompt hook pages the CLAUDE.md block's PLAN, LINKS
+    // and DRIVING clauses in, once per context, only when the repo's block
+    // carries PAGED_POINTER in their place; never for Cursor.
+    name: 'repo.paged-clauses',
+    fixture: REPO,
+    steps: [
+      s('a CLAUDE.md that still says every clause: nothing paged', ['event', 'user-prompt'], prompt({ session_id: 'paged-sess', prompt: 'run this in sofar drive' }), {
+        before: (m) => writeFileSync(join(m.root, 'CLAUDE.md'), `# r\n\n${PAGED_CLAUSES.plan}${PAGED_CLAUSES.links}${PAGED_CLAUSES.driving}`),
+      }),
+      s('the paged block: a drive ask pages DRIVING in', ['event', 'user-prompt'], prompt({ session_id: 'paged-sess', prompt: 'run this in sofar drive' }), {
+        before: (m) => writeFileSync(join(m.root, 'CLAUDE.md'), `# r\n\n${PAGED_POINTER}`),
+      }),
+      s('the same ask again: told once', ['event', 'user-prompt'], prompt({ session_id: 'paged-sess', prompt: 'drive it' })),
+      s('a roadmap that waits on another record: PLAN and LINKS', ['event', 'user-prompt'], prompt({ session_id: 'paged-sess', prompt: 'here is the roadmap; it waits on felt-cost' })),
+      s('an ordinary prompt: nothing', ['event', 'user-prompt'], prompt({ session_id: 'paged-other', prompt: 'fix the typo' })),
+      s('a long plain prompt, PLAN never paged in: captured, no P<n> offer', ['event', 'user-prompt'], prompt({ session_id: 'paged-other', prompt: `${CAPTURE_LONG} Plain work.` })),
+      s('a long roadmap prompt: PLAN paged in, and the offer with it', ['event', 'user-prompt'], prompt({ session_id: 'paged-other', prompt: `${CAPTURE_LONG} It is the roadmap.` })),
+      s('a Cursor payload: nothing', ['event', 'user-prompt'], prompt({ session_id: 'paged-cursor', prompt: 'run this in sofar drive', cursor_version: '2026.09.10' })),
+    ],
+  },
+  {
     // r3-fixes 2.5 (D15): a rule filed naming nothing it replaces is stamped
     // with the in-force rules it may replace (the append is the TypeScript
     // writer's); Stop asks the session that filed it, after its write-back too,
@@ -948,7 +970,10 @@ export const CASES: ConformanceCase[] = [
       s('stop: a filter voids coverage', ['event', 'stop'], stop({ session_id: 'sess-g' })),
       s('the directory holding both passes', ['event', 'post-tool'], bash('bun test tests/rules 2>&1 | tail -3', { session_id: 'sess-g' })),
       s('stop: a directory covers the files under it', ['event', 'stop'], stop({ session_id: 'sess-g' })),
-      s('Edit again', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-g' })),
+      // A real Edit writes the file; the gate weighs each rule by its files' mtimes (felt-latency L2).
+      s('Edit again', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-g' }), {
+        before: (m) => writeFileSync(join(m.root, 'src', 'stock.ts'), 'export const again = 1\n'),
+      }),
       s('stop: a pre-edit run never covers', ['event', 'stop'], stop({ session_id: 'sess-g' })),
       s('the bare runner fails', ['event', 'post-tool-failure'], hook('PostToolUseFailure', { session_id: 'sess-g', tool_name: 'Bash', tool_input: { command: 'bun test', description: 'x' }, error: 'Exit code 1', exit_code: 1 })),
       s('stop: a red run after the edit holds, once for both rules', ['event', 'stop'], stop({ session_id: 'sess-g' })),
@@ -1065,12 +1090,26 @@ export const CASES: ConformanceCase[] = [
       }),
       s('a rule with no check', ['event', 'append', '--type', 'decision_logged', '--session', 'sess-e', '--source', 'claude-code', '--payload', JSON.stringify({ chose: 'floor at zero', over: 'negative stock', because: 'b', rule: 'Stock never goes below zero.', guard: 'path:src/**', supersedes: 'none' })]),
       s("this tree's suite passes", ['event', 'post-tool'], bash('npm test', { session_id: 'sess-e' })),
-      s('an edit the rule governs', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-e' })),
+      s('an edit the rule governs', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-e' }), {
+        before: (m) => writeFileSync(join(m.root, 'src', 'stock.ts'), 'export const floor = 0\n'),
+      }),
       s('sess-e writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-e', '--source', 'claude-code', '--payload', '{"summary":"s","next_action":"n"}']),
       s("another repo's suite passes, run from here", ['event', 'post-tool'], bash('cd <HOME>/bench && bun test', { session_id: 'sess-e' })),
       s('stop: held, asking for npm test', ['event', 'stop'], stop({ session_id: 'sess-e' })),
       s("this tree's suite passes again", ['event', 'post-tool'], bash('npm test', { session_id: 'sess-e' })),
       s('stop: covered', ['event', 'stop'], stop({ session_id: 'sess-e' })),
+      // felt-latency L2: an edit no rule bears on never re-arms the ask.
+      s('an edit to a file no rule bears on', ['event', 'post-tool'], edit('<ROOT>/docs/notes.md', { session_id: 'sess-e' }), {
+        before: (m) => {
+          mkdirSync(join(m.root, 'docs'), { recursive: true })
+          writeFileSync(join(m.root, 'docs', 'notes.md'), '# notes\n')
+        },
+      }),
+      s('stop: still covered', ['event', 'stop'], stop({ session_id: 'sess-e' })),
+      s('the governed file again', ['event', 'post-tool'], edit('<ROOT>/src/stock.ts', { session_id: 'sess-e' }), {
+        before: (m) => writeFileSync(join(m.root, 'src', 'stock.ts'), 'export const floor = 1\n'),
+      }),
+      s('stop: the ask is back', ['event', 'stop'], stop({ session_id: 'sess-e' })),
     ],
   },
   {

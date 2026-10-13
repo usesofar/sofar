@@ -31,6 +31,7 @@ import { rememberJudged } from './remember'
 import { withCopyLag } from './copy-lag'
 import { recordRoot } from '../core/git'
 import { hostRenamed } from '../core/lineage'
+import { clausesPagedOut } from '../core/paged-clauses'
 
 /**
  * Sofar MCP server (SPEC §MCP tools) — low-level SDK API on purpose (BD12):
@@ -56,8 +57,16 @@ export const SERVER_VERSION = version
  * Claude Code (verified 2.1.270–2.1.274, memory-lead M1) honours by skipping
  * tool-search deferral — round 1 paid a ToolSearch request per session to
  * load them. The rest stay deferred: the write-back carries their normal use.
+ * sofar_log_decision left the set in felt-latency L3 (D2): its 1.3 KB rode
+ * every call for a tool the protocol calls mid-session only for a decision a
+ * concurrent session must see first; the write-back's `decisions` carry the
+ * rest, described in place.
  */
-export const ALWAYS_LOADED_TOOLS = ['sofar_end_session', 'sofar_log_decision'] as const
+export const ALWAYS_LOADED_TOOLS = ['sofar_end_session'] as const
+
+/** The three operations that left the tool list for the CLI (r1-fixes 2.4, D13). */
+const CLI_OPERATIONS =
+  'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.'
 
 /**
  * Server instructions (MCP initialize; r1-fixes 2.1, D10) — the client shows
@@ -74,7 +83,17 @@ export function serverInstructions(
   adopted: boolean,
   tools: readonly string[] | null = null,
   mode: WritebackMode = writebackMode(),
+  blockInstalled = false,
 ): string {
+  // felt-latency L3 (D2): an adopted Claude Code session whose CLAUDE.md
+  // carries the V15 block already holds every sentence below but the CLI one,
+  // in the block that rides the same calls; say where the loop is, once.
+  if (adopted && mode === 'tool' && tools === null && blockInstalled) {
+    return [
+      "sofar keeps this repo's work record; this session is adopted, and its loop is the sofar protocol block in CLAUDE.md. Load sofar tools other than sofar_end_session only when needed.",
+      CLI_OPERATIONS,
+    ].join('\n')
+  }
   // The in-band write-back (r4-fixes A1): the final reply's ```sofar block is
   // the write-back, so neither a start call nor the tool is needed for it.
   const inline = mode === 'inline'
@@ -95,7 +114,7 @@ export function serverInstructions(
               "Write back once, at wrap-up, with sofar_end_session — pass the session_id from the injected \"Session:\" line; it carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes.",
             ]
           : []),
-      'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.',
+      CLI_OPERATIONS,
     ].join('\n')
   }
   return [
@@ -108,7 +127,7 @@ export function serverInstructions(
     inline
       ? "Write back once, at wrap-up: end your final reply with one ```sofar block of sofar_end_session's arguments — the Stop hook files it — or call sofar_end_session. Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed."
       : "Write back once, at wrap-up: sofar_end_session carries the session's decisions, task changes (a new task with its title), phase changes, memories and notes. When a background agent's or workflow's work lands, mark its tasks done then: one sofar_update_task, task_id \"m1,m2\". Call sofar_log_decision mid-session only for a decision a concurrent session must see first; load other sofar tools only when needed.",
-    'Reviews, closing and reach queries are CLI: `sofar review` (the packet ends with the command that records the verdict), `sofar close`, `sofar find <seed>`.',
+    CLI_OPERATIONS,
   ].join('\n')
 }
 
@@ -258,7 +277,12 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
       capabilities: { tools: {} },
       // A server handed a Claude Code session id is that session's child, so it
       // teaches Claude Code's write-back (r4-fixes H5).
-      instructions: serverInstructions(hostSessionId !== undefined, listedTools(), writebackModeFor(hostSessionId !== undefined ? 'claude-code' : undefined)),
+      instructions: serverInstructions(
+        hostSessionId !== undefined,
+        listedTools(),
+        writebackModeFor(hostSessionId !== undefined ? 'claude-code' : undefined),
+        clausesPagedOut(rootDir),
+      ),
     },
   )
   const alwaysLoaded: readonly string[] = ALWAYS_LOADED_TOOLS
@@ -309,12 +333,20 @@ export function createSofarServer(options: CreateSofarServerOptions = {}): Sofar
       if (adoptWorktree && name !== 'sofar_start_session' && context.session.get() === null) {
         adoptWorktreeSession(context, toolOfClient(server.getClientVersion()?.name), startedAtMs)
       }
+      // A start call without an id, on a server the host named its session to,
+      // re-homes THAT session (felt-latency L4). Minting one orphaned the
+      // hook-registered id: every write-back filed under the new id, and Stop
+      // held the host's session on each stop after (28 holds in one session).
+      const callArgs =
+        name === 'sofar_start_session' && hostId !== undefined && (args as { session_id?: unknown }).session_id === undefined
+          ? { ...(args as object), session_id: cloudHostSession(rootDir, hostId, options.hostEntrypoint) }
+          : args
       // Runtime-validated above; the registry's per-tool arg types are
       // narrower than `unknown`, hence the cast.
       const handler = handlers[name] as (ctx: ToolContext, a: unknown) => unknown
-      let target = writeTarget(context, name, args)
+      let target = writeTarget(context, name, callArgs)
       // Awaited: the two write tools finish with the write-time judge (typed-judge 3.1).
-      const value = await handler(context, args)
+      const value = await handler(context, callArgs)
       if (name === 'sofar_start_session') target = context.session.get()?.initiative ?? null
       const result = okResult(withCopyLag(context, target, value))
       recordCall(context, name, { ok: true, ms: Date.now() - started })

@@ -144,10 +144,10 @@ describe('trusted publishing setup', () => {
     expect(bumped.packages!['packages/engine']!.version).toBe('0.39.0-rc.1')
     expect(Object.values(deps)).toEqual(PLATFORMS.map(() => '0.39.0-rc.1'))
     expect(Object.keys(deps)).toEqual(PLATFORMS.map(packageName).sort())
-    const trunk = syncLock(lock, '0.39.0-dev+trunk')!
+    const trunk = syncLock(lock, '0.99.0-dev+trunk')!
     for (const p of PLATFORMS) {
       expect(bumped.packages![`packages/engine/node_modules/${packageName(p)}`]!.version).toBe('0.39.0-rc.1')
-      expect(trunk.packages![`packages/engine/node_modules/${packageName(p)}`]!.version).toBe('0.39.0-dev')
+      expect(trunk.packages![`packages/engine/node_modules/${packageName(p)}`]!.version).toBe('0.99.0-dev')
     }
   })
 

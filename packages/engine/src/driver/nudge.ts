@@ -76,8 +76,8 @@ export function nudgeLine(detail: NudgeDetail): string {
       : ''
   return (
     `sofar drive${gauge}: finish the CURRENT task now, then hand off. ` +
-    'Mark it done with sofar_update_task, write back with sofar_end_session ' +
-    '(summary + the single next action), commit, and end your turn. Do not ' +
+    'Commit, then end your turn with the closing sofar block (summary, the ' +
+    'single next action, every task you finished marked done). Do not ' +
     'start another task — the driver launches a fresh session for it.'
   )
 }

@@ -45,11 +45,13 @@ import { lowPriority } from './load'
  * unparseable line is skipped too — the fold's tolerance rule, applied to a
  * stream.
  *
- * Two facts the driver leans on. The initiative is PINNED through the
- * prompt: the engine has no env override for the branch binding, and adding
- * one would be a second binding source to keep honest, whereas the prompt
- * already reaches the one call that pins a session (sofar_start_session's
- * `initiative`). The nudge is a FILE: `nudge()` creates it at the path the
+ * Two facts the driver leans on. Where the launch directory's binding does
+ * not already resolve to the initiative, it is PINNED through the prompt: the
+ * engine has no env override for the branch binding, and adding one would be
+ * a second binding source to keep honest, whereas the prompt already reaches
+ * the one call that pins a session (sofar_start_session's `initiative`).
+ * Where it does resolve, the driver passes `pin: false` and the call is
+ * skipped (drive-lanes 4.3, D48). The nudge is a FILE: `nudge()` creates it at the path the
  * child received in `SOFAR_DRIVE_NUDGE`, and the PostToolUse hook (2.3)
  * turns its existence into "finish the current task, write back, end your
  * turn" — print mode has no stdin to speak through once it has started.
@@ -117,6 +119,32 @@ export const CLAUDE_CODE_CAPABILITIES: AdapterCapabilities = {
 }
 
 
+/**
+ * The built-in tools every driven session loads (drive-lanes 4.2, D47): the
+ * ones the driver prompt's work needs — run commands, read, edit and write
+ * files — and ToolSearch, which loads deferred MCP tools (sofar's among them).
+ * Every call in the 2.5 and 3.4 agent reps (1,846 of them) was one of these or
+ * a sofar tool. The rest of Claude Code's default set — Agent, Workflow,
+ * ScheduleWakeup, Skill, ReportFindings, ListAgents — was ~10k tokens of
+ * schema a driven session re-read on every call and never used.
+ */
+export const DRIVEN_TOOLS: readonly string[] = ['Bash', 'Read', 'Edit', 'Write', 'ToolSearch']
+
+/**
+ * A surface's built-in tools: DRIVEN_TOOLS plus every built-in a rule names
+ * (`WebFetch`, `Agent`, `Bash(npm test:*)` names Bash), so `--allow <Tool>`
+ * is how an operator gives driven sessions a tool beyond the five. MCP rules
+ * name no built-in: MCP servers load as the operator configured them.
+ */
+export function surfaceTools(surface: PermissionSurface): string[] {
+  const tools = [...DRIVEN_TOOLS]
+  for (const rule of surface.allow) {
+    const name = /^([A-Za-z][A-Za-z0-9]*)(\(|$)/.exec(rule.trim())?.[1]
+    if (name !== undefined && !rule.startsWith('mcp__') && !tools.includes(name)) tools.push(name)
+  }
+  return tools
+}
+
 /** The line prepended to every prompt so the session pins itself to the record it serves. */
 export function pinLine(initiative: string): string {
   return (
@@ -128,7 +156,7 @@ export function pinLine(initiative: string): string {
 }
 
 export function pinPrompt(request: LaunchRequest): string {
-  return `${pinLine(request.initiative)}\n\n${request.prompt}`
+  return request.pin === false ? request.prompt : `${pinLine(request.initiative)}\n\n${request.prompt}`
 }
 
 /**
@@ -151,7 +179,12 @@ export function claudeArgs(
     ...(request.model !== undefined ? ['--model', request.model] : []),
     ...(request.effort !== undefined ? ['--effort', request.effort] : []),
     ...(request.surface !== undefined ? ['--permission-mode', request.surface.permission_mode] : []),
+    // A pinned surface also pins the tool set (4.2): only what it can use, and no skills.
+    ...(request.surface !== undefined ? ['--tools', surfaceTools(request.surface).join(','), '--disable-slash-commands'] : []),
     ...(settingsPath !== undefined ? ['--settings', settingsPath] : []),
+    // The run's shared frame goes in the system prompt (4.4): inside the cached
+    // prefix, so each session reads it rather than writing it again.
+    ...(request.frame !== undefined ? ['--append-system-prompt', request.frame] : []),
     ...(options.args ?? []),
   ]
 }

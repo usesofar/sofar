@@ -67,7 +67,7 @@ export const weighted = (u) => Math.round(Object.entries(TOKEN_WEIGHTS).reduce((
  */
 export function transcriptUsage(paths) {
   const seen = new Set()
-  const u = { input: 0, cache_creation: 0, cache_read: 0, output: 0, messages: 0, models: {} }
+  const u = { input: 0, cache_creation: 0, cache_read: 0, output: 0, messages: 0, models: {}, first: null }
   for (const path of paths) {
     for (const line of readFileSync(path, 'utf8').split('\n')) {
       if (!line.includes('"usage"')) continue
@@ -89,6 +89,11 @@ export function transcriptUsage(paths) {
       u.cache_read += m.usage.cache_read_input_tokens ?? 0
       u.output += m.usage.output_tokens ?? 0
       u.messages += 1
+      // The main thread's earliest call (4.4): what it wrote and read is how much of
+      // the session's opening prefix the provider's cache already held.
+      if (path === paths[0] && (u.first === null || (e.timestamp ?? '') < u.first.ts)) {
+        u.first = { ts: e.timestamp ?? '', cache_creation: m.usage.cache_creation_input_tokens ?? 0, cache_read: m.usage.cache_read_input_tokens ?? 0 }
+      }
       if (typeof m.model === 'string') u.models[m.model] = (u.models[m.model] ?? 0) + 1
     }
   }
@@ -217,6 +222,7 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
   }
 
   const tokens = { input: 0, cache_creation: 0, cache_read: 0, output: 0, total: 0, sessions_with_transcript: 0 }
+  const firsts = []
   const perTask = new Map(TASKS.map((t) => [t.id, { id: t.id, shape: t.shape, sessions: 0, seconds: 0, tokens: 0, reasons: [] }]))
   for (const h of handoffs) {
     const row = perTask.get(h.payload.task)
@@ -224,6 +230,7 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
     if (u !== null) {
       tokens.sessions_with_transcript += 1
       for (const k of ['input', 'cache_creation', 'cache_read', 'output', 'total']) tokens[k] += u[k]
+      if (u.first) firsts.push(u.first)
     }
     if (row === undefined) continue
     row.sessions += 1
@@ -287,6 +294,15 @@ export function measure(events, { usageOf = () => null, drive = { cost_usd: null
       per_task: done > 0 && tokens.sessions_with_transcript > 0 ? Math.round(tokens.total / done) : null,
       output_per_task: done > 0 && tokens.sessions_with_transcript > 0 ? Math.round(tokens.output / done) : null,
       ...splitPerTask(tokens, done),
+      // Each session's first call (4.4): written vs read from the cache; cold = read nothing.
+      first_call:
+        firsts.length > 0
+          ? {
+              write_mean: Math.round(firsts.reduce((a, f) => a + f.cache_creation, 0) / firsts.length),
+              read_mean: Math.round(firsts.reduce((a, f) => a + f.cache_read, 0) / firsts.length),
+              cold: firsts.filter((f) => f.cache_read === 0).length,
+            }
+          : null,
       context_at_handoff_mean:
         handoffs.some((h) => h.payload.tokens !== undefined)
           ? Math.round(handoffs.reduce((a, h) => a + (h.payload.tokens ?? 0), 0) / handoffs.filter((h) => h.payload.tokens !== undefined).length)
@@ -387,6 +403,8 @@ export function headline(result) {
     input_tokens_per_task: split?.input ?? null,
     cache_write_tokens_per_task: split?.cache_creation ?? null,
     cache_read_tokens_per_task: split?.cache_read ?? null,
+    first_call_write: s.tokens.first_call?.write_mean ?? null,
+    first_call_read: s.tokens.first_call?.read_mean ?? null,
     weighted_tokens_per_task: weighted_per_task,
     cost_per_task: s.cost.per_task,
     sessions: s.sessions.launched,

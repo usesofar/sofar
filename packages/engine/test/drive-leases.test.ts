@@ -251,7 +251,7 @@ describe('leases (D33): the older task wins', () => {
     expect(told?.text).toMatch(
       /^sofar lease \(drive-lanes 3\.10\): lane 1 now also edits a\.md › Spec › Driver for 1\.1 "task 1\.1", a task older than yours \(1\.2\) — its change lands first, and yours there will conflict with it at merge\. Undo your uncommitted change there, and make it again as your last step — once that lane has landed, the edit takes its change into your branch first\. Free: the rest of a\.md/,
     )
-    expect(told?.text).toContain("park: commit your WIP on this branch, write back with sofar_end_session naming what 1.2 waits for, and end your turn — your leases are released, and the driver relaunches 1.2 once lane 1's lease is gone.")
+    expect(told?.text).toContain("park: commit your WIP on this branch, end with your closing sofar block, its next_action naming what 1.2 waits for, and end your turn — your leases are released, and the driver relaunches 1.2 once lane 1's lease is gone.")
     // Kept as a wait, so a session that parks after it has parked on that lease.
     expect(readLease(leaseFile(dir, 2))?.waits).toEqual([{ run: 'RUN', lane: 1, task: '1.1', region: driver }])
     // Said once: the next edit elsewhere says nothing of it.
@@ -281,7 +281,7 @@ describe('leases (D33): the older task wins', () => {
       'The edit was applied: undo it, and make it again as your last step — once that lane has landed, the edit takes its change into your branch first, and nothing conflicts.',
     )
     expect(check?.text).toContain('Free: the rest of a.md, and every region no lane holds. Lanes hold: L1 1.1 — a.md › Spec › Driver.')
-    expect(check?.text).toContain('Work on a free part of 1.2 meanwhile; if it is still held when nothing else is left, park: commit your WIP on this branch, write back with sofar_end_session')
+    expect(check?.text).toContain('Work on a free part of 1.2 meanwhile; if it is still held when nothing else is left, park: commit your WIP on this branch, end with your closing sofar block')
     expect(readLease(leaseFile(dir, 2))?.waits).toEqual([{ run: 'RUN', lane: 1, task: '1.1', region: driver }])
     // Told once in full: the same collision again is one line, and no second wait.
     expect(checkLease(leaseFile(dir, 2), 'a.md', DOC, edit('driver text'), () => 'held')?.text).toBe(

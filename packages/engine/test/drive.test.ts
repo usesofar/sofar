@@ -8,8 +8,10 @@ import { markRecordCheckout } from '../src/core/git'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import type { Adapter, AgentSession, LaunchRequest, SessionExit } from '../src/driver/adapter'
+import { launchPrompt } from '../src/driver/adapter'
 import {
   awaitSession,
+  bindsTo,
   describeExit,
   drive,
   DriveFenced,
@@ -390,9 +392,46 @@ describe('the loop', () => {
     expect(adapter.sessions[1]!.request.cwd).toBe(root)
     expect(first.initiative).toBe('demo')
     expect(first.prompt).toContain('Task 1.1 — first')
-    expect(first.prompt).toContain('sofar_end_session')
-    expect(first.prompt).toContain('blocked')
+    expect(first.frame).toContain('```sofar')
+    expect(first.frame).toContain('blocked')
     expect(renderPrompt('demo', { phase: 'Phase 1', id: '1.1', title: 'first' })).toContain('THIS TASK ONLY')
+  })
+
+  it('keeps the record for the session: a closing block, no sofar tool, the gate command named, and no pin where the binding resolves (drive-lanes 4.3)', async () => {
+    const root = repo('keeper')
+    const adapter = new FakeAdapter([worker(root, 'S1'), worker(root, 'S2')])
+    await drive(root, 'demo', { adapter })
+    const first = adapter.sessions[0]!.request
+    expect(first.env?.SOFAR_WRITEBACK).toBe('inline')
+    // No branch here, so no binding: the pin stays.
+    expect(first.pin).toBeUndefined()
+    // A branch bound to the record needs none.
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root })
+    writeFileSync(join(root, '.sofar', 'bindings.json'), JSON.stringify({ main: 'demo' }))
+    expect(bindsTo(root, 'demo')).toBe(true)
+    expect(bindsTo(root, 'other')).toBe(false)
+    expect(first.frame).toContain('call no sofar tool for it')
+    expect(first.frame).toContain('"task_id":"<your task\'s id>","status":"done"')
+    expect(first.prompt).toContain('Close with the ```sofar block for task 1.1.')
+    const named = renderPrompt('demo', { phase: 'Phase 1', id: '1.1', title: 'first' }, 'task', undefined, undefined, 'npm test')
+    expect(named).toContain('The task is accepted when `npm test` exits 0')
+    expect(renderPrompt('demo', { phase: 'Phase 1', id: '1.1', title: 'first' })).not.toContain('is accepted when')
+  })
+
+  it('sends every session of a run the same frame and only its task in the prompt (drive-lanes 4.4)', async () => {
+    const root = repo('frame')
+    const adapter = new FakeAdapter([worker(root, 'S1'), worker(root, 'S2')])
+    await drive(root, 'demo', { adapter })
+    const [s1, s2] = adapter.sessions.map((s) => s.request)
+    // Byte-identical, so it sits in the prefix the provider caches.
+    expect(s1!.frame).toBeDefined()
+    expect(s2!.frame).toBe(s1!.frame)
+    expect(s1!.frame).not.toContain('1.1')
+    expect(s1!.prompt).not.toBe(s2!.prompt)
+    expect(s1!.prompt).not.toContain('THIS TASK ONLY')
+    // An adapter with no system prompt to put it in sends the two joined, frame first.
+    expect(launchPrompt(s1!)).toBe(`${s1!.frame}\n\n${s1!.prompt}`)
+    expect(renderPrompt('demo', { phase: 'Phase 1', id: '1.1', title: 'first' })).toBe(launchPrompt(s1!))
   })
 
   it('stops on needs_user when the session blocks its task, and does not relaunch onto it', async () => {

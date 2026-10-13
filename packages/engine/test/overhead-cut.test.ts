@@ -47,12 +47,12 @@ const PLAN = {
 }
 
 describe('always-load', () => {
-  it('tools/list marks exactly the write-back and log_decision always-loaded', async () => {
+  it('tools/list marks exactly the write-back always-loaded (log_decision deferred since felt-latency D2)', async () => {
     const { client } = await connectServer(fx().root)
     const { tools } = await client.listTools()
     const marked = tools.filter((t) => (t._meta as Record<string, unknown> | undefined)?.['anthropic/alwaysLoad'] === true)
     expect(marked.map((t) => t.name).sort()).toEqual([...ALWAYS_LOADED_TOOLS].sort())
-    expect(ALWAYS_LOADED_TOOLS).toEqual(['sofar_end_session', 'sofar_log_decision'])
+    expect(ALWAYS_LOADED_TOOLS).toEqual(['sofar_end_session'])
     // The drive runner seeds plans through this tool — it stays (bench note, 2026-09-17).
     expect(tools.map((t) => t.name)).toContain('sofar_update_plan')
     await client.close()
@@ -65,12 +65,13 @@ describe('the per-turn byte budget (memory-lead 4.4, L34)', () => {
   // server instructions; and what every session start injects. Round 3 put
   // them at about $0.5 a chain (R3-FIX-SURVEY part A, section 2), so they get no lever
   // of their own, only this ceiling: growth fails here, not in a benchmark.
-  it('the always-loaded definitions stay ≤3,500 chars and the instructions ≤800', async () => {
+  it('the always-loaded definitions stay ≤2,300 chars and the instructions ≤800', async () => {
     const { client } = await connectServer(fx().root)
     const { tools } = await client.listTools()
     const always = tools.filter((t) => (t._meta as Record<string, unknown> | undefined)?.['anthropic/alwaysLoad'] === true)
     const chars = always.reduce((n, t) => n + JSON.stringify({ name: t.name, description: t.description, inputSchema: t.inputSchema }).length, 0)
-    expect(chars).toBeLessThanOrEqual(3_500)
+    // 3,500 until felt-latency D2 deferred sofar_log_decision (3,370 -> 2,158).
+    expect(chars).toBeLessThanOrEqual(2_300)
     expect((client.getInstructions() ?? '').length).toBeLessThanOrEqual(800)
     await client.close()
   })

@@ -7,6 +7,7 @@ import { foldLog } from '../src/core/fold'
 import { HOLD_CLOSE_LINE, runAppend, handleStop, STOP_BLOCK_MESSAGE_TOOL, type AppendArgs } from '../src/cli/event'
 import { runNew } from '../src/cli/new'
 import { runStatus } from '../src/cli/status'
+import { unnamed } from './helpers/hold'
 
 /**
  * Task 5.1 — `sofar event append`, the convention-dialect surface (BD30):
@@ -165,11 +166,11 @@ describe('event append — session_ended satisfies the Stop hook (write-back par
     // the write-back gate is armed — same exit 2 + stderr the MCP loop faces
     const blocked = handleStop(root, stopInput)
     expect(blocked.exitCode).toBe(2)
-    expect(blocked.stderr).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
+    expect(unnamed(blocked.stderr)).toBe(`${STOP_BLOCK_MESSAGE_TOOL}\n${HOLD_CLOSE_LINE}`)
     // r4-fixes H3's off switch restores rc.1's hold byte for byte
     process.env.SOFAR_HOLD_CLOSE = 'off'
     try {
-      expect(handleStop(root, stopInput).stderr).toBe(STOP_BLOCK_MESSAGE_TOOL)
+      expect(unnamed(handleStop(root, stopInput).stderr)).toBe(STOP_BLOCK_MESSAGE_TOOL)
     } finally {
       delete process.env.SOFAR_HOLD_CLOSE
     }
