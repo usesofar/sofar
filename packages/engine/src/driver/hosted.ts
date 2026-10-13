@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { version as localVersion } from '../../package.json'
 import { launchEnv } from './adapter'
+import { createToolContext } from '../mcp/context'
+import { resolveVerify, runVerification, verifyDirs } from './verify'
 import { cloudSessionId, pollCloud, run, scriptArgv, shellWord, DEFAULT_POLL_MS, type CloudTranscript } from './claude-cloud'
 
 /**
@@ -88,7 +90,10 @@ export function hostedPrompt(slug: string, driveArgs: string[], base: string, si
   const tip = lanes
     ? `"$(git for-each-ref --sort=-creatordate --format='%(refname:short)' 'refs/heads/sofar/${slug}/' | grep -E '^sofar/${slug}/[0-9A-Z]{26}$' | head -1)"`
     : 'HEAD'
-  const exportCmd = `sofar export ${shellWord(slug)}${since !== undefined ? ` --since ${since}` : ''} | grep -v -e '"type":"command_run"' -e '"type":"file_touched"'`
+  // The whole record, mechanical events included: they carry what each session
+  // touched and ran (file-linked decisions, adjacency, activity), and the
+  // chunked transport has no size cap to fit (6.1).
+  const exportCmd = `sofar export ${shellWord(slug)}${since !== undefined ? ` --since ${since}` : ''}`
   return [
     `You host one sofar drive run of the initiative \`${slug}\` in this cloud session. Call no sofar MCP tool and do no task work yourself; run exactly these commands from the repository root, in order:`,
     '',
@@ -137,6 +142,21 @@ export function hostedBundle(outputs: string[]): { patch: string; events: string
   const at = text.indexOf(`\n${BUNDLE_SEP}\n`)
   const [patch, events] = at >= 0 ? [text.slice(0, at + 1), text.slice(at + BUNDLE_SEP.length + 2)] : text.startsWith(`${BUNDLE_SEP}\n`) ? ['', text.slice(BUNDLE_SEP.length + 1)] : [text, '']
   return { patch, events }
+}
+
+/** The tasks a hosted run's events mark done, in order, each once. */
+export function landedTasks(ndjson: string): string[] {
+  const done: string[] = []
+  for (const line of ndjson.split('\n')) {
+    try {
+      const e = JSON.parse(line) as { type?: string; payload?: { id?: string; task_id?: string; status?: string } }
+      const id = e.payload?.id ?? e.payload?.task_id
+      if (e.type === 'task_status_changed' && e.payload?.status === 'done' && id !== undefined && !done.includes(id)) done.push(id)
+    } catch {
+      // not an event line
+    }
+  }
+  return done
 }
 
 /** The exported events among a host's command outputs: the last output whose lines are event JSON. */
@@ -236,6 +256,24 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
       events = ndjson.trim().split('\n').length
     }
     say(`hosted: ${commits} commit(s) applied, ${events} event(s) imported from ${cloudId}`)
+    // The cloud's gate passed them there; this tree is the one the operator
+    // keeps, so each landed task's verify runs again here (6.1).
+    const red: string[] = []
+    let checked = 0
+    if (ndjson !== null) {
+      const state = createToolContext(rootDir).foldState(slug)
+      const tasks = new Map(state.phases.flatMap((ph) => ph.tasks).map((t) => [t.id, t]))
+      for (const id of landedTasks(ndjson)) {
+        const task = tasks.get(id)
+        const verify = task !== undefined ? resolveVerify(task, {}) : undefined
+        if (verify === undefined) continue
+        checked += 1
+        const outcome = runVerification(verify.cmd, verifyDirs(rootDir, verify.cwd).absolute, verify.timeout_ms)
+        if (outcome.result !== 'pass') red.push(`${id}: \`${verify.cmd}\` ${outcome.result}${outcome.diagnostics !== undefined ? ` — ${outcome.diagnostics.split('\n').slice(-2).join(' ')}` : ''}`)
+      }
+    }
+    if (red.length > 0) return fail(`sofar drive --hosted: ${red.length} of ${checked} landed task(s) fail their verify on this tree:\n${red.join('\n')}`, { cloudId, commits, events })
+    if (checked > 0) say(`hosted: ${checked} landed task(s) re-verified here, all pass`)
     // The cloud driver's own cost line, passed through as the local driver prints it (its sessions' cost; the host's is not in it).
     const cost = seen.outputs.map((o) => /cost reported by the adapter: \$[0-9.]+/.exec(o)?.[0]).filter((c): c is string => c !== undefined).pop()
     if (cost !== undefined) say(cost)

@@ -750,10 +750,15 @@ export function renderFrame(initiative: string, policy: RunPolicy = 'task', lane
     'your task\'s id:',
     '',
     '```sofar',
-    '{"summary":"<what you did, one or two sentences>","next_action":"<the next step>","tasks":[{"task_id":"<your task\'s id>","status":"done"}]}',
+    '{"summary":"<what you did, the files it touched, anything left open>","next_action":"<the next step>","tasks":[{"task_id":"<your task\'s id>","status":"done"}]}',
     '```',
     '',
-    'Add "decisions" only for a choice between approaches a later session must know.',
+    // A driven session calls no sofar tool, so the block is where its memory goes
+    // (drive-lanes 6.1): without these lines it filed decisions at most.
+    'Add "decisions" for a choice between approaches a later session must know,',
+    '"memories" for an operational fact one needs (a command, a failure mode and how',
+    'to tell it), and "notes" for anything else worth keeping — each a list of strings,',
+    'decisions as {"chose","over","because"}.',
     '',
     'If the task needs a decision only the operator can take, do NOT guess and do not',
     'do the work anyway: end with the block giving your task status "blocked" and the',

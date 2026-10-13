@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { gzipSync } from 'node:zlib'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { BUNDLE_SEP, cloudDriveArgs, driveHosted, exportedEvents, hostedBundle, hostedPrompt, hostVersion, HOSTED_DONE } from '../src/driver/hosted'
+import { BUNDLE_SEP, cloudDriveArgs, driveHosted, exportedEvents, hostedBundle, hostedPrompt, hostVersion, HOSTED_DONE, landedTasks } from '../src/driver/hosted'
 
 const dirs: string[] = []
 const tmp = (): string => {
@@ -38,7 +38,9 @@ describe('a hosted run (drive-lanes 5.5)', () => {
     expect(p).toContain(`env -u CLAUDE_CODE_REMOTE_SESSION_ID sofar drive lanes --max-sessions 3 --allow 'Bash(node:*)' --detach`)
     expect(p).toContain('sofar drive lanes --await')
     expect(p).toContain("git format-patch abc..HEAD --stdout -- . ':(exclude).sofar'")
-    expect(p).toContain(`sofar export lanes --since 01EVT | grep -v -e '"type":"command_run"' -e '"type":"file_touched"'`)
+    // The whole record comes back, mechanical events included (6.1).
+    expect(p).toContain('sofar export lanes --since 01EVT; }')
+    expect(p).not.toContain('grep -v')
     expect(p).toContain(HOSTED_DONE)
   })
 
@@ -54,6 +56,11 @@ describe('a hosted run (drive-lanes 5.5)', () => {
   it("takes a lanes run's work from its run base branch, not the host's HEAD (D20)", () => {
     const p = hostedPrompt('lanes', ['lanes', '--lanes', '3'], 'abc', undefined)
     expect(p).toContain(`git format-patch abc.."$(git for-each-ref --sort=-creatordate --format='%(refname:short)' 'refs/heads/sofar/lanes/' | grep -E '^sofar/lanes/[0-9A-Z]{26}$' | head -1)" --stdout`)
+  })
+
+  it('names the tasks a run landed, each once, for the local re-verify (6.1)', () => {
+    const ev = (status: string, id: string): string => JSON.stringify({ v: 1, id: `e${id}${status}`, type: 'task_status_changed', payload: { id, status } })
+    expect(landedTasks([ev('active', '1.1'), ev('done', '1.1'), ev('done', '1.2'), ev('done', '1.1'), 'junk'].join('\n'))).toEqual(['1.1', '1.2'])
   })
 
   it('reassembles the chunked bundle in order, and names what is missing', () => {
