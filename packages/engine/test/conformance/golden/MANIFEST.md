@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **felt-latency L5a** (main) from the TypeScript reference; the Rust
+core reproduces all 66 (with L8's `syn.gate-hold-once`). One new case, `syn.codex-host`: the codex 0.154.0
+payload fixtures (test/fixtures/codex) run as a Codex shim runs them, `event
+<hook> --host codex --root <dir>`, the shape the core now owns. No other
+golden moved.
+
 ADDED for **felt-latency L8** (lane) from the TypeScript reference; the Rust
 core (debug build) reproduces all 65. One new case, `syn.gate-hold-once`: a
 peer's uncaptured shell write inside a narrower window of the peer's than

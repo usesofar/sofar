@@ -34,6 +34,7 @@ import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
 import { bare } from './helpers/handles'
 import { callTool, callToolExpectError, connectServer } from './helpers/mcp'
 import { unnamed } from './helpers/hold'
+import { builtCore } from './helpers/built-core'
 
 /**
  * memory-lead 2.3 (D9, D10) — executable decision checks.
@@ -289,12 +290,13 @@ describe('the pre-commit shim', () => {
     chmodSync(join(root, '.git', 'hooks', 'pre-commit'), 0o755)
     const bin = mkdtempSync(join(tmpdir(), 'sofar-checks-bin-'))
     roots.push(bin)
-    const commit = (status: number, file: string): { status: number; stderr: string } => {
+    // SOFAR_CORE=0: the CLI alone, whatever core this machine activated.
+    const commit = (status: number, file: string, core = '0'): { status: number; stderr: string } => {
       writeFileSync(join(bin, 'sofar'), `#!/bin/sh\necho "said $status" 1>&2\nexit ${status}\n`.replace('$status', String(status)))
       chmodSync(join(bin, 'sofar'), 0o755)
       writeFileSync(join(root, file), 'x\n')
       execFileSync('git', ['add', file], { cwd: root })
-      const r = spawnSync('git', ['commit', '-qm', file], { cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+      const r = spawnSync('git', ['commit', '-qm', file], { cwd: root, encoding: 'utf8', env: { ...process.env, SOFAR_CORE: core, PATH: `${bin}:${process.env.PATH}` } })
       return { status: r.status ?? -1, stderr: r.stderr }
     }
     const refused = commit(10, 'a.txt')
@@ -305,6 +307,86 @@ describe('the pre-commit shim', () => {
     const warned = commit(0, 'c.txt')
     expect(warned.status).toBe(0)
     expect(warned.stderr).toContain('said 0')
+
+    // felt-latency L5b: the core answers first, and its exit 64 — a check
+    // that applies, a lane, or a core older than the shim — runs the CLI.
+    const core = join(bin, 'core')
+    writeFileSync(core, '#!/bin/sh\necho "core $* dispatched=$SOFAR_CORE_DISPATCHED" 1>&2\nexit "${FAKE_CORE_EXIT-0}"\n')
+    chmodSync(core, 0o755)
+    const answered = commit(10, 'd.txt', core)
+    expect(answered).toEqual({ status: 0, stderr: 'core check --staged dispatched=1\n' })
+    process.env.FAKE_CORE_EXIT = '64'
+    try {
+      const declined = commit(10, 'e.txt', core)
+      expect(declined.status).not.toBe(0)
+      expect(declined.stderr).toContain('said 10')
+      expect(declined.stderr).not.toContain('core check')
+    } finally {
+      delete process.env.FAKE_CORE_EXIT
+    }
+  })
+})
+
+/**
+ * felt-latency L5b: the native core answers a commit no in-force check bears
+ * on — TypeScript's bytes, no node boot — and exits 64, having written
+ * nothing, for any commit a check applies to.
+ */
+const core = builtCore()
+describe.skipIf(core === null || process.platform === 'win32')('check --staged on the native core (felt-latency L5b)', () => {
+  const runCore = (root: string) => {
+    const r = spawnSync(core!, ['check', '--staged'], { cwd: root, encoding: 'utf8', env: process.env })
+    return { exitCode: r.status, stdout: r.stdout, stderr: r.stderr }
+  }
+  const stage = (root: string, file: string): void => {
+    mkdirSync(join(root, file, '..'), { recursive: true })
+    writeFileSync(join(root, file), 'y\n')
+    execFileSync('git', ['add', file], { cwd: root })
+  }
+
+  it('answers a commit no check bears on exactly as TypeScript does', async () => {
+    const root = repo()
+    checked(root, 'demo', { cmd: 'exit 1' }, { guard: 'path:src/db/**' })
+    stage(root, 'README.md')
+    stage(root, 'docs/a.md')
+    const ts = await runCheck(root, { staged: true })
+    expect(ts.stderr).toBe('sofar check: 0 check(s) ran on 2 staged path(s) — 0 passed, 0 failed\n')
+    expect(runCore(root)).toEqual(ts)
+  })
+
+  it('is silent where TypeScript is: no record here', async () => {
+    const bare = mkdtempSync(join(tmpdir(), 'sofar-checks-bare-'))
+    roots.push(bare)
+    expect(runCore(bare)).toEqual(await runCheck(bare, { staged: true }))
+  })
+
+  it('answers an unapproved check as TypeScript does: named once a day, never run', async () => {
+    const root = repo()
+    checked(root, 'demo', { cmd: 'touch ran.txt' }, { guard: 'path:src/db/**' })
+    stage(root, 'src/db/store.ts')
+    const first = runCore(root)
+    // The day is claimed now, so TypeScript, in a fresh state dir, says what the core said first.
+    const claimed = process.env.XDG_STATE_HOME
+    process.env.XDG_STATE_HOME = mkdtempSync(join(tmpdir(), 'sofar-checks-state-'))
+    roots.push(process.env.XDG_STATE_HOME)
+    expect(first).toEqual(await runCheck(root, { staged: true }))
+    process.env.XDG_STATE_HOME = claimed
+    expect(first.stderr).toContain('[demo D1')
+    expect(runCore(root)).toEqual({
+      exitCode: 0,
+      stdout: '',
+      stderr: 'sofar check: 0 check(s) ran on 1 staged path(s) — 0 passed, 0 failed\n',
+    })
+    expect(existsSync(join(root, 'ran.txt'))).toBe(false)
+  })
+
+  it('declines (exit 64, nothing written, nothing run) when an approved check bears on a staged path', async () => {
+    const root = repo()
+    checked(root, 'demo', { cmd: 'touch ran.txt' }, { guard: 'path:src/db/**' })
+    await runCheck(root, { approve: 'demo D1' }, { confirm: yes })
+    stage(root, 'src/db/store.ts')
+    expect(runCore(root)).toEqual({ exitCode: 64, stdout: '', stderr: '' })
+    expect(existsSync(join(root, 'ran.txt'))).toBe(false)
   })
 })
 

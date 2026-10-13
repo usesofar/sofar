@@ -211,6 +211,39 @@ pub fn notice_line(notice: &UpdateNotice) -> String {
     }
 }
 
+/// `CHECK_TTL_MS`: a day between refreshes.
+pub const CHECK_TTL_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
+
+/// Is the refresh claim due (felt-latency L5b)? The statusline run
+/// straight from settings, with no `sofar` stub in front to make the claim,
+/// exits 64 when it is, so the `sofar statusline` the entry falls back to
+/// renders AND claims — once a day, not on every render. `shouldRefresh`'s
+/// gates, except that an ABSENT cache is not due: only a global npm install
+/// ever writes one, and every other install would otherwise boot node on
+/// every render to learn that it never will. `sofar init`, `status` and
+/// `doctor` make the first claim.
+#[must_use]
+pub fn refresh_due(now_ms: f64) -> bool {
+    let set = |k: &str| std::env::var(k).is_ok_and(|v| !js_trim(&v).is_empty());
+    if set("SOFAR_NO_UPDATE_CHECK")
+        || set("CI")
+        || set("VITEST")
+        || std::env::var("NODE_ENV").is_ok_and(|v| v == "test")
+    {
+        return false;
+    }
+    if std::fs::metadata(update_cache_path()).is_err() {
+        return false;
+    }
+    let Some(cache) = read_update_cache() else {
+        return true;
+    };
+    match crate::date::js_date_parse(&cache.checked_at) {
+        Some(at) => now_ms - at >= CHECK_TTL_MS || at > now_ms,
+        None => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

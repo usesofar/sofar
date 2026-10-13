@@ -3,6 +3,7 @@
 export const SHIPPED_SHIMS: Readonly<Record<string, readonly string[]>> = {
   'drive-await.sh': [
     '91b96d25948832cfdc7bae5b71973a0df1f505c371fe4717c1824b283a2d7ea8',
+    'c95463946fd9dfb80622fdc5890374ca902f5c9327c28e5c54b8e16923871bd1',
   ],
   'post-tool-batch.sh': [
     '7e53899405b5e7f79eca6ed21adc09e9fac92aec78e067a3d4436e588f3a2ab9',
@@ -23,6 +24,7 @@ export const SHIPPED_SHIMS: Readonly<Record<string, readonly string[]>> = {
   'pre-commit.sh': [
     '0a2b3908ab5d0027f85a2cc6886547457c14b564a57f9936079af5a39fed0368',
     '45dadab3b9f6825a6229e290c09705079b92824fda2059c05885694a456c5edc',
+    'f32b8d8f5d97e73d3fd389ffb9c81a6cc19354f2b086b34ed099a800833b1a78',
   ],
   'pre-tool-use.sh': [
     '4042d7bd820bc9617d7a49066d24fcb968c029886e80d3d4e43f85eed0a155e0',

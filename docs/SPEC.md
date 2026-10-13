@@ -6571,7 +6571,9 @@ size against the digests embedded at build, renames it into place and
 re-points `current` atomically. No network, no new dependency. A Codex shim
 runs the activated core with `SOFAR_CORE_DISPATCHED=1` and hands its exit 64
 to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
-(agents-parity D5).
+(agents-parity D5). The core owns `event <hook> --host codex` for every hook a
+Codex shim runs (felt-latency L5a), so a Codex hook spawns no node unless it
+carries an in-band write-back; any other `--host` is exit 64.
 - PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, on
   Claude Code `Bash|mcp__.*__sofar_end_session` since r4-fixes H17, Cursor
   `preToolUse` matcher `Shell`, Codex `PreToolUse` matcher `Bash`, its entry
@@ -7501,8 +7503,12 @@ deletes it with the worktree's gitdir.
   caused a second initiative's state to leak into Claude Code native memory
   + a scratch dir — jurisdiction must be total, not per-file.]
   With `--statusline`, init also merges the rent-meter wiring
-  `"statusLine": { "type": "command", "command": "sofar statusline",
-  "refreshInterval": 10 }` into .claude/settings.json — ONLY when the key is
+  `"statusLine": { "type": "command", "command": "sofar-core statusline ||
+  sofar statusline", "refreshInterval": 10 }` (felt-latency L5b: the native
+  core renders with no node in front, and exits 64 before reading stdin when
+  the daily update check is due, so the `sofar` fallback renders and claims
+  it; an entry carrying the earlier `sofar statusline` is still sofar's) into
+  .claude/settings.json — ONLY when the key is
   absent: an existing statusLine, whatever its value, is the user's and wins
   (felt-cost D4's clobber concern, honored under explicit opt-in — D4
   informed re-test, init-statusline D1). `refreshInterval` ships in the

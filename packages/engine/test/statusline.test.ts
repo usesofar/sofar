@@ -1,4 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { rmSync } from 'node:fs'
@@ -18,6 +20,7 @@ import {
 import { ulid } from 'ulid'
 import { claimRunLock } from '../src/core/run-lock'
 import { makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
+import { builtCore } from './helpers/built-core'
 
 /**
  * felt-cost 3.2/3.3 — the rent-meter (D4). One plain line from statusline
@@ -600,6 +603,18 @@ describe('sofar statusline --uninstall (felt-cost D15)', () => {
     expect(readSettings(fixture.root).statusLine).toBeUndefined()
   })
 
+  it('installs the native command, and keeps a legacy node-routed entry as ours, untouched', () => {
+    // felt-latency L5b: no node in front of a render; an existing entry is
+    // never rewritten (init-statusline D1), so the old command stays ours.
+    expect(STATUSLINE_SETTINGS_ENTRY.command).toBe('sofar-core statusline || sofar statusline')
+    const fixture = fx({ bind: false })
+    mkdirSync(join(fixture.root, '.claude'), { recursive: true })
+    const legacy = { type: 'command', command: 'sofar statusline', refreshInterval: 10 }
+    writeFileSync(settingsOf(fixture.root), `${JSON.stringify({ statusLine: legacy }, null, 2)}\n`)
+    expect(installStatusline(fixture.root).status).toBe('already')
+    expect(readSettings(fixture.root).statusLine).toEqual(legacy)
+  })
+
   it('still refuses a line that only shares our shape — command is identity', () => {
     const fixture = fx({ bind: false })
     mkdirSync(join(fixture.root, '.claude'), { recursive: true })
@@ -659,5 +674,63 @@ describe('userStatuslineWired (felt-cost D15)', () => {
       JSON.stringify({ statusLine: { type: 'command', command: 'bash mine.sh' } }),
     )
     expect(userStatuslineWired(home)).toBe(false)
+  })
+})
+
+/**
+ * felt-latency L5b: the installed entry runs the native core with no node in
+ * front, and a due update claim is the `sofar` stub's, so the core exits 64 —
+ * before reading stdin, with nothing written — and the entry's fallback
+ * renders and claims. Once a day, never on an absent cache.
+ */
+const core = builtCore()
+describe.skipIf(core === null || process.platform === 'win32')('the statusline entry on the native core (felt-latency L5b)', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  function env(checkedAgoMs: number | null, extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+    const state = mkdtempSync(join(tmpdir(), 'sofar-statusline-state-'))
+    roots.push(state)
+    if (checkedAgoMs !== null) {
+      mkdirSync(join(state, 'sofar'), { recursive: true })
+      const checked_at = new Date(Date.now() - checkedAgoMs).toISOString()
+      writeFileSync(join(state, 'sofar', 'update.json'), JSON.stringify({ version: 1, latest: null, checked_at }))
+    }
+    const clean: NodeJS.ProcessEnv = { ...process.env, XDG_STATE_HOME: state, ...extra }
+    for (const k of ['VITEST', 'CI', 'NODE_ENV', 'SOFAR_NO_UPDATE_CHECK', 'SOFAR_CORE_DISPATCHED']) {
+      if (!(k in extra)) delete clean[k]
+    }
+    return clean
+  }
+  const render = (e: NodeJS.ProcessEnv) => {
+    // Run outside any record, so the line is the model segment alone.
+    const r = spawnSync(core!, ['statusline', '--no-color'], { cwd: e.XDG_STATE_HOME, input: '{"model":{"display_name":"Opus"}}', encoding: 'utf8', env: e })
+    return { exitCode: r.status, stdout: r.stdout, stderr: r.stderr }
+  }
+
+  it('renders natively unless the daily claim is due', () => {
+    expect(render(env(null))).toEqual({ exitCode: 0, stdout: 'Opus\n', stderr: '' })
+    expect(render(env(DAY / 2))).toEqual({ exitCode: 0, stdout: 'Opus\n', stderr: '' })
+    expect(render(env(2 * DAY))).toEqual({ exitCode: 64, stdout: '', stderr: '' })
+    expect(render(env(-DAY))).toEqual({ exitCode: 64, stdout: '', stderr: '' }) // from the future
+    // The stub makes the claim itself; and nobody claims under CI or a test runner.
+    expect(render(env(2 * DAY, { SOFAR_CORE_DISPATCHED: '1' })).exitCode).toBe(0)
+    expect(render(env(2 * DAY, { CI: '1' })).exitCode).toBe(0)
+    expect(render(env(2 * DAY, { VITEST: 'true' })).exitCode).toBe(0)
+    expect(render(env(2 * DAY, { SOFAR_NO_UPDATE_CHECK: '1' })).exitCode).toBe(0)
+  })
+
+  it('the installed command falls back to `sofar statusline` with stdin whole', () => {
+    const bin = mkdtempSync(join(tmpdir(), 'sofar-statusline-bin-'))
+    roots.push(bin)
+    symlinkSync(core!, join(bin, 'sofar-core'))
+    writeFileSync(join(bin, 'sofar'), '#!/bin/sh\nprintf "node %s %s\\n" "$*" "$(cat)"\n', { mode: 0o755 })
+    const run = (e: NodeJS.ProcessEnv) =>
+      spawnSync('/bin/sh', ['-c', STATUSLINE_SETTINGS_ENTRY.command], {
+        cwd: e.XDG_STATE_HOME,
+        input: '{"model":{"display_name":"Opus"}}',
+        encoding: 'utf8',
+        env: { ...e, NO_COLOR: '1', PATH: `${bin}:${process.env.PATH}` },
+      }).stdout
+    expect(run(env(null))).toBe('Opus\n')
+    expect(run(env(2 * DAY))).toBe('node statusline {"model":{"display_name":"Opus"}}\n')
   })
 })

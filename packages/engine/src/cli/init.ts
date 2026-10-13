@@ -2207,12 +2207,27 @@ export const STATUSLINE_REFRESH_SECONDS = 10
  * The settings.json statusLine entry `--statusline` installs (D4 informed
  * re-test, init-statusline D1). Merged ONLY when the key is absent — an
  * existing statusLine, whatever its value, is the user's and wins.
+ *
+ * The native core renders it with no node in front (felt-latency L5b):
+ * `sofar-core` on PATH is the binary wherever the install script ran, and
+ * exits 64 before reading stdin once a day, when the update check is due, so
+ * `sofar statusline` renders and makes the claim. Anywhere else `sofar-core`
+ * is a node script that runs the `sofar` stub, or is missing and the
+ * fallback runs it.
  */
 export const STATUSLINE_SETTINGS_ENTRY = {
   type: 'command',
-  command: 'sofar statusline',
+  command: 'sofar-core statusline || sofar statusline',
   refreshInterval: STATUSLINE_REFRESH_SECONDS,
 } as const
+
+/**
+ * Commands an entry sofar installed may carry: the current one, and the
+ * node-routed `sofar statusline` every install before felt-latency L5b wrote.
+ * An existing entry is never rewritten (init-statusline D1), so the legacy
+ * one stays ours to recognize and to remove.
+ */
+const STATUSLINE_OWN_COMMANDS: ReadonlySet<unknown> = new Set([STATUSLINE_SETTINGS_ENTRY.command, 'sofar statusline'])
 
 /**
  * Keys that may appear on our entry without it ceasing to be ours. Identity
@@ -2228,7 +2243,7 @@ export function isSofarStatusline(v: unknown): boolean {
   return (
     isObj(v) &&
     v.type === STATUSLINE_SETTINGS_ENTRY.type &&
-    v.command === STATUSLINE_SETTINGS_ENTRY.command &&
+    STATUSLINE_OWN_COMMANDS.has(v.command) &&
     Object.keys(v).every((k) => STATUSLINE_OWN_KEYS.has(k))
   )
 }

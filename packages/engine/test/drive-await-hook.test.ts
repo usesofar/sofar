@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ulid } from 'ulid'
@@ -9,6 +10,7 @@ import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { claimRunLock } from '../src/core/run-lock'
 import { NUDGE_ENV } from '../src/driver/nudge'
+import { builtCore } from './helpers/built-core'
 
 /**
  * The rewake hook (drive-visibility 3.7): after a Bash call that started a
@@ -184,5 +186,54 @@ describe('the rewake hook (drive-visibility 3.7)', () => {
     expect(STOP_CHECK_BUDGET_MS + fold).toBeLessThan(AWAIT_HOOK_TIMEOUT_SEC * 1_000)
     // And the watch gives itself less than the host gives the hook.
     expect(AWAIT_HOOK_DEADLINE_MS).toBeLessThan(AWAIT_HOOK_TIMEOUT_SEC * 1_000)
+  })
+})
+
+/**
+ * felt-latency L5b: the hook fires after EVERY Bash call, so the native core
+ * answers the calls that started no run — the TypeScript answer, byte for
+ * byte, with no node boot — and hands the rest to the CLI with stdin whole.
+ */
+const core = builtCore()
+describe.skipIf(core === null || process.platform === 'win32')('the rewake hook on the native core (felt-latency L5b)', () => {
+  const runCore = (root: string, input: string, env: Record<string, string> = {}) => {
+    const clean = { ...process.env }
+    delete clean[NUDGE_ENV]
+    const r = spawnSync(core!, ['event', 'drive-await', '--root', root], { input, encoding: 'utf8', env: { ...clean, ...env } })
+    return { exitCode: r.status, stdout: r.stdout, stderr: r.stderr }
+  }
+
+  it('answers a call that started no run exactly as TypeScript does', async () => {
+    const r = repo()
+    for (const input of [
+      bash('ls -la'),
+      bash('sofar drive demo'),
+      bash('sofar drive demo --detached'),
+      bash('/opt/bin/sofar drive demo --detach'),
+      JSON.stringify({ tool_input: { command: 7 } }),
+      'not json',
+      '',
+    ]) {
+      const ts = await handleDriveAwaitWith(r.root, input, { pollMs: 5, env: {} })
+      expect(runCore(r.root, input), input).toEqual(ts)
+    }
+  })
+
+  it('hands a detached start to the CLI, stdin whole, and mirrors its answer', () => {
+    const r = repo()
+    const trace = join(temp('sofar-await-hook-cli-'), 'trace')
+    const cli = join(temp('sofar-await-hook-cli-'), 'sofar')
+    writeFileSync(
+      cli,
+      `#!/bin/sh\nprintf '%s core=%s stdin=%s' "$*" "$SOFAR_CORE" "$(cat)" > "${trace}"\necho 'sofar drive --await: stopped' >&2\nexit 2\n`,
+      { mode: 0o755 },
+    )
+    const input = bash('cd x && sofar drive demo --detach')
+    expect(runCore(r.root, input, { SOFAR_CLI: cli })).toEqual({ exitCode: 2, stdout: '', stderr: 'sofar drive --await: stopped\n' })
+    expect(readFileSync(trace, 'utf8')).toBe(`event drive-await --root ${r.root} core=0 stdin=${input}`)
+    // Never inside a driven session: no hand-back at all.
+    rmSync(trace)
+    expect(runCore(r.root, input, { SOFAR_CLI: cli, [NUDGE_ENV]: '1' })).toEqual({ exitCode: 0, stdout: '', stderr: '' })
+    expect(existsSync(trace)).toBe(false)
   })
 })
