@@ -403,8 +403,11 @@ an in-band write-back. Spawns: none, unless it hands one back.
   `<cli> event stop --root <root>` with `SOFAR_CORE=0` and the same stdin,
   exit, stdout and stderr mirrored byte for byte — when the payload names a
   session and `last_assistant_message` contains ```` ```sofar ````, or (a
-  payload with a string `cursor_version`) the last 256 KiB of the file
-  `transcript_path` names contains it, or
+  payload with a string `cursor_version`) the last assistant entry with
+  text in the file `transcript_path` names contains it — `lastAssistantText`
+  exactly: the last 256 KiB from its first whole line, read back from the
+  end in 16 KiB chunks and stopping at that entry, so an earlier turn's
+  block never hands a Stop back (felt-latency L5c) — or
   `.sofar/.index/inline/<session sanitized per UTF-16 unit to
   [A-Za-z0-9._-]>.json` exists. `<cli>`: `SOFAR_CLI` (the stub sets it to
   itself when it dispatches), else `<canonical exe>/../../dist/cli.js`, else
