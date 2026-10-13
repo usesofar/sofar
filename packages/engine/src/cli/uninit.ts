@@ -19,11 +19,13 @@ import {
   GITATTRIBUTES_LINES,
   GIT_HOOKS,
   isSofarStatusline,
+  MCP_ALLOW_RULE,
   PROTOCOL_END,
   PROTOCOL_START,
   SHIM_HOMES,
   SHIMS,
   wiredAgents,
+  SETTINGS_LOCAL,
   SHIPPED_WRITE_SKILLS,
   WRITE_SKILL,
   WRITE_SKILL_NAME,
@@ -263,6 +265,30 @@ function stripSettings(rootDir: string, purge: boolean, report: string[]): boole
   put(path, stableJSON(rootDir, '.claude/settings.json', settings))
   report.push(`updated .claude/settings.json (${what})`)
   return false
+}
+
+/** The allow rule init wrote for sofar's MCP tools (felt-latency D8): only that entry goes. */
+function stripMcpAllow(rootDir: string, purge: boolean, report: string[]): void {
+  const path = join(rootDir, SETTINGS_LOCAL)
+  if (!existsSync(path)) return
+  let settings: Obj
+  try {
+    settings = readJSONObject(path, SETTINGS_LOCAL)
+  } catch {
+    return
+  }
+  const permissions = settings.permissions
+  if (!isObj(permissions) || !Array.isArray(permissions.allow) || !permissions.allow.includes(MCP_ALLOW_RULE)) return
+  permissions.allow = permissions.allow.filter((r: unknown) => r !== MCP_ALLOW_RULE)
+  if ((permissions.allow as unknown[]).length === 0) delete permissions.allow
+  if (Object.keys(permissions).length === 0) delete settings.permissions
+  if (purge && Object.keys(settings).length === 0) {
+    drop(path)
+    report.push(`removed ${SETTINGS_LOCAL} (nothing left after sofar's MCP allow rule removed)`)
+    return
+  }
+  put(path, stableJSON(rootDir, SETTINGS_LOCAL, settings))
+  report.push(`updated ${SETTINGS_LOCAL} (sofar's MCP allow rule removed)`)
 }
 
 /** `.mcp.json` (Claude Code) or `.cursor/mcp.json` (Cursor, r1-fixes 6.2) — the same entry, stripped the same way. */
@@ -532,6 +558,7 @@ export function runUninit(
     removeGitHook(rootDir, report)
     const settingsDeleted = stripSettings(rootDir, purge, report)
     stripMcp(rootDir, '.mcp.json', purge, report)
+    stripMcpAllow(rootDir, purge, report)
     const cursorHooksDeleted = stripCursorHooks(rootDir, purge, report)
     const cursorMcpDeleted = stripMcp(rootDir, '.cursor/mcp.json', purge, report)
     const codexHooksDeleted = stripCodexHooks(rootDir, purge, report)

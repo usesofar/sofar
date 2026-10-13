@@ -7335,7 +7335,15 @@ deletes it with the worktree's gitdir.
   Cursor `.cursor/hooks.json`, `.cursor/mcp.json`, AGENTS.md; Codex
   `.codex/hooks.json`, its shims in `.codex/hooks/sofar/`, the
   `[mcp_servers.sofar]` table in `.codex/config.toml`, and AGENTS.md
-  (agents-parity 2.1, D5; 2.2, D7). PROMPT CAPTURE (r3-fixes 2.9, D6) is on
+  (agents-parity 2.1, D5; 2.2, D7). For Claude Code it also appends
+  `mcp__sofar` to `permissions.allow` in `.claude/settings.local.json`
+  (felt-latency L7, D8): in auto mode Claude Code checks every call no rule
+  allows, which made sofar's record writes wait (add_note p50 1.58 s, p99
+  40.8 s). The rule goes only in that per-user file, never in
+  `.claude/settings.json`, and only when `git check-ignore` says git ignores
+  the file; otherwise nothing is written. Existing keys and rules are kept.
+  `sofar uninit` removes that one rule, and `--purge` drops a file it leaves
+  empty. PROMPT CAPTURE (r3-fixes 2.9, D6) is on
   by default; `--no-prompt-capture` writes this clone's `off` marker in its
   prompt buffer directory (outside the repo, §Hooks), `--prompt-capture`
   removes it, and neither flag leaves it as it is, so a plain re-run never

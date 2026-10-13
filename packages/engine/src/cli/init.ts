@@ -2341,6 +2341,55 @@ export function userStatuslineWired(home?: string): boolean {
 }
 
 /**
+ * The allow rule for sofar's own MCP tools (felt-latency L7, D8). In auto
+ * mode Claude Code checks every call no rule allows, and that check was
+ * sofar's MCP write tail: add_note p50 1.58 s, p99 40.8 s, against 0.03 s
+ * when allowed. The tools only append to `.sofar/`. The rule goes ONLY in the
+ * per-user `.claude/settings.local.json` (D8), and only when git ignores that
+ * file, so it can never be committed for a teammate.
+ */
+export const MCP_ALLOW_RULE = 'mcp__sofar'
+export const SETTINGS_LOCAL = '.claude/settings.local.json'
+
+function gitIgnores(rootDir: string, rel: string): boolean {
+  try {
+    execFileSync('git', ['check-ignore', '-q', rel], { cwd: rootDir, stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function mergeMcpAllow(rootDir: string, report: string[]): void {
+  const path = join(rootDir, SETTINGS_LOCAL)
+  if (!gitIgnores(rootDir, SETTINGS_LOCAL)) return // a file git would commit is not per-user
+  let settings: Obj
+  try {
+    settings = readJSONObject(path, SETTINGS_LOCAL)
+  } catch {
+    report.push(`skipped ${SETTINGS_LOCAL} (not a JSON object)`)
+    return
+  }
+  if (settings.permissions !== undefined && !isObj(settings.permissions)) {
+    report.push(`skipped ${SETTINGS_LOCAL} (non-object "permissions")`)
+    return
+  }
+  const permissions: Obj = isObj(settings.permissions) ? settings.permissions : {}
+  if (permissions.allow !== undefined && !Array.isArray(permissions.allow)) {
+    report.push(`skipped ${SETTINGS_LOCAL} (non-array "permissions.allow")`)
+    return
+  }
+  const allow: unknown[] = Array.isArray(permissions.allow) ? permissions.allow : []
+  if (allow.includes(MCP_ALLOW_RULE)) {
+    report.push(`unchanged ${SETTINGS_LOCAL}`)
+    return
+  }
+  permissions.allow = [...allow, MCP_ALLOW_RULE]
+  settings.permissions = permissions
+  report.push(`${writeIfChanged(path, stableJSON(rootDir, path, settings))} ${SETTINGS_LOCAL} (sofar's MCP tools allowed)`)
+}
+
+/**
  * Install ONLY the statusLine entry into <root>/.claude/settings.json
  * (felt-cost D14) — no hooks, no .sofar/, no CLAUDE.md block.
  *
@@ -3503,6 +3552,7 @@ export function runInit(
     if (claude) {
       statuslineAbsent = mergeSettings(rootDir, statusline, report).statuslineAbsent
       mergeMcpJson(rootDir, '.mcp.json', report)
+      mergeMcpAllow(rootDir, report)
     } else if (statusline) {
       report.push('skipped statusLine (Claude Code not selected)')
     }

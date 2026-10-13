@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -450,5 +451,50 @@ describe('sofar uninit and the Cursor wiring (r1-fixes 6.2/6.6)', () => {
     runInit(root)
     expect(runUninit(root, { purge: true }).exitCode).toBe(0)
     expect(existsSync(join(root, '.cursor'))).toBe(false)
+  })
+})
+
+describe("sofar's MCP allow rule (felt-latency L7, D8)", () => {
+  const gitRepo = (ignoreLocal: boolean): string => {
+    const root = mkdtempSync(join(tmpdir(), 'sofar-allow-'))
+    roots.push(root)
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root })
+    if (ignoreLocal) writeFileSync(join(root, '.gitignore'), '.claude/settings.local.json\n')
+    return root
+  }
+  const local = (root: string) => join(root, '.claude', 'settings.local.json')
+
+  it('init allows mcp__sofar in the ignored per-user file, keeping what is there, once', () => {
+    const root = gitRepo(true)
+    mkdirSync(join(root, '.claude'), { recursive: true })
+    writeFileSync(local(root), stableJSON({ permissions: { allow: ['Bash(ls)'] }, model: 'x' }))
+    expect(runInit(root).exitCode).toBe(0)
+    expect(readJSON(local(root))).toEqual({ permissions: { allow: ['Bash(ls)', 'mcp__sofar'] }, model: 'x' })
+    const before = readFileSync(local(root), 'utf8')
+    runInit(root)
+    expect(readFileSync(local(root), 'utf8')).toBe(before)
+    // the shared settings never carry it
+    expect(JSON.stringify(readJSON(join(root, '.claude', 'settings.json')))).not.toContain('mcp__sofar')
+  })
+
+  it('init writes nothing when git would commit the file', () => {
+    const root = gitRepo(false)
+    expect(runInit(root).exitCode).toBe(0)
+    expect(existsSync(local(root))).toBe(false)
+  })
+
+  it('uninit removes only that rule; --purge drops a file it leaves empty', () => {
+    const root = gitRepo(true)
+    mkdirSync(join(root, '.claude'), { recursive: true })
+    writeFileSync(local(root), stableJSON({ permissions: { allow: ['Bash(ls)'] } }))
+    runInit(root)
+    runUninit(root)
+    expect(readJSON(local(root))).toEqual({ permissions: { allow: ['Bash(ls)'] } })
+
+    const bare = gitRepo(true)
+    runInit(bare)
+    expect(readJSON(local(bare))).toEqual({ permissions: { allow: ['mcp__sofar'] } })
+    runUninit(bare, { purge: true })
+    expect(existsSync(local(bare))).toBe(false)
   })
 })
