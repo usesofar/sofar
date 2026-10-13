@@ -12,6 +12,7 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
+use crate::atomic::write_file_atomic;
 use crate::date::js_round;
 use crate::diagnostics::{clone_key, resolves_inside, state_base};
 use crate::json::{self, Json, Object, number_to_string};
@@ -176,7 +177,33 @@ pub fn stated_window(root: &Path, session: &str) -> Option<f64> {
         .filter(|w| w.fract() == 0.0 && *w > 0.0)
 }
 
-fn usage_tokens(usage: &Json) -> Option<f64> {
+/// `recordStatedWindow`: the statusline records each window it is told, last
+/// stated wins. Silent on failure: unknown stays silent.
+pub fn record_stated_window(root: &Path, session: &str, window: f64) {
+    let Some(file) = window_file(root) else {
+        return;
+    };
+    if !(window.fract() == 0.0 && window > 0.0) {
+        return;
+    }
+    let mut raw = match std::fs::read(&file).ok().map(|b| json::parse(&String::from_utf8_lossy(&b))) {
+        Some(Ok(Json::Obj(o))) => o,
+        _ => Object::new(),
+    };
+    if raw.get(session).and_then(Json::as_f64) == Some(window) {
+        return;
+    }
+    raw.insert(session.to_owned(), Json::Num(window));
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = write_file_atomic(&file, format!("{}\n", json::stringify(&Json::Obj(raw))).as_bytes());
+}
+
+/// `usageTokens`: input + cache creation + cache read; None when `usage`
+/// carries none of them.
+#[must_use]
+pub fn usage_tokens(usage: &Json) -> Option<f64> {
     let u = usage.as_obj()?;
     let keys = ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"];
     if !keys.iter().any(|k| u.get(k).is_some()) {
@@ -258,6 +285,27 @@ pub fn written_back_line(tokens: f64) -> String {
     )
 }
 
+/// `resolveThresholds`: `(ceiling, warn)` in tokens; warn is dropped when it
+/// does not resolve below the ceiling. None when the ceiling does not resolve.
+#[must_use]
+pub fn resolve_thresholds(settings: &Settings, window: Option<f64>) -> Option<(f64, Option<f64>)> {
+    let ceiling = threshold_tokens(settings.ceiling, window)?;
+    let warn = threshold_tokens(settings.warn, window).filter(|w| *w < ceiling);
+    Some((ceiling, warn))
+}
+
+/// `contextBand`, with `below` as None.
+#[must_use]
+pub fn context_band(tokens: f64, ceiling: f64, warn: Option<f64>) -> Option<&'static str> {
+    if tokens >= ceiling {
+        Some("ceiling")
+    } else if warn.is_some_and(|w| tokens >= w) {
+        Some("warn")
+    } else {
+        None
+    }
+}
+
 fn rank(band: Option<&str>) -> u8 {
     match band {
         Some("ceiling") => 2,
@@ -280,17 +328,10 @@ pub fn prompt_ceiling(
     if settings.mode == Mode::Off {
         return keep;
     }
-    let Some(ceiling) = threshold_tokens(settings.ceiling, window) else {
+    let Some((ceiling, warn)) = resolve_thresholds(settings, window) else {
         return keep;
     };
-    let warn = threshold_tokens(settings.warn, window).filter(|w| *w < ceiling);
-    let band = if tokens >= ceiling {
-        Some("ceiling")
-    } else if warn.is_some_and(|w| tokens >= w) {
-        Some("warn")
-    } else {
-        None
-    };
+    let band = context_band(tokens, ceiling, warn);
     let epoch = band.map(str::to_owned);
     if band == Some("ceiling") && settings.mode == Mode::Insist {
         let line = if written_back {

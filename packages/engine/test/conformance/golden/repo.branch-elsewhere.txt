@@ -14,7 +14,7 @@ argv: ["statusline","--no-color"]
 stdin: {"hook_event_name":"Status","session_id":"conf-session","transcript_path":"<ROOT>/transcript.jsonl","cwd":"<ROOT>","model":{"id":"claude-fable-5-1","display_name":"Fable 5.1 (1M context)"},"workspace":{"current_dir":"<ROOT>","project_dir":"<ROOT>"},"version":"2.1.0","context_window":{"used_percentage":42.4,"current_usage":{"input_tokens":1200,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000}}}
 exit: 0
 --- stdout
-Fable 5.1 (1M) · root:main · session-driver 11/11 · ctx 42% · cache 90% ✓
+Fable 5.1 (1M) · root:main · session-driver 11/11 · ctx 44K · cache 90% ✓
 --- stderr
 (empty)
 

@@ -6,6 +6,7 @@
 
 use std::path::Path;
 
+use crate::context_ceiling as cc;
 use crate::date::js_round;
 use crate::fold::InitiativeState;
 use crate::home::{ResolvedVia, resolve_session_first};
@@ -395,6 +396,55 @@ fn find_usage(hook: &Object) -> Option<&Object> {
         })
 }
 
+enum CtxTone {
+    Success,
+    Warn,
+    Error,
+    None,
+}
+
+/// `ctxSegment` (context-ceiling 4.1): the context held in whole K, banded by
+/// the `context` settings against the window stdin states; unbanded under
+/// mode `off` or when a percentage has no window. Without usage yet, the
+/// stated percentage on its D7 bands. Records the window it is told (D3).
+fn ctx_segment(root: &Path, hook: &Object) -> Option<(String, CtxTone)> {
+    let cw = obj(hook.get("context_window"))?;
+    let window = cw
+        .get("context_window_size")
+        .and_then(Json::as_f64)
+        .filter(|w| w.fract() == 0.0 && *w > 0.0);
+    if let (Some(session), Some(w)) = (str_field(hook.get("session_id")), window) {
+        cc::record_stated_window(root, session, w);
+    }
+    let Some(tokens) = cw.get("current_usage").and_then(cc::usage_tokens) else {
+        let pct = num_field(cw.get("used_percentage"))?;
+        let tone = if pct >= CTX_ERROR_FROM {
+            CtxTone::Error
+        } else if pct >= CTX_WARN_FROM {
+            CtxTone::Warn
+        } else {
+            CtxTone::Success
+        };
+        return Some((format!("{}%", number_to_string(js_round(pct))), tone));
+    };
+    let value = format!("{}K", number_to_string(js_round(tokens / 1_000.0)));
+    let settings = cc::hook_settings(root);
+    let resolved = if settings.mode == cc::Mode::Off {
+        None
+    } else {
+        cc::resolve_thresholds(&settings, window)
+    };
+    let Some((ceiling, warn)) = resolved else {
+        return Some((value, CtxTone::None));
+    };
+    let tone = match cc::context_band(tokens, ceiling, warn) {
+        Some("ceiling") => CtxTone::Error,
+        Some(_) => CtxTone::Warn,
+        None => CtxTone::Success,
+    };
+    Some((value, tone))
+}
+
 enum Tone {
     Success,
     Error,
@@ -536,16 +586,12 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
         segments.push(launched_text(&launched, style));
     }
 
-    if let Some(ctx) =
-        num_field(obj(hook.get("context_window")).and_then(|c| c.get("used_percentage")))
-    {
-        let value = format!("{}%", number_to_string(js_round(ctx)));
-        let toned = if ctx >= CTX_ERROR_FROM {
-            style.error(&value)
-        } else if ctx >= CTX_WARN_FROM {
-            style.warn(&value)
-        } else {
-            style.success(&value)
+    if let Some((value, tone)) = ctx_segment(root, &hook) {
+        let toned = match tone {
+            CtxTone::Success => style.success(&value),
+            CtxTone::Warn => style.warn(&value),
+            CtxTone::Error => style.error(&value),
+            CtxTone::None => value,
         };
         segments.push(format!("{} {toned}", style.dim("ctx")));
     }

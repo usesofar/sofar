@@ -458,7 +458,8 @@ unknown_event|io_error.
 
 stdin: Claude Code statusline JSON, parsed like hook JSON. Fields:
 `model.display_name`, `workspace.current_dir`, `cwd`, `session_id`,
-`context_window.used_percentage`, usage object = first of
+`context_window.used_percentage`, `context_window.context_window_size`,
+`context_window.current_usage`, usage object = first of
 `current_usage` / `context_window.current_usage` / `cost.current_usage`
 carrying any of `cache_read_input_tokens` / `cache_creation_input_tokens` /
 `input_tokens`.
@@ -482,8 +483,17 @@ omitted when its input is missing, joined by ` · ` (styled: the dot is
    some, dim when none; closed record → dim slug + ` <status>`. If no
    candidate resolves but any candidate's `.sofar/initiatives` is non-empty
    → `dim('unbound')`. Else no segment.
-4. ctx: `dim('ctx') + ' ' + <round(pct)>%` toned success <70, warn ≥70,
-   error ≥90.
+4. ctx (context-ceiling 4.1): tokens = input + creation + cache_read of
+   `context_window.current_usage` (non-numbers count 0; none of the three
+   keys → no tokens). With tokens: `dim('ctx') + ' ' + <round(tokens/1000)>K`
+   banded by the `context` settings (user config, then `.sofar/config.json`)
+   resolved against `context_window.context_window_size` (a positive integer,
+   else none): success below warn, warn at ≥ warn, error at ≥ ceiling; warn
+   dropped unless it resolves below the ceiling; mode `off` or an unresolved
+   ceiling → value untoned. Without tokens: `<round(used_percentage)>%` toned
+   success <70, warn ≥70, error ≥90. SIDE EFFECT: with a `session_id` and a
+   window, writes `{session: window}` into `$XDG_STATE_HOME/sofar/<clone
+   key>/context-window.json` (temp+rename, only when the value changes).
 5. cache: share = read/(read+creation+input); denom ≤ 0 → omitted; `cache
    <round(share*100)>%` + ` ✓` (≥50%) / ` ⚠` (<30%) once denom ≥ 10,000,
    toned success/error; below 10,000 tokens: dim, no mark; 30–50%: no mark,
@@ -757,6 +767,7 @@ work map, first prompt only).
 WRITTEN: `events.jsonl` (append); `plan.md`, `decisions.md`, `memory.md`,
 `sessions/<id>.md` (atomic, if-changed); index files (atomic, silent on
 failure); `update.json` (statusline claim, temp+rename);
+`<clone key>/context-window.json` (statusline, temp+rename, on a new window);
 `drive-seen/<clone key>.json` (user-prompt, only on news); the git commit
 message file (commit-trailer).
 

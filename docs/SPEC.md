@@ -8241,9 +8241,10 @@ deletes it with the worktree's gitdir.
 - `sofar statusline` (felt-cost 3.1/3.2, D4; identity segments D6; styling
   D7/D8) — the rent-meter, wired as Claude Code's statusLine command. Reads
   statusline JSON from stdin, prints ONE line: `<model> · <dir> ·
-  <branch> · <pie> <slug> <done>/<total>[ · drive <…>] · ctx <used%> ·
+  <branch> · <pie> <slug> <done>/<total>[ · drive <…>] · ctx <N>K ·
   cache <warm%>[⚠|✓][ · ↑<version>]`, the drive segment as
-  §Driver, watching a run, says. The trailing update segment
+  §Driver, watching a run, says, and the ctx segment as §Context ceiling
+  says. The trailing update segment
   (auto-update 2.1) appears ONLY when the cached check knows of a newer
   release: `↑<version>` normally, `↻<version>` when a background
   auto-install already applied it and the running process is still the old
@@ -8568,6 +8569,18 @@ per prompt, whatever else it says.
   to /clear.`
 A test pins each budget at its longest rendering (four-digit K sizes — a 1M window
 reads `1000K` — and the longest task id the plan allows).
+
+**The statusline segment (context-ceiling 4.1).** `ctx <N>K` — the context
+held, in whole K, since that is the cost of every call; the `cache` share
+beside it says how warm that context is, not how big. It shows whatever the
+cache share reads: a ✓ cache does not hide a red ctx.
+- Banded by the settings, against the window stdin states: green below warn,
+  yellow from warn, red from the ceiling. Under `off`, or when a percentage
+  has no window to resolve against, the size shows unbanded.
+- Before the first call stdin carries no usage; the stated
+  `used_percentage` stands in as `ctx <P>%` on the compaction bands (70%
+  yellow, 90% red).
+- The same render records the window it is told (the gauge, above).
 
 **Only the operator can /clear.** No hook, tool, statusline or driver path
 issues `/clear` or `/compact`, and none claims to: Claude Code gives a hook no

@@ -690,9 +690,10 @@ export const CASES: ConformanceCase[] = [
       s('unknown family', ['statusline'], statusline({ model: { display_name: 'GPT-5' } })),
       s('ctx at 70 and 90 thresholds', ['statusline', '--no-color'], statusline({ context_window: { used_percentage: 69.5 } })),
       s('ctx 90', ['statusline', '--no-color'], statusline({ context_window: { used_percentage: 90 } })),
-      s('cache below 10k tokens: dim, no mark', ['statusline'], statusline({ context_window: { current_usage: { input_tokens: 500, cache_read_input_tokens: 400 } } })),
-      s('cache share under 30%: warning mark', ['statusline'], statusline({ context_window: { current_usage: { input_tokens: 9_000, cache_read_input_tokens: 2_000 } } })),
-      s('cache share 30-50%: no mark', ['statusline'], statusline({ context_window: { current_usage: { input_tokens: 6_000, cache_read_input_tokens: 4_500 } } })),
+      // Usage at the top level: the cache meter reads it there, ctx does not (context-ceiling 4.1).
+      s('cache below 10k tokens: dim, no mark', ['statusline'], statusline({ context_window: undefined, current_usage: { input_tokens: 500, cache_read_input_tokens: 400 } })),
+      s('cache share under 30%: warning mark', ['statusline'], statusline({ context_window: undefined, current_usage: { input_tokens: 9_000, cache_read_input_tokens: 2_000 } })),
+      s('cache share 30-50%: no mark', ['statusline'], statusline({ context_window: undefined, current_usage: { input_tokens: 6_000, cache_read_input_tokens: 4_500 } })),
       s('usage at the top level', ['statusline', '--no-color'], statusline({ context_window: { used_percentage: 10 }, current_usage: { input_tokens: 1, cache_read_input_tokens: 99_999 } })),
       s('usage under cost', ['statusline', '--no-color'], statusline({ context_window: { used_percentage: 10 }, cost: { current_usage: { input_tokens: 50_000 } } })),
       s('zero denominator omits the cache segment', ['statusline', '--no-color'], statusline({ context_window: { current_usage: { input_tokens: 0, cache_read_input_tokens: 0 } } })),
@@ -703,6 +704,9 @@ export const CASES: ConformanceCase[] = [
       s('empty stdin', ['statusline', '--no-color']),
       s('--root form', ['statusline', '--no-color', '--root', '<ROOT>'], statusline({ workspace: { current_dir: '<HOME>' }, cwd: '<HOME>' })),
       s('directory outside any record', ['statusline', '--no-color'], statusline({ workspace: { current_dir: '<HOME>' }, cwd: '<HOME>' }), { env: {} }),
+      // context-ceiling 4.1: the size in whole K, past the default warn and ceiling.
+      s('ctx size past the warn', ['statusline', '--no-color'], statusline({ context_window: { current_usage: { input_tokens: 1_000, cache_read_input_tokens: 159_000 } } })),
+      s('ctx size past the ceiling, window stated', ['statusline', '--no-color'], statusline({ context_window: { context_window_size: 1_000_000, current_usage: { input_tokens: 1_000, cache_read_input_tokens: 249_000 } } })),
     ],
   },
   {

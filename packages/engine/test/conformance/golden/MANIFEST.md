@@ -1,5 +1,16 @@
 # Golden manifest (rust-core D11)
 
+EDITED for **context-ceiling 4.1** (lane branch …-4.1) by hand, not
+re-recorded: the lane's permission surface runs no env-prefixed command. The
+statusline's ctx segment now shows the context held in whole K, banded by the
+`context` settings, so every `ctx 42%` (the fixture's 44,200 tokens) reads
+`ctx 44K`, still green below the 150K default warn. `repo.statusline` steps
+11–13 move their usage to the top level, where the cache meter reads it and
+ctx does not, so their styled lines stay byte-identical; step 16 (zero usage)
+gains `ctx 0K`; steps 24–25 are new (160K past the warn, 250K past the
+ceiling with a stated window). Re-record with `SOFAR_CONFORMANCE_RECORD=1`
+outside a lane to confirm; the Rust core is not yet compile-checked against it.
+
 RE-RECORDED for **felt-latency L4** (main) from the TypeScript reference; the
 Rust core reproduces all 64. Eleven goldens change one line each: the
 tool-mode write-back hold now names the owing session (`call sofar_end_session

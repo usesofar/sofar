@@ -17,6 +17,7 @@ import {
 } from '../src/cli/init'
 import { ulid } from 'ulid'
 import { claimRunLock } from '../src/core/run-lock'
+import { statedWindow } from '../src/core/context-ceiling'
 import { makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
 
 /**
@@ -89,7 +90,7 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
   it('bound record + full JSON → every segment, in order (D13: no cost, ctx before cache)', () => {
     const fixture = planned()
     const line = runStatusline(fixture.root, statusJson())
-    expect(line).toBe(`${fixture.slug} 1/3 · ctx 41% · cache 72% ✓`)
+    expect(line).toBe(`${fixture.slug} 1/3 · ctx 20K · cache 72% ✓`)
   })
 
   it('D13: the cost segment is gone even when stdin carries total_cost_usd', () => {
@@ -110,7 +111,7 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
   it('unbound repo with a record → `unbound`, the rest still renders', () => {
     const fixture = fx({ bind: false })
     const line = runStatusline(fixture.root, statusJson({ workspace: {}, cwd: undefined }))
-    expect(line).toBe('unbound · ctx 41% · cache 72% ✓')
+    expect(line).toBe('unbound · ctx 20K · cache 72% ✓')
   })
 
   it('falls back to workspace.current_dir when the invocation root has no record', () => {
@@ -129,7 +130,7 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
       }),
     )
     expect(line).toBe(
-      `Fable 5 · ${basename(fixture.root)}:main · ${fixture.slug} 1/3 · ctx 41% · cache 72% ✓`,
+      `Fable 5 · ${basename(fixture.root)}:main · ${fixture.slug} 1/3 · ctx 20K · cache 72% ✓`,
     )
   })
 
@@ -149,7 +150,7 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
   it('model only (no workspace/cwd) → model leads, dir omitted', () => {
     const fixture = fx({ bind: false })
     const line = runStatusline('/nonexistent', statusJson({ model: { display_name: 'Fable 5' } }))
-    expect(line).toBe('Fable 5 · ctx 41% · cache 72% ✓')
+    expect(line).toBe('Fable 5 · ctx 20K · cache 72% ✓')
   })
 
   it.each([
@@ -221,7 +222,7 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
         },
       }),
     )
-    expect(line).toBe('unbound · ctx 41%')
+    expect(line).toBe('unbound · ctx 0K')
   })
 
   it('styled (D7/D8/D12/D13/D14): toned model, Claude-palette dir/branch, task pie, dim ctx label + toned value, banded cache, separators', () => {
@@ -240,7 +241,7 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
         `\x1b[33m${basename(fixture.root)}\x1b[39m`,
         '\x1b[34mmain\x1b[39m',
         `\x1b[33m◔\x1b[39m \x1b[35m${fixture.slug}\x1b[39m 1/3`, // task pie: in progress → warn (D9)
-        '\x1b[2mctx\x1b[22m \x1b[32m41%\x1b[39m', // D13: constant label dim, value toned
+        '\x1b[2mctx\x1b[22m \x1b[32m20K\x1b[39m', // D13: constant label dim, value toned
         '\x1b[32mcache 72% ✓\x1b[39m',
       ].join(sep),
     )
@@ -262,7 +263,7 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
     expect(line.startsWith(styled)).toBe(true)
   })
 
-  it('styled: ctx warn band (≥70) goes yellow', () => {
+  it('styled: before the first call, the stated percentage stands in on its D7 bands (≥70 yellow)', () => {
     const fixture = fx({ bind: false })
     const line = runStatusline(
       fixture.root,
@@ -351,11 +352,11 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
   it('leaves a drop-free record byte-identical', () => {
     const fixture = planned()
     expect(runStatusline(fixture.root, statusJson())).toBe(
-      `${fixture.slug} 1/3 · ctx 41% · cache 72% ✓`,
+      `${fixture.slug} 1/3 · ctx 20K · cache 72% ✓`,
     )
   })
 
-  it('styled: cold cache goes red, near-compaction context goes warn/error', () => {
+  it('styled: cold cache goes red; ctx is banded by its size, not the window fill', () => {
     const fixture = fx({ bind: false })
     const line = runStatusline(
       fixture.root,
@@ -368,13 +369,13 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
       STATUSLINE_FORCED_CAPS,
     )
     expect(line).toContain('\x1b[31mcache 20% ⚠\x1b[39m')
-    expect(line).toContain('\x1b[2mctx\x1b[22m \x1b[31m91%\x1b[39m')
+    expect(line).toContain('\x1b[2mctx\x1b[22m \x1b[32m20K\x1b[39m')
   })
 
   it('styled: default lib caps stay plain — the command opts into styling, not the library', () => {
     const fixture = fx({ bind: false })
     const line = runStatusline(fixture.root, statusJson({ model: { display_name: 'Fable 5' } }))
-    expect(line).toBe('Fable 5 · unbound · ctx 41% · cache 72% ✓')
+    expect(line).toBe('Fable 5 · unbound · ctx 20K · cache 72% ✓')
     expect(line).not.toContain('\x1b')
   })
 
@@ -388,6 +389,75 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
       }),
     )
     expect(line).toContain('cache 75% ✓')
+  })
+})
+
+describe('sofar statusline — ctx size banded by the context settings (context-ceiling 4.1)', () => {
+  const CTX = (tone: number, value: string): string => `\x1b[2mctx\x1b[22m \x1b[${tone}m${value}\x1b[39m`
+
+  /** A warm session (cache ✓) holding `tokens` of context. */
+  function held(tokens: number, extra: Record<string, unknown> = {}): string {
+    return statusJson({
+      context_window: {
+        current_usage: { input_tokens: 1_000, cache_read_input_tokens: tokens - 1_000 },
+        ...extra,
+      },
+    })
+  }
+
+  function withRepoContext(fixture: Fixture, context: Record<string, unknown>): void {
+    mkdirSync(join(fixture.root, '.sofar'), { recursive: true })
+    writeFileSync(join(fixture.root, '.sofar', 'config.json'), JSON.stringify({ context }))
+  }
+
+  it.each([
+    ['below warn → green', 149_400, 32, '149K'],
+    ['at warn → yellow', 150_000, 33, '150K'],
+    ['at the ceiling → red', 200_000, 31, '200K'],
+    ['a 1M context past it → red', 1_000_000, 31, '1000K'],
+  ])('default bands (warn 150K, ceiling 200K): %s', (_name, tokens, tone, value) => {
+    const fixture = fx({ bind: false })
+    expect(runStatusline(fixture.root, held(tokens), STATUSLINE_FORCED_CAPS)).toContain(CTX(tone, value))
+  })
+
+  it('shows the size whatever the cache share: a healthy cache does not hide a red ctx', () => {
+    const fixture = fx({ bind: false })
+    const line = runStatusline(fixture.root, held(250_000), STATUSLINE_FORCED_CAPS)
+    expect(line).toContain(CTX(31, '250K'))
+    expect(line).toContain('\x1b[32mcache 100% ✓\x1b[39m')
+    expect(runStatusline(fixture.root, held(250_000))).toBe('unbound · ctx 250K · cache 100% ✓')
+  })
+
+  it('bands follow the repo settings, not the defaults', () => {
+    const fixture = fx({ bind: false })
+    withRepoContext(fixture, { warn: '50K', ceiling: '80K' })
+    expect(runStatusline(fixture.root, held(60_000), STATUSLINE_FORCED_CAPS)).toContain(CTX(33, '60K'))
+    expect(runStatusline(fixture.root, held(90_000), STATUSLINE_FORCED_CAPS)).toContain(CTX(31, '90K'))
+  })
+
+  it('a percentage resolves against the window stdin states, and shows unbanded without one', () => {
+    const fixture = fx({ bind: false })
+    withRepoContext(fixture, { warn: '10%', ceiling: '20%' })
+    const stated = held(150_000, { context_window_size: 1_000_000 })
+    expect(runStatusline(fixture.root, stated, STATUSLINE_FORCED_CAPS)).toContain(CTX(33, '150K'))
+    expect(runStatusline(fixture.root, held(150_000), STATUSLINE_FORCED_CAPS)).toContain('\x1b[2mctx\x1b[22m 150K')
+  })
+
+  it('mode off still shows the size, without bands', () => {
+    const fixture = fx({ bind: false })
+    withRepoContext(fixture, { mode: 'off' })
+    expect(runStatusline(fixture.root, held(250_000), STATUSLINE_FORCED_CAPS)).toContain('\x1b[2mctx\x1b[22m 250K \x1b[2m·')
+  })
+
+  it('records the window it is told, per session, for the prompt hook (D3)', () => {
+    const fixture = fx({ bind: false })
+    expect(statedWindow(fixture.root, 'sess-1')).toBeUndefined()
+    runStatusline(fixture.root, held(20_000))
+    expect(statedWindow(fixture.root, 'sess-1')).toBeUndefined()
+    runStatusline(fixture.root, held(20_000, { context_window_size: 200_000 }))
+    expect(statedWindow(fixture.root, 'sess-1')).toBe(200_000)
+    runStatusline(fixture.root, held(20_000, { context_window_size: 1_000_000 }))
+    expect(statedWindow(fixture.root, 'sess-1')).toBe(1_000_000)
   })
 })
 
@@ -411,7 +481,7 @@ describe('sofar statusline — drive segment (drive-visibility 3.3)', () => {
     const claim = await claimRunLock(fixture.root, run)
     expect(claim.kind).toBe('claimed')
     try {
-      expect(runStatusline(fixture.root, statusJson())).toBe(`${fixture.slug} 1/3 · drive 1.2 · ctx 41% · cache 72% ✓`)
+      expect(runStatusline(fixture.root, statusJson())).toBe(`${fixture.slug} 1/3 · drive 1.2 · ctx 20K · cache 72% ✓`)
       event(fixture, 'task_status_changed', { id: '1.2', status: 'done' })
       event(fixture, 'task_status_changed', { id: '1.3', status: 'done' })
       expect(runStatusline(fixture.root, statusJson())).toContain(`${fixture.slug} 3/3 · drive running · ctx`)
@@ -426,7 +496,7 @@ describe('sofar statusline — drive segment (drive-visibility 3.3)', () => {
     const died = await claimRunLock(fixture.root, run)
     if (died.kind === 'claimed') died.lock.release()
     for (let i = 0; i < 100 && !runStatusline(fixture.root, statusJson()).includes('drive gone'); i++) await tick()
-    expect(runStatusline(fixture.root, statusJson())).toBe(`${fixture.slug} 1/3 · drive gone · ctx 41% · cache 72% ✓`)
+    expect(runStatusline(fixture.root, statusJson())).toBe(`${fixture.slug} 1/3 · drive gone · ctx 20K · cache 72% ✓`)
   })
 
   it('shows a stop since this session began by its reason, and nothing for an older stop or an unknown session', async () => {
@@ -441,7 +511,7 @@ describe('sofar statusline — drive segment (drive-visibility 3.3)', () => {
     event(older, 'run_stopped', { run: oldRun, reason: 'closed' })
     await tick()
     event(older, 'session_started', { tool: 'claude-code' }, 'sess-1')
-    expect(runStatusline(older.root, statusJson())).toBe(`${older.slug} 1/3 · ctx 41% · cache 72% ✓`)
+    expect(runStatusline(older.root, statusJson())).toBe(`${older.slug} 1/3 · ctx 20K · cache 72% ✓`)
   })
 
   it('styled: dim label, toned value — gone red, needs_user yellow, closed green, the task cyan', async () => {
