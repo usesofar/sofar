@@ -1,6 +1,6 @@
 import { buildSync } from 'esbuild'
 import { execFileSync, spawnSync, type SpawnSyncReturns } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { foldLog, latestRun, type InitiativeState } from '../src/core/fold'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
-import { detachedStartNotifier, insideAgentShell } from '../src/cli/drive'
+import { detachedStartNotifier, insideAgentShell, pendingLaneSetup, runDriveDetached } from '../src/cli/drive'
 
 /**
  * `sofar drive --detach` and `--stop` (in-session-drive D1/D2/D3), through the
@@ -254,6 +254,89 @@ describe('sofar drive --detach (in-session-drive D1)', () => {
     expect(res.status).toBe(1)
     expect(res.stderr).toContain('reports no network')
     expect(fold(r).runs).toEqual([])
+  })
+})
+
+describe('a slow lane setup is progress, not a failed start (drive-lanes 7.4)', () => {
+  it('the caller says the driver is still setting up, and the driver runs on past its start notice', async () => {
+    const r = repo('slow-setup')
+    r.root = realpathSync(r.root)
+    for (const args of [
+      ['init', '-q', '-b', 'main'],
+      ['config', 'user.email', 't@e.com'],
+      ['config', 'user.name', 't'],
+      ['add', '-A'],
+      ['commit', '-qm', 'init'],
+    ]) {
+      execFileSync('git', args, { cwd: r.root, stdio: 'ignore' })
+    }
+    const state = mkdtempSync(join(scratch, 'state-'))
+    const env: NodeJS.ProcessEnv = { ...process.env, XDG_STATE_HOME: state, TMPDIR: r.logs, STUB_OUT: r.out, STUB_LINGER: '1' }
+    delete env.SOFAR_DRIVE_DETACHED
+    // The window is wide enough for the child to boot and reach its first
+    // setup line; that lane's setup then outlasts it.
+    const res = await runDriveDetached(r.root, 'demo', {
+      argv: ['drive', 'demo', '--detach', '--root', r.root, '--bin', stub, '--lanes', '2', '--lane-setup', 'sleep 6'],
+      env,
+      entry: [process.execPath, bundle],
+      logDir: r.logs,
+      startTimeoutMs: 3_000,
+      keepAwake: false,
+    })
+    expect(res.exitCode, res.stderr).toBe(0)
+    expect(res.stdout).toMatch(/still setting up lanes on "demo" \(lane \S+: (created at|setting up — sleep 6)/)
+    expect(res.stdout).toContain('stop:     sofar drive demo --stop')
+    expect(fold(r).runs).toEqual([])
+
+    // The caller has let go of the channel: the start notice must not kill
+    // the driver, which goes on to launch a session.
+    await until(() => latestRun(fold(r)) !== undefined && sessionEnvs(r).length > 0)
+    const stop = cli(r, ['drive', 'demo', '--stop'], { XDG_STATE_HOME: state })
+    expect(stop.status, stop.stderr).toBe(0)
+    await until(() => latestRun(fold(r))?.stopped !== undefined)
+  })
+
+  it('reads where lane readying stands from the log', () => {
+    expect(pendingLaneSetup('run 01X — claude-code, task policy\n')).toBeUndefined()
+    const created = 'lane 1: created at /tmp/lanes/lane-1'
+    const begun = 'lane 1: setting up — npm ci (once, until the lockfile changes)'
+    const done = 'lane 1: set up in 40s'
+    expect(pendingLaneSetup(`${created}\n`)).toBe(created)
+    expect(pendingLaneSetup(`${created}\n${begun}\n`)).toBe(begun)
+    expect(pendingLaneSetup(`${begun}\n${done}\n`)).toBe(done)
+    // A setup still running is named over a later lane's creation.
+    expect(pendingLaneSetup(`${begun}\nlane 2: created at /tmp/lanes/lane-2\n`)).toBe(begun)
+    const second = begun.replace('lane 1', 'lane 2')
+    expect(pendingLaneSetup(`${begun}\n${done}\n${second}\n`)).toBe(second)
+  })
+
+  it('a start notice down a closed channel is dropped, never thrown', () => {
+    const env = { SOFAR_DRIVE_DETACHED: '1' }
+    // Gone before the notice: nothing is sent.
+    let sent = 0
+    const gone = { connected: false, send: (): boolean => ((sent += 1), true), disconnect: (): void => {} }
+    detachedStartNotifier(env, gone as never)!('run-1')
+    expect(sent).toBe(0)
+    // Closed under it: the send throws, or fails through its callback (EPIPE).
+    const throws = {
+      connected: true,
+      send: (): boolean => {
+        throw new Error('channel closed')
+      },
+      disconnect: (): void => {},
+    }
+    expect(() => detachedStartNotifier(env, throws as never)!('run-1')).not.toThrow()
+    const epipe = {
+      connected: true,
+      send: (_m: unknown, _h: unknown, _o: unknown, cb: (err: Error | null) => void): boolean => {
+        cb(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }))
+        return false
+      },
+      disconnect: (): void => {
+        throw new Error('already closed')
+      },
+    }
+    expect(() => detachedStartNotifier(env, epipe as never)!('run-1')).not.toThrow()
   })
 })
 

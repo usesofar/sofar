@@ -3132,6 +3132,14 @@ confirmed, exit 1, with the log path. A warning stated only to a log file is
 exactly the silent trap D9 forbids, which is why the handshake waits for the
 opening rather than returning on spawn.
 
+Readying lanes counts as progress (drive-lanes 7.4): each lane line the child
+logs — created, setting up, set up — restarts the 60s window, and a window
+that lapses after one is answered "still setting up lanes", naming the setup
+still running (else the last lane line), with the log path and the stop
+command, exit 0: a first `npm ci` per lane outlasts the window and the driver
+is healthy. The child's start notice may then find its caller gone; a send
+down a closed channel is dropped, never fatal, and the driver runs on.
+
 `--detach` REFUSES, before spawning:
 - while the CALLING session is registered on the driven initiative with no
   write-back. The caller is named by `CLAUDE_CODE_SESSION_ID`; an agent that
