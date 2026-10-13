@@ -104,7 +104,9 @@ fn last_entry_holds_fence(path: &str) -> bool {
     while pos > start {
         let from = pos.saturating_sub(TRANSCRIPT_CHUNK_BYTES).max(start);
         let mut chunk = vec![0; usize::try_from(pos - from).unwrap_or(0)];
-        let read = file.seek(SeekFrom::Start(from)).and_then(|_| file.read_exact(&mut chunk));
+        let read = file
+            .seek(SeekFrom::Start(from))
+            .and_then(|_| file.read_exact(&mut chunk));
         if read.is_err() {
             return false;
         }
@@ -138,7 +140,10 @@ fn assistant_entry_holds_fence(line: &[u8]) -> Option<bool> {
     if !is("role") && !is("type") {
         return None;
     }
-    let content = entry.get("message").and_then(Json::as_obj)?.get("content")?;
+    let content = entry
+        .get("message")
+        .and_then(Json::as_obj)?
+        .get("content")?;
     if let Some(text) = content.as_str() {
         return (!text.is_empty()).then(|| text.contains(INLINE_FENCE));
     }
@@ -343,7 +348,9 @@ mod tests {
     fn entry(text: &str) -> String {
         let text = crate::json::stringify(&Json::Str(text.to_owned()));
         let tool = r#"{"type":"tool_use","name":"Shell"}"#;
-        format!(r#"{{"role":"assistant","message":{{"content":[{{"type":"text","text":{text}}},{tool}]}}}}"#)
+        format!(
+            r#"{{"role":"assistant","message":{{"content":[{{"type":"text","text":{text}}},{tool}]}}}}"#
+        )
     }
 
     #[test]
@@ -370,6 +377,8 @@ mod tests {
         let pad = format!(r#"{{"pad":"{}"}}"#, "p".repeat(300 * 1024));
         assert!(!holds(&[&block, &pad, ""]));
         assert!(holds(&[&pad, &block, ""]));
-        assert!(!last_entry_holds_fence(&dir.join("missing.jsonl").to_string_lossy()));
+        assert!(!last_entry_holds_fence(
+            &dir.join("missing.jsonl").to_string_lossy()
+        ));
     }
 }

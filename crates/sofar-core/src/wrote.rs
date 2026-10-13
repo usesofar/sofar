@@ -307,7 +307,12 @@ pub fn peer_windows(layout: &Layout, session: &str) -> Vec<Vec<WriteWindow>> {
 /// `peerWroteIt` (felt-latency L8): a peer window holds `mtime` that is
 /// narrower than the narrowest of this session's that does.
 #[must_use]
-pub fn peer_wrote_it(mtime: f64, own: &[WriteWindow], peers: &[Vec<WriteWindow>], slack: f64) -> bool {
+pub fn peer_wrote_it(
+    mtime: f64,
+    own: &[WriteWindow],
+    peers: &[Vec<WriteWindow>],
+    slack: f64,
+) -> bool {
     let Some(mine) = narrowest_window(mtime, own, slack) else {
         return false;
     };
@@ -587,11 +592,34 @@ mod window_tests {
         assert_eq!(narrowest_window(60_000.0, &own, 0.0), Some(120_000.0));
         assert_eq!(narrowest_window(200_500.0, &own, 0.0), Some(1_000.0));
         assert_eq!(narrowest_window(150_000.0, &own, 0.0), None);
-        assert_eq!(narrowest_window(9e9, &[(5.0, None)], 0.0), Some(f64::INFINITY));
-        assert!(peer_wrote_it(60_000.0, &own, &[vec![(59_000.0, Some(61_000.0))]], 0.0));
-        assert!(!peer_wrote_it(200_500.0, &own, &[vec![(100_000.0, Some(300_000.0))]], 0.0));
-        assert!(!peer_wrote_it(60_000.0, &own, &[vec![(50_000.0, None)]], 0.0));
-        assert!(!peer_wrote_it(150_000.0, &own, &[vec![(149_000.0, Some(151_000.0))]], 0.0));
+        assert_eq!(
+            narrowest_window(9e9, &[(5.0, None)], 0.0),
+            Some(f64::INFINITY)
+        );
+        assert!(peer_wrote_it(
+            60_000.0,
+            &own,
+            &[vec![(59_000.0, Some(61_000.0))]],
+            0.0
+        ));
+        assert!(!peer_wrote_it(
+            200_500.0,
+            &own,
+            &[vec![(100_000.0, Some(300_000.0))]],
+            0.0
+        ));
+        assert!(!peer_wrote_it(
+            60_000.0,
+            &own,
+            &[vec![(50_000.0, None)]],
+            0.0
+        ));
+        assert!(!peer_wrote_it(
+            150_000.0,
+            &own,
+            &[vec![(149_000.0, Some(151_000.0))]],
+            0.0
+        ));
 
         let dir = crate::testing::scratch_dir("peer-windows");
         let layout = Layout::new(&dir);
@@ -603,8 +631,14 @@ mod window_tests {
         mark_wrote(&layout, "s2", Some(&timed("b", 5_000.0, 1_000.0)));
         mark_loss_asked(&layout, "s2", &["x".to_owned()]);
         mark_held(&layout, "s2", "k");
-        assert_eq!(peer_windows(&layout, "s1"), vec![vec![(4_000.0, Some(5_000.0))]]);
-        assert_eq!(peer_windows(&layout, "s2"), vec![vec![(1_000.0, Some(2_000.0))]]);
+        assert_eq!(
+            peer_windows(&layout, "s1"),
+            vec![vec![(4_000.0, Some(5_000.0))]]
+        );
+        assert_eq!(
+            peer_windows(&layout, "s2"),
+            vec![vec![(1_000.0, Some(2_000.0))]]
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 

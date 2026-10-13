@@ -1088,14 +1088,13 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     // A host whose PostToolUse proves nothing cannot show a pass: the gate's
     // asks there are unverifiable and never hold (r4-fixes U1b).
     let outcomes_known = crate::post_tool::post_tool_proves_success(hook_host(&hook).tool);
-    let gate = crate::checks::enforce_enabled()
-        .then(|| {
-            hold_once(
-                &layout,
-                &session.id,
-                stop_gate_for(root, &layout, &slug, &state, session, outcomes_known),
-            )
-        });
+    let gate = crate::checks::enforce_enabled().then(|| {
+        hold_once(
+            &layout,
+            &session.id,
+            stop_gate_for(root, &layout, &slug, &state, session, outcomes_known),
+        )
+    });
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop; SOFAR_LINK_ASK=off is its ablation arm.
     let asks = if link_ask_enabled() {
@@ -1337,7 +1336,10 @@ fn gate_index(
 /// session's that holds it (felt-latency L8): a peer's shell write during a
 /// longer command of ours. The file index and the peers' windows load only
 /// when the checks before them pass.
-#[allow(clippy::too_many_arguments, reason = "stopGateFor's inline test, step for step")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "stopGateFor's inline test, step for step"
+)]
 fn anothers_dirt(
     mtime: f64,
     started: Option<f64>,
@@ -1375,7 +1377,11 @@ const HELD_ONCE_LINE: &str = "sofar: the stop was held once for this with no edi
 /// `holdOnce` (felt-latency L8): Stop's hold, once per failure-only key. A
 /// suite that fails at load records no pass however often it re-runs; the
 /// second time its lines reach the operator, or ride a write-back hold.
-fn hold_once(layout: &Layout, session: &str, gate: crate::checks::StopGate) -> crate::checks::StopGate {
+fn hold_once(
+    layout: &Layout,
+    session: &str,
+    gate: crate::checks::StopGate,
+) -> crate::checks::StopGate {
     let Some(key) = gate.once.as_deref().filter(|_| gate.blocks) else {
         return gate;
     };
