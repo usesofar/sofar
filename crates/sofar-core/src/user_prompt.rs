@@ -978,6 +978,13 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
             "sofar: {debt} unwritten events in THIS session — if the current batch of work is complete, write back now with sofar_end_session (summary + next action) while context is warm; an unwritten session gets force-blocked at Stop."
         ));
     }
+    // The context ceiling (context-ceiling 3.1): Claude Code only, never a
+    // driven session (D5).
+    if hook_host(&hook).tool == CLAUDE_CODE
+        && std::env::var_os(crate::nudge::NUDGE_ENV).is_none_or(|v| v.is_empty())
+    {
+        lines.extend(prompt_ceiling_line(root, &layout, &hook, session_id, me));
+    }
     lines.extend(recall);
     lines.extend(map);
     lines.extend(keep);
@@ -989,6 +996,36 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
         ok(lines.join("\n"))
     };
     with_session_title(Hook::UserPrompt, result, title.as_deref())
+}
+
+/// `promptCeilingLine` (context-ceiling 3.1): the gauge from the transcript
+/// tail, the window only one the statusline stated; the band told rides the
+/// told set's `ctx` fragment, written only when it moves.
+fn prompt_ceiling_line(
+    root: &Path,
+    layout: &Layout,
+    hook: &Object,
+    session_id: &str,
+    me: &SessionState,
+) -> Option<String> {
+    use crate::context_ceiling as cc;
+    let settings = cc::hook_settings(root);
+    if settings.mode == cc::Mode::Off {
+        return None;
+    }
+    let tokens = cc::transcript_context_tokens(str_field(hook, "transcript_path")?)?;
+    let told = crate::told::fragment_epoch(&read_told(layout, session_id), cc::CTX_FRAGMENT);
+    let (line, epoch) = cc::prompt_ceiling(
+        tokens,
+        &settings,
+        cc::stated_window(root, session_id),
+        told.as_deref(),
+        me.summary.is_some(),
+    );
+    if epoch != told {
+        crate::told::update_told(layout, session_id, &[], &[(cc::CTX_FRAGMENT, epoch.as_deref())]);
+    }
+    line
 }
 
 /// The glance (r4-fixes B5): a prompt naming another open record, when no

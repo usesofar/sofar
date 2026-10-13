@@ -2,6 +2,8 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type { Command } from 'commander'
 import { isClosedInitiativeStatus, type InitiativeStatus, type RunStopReason } from '@sofar/schema'
+import { contextBand, hookContextSettings, kTokens, recordStatedWindow, resolveThresholds } from '../core/context-ceiling'
+import { statuslineGauge } from '../core/context-gauge'
 import { taskInFlight } from '../core/drive-queue'
 import { latestRun, type InitiativeState } from '../core/fold'
 import { QUICK_LANE } from '../core/lane'
@@ -30,7 +32,7 @@ import { updateNotice, type UpdateCheckDeps, type UpdateNotice } from './update-
  * reads the statusline JSON from stdin and prints ONE line:
  *
  *   <model> · <dir> · <branch> · <pie> <slug> <done>/<total>
- *     · ctx <used%> · cache <warm%>[⚠|✓]
+ *     · ctx <N>K · cache <warm%>[⚠|✓]
  *
  * Icons are text glyphs in the house vocabulary (cli-ui 1.3), never emoji
  * (D8). D12 retired the two decorative ones — ▸ dir and ⎇ branch — leaving
@@ -75,7 +77,10 @@ export const CACHE_WARN_BELOW = 0.3
 export const CACHE_HEALTHY_FROM = 0.5
 export const CACHE_JUDGE_MIN_TOKENS = 10_000
 
-/** Context-window thresholds (D7): approaching compaction gets loud. */
+/**
+ * Context-window thresholds (D7): approaching compaction gets loud. Only for
+ * a stated percentage with no usage yet — a size is banded by the settings.
+ */
 export const CTX_WARN_FROM = 70
 export const CTX_ERROR_FROM = 90
 
@@ -369,6 +374,38 @@ function findUsage(hook: Obj): Obj | null {
   return null
 }
 
+type CtxTone = 'success' | 'warn' | 'error' | null
+
+/**
+ * The ctx segment (context-ceiling 4.1, SPEC §Context ceiling): the context
+ * held, in whole K — every call re-reads it, so it IS the cost per call, which
+ * a warm cache share does not show. Banded by the user's `context` settings
+ * (below green, warn yellow, past the ceiling red) against the window stdin
+ * states; under mode `off`, or when a percentage has no window to resolve
+ * against, the size shows without a band. Before the first call there is no
+ * usage, and the stated percentage stands in on its old compaction bands (D7).
+ *
+ * Also the one place the window is told (D3): it is recorded for the session
+ * so the prompt hook can resolve a percentage threshold.
+ */
+function ctxSegment(rootDir: string, hook: Obj): { value: string; tone: CtxTone } | null {
+  const gauge = statuslineGauge(hook)
+  if (gauge === null) return null
+  const session = strField(hook.session_id)
+  if (session !== null && gauge.window !== null) recordStatedWindow(rootDir, session, gauge.window)
+  if (gauge.tokens === null) {
+    const pct = gauge.usedPct
+    if (pct === null) return null
+    return { value: `${Math.round(pct)}%`, tone: pct >= CTX_ERROR_FROM ? 'error' : pct >= CTX_WARN_FROM ? 'warn' : 'success' }
+  }
+  const value = kTokens(gauge.tokens)
+  const settings = hookContextSettings(rootDir)
+  const t = settings.mode === 'off' ? undefined : resolveThresholds(settings, gauge.window ?? undefined)
+  if (t === undefined) return { value, tone: null }
+  const band = contextBand(gauge.tokens, t)
+  return { value, tone: band === 'ceiling' ? 'error' : band === 'warn' ? 'warn' : 'success' }
+}
+
 type RentTone = 'success' | 'error' | 'dim' | null
 
 /** Warm share of input: cache_read / (cache_read + cache_creation + input). */
@@ -481,21 +518,12 @@ export function runStatusline(
   )
   if (launched !== null) segments.push(launchedText(launched, style))
 
-  const ctxPct = isObj(hook.context_window) ? numField(hook.context_window.used_percentage) : null
-  if (ctxPct !== null) {
+  const ctx = ctxSegment(rootDir, hook)
+  if (ctx !== null) {
     // Label dim, value toned (D13): `ctx` never changes, so it recedes to
     // gray and the eye lands on the number, which does. The healthy band
     // stays success-green — the gauge is reassurance until it is a warning.
-    const value = `${Math.round(ctxPct)}%`
-    segments.push(
-      `${style.dim('ctx')} ${
-        ctxPct >= CTX_ERROR_FROM
-          ? style.error(value)
-          : ctxPct >= CTX_WARN_FROM
-            ? style.warn(value)
-            : style.success(value)
-      }`,
-    )
+    segments.push(`${style.dim('ctx')} ${ctx.tone === null ? ctx.value : style[ctx.tone](ctx.value)}`)
   }
 
   const rent = rentSegment(hook)

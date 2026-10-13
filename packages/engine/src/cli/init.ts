@@ -78,6 +78,7 @@ import { AWAIT_HOOK_TIMEOUT_SEC } from '../core/run-await'
 import prepareCommitMsgShim from '../hooks/prepare-commit-msg.sh'
 import preCommitShim from '../hooks/pre-commit.sh'
 import { PAGED_CLAUSES, PAGED_POINTER } from '../core/paged-clauses'
+import { activeContextLine } from './config'
 
 /** Identifies a prepare-commit-msg hook as sofar's, so ours can be kept current
  * while a hand-written one is left strictly alone. */
@@ -3644,6 +3645,9 @@ export function runInit(
   // r4-fixes A11: a wired agent with no recorded choice is never rewritten
   // by a run that did not name it; say so, with both ways out.
   for (const id of orderAgents(options.skipped ?? [])) lines.push('', unchosenNote(id))
+  // The context ceiling's active values (context-ceiling 2.2), so the
+  // operator sees what a long session will be told without asking for it.
+  lines.push('', activeContextLine(rootDir, options.env))
   // Opt-in nudge (init-statusline D1): when the project settings carry no
   // statusLine and the flag was not passed, point at it. Unstyled, like the
   // scanner hint — and always BEFORE it: the scanner hint keeps the final
