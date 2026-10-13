@@ -1,0 +1,38 @@
+{
+  "label": "5.4s-hosted-1",
+  "fixture": "nine",
+  "arm": "hosted",
+  "started": "2026-10-13T02:02:14.351Z",
+  "engine": {
+    "version": "0.38.0-dev+trunk",
+    "commit": "20a5c46f",
+    "dirty_src_paths": 0,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.local/bin/claude",
+    "version": "2.1.296 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "drive": {
+    "exit": 1,
+    "signal": null,
+    "ms": 225231
+  },
+  "score": {
+    "error": "no run_started in the log"
+  },
+  "final_tree": {
+    "verify_passes": [],
+    "commits": 3,
+    "dirty_paths": 0
+  },
+  "error": "Cannot read properties of undefined (reading 'done')",
+  "ended": "2026-10-13T02:06:04.147Z",
+  "invalid": "hosted transport bug: the run finished 9/9 in the cloud, but its events exceeded the ~30k output cap and were read as never started (fixed in 283b88a5)"
+}

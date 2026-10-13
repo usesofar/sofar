@@ -1,0 +1,37 @@
+{
+  "label": "5.4-hosted-2",
+  "fixture": "nine",
+  "arm": "hosted",
+  "started": "2026-10-13T01:48:51.222Z",
+  "engine": {
+    "version": "0.38.0-dev+trunk",
+    "commit": "5125c479",
+    "dirty_src_paths": 0,
+    "core": "off (SOFAR_CORE=0)"
+  },
+  "claude": {
+    "bin": "/Users/jins/.local/bin/claude",
+    "version": "2.1.296 (Claude Code)",
+    "config": "/Users/jins/.bench/claude-config",
+    "loggedIn": true,
+    "authMethod": "claude.ai",
+    "subscription": "max",
+    "model": "sonnet",
+    "effort": null
+  },
+  "drive": {
+    "exit": 0,
+    "signal": null,
+    "ms": 45465
+  },
+  "score": {
+    "error": "no run_started in the log"
+  },
+  "final_tree": {
+    "verify_passes": [],
+    "commits": 3,
+    "dirty_paths": 3
+  },
+  "error": "Cannot read properties of undefined (reading 'done')",
+  "ended": "2026-10-13T01:49:39.377Z"
+}

@@ -4,7 +4,7 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages), and a driven task costs fewer tokens than native Claude Code (one session with its own subagents) on the same fixture.
 
-Brief: the operator's words, 7883 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 9561 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
 Progress: 25 done, 3 dropped, 2 remaining
 
@@ -25,5 +25,5 @@ Progress: 25 done, 3 dropped, 2 remaining
 - [x] 5.5 Drive hosted in a cloud session (P24): `sofar drive --detach` started inside ONE Claude Code cloud session, its tasks run by the claude-code adapter as `claude -p` children in that VM, so a whole run is one entry in the operator's list. Probe: does the VM give child sessions auth, does a detached run survive the turn ending, and how the result comes back (patch or push). Compare against claude-cloud lanes on leftovers, wall-clock and done rate
 
 Active phase: Phase 5 — Cloud lanes
-Next action: Operator: re-login bench profile; ship lanes in a release, then rerun 5.4
-Blocked on: task 5.4: Reps 5.4-local-1..3 and 5.4-hosted-1..3 (2026-10-13) invalid: ~/.bench/claude-config is not logged in (operator re-login needed); the cloud env's cached sofar is 0.36.0-rc.3, and no release (rc.8 included) has drive --lanes, so hosted lanes cannot run until a release carries drive-lanes. Hosted serial is measurable now
+Next action: Ship drive-lanes in a 0.38 rc, then hosted lanes vs local lanes
+Blocked on: task 5.4: Serial half done (D56): results/5.4s-local.bar.json, 5.4s-hosted.bar.json. Lanes half waits on a release that carries drive --lanes (none up to 0.37.0-rc.8)
