@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { gzipSync } from 'node:zlib'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { BUNDLE_SEP, cloudDriveArgs, driveHosted, exportedEvents, hostedBundle, hostedPrompt, HOSTED_DONE } from '../src/driver/hosted'
+import { BUNDLE_SEP, cloudDriveArgs, driveHosted, exportedEvents, hostedBundle, hostedPrompt, hostVersion, HOSTED_DONE } from '../src/driver/hosted'
 
 const dirs: string[] = []
 const tmp = (): string => {
@@ -40,6 +40,15 @@ describe('a hosted run (drive-lanes 5.5)', () => {
     expect(p).toContain("git format-patch abc..HEAD --stdout -- . ':(exclude).sofar'")
     expect(p).toContain(`sofar export lanes --since 01EVT | grep -v -e '"type":"command_run"' -e '"type":"file_touched"'`)
     expect(p).toContain(HOSTED_DONE)
+  })
+
+  it('has the host run the same published sofar as this driver, and names none for a dev build', () => {
+    expect(hostVersion('0.38.0-rc.1')).toBe('0.38.0-rc.1')
+    expect(hostVersion('0.38.0')).toBe('0.38.0')
+    expect(hostVersion('0.38.0-dev+trunk')).toBeUndefined()
+    const p = hostedPrompt('lanes', ['lanes'], 'abc', undefined, '0.38.0-rc.1')
+    expect(p).toContain('[ "$(sofar --version)" = "0.38.0-rc.1" ] || npm install -g --prefer-online sofar.sh@0.38.0-rc.1')
+    expect(hostedPrompt('lanes', ['lanes'], 'abc', undefined, undefined)).not.toContain('npm install')
   })
 
   it("takes a lanes run's work from its run base branch, not the host's HEAD (D20)", () => {
