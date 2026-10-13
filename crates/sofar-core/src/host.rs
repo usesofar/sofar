@@ -3,10 +3,15 @@
 //! difference. The handlers speak Claude Code's dialect; a Cursor payload
 //! (any with a string `cursor_version`) is converted on the way in and the
 //! result on the way out; a Claude Code invocation passes straight through.
+//! Codex (agents-parity 2.1, D5; felt-latency L5a) sends Claude Code's field
+//! names but none naming the host, so its shims declare it (`--host codex`):
+//! the payload passes through, `hook_host` answers `codex` for the length of
+//! the handler, and the result is carried in the form Codex reads.
 
+use std::cell::Cell;
 use std::path::Path;
 
-use crate::cli::Hook;
+use crate::cli::{Declared, Hook};
 use crate::fold_cli::CmdResult;
 use crate::json::{self, Json, Object, stringify};
 use crate::layout::Layout;
@@ -21,13 +26,28 @@ pub struct HookHost {
 
 pub const CLAUDE_CODE: &str = "claude-code";
 pub const CURSOR: &str = "cursor";
+pub const CODEX: &str = "codex";
 
 /// Cursor's per-carrier cap on injected context (UTF-16 units, after trimming).
 pub const CURSOR_CONTEXT_MAX: usize = 10_000;
 
-/// `hookHost`: from STDIN only — `cursor_version` is on every Cursor payload.
+thread_local! {
+    /// The host the running handler's shim declared. Set only by `for_host`,
+    /// for the length of one handler call.
+    static DECLARED: Cell<Option<Declared>> = const { Cell::new(None) };
+}
+
+/// `declared ?? hookHost(hook)` in `cli/event.ts`: the host a shim declared
+/// wins; otherwise from STDIN only — `cursor_version` is on every Cursor
+/// payload.
 #[must_use]
 pub fn hook_host(hook: &Object) -> HookHost {
+    if DECLARED.get() == Some(Declared::Codex) {
+        return HookHost {
+            tool: CODEX,
+            version: None,
+        };
+    }
     match hook.get("cursor_version").and_then(Json::as_str) {
         None => HookHost {
             tool: CLAUDE_CODE,
@@ -266,8 +286,80 @@ pub fn to_cursor(name: Hook, result: CmdResult) -> CmdResult {
     }
 }
 
-/// `forHost`: serve a handler to whichever host fired it.
-pub fn for_host(name: Hook, input: &str, handler: impl Fn(&str) -> CmdResult) -> CmdResult {
+/// The digest's Session line tail as every host but Codex reads it
+/// (`SESSION_ADOPT_TAIL`, templates/status.ts).
+pub const SESSION_ADOPT_TAIL: &str = " — adopted on Claude Code; else pass to sofar_start_session.";
+
+/// The tail a Codex session reads instead (`CODEX_SESSION_TAIL`,
+/// agents-parity 3.3); never longer, so the digest's budget still holds.
+pub const CODEX_SESSION_TAIL: &str = " — Codex thread: sofar_start_session takes it; appends join.";
+
+/// `codexSessionLine`: only a whole `Session: …` line ending in the shared
+/// tail changes.
+fn codex_session_line(context: &str) -> String {
+    context
+        .split('\n')
+        .map(|line| match line.strip_suffix(SESSION_ADOPT_TAIL) {
+            Some(head) if line.starts_with("Session: ") => format!("{head}{CODEX_SESSION_TAIL}"),
+            _ => line.to_owned(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// `toCodex`: a handler's Claude Code result, as Codex reads it. Session-start
+/// and user-prompt context rides `hookSpecificOutput.additionalContext`, the
+/// form `additionalContextLimit` governs; everything else already fits
+/// Codex's schemas and passes through.
+#[must_use]
+pub fn to_codex(name: Hook, result: CmdResult) -> CmdResult {
+    let event = match name {
+        Hook::SessionStart => "SessionStart",
+        Hook::UserPrompt => "UserPromptSubmit",
+        _ => return result,
+    };
+    let Some(raw) = context_of(name, &result.stdout) else {
+        return CmdResult {
+            stdout: String::new(),
+            ..result
+        };
+    };
+    let context = if name == Hook::SessionStart {
+        codex_session_line(&raw)
+    } else {
+        raw
+    };
+    let mut specific = Object::with_capacity(2);
+    specific.insert("hookEventName", Json::Str(event.to_owned()));
+    specific.insert("additionalContext", Json::Str(context));
+    let mut o = Object::with_capacity(1);
+    o.insert("hookSpecificOutput", Json::Obj(specific));
+    CmdResult {
+        stdout: format!("{}\n", stringify(&Json::Obj(o))),
+        ..result
+    }
+}
+
+/// Run `f` with `host` declared to `hook_host`, restoring the previous value
+/// after, so a test thread never leaks it into the next case.
+pub fn with_declared<T>(host: Option<Declared>, f: impl FnOnce() -> T) -> T {
+    let before = DECLARED.replace(host);
+    let out = f();
+    DECLARED.set(before);
+    out
+}
+
+/// `forHost`: serve a handler to whichever host fired it. A host its shim
+/// declares (Codex) is served as declared.
+pub fn for_host(
+    name: Hook,
+    declared: Option<Declared>,
+    input: &str,
+    handler: impl Fn(&str) -> CmdResult,
+) -> CmdResult {
+    if declared == Some(Declared::Codex) {
+        return to_codex(name, with_declared(declared, || handler(input)));
+    }
     if !input.contains("\"cursor_version\"") {
         return handler(input);
     }
@@ -433,11 +525,62 @@ mod tests {
             stderr: String::new(),
         };
         assert_eq!(to_cursor(Hook::UserPrompt, empty).stdout, "");
-        let claude = for_host(Hook::Stop, "{\"session_id\":\"s\"}", |i| CmdResult {
+        let claude = for_host(Hook::Stop, None, "{\"session_id\":\"s\"}", |i| CmdResult {
             exit_code: 2,
             stdout: i.to_owned(),
             stderr: String::new(),
         });
         assert_eq!(claude.exit_code, 2);
+    }
+
+    #[test]
+    fn a_declared_codex_host_wins_for_the_handler_alone() {
+        let input = "{\"cursor_version\":\"1\"}";
+        let seen = for_host(Hook::Stop, Some(Declared::Codex), input, |i| CmdResult {
+            exit_code: 2,
+            stdout: String::new(),
+            stderr: hook_host(&obj(i)).tool.to_owned(),
+        });
+        // The payload passes through untouched and the Stop hold too (`toCodex`).
+        assert_eq!((seen.exit_code, seen.stderr.as_str()), (2, CODEX));
+        assert_eq!(hook_host(&obj("{}")).tool, CLAUDE_CODE);
+        assert_eq!(hook_host(&obj("{\"cursor_version\":\"1\"}")).tool, CURSOR);
+    }
+
+    #[test]
+    fn results_speak_codex() {
+        let tail = SESSION_ADOPT_TAIL;
+        let digest = format!("# Sofar status: demo\nSession: abc{tail}\nx: y{tail}\n");
+        let start = to_codex(
+            Hook::SessionStart,
+            CmdResult {
+                exit_code: 0,
+                stdout: digest,
+                stderr: String::new(),
+            },
+        );
+        assert_eq!(
+            start.stdout,
+            "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"# Sofar status: demo\\nSession: abc — Codex thread: sofar_start_session takes it; appends join.\\nx: y — adopted on Claude Code; else pass to sofar_start_session.\"}}\n"
+        );
+        let prompt = to_codex(
+            Hook::UserPrompt,
+            CmdResult {
+                exit_code: 0,
+                stdout: format!("Session: abc{SESSION_ADOPT_TAIL}\n"),
+                stderr: String::new(),
+            },
+        );
+        // Only session-start's Session line takes the Codex tail.
+        assert!(prompt.stdout.contains("UserPromptSubmit"));
+        assert!(prompt.stdout.contains(SESSION_ADOPT_TAIL));
+        let blank = CmdResult {
+            exit_code: 0,
+            stdout: " \n".into(),
+            stderr: String::new(),
+        };
+        assert_eq!(to_codex(Hook::UserPrompt, blank.clone()).stdout, "");
+        assert_eq!(to_codex(Hook::PostTool, blank.clone()), blank);
+        assert!(CODEX_SESSION_TAIL.chars().count() <= SESSION_ADOPT_TAIL.chars().count());
     }
 }

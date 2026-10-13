@@ -12,7 +12,7 @@ use std::io::{IsTerminal as _, Write as _};
 use std::process::ExitCode;
 
 use sofar_core::cli::Hook;
-use sofar_core::cli::{Color, Dispatch, Owned, dispatch};
+use sofar_core::cli::{Color, Declared, Dispatch, Owned, dispatch};
 use sofar_core::fold_cli::{CmdResult, run_fold};
 use sofar_core::hook::read_stdin;
 use sofar_core::host::for_host;
@@ -104,14 +104,28 @@ fn not_ours(message: &str) -> ExitCode {
 fn closing_hook(
     hook: Hook,
     root: Option<&std::path::Path>,
+    host: Option<Declared>,
     handler: fn(&std::path::Path, &str) -> CmdResult,
 ) -> ExitCode {
     let root = resolve_root(root);
     let input = read_stdin();
-    if let Some(result) = handed_back(hook, &root, &input) {
+    if let Some(result) = handed_back(hook, &root, &input, host) {
         return mirror(&result);
     }
-    mirror(&for_host(hook, &input, |input| handler(&root, input)))
+    mirror(&for_host(hook, host, &input, |input| handler(&root, input)))
+}
+
+/// Every other hook served through the host dialect (`forHost`).
+fn hosted_hook(
+    hook: Hook,
+    root: Option<&std::path::Path>,
+    host: Option<Declared>,
+    handler: fn(&std::path::Path, &str) -> CmdResult,
+) -> ExitCode {
+    let root = resolve_root(root);
+    mirror(&for_host(hook, host, &read_stdin(), |input| {
+        handler(&root, input)
+    }))
 }
 
 #[allow(clippy::too_many_lines, reason = "one arm per owned argv shape")]
@@ -133,35 +147,9 @@ fn main() -> ExitCode {
             ))
         }
         Dispatch::Owned(Owned::Event {
-            hook: Hook::SessionStart,
-            root,
-        }) => {
-            let root = resolve_root(root.as_deref());
-            mirror(&for_host(Hook::SessionStart, &read_stdin(), |input| {
-                handle_session_start(&root, input)
-            }))
-        }
-        Dispatch::Owned(Owned::Event {
-            hook: Hook::PostTool,
-            root,
-        }) => {
-            let root = resolve_root(root.as_deref());
-            mirror(&for_host(Hook::PostTool, &read_stdin(), |input| {
-                handle_post_tool(&root, input)
-            }))
-        }
-        Dispatch::Owned(Owned::Event {
-            hook: Hook::PostToolFailure,
-            root,
-        }) => {
-            let root = resolve_root(root.as_deref());
-            mirror(&for_host(Hook::PostToolFailure, &read_stdin(), |input| {
-                handle_post_tool_failure(&root, input)
-            }))
-        }
-        Dispatch::Owned(Owned::Event {
             hook: Hook::PostToolBatch,
             root,
+            host: None,
         }) => {
             let root = resolve_root(root.as_deref());
             mirror(&sofar_core::post_tool::handle_post_tool_batch(
@@ -169,32 +157,28 @@ fn main() -> ExitCode {
                 &read_stdin(),
             ))
         }
+        // Claude Code only (r4-fixes A4): Codex has no PostToolBatch, and no
+        // Codex shim names it.
         Dispatch::Owned(Owned::Event {
-            hook: Hook::PreTool,
-            root,
-        }) => {
-            let root = resolve_root(root.as_deref());
-            mirror(&for_host(Hook::PreTool, &read_stdin(), |input| {
-                sofar_core::read_rewrite::handle_pre_tool(&root, input)
-            }))
+            hook: Hook::PostToolBatch,
+            host: Some(_),
+            ..
+        }) => not_ours("post-tool-batch has no declared host — use the `sofar` CLI"),
+        Dispatch::Owned(Owned::Event { hook, root, host }) => {
+            let root = root.as_deref();
+            match hook {
+                Hook::SessionStart => hosted_hook(hook, root, host, handle_session_start),
+                Hook::PostTool => hosted_hook(hook, root, host, handle_post_tool),
+                Hook::PostToolFailure => hosted_hook(hook, root, host, handle_post_tool_failure),
+                Hook::PreTool => {
+                    hosted_hook(hook, root, host, sofar_core::read_rewrite::handle_pre_tool)
+                }
+                Hook::UserPrompt => hosted_hook(hook, root, host, handle_user_prompt),
+                Hook::Stop => closing_hook(hook, root, host, handle_stop),
+                Hook::SessionEnd => closing_hook(hook, root, host, handle_session_end),
+                Hook::PostToolBatch => unreachable!("matched above"),
+            }
         }
-        Dispatch::Owned(Owned::Event {
-            hook: Hook::UserPrompt,
-            root,
-        }) => {
-            let root = resolve_root(root.as_deref());
-            mirror(&for_host(Hook::UserPrompt, &read_stdin(), |input| {
-                handle_user_prompt(&root, input)
-            }))
-        }
-        Dispatch::Owned(Owned::Event {
-            hook: Hook::Stop,
-            root,
-        }) => closing_hook(Hook::Stop, root.as_deref(), handle_stop),
-        Dispatch::Owned(Owned::Event {
-            hook: Hook::SessionEnd,
-            root,
-        }) => closing_hook(Hook::SessionEnd, root.as_deref(), handle_session_end),
         Dispatch::Owned(Owned::Statusline { root, color }) => {
             // Styled by default (the status bar renders ANSI even piped);
             // `--no-color` or NO_COLOR present opts back into plain (D7).

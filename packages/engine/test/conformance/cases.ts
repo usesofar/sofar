@@ -385,6 +385,21 @@ const INLINE_OK = JSON.stringify({
   notes: ['Filed by the Stop hook.'],
 })
 
+/**
+ * A codex 0.154.0 payload from test/fixtures/codex (agents-parity D4), its
+ * cwd and transcript moved into the case's root so apply_patch paths resolve
+ * inside it.
+ */
+const CODEX_PAYLOADS = JSON.parse(
+  readFileSync(new URL('../fixtures/codex/hook-payloads.codex-0.154.0.json', import.meta.url), 'utf8'),
+) as Record<string, { payload: Record<string, unknown> }>
+function codex(name: string, fields: Record<string, unknown> = {}): Record<string, unknown> {
+  const entry = CODEX_PAYLOADS[name]
+  if (entry === undefined) throw new Error(`no codex fixture ${name}`)
+  const moved = typeof entry.payload.transcript_path === 'string' ? { transcript_path: '<ROOT>/transcript.jsonl' } : {}
+  return { ...entry.payload, cwd: '<ROOT>', ...moved, ...fields }
+}
+
 const s = (title: string, argv: string[], stdin?: Step['stdin'], rest: Partial<Step> = {}): Step => ({
   title,
   argv,
@@ -985,6 +1000,31 @@ export const CASES: ConformanceCase[] = [
       s('sess-x writes back', ['event', 'append', '--type', 'session_ended', '--session', 'sess-x', '--source', 'codex', '--payload', '{"summary":"s","next_action":"n"}']),
       s('Codex: the directory run, its output text only', ['event', 'post-tool', '--host', 'codex'], hook('PostToolUse', { session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions', tool_name: 'Bash', tool_input: { command: 'bun test tests/rules' }, tool_response: '\n', tool_use_id: 'exec-x2' })),
       s('stop under Codex: unverifiable, not held, told to the operator', ['event', 'stop', '--host', 'codex'], stop({ session_id: 'sess-x', turn_id: 'turn-x', model: 'gpt-5', permission_mode: 'bypassPermissions' })),
+    ],
+  },
+  {
+    // felt-latency L5a: the hooks a Codex shim runs, as it runs them
+    // (`event <hook> --host codex --root <dir>`, agents-parity D5), on the
+    // codex 0.154.0 payload fixtures — the shape the native core owns since
+    // L5a, so a Codex hook spawns no node. Registration as `codex`, the
+    // hookSpecificOutput carriers and the Codex Session line, Bash with no
+    // `ok`, the five apply_patch touches, an MCP call appending nothing, the
+    // Codex hold in both write-back modes, and stop_hook_active releasing.
+    name: 'syn.codex-host',
+    fixture: synthetic('baseline'),
+    steps: [
+      s('session-start', ['event', 'session-start', '--host', 'codex', '--root', '<ROOT>'], codex('session-start.startup')),
+      s('user-prompt, the = form', ['event', 'user-prompt', '--host=codex', '--root=<ROOT>'], codex('user-prompt-submit')),
+      s('Bash', ['event', 'post-tool', '--host', 'codex', '--root', '<ROOT>'], codex('post-tool-use.bash')),
+      s('Bash that exited non-zero', ['event', 'post-tool', '--host', 'codex', '--root', '<ROOT>'], codex('post-tool-use.bash-nonzero')),
+      // Before the patch: the digest clips a long absolute path past `<ROOT>`'s mask.
+      s('session-start after compaction', ['event', 'session-start', '--host', 'codex', '--root', '<ROOT>'], codex('session-start.compact')),
+      s('apply_patch', ['event', 'post-tool', '--host', 'codex', '--root', '<ROOT>'], codex('post-tool-use.apply-patch')),
+      s('an MCP call', ['event', 'post-tool', '--host', 'codex', '--root', '<ROOT>'], codex('post-tool-use.mcp')),
+      s('stop: held, in band', ['event', 'stop', '--host', 'codex', '--root', '<ROOT>'], codex('stop.first')),
+      s('stop: stop_hook_active releases', ['event', 'stop', '--host', 'codex', '--root', '<ROOT>'], codex('stop.held')),
+      s('stop: held through the tool', ['event', 'stop', '--host', 'codex', '--root', '<ROOT>'], codex('stop.first'), { env: { SOFAR_WRITEBACK: 'tool' } }),
+      s('session-end', ['event', 'session-end', '--host', 'codex', '--root', '<ROOT>'], codex('session-end')),
     ],
   },
   {

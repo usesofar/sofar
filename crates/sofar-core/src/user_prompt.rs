@@ -52,6 +52,23 @@ pub fn tool_stop_message(session_id: &str) -> String {
         1,
     )
 }
+
+/// `codexStopMessage` (agents-parity 3.3): the hold as a Codex session reads
+/// it, naming the session and record the write-back must land in.
+#[must_use]
+pub fn codex_stop_message(slug: &str, session_id: &str, inline: bool) -> String {
+    let append = format!(
+        "call sofar_end_session with session_id {session_id} (or `sofar event append {slug} --type session_ended --source codex --session {session_id}`)."
+    );
+    if inline {
+        format!(
+            "Write back to the sofar record before finishing: end your reply with a ```sofar block — {{\"summary\":\"…\",\"next_action\":\"…\"}} plus any tasks, decisions, memories, notes — or {append}"
+        )
+    } else {
+        format!("Write back to the sofar record before finishing: {append}")
+    }
+}
+
 /// The close line every Stop hold ends with (r4-fixes H3); `SOFAR_HOLD_CLOSE=off` drops it.
 pub const HOLD_CLOSE_LINE: &str =
     "Then end on one line restating your answer: it is what the operator reads last.";
@@ -1138,13 +1155,16 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     }
     // The in-band write-back (r4-fixes A1) asks for the block first; SOFAR_WRITEBACK=tool is 0.34's
     // line, and Claude Code's by default (r4-fixes H5).
-    let mut lines = vec![
-        if crate::inline::writeback_inline_for(crate::host::hook_host(&hook).tool) {
-            crate::inline::STOP_BLOCK_MESSAGE_INLINE.to_owned()
-        } else {
-            tool_stop_message(session_id)
-        },
-    ];
+    let tool = crate::host::hook_host(&hook).tool;
+    let inline = crate::inline::writeback_inline_for(tool);
+    let ask = if tool == crate::host::CODEX {
+        codex_stop_message(&slug, session_id, inline)
+    } else if inline {
+        crate::inline::STOP_BLOCK_MESSAGE_INLINE.to_owned()
+    } else {
+        tool_stop_message(session_id)
+    };
+    let mut lines = vec![ask];
     lines.extend(guard_violation_lines(
         &session_guard_violations(&state, session_id, session.ended.as_deref()),
         root,

@@ -6546,7 +6546,9 @@ size against the digests embedded at build, renames it into place and
 re-points `current` atomically. No network, no new dependency. A Codex shim
 runs the activated core with `SOFAR_CORE_DISPATCHED=1` and hands its exit 64
 to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
-(agents-parity D5).
+(agents-parity D5). The core owns `event <hook> --host codex` for every hook a
+Codex shim runs (felt-latency L5a), so a Codex hook spawns no node unless it
+carries an in-band write-back; any other `--host` is exit 64.
 - PreToolUse shim (memory-lead 4.3 part C; D39, D42; matcher `Bash`, on
   Claude Code `Bash|mcp__.*__sofar_end_session` since r4-fixes H17, Cursor
   `preToolUse` matcher `Shell`, Codex `PreToolUse` matcher `Bash`, its entry

@@ -114,9 +114,9 @@ boot) or an unwritable store leaves the previous `current` and the stub in
 place. Steady state: a readlink and a stat per boot. Nothing is fetched; the
 version directory it replaced is kept (a hook may be running it) and older
 ones are pruned. The Codex shim tries the activated core too, with
-`SOFAR_CORE_DISPATCHED=1`: the core's exit 64 (it owns no `--host` shape yet)
-hands the unread stdin to `SOFAR_CORE=0 sofar`, so the stub does not spawn it
-a second time; .codex/hooks.json stays byte-stable (agents-parity D5), and
+`SOFAR_CORE_DISPATCHED=1`: the core owns `--host codex` (felt-latency L5a),
+and its exit 64 on any shape it does not own hands the unread stdin to
+`SOFAR_CORE=0 sofar`, so the stub does not spawn it a second time; .codex/hooks.json stays byte-stable (agents-parity D5), and
 init prints a note on the run that rewrites existing Codex shims in case Codex
 asks for hook trust again. `fold` is
 reached only by invoking the binary itself
@@ -135,9 +135,17 @@ is converted on the way in (`conversation_id` → `session_id`, `Shell` →
 `loop_count` → `stop_hook_active`) and the result on the way out (context as
 `{"additional_context": …}`, the Stop gate's exit 2 as exit 0 with
 `{"followup_message": …}`, per-prompt and per-tool context clipped to 10,000
-units with `…`); a Claude Code payload passes through untouched. The host's
-tool (`claude-code` / `cursor`) is what session registration and the
-diagnostics rows record. Every hook also maintains the per-worktree
+units with `…`); a Claude Code payload passes through untouched. A hook run
+with `--host codex` / `--host=codex` (the Codex shims, agents-parity D5; owned
+by the core since felt-latency L5a) is served as Codex whatever its payload
+says: the payload passes through, session-start and user-prompt context is
+carried as `{"hookSpecificOutput":{"hookEventName":…,"additionalContext":…}}`
+with the digest's Session line given the Codex tail, the Stop hold names the
+session and record (`codexStopMessage`), and a Stop or SessionEnd handed back
+for an in-band write-back reaches TypeScript with `--host codex` too. Any other
+`--host` value, or the flag on `post-tool-batch`, is commander's (exit 64). The
+host's tool (`claude-code` / `cursor` / `codex`) is what session registration
+and the diagnostics rows record. Every hook also maintains the per-worktree
 live-session pointer `.sofar/.index/session.json` = `{session, writer, ts}`
 (r1-fixes L09, D29/D30; `session_pointer.rs`): session-start, post-tool,
 post-tool-failure and user-prompt write `{writer: "hook"}` when the id changed
@@ -927,7 +935,8 @@ commit in `golden/MANIFEST.md`. Contract deltas the core reproduces:
   an explicit slug held only on another copy still has a status
   (branch-visibility 1.1–2.3).
 - `--host codex` (agents-parity 2.1) is not an owned shape: the core
-  returns exit 64 and TypeScript serves Codex.
+  returns exit 64 and TypeScript serves Codex. (Superseded by felt-latency
+  L5a: the core owns it; golden `syn.codex-host`.)
 
 ## Wave A deltas (r4-fixes A2, A4; 0.35.0)
 
@@ -935,7 +944,7 @@ Contract deltas the core reproduces, as SPEC states them in
 SPEC §Host-compiled payloads (r4-fixes A2) and
 SPEC §Told set and hook-line epochs (r4-fixes A4):
 - §session-start: the digest's cap is the host's (Claude Code 6,000, Cursor
-  3,000; Codex's 4,000 is TypeScript's, `--host codex` being handed back);
+  3,000, Codex 4,000 — the core's own since felt-latency L5a);
   the long sections scale to it and the Session/Git lines are protected
   under a smaller cap; `SOFAR_PAYLOAD=v034` restores 6,000. The told set is
   seeded with the block's entries (`@<id>`) and its push epoch.

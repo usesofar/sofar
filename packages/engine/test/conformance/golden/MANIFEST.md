@@ -1,5 +1,11 @@
 # Golden manifest (rust-core D11)
 
+ADDED for **felt-latency L5a** (main) from the TypeScript reference; the Rust
+core reproduces all 65. One new case, `syn.codex-host`: the codex 0.154.0
+payload fixtures (test/fixtures/codex) run as a Codex shim runs them, `event
+<hook> --host codex --root <dir>`, the shape the core now owns. No other
+golden moved.
+
 RE-RECORDED for **felt-latency L4** (main) from the TypeScript reference; the
 Rust core reproduces all 64. Eleven goldens change one line each: the
 tool-mode write-back hold now names the owing session (`call sofar_end_session

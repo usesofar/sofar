@@ -21,7 +21,7 @@ use std::io::{Read as _, Seek as _, SeekFrom, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use crate::cli::Hook;
+use crate::cli::{Declared, Hook};
 use crate::fold_cli::CmdResult;
 use crate::json::{self, Json};
 use crate::layout::Layout;
@@ -156,15 +156,26 @@ fn typescript_cli() -> (OsString, Vec<OsString>) {
 }
 
 /// Run `sofar event <hook> --root <root>` on the TypeScript engine with this
-/// stdin, and return what it printed. None when it could not run or died by a
-/// signal: the core then answers the hook itself.
+/// stdin — with the shim's `--host codex` when it declared one — and return
+/// what it printed. None when it could not run or died by a signal: the core
+/// then answers the hook itself.
 #[must_use]
-pub fn hand_back(hook: Hook, root: &Path, input: &str) -> Option<CmdResult> {
+pub fn hand_back(
+    hook: Hook,
+    root: &Path,
+    input: &str,
+    declared: Option<Declared>,
+) -> Option<CmdResult> {
     let (program, lead) = typescript_cli();
+    let host: &[&str] = match declared {
+        Some(Declared::Codex) => &["--host", "codex"],
+        None => &[],
+    };
     let mut child = Command::new(program)
         .args(lead)
         .arg("event")
         .arg(hook.name())
+        .args(host)
         .arg("--root")
         .arg(root)
         .env("SOFAR_CORE", "0")
@@ -191,9 +202,14 @@ pub fn hand_back(hook: Hook, root: &Path, input: &str) -> Option<CmdResult> {
 /// The whole decision for `main`: the TypeScript engine's answer when this
 /// hook is handed back and it ran, else None (the core answers).
 #[must_use]
-pub fn handed_back(hook: Hook, root: &Path, input: &str) -> Option<CmdResult> {
-    if hands_back(hook, root, input) {
-        hand_back(hook, root, input)
+pub fn handed_back(
+    hook: Hook,
+    root: &Path,
+    input: &str,
+    declared: Option<Declared>,
+) -> Option<CmdResult> {
+    if crate::host::with_declared(declared, || hands_back(hook, root, input)) {
+        hand_back(hook, root, input, declared)
     } else {
         None
     }

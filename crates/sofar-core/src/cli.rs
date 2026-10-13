@@ -1,7 +1,8 @@
 //! The argv grammar the hook shims emit — `docs/HOTPATH.md` §Entry points and
 //! dispatch. This is the ONLY surface the native core owns: the six hook
 //! subcommands and the statusline, each with an optional `--root <dir>`
-//! (either token form), plus the hidden `fold` conformance shape (rust-core
+//! (either token form) — a hook also takes the `--host codex` a Codex shim
+//! declares (felt-latency L5a, agents-parity D5) — plus the hidden `fold` conformance shape (rust-core
 //! D15: the fold-parity suite drives `<bin> fold …` black-box, so the binary
 //! must own it; its options are parsed by [`crate::fold_cli`]) and plain
 //! `status [slug]` (rust-core D14: the core owns the uncapped agent-readable
@@ -72,12 +73,20 @@ pub enum Color {
     Off,
 }
 
+/// A host its shim names (`DECLARED_HOSTS` in `cli/host.ts`) because its
+/// payload names none. Codex is the only one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Declared {
+    Codex,
+}
+
 /// An argv shape the native core owns.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Owned {
     Event {
         hook: Hook,
         root: Option<PathBuf>,
+        host: Option<Declared>,
     },
     Statusline {
         root: Option<PathBuf>,
@@ -127,11 +136,12 @@ where
             let Some(hook) = rest.remove(0).to_str().and_then(Hook::parse) else {
                 return Dispatch::NotOurs;
             };
-            match parse_root(rest) {
-                Some((root, extra)) if extra.is_empty() => {
-                    Dispatch::Owned(Owned::Event { hook, root })
-                }
-                _ => Dispatch::NotOurs,
+            let Some((root, extra)) = parse_root(rest) else {
+                return Dispatch::NotOurs;
+            };
+            match parse_host(&extra) {
+                Some(host) => Dispatch::Owned(Owned::Event { hook, root, host }),
+                None => Dispatch::NotOurs,
             }
         }
         Some("statusline") => {
@@ -204,6 +214,23 @@ fn parse_root(args: Vec<OsString>) -> Option<(Option<PathBuf>, Vec<OsString>)> {
     Some((root, extra))
 }
 
+/// `parseHookFlags`' host half: no extra, or exactly `--host codex` /
+/// `--host=codex`. `None` = a shape we don't own, an unknown host included,
+/// for commander to report; `Some(None)` = no host declared.
+#[allow(
+    clippy::option_option,
+    reason = "None = not ours; Some(None) = no host"
+)]
+fn parse_host(extra: &[OsString]) -> Option<Option<Declared>> {
+    let name = match extra {
+        [] => return Some(None),
+        [flag, value] if flag == "--host" => value.to_str()?,
+        [flag] => flag.to_str()?.strip_prefix("--host=")?,
+        _ => return None,
+    };
+    (name == "codex").then_some(Some(Declared::Codex))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,24 +253,65 @@ mod tests {
         ] {
             assert_eq!(
                 d(&["event", name]),
-                Dispatch::Owned(Owned::Event { hook, root: None })
+                Dispatch::Owned(Owned::Event {
+                    hook,
+                    root: None,
+                    host: None
+                })
             );
             assert_eq!(
                 d(&["event", name, "--root", "/r"]),
                 Dispatch::Owned(Owned::Event {
                     hook,
-                    root: Some("/r".into())
+                    root: Some("/r".into()),
+                    host: None
                 })
             );
             assert_eq!(
                 d(&["event", name, "--root=/r"]),
                 Dispatch::Owned(Owned::Event {
                     hook,
-                    root: Some("/r".into())
+                    root: Some("/r".into()),
+                    host: None
                 })
             );
             assert_eq!(hook.name(), name);
         }
+    }
+
+    #[test]
+    fn owns_the_host_a_codex_shim_declares() {
+        let codex = |root: Option<&str>| {
+            Dispatch::Owned(Owned::Event {
+                hook: Hook::Stop,
+                root: root.map(PathBuf::from),
+                host: Some(Declared::Codex),
+            })
+        };
+        // The argv the Codex shims emit (init.ts `codexShim`).
+        assert_eq!(
+            d(&["event", "stop", "--host", "codex", "--root", "/r"]),
+            codex(Some("/r"))
+        );
+        assert_eq!(
+            d(&["event", "stop", "--root=/r", "--host=codex"]),
+            codex(Some("/r"))
+        );
+        assert_eq!(d(&["event", "stop", "--host", "codex"]), codex(None));
+        // Any other host, a bare flag or a second host is commander's.
+        assert_eq!(d(&["event", "stop", "--host", "cursor"]), Dispatch::NotOurs);
+        assert_eq!(
+            d(&["event", "stop", "--host=claude-code"]),
+            Dispatch::NotOurs
+        );
+        assert_eq!(d(&["event", "stop", "--host"]), Dispatch::NotOurs);
+        assert_eq!(d(&["event", "stop", "--host="]), Dispatch::NotOurs);
+        assert_eq!(
+            d(&["event", "stop", "--host", "codex", "--host", "codex"]),
+            Dispatch::NotOurs
+        );
+        assert_eq!(d(&["event", "stop", "codex", "--host"]), Dispatch::NotOurs);
+        assert_eq!(d(&["statusline", "--host=codex"]), Dispatch::NotOurs);
     }
 
     #[test]
