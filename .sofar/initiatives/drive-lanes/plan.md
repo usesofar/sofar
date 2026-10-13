@@ -4,7 +4,7 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages), and a driven task costs fewer tokens than native Claude Code (one session with its own subagents) on the same fixture.
 
-Brief: the operator's words, 13182 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 13611 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
 Progress: 31 done, 3 dropped, 0 remaining
 
@@ -26,4 +26,4 @@ Progress: 31 done, 3 dropped, 0 remaining
 - [x] 6.4 Four-way comparison, 3 interleaved reps each on the nine-task fixture: native local, native cloud, drive local (serial and lanes), drive hosted (serial and lanes) — wall-clock, done rate, final tree green, cost per task, record completeness
 
 Active phase: Phase 6 — Side effects and the four-way comparison
-Next action: Archive the 9 cloud sessions of 6.4, then close drive-lanes
+Next action: Archive the 9 6.4 cloud sessions on the dev@ account, then close
