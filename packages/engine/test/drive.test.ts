@@ -1800,3 +1800,27 @@ describe('--lanes auto, the default (drive-lanes D59)', () => {
     expect(lanesOption(root, 'demo', { lanes: '4' })).toBe(4)
   })
 })
+
+describe('the driver registers a session before it launches it (drive-lanes 7.5)', () => {
+  it('assigns an id, records it in the run\'s own initiative first, and sends no pin', async () => {
+    const root = repo('assign')
+    const adapter = new FakeAdapter([{ ...worker(root, 'S1'), capabilities: { assign_session: true } }, worker(root, 'S2')])
+    await drive(root, 'demo', { adapter, maxSessions: 1 })
+    const request = adapter.sessions[0]!.request
+    expect(request.sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+    expect(request.pin).toBe(false)
+    const lines = readFileSync(join(root, '.sofar', 'initiatives', 'demo', 'events.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
+    const registered = lines.findIndex((e) => e.type === 'session_started' && e.session === request.sessionId)
+    expect(registered).toBeGreaterThan(-1)
+    expect(lines[registered].payload.tool).toBe('fake')
+    // Before anything the launched session itself wrote.
+    expect(registered).toBeLessThan(lines.findIndex((e) => e.session === 'S1'))
+  })
+
+  it('assigns nothing on an adapter that cannot take an id', async () => {
+    const root = repo('no-assign')
+    const adapter = new FakeAdapter([worker(root, 'S1'), worker(root, 'S2')])
+    await drive(root, 'demo', { adapter, maxSessions: 1 })
+    expect(adapter.sessions[0]!.request.sessionId).toBeUndefined()
+  })
+})

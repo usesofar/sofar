@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { getPriority, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { ClaudeCodeAdapter, claudeArgs, DRIVEN_TOOLS, LEASE_HOOK_MATCHER, LEASE_HOOK_TIMEOUT_S, pinLine, pinPrompt, surfaceTools } from '../src/driver/claude-code'
+import { CLAUDE_CODE_CAPABILITIES, ClaudeCodeAdapter, claudeArgs, DRIVEN_TOOLS, LEASE_HOOK_MATCHER, LEASE_HOOK_TIMEOUT_S, pinLine, pinPrompt, surfaceTools } from '../src/driver/claude-code'
 import { LOW_NICE } from '../src/driver/load'
 import { NUDGE_ENV, readNudge } from '../src/driver/nudge'
 import type { LaunchRequest } from '../src/driver/adapter'
@@ -145,6 +145,13 @@ describe('argv', () => {
     expect(args.slice(0, 2)).toEqual(['-p', 'go'])
     expect(args[args.indexOf('--append-system-prompt') + 1]).toBe('shared')
     expect(claudeArgs({ cwd: '/w', initiative: 'demo', prompt: 'go' })).not.toContain('--append-system-prompt')
+  })
+
+  it('hands the agent the session id the driver registered (drive-lanes 7.5)', () => {
+    const args = claudeArgs({ cwd: '/w', initiative: 'demo', prompt: 'go', sessionId: '3f0c2a52-1111-4222-8333-444455556666', pin: false })
+    expect(args[args.indexOf('--session-id') + 1]).toBe('3f0c2a52-1111-4222-8333-444455556666')
+    expect(claudeArgs({ cwd: '/w', initiative: 'demo', prompt: 'go' })).not.toContain('--session-id')
+    expect(CLAUDE_CODE_CAPABILITIES.assign_session).toBe(true)
   })
 
   it('drops the pin when the driver says the launch directory already binds to the record (drive-lanes 4.3)', () => {
@@ -370,6 +377,7 @@ describe('nudge', () => {
       effort: true,
       permission_rules: true,
       cost: true,
+      assign_session: true,
     })
     expect(new ClaudeCodeAdapter().name).toBe('claude-code')
   })

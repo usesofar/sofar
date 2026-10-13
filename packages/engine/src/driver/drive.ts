@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { ulid } from 'ulid'
@@ -2259,11 +2260,22 @@ async function driveHolding(
     // The command the gate will run, named in the prompt (4.3).
     const taskState = state.phases.flatMap((p) => p.tasks).find((t) => t.id === task.id)
     const verifyCmd = taskState !== undefined ? resolveVerify(taskState, runVerify, verifyTimeoutMs)?.cmd : undefined
+    // The session is registered HERE first when the agent takes an id from us
+    // (7.5): its hooks then resolve home to this record whatever the branch
+    // binding says by then. Seen live: with three drives on one checkout the
+    // `main` binding moved under running lane sessions, and their write-backs
+    // landed in another initiative's record.
+    const assigned = routed.capabilities.assign_session === true ? randomUUID() : undefined
+    if (assigned !== undefined) {
+      ctx.registerSession(initiative, assigned, { tool: routed.name }, { source: 'cli', actor: 'agent' })
+    }
     const session = routed.launch({
       cwd: launchDir,
       initiative,
-      // A new session here already lands in this record: no pin call (4.3).
-      ...(bindsTo(launchDir, initiative) ? { pin: false } : {}),
+      ...(assigned !== undefined ? { sessionId: assigned } : {}),
+      // A session already registered here, or launched where the binding
+      // resolves here, needs no pin call (4.3, 7.5).
+      ...(assigned !== undefined || bindsTo(launchDir, initiative) ? { pin: false } : {}),
       ...renderLaunch(
         initiative,
         task,

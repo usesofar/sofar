@@ -22,9 +22,12 @@ const crypto = require('node:crypto')
 
 const args = process.argv.slice(2)
 const prompt = args[args.indexOf('-p') + 1] || ''
-const initiative = /initiative "([^"]+)"/.exec(prompt)[1]
+// As Claude Code does: the id the driver assigned (--session-id, drive-lanes
+// 7.5), and the initiative from the pin line, else from the run's frame.
+const frame = args.includes('--append-system-prompt') ? args[args.indexOf('--append-system-prompt') + 1] || '' : ''
+const initiative = (/initiative "([^"]+)"/.exec(prompt) || /initiative `([^`]+)`/.exec(frame) || /initiative `([^`]+)`/.exec(prompt))[1]
 const taskId = /Task (\S+) —/.exec(prompt)[1]
-const sessionId = crypto.randomUUID()
+const sessionId = args.includes('--session-id') ? args[args.indexOf('--session-id') + 1] : crypto.randomUUID()
 const log = path.join(process.cwd(), '.sofar', 'initiatives', initiative, 'events.jsonl')
 
 if (process.env.STUB_OUT) {

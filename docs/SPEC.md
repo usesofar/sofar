@@ -2777,7 +2777,13 @@ a driven session's. The prompt names the command the gate will run, so the
 session runs it once itself. The pin line that has a Claude Code session call
 `sofar_start_session` is sent only where the launch directory's binding does
 not already resolve to the initiative (`pin: false` on the launch request
-otherwise): a session registered there is home already.
+otherwise): a session registered there is home already. Where the agent takes a session id from its caller (Claude Code's
+`--session-id`; drive-lanes 7.5), the driver mints the id, appends
+`session_started` in the run's own initiative BEFORE the launch, and passes
+the id: the session's hooks then resolve home to that record (a session's home
+is its latest registration) whatever the branch binding says by then, so a
+concurrent drive moving a shared checkout's binding cannot misfile its
+write-back.
 
 **Cache-shaped launches (drive-lanes 4.4, D49).** The opening prompt comes in
 two parts. The FRAME — the run's initiative, its policy, whether it has lanes,

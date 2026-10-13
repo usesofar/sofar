@@ -60,6 +60,14 @@ export interface AdapterCapabilities {
    * (D9).
    */
   cost: boolean
+  /**
+   * The agent takes a session id from the caller (Claude Code's
+   * `--session-id`), so the driver can register the session in its record
+   * BEFORE launching it (drive-lanes 7.5): its hooks then find it home there
+   * (record-integrity D9) instead of following a branch binding that a
+   * concurrent drive on the same checkout may have moved.
+   */
+  assign_session?: boolean
 }
 
 /**
@@ -110,6 +118,8 @@ export interface LaunchRequest {
   initiative: string
   /** The opening prompt — the driver renders it from the record digest and the task. */
   prompt: string
+  /** The session id the driver registered for this launch (7.5); an adapter with `assign_session` hands it to the agent. */
+  sessionId?: string
   /**
    * The part of the opening prompt every session of the run shares (drive-lanes
    * 4.4): an adapter that can append to the agent's system prompt puts it

@@ -128,6 +128,7 @@ export const CLAUDE_CODE_CAPABILITIES: AdapterCapabilities = {
   effort: true,
   permission_rules: true,
   cost: true,
+  assign_session: true,
 }
 
 
@@ -197,6 +198,8 @@ export function claudeArgs(
     // The run's shared frame goes in the system prompt (4.4): inside the cached
     // prefix, so each session reads it rather than writing it again.
     ...(request.frame !== undefined ? ['--append-system-prompt', request.frame] : []),
+    // The id the driver already registered in the record (7.5).
+    ...(request.sessionId !== undefined ? ['--session-id', request.sessionId] : []),
     ...(options.args ?? []),
   ]
 }
