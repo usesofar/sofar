@@ -106,6 +106,16 @@ export function leaseHookSettings(command: string): Record<string, unknown> {
   }
 }
 
+/**
+ * What every driven session's settings file carries, surface or none
+ * (drive-lanes 7.1): cross-session messages are refused. A peer's broadcast
+ * reaches every live session on the machine, a driven one included, and an
+ * unattended session cannot tell a peer's PAUSE from its operator's — seen in
+ * context-ceiling run 01M4T8WNP5HKFGW3S1VPN9PC22, where one stalled two lanes.
+ * Its work arrives through the record and its prompt; nothing else may steer it.
+ */
+export const DRIVEN_SETTINGS: Readonly<Record<string, unknown>> = { crossSessionInbound: 'refuse' }
+
 /** Filename of the per-session settings file, inside the session's own temp dir. */
 export const SETTINGS_FILE = 'settings.json'
 
@@ -231,8 +241,8 @@ export class ClaudeCodeSession implements AgentSession {
   /** The usage limit that refused the session, once a rejected rate_limit_event is seen. */
   rateLimit: RateLimit | undefined
   readonly nudgePath: string
-  /** The per-session settings file, once a surface has been written and verified to it. */
-  readonly settingsPath: string | undefined
+  /** The per-session settings file, written and verified before every spawn. */
+  readonly settingsPath: string
   /** The session's own temp dir, holding the nudge file and the settings; removed once the child is gone. */
   readonly sessionDir: string
 
@@ -255,16 +265,14 @@ export class ClaudeCodeSession implements AgentSession {
     // session whose permissions could not be verified is indistinguishable
     // from one running on the operator's ambient configuration, and an
     // unattended run must not be unable to tell those apart.
-    // A lane's lease hook (3.1) rides the same file.
-    if (request.surface !== undefined || request.leaseHook !== undefined) {
-      this.settingsPath = join(sessionDir, SETTINGS_FILE)
-      writeVerifiedSettings(this.settingsPath, {
-        ...(request.surface !== undefined ? settingsFor(request.surface) : {}),
-        ...(request.leaseHook !== undefined ? leaseHookSettings(request.leaseHook) : {}),
-      })
-    } else {
-      this.settingsPath = undefined
-    }
+    // A lane's lease hook (3.1) rides the same file, and every launch has one:
+    // a driven session refuses cross-session messages, surface or none (7.1).
+    this.settingsPath = join(sessionDir, SETTINGS_FILE)
+    writeVerifiedSettings(this.settingsPath, {
+      ...DRIVEN_SETTINGS,
+      ...(request.surface !== undefined ? settingsFor(request.surface) : {}),
+      ...(request.leaseHook !== undefined ? leaseHookSettings(request.leaseHook) : {}),
+    })
 
     // stdin is closed at once: with it open, print mode waits three seconds
     // for piped input before proceeding without it. Detached makes the child

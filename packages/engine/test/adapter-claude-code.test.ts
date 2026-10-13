@@ -335,6 +335,7 @@ describe('nudge', () => {
     await untilWritten(join(c.out, 'argv'))
     const settings = JSON.parse(readFileSync(session.settingsPath!, 'utf8')) as Record<string, unknown>
     expect(settings).toEqual({
+      crossSessionInbound: 'refuse',
       permissions: { allow: ['mcp__sofar'] },
       hooks: {
         PreToolUse: [{ matcher: LEASE_HOOK_MATCHER, hooks: [{ type: 'command', command: "'/x y/node' /cli.js event lease", timeout: LEASE_HOOK_TIMEOUT_S }] }],
@@ -343,11 +344,13 @@ describe('nudge', () => {
     const argv = readFileSync(join(c.out, 'argv'), 'utf8').split('\n')
     expect(argv[argv.indexOf('--settings') + 1]).toBe(session.settingsPath)
     await session.wait()
-    // Without a surface the hook still gets a file; without either, no file and no flag.
+    // Without a surface the hook still gets a file; without either, the file only refuses peers (7.1).
     const bare = new ClaudeCodeAdapter().launch(c.request({ leaseHook: 'h' }))
-    expect(Object.keys(JSON.parse(readFileSync(bare.settingsPath!, 'utf8')) as object)).toEqual(['hooks'])
+    expect(Object.keys(JSON.parse(readFileSync(bare.settingsPath, 'utf8')) as object)).toEqual(['crossSessionInbound', 'hooks'])
     await bare.wait()
-    expect(new ClaudeCodeAdapter().launch(c.request()).settingsPath).toBeUndefined()
+    const none = new ClaudeCodeAdapter().launch(c.request())
+    expect(JSON.parse(readFileSync(none.settingsPath, 'utf8'))).toEqual({ crossSessionInbound: 'refuse' })
+    await none.wait()
   })
 
   it('a spawn failure cleans up too — the dir outlives nothing', async () => {

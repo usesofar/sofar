@@ -504,7 +504,9 @@ describe('the coordinator (2.3, D21)', () => {
         initiative: 'demo',
         exit: { code: 1, rate_limit: limit },
         hold: async () => {
-          limit.resets_at = new Date(Date.now() + 1000).toISOString()
+          // Long enough that lane 2 lands 1.2 before it under suite load, or the
+          // lane unparks first and "no lane can take a task" is never said.
+          limit.resets_at = new Date(Date.now() + 4000).toISOString()
         },
       },
       // Ends only once lane 1 has parked, so 1.1 then finds its lane parked.
