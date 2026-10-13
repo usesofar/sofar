@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -23,7 +23,8 @@ import { refreshGuards } from '../src/core/index-tier1'
 import { appendEvent } from '../src/core/log'
 import { runBind } from '../src/cli/bind'
 import { runCheck, STAGED_REFUSE_EXIT } from '../src/cli/check'
-import { HOLD_CLOSE_LINE, handlePostTool, handlePreTool, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
+import { HELD_ONCE_LINE, HOLD_CLOSE_LINE, handlePostTool, handlePreTool, handleStop, STOP_BLOCK_MESSAGE_TOOL } from '../src/cli/event'
+import { markWrote } from '../src/core/wrote'
 import { createToolContext } from '../src/mcp/context'
 import { gatePathspecs } from '../src/core/checks'
 import { GIT_HOOKS } from '../src/cli/init'
@@ -483,6 +484,48 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     )
   })
 
+  it('a covering run that fails again with no edit between holds once, then reaches the operator; an edit re-arms it (felt-latency L8)', () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    ran(root, 's1', 'bun test', false, 1)
+    expect(stop(root, 's1').exitCode).toBe(2)
+    ran(root, 's1', 'bun test', false, 1) // a load-flaky suite: the same failure on a re-run
+    const again = stop(root, 's1')
+    expect(again.exitCode).toBe(0)
+    const told = JSON.parse(again.stdout).systemMessage as string
+    expect(bare(told)).toContain('`bun test` failed (exit 1) after your last edit')
+    expect(told).toContain(HELD_ONCE_LINE)
+    expect(stop(root, 's1').exitCode).toBe(0)
+    // An edit voids those runs: the strict ask holds as ever, and the next failure once.
+    const file = join(root, 'src', 'db', 'store.ts')
+    writeFileSync(file, 'export const fix = 1\n')
+    const after = statSync(file).mtimeMs
+    while (Date.now() <= after + 1) {
+      // the runs below must finish after the edit
+    }
+    expect(stop(root, 's1').exitCode).toBe(2)
+    expect(stop(root, 's1').exitCode).toBe(2)
+    ran(root, 's1', 'bun test', false, 1)
+    expect(stop(root, 's1').exitCode).toBe(2)
+    ran(root, 's1', 'bun test', false, 1)
+    expect(stop(root, 's1').exitCode).toBe(0)
+    ran(root, 's1', 'bun test', false, 2) // a different failure is a new hold
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
+  it('by default a failure holds once too (felt-latency L8)', () => {
+    delete process.env.SOFAR_TEST_GATE
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    edited(root, 's1')
+    wroteBack(root, 's1')
+    ran(root, 's1', 'bun test', false, 1)
+    expect(stop(root, 's1').exitCode).toBe(2)
+    expect(stop(root, 's1').exitCode).toBe(0)
+  })
+
   it('a rule without a check needs the whole suite the record knows; with none known it asks nothing', () => {
     const root = repo()
     emit(root, 'demo', 'decision_logged', { chose: 'soft delete', over: 'hard delete', because: 'b', rule: 'Keep src/db/store.ts soft.' })
@@ -627,6 +670,36 @@ describe('Stop: the test gate (r3-fixes 2.10, D10; memory-lead D37)', () => {
     bash('pre', "sed -i '' s/a/b/ src/db/store.ts", 't2')
     writeFileSync(own, 'export const x = 1\n') // nobody captured this one: s1's sed wrote it
     bash('post', "sed -i '' s/a/b/ src/db/store.ts", 't2')
+    expect(stop(root, 's1').exitCode).toBe(2)
+  })
+
+  it("a file no hook captured that a peer's narrower window holds is the peer's, though a longer command of mine spans it (felt-latency L8)", () => {
+    const root = repo()
+    checked(root, 'demo', CHECK, { guard: 'path:src/db/**' })
+    startedAgo(root, 'demo', 's1', 600_000)
+    wroteBack(root, 's1')
+    emit(root, 'demo', 'session_started', { tool: 'claude-code' }, 's2')
+    const sofarDir = join(root, '.sofar')
+    const now = Date.now()
+    const window = (session: string, key: string, from: number, to: number) =>
+      markWrote(sofarDir, session, { key, at: now + to, background: false, durationMs: to - from })
+    emit(root, 'demo', 'command_run', { cmd: 'npm run build' }, 's1')
+    window('s1', 'build', -60_000, 60_000) // s1's two-minute build…
+    window('s2', 'fix', -1_000, 1_000) // …and the peer's python edit inside it
+    const peer = join(root, 'src', 'db', 'peer.ts')
+    writeFileSync(peer, 'export const p = 1\n') // written now: no hook captured it
+    expect(stop(root, 's1').exitCode).toBe(0)
+    rmSync(join(sofarDir, '.index', 'wrote', 's2.json')) // without the peer's window it is s1's
+    window('s1', 'probe', -30_000, -29_000) // a new mark, so git is asked again
+    expect(stop(root, 's1').exitCode).toBe(2)
+    window('s2', 'fix', -1_000, 1_000)
+    // The other way round it is s1's: its sed is the narrower window.
+    window('s2', 'gen', 100_000, 300_000)
+    window('s1', 'sed', 200_000, 201_000)
+    const own = join(root, 'src', 'db', 'store.ts')
+    writeFileSync(own, 'export const x = 1\n')
+    const at = new Date(now + 200_500)
+    utimesSync(own, at, at)
     expect(stop(root, 's1').exitCode).toBe(2)
   })
 

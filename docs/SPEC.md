@@ -10816,6 +10816,21 @@ stay the underlying derivation's, and exit codes are styling-independent.
   this one spans it: a drive lane writing while this session's one-second
   commands run is not this session's author (`syn.gate-peer-capture`). A
   file nobody captured still bears. Replay: 2 of 117 real holds release.
+- **Whose window (felt-latency L8):** a dirty file no hook captured, held by
+  one of this session's may-write windows, is a peer's when a window the
+  peer's own may-write commands left holds it too and is narrower than the
+  narrowest of this session's that does: a peer's 50 ms script inside this
+  session's two-minute build (`syn.gate-hold-once`). Windows are compared
+  per session as merged, so an open (backgrounded) window never wins.
+- **Hold once (felt-latency L8):** a Stop hold for failed covering runs
+  alone, in either mode, is keyed by its lines and the newest edit time and
+  held once per session (`.sofar/.index/wrote/<session>.held.json`, at most
+  32 keys). The same failure on a re-run with no edit between reaches the
+  operator as a `systemMessage` (or rides a write-back hold), with one line
+  saying it was held once; an edit, or a different failure, holds again. A
+  strict-mode ask (no covering run at all) holds as before. Round 4's
+  shim-latency suite fails at host load and records no pass however often
+  it re-runs; each hold had forced another full run.
 - **Landing write (r4-fixes D61):** `sofar_update_task` with `"task_id":
   "m1, m2"` files a done task_status_changed for each, in order, and the
   statusline gauge reading the record goes 0/3 → 2/3; `m1,m9` (m9 not in

@@ -264,6 +264,58 @@ pub fn in_window(mtime: f64, windows: &[WriteWindow], slack: f64) -> bool {
         .any(|(s, e)| mtime >= s - slack && e.is_none_or(|e| mtime <= e + slack))
 }
 
+/// `narrowestWindow` (felt-latency L8): the width of the narrowest window
+/// that holds `mtime`, give or take `slack`; infinite for an open one, `None`
+/// when none does.
+#[must_use]
+pub fn narrowest_window(mtime: f64, windows: &[WriteWindow], slack: f64) -> Option<f64> {
+    windows
+        .iter()
+        .filter(|(s, e)| mtime >= s - slack && e.is_none_or(|e| mtime <= e + slack))
+        .map(|(s, e)| e.map_or(f64::INFINITY, |e| e - s))
+        .reduce(f64::min)
+}
+
+/// `peerWindows` (felt-latency L8): every other session's windows. A peer's
+/// shell write is captured by no hook, so the only trace of who ran it is
+/// the windows its may-write commands left.
+#[must_use]
+pub fn peer_windows(layout: &Layout, session: &str) -> Vec<Vec<WriteWindow>> {
+    let own = format!("{}.json", crate::told::safe_session(session));
+    let Ok(entries) = fs::read_dir(layout.index_dir().join(WROTE_DIR)) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    // A session's own file is `<safe>.json`; a dot before `.json` is a cache, a loss or a held file.
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let Some(stem) = name.strip_suffix(".json") else {
+            continue;
+        };
+        if name == own || stem.contains('.') {
+            continue;
+        }
+        if let Some(w) = read_windows(layout, stem)
+            && !w.is_empty()
+        {
+            out.push(w);
+        }
+    }
+    out
+}
+
+/// `peerWroteIt` (felt-latency L8): a peer window holds `mtime` that is
+/// narrower than the narrowest of this session's that does.
+#[must_use]
+pub fn peer_wrote_it(mtime: f64, own: &[WriteWindow], peers: &[Vec<WriteWindow>], slack: f64) -> bool {
+    let Some(mine) = narrowest_window(mtime, own, slack) else {
+        return false;
+    };
+    peers
+        .iter()
+        .any(|w| narrowest_window(mtime, w, slack).is_some_and(|theirs| theirs < mine))
+}
+
 /// `pathspecKey`: what a cached git answer is good for.
 #[must_use]
 pub fn pathspec_key(specs: Option<&[String]>) -> String {
@@ -352,6 +404,65 @@ pub fn mark_loss_asked(layout: &Layout, session: &str, keys: &[String]) {
         Json::Arr(asked.into_iter().map(Json::Str).collect()),
     );
     write_obj(layout, &loss_file(layout, session), o);
+}
+
+fn held_file(layout: &Layout, session: &str) -> PathBuf {
+    layout
+        .index_dir()
+        .join(WROTE_DIR)
+        .join(format!("{}.held.json", crate::told::safe_session(session)))
+}
+
+/// `HELD_MAX`: failure holds kept per session; past it the oldest go.
+pub const HELD_MAX: usize = 32;
+
+/// `heldKey` (felt-latency L8): a failure hold, keyed by its lines and the
+/// edit time they stood at.
+#[must_use]
+pub fn held_key(edited_at: Option<f64>, lines: &[String]) -> String {
+    let at = edited_at.map_or_else(String::new, |at| json::stringify(&Json::Num(at)));
+    let mut hex = crate::sha256::hex_digest(format!("{at}\0{}", lines.join("\n")).as_bytes());
+    hex.truncate(16);
+    hex
+}
+
+fn held_keys(layout: &Layout, session: &str) -> Vec<String> {
+    let Some(raw) = read_obj(&held_file(layout, session)) else {
+        return Vec::new();
+    };
+    if raw.get("v") != Some(&Json::Num(1.0)) {
+        return Vec::new();
+    }
+    match raw.get("held") {
+        Some(Json::Arr(items)) => items
+            .iter()
+            .filter_map(|k| k.as_str().map(str::to_owned))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `wasHeld`.
+#[must_use]
+pub fn was_held(layout: &Layout, session: &str, key: &str) -> bool {
+    held_keys(layout, session).iter().any(|k| k == key)
+}
+
+/// `markHeld`.
+pub fn mark_held(layout: &Layout, session: &str, key: &str) {
+    let mut held: Vec<String> = held_keys(layout, session)
+        .into_iter()
+        .filter(|k| k != key)
+        .collect();
+    held.push(key.to_owned());
+    let skip = held.len().saturating_sub(HELD_MAX);
+    let mut o = Object::with_capacity(2);
+    o.insert("v", Json::Num(1.0));
+    o.insert(
+        "held",
+        Json::Arr(held.into_iter().skip(skip).map(Json::Str).collect()),
+    );
+    write_obj(layout, &held_file(layout, session), o);
 }
 
 #[cfg(test)]
@@ -466,6 +577,58 @@ mod window_tests {
         let w = read_windows(&layout, "s1").unwrap();
         assert_eq!(w.len(), WINDOWS_MAX);
         assert_eq!(w[0], (0.0, Some(51.0)));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The cases test/write-windows.test.ts asserts of felt-latency L8.
+    #[test]
+    fn the_narrowest_window_names_the_likelier_writer() {
+        let own = vec![(0.0, Some(120_000.0)), (200_000.0, Some(201_000.0))];
+        assert_eq!(narrowest_window(60_000.0, &own, 0.0), Some(120_000.0));
+        assert_eq!(narrowest_window(200_500.0, &own, 0.0), Some(1_000.0));
+        assert_eq!(narrowest_window(150_000.0, &own, 0.0), None);
+        assert_eq!(narrowest_window(9e9, &[(5.0, None)], 0.0), Some(f64::INFINITY));
+        assert!(peer_wrote_it(60_000.0, &own, &[vec![(59_000.0, Some(61_000.0))]], 0.0));
+        assert!(!peer_wrote_it(200_500.0, &own, &[vec![(100_000.0, Some(300_000.0))]], 0.0));
+        assert!(!peer_wrote_it(60_000.0, &own, &[vec![(50_000.0, None)]], 0.0));
+        assert!(!peer_wrote_it(150_000.0, &own, &[vec![(149_000.0, Some(151_000.0))]], 0.0));
+
+        let dir = crate::testing::scratch_dir("peer-windows");
+        let layout = Layout::new(&dir);
+        let timed = |key, at, d| WriteRun {
+            duration_ms: Some(d),
+            ..run(key, at)
+        };
+        mark_wrote(&layout, "s1", Some(&timed("a", 2_000.0, 1_000.0)));
+        mark_wrote(&layout, "s2", Some(&timed("b", 5_000.0, 1_000.0)));
+        mark_loss_asked(&layout, "s2", &["x".to_owned()]);
+        mark_held(&layout, "s2", "k");
+        assert_eq!(peer_windows(&layout, "s1"), vec![vec![(4_000.0, Some(5_000.0))]]);
+        assert_eq!(peer_windows(&layout, "s2"), vec![vec![(1_000.0, Some(2_000.0))]]);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_failure_holds_once_per_key() {
+        let lines = ["a".to_owned(), "b".to_owned()];
+        assert_eq!(
+            held_key(Some(1_760_000_000_123.5), &lines),
+            &crate::sha256::hex_digest("1760000000123.5\0a\nb".as_bytes())[..16]
+        );
+        assert_eq!(
+            held_key(None, &lines[..1]),
+            &crate::sha256::hex_digest(b"\0a")[..16]
+        );
+        let dir = crate::testing::scratch_dir("held");
+        let layout = Layout::new(&dir);
+        assert!(!was_held(&layout, "s1", "k1"));
+        mark_held(&layout, "s1", "k1");
+        assert!(was_held(&layout, "s1", "k1"));
+        for i in 0..HELD_MAX {
+            mark_held(&layout, "s1", &format!("n{i}"));
+        }
+        assert!(!was_held(&layout, "s1", "k1"));
+        assert!(was_held(&layout, "s1", &format!("n{}", HELD_MAX - 1)));
         fs::remove_dir_all(&dir).unwrap();
     }
 

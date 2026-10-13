@@ -1089,7 +1089,13 @@ pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     // asks there are unverifiable and never hold (r4-fixes U1b).
     let outcomes_known = crate::post_tool::post_tool_proves_success(hook_host(&hook).tool);
     let gate = crate::checks::enforce_enabled()
-        .then(|| stop_gate_for(root, &layout, &slug, &state, session, outcomes_known));
+        .then(|| {
+            hold_once(
+                &layout,
+                &session.id,
+                stop_gate_for(root, &layout, &slug, &state, session, outcomes_known),
+            )
+        });
     // The link ask (r3-fixes 2.5, D15) holds a session on its own too, once
     // per stop; SOFAR_LINK_ASK=off is its ablation arm.
     let asks = if link_ask_enabled() {
@@ -1326,13 +1332,18 @@ fn gate_index(
 
 /// Whether a dirty file git names is another session's edit, not this one's:
 /// written before this session began (r4-fixes H1), outside every one of its
-/// may-write windows (H13), or captured by another session's hook as it was
-/// written (H20). The file index loads only when the first two pass.
+/// may-write windows (H13), captured by another session's hook as it was
+/// written (H20), or held by a peer's window narrower than any of this
+/// session's that holds it (felt-latency L8): a peer's shell write during a
+/// longer command of ours. The file index and the peers' windows load only
+/// when the checks before them pass.
+#[allow(clippy::too_many_arguments, reason = "stopGateFor's inline test, step for step")]
 fn anothers_dirt(
     mtime: f64,
     started: Option<f64>,
     windows: Option<&[crate::wrote::WriteWindow]>,
     peers: &mut Option<crate::index_tier1::FileIndex>,
+    peer_ws: &mut Option<Vec<Vec<crate::wrote::WriteWindow>>>,
     layout: &Layout,
     path: &str,
     session: &str,
@@ -1347,6 +1358,38 @@ fn anothers_dirt(
             DIRT_SLACK_MS,
             DIRT_SLACK_MS,
         )
+        || windows.is_some_and(|w| {
+            crate::wrote::peer_wrote_it(
+                mtime,
+                w,
+                peer_ws.get_or_insert_with(|| crate::wrote::peer_windows(layout, session)),
+                DIRT_SLACK_MS,
+            )
+        })
+}
+
+/// `HELD_ONCE_LINE` (felt-latency L8): what a failure hold Stop already made
+/// says the next time, holding nothing.
+const HELD_ONCE_LINE: &str = "sofar: the stop was held once for this with no edit since, so it is not held again: a failure that survives a re-run unchanged may be load-flaky or not this session's — your next edit re-arms it";
+
+/// `holdOnce` (felt-latency L8): Stop's hold, once per failure-only key. A
+/// suite that fails at load records no pass however often it re-runs; the
+/// second time its lines reach the operator, or ride a write-back hold.
+fn hold_once(layout: &Layout, session: &str, gate: crate::checks::StopGate) -> crate::checks::StopGate {
+    let Some(key) = gate.once.as_deref().filter(|_| gate.blocks) else {
+        return gate;
+    };
+    if crate::wrote::was_held(layout, session, key) {
+        let mut lines = gate.lines;
+        lines.push(HELD_ONCE_LINE.to_owned());
+        return crate::checks::StopGate {
+            lines,
+            blocks: false,
+            ..gate
+        };
+    }
+    crate::wrote::mark_held(layout, session, key);
+    gate
 }
 
 /// `DIRT_SLACK_MS` (r4-fixes H1): how far before a session's start a
@@ -1408,6 +1451,7 @@ fn stop_gate_for(
     // A dirty file another session's hook captured as it wrote it is that
     // session's edit (r4-fixes H20), whatever window of this one spans it.
     let mut peers: Option<crate::index_tier1::FileIndex> = None;
+    let mut peer_ws: Option<Vec<Vec<crate::wrote::WriteWindow>>> = None;
     let mut files: Vec<String> = Vec::new();
     let mut mtimes: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     let mut edited_at: Option<f64> = None;
@@ -1429,6 +1473,7 @@ fn stop_gate_for(
                     started,
                     windows.as_deref(),
                     &mut peers,
+                    &mut peer_ws,
                     layout,
                     &p,
                     &session.id,
@@ -1473,7 +1518,13 @@ fn stop_gate_for(
         outcomes_known,
         Some(&edits),
     );
-    let gate = crate::checks::in_mode(gate, root);
+    let strict_ask = gate.asks && crate::checks::test_gate_holds(root);
+    let mut gate = crate::checks::in_mode(gate, root);
+    // A hold for failures alone is keyed by its lines at this edit time
+    // (felt-latency L8), so Stop holds for it once: a strict ask still holds.
+    if gate.blocks && !strict_ask {
+        gate.once = Some(crate::wrote::held_key(edited_at, &gate.lines));
+    }
     let loss = if crate::checks::test_guard_enabled() {
         stop_test_loss(root, layout, session, &index, &files, &probe)
     } else {
@@ -1488,6 +1539,8 @@ fn stop_gate_for(
         lines,
         blocks: true,
         fails: true,
+        asks: gate.asks,
+        once: None,
     }
 }
 

@@ -832,6 +832,14 @@ export interface StopGate {
   blocks: boolean
   /** A covering run failed after the last edit: it holds whatever the mode (D65). */
   fails: boolean
+  /** A requirement has no covering run at all: what holds only in strict mode (felt-latency L8). */
+  asks: boolean
+  /**
+   * Set when only failures hold (felt-latency L8): the key of this hold, its
+   * lines at this edit time. Stop holds once per key, so a covering run that
+   * fails again with no edit between (a load-flaky suite) never holds again.
+   */
+  once?: string
 }
 
 const flatClip = (text: string, max: number): string => {
@@ -944,7 +952,7 @@ export function stopGate(
     }
     return edits.recentTests.filter((r) => Date.parse(r.ts) > at)
   }
-  if (bearing.size === 0) return { lines: [], blocks: false, fails: false }
+  if (bearing.size === 0) return { lines: [], blocks: false, fails: false, asks: false }
 
   // The suite: the known command's runner on the directories it ran, never its files or filters.
   const known = knownTest === null ? null : testSpec(knownTest, probe)
@@ -1056,6 +1064,7 @@ export function stopGate(
     lines: shown,
     blocks: lines.length > (unverified === null ? 0 : 1),
     fails: [...groups.values()].some((g) => g.failed !== undefined),
+    asks: outcomesKnown && [...groups.values()].some((g) => g.failed === undefined),
   }
 }
 
