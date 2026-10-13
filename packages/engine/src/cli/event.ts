@@ -98,6 +98,8 @@ import { BOUND_TOLD, boundLine, cursorDebtEnabled, debtNoteHead, debtNoteText } 
 import { livePeers, resolvePeers, type Peer } from '../core/peers'
 import { continuesFor, lineageEnabled, pinRoute, readLineage, resolveLineage, writeBaton, writeLineage } from '../core/lineage'
 import { NUDGE_ENV, nudgeLine, readNudge } from '../driver/nudge'
+import { CTX_FRAGMENT, hookContextSettings, promptCeiling, statedWindow } from '../core/context-ceiling'
+import { transcriptContextTokens } from '../core/context-gauge'
 import { taskInFlight } from '../core/drive-queue'
 import { noteDriveSeen } from '../core/drive-seen'
 import { probeRunLock, type RunLockOptions } from '../core/run-lock'
@@ -3547,6 +3549,15 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
       if (band !== told) moved.push([DEBT_FRAGMENT, band])
       nudge = band !== null && band !== told
     }
+    // The context ceiling (context-ceiling 3.1): told once per crossing, its
+    // band riding the same told-set write. Claude Code only — the one host
+    // whose gauge is verified — and never a driven session (D5). Its band is
+    // kept even under SOFAR_TOLD_LINES=off: 0.34 had no such line to restore.
+    const ceiling =
+      host.tool === 'claude-code' && (process.env[NUDGE_ENV] ?? '') === ''
+        ? promptCeilingLine(rootDir, hook, sessionId, me, fragmentEpoch(toldLines ? toldNow : readTold(ctx.sofarDir, sessionId), CTX_FRAGMENT))
+        : null
+    if (ceiling !== null && ceiling.moved) moved.push([CTX_FRAGMENT, ceiling.epoch])
     updateTold(ctx.sofarDir, sessionId, [], moved)
     if (nudge) {
       lines.push(
@@ -3555,6 +3566,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
           `is warm; an unwritten session gets force-blocked at Stop.`,
       )
     }
+    if (ceiling?.line != null) lines.push(ceiling.line)
     if (recall !== null) lines.push(recall)
     if (map !== null) lines.push(map)
     if (keep !== null) lines.push(keep)
@@ -3564,6 +3576,38 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     return withSessionTitle('user-prompt', lines.length === 0 ? { ...OK } : { ...OK, stdout: lines.join('\n') }, title)
   } catch {
     return { ...OK }
+  }
+}
+
+/**
+ * The context-ceiling line for this prompt (context-ceiling 3.1, SPEC §Context
+ * ceiling): the gauge is the transcript tail's latest main-chain call, the
+ * window only one the statusline stated. Null on any failure — a setting or a
+ * gauge never costs the prompt its other lines.
+ */
+function promptCeilingLine(
+  rootDir: string,
+  hook: Record<string, unknown>,
+  sessionId: string,
+  me: SessionState,
+  told: string | null,
+): { line: string | null; epoch: string | null; moved: boolean } | null {
+  try {
+    const settings = hookContextSettings(rootDir)
+    if (settings.mode === 'off') return null
+    const transcript = strField(hook, 'transcript_path')
+    const tokens = transcript === null ? null : transcriptContextTokens(transcript)
+    if (tokens === null) return null
+    const out = promptCeiling({
+      tokens,
+      settings,
+      window: statedWindow(rootDir, sessionId),
+      told,
+      writtenBack: me.summary !== undefined,
+    })
+    return { ...out, moved: out.epoch !== told }
+  } catch {
+    return null
   }
 }
 

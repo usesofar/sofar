@@ -614,6 +614,8 @@ describe('confirmation styling (cli-ui 2.5)', () => {
         'created .agents/skills/sofar-write/SKILL.md',
         'sofar init: done (30 changes)',
         '',
+        'context: ceiling 200K · warn 150K · mode nudge (defaults) — change with `sofar config set context.<key> <value>`',
+        '',
         STATUSLINE_HINT,
         '',
         CURSOR_MCP_HINT,

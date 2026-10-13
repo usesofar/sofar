@@ -12,6 +12,7 @@ import { runAdopt } from './adopt'
 import { runInitCommand, WRITE_GRAMMAR } from './init'
 import { stderrCaps } from './ui'
 import { runAbandon } from './abandon'
+import { CONFIG_KEYS, runConfigGet, runConfigSet } from './config'
 import { parseAgents } from './agents'
 import { explainCheck, runDoctor } from './doctor'
 import { runUninit } from './uninit'
@@ -161,6 +162,29 @@ program
         journal: journalContext(),
       }),
     )
+  })
+
+const config = program
+  .command('config')
+  .description(
+    `view and change the context-ceiling settings (${CONFIG_KEYS.join(', ')}): your ~/.config/sofar/config.json, or with --repo this repo's .sofar/config.json, which wins`,
+  )
+
+config
+  .command('get [key]')
+  .description('print one key\'s active value, or every key with the layer it came from (default, user, repo)')
+  .option('--root <dir>', 'repo root (default: the record above the current directory)')
+  .action((key: string | undefined, opts: { root?: string }) => {
+    emit(runConfigGet(key, { root: rootOf(opts) }))
+  })
+
+config
+  .command('set <key> <value>')
+  .description('set one key: ceiling/warn take tokens (200000, 200K, 1.5M) or a share of the window (80%); mode takes off, nudge or insist')
+  .option('--repo', "write this repo's .sofar/config.json instead of your user config")
+  .option('--root <dir>', 'repo root (default: the record above the current directory)')
+  .action((key: string, value: string, opts: { repo?: boolean; root?: string }) => {
+    emit(runConfigSet(key, value, { root: rootOf(opts), repo: opts.repo === true }))
   })
 
 program

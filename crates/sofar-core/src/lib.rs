@@ -30,6 +30,7 @@ pub mod carrier;
 pub mod checks;
 pub mod cli;
 pub mod collections;
+pub mod context_ceiling;
 pub mod cross_conflicts;
 pub mod cursor_debt;
 pub mod date;

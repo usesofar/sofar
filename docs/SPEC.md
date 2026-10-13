@@ -7735,6 +7735,19 @@ deletes it with the worktree's gitdir.
   branch, lists the marks. A name git would refuse as a branch is refused;
   a branch that does not exist is marked with a note. `SOFAR_ABANDON=off`
   ignores every mark.
+- `sofar config get [key]` / `sofar config set <key> <value> [--repo]`
+  (context-ceiling 2.2) — the context-ceiling settings: `context.ceiling`,
+  `context.warn` (tokens — 200000, 200K, 1.5M — or a share of the window,
+  80%) and `context.mode` (off, nudge, insist). `get <key>` prints the active
+  value alone; `get` prints every key with the layer it came from (default,
+  user, repo), and warns on stderr of each value skipped as invalid. `set`
+  writes the user's `~/.config/sofar/config.json`, or with `--repo` the repo's
+  `.sofar/config.json` (which wins, field by field), under its `context`
+  object, keeping every other key. It refuses, writing nothing: an unknown
+  key, a value that does not parse, a file that is not a JSON object, `--repo`
+  with no `.sofar/`, and a warn at or past the ceiling as the pair will
+  resolve (a percentage against tokens is not compared — the window is
+  unknown). `sofar init` ends its report with the active values on one line.
 - `sofar uninit --agent <id>` (r4-fixes A11) — one agent's wiring, reversed
   exactly as this clone's wiring journal records sofar writing it, and
   nothing else: each of the agent's own files (Claude Code: .claude/settings.json,
@@ -8457,6 +8470,112 @@ user's configured registry. This is the same query `sofar upgrade --check`
 has always made and carries no record content — the ban on model calls in
 §Architectural invariants and the "nothing else ever leaves the machine"
 rule are about USER CONTENT, and a dist-tag lookup sends none.
+
+## Context ceiling (context-ceiling — write back and /clear before the context grows)
+Every call re-reads the whole conversation, so a session's cost per call is
+its context size. Over 29 Sep–13 Oct, 91 of splen's 152 sessions peaked
+above 300K and held 94.7% of its cache reads. The record already lets a fresh
+session resume where an old one wrote back; this section makes sofar say WHEN
+to do it. It reads files only and calls no model (§Architectural invariants).
+
+**The gauge (context-ceiling 1.1).** Context held = `input_tokens +
+cache_creation_input_tokens + cache_read_input_tokens` of the latest call.
+- The statusline reads it from its stdin (`context_window.current_usage`)
+  and is the ONLY surface that is told the model's window
+  (`context_window.context_window_size`).
+- Every other hook reads the tail of `transcript_path`, at most 512 KiB: the
+  last main-chain `type: "assistant"` line with a `message.usage`. Sidechain
+  (subagent) lines do not count — they are not the session's context. At
+  UserPromptSubmit this is the context the previous turn ended with.
+- The window is NEVER guessed — not from the model id (the same id runs at
+  200K and 1M), a display name or a default. The statusline writes each
+  window it is told to `context-window.json` in the per-clone state dir
+  (`$XDG_STATE_HOME/sofar/<cloneKey>/`, never under `.sofar/`), keyed by
+  session id, last stated wins; a hook resolves a percentage against that and
+  nothing else.
+- Unknown reads as unknown, never as zero: an unreadable transcript, a tail
+  with no usage line or a percentage with no stated window makes the hook
+  SILENT for that threshold.
+- Claude Code only. Codex and Cursor stay silent until a gauge is verified
+  against a fixture of that host (agents-parity D4); nothing is inferred
+  from another host's shape.
+
+**Settings.** One object, `context`, with three fields:
+
+| key | values | default |
+|---|---|---|
+| `context.ceiling` | tokens or percent of window | `200000` |
+| `context.warn` | tokens or percent of window | `150000` |
+| `context.mode` | `off` \| `nudge` \| `insist` | `nudge` |
+
+- A threshold is a positive integer of tokens (`200000`), the same with a
+  `K` suffix (`"200K"`, ×1,000), or a percent string `"1%"`–`"100%"`.
+  Anything else is invalid.
+- Two files, resolved FIELD BY FIELD, first valid value wins:
+  1. the per-repo override, `.sofar/config.json` → `{"context": {…}}`,
+     committed with the record so a repo's choice travels with it;
+  2. the user's `~/.config/sofar/config.json` (XDG_CONFIG_HOME honored), the
+     same file that holds `auto_upgrade` and `drive.keep_awake`;
+  3. the default above.
+  A missing file, a corrupt one or an invalid field falls through to the next
+  layer; a hook never throws on a setting and never rewrites the file.
+- `warn` must resolve BELOW `ceiling`. When it does not (or cannot be compared
+  because only one side resolves), warn is dropped and only the ceiling
+  fires. `sofar config set` refuses a pair it can compare and finds out of
+  order; `sofar config get context` prints each field's resolved value and
+  the layer it came from, and says when a percentage has no stated window to
+  resolve against (no sofar statusline in this session).
+- `sofar init` prints the active values on one line.
+
+**Modes.**
+- `off` — no hook line and no task-boundary line. The statusline still shows
+  the context size, without bands.
+- `nudge` — each line below is told ONCE per crossing.
+- `insist` — as nudge below the ceiling. Past it, the ceiling line is told on
+  EVERY prompt until the session writes back (a `session_ended` with its
+  session id in this epoch); after that, every prompt carries the
+  written-back line instead. It never blocks a prompt: holding the
+  operator's own message hostage is not a nudge.
+
+**When it fires.** The band is `below` < warn ≤ `warn` < ceiling ≤ `ceiling`,
+judged on the gauge.
+- THE PROMPT LINE — UserPromptSubmit, Claude Code. Under nudge it renders only
+  when the band is HIGHER than the band last told; the told band lives in the
+  session's told set as `ctx=<band>` (§Told set and hook-line epochs), so
+  SessionStart `compact` / `clear` re-arms it, and a gauge that falls below
+  the told band (after `/compact`) forgets it.
+- THE TASK-BOUNDARY LINE — in the result of `sofar_update_task` setting a
+  task `done` while the band is `warn` or `ceiling`: a finished task is the
+  cheapest point to break, since the write-back loses nothing half-done. Once
+  per task id per epoch, under nudge and insist alike.
+- A DRIVEN session (`SOFAR_DRIVE_NUDGE` set) gets neither: it runs one task
+  in print mode with no operator to `/clear`, and the driver already starts a
+  fresh session per task. Its size is the driver's budget, not this one's.
+
+**Lines and byte budget.** Each is ONE line, `sofar: `-prefixed, sizes
+rounded to whole K; the prompt hook adds at most 320 bytes for this feature
+per prompt, whatever else it says.
+- warn (≤160 bytes): `sofar: context <N>K, warn <W>K of <C>K ceiling — at the
+  next task boundary, write back and ask the operator to /clear.`
+- ceiling (≤320 bytes): `sofar: context <N>K is past the <C>K ceiling. Finish
+  or park the current step, write back with sofar_end_session (done,
+  half-done, tried-and-failed), then ask the operator to run /clear — the
+  next session resumes from the record.`
+- written back, insist only (≤160 bytes): `sofar: written back at <N>K — ask
+  the operator to /clear before starting new work.`
+- task boundary (≤200 bytes): `sofar: <task id> done at <N>K context (warn
+  <W>K) — the cheapest point to hand off: write back, then ask the operator
+  to /clear.`
+A test pins each budget at its longest rendering (four-digit K sizes — a 1M window
+reads `1000K` — and the longest task id the plan allows).
+
+**Only the operator can /clear.** No hook, tool, statusline or driver path
+issues `/clear` or `/compact`, and none claims to: Claude Code gives a hook no
+output that clears a session, and a session cannot run a slash command on
+itself. Every line therefore asks the SESSION to write back and then ask the
+OPERATOR. sofar's part ends at the write-back being filed; the reset is the
+operator's keystroke, and the next session's SessionStart (`clear`) injects
+that write-back as its next action.
 
 ## CLI UI (terminal rendering — human surfaces only)
 Rendering kernel: src/cli/ui/ — caps, style, symbols, text, frames,
