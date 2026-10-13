@@ -1083,6 +1083,7 @@ fn prompt_title(
 /// D37) holds it — a rule bearing on its edits needs a covering test that
 /// passed after the last one. `SOFAR_ENFORCE=off` restores D10's Stop.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "handleStop, ported step for step")]
 pub fn handle_stop(root: &Path, input: &str) -> CmdResult {
     let layout = Layout::new(root);
     let hook = parse_hook(input);

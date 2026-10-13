@@ -65,16 +65,17 @@ fn names_drive(command: &str) -> bool {
         }
         let after = &command[at + "sofar".len()..];
         let rest = after.trim_start_matches(is_js_whitespace);
-        rest.len() < after.len()
-            && rest.starts_with("drive")
-            && boundary_after(rest, "drive".len())
+        rest.len() < after.len() && rest.starts_with("drive") && boundary_after(rest, "drive".len())
     })
 }
 
 /// `/\s--detach\b/`.
 fn names_detach(command: &str) -> bool {
     command.match_indices("--detach").any(|(at, _)| {
-        command[..at].chars().next_back().is_some_and(is_js_whitespace)
+        command[..at]
+            .chars()
+            .next_back()
+            .is_some_and(is_js_whitespace)
             && boundary_after(command, at + "--detach".len())
     })
 }
@@ -112,7 +113,9 @@ mod tests {
 
     #[test]
     fn reads_only_a_string_command() {
-        assert!(starts_a_run(r#"{"tool_input":{"command":"sofar drive s --detach"}}"#));
+        assert!(starts_a_run(
+            r#"{"tool_input":{"command":"sofar drive s --detach"}}"#
+        ));
         assert!(!starts_a_run(r#"{"tool_input":{"command":"ls"}}"#));
         assert!(!starts_a_run(r#"{"tool_input":{"command":7}}"#));
         assert!(!starts_a_run(r#"{"tool_input":"sofar drive s --detach"}"#));
