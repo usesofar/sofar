@@ -1797,7 +1797,27 @@ async function driveHolding(
     // In force = sorting after the owner's adoption, which is this driver's
     // own while checkOwner has not fenced it (drive-visibility 2.2).
     const count = run !== undefined ? stopRequestsInForce(run).length : 0
-    for (; honoured < count; honoured += 1) interrupt('request')
+    for (; honoured < count; honoured += 1) {
+      if (laneRun !== undefined && honoured === 0) drainRequested()
+      else interrupt('request')
+    }
+  }
+  /**
+   * A lanes run's first stop request (drive-lanes 7.2) is a stop rule like
+   * any other: nothing more launches, and every lane in flight finishes its
+   * session, gate and landing before the stop is recorded — a done task is
+   * never left unverified on its branch. A repeat request signals them.
+   */
+  const drainRequested = (): void => {
+    requested = true
+    stop ??= interruptedStop()
+    const busy = liveSessions.size + liveVerifies.size
+    progress(
+      busy > 0
+        ? 'stop requested — launching nothing more; the lanes in flight finish their sessions, gates and landings first; request again to signal them'
+        : 'stop requested — launching nothing more',
+    )
+    wakeCoordinator()
   }
   const interruptedStop = (why?: string): { reason: RunStopReason; note?: string } => {
     const note = [requested ? STOP_REQUEST_NOTE : undefined, why].filter((x) => x !== undefined).join('; ')
@@ -2458,9 +2478,10 @@ async function driveHolding(
    * and starts that lane's launch, which runs at once with the others. A
    * launch's end wakes the next turn, which applies its stop rules. The
    * budgets count every lane: launches in flight are launches, and the cost
-   * is every lane's reported cost. A stop rule that fires launches nothing
-   * more and DRAINS — the lanes in flight finish and file their handoffs
-   * first — and the first stop wins. A lane a usage limit refused parks until
+   * is every lane's reported cost. A stop rule that fires — a first stop
+   * request among them (7.2) — launches nothing more and DRAINS: the lanes in
+   * flight finish their sessions, gates and landings and file their handoffs
+   * first, and the first stop wins. A lane a usage limit refused parks until
    * the limit resets, and is no stall (D23).
    */
   const coordinate = async (lanes: LaneRun): Promise<void> => {

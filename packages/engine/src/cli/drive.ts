@@ -481,6 +481,7 @@ export async function runDriveStop(
   let initiative: string
   let runId: string
   let requests: number
+  let lanes = false
   const ctx = createToolContext(rootDir)
   try {
     initiative = ctx.resolveInitiative(slug)
@@ -490,6 +491,7 @@ export async function runDriveStop(
       return fail(`sofar drive --stop: nothing to stop — the latest run on "${initiative}" already ended (${describeRun(run)})`)
     }
     runId = run.id
+    lanes = (run.lanes ?? 1) > 1
     if (probeRunLock(rootDir, runId, options.lock) === 'free') {
       return fail(
         `sofar drive --stop: run ${runId} on "${initiative}" has no stop, but its driver is gone — the run lock on this machine is free, so no driver is left to read a request and none was appended. ${resumeThenStop(initiative)}`,
@@ -516,16 +518,20 @@ export async function runDriveStop(
     if (Date.now() >= deadline) break
     await new Promise((resolve) => setTimeout(resolve, options.pollMs ?? 500))
   }
-  const escalation =
-    requests > 1
-      ? 'this was a repeat request, which kills the session outright'
-      : 'a second `--stop` kills the session outright'
+  // A lanes run's first request drains (drive-lanes 7.2): its lanes finish first.
+  const escalation = lanes
+    ? requests > 1
+      ? "A lanes run signals its lanes' sessions on a repeat request, and stops once they exit; this was one"
+      : 'A lanes run launches nothing more and stops once every lane in flight has finished its session, gate and landing; a second `--stop` signals their sessions'
+    : `A driver waiting on a session signals it and stops once the session exits; ${
+        requests > 1 ? 'this was a repeat request, which kills the session outright' : 'a second `--stop` kills the session outright'
+      }`
   return {
     exitCode: 1,
     stdout: '',
     stderr: [
       `sofar drive --stop: stop requested for run ${runId}, but no run_stopped within ${Math.round((options.waitMs ?? STOP_WAIT_MS) / 1000)}s.`,
-      `A driver waiting on a session signals it and stops once the session exits; ${escalation}.`,
+      `${escalation}.`,
       liveness === 'held'
         ? 'Its driver is alive — it still holds the run lock on this machine — so the stop lands once its session exits; `sofar status` shows it.'
         : `If no driver is running this run, it will never acknowledge — \`sofar drive ${initiative} --resume\` adopts the run, and a --stop after that ends it.`,
