@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { decodeLines, latestRun, type RunState } from './fold'
 import { appendedBytesScan, STOP_POLL_MS } from './log-scan'
-import { probeRunLock, type RunLiveness, type RunLockOptions } from './run-lock'
+import { probeRunLock, runLockPath, type RunLiveness, type RunLockOptions } from './run-lock'
 
 /**
  * Waiting on a run (drive-visibility 3.1), in core/ because two callers need
@@ -35,6 +35,12 @@ export type AwaitOutcome =
   | { kind: 'stopped'; run: RunState; question?: { task: string; note: string } }
   /** The lock went FREE with no stop recorded: the driver died. */
   | { kind: 'gone'; run: string }
+  /**
+   * A task of the still-running run is blocked on a question for the operator
+   * (a `needs_user` handoff; a lanes run keeps going, so no stop ever says so).
+   * Returned once per task and run: the next await moves on (8.1).
+   */
+  | { kind: 'needs_user'; run: string; question: { task: string; note: string } }
   /** `deadlineMs` passed with the run still going. */
   | { kind: 'deadline'; run: string; waitedMs: number }
   /** Nothing to await: never driven, or the latest run already ended. */
@@ -62,7 +68,7 @@ export async function awaitRun(rootDir: string, target: AwaitTarget, options: Aw
   const scan = appendedBytesScan(
     target.eventsPath,
     existsSync(target.eventsPath) ? statSync(target.eventsPath).size : 0,
-    ['"run_stopped"'],
+    ['"run_stopped"', '"needs_user"'],
   )
   const first = latestRun(target.fold() as never)
   if (first === undefined) return { kind: 'idle', reason: 'never-driven' }
@@ -84,6 +90,15 @@ export async function awaitRun(rootDir: string, target: AwaitTarget, options: Aw
       }
     }
     const run = target.fold().runs.find((r) => r.id === runId)
+    // A question first, even on a run that has since stopped: its stop line says the rest.
+    if (run !== undefined && run.stopped === undefined) {
+      const asked = askedPath(rootDir, runId, options.lock)
+      const open = openQuestions(target.eventsPath, run).filter((q) => !readAsked(asked).includes(q.task))
+      if (open.length > 0) {
+        markAsked(asked, open[0]!.task)
+        return { kind: 'needs_user', run: runId, question: open[0]! }
+      }
+    }
     if (run?.stopped !== undefined) {
       const question = blockedQuestion(target.eventsPath, run)
       return { kind: 'stopped', run, ...(question !== undefined ? { question } : {}) }
@@ -92,6 +107,52 @@ export async function awaitRun(rootDir: string, target: AwaitTarget, options: Aw
     if (options.deadlineMs !== undefined && now() - started >= options.deadlineMs) {
       return { kind: 'deadline', run: runId, waitedMs: now() - started }
     }
+  }
+}
+
+/**
+ * Every question a run's tasks wait on (8.1): each task a `needs_user` handoff
+ * of this run named that is still blocked, with the note that blocked it.
+ */
+export function openQuestions(eventsPath: string, run: RunState): { task: string; note: string }[] {
+  const tasks = [...new Set(run.handoffs.filter((h) => h.reason === 'needs_user' && h.task !== undefined).map((h) => h.task!))]
+  if (tasks.length === 0) return []
+  const notes = new Map<string, string | undefined>()
+  const decoded = decodeLines(readFileSync(eventsPath, 'utf8').split('\n'))
+  for (const { event } of decoded.parsed) {
+    if (event.type !== 'task_status_changed' || decoded.voided.has(event.id)) continue
+    const p = event.payload as { id?: unknown; status?: unknown; note?: unknown }
+    if (typeof p.id !== 'string' || !tasks.includes(p.id)) continue
+    notes.set(p.id, p.status === 'blocked' && typeof p.note === 'string' && p.note.length > 0 ? p.note.replace(/\s+/g, ' ').trim() : undefined)
+  }
+  return tasks.flatMap((task) => {
+    const note = notes.get(task)
+    return note === undefined ? [] : [{ task, note }]
+  })
+}
+
+/** Where the questions already shown for a run are kept: beside its lock, never in the record. */
+function askedPath(rootDir: string, runId: string, lock?: RunLockOptions): string | undefined {
+  const where = runLockPath(rootDir, runId, lock?.env)
+  return 'path' in where ? where.path.replace(/\.lock$/, '.asked.json') : undefined
+}
+
+function readAsked(path: string | undefined): string[] {
+  if (path === undefined) return []
+  try {
+    const v: unknown = JSON.parse(readFileSync(path, 'utf8'))
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function markAsked(path: string | undefined, task: string): void {
+  if (path === undefined) return
+  try {
+    writeFileSync(path, JSON.stringify([...readAsked(path), task]))
+  } catch {
+    // unrecorded: the question may be shown again, never lost
   }
 }
 

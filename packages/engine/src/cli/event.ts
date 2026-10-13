@@ -3308,7 +3308,10 @@ export async function handleDriveAwaitWith(
         ? `${describeRun(outcome.run)}${outcome.question === undefined ? '' : `. ${outcome.question.task}'s note: ${outcome.question.note}`}`
         : outcome.kind === 'gone'
           ? `run ${outcome.run} on "${slug}" has no stop and its driver is gone — the run lock on this machine is free, so it will never stop by itself; \`sofar drive ${slug} --resume\` picks it up`
-          : stillRunning(outcome.run, slug, outcome.waitedMs)
+          : outcome.kind === 'needs_user'
+            ? // 8.1: the operator's question, while the run keeps going (a lanes run never stops for it).
+              `run ${outcome.run} on "${slug}": task ${outcome.question.task} needs the operator — ${outcome.question.note} — show them this question now; the run keeps going, and \`sofar drive ${slug} --await\` watches again without repeating it`
+            : stillRunning(outcome.run, slug, outcome.waitedMs)
     // Exit 2 is what wakes the model; the line rides stderr, which the host
     // prefers over stdout when it builds the reminder.
     return { exitCode: 2, stdout: '', stderr: `sofar drive --await: ${line}\n` }

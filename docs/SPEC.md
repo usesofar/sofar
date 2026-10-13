@@ -3360,7 +3360,13 @@ answer every host can reach (see the Host tiers section).
   run, polling every 2s by byte scan and lock probe, and exits with ONE
   line: on `run_stopped` (exit 0; a `needs_user` stop names the blocked task
   and its note, which is the operator's question), or when the lock goes
-  FREE with no stop recorded (exit 2, naming `--resume`). With the lock
+  FREE with no stop recorded (exit 2, naming `--resume`); and, while the run
+  is still going, on a task of it blocked by a `needs_user` handoff (exit 0,
+  naming the task and its question; drive-lanes 8.1) — a lanes run keeps
+  going without one, so no stop would ever say it. Each question is said once
+  per run (kept beside the run lock as `<run>.asked.json`), so the next wait
+  moves on to the stop; the rewake hook wakes the launching session with it.
+  With the lock
   ABSENT it waits on the record alone and says so first. No deadline; exit 1
   when there is nothing to await. The line goes to stdout; the ABSENT notice
   and a nothing-to-await refusal go to stderr. A tick is a lock probe and a

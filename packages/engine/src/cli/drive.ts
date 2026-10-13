@@ -606,6 +606,13 @@ export async function runDriveAwait(
     )
   }
   if (outcome.kind === 'gone') return driverGone(outcome.run, initiative)
+  // A question the run waits on while it keeps going (8.1): said once, so the
+  // session that launched it shows the operator now, not at the run's end.
+  if (outcome.kind === 'needs_user') {
+    return ok(
+      `run ${outcome.run} on "${initiative}": task ${outcome.question.task} needs you — ${outcome.question.note}\nThe run keeps going; answer, then unblock it (sofar_update_task ${outcome.question.task} pending) so a lane takes it again.\n`,
+    )
+  }
   if (outcome.kind === 'deadline') return ok(`${stillRunning(outcome.run, initiative, outcome.waitedMs)}\n`)
   return ok(`${stoppedLine(ctx, initiative, outcome.run)}\n`)
 }

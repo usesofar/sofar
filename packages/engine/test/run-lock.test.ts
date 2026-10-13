@@ -686,6 +686,30 @@ describe.skipIf(!PLATFORM_LOCK)('sofar drive --await (drive-visibility 3.1)', ()
     expect(res.stdout).toContain("1.1's note: which region: us-east or eu-west?")
   })
 
+  it('says a question a still-running run waits on, once, and the next wait goes on to the stop (drive-lanes 8.1)', async () => {
+    const r = repo()
+    const env = stateEnv()
+    const run = openRun(r)
+    const claim = await claimRunLock(r.root, run, { env })
+    // A lanes run: one task blocks on the operator, the run keeps going.
+    const first = runDriveAwait(r.root, 'demo', { pollMs: 10, lock: { env } })
+    append(r, 'task_status_changed', { id: '1.1', status: 'blocked', note: 'may the lane run node scripts/x.mjs?' })
+    append(r, 'handoff', { run, session_id: 'S1', reason: 'needs_user', task: '1.1' })
+    const asked = await first
+    expect(asked.exitCode, asked.stderr).toBe(0)
+    expect(asked.stdout).toContain(`run ${run} on "demo": task 1.1 needs you — may the lane run node scripts/x.mjs?`)
+    // Asked once: the next wait does not repeat it, and ends on the stop.
+    let settled = false
+    const second = runDriveAwait(r.root, 'demo', { pollMs: 10, lock: { env } }).finally(() => (settled = true))
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(settled).toBe(false)
+    append(r, 'run_stopped', { run, reason: 'closed' })
+    if (claim.kind === 'claimed') claim.lock.release()
+    const stopped = await second
+    expect(stopped.stdout).toContain('stopped: closed')
+    expect(stopped.stdout).not.toContain('needs you')
+  })
+
   it('exits 2 when the lock falls with no stop recorded, naming --resume — and at once when it is already free', async () => {
     const r = repo()
     const env = stateEnv()
