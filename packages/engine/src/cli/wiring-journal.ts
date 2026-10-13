@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import { cloneKey, resolvesInside, stateBase, type StateEnv } from '../core/state-dir'
-import type { AgentId } from './agents'
+import type { AgentId } from './agent-ids'
 
 /**
  * The wiring journal (r4-fixes R12, A11): one JSON line per `sofar init`,
@@ -27,7 +27,7 @@ import type { AgentId } from './agents'
  */
 
 /** The commands that journal (A11). Absent on 0.34.1's lines, which were all init runs. */
-export type WiringCommand = 'init' | 'uninit' | 'doctor --fix' | 'upgrade'
+export type WiringCommand = 'init' | 'uninit' | 'doctor --fix' | 'upgrade' | 'session-start'
 
 /** How an init run's agents were chosen. `flag` and `picker` are explicit choices; the others rewire what is chosen. */
 export type WiringSelection = 'flag' | 'refresh' | 'wired' | 'picker'

@@ -8432,6 +8432,21 @@ reminder cannot outlive its cause. Installing stays a thing the user chose
 because an upgrade replaces the binary AND leaves repo wiring stale (hook
 shims and the protocol block are files in the repo, speed-2 T6).
 
+Shim self-heal (felt-latency L5, D12): the hook shims heal themselves. A
+stale shim still reaches the new engine, and the TypeScript SessionStart,
+once a record resolves, rewrites every shim under `.claude/hooks/` and
+`.cursor/hooks/sofar/` whose bytes are not this release's but hash
+(sha256) to a version sofar shipped. The ledger is
+`packages/engine/src/hooks/shipped-shims.ts`, generated from git history by
+`scripts/shim-ledger.mjs`, and a test fails until it holds every current
+shim. A shim that matches no shipped version was edited by hand and is never
+touched. A directory serves Claude Code and Cursor (`.claude/hooks/`) or
+Cursor alone (`.cursor/hooks/sofar/`), and is healed only when one of those
+hosts is consented (r4-fixes A11). The write goes to a temp file renamed into
+place, mode 0755, so a hook running the old file keeps the bytes it opened.
+It is journaled as a `session-start` wiring line. It adds no hook entry and
+never touches the protocol block, so `sofar init --refresh` still owns those.
+
 Egress: the refresh child runs `npm view sofar.sh version` against the
 user's configured registry. This is the same query `sofar upgrade --check`
 has always made and carries no record content — the ban on model calls in

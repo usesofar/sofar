@@ -2,6 +2,7 @@ import { existsSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { emitKeypressEvents } from 'node:readline'
+import { AGENTS, type AgentId } from './agent-ids'
 import { type Caps, createStyle, symbolsFor } from './ui'
 
 /**
@@ -16,8 +17,7 @@ import { type Caps, createStyle, symbolsFor } from './ui'
  */
 
 /** Picker order, and the order `--agents all` expands to. */
-export const AGENTS = ['claude-code', 'cursor', 'codex'] as const
-export type AgentId = (typeof AGENTS)[number]
+export { AGENTS, type AgentId } from './agent-ids'
 
 export const AGENT_LABELS: Readonly<Record<AgentId, string>> = {
   'claude-code': 'Claude Code',

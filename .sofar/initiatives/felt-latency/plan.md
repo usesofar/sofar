@@ -13,12 +13,12 @@ Progress: 5/8 tasks done (62%)
 - [x] L3 Context diet: halve the +4.5-5.3k per-call prefix (CLAUDE.md block, alwaysLoad schemas, MCP instructions, digest); first lever: serve the protocol's situational sections (DRIVING 1.1 KB, PLAN 0.7 KB, LINKS 0.5 KB) only when a prompt needs them (r4-fixes B9), proven by the A/B
 - [x] L2 Narrow the gate: rule-bearing files only, ask related tests not the suite, accept file-scoped runs, no re-arm on unrelated edits
 - [x] L4 Write-back cadence: ~7 sofar_end_session per session, ~1,340 of 1,792 voluntary; cut them without staling next_action (r4-fixes H5 keeps Claude Code on the tool)
-- [ ] L5 Native everywhere: refresh stale shims, core owns --host codex, native statusline/drive-await/pre-commit, Cursor fence scan of last entry only
+- [ ] L5 Native everywhere: refresh stale shims, core owns --host codex, native statusline/drive-await/pre-commit, Cursor fence scan of last entry only (active)
 - [ ] L6 Decision checks off the turn: background at Stop, budgeted at pre-commit (blocked)
 - [x] L7 Explain MCP write tails: add_note p99 47 s, remember p99 61 s vs 4-12 ms on replay
 - [ ] L8 Strict-gate false holds: a peer's uncaptured shell write inside this session's may-write window counts as its edit; and a load-flaky suite (shim-latency) never records a pass, so a strict gate re-asks forever
 - [x] L9 Prompt hook reads task-notification and peer messages as operator prompts: P<n> offers and brief_appended junk (splen local-first-sync brief)
 
 Active phase: Phase 1 — Felt latency
-Next action: L5: refresh stale hook shims and run Codex hooks natively; or L8 if the operator prefers.
+Next action: L5 rest: native Codex hooks, native statusline/pre-commit, Cursor fence scan of the last entry only; or run them under sofar drive.
 Blocked on: task L6: deferred, D11: no approved checks in the field

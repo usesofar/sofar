@@ -115,6 +115,7 @@ import { WORKMAP_TOLD_KEY, workmapBlock, workmapEnabled } from '../core/workmap'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes, handleAt, qualifiedHandle, suffixedHandle } from '../core/handle'
+import { healShims } from './shim-heal'
 import { briefEntryText, capturePrompt, promptAuthor, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
 import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
@@ -992,6 +993,9 @@ export function handleSessionStart(rootDir: string, input: string, declared?: Ho
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK, stdout: unboundNotice(rootDir, sessionId) }
     const { ctx, slug, via, registered } = bound
+    // A shim an older sofar wrote routes every hook through node: the new
+    // engine, reached through it, rewrites it (felt-latency L5, D12).
+    healShims(rootDir)
     // The route pin (core/lineage.ts): an unregistered session keeps the
     // record this block shows, whatever a peer's write-back does to the route.
     // `registered` is the scan resolveBound already ran: a second
