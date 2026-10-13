@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 import { validatePayload } from '@sofar/schema'
 import { validateToolInput } from '@sofar/schema/tool-inputs'
 import { foldLog, freshnessTotal } from '../src/core/fold'
-import { capturePrompt, promptBufferDir, promptCaptureEnabled, PROMPT_ANNOUNCE_MIN } from '../src/core/prompt-buffer'
+import { capturePrompt, promptAuthor, promptBufferDir, promptCaptureEnabled, PROMPT_ANNOUNCE_MIN } from '../src/core/prompt-buffer'
 import { redactProse } from '../src/core/redact'
 import { handleUserPrompt, runAppend } from '../src/cli/event'
 import { runInit } from '../src/cli/init'
@@ -139,6 +139,25 @@ describe('prompt capture (the hook)', () => {
   it('never offers an id in the quick lane', () => {
     const root = repo('quick')
     expect(prompt(root, 'sess-1', LONG)).toBe('')
+  })
+})
+
+describe('who wrote a prompt (felt-latency L9)', () => {
+  it('reads machine and peer text by its opening tag, and everything else as the operator', () => {
+    expect(promptAuthor('<task-notification>\n<task-id>a1</task-id>')).toBe('machine')
+    expect(promptAuthor('  <bash-stdout>ok</bash-stdout>')).toBe('machine')
+    expect(promptAuthor('<cross-session-message from="uds:/tmp/x"> hi')).toBe('peer')
+    expect(promptAuthor('<agent-message from="a1">done</agent-message>')).toBe('peer')
+    expect(promptAuthor('<pasted_content id="7f02">x</pasted_content>')).toBe('operator')
+    expect(promptAuthor('<task-notificationx>')).toBe('operator')
+    expect(promptAuthor(LONG)).toBe('operator')
+  })
+
+  it('captures no machine or peer text, so none is offered for the brief', () => {
+    const root = repo()
+    expect(prompt(root, 'sess-1', `<task-notification>\n<summary>${LONG}</summary>\n</task-notification>`)).toBe('')
+    expect(prompt(root, 'sess-1', `<cross-session-message from="uds:/tmp/a">${LONG}</cross-session-message>`)).not.toContain('this prompt is P')
+    expect(prompt(root, 'sess-1', LONG)).toContain('this prompt is P1')
   })
 })
 

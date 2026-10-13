@@ -99,6 +99,28 @@ function sweep(dir: string, nowMs: number): void {
 }
 
 /**
+ * Who wrote a prompt (felt-latency L9). The host hands the prompt hook text
+ * the operator never typed: a background task's notification, a `!` command's
+ * echo, another session's message. Over half the brief text in the operator's
+ * records was such text, kept as "Operator" words, and each one drew recall
+ * lines and a P<n> offer. Machine text drives nothing; a peer's message may
+ * draw recall about the work it names, but never moves the session or joins
+ * the brief.
+ */
+export type PromptAuthor = 'operator' | 'peer' | 'machine'
+const MACHINE_TAGS: ReadonlySet<string> = new Set([
+  'task-notification', 'bash-input', 'bash-stdout', 'bash-stderr', 'local-command-stdout', 'local-command-stderr', 'local-command-caveat',
+])
+const PEER_TAGS: ReadonlySet<string> = new Set(['cross-session-message', 'agent-message'])
+
+export function promptAuthor(text: string): PromptAuthor {
+  const m = /^\s*<([a-z][a-z-]*)[\s>]/.exec(text)
+  if (m === null) return 'operator'
+  if (MACHINE_TAGS.has(m[1]!)) return 'machine'
+  return PEER_TAGS.has(m[1]!) ? 'peer' : 'operator'
+}
+
+/**
  * File one prompt; returns its id, or null when capture is off or the write
  * failed. The same text as the session's last prompt is the same prompt (a
  * host that fires the hook twice), so it keeps that id.

@@ -115,7 +115,7 @@ import { WORKMAP_TOLD_KEY, workmapBlock, workmapEnabled } from '../core/workmap'
 import { conflictedFiles, mergeBlockEnabled, mergeEntries, mergeFacts, mergeInProgress, mergeNotice, mergeStopLine, mergeView, reflogMerges, startedAfter } from '../core/merge'
 import { linkAskEnabled, pendingLinkLine, stopLinkLines, supersessionEcho, withoutNone } from '../core/link-candidates'
 import { bareSupersedes, handleAt, qualifiedHandle, suffixedHandle } from '../core/handle'
-import { briefEntryText, capturePrompt, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
+import { briefEntryText, capturePrompt, promptAuthor, promptKeepLine, PROMPT_ANNOUNCE_MIN, PROMPT_ID_RE, uncapturedWarning } from '../core/prompt-buffer'
 import { recordDiagnostic } from '../core/diagnostics'
 import { clipDiagnosticText, DIAGNOSTIC_HEAD_CLIP } from '@sofar/schema/diagnostics'
 import { newestEvent } from '../core/warmth'
@@ -3387,7 +3387,12 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     const bound = resolveBound(rootDir, sessionId)
     if (bound === null) return { ...OK }
     const { ctx } = bound
-    const prompt = strField(hook, 'prompt')
+    const text = strField(hook, 'prompt')
+    // Only the operator's words move the session, join the brief or page
+    // clauses in; a peer's message may still draw recall (felt-latency L9).
+    const author = text === null ? 'operator' : promptAuthor(text)
+    const prompt = author === 'operator' ? text : null
+    const cue = author === 'machine' ? null : text
     // The first-prompt carrier (r4-fixes B14, D25) before anything is read
     // for this record: a fresh session the operator's prompt names into
     // another open record serves that record from this prompt on.
@@ -3408,10 +3413,10 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // Recall (memory-lead 4.3, D25) before the registration check too: the
     // first prompt is the cue, and in a bench session it is the only one.
     // Cursor's prompt hook cannot inject, so it is never spent there.
-    const recall = prompt !== null && host.tool !== 'cursor' && recallEnabled() ? promptRecall(ctx.sofarDir, state, sessionId, prompt) : null
+    const recall = cue !== null && host.tool !== 'cursor' && recallEnabled() ? promptRecall(ctx.sofarDir, state, sessionId, cue) : null
     // The work map (r4-fixes B1, D16) rides the same first prompt: its ranking
     // needs the prompt's words, which SessionStart has not seen yet.
-    const map = prompt !== null && host.tool !== 'cursor' && workmapEnabled() ? promptWorkmap(rootDir, ctx.sofarDir, state, sessionId, prompt) : null
+    const map = cue !== null && host.tool !== 'cursor' && workmapEnabled() ? promptWorkmap(rootDir, ctx.sofarDir, state, sessionId, cue) : null
     const me = state.sessions.find((s) => s.id === sessionId)
     const carriedLine =
       carried !== null ? carrierLine(bound.slug, carried, sessionId) : intended !== null ? intentLine(bound.slug, intended, sessionId) : null
@@ -3476,7 +3481,7 @@ export function handleUserPrompt(rootDir: string, input: string, declared?: Hook
     // host passes; a payload without one renders nothing.
     // `SOFAR_LESSONS=off` is the ablation switch (D18): round 2 prices the
     // line's tokens on their own, and a lever must be separable to be priced.
-    if (prompt !== null && lessonsEnabled()) lines.unshift(...lessonLines(promptLessons(ctx.sofarDir, state, slug, sessionId, prompt)))
+    if (cue !== null && lessonsEnabled()) lines.unshift(...lessonLines(promptLessons(ctx.sofarDir, state, slug, sessionId, cue)))
     lines.unshift(...guardViolationLines(sessionGuardViolations(state, sessionId, me.ended), rootDir, state.decisions))
 
     const wrap = parallelWrapLine(state, sessionId)

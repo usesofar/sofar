@@ -27,7 +27,9 @@ use crate::lessons::{
 use crate::peers::{Peer, resolve_peers};
 use crate::post_tool::{GUARD_RULES_MAX, render_subject};
 use crate::projections::{RunLiveness, retire_enabled, retired_ordinals, task_progress};
-use crate::prompt_buffer::{PROMPT_ANNOUNCE_MIN, capture_prompt, prompt_keep_line};
+use crate::prompt_buffer::{
+    PROMPT_ANNOUNCE_MIN, PromptAuthor, capture_prompt, prompt_author, prompt_keep_line,
+};
 use crate::session_pointer::{clear_session_pointer, write_session_pointer};
 use crate::shipwatch::{note_engine, note_upstream};
 use crate::status::{
@@ -839,7 +841,12 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     let Some(from) = resolve_bound(&layout, session_id) else {
         return silent();
     };
-    let prompt = str_field(&hook, "prompt");
+    let text = str_field(&hook, "prompt");
+    // Only the operator's words move the session, join the brief or page
+    // clauses in; a peer's message may still draw recall (felt-latency L9).
+    let author = text.map_or(PromptAuthor::Operator, prompt_author);
+    let prompt = text.filter(|_| author == PromptAuthor::Operator);
+    let cue = text.filter(|_| author != PromptAuthor::Machine);
     // The first-prompt carrier (B14, D25), before anything is read for the record.
     let (slug, carried_line) = carried_home(&layout, from, session_id, prompt, &hook);
     let state = fold_state(&layout, &slug);
@@ -850,7 +857,7 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     // Before the registration check: a bench session's only prompt lands
     // before anything registers it.
     let keep_captured = prompt.and_then(|p| keep_line(root, &slug, session_id, p));
-    let (recall, map) = first_prompt_blocks(root, &layout, &hook, &state, session_id, prompt);
+    let (recall, map) = first_prompt_blocks(root, &layout, &hook, &state, session_id, cue);
     let glance = prompt_glance(
         &layout,
         &hook,
@@ -911,11 +918,11 @@ pub fn handle_user_prompt(root: &Path, input: &str) -> CmdResult {
     }
     let crossed = session_guard_violations(&state, session_id, me.ended.as_deref());
     let mut head: Vec<String> = guard_violation_lines(&crossed, root, &state.decisions);
-    if let Some(prompt) = prompt
+    if let Some(cue) = cue
         && lessons_enabled()
     {
         head.extend(lesson_lines(&prompt_lessons(
-            &layout, &state, &slug, session_id, prompt,
+            &layout, &state, &slug, session_id, cue,
         )));
     }
     head.extend(lines);

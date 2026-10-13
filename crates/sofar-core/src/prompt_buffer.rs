@@ -107,6 +107,54 @@ fn sweep(dir: &Path) {
     }
 }
 
+/// `PromptAuthor` (felt-latency L9): who wrote a prompt. Machine text (a task
+/// notification, a `!` command's echo) drives nothing; a peer's message may
+/// draw recall, but never moves the session or joins the brief.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PromptAuthor {
+    Operator,
+    Peer,
+    Machine,
+}
+
+const MACHINE_TAGS: [&str; 7] = [
+    "task-notification",
+    "bash-input",
+    "bash-stdout",
+    "bash-stderr",
+    "local-command-stdout",
+    "local-command-stderr",
+    "local-command-caveat",
+];
+const PEER_TAGS: [&str; 2] = ["cross-session-message", "agent-message"];
+
+/// `promptAuthor`: the tag a prompt opens with, after leading whitespace —
+/// `/^\s*<([a-z][a-z-]*)[\s>]/`.
+#[must_use]
+pub fn prompt_author(text: &str) -> PromptAuthor {
+    let rest = text.trim_start_matches(crate::text::is_js_whitespace);
+    let Some(rest) = rest.strip_prefix('<') else {
+        return PromptAuthor::Operator;
+    };
+    let len = rest
+        .find(|c: char| !(c.is_ascii_lowercase() || c == '-'))
+        .unwrap_or(rest.len());
+    let tag = &rest[..len];
+    let next = rest[len..].chars().next();
+    if !tag.starts_with(|c: char| c.is_ascii_lowercase())
+        || !next.is_some_and(|c| c == '>' || crate::text::is_js_whitespace(c))
+    {
+        return PromptAuthor::Operator;
+    }
+    if MACHINE_TAGS.contains(&tag) {
+        PromptAuthor::Machine
+    } else if PEER_TAGS.contains(&tag) {
+        PromptAuthor::Peer
+    } else {
+        PromptAuthor::Operator
+    }
+}
+
 /// `capturePrompt`: file one prompt and return its id, or None when capture
 /// is off or the write failed. The session's last prompt again keeps its id.
 #[must_use]
@@ -158,4 +206,39 @@ pub fn prompt_keep_line(id: &str) -> String {
     format!(
         "sofar: this prompt is {id} — if it is roadmap or spec, keep it in the brief by id at write-back (brief_append [\"{id}\"]); sofar copies it verbatim."
     )
+}
+
+#[cfg(test)]
+mod author_tests {
+    use super::{PromptAuthor, prompt_author};
+
+    /// As brief-append.test.ts reads them (felt-latency L9).
+    #[test]
+    fn a_prompt_is_read_by_its_opening_tag() {
+        assert_eq!(
+            prompt_author("<task-notification>\n<task-id>a1</task-id>"),
+            PromptAuthor::Machine
+        );
+        assert_eq!(
+            prompt_author("  <bash-stdout>ok</bash-stdout>"),
+            PromptAuthor::Machine
+        );
+        assert_eq!(
+            prompt_author("<cross-session-message from=\"uds:/tmp/x\"> hi"),
+            PromptAuthor::Peer
+        );
+        assert_eq!(
+            prompt_author("<agent-message from=\"a1\">done</agent-message>"),
+            PromptAuthor::Peer
+        );
+        assert_eq!(
+            prompt_author("<pasted_content id=\"7f02\">x</pasted_content>"),
+            PromptAuthor::Operator
+        );
+        assert_eq!(
+            prompt_author("<task-notificationx>"),
+            PromptAuthor::Operator
+        );
+        assert_eq!(prompt_author("Next: refunds."), PromptAuthor::Operator);
+    }
 }

@@ -6772,6 +6772,18 @@ to `SOFAR_CORE=0 sofar` with stdin unread; .codex/hooks.json does not change
   the id (sofar_end_session `brief_append`, or `sofar event append --type
   brief_appended --payload '{"prompt":"P<n>"}'`, refused there when no such
   prompt was captured in the append's session).
+  PROMPT AUTHOR (felt-latency L9): the hook first reads who wrote the
+  payload's `prompt` by the tag it opens with, after leading whitespace
+  (`/^\s*<([a-z][a-z-]*)[\s>]/`). MACHINE is `task-notification`,
+  `bash-input`, `bash-stdout`, `bash-stderr`, `local-command-stdout`,
+  `local-command-stderr` or `local-command-caveat`: text the host injected.
+  PEER is `cross-session-message` or `agent-message`: another session's
+  words. Anything else, `pasted_content` included, is the OPERATOR. Only an
+  operator prompt is captured, offered as P<n>, moves the session (both
+  carriers), draws the glance or pages a clause in. A peer's prompt still
+  draws relevant lessons, recall and the work map; a machine prompt draws
+  none of them. Lines read from state (conflicts, crossings, nudges, news)
+  are the same for every author.
   RELEVANT LESSONS (r1-fixes 3.3, D16): the same shim reads the payload's
   `prompt` (first 2,000 chars) and BM25-ranks it — core/lexicon.ts
   rankLexical, the `sofar find` ranker, no model — against THIS
