@@ -69,7 +69,7 @@ if (fixture.NAME === 'hub' && opt.arm === 'native') {
   process.exit(2)
 }
 const { REFERENCE, SKELETON, SLUG, TASKS, GOAL, planPayload } = fixture
-if (!['serial', 'lanes', 'native'].includes(opt.arm)) {
+if (!['serial', 'lanes', 'native', 'hosted'].includes(opt.arm)) {
   console.error(`--arm ${opt.arm}: the arms are \`serial\`, \`lanes\` and \`native\` — later drive-lanes steps add theirs here`)
   process.exit(2)
 }
@@ -78,7 +78,11 @@ const native = opt.arm === 'native'
 // the operator's own profile — the bench one stops on first-run onboarding in
 // an interactive launch (M22) — and need the cell's repo trusted, which this
 // harness waits for rather than writes (the operator's profile is not its to edit).
-const cloud = opt.agent === 'claude-cloud'
+// A hosted run (5.5, D55): the whole drive in one cloud session, its commits
+// and record brought back; `--lanes` is passed to the cloud-side driver.
+const hosted = opt.arm === 'hosted'
+const hostedLanes = hosted ? Number(opt.lanes) : 1
+const cloud = opt.agent === 'claude-cloud' || hosted
 if (!['claude-code', 'claude-cloud'].includes(opt.agent) || (cloud && native)) {
   console.error(`--agent ${opt.agent}: a drive arm takes claude-code or claude-cloud`)
   process.exit(2)
@@ -504,7 +508,9 @@ function driveArgs(engine) {
     '--no-keep-awake',
     '--bin', opt.claude,
     ...(cloud
-      ? ['--agent', 'claude-cloud']
+      ? hosted
+        ? ['--hosted', 'cloud', ...(hostedLanes > 1 ? ['--lanes', String(hostedLanes)] : [])]
+        : ['--agent', 'claude-cloud']
       : ['--agent-arg=--setting-sources', '--agent-arg=project,local', '--agent-arg=--strict-mcp-config', '--agent-arg=--mcp-config', `--agent-arg=${join(repo, '.mcp.json')}`]),
   ]
 }
@@ -543,6 +549,12 @@ async function awaitTrust() {
 }
 
 async function runDrive(engine) {
+  if (hosted) {
+    // The cloud copy has no cell bin/: its hooks and MCP server use sofar on PATH (the env installs it).
+    sh('sh', ['-c', `sed -i '' "s#'[^']*/bin/sofar'#sofar#g" .claude/hooks/*.sh && sed -i '' 's#"/[^"]*/bin/sofar"#"sofar"#' .mcp.json`], { cwd: repo })
+    sh('git', ['add', '.claude', '.mcp.json'], { cwd: repo })
+    sh('git', ['commit', '-qm', 'hooks and MCP server use sofar on PATH (hosted arm)'], { cwd: repo })
+  }
   if (cloud) await awaitTrust()
   const env = engineEnv(engine, profileEnv())
   env.PATH = `${dirname(opt.claude)}:${env.PATH}`
