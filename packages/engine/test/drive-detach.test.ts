@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { foldLog, latestRun, type InitiativeState } from '../src/core/fold'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
-import { detachedStartNotifier, insideAgentShell, pendingLaneSetup, runDriveDetached } from '../src/cli/drive'
+import { detachedStartNotifier, insideAgentShell, pendingLaneSetup, runDriveDetached, runDriveStop } from '../src/cli/drive'
 
 /**
  * `sofar drive --detach` and `--stop` (in-session-drive D1/D2/D3), through the
@@ -86,6 +86,18 @@ function cli(r: Repo, args: string[], env: Record<string, string> = {}): SpawnSy
     timeout: 60_000,
     env: { ...process.env, TMPDIR: r.logs, STUB_OUT: r.out, ...env },
   })
+}
+
+/** Run an in-process command against a scratch state base, so its run-lock probe sees the driver's. */
+async function withStateHome<T>(state: string, run: () => Promise<T>): Promise<T> {
+  const before = process.env.XDG_STATE_HOME
+  process.env.XDG_STATE_HOME = state
+  try {
+    return await run()
+  } finally {
+    if (before === undefined) delete process.env.XDG_STATE_HOME
+    else process.env.XDG_STATE_HOME = before
+  }
 }
 
 async function until(check: () => boolean, ms = 30_000): Promise<void> {
@@ -291,6 +303,9 @@ describe('a slow lane setup is progress, not a failed start (drive-lanes 7.4)', 
     // The caller has let go of the channel: the start notice must not kill
     // the driver, which goes on to launch a session.
     await until(() => latestRun(fold(r)) !== undefined && sessionEnvs(r).length > 0)
+    // A lanes stop drains the lingering session (7.2); the second signals it.
+    const drain = await withStateHome(state, () => runDriveStop(r.root, 'demo', { waitMs: 0 }))
+    expect(drain.stderr).toContain('a second `--stop` signals their sessions')
     const stop = cli(r, ['drive', 'demo', '--stop'], { XDG_STATE_HOME: state })
     expect(stop.status, stop.stderr).toBe(0)
     await until(() => latestRun(fold(r))?.stopped !== undefined)
