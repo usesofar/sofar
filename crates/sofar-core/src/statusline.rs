@@ -406,7 +406,8 @@ enum CtxTone {
 /// `ctxSegment` (context-ceiling 4.1): the context held in whole K, banded by
 /// the `context` settings against the window stdin states; unbanded under
 /// mode `off` or when a percentage has no window. Without usage yet, the
-/// stated percentage on its D7 bands. Records the window it is told (D3).
+/// stated percentage on its D7 bands. Records the window it is told (D3)
+/// and the transcript path (3.2).
 fn ctx_segment(root: &Path, hook: &Object) -> Option<(String, CtxTone)> {
     let cw = obj(hook.get("context_window"))?;
     let window = cw
@@ -415,6 +416,9 @@ fn ctx_segment(root: &Path, hook: &Object) -> Option<(String, CtxTone)> {
         .filter(|w| w.fract() == 0.0 && *w > 0.0);
     if let (Some(session), Some(w)) = (str_field(hook.get("session_id")), window) {
         cc::record_stated_window(root, session, w);
+    }
+    if let (Some(session), Some(t)) = (str_field(hook.get("session_id")), str_field(hook.get("transcript_path"))) {
+        cc::record_stated_transcript(root, session, t);
     }
     let Some(tokens) = cw.get("current_usage").and_then(cc::usage_tokens) else {
         let pct = num_field(cw.get("used_percentage"))?;

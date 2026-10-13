@@ -6,7 +6,7 @@ Goal: Keep interactive sessions short without losing continuity: when a session'
 
 Brief: the operator's words, 2366 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 8/10 tasks done (80%)
+Progress: 9/10 tasks done (90%)
 
 ## Phase 1 — Measure and spec [pending] — 2/2 done
 
@@ -18,10 +18,10 @@ Progress: 8/10 tasks done (80%)
 - [x] 2.1 Settings in ~/.config/sofar/config.json (same file as drive-cost 2.1) plus a per-repo override in .sofar/; defaults ceiling 200K, warn 150K, mode nudge; tokens or % of window — verification timeout (attempt 2)
 - [x] 2.2 CLI to view and change them: `sofar config get|set context.ceiling ...` with validation, and `sofar init` showing the active values — verification timeout (attempt 2)
 
-## Phase 3 — Handoff [pending] — 2/3 done
+## Phase 3 — Handoff [pending] — 3/3 done
 
 - [x] 3.1 Prompt hook: past warn, one terse line; past ceiling, tell the session to write back with sofar_end_session and ask the operator to /clear. Fire once per crossing, not every prompt — verified pass @9aef69d (attempt 1)
-- [ ] 3.2 Task-boundary nudge: when a task is marked done and context is past warn, suggest the handoff then, the cheapest point to break — verification fail (attempt 1, exit 1)
+- [x] 3.2 Task-boundary nudge: when a task is marked done and context is past warn, suggest the handoff then, the cheapest point to break — verification fail (attempt 1, exit 1)
 - [x] 3.3 Mid-task handoff keeps reasoning: the write-back carries done / half-done / tried-and-failed, and SessionStart after /clear shows it (test) — verified pass @4834e37 (attempt 2)
 
 ## Phase 4 — Statusline [pending] — 1/1 done
@@ -33,5 +33,5 @@ Progress: 8/10 tasks done (80%)
 - [x] 5.1 Replay splen transcripts (29 Sep-13 Oct) at the default ceiling: projected cache-read and total cost saving; predict before measuring — verified pass @3b85542 (attempt 1)
 - [ ] 5.2 A/B on a real workload, ceiling on vs off: tokens per task and resume quality; ship default-on only if quality holds (blocked)
 
-Next action: 3.2: redo transcript capture off SessionStart (statusline state, TS+Rust)
+Next action: 5.2: build the A/B harness per the logged design
 Blocked on: task 5.2: Operator decision needed to run the A/B: (1) Workload: which real work, and over how many sessions per arm? For example, the next N interactive splen/sofar sessions with SOFAR context ceiling on vs off, or alternating days. (2) Resume quality: who judges it, and by what test? For example, the operator rates each post-/clear resume pass/fail on 'picked up the next action without re-reading', or we count re-read tool calls in the first 20 calls after resume. (3) What is the 'quality holds' bar for shipping default-on? The feature must land on main first; it currently lives on the unlanded 3.1-4.1 branches.

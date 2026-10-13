@@ -160,19 +160,43 @@ pub fn hook_settings(root: &Path) -> Settings {
     s
 }
 
-fn window_file(root: &Path) -> Option<PathBuf> {
+fn session_map_file(root: &Path, name: &str) -> Option<PathBuf> {
     let dir = state_base().join(clone_key(root));
-    (!resolves_inside(&dir, root)).then(|| dir.join("context-window.json"))
+    (!resolves_inside(&dir, root)).then(|| dir.join(name))
+}
+
+const WINDOW_FILE: &str = "context-window.json";
+/// `TRANSCRIPT_FILE`: per-session transcript paths for the MCP server (3.2).
+const TRANSCRIPT_FILE: &str = "context-transcript.json";
+
+fn read_session_map(file: &Path) -> Object {
+    match std::fs::read(file).ok().map(|b| json::parse(&String::from_utf8_lossy(&b))) {
+        Some(Ok(Json::Obj(o))) => o,
+        _ => Object::new(),
+    }
+}
+
+/// `recordSessionValue`: set `session`'s value, writing only when it moved.
+fn record_session_value(file: Option<PathBuf>, session: &str, value: Json) {
+    let Some(file) = file else {
+        return;
+    };
+    let mut raw = read_session_map(&file);
+    if raw.get(session) == Some(&value) {
+        return;
+    }
+    raw.insert(session.to_owned(), value);
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = write_file_atomic(&file, format!("{}\n", json::stringify(&Json::Obj(raw))).as_bytes());
 }
 
 /// `statedWindow`: the window the statusline last stated for `session`.
 #[must_use]
 pub fn stated_window(root: &Path, session: &str) -> Option<f64> {
-    let bytes = std::fs::read(window_file(root)?).ok()?;
-    let Ok(Json::Obj(o)) = json::parse(&String::from_utf8_lossy(&bytes)) else {
-        return None;
-    };
-    o.get(session)
+    read_session_map(&session_map_file(root, WINDOW_FILE)?)
+        .get(session)
         .and_then(Json::as_f64)
         .filter(|w| w.fract() == 0.0 && *w > 0.0)
 }
@@ -180,24 +204,19 @@ pub fn stated_window(root: &Path, session: &str) -> Option<f64> {
 /// `recordStatedWindow`: the statusline records each window it is told, last
 /// stated wins. Silent on failure: unknown stays silent.
 pub fn record_stated_window(root: &Path, session: &str, window: f64) {
-    let Some(file) = window_file(root) else {
-        return;
-    };
     if !(window.fract() == 0.0 && window > 0.0) {
         return;
     }
-    let mut raw = match std::fs::read(&file).ok().map(|b| json::parse(&String::from_utf8_lossy(&b))) {
-        Some(Ok(Json::Obj(o))) => o,
-        _ => Object::new(),
-    };
-    if raw.get(session).and_then(Json::as_f64) == Some(window) {
+    record_session_value(session_map_file(root, WINDOW_FILE), session, Json::Num(window));
+}
+
+/// `recordStatedTranscript`: the transcript the statusline was handed, last
+/// named wins — never SessionStart, which writes nothing.
+pub fn record_stated_transcript(root: &Path, session: &str, transcript: &str) {
+    if transcript.is_empty() {
         return;
     }
-    raw.insert(session.to_owned(), Json::Num(window));
-    if let Some(dir) = file.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    let _ = write_file_atomic(&file, format!("{}\n", json::stringify(&Json::Obj(raw))).as_bytes());
+    record_session_value(session_map_file(root, TRANSCRIPT_FILE), session, Json::Str(transcript.to_owned()));
 }
 
 /// `usageTokens`: input + cache creation + cache read; None when `usage`

@@ -123,42 +123,66 @@ export function hookContextSettings(rootDir: string, env: StateEnv = process.env
 }
 
 const WINDOW_FILE = 'context-window.json'
+/** Per-session transcript paths, for the MCP server, which is never handed one (context-ceiling 3.2). */
+const TRANSCRIPT_FILE = 'context-transcript.json'
 
-function windowFile(rootDir: string, env: StateEnv): string | null {
+function sessionMapFile(rootDir: string, name: string, env: StateEnv): string | null {
   const dir = join(stateBase(env), cloneKey(rootDir))
-  return resolvesInside(dir, rootDir) ? null : join(dir, WINDOW_FILE)
+  return resolvesInside(dir, rootDir) ? null : join(dir, name)
 }
 
-/** The window the statusline last stated for `session`, else undefined — never a default. */
-export function statedWindow(rootDir: string, session: string, env: StateEnv = process.env): number | undefined {
-  const file = windowFile(rootDir, env)
-  if (file === null) return undefined
+function readSessionMap(file: string): Record<string, unknown> {
   try {
-    const raw = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
-    const v = raw[session]
-    return typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : undefined
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as unknown
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) return parsed as Record<string, unknown>
   } catch {
-    return undefined
+    // A missing or torn file starts over.
   }
+  return {}
 }
 
-/** Record a window the statusline was told (last stated wins). Silent on failure: unknown stays silent. */
-export function recordStatedWindow(rootDir: string, session: string, window: number, env: StateEnv = process.env): void {
-  const file = windowFile(rootDir, env)
-  if (file === null || !(Number.isInteger(window) && window > 0)) return
+/** Set `session`'s value, writing only when it moved. Silent on failure: unknown stays silent. */
+function recordSessionValue(file: string | null, session: string, value: number | string): void {
+  if (file === null) return
   try {
-    let raw: Record<string, unknown> = {}
-    try {
-      const parsed = JSON.parse(readFileSync(file, 'utf8')) as unknown
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) raw = parsed as Record<string, unknown>
-    } catch {
-      // A missing or torn file starts over.
-    }
-    if (raw[session] === window) return
-    raw[session] = window
+    const raw = readSessionMap(file)
+    if (raw[session] === value) return
+    raw[session] = value
     mkdirSync(join(file, '..'), { recursive: true })
     writeFileAtomic(file, `${JSON.stringify(raw)}\n`)
   } catch {
     // See the header.
   }
+}
+
+/** The window the statusline last stated for `session`, else undefined — never a default. */
+export function statedWindow(rootDir: string, session: string, env: StateEnv = process.env): number | undefined {
+  const file = sessionMapFile(rootDir, WINDOW_FILE, env)
+  if (file === null) return undefined
+  const v = readSessionMap(file)[session]
+  return typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : undefined
+}
+
+/** Record a window the statusline was told (last stated wins). */
+export function recordStatedWindow(rootDir: string, session: string, window: number, env: StateEnv = process.env): void {
+  if (!(Number.isInteger(window) && window > 0)) return
+  recordSessionValue(sessionMapFile(rootDir, WINDOW_FILE, env), session, window)
+}
+
+/** The transcript the statusline last named for `session`, else null. */
+export function statedTranscript(rootDir: string, session: string, env: StateEnv = process.env): string | null {
+  const file = sessionMapFile(rootDir, TRANSCRIPT_FILE, env)
+  if (file === null) return null
+  const v = readSessionMap(file)[session]
+  return typeof v === 'string' && v.length > 0 ? v : null
+}
+
+/**
+ * Record the transcript the statusline was handed (last named wins). The
+ * statusline, not SessionStart: it already writes here, and SessionStart
+ * writes nothing (its shim budget, speed T2).
+ */
+export function recordStatedTranscript(rootDir: string, session: string, transcript: string, env: StateEnv = process.env): void {
+  if (transcript.length === 0) return
+  recordSessionValue(sessionMapFile(rootDir, TRANSCRIPT_FILE, env), session, transcript)
 }

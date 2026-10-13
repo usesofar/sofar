@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type { Command } from 'commander'
 import { isClosedInitiativeStatus, type InitiativeStatus, type RunStopReason } from '@sofar/schema'
-import { contextBand, hookContextSettings, kTokens, recordStatedWindow, resolveThresholds } from '../core/context-ceiling'
+import { contextBand, hookContextSettings, kTokens, recordStatedTranscript, recordStatedWindow, resolveThresholds } from '../core/context-ceiling'
 import { statuslineGauge } from '../core/context-gauge'
 import { taskInFlight } from '../core/drive-queue'
 import { latestRun, type InitiativeState } from '../core/fold'
@@ -386,13 +386,17 @@ type CtxTone = 'success' | 'warn' | 'error' | null
  * usage, and the stated percentage stands in on its old compaction bands (D7).
  *
  * Also the one place the window is told (D3): it is recorded for the session
- * so the prompt hook can resolve a percentage threshold.
+ * so the prompt hook can resolve a percentage threshold. The transcript path
+ * is recorded beside it for the task-boundary nudge (3.2), whose MCP server
+ * is never handed one.
  */
 function ctxSegment(rootDir: string, hook: Obj): { value: string; tone: CtxTone } | null {
   const gauge = statuslineGauge(hook)
   if (gauge === null) return null
   const session = strField(hook.session_id)
   if (session !== null && gauge.window !== null) recordStatedWindow(rootDir, session, gauge.window)
+  const transcript = strField(hook.transcript_path)
+  if (session !== null && transcript !== null) recordStatedTranscript(rootDir, session, transcript)
   if (gauge.tokens === null) {
     const pct = gauge.usedPct
     if (pct === null) return null

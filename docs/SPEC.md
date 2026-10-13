@@ -8531,6 +8531,11 @@ cache_creation_input_tokens + cache_read_input_tokens` of the latest call.
   (`$XDG_STATE_HOME/sofar/<cloneKey>/`, never under `.sofar/`), keyed by
   session id, last stated wins; a hook resolves a percentage against that and
   nothing else.
+- The MCP server is never handed `transcript_path`. The statusline writes the
+  path it is handed beside the window, to `context-transcript.json` (same
+  dir, same keying, written only when it moves), and the task-boundary line
+  reads the gauge from that. SessionStart writes neither: it writes nothing
+  (speed T2's shim budget).
 - Unknown reads as unknown, never as zero: an unreadable transcript, a tail
   with no usage line or a percentage with no stated window makes the hook
   SILENT for that threshold.

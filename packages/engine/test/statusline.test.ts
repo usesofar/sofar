@@ -19,7 +19,7 @@ import {
 } from '../src/cli/init'
 import { ulid } from 'ulid'
 import { claimRunLock } from '../src/core/run-lock'
-import { statedWindow } from '../src/core/context-ceiling'
+import { statedTranscript, statedWindow } from '../src/core/context-ceiling'
 import { makeRepoFixture, type Fixture, type FixtureOptions } from './helpers/mcp'
 import { builtCore } from './helpers/built-core'
 
@@ -461,6 +461,15 @@ describe('sofar statusline — ctx size banded by the context settings (context-
     expect(statedWindow(fixture.root, 'sess-1')).toBe(200_000)
     runStatusline(fixture.root, held(20_000, { context_window_size: 1_000_000 }))
     expect(statedWindow(fixture.root, 'sess-1')).toBe(1_000_000)
+  })
+
+  it('records the transcript it is handed, per session, for the task-boundary nudge (3.2)', () => {
+    const fixture = fx({ bind: false })
+    expect(statedTranscript(fixture.root, 'sess-1')).toBeNull()
+    runStatusline(fixture.root, JSON.stringify({ ...JSON.parse(held(20_000)), transcript_path: '/t/a.jsonl' }))
+    expect(statedTranscript(fixture.root, 'sess-1')).toBe('/t/a.jsonl')
+    runStatusline(fixture.root, JSON.stringify({ ...JSON.parse(held(20_000)), transcript_path: '/t/b.jsonl' }))
+    expect(statedTranscript(fixture.root, 'sess-1')).toBe('/t/b.jsonl')
   })
 })
 
