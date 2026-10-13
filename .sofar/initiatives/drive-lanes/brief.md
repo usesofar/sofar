@@ -310,3 +310,13 @@ so basically I can run the same phase both locally and cloud in parallel and bit
   
   Next: try `/drive-panel` in a live session during a `--lanes` run, then again once the engine writes the hosted file.
 </agent-message>
+
+--- Operator, 2026-10-13 ---
+
+<cross-session-message from="uds:/tmp/cc-socks/52515.sock" from-name="Orchastra" from-mode="bypass">
+PAUSE: the operator is closing the laptop. If lane-1-ae, lane-2-58 and lane-3-d6 are yours, have each one finish its current step, commit with an explicit pathspec, write back with sofar_end_session and start nothing new. Then reply "paused" to Orchastra.
+</cross-session-message>
+
+--- Operator, 2026-10-13 ---
+
+The bug: when I run two software drives in two initiatives, the panel itself is showing only one. In the Felt initiative I already opened a new session, where I am running a drive, and I also made the panel visible there. Even in the context session it is running the drive but the thing is that it's also showing the files drive status

@@ -4,9 +4,9 @@
 
 Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: ready-frontier scheduling, region leases at edit time, a serial merge queue and the record as the shared blackboard. Local worktrees first, then Claude Code cloud sessions. Each step is kept only where it beats serial drive on a fixture (no degradation, in percentages), and a driven task costs fewer tokens than native Claude Code (one session with its own subagents) on the same fixture.
 
-Brief: the operator's words, 18598 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 19379 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 31 done, 3 dropped, 0 remaining
+Progress: 31 done, 3 dropped, 3 remaining
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
@@ -18,12 +18,13 @@ Progress: 31 done, 3 dropped, 0 remaining
 
 ## Phase 5 — Cloud lanes [done] — 5/5 done — its tasks in phases/P5.md
 
-## Phase 6 — Side effects and the four-way comparison [active] — 4/4 done
+## Phase 6 — Side effects and the four-way comparison [done] — 4/4 done — its tasks in phases/P6.md
 
-- [x] 6.1 Fix the side effects the audit found: the frame asks for memories and notes in the closing block and a summary that names files and open questions; a hosted run keeps command_run/file_touched (chunking lifted the size cap) and re-runs each landed task's verify locally after git am, failing loudly if red
-- [x] 6.2 Record-completeness metrics in measure.mjs for every drive arm (write-backs filed, verifications, activity events, decisions and memories captured, summary length, brief leaks), plus a probe task that requires a decision and a memory, run on local serial, local lanes and hosted, so a lost decision or memory shows as a number
-- [x] 6.3 Native cloud arm: one cloud session runs `claude -p <native prompt>` (Claude Code's own subagents, no sofar) in its VM, returns its commits and its JSON cost; the local tree is verified after git am
-- [x] 6.4 Four-way comparison, 3 interleaved reps each on the nine-task fixture: native local, native cloud, drive local (serial and lanes), drive hosted (serial and lanes) — wall-clock, done rate, final tree green, cost per task, record completeness
+## Phase 7 — Lanes robustness [active] — 0/3 done
 
-Active phase: Phase 6 — Side effects and the four-way comparison
-Next action: Cut rc.3 with D59, then try /drive-panel on a live --lanes run
+- [ ] 7.1 Driven sessions refuse cross-session messages: the Claude Code adapter's per-session settings file (written and read back at every launch, D8) sets "crossSessionInbound": "refuse", so a peer's broadcast (seen live: Orchastra's PAUSE reached lanes 1 and 3 of context-ceiling run 01M4T8WNP5HKFGW3S1VPN9PC22 and caused both stalls) never reaches a driven session. Test in packages/engine/test/adapter-claude-code.test.ts or driver-permissions.test.ts that the written settings carry it; SPEC beside the surface paragraph
+- [ ] 7.2 A lanes run's stop waits for in-flight work: when a stop rule fires (stalls, max_sessions, cost cap, stop request), the coordinator launches nothing new but lets every running lane's session, gate and landing finish before appending run_stopped (seen live: run 01M4T8WNP5HKFGW3S1VPN9PC22 stopped on 2 stalls one second after 1.2's task_done, so 1.2 was never verified or landed). Test in packages/engine/test/drive-lanes.test.ts with the fake adapter: a stall-stop while another lane's done task is mid-gate still lands it
+- [ ] 7.3 Stranded lanes work carries forward: a new lanes run of an initiative whose earlier stopped run left an unmerged base (sofar/<slug>/<run>) or task branches with commits for tasks still pending cuts its base from that earlier base when HEAD is its ancestor, and starts each such task on its existing branch (rebased or merged onto the new base), saying so on a progress line; the stop line of any lanes run lists unlanded task branches that carry commits. Test in packages/engine/test/drive-lanes.test.ts: stop a run with one task's commits unlanded, start a new run, the task resumes from its branch and nothing is redone
+
+Active phase: Phase 7 — Lanes robustness
+Next action: 7.1-7.3 under sofar drive drive-lanes (lanes), then verify the fixes on a live run
