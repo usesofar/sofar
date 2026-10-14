@@ -6,6 +6,9 @@
 //
 // Run: node scripts/ceiling-ab-sim.mjs --out <dir> [--commit HEAD] [--model sonnet]
 //   [--tasks 8] [--turns 12] [--parallel 3] [--max-usd 150] [--ceiling 200000] [--report-only]
+//   [--arms on,off] [--match <arm>]
+// --arms bare adds the no-sofar arm (stripSofar); with --match off it runs
+// each audit only as far as the off arm got, so the arms share their prompts.
 // The hooks and MCP server run THIS tree's build: SOFAR_CORE names
 // target/release/sofar-core and a `sofar` shim on PATH runs
 // packages/engine/dist/cli.js — build both first. Re-running with the same
@@ -17,7 +20,7 @@
 // fresh session, as /clear would. Every follow-up names its subsystem, so a
 // fresh session is asked the same thing either arm is.
 import { execFileSync, spawn } from 'node:child_process'
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -103,13 +106,32 @@ function setupArm(out, arm, commit) {
   if (existsSync(join(dir, '.git'))) return dir
   mkdirSync(dir, { recursive: true })
   execFileSync('sh', ['-c', `git -C "${REPO}" archive ${commit} | tar -x -C "${dir}"`])
-  const mode = arm === 'on' ? 'nudge' : 'off'
-  writeFileSync(join(dir, '.sofar', 'config.json'), `${JSON.stringify({ context: { mode } }, null, 2)}\n`)
+  if (arm === 'bare') stripSofar(dir)
+  else writeFileSync(join(dir, '.sofar', 'config.json'), `${JSON.stringify({ context: { mode: arm === 'on' ? 'nudge' : 'off' } }, null, 2)}\n`)
   const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: 'ignore' })
   git('init', '-q')
   git('add', '-A')
   git('-c', 'user.name=ab', '-c', 'user.email=ab@localhost', 'commit', '-q', '-m', `ab ${arm} @ ${commit}`)
   return dir
+}
+
+/**
+ * The no-sofar arm: what a repo without sofar would hand Claude Code — no
+ * hooks, no MCP server, no record, and no CLAUDE.md section naming either.
+ * The record goes too (operator, 2026-10-14): left as files, a session could
+ * read its way to the continuity only sofar gives.
+ */
+export function stripSofar(dir) {
+  rmSync(join(dir, '.sofar'), { recursive: true, force: true })
+  rmSync(join(dir, '.mcp.json'), { force: true })
+  rmSync(join(dir, '.claude', 'hooks'), { recursive: true, force: true })
+  writeFileSync(join(dir, '.claude', 'settings.json'), '{}\n')
+  const claudeMd = join(dir, 'CLAUDE.md')
+  if (existsSync(claudeMd)) {
+    const sections = readFileSync(claudeMd, 'utf8').split(/\n(?=## )/)
+    const kept = sections.filter((x) => !/^## (Sofar protocol|Initiative record)/.test(x))
+    writeFileSync(claudeMd, `${kept.join('\n').trimEnd()}\n`)
+  }
 }
 
 function shimEnv(out) {
@@ -218,8 +240,9 @@ export function auditRereads(sessionReads) {
 /** Per arm: $ per prompt from the turn log, re-reads per audit from its transcripts. */
 export function report(rows, { transcriptOf: find = transcriptOf, read = readTranscript } = {}) {
   const out = {}
-  for (const arm of ['on', 'off']) {
+  for (const arm of ['on', 'off', 'bare']) {
     const mine = rows.filter((r) => r.arm === arm && r.ok)
+    if (mine.length === 0) continue
     const sessions = new Set(mine.map((r) => r.session))
     const tasks = [...new Set(mine.map((r) => r.task))]
     const rereads = tasks.map((task) => {
@@ -238,8 +261,8 @@ export function report(rows, { transcriptOf: find = transcriptOf, read = readTra
     }
   }
   const { on, off } = out
-  out.costDrop = on.usdPerPrompt !== null && off.usdPerPrompt ? 1 - on.usdPerPrompt / off.usdPerPrompt : null
-  out.rereadRise = on.rereadsPerAudit !== null && off.rereadsPerAudit ? on.rereadsPerAudit / off.rereadsPerAudit - 1 : null
+  out.costDrop = on?.usdPerPrompt && off?.usdPerPrompt ? 1 - on.usdPerPrompt / off.usdPerPrompt : null
+  out.rereadRise = on?.rereadsPerAudit != null && off?.rereadsPerAudit ? on.rereadsPerAudit / off.rereadsPerAudit - 1 : null
   return out
 }
 
@@ -265,21 +288,34 @@ async function main(argv) {
     if (!existsSync(join(REPO, f))) throw new Error(`build ${f} first`)
   }
   const env = shimEnv(out)
-  const cwd = { on: setupArm(out, 'on', commit), off: setupArm(out, 'off', commit) }
+  const arms = opt('arms', 'on,off').split(',')
+  // --match <arm>: run each audit only as far as <arm> got, for a later arm
+  // compared on the same prompts.
+  const match = opt('match', null)
+  const reach = (task) => (match === null ? turns : rows.filter((r) => r.arm === match && r.task === task && r.ok).length)
+  const cwd = Object.fromEntries(arms.map((arm) => [arm, setupArm(out, arm, commit)]))
   if (!argv.includes('--report-only')) {
-    // Interleaved, so time of day and machine load fall on both arms alike.
+    // Interleaved, so time of day and machine load fall on every arm alike.
     const jobs = []
     for (let task = 0; task < tasks; task++) {
-      for (const arm of ['on', 'off']) jobs.push(() => runAudit({ out, arm, cwd: cwd[arm], env, model, task, turns, ceiling, log, done, budget }))
+      const n = Math.min(turns, reach(task))
+      if (n === 0) continue
+      for (const arm of arms) jobs.push(() => runAudit({ out, arm, cwd: cwd[arm], env, model, task, turns: n, ceiling, log, done, budget }))
     }
-    await pool(jobs, parallel * 2)
+    await pool(jobs, parallel * arms.length)
   }
   const all = readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
   const r = report(all)
   writeFileSync(join(out, 'report.json'), `${JSON.stringify(r, null, 2)}\n`)
-  for (const arm of ['on', 'off']) {
+  for (const arm of ['on', 'off', 'bare']) {
     const a = r[arm]
+    if (!a) continue
     console.log(`${arm}: ${a.turns} prompts in ${a.sessions} sessions, $${a.usd.toFixed(2)} ($${a.usdPerPrompt?.toFixed(3) ?? '—'}/prompt), peak ${a.peakK}K, re-reads/audit ${a.rereadsPerAudit?.toFixed(1) ?? '—'} over ${a.audits} audits`)
+  }
+  if (r.bare) {
+    for (const arm of ['on', 'off']) {
+      if (r[arm]) console.log(`${arm} vs no sofar: cost per prompt ${(r[arm].usdPerPrompt / r.bare.usdPerPrompt - 1 >= 0 ? '+' : '−') + Math.abs((r[arm].usdPerPrompt / r.bare.usdPerPrompt - 1) * 100).toFixed(1)}%`)
+    }
   }
   const signed = (x) => (x === null ? '—' : `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1)}%`)
   console.log(`on vs off: cost per prompt ${signed(r.costDrop === null ? null : -r.costDrop)}, re-reads per audit ${signed(r.rereadRise)}`)

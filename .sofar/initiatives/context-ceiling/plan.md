@@ -33,4 +33,4 @@ Progress: 9/10 tasks done (90%)
 - [x] 5.1 Replay splen transcripts (29 Sep-13 Oct) at the default ceiling: projected cache-read and total cost saving; predict before measuring — verified pass @3b85542 (attempt 1)
 - [ ] 5.2 A/B on a real workload, ceiling on vs off: tokens per task and resume quality; ship default-on only if quality holds (active)
 
-Next action: Operator: accept the sim for 5.2, or run the live 10-per-arm A/B
+Next action: Operator: close 5.2 on the sim, or add a no-sofar+/clear arm

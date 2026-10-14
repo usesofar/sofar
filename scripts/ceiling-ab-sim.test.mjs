@@ -1,9 +1,9 @@
 // context-ceiling 5.2 (D19): the synthetic A/B's operator and its measures.
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { auditPrompts, auditRereads, endedTokens, nextSession, report, SUBSYSTEMS } from './ceiling-ab-sim.mjs'
+import { auditPrompts, auditRereads, endedTokens, nextSession, report, stripSofar, SUBSYSTEMS } from './ceiling-ab-sim.mjs'
 
 describe('auditPrompts', () => {
   it('opens the audit, then follow-ups that each name the subsystem, `turns` long', () => {
@@ -65,5 +65,24 @@ describe('report', () => {
     expect(r.off).toMatchObject({ turns: 2, sessions: 1, usdPerPrompt: 1, rereadsPerAudit: 0 })
     expect(r.costDrop).toBeCloseTo(0.2)
     expect(r.rereadRise).toBeNull() // no re-reads off: a rise has no base
+  })
+})
+
+describe('stripSofar', () => {
+  it('removes the hooks, the MCP server, the record and the CLAUDE.md sections naming them', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sofar-bare-'))
+    mkdirSync(join(dir, '.claude', 'hooks'), { recursive: true })
+    mkdirSync(join(dir, '.sofar'))
+    writeFileSync(join(dir, '.claude', 'hooks', 'stop.sh'), 'x')
+    writeFileSync(join(dir, '.claude', 'settings.json'), '{"hooks":{}}')
+    writeFileSync(join(dir, '.mcp.json'), '{}')
+    writeFileSync(join(dir, '.sofar', 'repo.md'), 'r')
+    writeFileSync(join(dir, 'CLAUDE.md'), '# repo\n\n## Initiative record (self-hosted)\nin .sofar/\n\n## Conventions\nstrict\n\n## Sofar protocol (jurisdiction is total)\nwrite back\n')
+    stripSofar(dir)
+    expect(existsSync(join(dir, '.claude', 'hooks'))).toBe(false)
+    expect(existsSync(join(dir, '.mcp.json'))).toBe(false)
+    expect(readFileSync(join(dir, '.claude', 'settings.json'), 'utf8')).toBe('{}\n')
+    expect(readFileSync(join(dir, 'CLAUDE.md'), 'utf8')).toBe('# repo\n\n## Conventions\nstrict\n')
+    expect(existsSync(join(dir, '.sofar'))).toBe(false)
   })
 })
