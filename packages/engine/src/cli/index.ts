@@ -767,7 +767,7 @@ program
   )
   .option(
     '--verify-quick <cmd>',
-    'tiered verify (drive-lanes 2.6): run this after each task instead of --verify, {files} replaced by the paths the task changed; --verify then runs once at each phase end and at the run end, a failure bisected to its task',
+    'tiered verify (drive-lanes 2.6): run this after each task instead of --verify, {files} replaced by the paths the task changed; --verify then runs once at each phase end and at the run end, a failure bisected to its task. Default with --verify when vitest is installed: `npx vitest related --run --passWithNoTests {files}`; `none` runs --verify per task',
   )
   .option('--verify-timeout <seconds>', 'kill an acceptance command that has not ended in this long (default 600); it runs once more when the load clears, and a second timeout stops the run')
   .option('--max-verify-attempts <n>', 'stop the run once one task has failed verification this many times (default 3)')

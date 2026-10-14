@@ -8,7 +8,7 @@ import { makeEvent } from '../src/core/envelope'
 import { foldLog, type InitiativeState } from '../src/core/fold'
 import { appendEvent } from '../src/core/log'
 import { drive } from '../src/driver/drive'
-import { bisectWindow, CLEAN_TREE, expandFiles, gateWindow, type RecordedCheck, type WindowTask } from '../src/driver/verify'
+import { bisectWindow, CLEAN_TREE, defaultVerifyQuick, expandFiles, gateWindow, VITEST_QUICK_TIER, type RecordedCheck, type WindowTask } from '../src/driver/verify'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
 
 /**
@@ -285,5 +285,65 @@ describe('sofar drive --verify-quick (2.6)', () => {
     expect(outcome.handoffs.map((h) => h.task)).toEqual(['1.1', '1.2', '1.3', '1.3', '2.1'])
     // 1.3 was accepted with `broken` uncommitted: 1.1's and 1.2's commits pass, so it is 1.3.
     expect(lines.join('\n')).toMatch(/1\.3 reopened — the full gate failed at the end of Phase 1, and bisecting 3 tasks pinned it to 1\.3: /)
+  })
+})
+
+describe('sofar drive tiers by default (8.2, D64)', () => {
+  /** A repo with vitest "installed": a stub bin that passes, logging the paths it was given. */
+  function withVitest(name: string): string {
+    const root = repo(name)
+    writeFileSync(join(root, 'package.json'), '{"name":"demo","private":true}\n')
+    writeFileSync(join(root, '.gitignore'), 'node_modules\nvitest.args\n')
+    mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true })
+    const bin = join(root, 'node_modules', '.bin', 'vitest')
+    writeFileSync(bin, `#!/bin/sh\necho "$@" >> '${join(root, 'vitest.args')}'\n`, { mode: 0o755 })
+    git(root, 'add', '-A')
+    git(root, 'commit', '-qm', 'vitest')
+    return root
+  }
+  const sessions = (root: string): FakeScript[] => [
+    commits(root, 'S1', ['a.txt']),
+    commits(root, 'S2', ['b.txt']),
+    commits(root, 'S3', ['c.txt']),
+    commits(root, 'S4', ['d.txt']),
+  ]
+
+  it('gates each task on vitest related when vitest is installed, the full gate at each phase end', async () => {
+    const root = withVitest('default')
+    const lines: string[] = []
+    const outcome = await drive(root, 'demo', { adapter: new FakeAdapter(sessions(root)), verify: FULL, laneSetup: 'none', onProgress: (l) => lines.push(l) })
+
+    expect(outcome.stop.reason).toBe('closed')
+    expect(defaultVerifyQuick(root)).toBe(VITEST_QUICK_TIER)
+    expect(state(root).runs[0]!.verify_quick).toBe(VITEST_QUICK_TIER)
+    expect(lines.join('\n')).toContain(`verify per task: ${VITEST_QUICK_TIER} (the default with vitest installed; --verify-quick none runs the full gate per task)`)
+    expect(checks(root).filter((c) => c.command !== FULL).map((c) => `${c.task} ${c.command}`)).toEqual([
+      "1.1 npx vitest related --run --passWithNoTests 'a.txt'",
+      "1.2 npx vitest related --run --passWithNoTests 'b.txt'",
+      "1.3 npx vitest related --run --passWithNoTests 'c.txt'",
+      "2.1 npx vitest related --run --passWithNoTests 'd.txt'",
+    ])
+    expect(checks(root).filter((c) => c.command === FULL).map((c) => `${c.task}:${c.result}`)).toEqual(['1.3:pass', '2.1:pass'])
+    expect(readFileSync(join(root, 'vitest.args'), 'utf8').trim().split('\n')).toEqual(['related --run --passWithNoTests a.txt', 'related --run --passWithNoTests b.txt', 'related --run --passWithNoTests c.txt', 'related --run --passWithNoTests d.txt'])
+  })
+
+  it('runs the full gate per task under --verify-quick none, recording no tier', async () => {
+    const root = withVitest('none')
+    const outcome = await drive(root, 'demo', { adapter: new FakeAdapter(sessions(root)), verify: FULL, verifyQuick: 'none' })
+
+    expect(outcome.stop.reason).toBe('closed')
+    expect(state(root).runs[0]!.verify_quick).toBeUndefined()
+    expect(new Set(checks(root).map((c) => c.command))).toEqual(new Set([FULL]))
+    expect(existsSync(join(root, 'vitest.args'))).toBe(false)
+  })
+
+  it('defaults nothing without vitest installed', async () => {
+    const root = repo('novitest')
+    const outcome = await drive(root, 'demo', { adapter: new FakeAdapter(sessions(root)), verify: FULL })
+
+    expect(outcome.stop.reason).toBe('closed')
+    expect(defaultVerifyQuick(root)).toBeUndefined()
+    expect(state(root).runs[0]!.verify_quick).toBeUndefined()
+    expect(new Set(checks(root).map((c) => c.command))).toEqual(new Set([FULL]))
   })
 })

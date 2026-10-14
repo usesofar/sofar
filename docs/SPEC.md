@@ -3100,6 +3100,14 @@ bisecting <n> tasks pinned it to <task>[ (no commit separates <tasks>)]:
 task, saying why. `--max-verify-attempts` counts the pinned task's failures
 as for any check. A run without `--verify-quick` gates exactly as before.
 
+**Default tier (drive-lanes 8.2, D64).** A fresh run with `--verify` and no
+`--verify-quick` is tiered when vitest is installed at the repository root
+(`node_modules/.bin/vitest` exists): its quick command is
+`npx vitest related --run --passWithNoTests {files}`, recorded in
+`run_started.verify_quick` and said on the opening line as the default.
+`--verify-quick none` states no tier, so every task runs `--verify`. Nothing
+defaults without vitest installed, and a resumed run keeps its recorded tier.
+
 **Per-task routing (3.2, D10).** A plan task may carry
 `route {agent?, model?, effort?}`, and the driver resolves it at every launch.
 The RUN outranks it: the model/effort `run_started.surface` recorded, or the

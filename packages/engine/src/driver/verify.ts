@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { execFileSync, spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import type { TaskVerify, VerificationResult } from '@sofar/schema'
 import type { RunState, TaskState, TaskVerification } from '../core/fold'
 import { redactCommand } from '../core/redact'
@@ -425,6 +425,21 @@ export const FILES_PLACEHOLDER = '{files}'
 /** `cmd` with every `{files}` replaced by `files`, each single-quoted for /bin/sh; nothing when there are none. */
 export function expandFiles(cmd: string, files: readonly string[]): string {
   return cmd.split(FILES_PLACEHOLDER).join(files.map((f) => `'${f.replace(/'/g, `'\\''`)}'`).join(' '))
+}
+
+/** `--verify-quick none`: no quick tier, so every task runs the full gate (drive-lanes 8.2, D64). */
+export const QUICK_TIER_NONE = 'none'
+
+/** The quick tier a run with `--verify` takes when vitest is installed at `root` (drive-lanes 8.2, D64). */
+export const VITEST_QUICK_TIER = `npx vitest related --run --passWithNoTests ${FILES_PLACEHOLDER}`
+
+/**
+ * The default quick tier (drive-lanes 8.2, D64): `vitest related` on the
+ * paths a task changed when vitest is installed at `root`, else none. A fact
+ * read off the disk, never a guess at what the project tests with.
+ */
+export function defaultVerifyQuick(root: string): string | undefined {
+  return existsSync(join(root, 'node_modules', '.bin', 'vitest')) ? VITEST_QUICK_TIER : undefined
 }
 
 /** The `tree` fingerprintTree gives a checkout holding nothing uncommitted: its HEAD alone names that tree. */

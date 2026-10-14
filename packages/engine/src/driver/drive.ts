@@ -62,10 +62,12 @@ import {
   commandAllowed,
   DEFAULT_MAX_VERIFY_ATTEMPTS,
   DEFAULT_VERIFY_TIMEOUT_MS,
+  defaultVerifyQuick,
   describeVerification,
   diffStatSince,
   fingerprintTree,
   headOf,
+  QUICK_TIER_NONE,
   resolveVerify,
   startVerification,
   verificationCovers,
@@ -849,7 +851,8 @@ async function driveHolding(
   // driver's flags for a fresh run, taken from the record for a resumed one.
   let surface = options.surface
   let verify = options.verify
-  let verifyQuick = options.verifyQuick
+  // `--verify-quick none` states no quick tier (8.2): kept apart from unstated, which may default.
+  let verifyQuick = options.verifyQuick === QUICK_TIER_NONE ? undefined : options.verifyQuick
 
   const cwd = resolve(options.cwd ?? rootDir)
   assertSameRecord(cwd, initiative, ctx.eventsPath(initiative))
@@ -934,7 +937,7 @@ async function driveHolding(
     }
     verify = last.verify ?? verify
     // Tiering is the run's too (2.6): a run half tiered is two runs wearing one id.
-    if (options.verifyQuick !== undefined && options.verifyQuick !== last.verify_quick) {
+    if (options.verifyQuick !== undefined && verifyQuick !== last.verify_quick) {
       opening.push(`keeping run ${last.id}'s recorded --verify-quick (${last.verify_quick !== undefined ? `\`${last.verify_quick}\`` : 'none — every task runs the full gate'}) over this driver's — start a new run to change it`)
     }
     verifyQuick = last.verify_quick
@@ -963,6 +966,12 @@ async function driveHolding(
       )
     }
   }
+  // Tiered by default (8.2, D64): a fresh run with a full gate and no stated
+  // tier runs `vitest related` per task when vitest is installed, the full
+  // gate at each phase end and the run end.
+  const quickDefault = !resuming && options.verifyQuick === undefined && verify !== undefined ? defaultVerifyQuick(rootDir) : undefined
+  const quickDefaulted = quickDefault !== undefined
+  if (quickDefaulted) verifyQuick = quickDefault
   // A lanes run's refusals (drive-lanes 2.2), on the count the run will
   // actually use — a resumed run's recorded one.
   if (lanes > 1) {
@@ -986,7 +995,9 @@ async function driveHolding(
     opening.push(`run ${runId} — ${adapter.name}, ${policy} policy, in ${cwd}`)
     if (surface !== undefined) opening.push(`  permissions: ${describeSurface(surface)}`)
     if (verify !== undefined) opening.push(`  verify: ${verify}${verifyQuick !== undefined ? ` — the full gate, at each phase end and the run end` : ''}`)
-    if (verifyQuick !== undefined) opening.push(`  verify per task: ${verifyQuick}`)
+    if (verifyQuick !== undefined) {
+      opening.push(`  verify per task: ${verifyQuick}${quickDefaulted ? ' (the default with vitest installed; --verify-quick none runs the full gate per task)' : ''}`)
+    }
   }
 
   // Everything a launch needs to know about WHERE a task runs (3.2): the
