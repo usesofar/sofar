@@ -1,4 +1,4 @@
-// The live A/B behind default-on (context-ceiling 5.2, D7): the ceiling on
+// The live A/B behind default-on (context-ceiling 5.2, D17): the ceiling on
 // for one stretch of real work, off for another, compared from the Claude
 // Code transcripts those stretches left. Reads ~/.claude/projects/<project>/
 // only and calls no model.
@@ -13,13 +13,13 @@
 // - cost per operator prompt: main-chain plus subagent calls, in the replay's
 //   Opus-input-token weights (scripts/ceiling-replay.mjs). Per prompt, not per
 //   transcript: a /clear splits one stretch of work into several transcripts,
-//   so a per-transcript cost would flatter the on arm by construction (D8).
+//   so a per-transcript cost would flatter the on arm by construction (D18).
 // - re-reads after a start: of the first `--first` tool calls of a transcript
 //   that follows another in the same project within `--gap` minutes, the
 //   file reads (Read, Grep, Glob, and cat/sed/head/tail/grep/rg… in Bash)
 //   of a path that predecessor had already read. Fresh starts with no
 //   predecessor count in neither arm.
-// Verdict (D7): ship default-on only when each arm holds at least `--min`
+// Verdict (D17): ship default-on only when each arm holds at least `--min`
 // transcripts with a prompt, cost per prompt falls by 10% or more, and
 // re-reads per start rise by no more than 20%.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -187,7 +187,7 @@ function armOf(transcripts, { from, to }) {
   }
 }
 
-/** The two arms and the D7 verdict. */
+/** The two arms and the D17 verdict. */
 export function compare(transcripts, { on, off, min }) {
   const a = armOf(transcripts, on)
   const b = armOf(transcripts, off)

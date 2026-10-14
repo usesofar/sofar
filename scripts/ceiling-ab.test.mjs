@@ -1,4 +1,4 @@
-// context-ceiling 5.2: the A/B measure behind default-on (D7, D8).
+// context-ceiling 5.2: the A/B measure behind default-on (D17, D18).
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
