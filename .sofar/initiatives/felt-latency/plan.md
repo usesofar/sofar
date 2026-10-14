@@ -6,15 +6,15 @@ Goal: Cut sofar's felt cost per session (forced turns, injected tokens, extra ro
 
 Brief: the operator's words, 1978 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 10/11 tasks done (90%)
+Progress: 10 done, 1 dropped, 0 remaining
 
-## Phase 1 — Felt latency [active] — 10/11 done
+## Phase 1 — Felt latency [active] — 10/11 (1 dropped) done
 
 - [x] L3 Context diet: halve the +4.5-5.3k per-call prefix (CLAUDE.md block, alwaysLoad schemas, MCP instructions, digest); first lever: serve the protocol's situational sections (DRIVING 1.1 KB, PLAN 0.7 KB, LINKS 0.5 KB) only when a prompt needs them (r4-fixes B9), proven by the A/B
 - [x] L2 Narrow the gate: rule-bearing files only, ask related tests not the suite, accept file-scoped runs, no re-arm on unrelated edits
 - [x] L4 Write-back cadence: ~7 sofar_end_session per session, ~1,340 of 1,792 voluntary; cut them without staling next_action (r4-fixes H5 keeps Claude Code on the tool)
 - [x] L5 Native everywhere: refresh stale shims, core owns --host codex, native statusline/drive-await/pre-commit, Cursor fence scan of last entry only
-- [ ] L6 Decision checks off the turn: background at Stop, budgeted at pre-commit (blocked)
+- [-] L6 Decision checks off the turn: background at Stop, budgeted at pre-commit (dropped)
 - [x] L7 Explain MCP write tails: add_note p99 47 s, remember p99 61 s vs 4-12 ms on replay
 - [x] L8 Strict-gate false holds: a peer's uncaptured shell write inside this session's may-write window counts as its edit; and a load-flaky suite (shim-latency) never records a pass, so a strict gate re-asks forever
 - [x] L9 Prompt hook reads task-notification and peer messages as operator prompts: P<n> offers and brief_appended junk (splen local-first-sync brief)
@@ -23,5 +23,4 @@ Progress: 10/11 tasks done (90%)
 - [x] L5c Cursor fence scan reads only the last transcript entry, not the whole transcript
 
 Active phase: Phase 1 — Felt latency
-Next action: Push main; L6 stays blocked (D11).
-Blocked on: task L6: deferred, D11: no approved checks in the field
+Next action: None: record closed; reopen L6 when its trigger fires.
