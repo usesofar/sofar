@@ -55,13 +55,17 @@ fn is_js_space(c: char) -> bool {
 
 /// `^(\d+(?:\.\d+)?)` then optional whitespace: the number and the rest.
 fn leading_number(text: &str) -> Option<(f64, &str)> {
-    let int_end = text.find(|c: char| !c.is_ascii_digit()).unwrap_or(text.len());
+    let int_end = text
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(text.len());
     if int_end == 0 {
         return None;
     }
     let mut end = int_end;
     if let Some(frac) = text[int_end..].strip_prefix('.') {
-        let frac_len = frac.find(|c: char| !c.is_ascii_digit()).unwrap_or(frac.len());
+        let frac_len = frac
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(frac.len());
         if frac_len == 0 {
             return None;
         }
@@ -75,7 +79,9 @@ fn leading_number(text: &str) -> Option<(f64, &str)> {
 #[must_use]
 pub fn parse_threshold(value: &Json) -> Option<Threshold> {
     match value {
-        Json::Num(n) => (n.fract() == 0.0 && n.is_finite() && *n > 0.0).then_some(Threshold::Tokens(*n)),
+        Json::Num(n) => {
+            (n.fract() == 0.0 && n.is_finite() && *n > 0.0).then_some(Threshold::Tokens(*n))
+        }
         Json::Str(s) => {
             let text = s.trim_matches(is_js_space);
             let (n, rest) = leading_number(text)?;
@@ -170,7 +176,10 @@ const WINDOW_FILE: &str = "context-window.json";
 const TRANSCRIPT_FILE: &str = "context-transcript.json";
 
 fn read_session_map(file: &Path) -> Object {
-    match std::fs::read(file).ok().map(|b| json::parse(&String::from_utf8_lossy(&b))) {
+    match std::fs::read(file)
+        .ok()
+        .map(|b| json::parse(&String::from_utf8_lossy(&b)))
+    {
         Some(Ok(Json::Obj(o))) => o,
         _ => Object::new(),
     }
@@ -189,7 +198,10 @@ fn record_session_value(file: Option<PathBuf>, session: &str, value: Json) {
     if let Some(dir) = file.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    let _ = write_file_atomic(&file, format!("{}\n", json::stringify(&Json::Obj(raw))).as_bytes());
+    let _ = write_file_atomic(
+        &file,
+        format!("{}\n", json::stringify(&Json::Obj(raw))).as_bytes(),
+    );
 }
 
 /// `statedWindow`: the window the statusline last stated for `session`.
@@ -207,16 +219,24 @@ pub fn record_stated_window(root: &Path, session: &str, window: f64) {
     if !(window.fract() == 0.0 && window > 0.0) {
         return;
     }
-    record_session_value(session_map_file(root, WINDOW_FILE), session, Json::Num(window));
+    record_session_value(
+        session_map_file(root, WINDOW_FILE),
+        session,
+        Json::Num(window),
+    );
 }
 
 /// `recordStatedTranscript`: the transcript the statusline was handed, last
-/// named wins — never SessionStart, which writes nothing.
+/// named wins — never `SessionStart`, which writes nothing.
 pub fn record_stated_transcript(root: &Path, session: &str, transcript: &str) {
     if transcript.is_empty() {
         return;
     }
-    record_session_value(session_map_file(root, TRANSCRIPT_FILE), session, Json::Str(transcript.to_owned()));
+    record_session_value(
+        session_map_file(root, TRANSCRIPT_FILE),
+        session,
+        Json::Str(transcript.to_owned()),
+    );
 }
 
 /// `usageTokens`: input + cache creation + cache read; None when `usage`
@@ -224,13 +244,22 @@ pub fn record_stated_transcript(root: &Path, session: &str, transcript: &str) {
 #[must_use]
 pub fn usage_tokens(usage: &Json) -> Option<f64> {
     let u = usage.as_obj()?;
-    let keys = ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"];
+    let keys = [
+        "input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+    ];
     if !keys.iter().any(|k| u.get(k).is_some()) {
         return None;
     }
     Some(
         keys.iter()
-            .map(|k| u.get(k).and_then(Json::as_f64).filter(|n| n.is_finite() && *n >= 0.0).unwrap_or(0.0))
+            .map(|k| {
+                u.get(k)
+                    .and_then(Json::as_f64)
+                    .filter(|n| n.is_finite() && *n >= 0.0)
+                    .unwrap_or(0.0)
+            })
             .sum(),
     )
 }
@@ -386,26 +415,41 @@ mod tests {
         assert_eq!(s("1.1K"), Some(Threshold::Tokens(1_100.0))); // 1.1 * 1000 === 1100 in JavaScript too
         assert_eq!(s("1.0001K"), None); // 1000.1: not whole tokens
         assert_eq!(s("abc"), None);
-        assert_eq!(parse_threshold(&Json::Num(150_000.0)), Some(Threshold::Tokens(150_000.0)));
+        assert_eq!(
+            parse_threshold(&Json::Num(150_000.0)),
+            Some(Threshold::Tokens(150_000.0))
+        );
         assert_eq!(parse_threshold(&Json::Num(1.5)), None);
     }
 
     #[test]
     fn fires_once_per_crossing_under_nudge() {
         let (line, epoch) = prompt_ceiling(160_000.0, &DEFAULTS, None, None, false);
-        assert_eq!(line.as_deref(), Some(warn_line(160_000.0, 150_000.0, 200_000.0).as_str()));
+        assert_eq!(
+            line.as_deref(),
+            Some(warn_line(160_000.0, 150_000.0, 200_000.0).as_str())
+        );
         assert_eq!(epoch.as_deref(), Some("warn"));
-        assert_eq!(prompt_ceiling(170_000.0, &DEFAULTS, None, Some("warn"), false).0, None);
+        assert_eq!(
+            prompt_ceiling(170_000.0, &DEFAULTS, None, Some("warn"), false).0,
+            None
+        );
         assert_eq!(
             prompt_ceiling(205_000.0, &DEFAULTS, None, Some("warn"), false).0,
             Some(ceiling_line(205_000.0, 200_000.0))
         );
-        assert_eq!(prompt_ceiling(40_000.0, &DEFAULTS, None, Some("ceiling"), false), (None, None));
+        assert_eq!(
+            prompt_ceiling(40_000.0, &DEFAULTS, None, Some("ceiling"), false),
+            (None, None)
+        );
     }
 
     #[test]
     fn insist_repeats_until_written_back() {
-        let insist = Settings { mode: Mode::Insist, ..DEFAULTS };
+        let insist = Settings {
+            mode: Mode::Insist,
+            ..DEFAULTS
+        };
         assert_eq!(
             prompt_ceiling(210_000.0, &insist, None, Some("ceiling"), false).0,
             Some(ceiling_line(210_000.0, 200_000.0))
@@ -418,7 +462,11 @@ mod tests {
 
     #[test]
     fn a_percentage_needs_a_stated_window() {
-        let pct = Settings { ceiling: Threshold::Percent(80.0), warn: Threshold::Percent(60.0), mode: Mode::Nudge };
+        let pct = Settings {
+            ceiling: Threshold::Percent(80.0),
+            warn: Threshold::Percent(60.0),
+            mode: Mode::Nudge,
+        };
         assert_eq!(prompt_ceiling(900_000.0, &pct, None, None, false).0, None);
         assert_eq!(
             prompt_ceiling(850_000.0, &pct, Some(1_000_000.0), None, false).0,

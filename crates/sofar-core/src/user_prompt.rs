@@ -1023,7 +1023,12 @@ fn prompt_ceiling_line(
         me.summary.is_some(),
     );
     if epoch != told {
-        crate::told::update_told(layout, session_id, &[], &[(cc::CTX_FRAGMENT, epoch.as_deref())]);
+        crate::told::update_told(
+            layout,
+            session_id,
+            &[],
+            &[(cc::CTX_FRAGMENT, epoch.as_deref())],
+        );
     }
     line
 }

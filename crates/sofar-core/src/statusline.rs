@@ -417,7 +417,10 @@ fn ctx_segment(root: &Path, hook: &Object) -> Option<(String, CtxTone)> {
     if let (Some(session), Some(w)) = (str_field(hook.get("session_id")), window) {
         cc::record_stated_window(root, session, w);
     }
-    if let (Some(session), Some(t)) = (str_field(hook.get("session_id")), str_field(hook.get("transcript_path"))) {
+    if let (Some(session), Some(t)) = (
+        str_field(hook.get("session_id")),
+        str_field(hook.get("transcript_path")),
+    ) {
         cc::record_stated_transcript(root, session, t);
     }
     let Some(tokens) = cw.get("current_usage").and_then(cc::usage_tokens) else {
