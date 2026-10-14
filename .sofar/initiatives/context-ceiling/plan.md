@@ -33,5 +33,5 @@ Progress: 9/10 tasks done (90%)
 - [x] 5.1 Replay splen transcripts (29 Sep-13 Oct) at the default ceiling: projected cache-read and total cost saving; predict before measuring — verified pass @3b85542 (attempt 1)
 - [ ] 5.2 A/B on a real workload, ceiling on vs off: tokens per task and resume quality; ship default-on only if quality holds (blocked)
 
-Next action: 5.2: build the A/B harness per the logged design
-Blocked on: task 5.2: Operator decision needed to run the A/B: (1) Workload: which real work, and over how many sessions per arm? For example, the next N interactive splen/sofar sessions with SOFAR context ceiling on vs off, or alternating days. (2) Resume quality: who judges it, and by what test? For example, the operator rates each post-/clear resume pass/fail on 'picked up the next action without re-reading', or we count re-read tool calls in the first 20 calls after resume. (3) What is the 'quality holds' bar for shipping default-on? The feature must land on main first; it currently lives on the unlanded 3.1-4.1 branches.
+Next action: Operator: run the ceiling-on window, then the off window, then ceiling-ab.mjs
+Blocked on: task 5.2: Harness built: scripts/ceiling-ab.mjs. Now waits on real sessions, run as two date windows: ceiling on (context.mode nudge), then off. NOISE: two untreated stretches (11-12 Oct vs 12-14 Oct) already differ by +46% in cost per prompt and +104% in re-reads per start, against a 10%/20% bar. At 10 transcripts per arm the verdict may be noise; consider more sessions or alternating days.
