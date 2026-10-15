@@ -6,7 +6,7 @@ Goal: Keep interactive sessions short without losing continuity: when a session'
 
 Brief: the operator's words, 2366 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 9/10 tasks done (90%)
+Progress: 10/10 tasks done (100%)
 
 ## Phase 1 — Measure and spec [pending] — 2/2 done
 
@@ -28,9 +28,9 @@ Progress: 9/10 tasks done (90%)
 
 - [x] 4.1 Statusline context segment: current context size with bands from the settings, red past the ceiling, shown whatever the cache share — verified pass @cbbcdd1 (attempt 2)
 
-## Phase 5 — Proof [pending] — 1/2 done
+## Phase 5 — Proof [pending] — 2/2 done
 
 - [x] 5.1 Replay splen transcripts (29 Sep-13 Oct) at the default ceiling: projected cache-read and total cost saving; predict before measuring — verified pass @3b85542 (attempt 1)
-- [ ] 5.2 A/B on a real workload, ceiling on vs off: tokens per task and resume quality; ship default-on only if quality holds (active)
+- [x] 5.2 A/B on a real workload, ceiling on vs off: tokens per task and resume quality; ship default-on only if quality holds
 
-Next action: Operator: close 5.2 on the sim, or add a no-sofar+/clear arm
+Next action: Cut a release candidate so the ceiling reaches real sessions
