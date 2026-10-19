@@ -434,16 +434,19 @@ export class LaneRun {
     return taskBranch(this.options.slug, this.options.runId, taskId)
   }
 
+  /** Lanes a failed checkout took out of this run (8.4): never placed in again. */
+  private readonly skipped = new Set<number>()
+
   /** The lane whose HEAD is on `branch`, if one is. */
   private holding(branch: string): Lane | undefined {
-    return this.lanes.find((lane) => currentBranch(lane.dir) === branch)
+    return this.lanes.find((lane) => !this.skipped.has(lane.id) && currentBranch(lane.dir) === branch)
   }
 
   /** Clean lanes not in `busy`, in rotation order, starting after the last one used. */
   private cleanLanes(busy: ReadonlySet<number> = new Set()): Lane[] {
     const n = this.lanes.length
     const order = Array.from({ length: n }, (_, i) => this.lanes[(this.cursor + i) % n]!)
-    return order.filter((lane) => !busy.has(lane.id) && dirtyPaths(lane.dir).length === 0)
+    return order.filter((lane) => !busy.has(lane.id) && !this.skipped.has(lane.id) && dirtyPaths(lane.dir).length === 0)
   }
 
   /** Why no clean lane was found for `what`: each lane, its branch and what it holds. */
@@ -487,14 +490,37 @@ export class LaneRun {
       if (lane === undefined) return undefined
     }
     this.cursor = (this.lanes.indexOf(lane) + 1) % this.lanes.length
-    if (old !== undefined) {
-      git(lane.dir, ['checkout', '-q', '-B', branch])
-    } else if (tip === undefined) {
-      git(lane.dir, ['checkout', '-q', '-b', branch, base])
-    } else if (tip !== base && gitOk(this.rootDir, ['merge-base', '--is-ancestor', tip, base])) {
-      git(lane.dir, ['checkout', '-q', '-B', branch, base])
-    } else if (currentBranch(lane.dir) !== branch) {
-      git(lane.dir, ['checkout', '-q', branch])
+    try {
+      if (old !== undefined) {
+        git(lane.dir, ['checkout', '-q', '-B', branch])
+      } else if (tip === undefined) {
+        git(lane.dir, ['checkout', '-q', '-b', branch, base])
+      } else if (tip !== base && gitOk(this.rootDir, ['merge-base', '--is-ancestor', tip, base])) {
+        const dirty = dirtyPaths(lane.dir).length
+        if (dirty > 0 && currentBranch(lane.dir) === branch) {
+          // A stopped session's tree (8.4; felt-latency run 01M4TFNNP4RY4S0358MZ7MXS0E):
+          // kept on its branch rather than moved to a base it may collide with,
+          // so the retry continues it and the merge queue brings the base in.
+          git(lane.dir, ['add', '-A', '--', '.', ':(exclude,top).sofar'])
+          git(lane.dir, ['commit', '-q', '--no-verify', '-m', `${taskId}: work a stopped session left uncommitted (sofar drive)`])
+          this.options.progress(`lane ${lane.id}: ${taskId} keeps the ${dirty} uncommitted path${dirty === 1 ? '' : 's'} its stopped session left, committed on ${branch} — the merge queue brings ${this.base} in when it lands`)
+        } else {
+          git(lane.dir, ['checkout', '-q', '-B', branch, base])
+        }
+      } else if (currentBranch(lane.dir) !== branch) {
+        git(lane.dir, ['checkout', '-q', branch])
+      }
+    } catch (err) {
+      // Never the run's end (8.4): the lane is taken out of the run, its tree
+      // left as it is but off the task's branch so another lane can check it
+      // out, and the task placed again without it.
+      if (currentBranch(lane.dir) === branch) gitOk(lane.dir, ['checkout', '-q', '--detach'])
+      this.skipped.add(lane.id)
+      const dirty = dirtyPaths(lane.dir).length
+      this.options.progress(
+        `warning: lane ${lane.id} (${lane.dir}) could not take ${taskId}: ${err instanceof Error ? err.message : String(err)} — skipped for the rest of this run${dirty > 0 ? `, its ${dirty} uncommitted path${dirty === 1 ? '' : 's'} left as they are` : ''}`,
+      )
+      return this.place(taskId, busy)
     }
     this.setUp(lane)
     if (carried !== undefined) this.resume(taskId, { lane, branch }, carried)

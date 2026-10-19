@@ -948,3 +948,59 @@ describe('run_started.lanes and the prompt', () => {
     expect(renderPrompt('demo', task, 'task', undefined, undefined)).toBe(renderPrompt('demo', task))
   })
 })
+
+describe('a lane checkout never ends the run (8.4)', () => {
+  it("keeps a stopped session's uncommitted tree on its branch when the base moved past it", async () => {
+    const root = repo('keepdirty', { 'f.txt': 'base\n' })
+    const head = git(root, 'rev-parse', 'HEAD').trim()
+    const pool = await claimLanePool(root, 2, head)
+    const lines: string[] = []
+    try {
+      const lanes = new LaneRun(root, { slug: 'demo', runId: 'R1', lanes: pool.lanes, progress: (l) => lines.push(l) })
+      lanes.ensureBase(head)
+      lanes.prime()
+      const first = lanes.place('1.1', new Set())!
+      // 1.1's session was killed with f.txt half written, nothing committed.
+      writeFileSync(join(first.lane.dir, 'f.txt'), 'mine\n')
+      // 1.2 lands a change to the same file, so the base moves past 1.1's branch.
+      const second = lanes.place('1.2', new Set([first.lane.id]))!
+      writeFileSync(join(second.lane.dir, 'f.txt'), 'theirs\n')
+      git(second.lane.dir, 'commit', '-qam', '1.2')
+      expect(lanes.land('1.2').kind).toBe('landed')
+
+      // The retry: before 8.4, `git checkout -B <branch> <base>` aborted here and stopped the run.
+      const retry = lanes.place('1.1', new Set([second.lane.id]))!
+      expect(retry.lane.id).toBe(first.lane.id)
+      expect(readFileSync(join(retry.lane.dir, 'f.txt'), 'utf8')).toBe('mine\n')
+      expect(dirtyPaths(retry.lane.dir)).toEqual([])
+      expect(git(root, 'log', '-1', '--format=%s', taskBranch('demo', 'R1', '1.1')).trim()).toBe('1.1: work a stopped session left uncommitted (sofar drive)')
+      expect(lines.join('\n')).toMatch(/lane \d+: 1\.1 keeps the 1 uncommitted path its stopped session left, committed on /)
+    } finally {
+      for (const l of pool.held) l.release()
+    }
+  })
+
+  it('skips a lane whose checkout fails and places the task in another', async () => {
+    const root = repo('skiplane')
+    const head = git(root, 'rev-parse', 'HEAD').trim()
+    const pool = await claimLanePool(root, 2, head)
+    const lines: string[] = []
+    try {
+      const lanes = new LaneRun(root, { slug: 'demo', runId: 'R1', lanes: pool.lanes, progress: (l) => lines.push(l) })
+      lanes.ensureBase(head)
+      lanes.prime()
+      // The next lane in rotation cannot check anything out: its index is locked.
+      const [a, b] = pool.lanes
+      const gitDir = git(a!.dir, 'rev-parse', '--absolute-git-dir').trim()
+      writeFileSync(join(gitDir, 'index.lock'), '')
+      const placed = lanes.place('1.1', new Set())!
+      expect(placed.lane.id).toBe(b!.id)
+      expect(lines.join('\n')).toMatch(new RegExp(`warning: lane ${a!.id} \\(.*\\) could not take 1\\.1: .* — skipped for the rest of this run`))
+      // Never placed in again, even once it could be.
+      rmSync(join(gitDir, 'index.lock'))
+      expect(lanes.place('1.2', new Set([b!.id]))).toBeUndefined()
+    } finally {
+      for (const l of pool.held) l.release()
+    }
+  })
+})

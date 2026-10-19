@@ -2851,7 +2851,14 @@ already holding it (a retry continues its tree) or else the next clean lane.
 When a session leaves its task done, the driver commits what it left
 uncommitted on the task branch (`.sofar` excepted, hooks skipped), runs the
 gate in the lane, and on acceptance fast-forwards the base by compare-and-swap;
-a landed branch that is reopened starts again from the base. The closing sweep
+a landed branch that is reopened starts again from the base — unless its
+lane holds uncommitted work a stopped session left on that branch, which is
+committed there instead (`<task>: work a stopped session left uncommitted
+(sofar drive)`, said on a progress line) and brought onto the base by the merge
+queue when it lands (drive-lanes 8.4). A lane whose checkout fails is never the
+run's end: it is moved off the task's branch, skipped for the rest of the run
+with a warning naming the failure and any uncommitted paths it keeps, and the
+task is placed in another lane, or waits for one. The closing sweep
 checks the base in a clean lane. The checkout's own branch, index and tree are
 never touched: the stop line names the base to merge. `run_started.lanes`
 records the count, never a path; a resumed run keeps it. Refused before
