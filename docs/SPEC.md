@@ -2415,12 +2415,24 @@ serial run, resumed or new, gates it first. PRIORITY (`lowPriority`): sessions a
 commands start under `nice -n 10`, plus `taskpolicy -c utility` on macOS,
 and every child inherits it. A binary that does not resolve on PATH is
 spawned unwrapped, so it still fails as ENOENT, exit 127, with
-`spawn_error`. THE VERIFY SLOT (`verifySlot`): one gate command at a time
-per user on the machine, held as a flock-semantics lock on `<state
-base>/verify.lock`, the run lock's primitive. A waiter polls it and prints
-`waiting for the verify slot — …` once. The wait is bounded by the
-command's own timeout; past that the command runs without the slot, with a
-warning. Where no lock can be taken, the warning is printed once per run.
+`spawn_error`. THE VERIFY SLOT (`verifySlot`): one HEAVY gate command at a
+time per user on the machine — every gate command but a tiered run's quick
+check, which takes no slot (drive-lanes 8.3, D65) — held as a
+flock-semantics lock on `<state base>/verify.lock`, the run lock's
+primitive; the lock file stays empty. Its holder writes an advisory sidecar,
+`<state base>/verify.lock.json` = `{started_at, bound_ms, command,
+initiative}` (bound_ms = the command's timeout, the command redacted), and
+removes it before releasing. A waiter polls the lock and prints `waiting for
+the verify slot — <initiative> is running \`<command>\` (<path>)` once (or
+`another verification on this machine holds it` when no sidecar reads). Its
+command's timeout starts only once it holds the slot. It waits on a holder
+whose sidecar is inside `started_at + bound_ms + 60 s`, however long the
+queue ahead takes; on one that has stood past that for another 60 s, or on a
+holder with no readable sidecar for the command's own timeout since a live
+holder was last seen, or once the whole wait reaches 6 × that timeout, the
+command runs without the slot, with a warning naming the holder that overran
+when it said who it was. Where no lock can be taken, the warning is printed
+once per run.
 The CLI sets all three options on every run; a library caller states them.
 
 **Decision checks at acceptance (memory-lead 2.3, D9).** Once the task's own

@@ -9,6 +9,7 @@ import { foldLog, latestRun, type InitiativeState } from '../src/core/fold'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { detachedStartNotifier, insideAgentShell, pendingLaneSetup, runDriveDetached, runDriveStop } from '../src/cli/drive'
+import { reapMatching } from './helpers/reap'
 
 /**
  * `sofar drive --detach` and `--stop` (in-session-drive D1/D2/D3), through the
@@ -41,6 +42,8 @@ beforeAll(() => {
 })
 
 afterAll(() => {
+  // Detached drivers and their sessions lead groups of their own (8.6).
+  reapMatching([bundle, ...roots])
   rmSync(scratch, { recursive: true, force: true })
   for (const root of roots) rmSync(root, { recursive: true, force: true })
 })
@@ -448,5 +451,36 @@ describe('in-agent detection', () => {
     expect(detachedStartNotifier({})).toBeUndefined()
     // Vitest's worker may itself hold an IPC channel; the env var is what opts in.
     expect(detachedStartNotifier({ SOFAR_DRIVE_DETACHED: '0' })).toBeUndefined()
+  })
+})
+
+describe('nothing a detached test run starts outlives it (drive-lanes 8.6)', () => {
+  it('reapMatching ends a detached driver and its lingering session, which escape every process group', async () => {
+    const r = repo('reap', ['1.1'])
+    const res = cli(r, ['drive', 'demo', '--detach', '--bin', stub], { STUB_LINGER: '1' })
+    expect(res.status, res.stderr).toBe(0)
+    await until(() => readdirSync(r.out).some((f) => f.startsWith('pid-')))
+    const session = Number(readFileSync(join(r.out, readdirSync(r.out).find((f) => f.startsWith('pid-'))!), 'utf8'))
+    const alive = (pid: number): boolean => {
+      try {
+        process.kill(pid, 0)
+        return true
+      } catch {
+        return false
+      }
+    }
+    expect(alive(session)).toBe(true)
+    expect(reapMatching([bundle, r.root])).toBeGreaterThanOrEqual(2)
+    await until(() => !alive(session), 10_000)
+    const ps = spawnSync('ps', ['-axo', 'command='], { encoding: 'utf8' }).stdout
+    expect(ps.split('\n').filter((l) => l.includes(r.root) || (l.includes(bundle) && l.includes('drive')))).toEqual([])
+  })
+
+  it('a lingering stub session ends by itself after STUB_LINGER_MS, so an orphaned driver can finish', async () => {
+    const r = repo('linger', ['1.1'])
+    const res = cli(r, ['drive', 'demo', '--detach', '--bin', stub], { STUB_LINGER: '1', STUB_LINGER_MS: '500' })
+    expect(res.status, res.stderr).toBe(0)
+    await until(() => latestRun(fold(r))?.stopped !== undefined, 30_000)
+    expect(latestRun(fold(r))!.handoffs.map((h) => h.task)).toEqual(['1.1'])
   })
 })

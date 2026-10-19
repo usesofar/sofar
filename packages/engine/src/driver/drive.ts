@@ -77,7 +77,8 @@ import {
   type VerificationOutcome,
   type VerificationProcess,
 } from './verify'
-import { claimVerifySlot, waitForLoad, type LoadWaitOptions } from './load'
+import { redactCommand } from '../core/redact'
+import { claimVerifySlot, SLOT_QUEUE_FACTOR, waitForLoad, type LoadWaitOptions } from './load'
 import { claimLanePool, detectLaneSetup, dirtyPaths, findStranded, headCommit, lanePoolDir, LaneRun, type Lane, type LaneTask } from './lanes'
 import { version as ENGINE_VERSION } from '../../package.json'
 import { resolveJudgeProvider } from '../client/judge'
@@ -1263,7 +1264,8 @@ async function driveHolding(
   // Every verification in flight: one on a serial run, one per lane on a lanes run (2.3).
   const liveVerifies = new Set<{ waiting: AbortController; process?: VerificationProcess }>()
   let slotWarned = false
-  const runGated = async (cmd: string, dir: string, timeoutMs: number, rerun = false): Promise<VerificationOutcome | undefined> => {
+  // `heavy`: whether the command takes the verify slot — every gate but a tiered run's quick check (8.3, D65).
+  const runGated = async (cmd: string, dir: string, timeoutMs: number, rerun = false, heavy = true): Promise<VerificationOutcome | undefined> => {
     const watchFrom = existsSync(eventsPath) ? statSync(eventsPath).size : 0
     const look = (): void => {
       const folded = ctx.foldState(initiative)
@@ -1292,17 +1294,23 @@ async function driveHolding(
         }
       }
       if (fenced !== undefined || interrupted) return undefined
-      if (options.verifySlot === true) {
+      if (options.verifySlot === true && heavy) {
+        // A queued gate loses nothing by waiting — its timeout starts once it
+        // holds the slot — so it waits on a holder inside its bound (D65).
         const slot = await claimVerifySlot(rootDir, {
           ...(options.lock !== undefined ? { lock: options.lock } : {}),
-          maxWaitMs: timeoutMs,
+          maxWaitMs: SLOT_QUEUE_FACTOR * timeoutMs,
+          unknownHolderMs: timeoutMs,
+          holder: { bound_ms: timeoutMs, command: redactCommand(cmd), initiative },
           signal: waiting.signal,
-          onWait: (path) => progress(`  waiting for the verify slot — another verification on this machine holds ${path}`),
+          onWait: (path, holder) =>
+            progress(`  waiting for the verify slot — ${holder !== undefined ? `${holder.initiative} is running \`${holder.command}\`` : 'another verification on this machine holds it'} (${path})`),
         })
         if (slot.kind === 'aborted') return undefined
         if (slot.kind === 'claimed') release = slot.release
         else if (slot.kind === 'waited_out') {
-          progress(`warning: the verify slot was still held after ${Math.round(slot.waited_ms / 1000)}s — verifying without it`)
+          const who = slot.holder !== undefined ? `${slot.holder.initiative}'s \`${slot.holder.command}\` overran its ${Math.round(slot.holder.bound_ms / 1000)}s bound` : 'its holder said nothing about itself'
+          progress(`warning: the verify slot was still held after ${Math.round(slot.waited_ms / 1000)}s (${who}) — verifying without it`)
         } else if (!slotWarned) {
           slotWarned = true
           progress(`warning: no verify slot (${slot.why}) — this run's verifications are not serialized against other drivers`)
@@ -1335,14 +1343,15 @@ async function driveHolding(
     timeoutMs: number,
     attempt: number,
     record: (outcome: VerificationOutcome, attempt: number) => void,
+    heavy = true,
   ): Promise<{ outcome: VerificationOutcome; attempt: number; failed: number } | undefined> => {
     const charged = (o: VerificationOutcome): number => (o.result === 'pass' || o.result === 'timeout' ? 0 : 1)
-    const first = await runGated(cmd, dir, timeoutMs)
+    const first = await runGated(cmd, dir, timeoutMs, false, heavy)
     if (first === undefined) return undefined
     record(first, attempt)
     if (first.result !== 'timeout') return { outcome: first, attempt, failed: charged(first) }
     progress(`  ${describeVerification(cmd, attempt, first)} — not charged; re-running once the load clears (attempt ${attempt + 1}), never a new session`)
-    const second = await runGated(cmd, dir, timeoutMs, true)
+    const second = await runGated(cmd, dir, timeoutMs, true, heavy)
     if (second === undefined) return undefined
     record(second, attempt + 1)
     return { outcome: second, attempt: attempt + 1, failed: charged(second) }
@@ -1394,6 +1403,8 @@ async function driveHolding(
     const taskId = task.id
     let which = resolveVerify(task, runVerify, verifyTimeoutMs)
     if (which === undefined) return { applies: false }
+    // A quick-tier check takes no verify slot (8.3, D65).
+    let quick = false
     const dirs = verifyDirs(dir, which.cwd)
     const fingerprint = fingerprintTree(dirs.absolute)
     // Tiered (2.6): a task with no command of its own runs the quick tier on
@@ -1402,7 +1413,10 @@ async function driveHolding(
     if (verifyQuick !== undefined && which.source === 'run') {
       if (fullCovers(fingerprint)) return { applies: true, passed: true, attempt: task.verification?.attempt ?? 0, line: '' }
       const files = changedFiles(folded, taskId, dirs.absolute, since)
-      if (files !== undefined) which = { ...which, cmd: expandFiles(verifyQuick, files) }
+      if (files !== undefined) {
+        which = { ...which, cmd: expandFiles(verifyQuick, files) }
+        quick = true
+      }
     }
     if (verificationCovers(task.verification, which.cmd, fingerprint)) {
       return { applies: true, passed: true, attempt: task.verification!.attempt, line: '' }
@@ -1436,7 +1450,7 @@ async function driveHolding(
     progress(`  verifying ${taskId} (attempt ${first}): ${which.cmd}${approved ? '' : ' — refused, outside the run\'s permission surface'}`)
     let ran: { outcome: VerificationOutcome; attempt: number; failed: number }
     if (approved) {
-      const recorded = await runRecorded(which.cmd, dirs.absolute, which.timeout_ms, first, record)
+      const recorded = await runRecorded(which.cmd, dirs.absolute, which.timeout_ms, first, record, !quick)
       if (recorded === undefined) return { applies: false }
       ran = recorded
     } else {

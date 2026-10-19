@@ -34,6 +34,7 @@ import type { Adapter, AgentSession, SessionExit } from '../src/driver/adapter'
 import { appendedBytesScan, drive } from '../src/driver/drive'
 import { createToolContext } from '../src/mcp/context'
 import { FakeAdapter } from './helpers/fake-adapter'
+import { reapMatching } from './helpers/reap'
 
 /**
  * The run lock (drive-visibility 2.1, D2, D3; SPEC §Driver, "One driver per
@@ -90,6 +91,8 @@ beforeAll(() => {
 })
 
 afterAll(() => {
+  // Detached drivers and their sessions lead groups of their own (8.6).
+  reapMatching([cliBundle, ...roots])
   rmSync(scratch, { recursive: true, force: true })
   for (const root of roots) rmSync(root, { recursive: true, force: true })
 })

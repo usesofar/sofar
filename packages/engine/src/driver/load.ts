@@ -1,6 +1,7 @@
-import { accessSync, constants } from 'node:fs'
+import { accessSync, constants, readFileSync, unlinkSync } from 'node:fs'
 import { cpus, loadavg } from 'node:os'
 import { delimiter, isAbsolute, join, resolve } from 'node:path'
+import { writeFileAtomic } from '../core/atomic'
 import { claimLockAt, type RunLockOptions } from '../core/run-lock'
 import { resolvesInside, stateBase, type StateEnv } from '../core/state-dir'
 
@@ -15,11 +16,13 @@ import { resolvesInside, stateBase, type StateEnv } from '../core/state-dir'
  *    every child the process forks, and the macOS scheduler gives nice alone
  *    little weight. The operator's foreground work wins the cores when they
  *    are contended; on an idle machine the run still gets all of them.
- *  - THE VERIFY SLOT. One acceptance command at a time per user on this
- *    machine: a flock-semantics lock on `<state base>/verify.lock`, the run
- *    lock's primitive, so the kernel releases it however its holder dies. A
- *    waiter polls it rather than blocking, so the driver still reads stop
- *    requests and signals while it waits.
+ *  - THE VERIFY SLOT. One heavy acceptance command at a time per user on
+ *    this machine: a flock-semantics lock on `<state base>/verify.lock`, the
+ *    run lock's primitive, so the kernel releases it however its holder dies.
+ *    A waiter polls it rather than blocking, so the driver still reads stop
+ *    requests and signals while it waits, and defers to a holder inside its
+ *    own bound however long the queue takes (8.3, D65). A tiered run's quick
+ *    checks take no slot.
  *
  * A third lever is a wait (drive-lanes 2.7): a verification that timed out
  * runs again only once the machine's load has cleared, since a timeout under
@@ -32,6 +35,17 @@ export const LOW_NICE = 10
 
 /** How often a verification waiting for the slot tries it again, past the claim's own retry. */
 export const VERIFY_SLOT_POLL_MS = 1_000
+
+/**
+ * How long past its own bound a slot holder may run before a waiter stops
+ * deferring to it (8.3, D65), and how long an overrun must stand before a
+ * waiter acts on it — a sidecar a dead holder left reads as an overrun until
+ * the next holder rewrites it.
+ */
+export const SLOT_GRACE_MS = 60_000
+
+/** A heavy gate's whole wait for the slot, in its own timeouts (8.3, D65): flock is not fair, so the queue is capped. */
+export const SLOT_QUEUE_FACTOR = 6
 
 /** How often a re-run waiting for the load reads it: the one-minute average moves no faster. */
 export const LOAD_POLL_MS = 5_000
@@ -96,12 +110,39 @@ export function verifySlotPath(rootDir: string, env: StateEnv = process.env): { 
   return { path: join(base, 'verify.lock') }
 }
 
+/**
+ * What a slot holder says about itself (8.3, D65), in `<verify.lock>.json`
+ * beside the lock: advisory only — the flock alone says whether a holder is
+ * alive, and the lock file stays empty (drive-visibility D2).
+ */
+export interface SlotHolder {
+  started_at: number
+  /** The holder's command bound: past this plus SLOT_GRACE_MS it has overrun. */
+  bound_ms: number
+  command: string
+  initiative: string
+}
+
+/** The holder sidecar's path, beside the lock. */
+export const holderPath = (lockPath: string): string => `${lockPath}.json`
+
+/** The sidecar's holder, or undefined when there is none or it does not parse. */
+export function readSlotHolder(lockPath: string): SlotHolder | undefined {
+  try {
+    const h = JSON.parse(readFileSync(holderPath(lockPath), 'utf8')) as Partial<SlotHolder>
+    if (typeof h.started_at !== 'number' || typeof h.bound_ms !== 'number') return undefined
+    return { started_at: h.started_at, bound_ms: h.bound_ms, command: String(h.command ?? ''), initiative: String(h.initiative ?? '') }
+  } catch {
+    return undefined
+  }
+}
+
 export type VerifySlot =
   | { kind: 'claimed'; release: () => void; waited_ms: number }
   /** No lock can be taken here; the caller runs without one and says so. */
   | { kind: 'unavailable'; why: string }
-  /** Still held after `maxWaitMs`; the caller runs without it rather than sit there. */
-  | { kind: 'waited_out'; waited_ms: number }
+  /** Still held past the wait's bound; the caller runs without it rather than sit there. `holder` is the one that overran, when it said who it was. */
+  | { kind: 'waited_out'; waited_ms: number; holder?: SlotHolder }
   /** The signal fired while waiting; nothing was claimed. */
   | { kind: 'aborted' }
 
@@ -125,10 +166,15 @@ function pause(ms: number, signal: AbortSignal | undefined): Promise<void> {
 }
 
 /**
- * Take the verify slot, waiting while another verification holds it. Bounded
- * by `maxWaitMs`: a holder's own command is bounded by its timeout, and an
- * unattended run must have no state it can sit in indefinitely, so a slot
- * still held at the bound is reported and the caller runs anyway.
+ * Take the verify slot, waiting while another verification holds it (8.3,
+ * D65). A holder that wrote its sidecar is waited on while it is inside its
+ * own bound — its command's timeout plus SLOT_GRACE_MS — however long the
+ * queue ahead has taken; one that overran it for SLOT_GRACE_MS is reported
+ * and the caller runs anyway. A holder with no readable sidecar is waited on
+ * for `unknownHolderMs` (default `maxWaitMs`) from when a live one was last
+ * seen. `maxWaitMs` bounds the whole wait: an unattended run must have no
+ * state it can sit in indefinitely (D10), and flock is not fair.
+ * With `holder`, the claim writes its sidecar and the release removes it.
  * `onWait` is called once, the first time the slot is found held.
  */
 export async function claimVerifySlot(
@@ -136,25 +182,67 @@ export async function claimVerifySlot(
   options: {
     lock?: RunLockOptions
     maxWaitMs: number
+    unknownHolderMs?: number
+    holder?: Omit<SlotHolder, 'started_at'>
     signal?: AbortSignal
     pollMs?: number
-    onWait?: (path: string) => void
+    graceMs?: number
+    now?: () => number
+    onWait?: (path: string, holder: SlotHolder | undefined) => void
   },
 ): Promise<VerifySlot> {
   const where = verifySlotPath(rootDir, options.lock?.env)
   if (!('path' in where)) return { kind: 'unavailable', why: where.why }
-  const t0 = Date.now()
+  const now = options.now ?? Date.now
+  const grace = options.graceMs ?? SLOT_GRACE_MS
+  const unknownMs = options.unknownHolderMs ?? options.maxWaitMs
+  const t0 = now()
   let told = false
+  let knownAt = t0
+  let overrunSince: number | undefined
   for (;;) {
     if (options.signal?.aborted === true) return { kind: 'aborted' }
     const claim = await claimLockAt(where.path, options.lock ?? {})
-    if (claim.kind === 'claimed') return { kind: 'claimed', release: claim.lock.release, waited_ms: Date.now() - t0 }
+    if (claim.kind === 'claimed') {
+      const sidecar = holderPath(where.path)
+      if (options.holder !== undefined) {
+        try {
+          writeFileAtomic(sidecar, `${JSON.stringify({ started_at: now(), ...options.holder })}\n`)
+        } catch {
+          // advisory: a waiter without it falls back to unknownHolderMs
+        }
+      }
+      const release = (): void => {
+        // The sidecar goes first, so no waiter reads it under the next holder.
+        if (options.holder !== undefined) {
+          try {
+            unlinkSync(sidecar)
+          } catch {
+            // already gone
+          }
+        }
+        claim.lock.release()
+      }
+      return { kind: 'claimed', release, waited_ms: now() - t0 }
+    }
     if (claim.kind === 'unavailable') return claim
+    const t = now()
+    const holder = readSlotHolder(where.path)
     if (!told) {
       told = true
-      options.onWait?.(where.path)
+      options.onWait?.(where.path, holder)
     }
-    if (Date.now() - t0 >= options.maxWaitMs) return { kind: 'waited_out', waited_ms: Date.now() - t0 }
+    if (t - t0 >= options.maxWaitMs) return { kind: 'waited_out', waited_ms: t - t0, ...(holder !== undefined ? { holder } : {}) }
+    if (holder === undefined) {
+      overrunSince = undefined
+      if (t - knownAt >= unknownMs) return { kind: 'waited_out', waited_ms: t - t0 }
+    } else if (t > holder.started_at + holder.bound_ms + grace) {
+      overrunSince ??= t
+      if (t - overrunSince >= grace) return { kind: 'waited_out', waited_ms: t - t0, holder }
+    } else {
+      overrunSince = undefined
+      knownAt = t
+    }
     await pause(options.pollMs ?? VERIFY_SLOT_POLL_MS, options.signal)
   }
 }

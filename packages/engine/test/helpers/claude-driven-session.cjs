@@ -14,7 +14,9 @@
  *   STUB_OUT     directory; the session's environment is dumped to env-<session id>
  *                and its pid to pid-<session id>
  *   STUB_LINGER  "1": after writing back, stay alive until signalled — the
- *                shape a stop request has to interrupt
+ *                shape a stop request has to interrupt — or for STUB_LINGER_MS
+ *                (default 120000), so a test that died before its stop leaves
+ *                no session, and no driver waiting on one, behind (drive-lanes 8.6)
  */
 const fs = require('node:fs')
 const path = require('node:path')
@@ -79,7 +81,7 @@ function finish(code) {
 
 if (process.env.STUB_LINGER === '1') {
   process.on('SIGTERM', () => finish(143))
-  setInterval(() => {}, 1000)
+  setTimeout(() => finish(0), Number(process.env.STUB_LINGER_MS || 120000))
 } else {
   finish(0)
 }

@@ -7,7 +7,7 @@ import { foldLog, type InitiativeState } from '../src/core/fold'
 import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { drive, STOP_REQUEST_NOTE } from '../src/driver/drive'
-import { claimVerifySlot, LOW_NICE, lowPriority, resolveBin, verifySlotPath, waitForLoad } from '../src/driver/load'
+import { claimVerifySlot, holderPath, LOW_NICE, lowPriority, readSlotHolder, resolveBin, verifySlotPath, waitForLoad } from '../src/driver/load'
 import { startVerification } from '../src/driver/verify'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
 
@@ -205,6 +205,89 @@ describe('the verify slot', () => {
     if (held.kind === 'claimed') held.release()
     expect((await claimVerifySlot(root, { lock: { ...lock, primitive: null }, maxWaitMs: 1_000 })).kind).toBe('unavailable')
     expect((await claimVerifySlot(root, { lock: { env: { XDG_STATE_HOME: join(root, 'state') } }, maxWaitMs: 1_000 })).kind).toBe('unavailable')
+  })
+})
+
+describe('the verify slot defers to a holder inside its bound (8.3, D65)', () => {
+  const slotPath = (root: string, env: Record<string, string>): string => (verifySlotPath(root, env) as { path: string }).path
+
+  it('waits on a holder inside its own bound past unknownHolderMs, and the sidecar lives only while it holds', async () => {
+    const root = repo()
+    const lock = { env: { XDG_STATE_HOME: scratch('sofar-slot-') } }
+    const held = await claimVerifySlot(root, { lock, maxWaitMs: 5_000, holder: { bound_ms: 60_000, command: 'npm test', initiative: 'other' } })
+    expect(held.kind).toBe('claimed')
+    const path = slotPath(root, lock.env)
+    expect(readSlotHolder(path)).toMatchObject({ bound_ms: 60_000, command: 'npm test', initiative: 'other' })
+    const told: Array<string | undefined> = []
+    const waiter = claimVerifySlot(root, { lock, maxWaitMs: 10_000, unknownHolderMs: 200, pollMs: 50, onWait: (_p, h) => told.push(h?.initiative) })
+    await new Promise((r) => setTimeout(r, 900))
+    if (held.kind === 'claimed') held.release()
+    expect(existsSync(holderPath(path))).toBe(false)
+    const got = await waiter
+    expect(got.kind).toBe('claimed')
+    if (got.kind === 'claimed') {
+      expect(got.waited_ms).toBeGreaterThanOrEqual(800)
+      got.release()
+    }
+    expect(told).toEqual(['other'])
+  })
+
+  it('stops deferring once the holder has overrun its bound for the grace, naming it', async () => {
+    const root = repo()
+    const lock = { env: { XDG_STATE_HOME: scratch('sofar-slot-') } }
+    const held = await claimVerifySlot(root, { lock, maxWaitMs: 5_000, holder: { bound_ms: 0, command: 'npm test', initiative: 'other' } })
+    const t0 = Date.now()
+    const out = await claimVerifySlot(root, { lock, maxWaitMs: 10_000, unknownHolderMs: 10_000, graceMs: 150, pollMs: 20 })
+    expect(out).toMatchObject({ kind: 'waited_out', holder: { initiative: 'other', command: 'npm test' } })
+    // Overran at started_at + 0 + 150, and the overrun had to stand 150 more.
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(250)
+    expect(Date.now() - t0).toBeLessThan(5_000)
+    if (held.kind === 'claimed') held.release()
+  })
+
+  it('a holder that says nothing is waited on for unknownHolderMs, and maxWaitMs caps every wait', async () => {
+    const root = repo()
+    const lock = { env: { XDG_STATE_HOME: scratch('sofar-slot-') } }
+    const silent = await claimVerifySlot(root, { lock, maxWaitMs: 5_000 })
+    const out = await claimVerifySlot(root, { lock, maxWaitMs: 10_000, unknownHolderMs: 200, pollMs: 20 })
+    expect(out.kind).toBe('waited_out')
+    if (out.kind === 'waited_out') expect(out.holder).toBeUndefined()
+    if (silent.kind === 'claimed') silent.release()
+
+    const inBound = await claimVerifySlot(root, { lock, maxWaitMs: 5_000, holder: { bound_ms: 60_000, command: 'npm test', initiative: 'other' } })
+    const capped = await claimVerifySlot(root, { lock, maxWaitMs: 300, pollMs: 20 })
+    expect(capped).toMatchObject({ kind: 'waited_out', holder: { initiative: 'other' } })
+    if (inBound.kind === 'claimed') inBound.release()
+  })
+
+  it('a tiered run\'s quick check takes no slot: it runs while another verification holds it', async () => {
+    const root = repo()
+    const lock = { env: { XDG_STATE_HOME: scratch('sofar-slot-') } }
+    const held = await claimVerifySlot(root, { lock, maxWaitMs: 5_000 })
+    expect(held.kind).toBe('claimed')
+    // How many checks were recorded when the run first waited for the slot.
+    let recordedAtWait: number | undefined
+    const out = await drive(root, 'demo', {
+      adapter: new FakeAdapter([worker(root, 'w1')]),
+      verify: 'exit 0',
+      verifyQuick: 'true {files}',
+      verifySlot: true,
+      verifyTimeoutMs: 300,
+      lock,
+      maxSessions: 1,
+      onProgress: (l) => {
+        if (l.includes('waiting for the verify slot') && recordedAtWait === undefined) recordedAtWait = types(root).filter((t) => t === 'verification_recorded').length
+      },
+    })
+    if (held.kind === 'claimed') held.release()
+    expect(out.handoffs.map((h) => h.reason)).toEqual(['task_done'])
+    const recorded = readFileSync(logPath(root), 'utf8')
+      .split('\n')
+      .filter((l) => l.includes('"verification_recorded"'))
+      .map((l) => (JSON.parse(l) as { payload: { command: string; result: string } }).payload)
+    expect(recorded.filter((v) => v.command.startsWith('true')).map((v) => v.result)).toEqual(['pass'])
+    // Only the full gate ever waited, after the quick check was already on the record.
+    if (recordedAtWait !== undefined) expect(recordedAtWait).toBeGreaterThanOrEqual(1)
   })
 })
 
