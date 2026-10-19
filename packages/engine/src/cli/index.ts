@@ -757,6 +757,10 @@ program
     '--session-timeout <seconds>',
     'kill a session that has not ended in this long (default: wait forever) — an unattended run should state it',
   )
+  .option(
+    '--session-ceiling <tokens>',
+    "task policy: nudge a session whose context passes this many tokens to commit, write back with its task still active, and end, so a fresh session continues it (default: the repo's context ceiling; `off` for none)",
+  )
   .option('--cwd <dir>', 'directory to launch sessions in (default: repo root); must serve the SAME record')
   .option('--model <model>', "model for every launch — outranks any task's own route hint")
   .option('--effort <effort>', "effort for every launch — outranks any task's own route hint")
@@ -845,6 +849,7 @@ program
         maxStalls?: string
         costCap?: string
         sessionTimeout?: string
+        sessionCeiling?: string
         cwd?: string
         model?: string
         effort?: string
@@ -934,6 +939,7 @@ program
           ...(opts.maxStalls !== undefined ? { maxStalls: opts.maxStalls } : {}),
           ...(opts.costCap !== undefined ? { costCap: opts.costCap } : {}),
           ...(opts.sessionTimeout !== undefined ? { sessionTimeout: opts.sessionTimeout } : {}),
+          ...(opts.sessionCeiling !== undefined ? { sessionCeiling: opts.sessionCeiling } : {}),
           ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
           ...(opts.model !== undefined ? { model: opts.model } : {}),
           ...(opts.effort !== undefined ? { effort: opts.effort } : {}),

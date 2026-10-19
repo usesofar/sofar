@@ -2625,6 +2625,26 @@ to stop after one task would make the gauge decorative. A nudged session that
 wrote back and resolved a task hands off with reason `threshold` rather than
 `task_done`: the reason names the lever that moved.
 
+**The session ceiling (drive-lanes 8.5, D66).** Under the `task` policy a
+session whose context passes the ceiling is nudged the same way, once, with
+`kind: "ceiling"` in the file: `--session-ceiling <tokens>`, `off` for none,
+else the repository's context ceiling (§Context ceiling (context-ceiling — write back and /clear before the context grows)) when it is a
+token count and its mode is not `off`; a percent ceiling names no window here
+and gives none. A per-driver knob, never recorded, as `--max-stalls` is. Both
+hook implementations then inject `sofar drive — context at <tokens> tokens,
+past the session ceiling: hand this task on now. Commit what you have, then
+end your turn with the closing sofar block: the summary, the exact next step
+as the next action, and the task marked done only if it is finished, else
+left active. A fresh session continues it from your write-back.` (`<tokens>
+tokens, ` omitted when the file carries none). A session so nudged that wrote
+back hands off with reason `threshold` even when it resolved nothing — no
+stall, and the next launch takes the task again with a fresh context — and
+the progress line says `<task>: nudged past the session ceiling (<n> of
+<ceiling> ctx tokens) — it hands the task on`. A task's fourth ceiling
+handoff in one driver is a `stall` instead, its detail naming the ceiling and
+the count, so a task that cannot fit under it still stops the run through
+`--max-stalls`.
+
 **The codex adapter (3.1, D9).** `codex exec --json`, verified against
 codex-cli 0.136.0: `{"type":"thread.started","thread_id"}`, `turn.started`,
 `{"type":"turn.completed","usage":{input_tokens, cached_input_tokens,
@@ -8068,7 +8088,8 @@ deletes it with the worktree's gitdir.
   never asserts, exactly as `sofar find` does (record-index D2).
 - `sofar drive [slug] [--policy task|threshold] [--threshold-pct <pct>]
   [--context-window <tokens>] [--max-sessions <n>] [--max-stalls <n>]
-  [--cost-cap <usd>] [--session-timeout <seconds>] [--cwd <dir>] [--model <m>]
+  [--cost-cap <usd>] [--session-timeout <seconds>] [--session-ceiling <tokens>|off]
+  [--cwd <dir>] [--model <m>]
   [--effort <e>] [--resume] [--verify <cmd>] [--verify-quick <cmd>]
   [--lanes <n>|auto] [--lane-setup <cmd|none>] [--leases steer|deny|off]
   [--schedule footprint|ready]

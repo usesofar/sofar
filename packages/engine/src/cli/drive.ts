@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { ToolError, createToolContext } from '../mcp/context'
 import { latestRun, stopRequestsInForce, type RunState } from '../core/fold'
+import { hookContextSettings } from '../core/context-ceiling'
 import { readyTasks } from '../core/drive-queue'
 import { awaitRun, awaitLiveness, blockedQuestion, stillRunning } from '../core/run-await'
 import { probeRunLock, type RunLiveness, type RunLockOptions } from '../core/run-lock'
@@ -44,6 +45,8 @@ export interface DriveCliOptions {
   costCap?: string
   /** Seconds a single session may run before the driver kills it (the hang guard). */
   sessionTimeout?: string
+  /** Context tokens past which a task-policy session hands its task on (drive-lanes 8.5); `off` for none. */
+  sessionCeiling?: string
   cwd?: string
   model?: string
   effort?: string
@@ -329,6 +332,19 @@ export function lanesOption(
   return auto.lanes > 1 ? auto.lanes : undefined
 }
 
+/**
+ * The session ceiling (drive-lanes 8.5, D66): `--session-ceiling <tokens>`,
+ * `off` for none, else the repo's context ceiling when it is given in tokens
+ * and its mode is not `off` — the limit the operator already set for their
+ * own sessions. A ceiling in percent names no window here, so it gives none.
+ */
+export function sessionCeilingOption(rootDir: string, value: string | undefined, env: NodeJS.ProcessEnv = process.env): number | undefined {
+  if (value === 'off') return undefined
+  if (value !== undefined) return integer('--session-ceiling', value)
+  const settings = hookContextSettings(rootDir, env)
+  return settings.mode !== 'off' && settings.ceiling.kind === 'tokens' ? settings.ceiling.tokens : undefined
+}
+
 export async function runDrive(
   rootDir: string,
   slug: string | undefined,
@@ -343,6 +359,7 @@ export async function runDrive(
     const contextWindow = integer('--context-window', options.contextWindow)
     const costCapUsd = positive('--cost-cap', options.costCap)
     const sessionTimeoutSec = positive('--session-timeout', options.sessionTimeout)
+    const sessionCeilingTokens = sessionCeilingOption(rootDir, options.sessionCeiling)
     const verifyTimeoutSec = positive('--verify-timeout', options.verifyTimeout)
     const maxVerifyAttempts = integer('--max-verify-attempts', options.maxVerifyAttempts)
     const lanes = lanesOption(rootDir, slug, options, onProgress)
@@ -376,6 +393,7 @@ export async function runDrive(
       ...(maxStalls !== undefined ? { maxStalls } : {}),
       ...(costCapUsd !== undefined ? { costCapUsd } : {}),
       ...(sessionTimeoutSec !== undefined ? { sessionTimeoutMs: sessionTimeoutSec * 1_000 } : {}),
+      ...(sessionCeilingTokens !== undefined ? { sessionCeilingTokens } : {}),
       ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
       ...(options.model !== undefined ? { model: options.model } : {}),
       ...(options.effort !== undefined ? { effort: options.effort } : {}),

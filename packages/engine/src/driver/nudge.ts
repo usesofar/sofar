@@ -33,6 +33,8 @@ export interface NudgeDetail {
   /** Context tokens behind that percentage. */
   tokens?: number
   ts?: string
+  /** `ceiling`: a task-policy session past the session ceiling (drive-lanes 8.5, D66), told to hand its task on unfinished. */
+  kind?: 'ceiling'
 }
 
 export function writeNudge(path: string, detail: NudgeDetail = {}): void {
@@ -51,11 +53,12 @@ export function readNudge(env: NodeJS.ProcessEnv = process.env): NudgeDetail | n
     if (!existsSync(path)) return null
     const decoded: unknown = JSON.parse(readFileSync(path, 'utf8'))
     if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded)) return {}
-    const { pct, tokens, ts } = decoded as Record<string, unknown>
+    const { pct, tokens, ts, kind } = decoded as Record<string, unknown>
     return {
       ...(typeof pct === 'number' && Number.isFinite(pct) ? { pct } : {}),
       ...(typeof tokens === 'number' && Number.isFinite(tokens) ? { tokens } : {}),
       ...(typeof ts === 'string' ? { ts } : {}),
+      ...(kind === 'ceiling' ? { kind } : {}),
     }
   } catch {
     // Present but unreadable: the signal still stands, the detail does not.
@@ -70,6 +73,15 @@ export function readNudge(env: NodeJS.ProcessEnv = process.env): NudgeDetail | n
  * is the stall the threshold policy exists to avoid.
  */
 export function nudgeLine(detail: NudgeDetail): string {
+  // Past the session ceiling (8.5, D66): the task goes to a fresh session,
+  // finished or not, so the write-back has to carry where it stands.
+  if (detail.kind === 'ceiling') {
+    return (
+      `sofar drive — context at ${detail.tokens !== undefined ? `${detail.tokens} tokens, ` : ''}past the session ceiling: hand this task on now. ` +
+      'Commit what you have, then end your turn with the closing sofar block: the summary, the exact next step as the ' +
+      'next action, and the task marked done only if it is finished, else left active. A fresh session continues it from your write-back.'
+    )
+  }
   const gauge =
     detail.pct !== undefined
       ? ` — context at ${Math.round(detail.pct)}%${detail.tokens !== undefined ? ` (${detail.tokens} tokens)` : ''}`

@@ -192,6 +192,8 @@ function waitingNote(state: InitiativeState, foreign: ForeignResolved | undefine
 
 /** Consecutive stalls that stop a run; `--max-stalls` overrides it. */
 export const DEFAULT_MAX_STALLS = 2
+/** Ceiling handoffs one task may take in a run before the next counts as a stall (drive-lanes 8.5, D66). */
+export const CEILING_HANDOFFS_PER_TASK = 3
 
 /** How long past the reset a usage limit names a parked lane waits (drive-lanes D23). */
 export const PARK_GRACE_MS = 30_000
@@ -364,6 +366,8 @@ export function watchThreshold(
   thresholdPct: number,
   contextWindow: number,
   onNudge?: (detail: NudgeDetail) => void,
+  /** `ceiling`: the session ceiling's nudge (8.5, D66) — `contextWindow` is then the ceiling and `thresholdPct` 100. */
+  kind?: NudgeDetail['kind'],
 ): { stop: () => void; nudged: () => boolean } {
   let fired = false
   const read = (): void => {
@@ -373,7 +377,7 @@ export function watchThreshold(
     const pct = (tokens / contextWindow) * 100
     if (pct < thresholdPct) return
     fired = true
-    const detail: NudgeDetail = { pct, tokens }
+    const detail: NudgeDetail = { pct, tokens, ...(kind !== undefined ? { kind } : {}) }
     session.nudge?.(detail)
     onNudge?.(detail)
   }
@@ -397,6 +401,13 @@ export interface DriveOptions {
    */
   agents?: ReadonlyMap<string, Adapter>
   policy?: RunPolicy
+  /**
+   * The session ceiling (drive-lanes 8.5, D66): under the task policy, a
+   * session whose context passes this many tokens is nudged to commit, write
+   * back with its task still active, and end, so a fresh session continues
+   * it. A per-driver knob, never recorded; undefined is none.
+   */
+  sessionCeilingTokens?: number
   /** Percentage of `contextWindow` at which a running session is nudged; REQUIRED for `threshold`. */
   thresholdPct?: number
   /** Tokens the session's context window holds — the denominator; REQUIRED for `threshold`. */
@@ -619,6 +630,8 @@ export function handoffReason(
   nudged = false,
   /** Tasks other lanes held while this session ran (drive-lanes 2.3, D21): their resolving is not this session's doing. */
   others: ReadonlySet<string> = new Set(),
+  /** Nudged past the session ceiling (8.5, D66): a write-back hands the task on, finished or not. */
+  ceiling = false,
 ): HandoffReason {
   const statuses = taskStatuses(after)
   if (statuses.get(taskId) === 'blocked') return 'needs_user'
@@ -632,7 +645,7 @@ export function handoffReason(
       return nudged ? 'threshold' : 'task_done'
     }
   }
-  return 'stall'
+  return ceiling && nudged ? 'threshold' : 'stall'
 }
 
 /**
@@ -1261,6 +1274,8 @@ async function driveHolding(
   // An interrupt or a takeover in that window ends it with no verdict:
   // nothing is recorded, and the task stays done without a check, which a
   // resumed run verifies first.
+  // Each task's handoffs past the session ceiling this driver filed (8.5, D66).
+  const ceilingHandoffs = new Map<string, number>()
   // Every verification in flight: one on a serial run, one per lane on a lanes run (2.3).
   const liveVerifies = new Set<{ waiting: AbortController; process?: VerificationProcess }>()
   let slotWarned = false
@@ -2343,12 +2358,15 @@ async function driveHolding(
       },
       options.stopPollMs,
     )
+    const ceiling = policy === 'task' ? options.sessionCeilingTokens : undefined
     const gauge =
       policy === 'threshold' && thresholdPct !== undefined && contextWindow !== undefined
         ? watchThreshold(session, thresholdPct, contextWindow, (detail) =>
             progress(`  nudged at ${Math.round(detail.pct ?? 0)}% (${detail.tokens} ctx tokens)`),
           )
-        : undefined
+        : ceiling !== undefined
+          ? watchThreshold(session, 100, ceiling, (detail) => progress(`  ${task.id}: nudged past the session ceiling (${detail.tokens} of ${ceiling} ctx tokens) — it hands the task on`), 'ceiling')
+          : undefined
     let exit
     try {
       exit = await awaitSession(session, {
@@ -2395,7 +2413,17 @@ async function driveHolding(
     }
 
     const sessionId = resolved.session.id
-    let reason = handoffReason(beforeStatuses, after, task.id, sessionId, gauge?.nudged() === true, lane?.others())
+    let reason = handoffReason(beforeStatuses, after, task.id, sessionId, gauge?.nudged() === true, lane?.others(), ceiling !== undefined)
+    // A task handed on past the ceiling again and again does not fit under it (D66): from the 4th time, a stall.
+    let overCeiling: string | undefined
+    if (ceiling !== undefined && reason === 'threshold' && !isResolvedTaskStatus(taskStatuses(after).get(task.id) ?? 'pending')) {
+      const n = (ceilingHandoffs.get(task.id) ?? 0) + 1
+      ceilingHandoffs.set(task.id, n)
+      if (n > CEILING_HANDOFFS_PER_TASK) {
+        reason = 'stall'
+        overCeiling = `${task.id} passed the ${ceiling}-token session ceiling ${n} times without finishing — it does not fit under it`
+      }
+    }
     const tokens = exit.usage?.context_tokens
     // A session steered off another lane's lease that then ended with no task
     // change has parked (3.1, D33): said in the handoff's detail, since the
@@ -2424,6 +2452,7 @@ async function driveHolding(
     // reading — a stall, or any exit that was not clean (D9). A clean
     // task_done says nothing a reader needs.
     let detail = reason === 'stall' || !cleanExit(exit) ? describeExit(exit) : undefined
+    if (overCeiling !== undefined) detail = `${overCeiling}; ${detail ?? describeExit(exit)}`
     if (parked !== undefined) detail = `${parkNote(parked)}${detail !== undefined ? `; ${detail}` : ''}`
     // The gate (D19): a task_done is accepted only on a recorded pass. A
     // dropped task is never verified — it resolved, it was not tested.

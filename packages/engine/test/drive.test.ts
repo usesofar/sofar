@@ -23,8 +23,13 @@ import {
 } from '../src/driver/drive'
 import { readyTasks, waitingTasks } from '../src/core/drive-queue'
 import { buildSurface } from '../src/driver/permissions'
-import { autoLanes, lanesOption, runDrive, runDriveStop } from '../src/cli/drive'
+import { autoLanes, lanesOption, runDrive, runDriveStop, sessionCeilingOption } from '../src/cli/drive'
+import { NUDGE_ENV, nudgeLine, readNudge, writeNudge } from '../src/driver/nudge'
 import { FakeAdapter, type FakeScript } from './helpers/fake-adapter'
+
+/** The ceiling nudge's line, byte for byte — crates/sofar-core/src/nudge.rs pins the same string. */
+const CEILING_LINE =
+  'sofar drive — context at 212000 tokens, past the session ceiling: hand this task on now. Commit what you have, then end your turn with the closing sofar block: the summary, the exact next step as the next action, and the task marked done only if it is finished, else left active. A fresh session continues it from your write-back.'
 
 /**
  * `sofar drive` (session-driver 2.2, D2/D3/D5/D6): the stateless loop.
@@ -1822,5 +1827,68 @@ describe('the driver registers a session before it launches it (drive-lanes 7.5)
     const adapter = new FakeAdapter([worker(root, 'S1'), worker(root, 'S2')])
     await drive(root, 'demo', { adapter, maxSessions: 1 })
     expect(adapter.sessions[0]!.request.sessionId).toBeUndefined()
+  })
+})
+
+describe('the session ceiling (drive-lanes 8.5, D66)', () => {
+  it('the ceiling nudge reads back its kind and says to hand the task on — the same line sofar-core prints', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sofar-ceiling-nudge-'))
+    const path = join(dir, 'nudge')
+    writeNudge(path, { pct: 106, tokens: 212000, kind: 'ceiling' })
+    const read = readNudge({ [NUDGE_ENV]: path })
+    expect(read).toMatchObject({ pct: 106, tokens: 212000, kind: 'ceiling' })
+    expect(nudgeLine(read!)).toBe(CEILING_LINE)
+    expect(nudgeLine({ kind: 'ceiling' })).toBe(CEILING_LINE.replace('212000 tokens, ', ''))
+    // Any other kind is the threshold nudge, as before.
+    writeFileSync(path, '{"pct":83,"kind":"other"}\n')
+    expect(nudgeLine(readNudge({ [NUDGE_ENV]: path })!)).toMatch(/^sofar drive — context at 83%: finish the CURRENT task now/)
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  const big = (root: string, id: string, extra: Partial<FakeScript> = {}): FakeScript =>
+    worker(root, id, { usage: [{ context_tokens: 250_000 }], complete: false, ...extra })
+
+  it('nudges a task-policy session past the ceiling, which hands its task on unfinished, and a fresh session finishes it', async () => {
+    const root = repo('ceiling-handoff')
+    const lines: string[] = []
+    const adapter = new FakeAdapter([big(root, 'S1'), worker(root, 'S2', { usage: [{ context_tokens: 10_000 }] }), worker(root, 'S3')])
+    const outcome = await drive(root, 'demo', { adapter, sessionCeilingTokens: 200_000, onProgress: (l) => lines.push(l) })
+
+    expect(outcome.handoffs.map((h) => `${h.task}:${h.reason}`)).toEqual(['1.1:threshold', '1.1:task_done', '1.2:task_done'])
+    expect(adapter.sessions.map((s) => s.nudged)).toEqual([1, 0, 0])
+    expect(lines.join('\n')).toContain('1.1: nudged past the session ceiling (250000 of 200000 ctx tokens) — it hands the task on')
+    expect(outcome.stop.reason).toBe('closed')
+  })
+
+  it("counts a task's 4th ceiling handoff as a stall, so a task that does not fit stops the run", async () => {
+    const root = repo('ceiling-stall')
+    const adapter = new FakeAdapter(['S1', 'S2', 'S3', 'S4', 'S5'].map((id) => big(root, id)))
+    const outcome = await drive(root, 'demo', { adapter, sessionCeilingTokens: 200_000 })
+
+    expect(outcome.handoffs.map((h) => h.reason)).toEqual(['threshold', 'threshold', 'threshold', 'stall', 'stall'])
+    expect(outcome.stop.reason).toBe('stall')
+    expect(state(root).runs.at(-1)!.handoffs[3]!.detail).toContain('1.1 passed the 200000-token session ceiling 4 times without finishing')
+  })
+
+  it('a session that never passes the ceiling is never nudged, and none is set without one', async () => {
+    const root = repo('ceiling-under')
+    const adapter = new FakeAdapter([worker(root, 'S1', { usage: [{ context_tokens: 150_000 }] }), worker(root, 'S2')])
+    await drive(root, 'demo', { adapter, sessionCeilingTokens: 200_000 })
+    const none = repo('ceiling-none')
+    const unset = new FakeAdapter([big(none, 'S1', { complete: true }), worker(none, 'S2')])
+    await drive(none, 'demo', { adapter: unset })
+    expect([...adapter.sessions, ...unset.sessions].map((s) => s.nudged)).toEqual([0, 0, 0, 0])
+  })
+
+  it('without the flag, the run takes the repo\'s context ceiling in tokens, and off or a percent ceiling sets none', () => {
+    const root = repo('ceiling-option')
+    const env = { XDG_CONFIG_HOME: join(root, 'no-user-config') }
+    expect(sessionCeilingOption(root, undefined, env)).toBe(200_000)
+    expect(sessionCeilingOption(root, '90000', env)).toBe(90_000)
+    expect(sessionCeilingOption(root, 'off', env)).toBeUndefined()
+    writeFileSync(join(root, '.sofar', 'config.json'), '{"context":{"ceiling":"80%"}}\n')
+    expect(sessionCeilingOption(root, undefined, env)).toBeUndefined()
+    writeFileSync(join(root, '.sofar', 'config.json'), '{"context":{"ceiling":120000,"mode":"off"}}\n')
+    expect(sessionCeilingOption(root, undefined, env)).toBeUndefined()
   })
 })

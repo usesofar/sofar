@@ -6,7 +6,7 @@ Goal: sofar drive runs N lanes in parallel with conflict-aware orchestration: re
 
 Brief: the operator's words, 30711 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 41 done, 3 dropped, 1 remaining
+Progress: 42 done, 3 dropped, 0 remaining
 
 ## Phase 1 — Baseline and prerequisites [done] — 3/3 done — its tasks in phases/P1.md
 
@@ -22,14 +22,6 @@ Progress: 41 done, 3 dropped, 1 remaining
 
 ## Phase 7 — Lanes robustness [done] — 5/5 done — its tasks in phases/P7.md
 
-## Phase 8 — Real-repo drive [active] — 5/6 done
+## Phase 8 — Real-repo drive [done] — 6/6 done — its tasks in phases/P8.md
 
-- [x] 8.1 A question a still-running run waits on reaches the operator: sofar drive --await and the rewake hook return a needs_user task's question once per task and run (seen live: context-ceiling 5.1 blocked on a permission for 1 h while its lanes run went on, with no one told); the drive panel shows it
-- [x] 8.2 Tiered verify by default: each task's gate runs its own tests (the plan's verify, or `vitest related` on the files it touched) and the full suite runs once when the run closes; seen live, full npm test gates timed out 6 times at 600 s under three concurrent drives
-- [x] 8.3 One full suite at a time machine-wide: concurrent drives queue their heavy gates through one lock under the state dir instead of timing each other out
-- [x] 8.4 A lane checkout that fails (`git checkout -B` on a dirty lane; felt-latency run 01M4TFNNP4RY4S0358MZ7MXS0E stopped on it) skips or cleans that lane instead of stopping the run
-- [ ] 8.5 Cap runaway sessions: a per-session token ceiling (felt-latency sessions reached 25.8M tokens per task) hands the task off before it balloons
-- [x] 8.6 Drive tests run as gates inside lanes leak `sofar drive demo` fixture drivers and stub sessions (10 found, up to 4 h old): reap them when a test ends
-
-Active phase: Phase 8 — Real-repo drive
-Next action: Build 8.4 (skip or clean a lane whose checkout fails), then 8.5 (per-session token cap)
+Next action: Push main, then cut rc.4 with Phase 8 (8.2-8.6)
