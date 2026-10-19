@@ -24,4 +24,4 @@ Progress: 42 done, 3 dropped, 0 remaining
 
 ## Phase 8 — Real-repo drive [done] — 6/6 done — its tasks in phases/P8.md
 
-Next action: Push main, then cut rc.4 with Phase 8 (8.2-8.6)
+Next action: Cut rc.4 carrying drive-lanes Phase 8 (8.2-8.6)
