@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "sofar": {
+      "command": "sofar",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

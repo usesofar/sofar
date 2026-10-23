@@ -4,5 +4,6 @@
 
 Cite these in .sofar/repo.md by qualified handle — `drive-cost M<n>` —
 which is how `sofar doctor` sees that a promoted fact reached repo memory.
+One line per memory; its full text is in memory/M<n>.md, or `sofar show M<n>`.
 
-- **M1** (2026-09-29T17:05:04.539Z) — sofar drive passes the launching shell's env to every session and to the verify command. With FORCE_COLOR set (Ghostty sets it), the CLI renders its TTY UI and about 17 unit test files fail on plain-text assertions. On 2026-09-29 this reopened linked-context 4.2, 4.3 and 5.1 with 21 failures, and the suite passed 3309/3309 once FORCE_COLOR was unset. Start drive with `env -u FORCE_COLOR -u COLORTERM sofar drive …` until the driver scrubs them.
+- M1 2026-09-29 — sofar drive passes the launching shell's env to every session and to the verify…

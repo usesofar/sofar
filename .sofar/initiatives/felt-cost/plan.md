@@ -6,31 +6,14 @@ Goal: Make harness cost felt at the moment it is incurred — cold-resume adviso
 
 Progress: 12/12 tasks done (100%)
 
-## Phase 1 — Invariants & pinning [done] — 2/2 done
+## Phase 1 — Invariants & pinning [done] — 2/2 done — its tasks in phases/P1.md
 
-- [x] 1.1 Name the zero-model-API-calls invariant in docs/SPEC.md and CLAUDE.md guard-rails
-- [x] 1.2 Byte-stability regression test: identical fold state → byte-identical renderStatus across wall-clock change
+## Phase 2 — Cold-resume advisory [done] — 2/2 done — its tasks in phases/P2.md
 
-## Phase 2 — Cold-resume advisory [done] — 2/2 done
+## Phase 3 — Rent-meter [done] — 3/3 done — its tasks in phases/P3.md
 
-- [x] 2.1 SessionStart source=resume detection: last-event age + transcript size estimate (read-side, best-effort)
-- [x] 2.2 Advisory line in injected block + tests (never blocks, never errors)
+## Phase 4 — Batch-complete nudge [done] — 2/2 done — its tasks in phases/P4.md
 
-## Phase 3 — Rent-meter [done] — 3/3 done
-
-- [x] 3.1 SPEC-lite: statusline integration design (stdin cost/cache fields + sofar record state)
-- [x] 3.2 Implement statusline surface with cache-read % health bands (50–80% healthy, <30% warn)
-- [x] 3.3 Tests + README/docs for statusline setup
-
-## Phase 4 — Batch-complete nudge [done] — 2/2 done
-
-- [x] 4.1 SPEC decision: UserPromptSubmit shim + additionalContext contract
-- [x] 4.2 Implement nudge behind the SPEC + tests
-
-## Phase 5 — Polish round (user feedback on 0.8.0) [done] — 3/3 done
-
-- [x] 5.1 Statusline harness-identity segments: restore model · dir:branch (custom statusLine replaces Claude Code's default)
-- [x] 5.2 Styled statusline: forced caps (D7), glyphs not emoji (D8), task-progress pie (D9), text cache label (D10); --no-color plain fallback
-- [x] 5.3 Release 0.8.1 + rollout (publish, upgrade)
+## Phase 5 — Polish round (user feedback on 0.8.0) [done] — 3/3 done — its tasks in phases/P5.md
 
 Next action: None — initiative complete. Other repos: one-time `sofar init` re-run each for the UserPromptSubmit shim (doctor flags them); statusLine can live once in ~/.claude/settings.json. Next engine work starts a new initiative (sofar new).

@@ -27,4 +27,5 @@ Progress: 0/9 tasks done (0%)
 
 - [ ] 4.1 Same-task A/B (task policy vs threshold default) on a 4.1-sized task: total tokens, verify pass rate, rework after mid-task handoff; ship the default only if verify pass rate holds (blocked)
 
+Next action: Operator to decide: add interactive context-ceiling handoff task to drive-cost
 Blocked on: task 4.1: Needs the operator's go-ahead: a live same-task A/B spends quota, and driven sessions cannot build the bench profile outside the worktree (linked-context 6.3 precedent). Ask before running.

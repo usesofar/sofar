@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/user-prompt-submit.sh"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use.sh",
+        "matcher": "Shell"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-use.sh",
+        "matcher": "Shell|Write|Read"
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-use-failure.sh",
+        "matcher": "Shell|Write"
+      }
+    ],
+    "stop": [
+      {
+        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop.sh",
+        "loop_limit": 1
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-end.sh"
+      }
+    ]
+  }
+}
