@@ -76,8 +76,19 @@ pub fn describe_activity(activity: &SessionActivity) -> String {
         };
         parts.push(format!("{}{failed}", plural(activity.commands, "command")));
     }
-    if let Some(test) = &activity.last_test {
-        parts.push(format!("tests {}", if test.ok { "pass" } else { "fail" }));
+    // A pass from BEFORE the last edit verifies nothing the edit changed
+    // (tests_since_edit is the test gate's window, r3-fixes D10).
+    let verdict = activity
+        .last_test
+        .as_ref()
+        .map(|test| if test.ok { "pass" } else { "fail" });
+    if !activity.files.is_empty() && activity.tests_since_edit.is_empty() {
+        parts.push(match verdict {
+            Some(v) => format!("unverified since last edit (earlier tests {v})"),
+            None => "unverified since last edit".to_owned(),
+        });
+    } else if let Some(v) = verdict {
+        parts.push(format!("tests {v}"));
     }
     if !activity.task_changes.is_empty() {
         parts.push(format!(
@@ -1888,7 +1899,7 @@ mod tests {
         };
         assert_eq!(
             describe_activity(&a),
-            "5 files (a, b, +3 more), 1 command (1 failed), tests fail, task changes: 1.2 → done"
+            "5 files (a, b, +3 more), 1 command (1 failed), unverified since last edit (earlier tests fail), task changes: 1.2 → done"
         );
         let empty = SessionActivity {
             files: vec![],

@@ -277,7 +277,7 @@ describe('full projections (3.6)', () => {
     expect(md).toContain('- Ended: 2026-07-07T02:00:00.000Z (closed: crash)')
     expect(md).toContain('(none recorded — ended without write-back; derived resume point below)')
     expect(md).toContain('## Activity (derived from mechanical events)')
-    expect(md).toContain('- Derived: 2 files (src/a.ts, src/b.ts), 3 commands, task changes: 1.2 → done')
+    expect(md).toContain('- Derived: 2 files (src/a.ts, src/b.ts), 3 commands, unverified since last edit, task changes: 1.2 → done')
     expect(md).toContain('  - src/a.ts')
     expect(md).toContain('- Commands run: 3')
     expect(md).toContain('  - 1.2 → done')
@@ -563,7 +563,7 @@ describe('renderStatus — SessionStart context block (3.6, BD3)', () => {
     ]
     const status = renderStatus(state)
     expect(status).toContain(
-      'Last session (claude-code, closed: crash) ended without write-back — derived: 2 files (src/a.ts, src/b.ts), 2 commands, task changes: 1.2 → done',
+      'Last session (claude-code, closed: crash) ended without write-back — derived: 2 files (src/a.ts, src/b.ts), 2 commands, unverified since last edit, task changes: 1.2 → done',
     )
     expect(status).toContain('(details in sessions/sess-crash.md)')
     expect(status.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)

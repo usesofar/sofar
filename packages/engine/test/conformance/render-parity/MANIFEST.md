@@ -163,6 +163,17 @@ retirement, D25; 5.2 code-unit order, D26), merged into rust-core after 2.4.
   `synthetic.surfacing.surf`. The full status, plan.md, decisions.md,
   memory.md and the session files are byte-unchanged.
 
+- quick lane (unverified-since-edit, 2026-11-13): 59 goldens re-recorded.
+  `describeActivity` now reads `tests_since_edit`, not `last_test`: a
+  session that edited files and has no known test outcome since its last
+  edit renders `unverified since last edit`, or `unverified since last
+  edit (earlier tests pass|fail)` when a run came before the edit, in place
+  of `tests pass|fail` or nothing. Why: a session killed before its
+  write-back handed its next session a pass from before the edit as if it
+  verified the change. Only the derived activity lines (Last session,
+  Recent quick work, sessions/<id>.md `- Derived:`) and their section byte
+  counts change.
+
 Re-record (`RENDER_PARITY_RECORD=1 npx vitest run render-parity`) only when a
 template changes on purpose; add a row per changed golden with the commit and
 the reason.

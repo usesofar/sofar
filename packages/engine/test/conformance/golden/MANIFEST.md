@@ -1,5 +1,16 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **unverified-since-edit** (quick lane, main, 2026-11-13) from
+the TypeScript reference; the Rust core (release build) reproduces them. A
+session's derived activity line reads `tests_since_edit`, not `last_test`: a
+session that edited files with no known test outcome since its last edit
+renders `, unverified since last edit` (or `… (earlier tests pass|fail)` when
+a run came before the edit) in place of `, tests pass|fail` or nothing. A
+session killed before its write-back no longer hands on a pre-edit pass as
+verification. 41 goldens move only on those Derived/Last-session lines, the
+byte counts that carry them, and fixture sessions/<id>.md files the hook
+re-renders with the new line (`rewritten` in the record delta).
+
 EDITED for **context-ceiling 4.1** (lane branch …-4.1) by hand, not
 re-recorded: the lane's permission surface runs no env-prefixed command. The
 statusline's ctx segment now shows the context held in whole K, banded by the

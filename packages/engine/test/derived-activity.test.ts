@@ -158,6 +158,36 @@ describe('surfaces (D24 (3))', () => {
     const legacyMd = renderSession(legacy, legacy.sessions.find((s) => s.id === 'S1')!)
     expect(legacyMd).toContain('- Commands run: 4\n')
     expect(legacyMd).not.toContain('Last test')
+    // No known outcome after the edit: the record verifies nothing it changed.
+    expect(legacyMd).toContain('- Derived: 1 file (src/a.ts), 4 commands, unverified since last edit')
+  })
+
+  it('a session killed before its write-back hands off changed code apart from verified work', () => {
+    // The process dies after an edit, before any test runs on it, and never
+    // reaches sofar_end_session. The next session reads only the derived line.
+    const crashed = (events: string[]): string => {
+      const { state: s } = foldLines(
+        [
+          line('cli', 'initiative_created', { slug: 'demo', goal: 'derive, do not narrate' }),
+          line('S1', 'session_started', { tool: 'claude-code' }),
+          line('S1', 'plan_updated', PLAN),
+          ...events,
+          line('S2', 'session_started', { tool: 'claude-code' }),
+        ],
+        'demo',
+      )
+      return renderStatus(s)
+    }
+    // Built at call time: line() stamps a rising clock, so array order is time order.
+    const edit = (): string => line('S1', 'file_touched', { path: 'src/a.ts', op: 'edit', ok: true })
+    const pass = (): string => line('S1', 'command_run', { cmd: 'npm test', ok: true, exit: 0 })
+
+    // Edit, then killed: nothing ran on the change.
+    expect(crashed([edit()])).toContain('Last session (claude-code) open, no write-back yet — derived: 1 file (src/a.ts), unverified since last edit')
+    // A pass from BEFORE the edit is not verification of it.
+    expect(crashed([pass(), edit()])).toContain('derived: 1 file (src/a.ts), 1 command, unverified since last edit (earlier tests pass)')
+    // A pass AFTER the edit is.
+    expect(crashed([edit(), pass()])).toContain('derived: 1 file (src/a.ts), 1 command, tests pass')
   })
 
   it('the status block shows the active task’s tests line, a newer verification wins, the switch removes it', () => {

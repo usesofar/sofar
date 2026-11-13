@@ -6470,7 +6470,10 @@ present only when non-empty — a record without outcome fields folds
 byte-identically, so every fold-parity golden and pre-capture projection is
 unchanged (D21). (3) SURFACES: sessions/<id>.md says `Commands run: N (M
 failed)` and `Last test: pass|fail — <cmd>`; describeActivity says `N
-commands (M failed), tests pass|fail`; the status block's Current task gains
+commands (M failed), tests pass|fail` — and, for a session that edited files
+with no known test outcome in `tests_since_edit`, `unverified since last
+edit[ (earlier tests pass|fail)]` instead, so a session that died before its
+write-back never hands on a pre-edit pass as verification of the edit; the status block's Current task gains
 one budgeted `tests: pass|fail — <cmd>` line, which a D19 verification at
 least as new takes over as `tests: verified <result> — <command>`.
 (4) COMMITS, read from git and never recorded (§Commit attribution): SessionStart

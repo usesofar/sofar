@@ -41,7 +41,17 @@ export function describeActivity(activity: SessionActivity): string {
     const failed = activity.failed !== undefined && activity.failed > 0 ? ` (${activity.failed} failed)` : ''
     parts.push(`${activity.commands} command${activity.commands === 1 ? '' : 's'}${failed}`)
   }
-  if (activity.last_test !== undefined) parts.push(`tests ${activity.last_test.ok ? 'pass' : 'fail'}`)
+  // A pass from BEFORE the last edit verifies nothing the edit changed, so a
+  // session that edited and ran no test since says so outright: a resuming
+  // agent must tell changed code from verified work (tests_since_edit is the
+  // test gate's own window, r3-fixes D10). "unverified", not "untested": a
+  // host that reports no outcome leaves a run unknown, never absent.
+  const verdict = activity.last_test === undefined ? undefined : activity.last_test.ok ? 'pass' : 'fail'
+  if (activity.files.length > 0 && (activity.tests_since_edit === undefined || activity.tests_since_edit.length === 0)) {
+    parts.push(verdict === undefined ? 'unverified since last edit' : `unverified since last edit (earlier tests ${verdict})`)
+  } else if (verdict !== undefined) {
+    parts.push(`tests ${verdict}`)
+  }
   if (activity.task_changes.length > 0) {
     parts.push(`task changes: ${activity.task_changes.join(', ')}`)
   }

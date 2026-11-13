@@ -317,7 +317,7 @@ describe('acceptance 3 — an unwritten session still yields a usable resume blo
     expect(sessionMd).toContain('(none recorded — ended without write-back; derived resume point below)')
     expect(sessionMd).toContain('## Activity (derived from mechanical events)')
     expect(sessionMd).toContain(
-      '- Derived: 2 files (src/c1.ts, src/c2.ts), 1 command, task changes: 1.1 → active',
+      '- Derived: 2 files (src/c1.ts, src/c2.ts), 1 command, unverified since last edit, task changes: 1.1 → active',
     )
     expect(sessionMd).toContain('(closed: prompt_input_exit)')
 
@@ -332,7 +332,7 @@ describe('acceptance 3 — an unwritten session still yields a usable resume blo
       "Session: phase7-session-d — adopted on Claude Code; else pass to sofar_start_session.",
     )
     expect(resume.stdout).toContain(
-      'Last session (claude-code, closed: prompt_input_exit) ended without write-back — derived: 2 files (src/c1.ts, src/c2.ts), 1 command, task changes: 1.1 → active',
+      'Last session (claude-code, closed: prompt_input_exit) ended without write-back — derived: 2 files (src/c1.ts, src/c2.ts), 1 command, unverified since last edit, task changes: 1.1 → active',
     )
     expect(resume.stdout).toContain(`(details in sessions/${C}.md)`)
     expect(resume.stdout.length).toBeLessThanOrEqual(STATUS_CHAR_LIMIT)
