@@ -43,7 +43,7 @@
   },
   "devDependencies": {
     "@sofar/schema": "*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "chokidar": "^5.0.0",
     "commander": "^15.0.0",
     "ulid": "^3.0.2"
