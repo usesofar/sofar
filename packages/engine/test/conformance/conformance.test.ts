@@ -15,6 +15,7 @@ import {
   recordDelta,
   renderGolden,
   runStep,
+  suffixCollision,
   type Materialized,
 } from './harness'
 import { staleSynthetic, writeSynthetic } from './synthetic'
@@ -54,10 +55,19 @@ describe(`conformance goldens (${implementation().name})`, () => {
     const skipped = (c.tags ?? []).some((t) => SKIP_TAGS.has(t))
     const test = skipped ? it.skip : it
     test(c.name, () => {
-      const m = materialize(c.name, c.fixture)
-      const outcomes = c.steps.map((step) => runStep(m, step))
-      const delta = recordDelta(m)
-      const text = renderGolden(c.name, m, outcomes, delta)
+      // A run whose minted suffix equals an existing decision's cannot mask
+      // stably (harness suffixCollision): re-run it with fresh ids.
+      let m = materialize(c.name, c.fixture)
+      let outcomes = c.steps.map((step) => runStep(m, step))
+      let delta = recordDelta(m)
+      let text = renderGolden(c.name, m, outcomes, delta)
+      for (let attempt = 1; attempt < 3 && suffixCollision(m).length > 0; attempt++) {
+        m = materialize(c.name, c.fixture)
+        outcomes = c.steps.map((step) => runStep(m, step))
+        delta = recordDelta(m)
+        text = renderGolden(c.name, m, outcomes, delta)
+      }
+      expect(suffixCollision(m), `${c.name}: three runs each minted a handle suffix an existing decision already carries`).toEqual([])
       const path = goldenPath(c.name)
       if (c.ahead !== undefined) {
         // Written ahead of the code: never re-recorded, since the reference

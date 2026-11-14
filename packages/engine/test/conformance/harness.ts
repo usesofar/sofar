@@ -226,6 +226,7 @@ export function materialize(name: string, spec: FixtureSpec): Materialized {
   const dir = join(scratch(), 'cases', name)
   rmSync(dir, { recursive: true, force: true })
   const root = join(dir, 'root')
+  mintedSuffixes.delete(root)
   const home = join(dir, 'home')
   mkdirSync(root, { recursive: true })
   mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
@@ -407,6 +408,38 @@ function collectMinted(text: string, m: Materialized): Set<string> {
     if (t >= m.floor && t <= upper) minted.add(handleSuffix(id))
   }
   return minted
+}
+
+/**
+ * The suffixes the run minted that a decision it did NOT mint also carries.
+ * A suffix is 4 chars of a hash (~1 in 10^6 per pair), so over a fixture of
+ * many decisions a run occasionally mints one equal to an existing handle's,
+ * and `mask` then hides that handle's real suffix too (CI 43615447400: a
+ * minted id hashed to felt-cost D3's `bq9m`). Neither masking choice is
+ * stable for such a run, so the caller re-runs the case: fresh ids, fresh
+ * suffixes, every byte still compared. Call after the golden is rendered.
+ */
+export function suffixCollision(m: Materialized): string[] {
+  const minted = mintedSuffixes.get(m.root)
+  if (minted === undefined || minted.size === 0) return []
+  const upper = m.floor + RUN_WINDOW_MS
+  const dir = join(m.root, '.sofar', 'initiatives')
+  if (!existsSync(dir)) return []
+  const hits = new Set<string>()
+  for (const slug of readdirSync(dir)) {
+    const log = join(dir, slug, 'events.jsonl')
+    if (!existsSync(log)) continue
+    for (const line of readFileSync(log, 'utf8').split('\n')) {
+      if (!line.includes('"decision_logged"')) continue
+      const id = /"id":"([0-9A-HJKMNP-TV-Z]{26})"/.exec(line)?.[1]
+      if (id === undefined) continue
+      const t = ulidTime(id)
+      if (t >= m.floor && t <= upper) continue
+      const sfx = handleSuffix(id)
+      if (minted.has(sfx)) hits.add(sfx)
+    }
+  }
+  return [...hits]
 }
 
 /** Mask the bytes a run cannot help minting differently each time (see the module doc). */
