@@ -193,7 +193,11 @@ pub fn classify_tool_call_in(hook: &Object, root: Option<&Path>) -> Vec<Classifi
             let redacted = redact_command(cmd);
             // The record elides here-document bodies; the live match does not
             // (event.ts), so a guard inside a heredoc is seen exactly as before.
-            let live = if cmd.contains("<<") { redact_command_text(cmd) } else { redacted.clone() };
+            let live = if cmd.contains("<<") {
+                redact_command_text(cmd)
+            } else {
+                redacted.clone()
+            };
             let head = cmd
                 .trim_start_matches(is_js_whitespace)
                 .split(is_js_whitespace)
