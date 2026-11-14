@@ -321,7 +321,9 @@ fn rule_token(s: &[char], i: usize) -> Option<(usize, String)> {
     } else if ["shpat_", "shpss_", "shpca_"].iter().any(|p| lit(s, i, p)) {
         vendor(s, i + 6, alnum)
     } else if lit(s, i, "SG.") {
-        vendor(s, i + 3, |c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+        vendor(s, i + 3, |c| {
+            c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-')
+        })
     } else if lit(s, i, "ASIA") {
         let n = run_len(s, i + 4, |c| c.is_ascii_digit() || c.is_ascii_uppercase());
         (n >= 16).then_some(i + 4 + 16)
@@ -516,8 +518,10 @@ fn pem_label_end(s: &[u8], at: usize) -> Option<usize> {
     while j < s.len() && (s[j].is_ascii_uppercase() || s[j] == b' ') {
         j += 1;
     }
-    (j - at >= PEM_TAIL.len() && &s[j - PEM_TAIL.len()..j] == PEM_TAIL && s[j..].starts_with(b"-----"))
-        .then_some(j + 5)
+    (j - at >= PEM_TAIL.len()
+        && &s[j - PEM_TAIL.len()..j] == PEM_TAIL
+        && s[j..].starts_with(b"-----"))
+    .then_some(j + 5)
 }
 
 fn find_from(s: &str, pat: &str, from: usize) -> Option<usize> {
@@ -608,7 +612,8 @@ fn secret_value(v: &[char]) -> bool {
     if v.len() < 8 || holds_redacted(v) || "$<{%/~.".contains(v[0]) {
         return false;
     }
-    !v.iter().all(|c| !c.is_ascii_digit() && (c.is_ascii_alphabetic() || "_.-()[]".contains(*c)))
+    !v.iter()
+        .all(|c| !c.is_ascii_digit() && (c.is_ascii_alphabetic() || "_.-()[]".contains(*c)))
 }
 
 fn kv_value_end(s: &[char], i: usize) -> Option<usize> {
@@ -679,12 +684,23 @@ fn rule_key_value(s: &[char], i: usize) -> Option<(usize, String)> {
     let end = kv_value_end(s, sep_end)?;
     let vq = s[sep_end];
     let quoted = (vq == '"' || vq == '\'') && end - sep_end >= 2 && s[end - 1] == vq;
-    let inner = if quoted { &s[sep_end + 1..end - 1] } else { &s[sep_end..end] };
+    let inner = if quoted {
+        &s[sep_end + 1..end - 1]
+    } else {
+        &s[sep_end..end]
+    };
     if !secret_value(inner) {
         return None;
     }
     let head: String = s[i..sep_end].iter().collect();
-    Some((end, if quoted { format!("{head}{vq}{REDACTED}{vq}") } else { format!("{head}{REDACTED}") }))
+    Some((
+        end,
+        if quoted {
+            format!("{head}{vq}{REDACTED}{vq}")
+        } else {
+            format!("{head}{REDACTED}")
+        },
+    ))
 }
 
 /// `ruleUrlUser`: `scheme://<≥20 token chars with a digit>@` → `scheme://[redacted]@`.
@@ -765,7 +781,10 @@ fn segments(s: &[char]) -> Vec<Segment> {
             '|' | '&' | ';' | '\n' | '(' | ')' | '`' => {
                 end_word(&mut words, &mut ws, i);
                 let pipe = c == '|' && s.get(i + 1) != Some(&'|') && (i == 0 || s[i - 1] != '|');
-                segs.push(Segment { words: std::mem::take(&mut words), pipe });
+                segs.push(Segment {
+                    words: std::mem::take(&mut words),
+                    pipe,
+                });
                 i += 1;
             }
             _ => {
@@ -850,9 +869,26 @@ fn program_name(s: &[char], w: Word) -> String {
 }
 
 const CURL: [&str; 5] = ["curl", "wget", "http", "https", "xh"];
-const MYSQL: [&str; 7] = ["mysql", "mariadb", "mysqldump", "mysqladmin", "mysqlimport", "mysqlshow", "mysqlcheck"];
-const LOGIN: [&str; 8] = ["docker", "podman", "nerdctl", "helm", "buildah", "skopeo", "oras", "crane"];
-const LDAP: [&str; 6] = ["ldapsearch", "ldapadd", "ldapmodify", "ldapdelete", "ldapwhoami", "ldappasswd"];
+const MYSQL: [&str; 7] = [
+    "mysql",
+    "mariadb",
+    "mysqldump",
+    "mysqladmin",
+    "mysqlimport",
+    "mysqlshow",
+    "mysqlcheck",
+];
+const LOGIN: [&str; 8] = [
+    "docker", "podman", "nerdctl", "helm", "buildah", "skopeo", "oras", "crane",
+];
+const LDAP: [&str; 6] = [
+    "ldapsearch",
+    "ldapadd",
+    "ldapmodify",
+    "ldapdelete",
+    "ldapwhoami",
+    "ldappasswd",
+];
 
 struct Edits<'a> {
     s: &'a [char],
@@ -878,7 +914,11 @@ impl Edits<'_> {
             return;
         }
         let q = self.s[w.start];
-        let end = if (q == '"' || q == '\'') && w.end - w.start >= 2 && self.s[w.end - 1] == q { w.end - 1 } else { w.end };
+        let end = if (q == '"' || q == '\'') && w.end - w.start >= 2 && self.s[w.end - 1] == q {
+            w.end - 1
+        } else {
+            w.end
+        };
         if from < end && !holds_redacted(&self.s[from..end]) {
             self.out.push((from, end));
         }
@@ -896,7 +936,9 @@ impl Edits<'_> {
             return;
         }
         let feed = &segs[n - 1];
-        let Some(fp) = program_at(self.s, &feed.words) else { return };
+        let Some(fp) = program_at(self.s, &feed.words) else {
+            return;
+        };
         let fprog = program_name(self.s, feed.words[fp]);
         if fprog == "echo" || fprog == "printf" {
             for a in &feed.words[fp + 1..] {
@@ -909,7 +951,10 @@ impl Edits<'_> {
 }
 
 fn is_short_flags_with_s(t: &str) -> bool {
-    t.len() > 1 && t.starts_with('-') && t[1..].chars().all(|c| c.is_ascii_alphabetic()) && t.contains('S')
+    t.len() > 1
+        && t.starts_with('-')
+        && t[1..].chars().all(|c| c.is_ascii_alphabetic())
+        && t.contains('S')
 }
 
 /// `argvEdits`: secrets that only an argv position marks.
@@ -917,7 +962,9 @@ fn argv_edits(s: &[char]) -> Vec<(usize, usize)> {
     let segs = segments(s);
     let mut ed = Edits { s, out: Vec::new() };
     for (n, seg) in segs.iter().enumerate() {
-        let Some(p) = program_at(s, &seg.words) else { continue };
+        let Some(p) = program_at(s, &seg.words) else {
+            continue;
+        };
         let mut sudo = false;
         for w in &seg.words[..p] {
             let t = ed.text(*w);

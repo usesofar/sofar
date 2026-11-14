@@ -36,7 +36,10 @@ pub fn append_events(log_path: &Path, events: &[Envelope]) -> io::Result<()> {
         }
         let hidden = crate::payload::control_char_errors(&event.event_type, &event.payload);
         if !hidden.is_empty() {
-            return Err(io::Error::other(format!("refusing to append invalid event — {}", hidden.join("; "))));
+            return Err(io::Error::other(format!(
+                "refusing to append invalid event — {}",
+                hidden.join("; ")
+            )));
         }
     }
     // A committed symlink must not carry the append out of the clone
@@ -77,7 +80,12 @@ fn open_append(log_path: &Path) -> io::Result<fs::File> {
     };
     match open(log_path) {
         // The errno differs by platform (ELOOP, EMLINK on FreeBSD): ask the path.
-        Err(_) if crate::contain::O_NOFOLLOW != 0 && log_path.symlink_metadata().is_ok_and(|m| m.file_type().is_symlink()) => {
+        Err(_)
+            if crate::contain::O_NOFOLLOW != 0
+                && log_path
+                    .symlink_metadata()
+                    .is_ok_and(|m| m.file_type().is_symlink()) =>
+        {
             open(&log_path.canonicalize()?)
         }
         other => other,
@@ -232,7 +240,12 @@ mod tests {
             let mut check = Object::new();
             check.insert("cmd", Json::Str(cmd.to_owned()));
             let mut payload = Object::new();
-            for (k, v) in [("chose", "a"), ("over", "b"), ("because", "c"), ("rule", rule)] {
+            for (k, v) in [
+                ("chose", "a"),
+                ("over", "b"),
+                ("because", "c"),
+                ("rule", rule),
+            ] {
                 payload.insert(k, Json::Str(v.to_owned()));
             }
             payload.insert("check", Json::Obj(check));
@@ -251,7 +264,11 @@ mod tests {
             .expect("a valid envelope")
         };
         let err = append_event(&path, &decision("npm test\u{1b}[2K", "r")).unwrap_err();
-        assert!(err.to_string().contains("check.cmd: must not contain control characters"), "{err}");
+        assert!(
+            err.to_string()
+                .contains("check.cmd: must not contain control characters"),
+            "{err}"
+        );
         assert!(append_event(&path, &decision("npm test", "a\u{9b}b")).is_err());
         assert!(!path.exists());
         append_event(&path, &decision("npm test", "tabs\tare fine")).unwrap();
@@ -286,7 +303,10 @@ mod tests {
         symlink(clone.join("real.jsonl"), &path).unwrap();
         let ev = note("cli", "three");
         append_event(&path, &ev).unwrap();
-        assert_eq!(fs::read_to_string(clone.join("real.jsonl")).unwrap(), format!("{}\n", serialize_event(&ev)));
+        assert_eq!(
+            fs::read_to_string(clone.join("real.jsonl")).unwrap(),
+            format!("{}\n", serialize_event(&ev))
+        );
         fs::remove_dir_all(&base).unwrap();
     }
 

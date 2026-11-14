@@ -267,8 +267,10 @@ pub fn control_char_errors(event_type: &str, payload: &Object) -> Vec<String> {
         return e;
     }
     let hidden = |v: Option<&Json>| {
-        v.and_then(Json::as_str)
-            .is_some_and(|s| s.chars().any(|c| matches!(c as u32, 0x00..=0x08 | 0x0a..=0x1f | 0x7f..=0x9f)))
+        v.and_then(Json::as_str).is_some_and(|s| {
+            s.chars()
+                .any(|c| matches!(c as u32, 0x00..=0x08 | 0x0a..=0x1f | 0x7f..=0x9f))
+        })
     };
     let mut field = |name: &str, v: Option<&Json>| {
         if hidden(v) {
@@ -1122,7 +1124,10 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                 e.push("verify_quick: needs verify, the full gate it tiers".to_owned());
             }
             if p.contains_key("security") && !one_of(p.get("security"), &RUN_SECURITY) {
-                e.push(format!("security: must be one of {} when present", RUN_SECURITY.join("|")));
+                e.push(format!(
+                    "security: must be one of {} when present",
+                    RUN_SECURITY.join("|")
+                ));
             }
             if !one_of(p.get("policy"), &RUN_POLICIES) {
                 e.push(format!("policy: must be one of {}", RUN_POLICIES.join("|")));
@@ -1450,7 +1455,13 @@ mod tests {
     fn run_started_security_is_a_preset_when_present() {
         let base = "\"run\":\"R\",\"adapter\":\"fake\",\"policy\":\"task\"";
         for preset in RUN_SECURITY {
-            assert!(check("run_started", &format!("{{{base},\"security\":\"{preset}\"}}")).is_empty());
+            assert!(
+                check(
+                    "run_started",
+                    &format!("{{{base},\"security\":\"{preset}\"}}")
+                )
+                .is_empty()
+            );
         }
         for bad in ["\"yolo\"", "1", "null"] {
             assert_eq!(

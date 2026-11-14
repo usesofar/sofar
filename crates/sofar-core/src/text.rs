@@ -183,7 +183,10 @@ mod prefix_tests {
 
     #[test]
     fn printable_escapes_c0_del_and_c1_only() {
-        assert_eq!(printable("a\u{1b}[2Kb\tc\u{7f}\u{85}é"), "a\\u001b[2Kb\\u0009c\\u007f\\u0085é");
+        assert_eq!(
+            printable("a\u{1b}[2Kb\tc\u{7f}\u{85}é"),
+            "a\\u001b[2Kb\\u0009c\\u007f\\u0085é"
+        );
         assert_eq!(printable("plain"), "plain");
     }
 

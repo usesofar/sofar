@@ -11,7 +11,14 @@ use std::path::{Component, Path, PathBuf};
 /// `O_NOFOLLOW` where the platform has it (no libc dependency: the values
 /// are the platforms' own, fixed by their ABIs); 0 elsewhere — the
 /// containment check still holds there.
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd", target_os = "dragonfly"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonfly"
+))]
 pub const O_NOFOLLOW: i32 = 0x0100;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub const O_NOFOLLOW: i32 = 0o400_000;
@@ -128,8 +135,14 @@ mod tests {
 
     #[test]
     fn record_clone_is_the_prefix_before_the_last_record_dir() {
-        assert_eq!(record_clone(Path::new("/r/.sofar/initiatives/a/events.jsonl")), Some(PathBuf::from("/r")));
-        assert_eq!(record_clone(Path::new("/r/.sofar")), Some(PathBuf::from("/r")));
+        assert_eq!(
+            record_clone(Path::new("/r/.sofar/initiatives/a/events.jsonl")),
+            Some(PathBuf::from("/r"))
+        );
+        assert_eq!(
+            record_clone(Path::new("/r/.sofar")),
+            Some(PathBuf::from("/r"))
+        );
         assert_eq!(record_clone(Path::new("/r/state/x.json")), None);
         assert_eq!(record_clone(Path::new("/r/.sofarx/a")), None);
     }
@@ -158,13 +171,21 @@ mod tests {
         assert!(!outside.join("sessions").exists());
 
         // A dangling link.
-        symlink(base.join("nowhere"), clone.join(".sofar/initiatives/a/plan.md")).unwrap();
+        symlink(
+            base.join("nowhere"),
+            clone.join(".sofar/initiatives/a/plan.md"),
+        )
+        .unwrap();
         let err = assert_record_path(&clone.join(".sofar/initiatives/a/plan.md")).unwrap_err();
         assert!(err.to_string().contains("dangling"), "{err}");
 
         // A link that stays inside, and a plain path.
         fs::write(clone.join("inside.jsonl"), "").unwrap();
-        symlink(clone.join("inside.jsonl"), clone.join(".sofar/initiatives/a/memory.md")).unwrap();
+        symlink(
+            clone.join("inside.jsonl"),
+            clone.join(".sofar/initiatives/a/memory.md"),
+        )
+        .unwrap();
         assert_record_path(&clone.join(".sofar/initiatives/a/memory.md")).unwrap();
         assert_record_path(&clone.join(".sofar/initiatives/c/events.jsonl")).unwrap();
         assert_eq!(fs::read_to_string(outside.join("rc")).unwrap(), "keep\n");

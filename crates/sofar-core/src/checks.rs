@@ -20,7 +20,9 @@ use crate::fold::TimedTestOutcome;
 use crate::guards::{GuardDomain, guard_matches, parse_guard};
 use crate::index_tier1::{GuardIndex, ScopedDecision, scope_hits_for_subject};
 use crate::json::{self, Json};
-use crate::text::{cmp_utf16, is_js_whitespace, js_trim, one_line, printable, utf16_len, utf16_prefix};
+use crate::text::{
+    cmp_utf16, is_js_whitespace, js_trim, one_line, printable, utf16_len, utf16_prefix,
+};
 
 /// `flat`: one line, controls escaped (security-audit SA-07) — record text a
 /// terminal prints.
