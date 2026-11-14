@@ -1,5 +1,5 @@
 {
-  "node": "v24.15.0",
+  "node": "v26.13.0",
   "rows": [
     {
       "input": "export FOO_TOKEN=abc123 && npm publish",
@@ -30,15 +30,15 @@
       "output": "GH_TOKEN=[redacted] gh auth"
     },
     {
-      "input": "npm_config_otp='123 456' npm publish",
-      "output": "npm_config_otp=[redacted] npm publish"
+      "input": "\u006epm_config_otp='123 456' npm publish",
+      "output": "\u006epm_config_otp=[redacted] npm publish"
     },
     {
       "input": "curl -H \"Authorization: Bearer sk-abcdefghijklmnopqrstuvwxyz\" https://x",
       "output": "curl -H \"Authorization: Bearer [redacted] https://x"
     },
     {
-      "input": "curl -H 'authorization: token ghp_abcdefghijklmnop1234' u",
+      "input": "curl -H 'authorization: token \u0067hp_abcdefghijklmnop1234' u",
       "output": "curl -H 'authorization: token [redacted] u"
     },
     {
@@ -78,7 +78,7 @@
       "output": "node -e \"[redacted]\""
     },
     {
-      "input": "sfr_abcdefgh xox b-1234567890 xoxb-1234567890abc AKIAABCDEFGHIJKLMNOP AKIAABCDEFGHIJKLMNOPQ",
+      "input": "sfr_abcdefgh xox b-1234567890 \u0078oxb-1234567890abc AKIAABCDEFGHIJKLMNOP AKIAABCDEFGHIJKLMNOPQ",
       "output": "[redacted] xox b-1234567890 [redacted] [redacted] [redacted]Q"
     },
     {
@@ -176,6 +176,558 @@
     {
       "input": "",
       "output": ""
+    },
+    {
+      "input": "export GH_TOKEN=Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "export GH_TOKEN=[redacted]"
+    },
+    {
+      "input": "curl -u admin:Zq8xW2rT5yU9pL3kM7nB4vC6 https://x.test",
+      "output": "curl -u admin:[redacted] https://x.test"
+    },
+    {
+      "input": "curl -uadmin:Zq8xW2rT5yU9pL3kM7nB4vC6 https://x.test",
+      "output": "curl -uadmin:[redacted] https://x.test"
+    },
+    {
+      "input": "curl --user admin:Zq8xW2rT5yU9pL3kM7nB4vC6 https://x.test",
+      "output": "curl --user admin:[redacted] https://x.test"
+    },
+    {
+      "input": "curl --user=admin:Zq8xW2rT5yU9pL3kM7nB4vC6 https://x.test",
+      "output": "curl --user=admin:[redacted] https://x.test"
+    },
+    {
+      "input": "curl -u 'admin:Zq8xW2rT5yU9pL3kM7nB4vC6' https://x.test",
+      "output": "curl -u 'admin:[redacted]' https://x.test"
+    },
+    {
+      "input": "wget --user=admin --password=Zq8xW2rT5yU9pL3kM7nB4vC6 https://x.test",
+      "output": "wget --user=admin --password=[redacted] https://x.test"
+    },
+    {
+      "input": "http -a admin:Zq8xW2rT5yU9pL3kM7nB4vC6 x.test",
+      "output": "http -a admin:[redacted] x.test"
+    },
+    {
+      "input": "mysql -uroot -pZq8xW2rT5yU9pL3kM7nB4vC6 db",
+      "output": "mysql -uroot -p[redacted] db"
+    },
+    {
+      "input": "mysqldump -pZq8xW2rT5yU9pL3kM7nB4vC6 db > d.sql",
+      "output": "mysqldump -p[redacted] db > d.sql"
+    },
+    {
+      "input": "docker login -u me -p Zq8xW2rT5yU9pL3kM7nB4vC6 registry.test",
+      "output": "docker login -u me -p [redacted] registry.test"
+    },
+    {
+      "input": "podman login -p Zq8xW2rT5yU9pL3kM7nB4vC6 quay.test",
+      "output": "podman login -p [redacted] quay.test"
+    },
+    {
+      "input": "echo Zq8xW2rT5yU9pL3kM7nB4vC6 | docker login --password-stdin -u me",
+      "output": "echo [redacted] | docker login --password-stdin [redacted] me"
+    },
+    {
+      "input": "printf '%s' \"Zq8xW2rT5yU9pL3kM7nB4vC6\" | helm registry login --password-stdin r.test",
+      "output": "printf [redacted] [redacted] | helm registry login --password-stdin [redacted]"
+    },
+    {
+      "input": "echo Zq8xW2rT5yU9pL3kM7nB4vC6 | sudo -S systemctl restart x",
+      "output": "echo [redacted] | sudo -S systemctl restart x"
+    },
+    {
+      "input": "sshpass -p Zq8xW2rT5yU9pL3kM7nB4vC6 ssh host",
+      "output": "sshpass -p [redacted] ssh host"
+    },
+    {
+      "input": "sshpass -pZq8xW2rT5yU9pL3kM7nB4vC6 ssh host",
+      "output": "sshpass -p[redacted] ssh host"
+    },
+    {
+      "input": "redis-cli -a Zq8xW2rT5yU9pL3kM7nB4vC6 ping",
+      "output": "redis-cli -a [redacted] ping"
+    },
+    {
+      "input": "openssl rsa -passin pass:Zq8xW2rT5yU9pL3kM7nB4vC6 -in k.pem",
+      "output": "openssl rsa -passin pass:[redacted] -in k.pem"
+    },
+    {
+      "input": "openssl enc -aes-256-cbc -k Zq8xW2rT5yU9pL3kM7nB4vC6 -in f",
+      "output": "openssl enc -aes-256-cbc -k [redacted] -in f"
+    },
+    {
+      "input": "zip -P Zq8xW2rT5yU9pL3kM7nB4vC6 out.zip f",
+      "output": "zip -P [redacted] out.zip f"
+    },
+    {
+      "input": "7z a -pZq8xW2rT5yU9pL3kM7nB4vC6 out.7z f",
+      "output": "7z a -p[redacted] out.7z f"
+    },
+    {
+      "input": "ldapsearch -w Zq8xW2rT5yU9pL3kM7nB4vC6 -D cn=x",
+      "output": "ldapsearch -w [redacted] -D cn=x"
+    },
+    {
+      "input": "curl -H 'X-Api-Key: Zq8xW2rT5yU9pL3kM7nB4vC6' https://x.test",
+      "output": "curl -H 'X-Api-Key: [redacted]' https://x.test"
+    },
+    {
+      "input": "curl -H \"X-Auth-Token: Zq8xW2rT5yU9pL3kM7nB4vC6\" https://x.test",
+      "output": "curl -H \"X-Auth-Token: [redacted]\" https://x.test"
+    },
+    {
+      "input": "curl -d '{\"password\":\"Zq8xW2rT5yU9pL3kM7nB4vC6\"}' https://x.test",
+      "output": "curl -d '{\"password\":\"[redacted]\"}' https://x.test"
+    },
+    {
+      "input": "curl -d '{\"api_key\": \"Zq8xW2rT5yU9pL3kM7nB4vC6\"}' https://x.test",
+      "output": "curl -d '{\"api_key\": \"[redacted]\"}' https://x.test"
+    },
+    {
+      "input": "curl -d '{\"client_secret\":\"Zq8xW2rT5yU9pL3kM7nB4vC6\",\"grant_type\":\"client_credentials\"}' https://x.test",
+      "output": "curl -d '{\"client_secret\":\"[redacted]\",\"grant_type\":\"client_credentials\"}' https://x.test"
+    },
+    {
+      "input": "echo 'password: Zq8xW2rT5yU9pL3kM7nB4vC6' >> config.yml",
+      "output": "echo 'password: [redacted]' >> config.yml"
+    },
+    {
+      "input": "echo \"  secret: Zq8xW2rT5yU9pL3kM7nB4vC6\" >> values.yaml",
+      "output": "echo \"  secret: [redacted]\" >> values.yaml"
+    },
+    {
+      "input": "STRIPE_KEY=Zq8xW2rT5yU9pL3kM7nB4vC6 node x.js",
+      "output": "STRIPE_KEY=[redacted] node x.js"
+    },
+    {
+      "input": "DB_PASS=Zq8xW2rT5yU9pL3kM7nB4vC6 psql",
+      "output": "DB_PASS=[redacted] psql"
+    },
+    {
+      "input": "MYSQL_PWD=Zq8xW2rT5yU9pL3kM7nB4vC6 mysql",
+      "output": "MYSQL_PWD=[redacted] mysql"
+    },
+    {
+      "input": "SENTRY_DSN=https://Zq8xW2rT5yU9pL3kM7nB4vC6@o1.ingest.sentry.test/1 npm run x",
+      "output": "SENTRY_DSN=[redacted] npm run x"
+    },
+    {
+      "input": "az storage blob list --connection-string \"DefaultEndpointsProtocol=https;AccountName=x;AccountKey=Zq8xW2rT5yU9pL3kM7nB4vC6==;EndpointSuffix=core\"",
+      "output": "az storage blob list --connection-string \"DefaultEndpointsProtocol=https;AccountName=x;AccountKey=[redacted];EndpointSuffix=core\""
+    },
+    {
+      "input": "restic backup --pass Zq8xW2rT5yU9pL3kM7nB4vC6 .",
+      "output": "restic backup --pass [redacted] ."
+    },
+    {
+      "input": "some-cli --key Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "some-cli --key [redacted]"
+    },
+    {
+      "input": "tool --db-pass=Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "tool --db-pass=[redacted]"
+    },
+    {
+      "input": "echo \"-----BEGIN RSA PRIVATE KEY-----\nMIIEZq8xW2rT5yU9pL3kM7nB4vC6\n-----END RSA PRIVATE KEY-----\" > k",
+      "output": "echo \"[redacted]\" > k"
+    },
+    {
+      "input": "printf '%s' '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlZq8xW2rT5yU9pL3kM7nB4vC6\n-----END OPENSSH PRIVATE KEY-----'",
+      "output": "printf '%s' '[redacted]'"
+    },
+    {
+      "input": "cat > .env <<'EOF'\nAPI=Zq8xW2rT5yU9pL3kM7nB4vC6\nEOF",
+      "output": "cat > .env <<'EOF'\n[heredoc: 1 line, sha256:310ef8850347]\nEOF"
+    },
+    {
+      "input": "python3 - <<EOF\nimport os\nclient(token=\"Zq8xW2rT5yU9pL3kM7nB4vC6\")\nEOF\necho done",
+      "output": "python3 - <<EOF\n[heredoc: 2 lines, sha256:f2990fb8f65b]\nEOF\necho done"
+    },
+    {
+      "input": "git clone https://Zq8xW2rT5yU9pL3kM7nB4vC61234@github.test/x/y",
+      "output": "git clone https://[redacted]@github.test/x/y"
+    },
+    {
+      "input": "git clone https://user:Zq8xW2rT5yU9pL3kM7nB4vC6@host.test/x",
+      "output": "git clone https://user:[redacted]@host.test/x"
+    },
+    {
+      "input": "psql postgresql://u:Zq8xW2rT5yU9pL3kM7nB4vC6@h.test/db",
+      "output": "psql postgresql://u:[redacted]@h.test/db"
+    },
+    {
+      "input": "mongosh \"mongodb+srv://u:Zq8xW2rT5yU9pL3kM7nB4vC6@cluster.test\"",
+      "output": "mongosh \"mongodb+srv://u:[redacted]@cluster.test\""
+    },
+    {
+      "input": "heroku config:set API_KEY=Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "heroku config:set API_KEY=[redacted]"
+    },
+    {
+      "input": "kubectl create secret generic x --from-literal=password=Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "kubectl create secret generic x --from-literal=password=[redacted]"
+    },
+    {
+      "input": "npm config set //registry.npmjs.org/:_authToken=Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "npm config set //registry.npmjs.org/:_authToken=[redacted]"
+    },
+    {
+      "input": "git -c http.extraheader=\"AUTHORIZATION: basic Zq8xW2rT5yU9pL3kM7nB4vC6\" fetch",
+      "output": "git -c http.extraheader=\"AUTHORIZATION: basic [redacted] fetch"
+    },
+    {
+      "input": "curl -H 'Authorization: Bearer Zq8xW2rT5yU9pL3kM7nB4vC6' https://x.test",
+      "output": "curl -H 'Authorization: Bearer [redacted] https://x.test"
+    },
+    {
+      "input": "cli --token Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "cli --token [redacted]"
+    },
+    {
+      "input": "AWS_SECRET_ACCESS_KEY=Zq8xW2rT5yU9pL3kM7nB4vC6 aws s3 ls",
+      "output": "AWS_SECRET_ACCESS_KEY=[redacted] aws s3 ls"
+    },
+    {
+      "input": "export OPENAI_API_KEY=\u0073k-proj-Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "export OPENAI_API_KEY=[redacted]"
+    },
+    {
+      "input": "stripe x \u0073k_live_Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "stripe x [redacted]"
+    },
+    {
+      "input": "stripe x \u0073k_test_Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "stripe x [redacted]"
+    },
+    {
+      "input": "stripe x \u0072k_live_Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "stripe x [redacted]"
+    },
+    {
+      "input": "glab auth \u0067lpat-Zq8xW2rT5yU9pL3kM7nB",
+      "output": "glab auth [redacted]"
+    },
+    {
+      "input": "echo \u006epm_Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2rT5yU9",
+      "output": "echo [redacted]"
+    },
+    {
+      "input": "twine upload -p \u0070ypi-Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2rT5yU9pL3kM7nB4vC6Zq",
+      "output": "twine upload -p [redacted]"
+    },
+    {
+      "input": "huggingface-cli login \u0068f_Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2rT5y",
+      "output": "huggingface-cli login [redacted]"
+    },
+    {
+      "input": "vault login \u0068vs.Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "vault login [redacted]"
+    },
+    {
+      "input": "doctl auth init -t \u0064op_v1_Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2rT5yU9pL3k",
+      "output": "doctl auth init -t [redacted]"
+    },
+    {
+      "input": "shopify x \u0073hpat_Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2rT",
+      "output": "shopify x [redacted]"
+    },
+    {
+      "input": "linear x \u006cin_api_Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2rT5yU9pL3k",
+      "output": "linear x [redacted]"
+    },
+    {
+      "input": "sendgrid x \u0053G.Zq8xW2rT5yU9pL3kM7nB4v.Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "sendgrid x [redacted]"
+    },
+    {
+      "input": "aws x \u0041SIAABCDEFGHIJ234567",
+      "output": "aws x [redacted]"
+    },
+    {
+      "input": "gh x \u0067hp_Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2rT5yU9",
+      "output": "gh x [redacted]"
+    },
+    {
+      "input": "slack x \u0078oxb-Zq8xW2rT5yU9pL3kM7nB4vC6Zq8xW2",
+      "output": "slack x [redacted]"
+    },
+    {
+      "input": "aws configure set aws_secret_access_key Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "aws configure set aws_secret_access_key Zq8xW2rT5yU9pL3kM7nB4vC6"
+    },
+    {
+      "input": "vault kv put secret/x value=Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "vault kv put secret/x value=Zq8xW2rT5yU9pL3kM7nB4vC6"
+    },
+    {
+      "input": "htpasswd -b .htpasswd user Zq8xW2rT5yU9pL3kM7nB4vC6",
+      "output": "htpasswd -b .htpasswd user Zq8xW2rT5yU9pL3kM7nB4vC6"
+    },
+    {
+      "input": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "output": "date -u +%Y-%m-%dT%H:%M:%SZ"
+    },
+    {
+      "input": "git log --format='%H %s' -n 5",
+      "output": "git log --format='%H %s' -n 5"
+    },
+    {
+      "input": "git show 28fc3235a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+      "output": "git show 28fc3235a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
+    },
+    {
+      "input": "sofar event append '{\"session\":\"c9b896cb-a294-4543-b3c3-46556158f421\",\"type\":\"note_added\"}'",
+      "output": "sofar event append '{\"session\":\"c9b896cb-a294-4543-b3c3-46556158f421\",\"type\":\"note_added\"}'"
+    },
+    {
+      "input": "ls /Users/x/.claude/projects/-Users-x-IO-sofar/c9b896cb-a294-4543-b3c3-46556158f421.jsonl",
+      "output": "ls /Users/x/.claude/projects/-Users-x-IO-sofar/c9b896cb-a294-4543-b3c3-46556158f421.jsonl"
+    },
+    {
+      "input": "grep -rn \"sk_live_\" src",
+      "output": "grep -rn \"sk_live_\" src"
+    },
+    {
+      "input": "grep -n \"password:\" config.ts",
+      "output": "grep -n \"password:\" config.ts"
+    },
+    {
+      "input": "rg \"token: string\" src",
+      "output": "rg \"token: string\" src"
+    },
+    {
+      "input": "echo '{\"author\": \"Ada Lovelace\"}'",
+      "output": "echo '{\"author\": \"Ada Lovelace\"}'"
+    },
+    {
+      "input": "sort --key=2,2 file",
+      "output": "sort --key=2,2 file"
+    },
+    {
+      "input": "ssh-add --key ~/.ssh/id_ed25519",
+      "output": "ssh-add --key ~/.ssh/id_ed25519"
+    },
+    {
+      "input": "export SSH_KEY=/Users/x/.ssh/id_ed25519",
+      "output": "export SSH_KEY=/Users/x/.ssh/id_ed25519"
+    },
+    {
+      "input": "cat <<< \"here string\"",
+      "output": "cat <<< \"here string\""
+    },
+    {
+      "input": "echo $((1<<4))",
+      "output": "echo $((1<<4))"
+    },
+    {
+      "input": "node -e \"console.log(a<<b)\"",
+      "output": "node -e \"console.log(a<<b)\""
+    },
+    {
+      "input": "curl -d '{\"max_tokens\": 4096}' https://x.test",
+      "output": "curl -d '{\"max_tokens\": 4096}' https://x.test"
+    },
+    {
+      "input": "echo '{\"password\": \"string\"}'",
+      "output": "echo '{\"password\": \"string\"}'"
+    },
+    {
+      "input": "password: process.env.DB_PASSWORD",
+      "output": "password: process.env.DB_PASSWORD"
+    },
+    {
+      "input": "curl https://api.github.com/repos/x/y",
+      "output": "curl https://api.github.com/repos/x/y"
+    },
+    {
+      "input": "git clone git@github.com:x/y.git",
+      "output": "git clone git@github.com:x/y.git"
+    },
+    {
+      "input": "docker run -p 8080:80 img",
+      "output": "docker run -p 8080:80 img"
+    },
+    {
+      "input": "mysql -P 3306 -u root -p db",
+      "output": "mysql -P 3306 -u root -p db"
+    },
+    {
+      "input": "curl -u admin https://x.test",
+      "output": "curl -u admin https://x.test"
+    },
+    {
+      "input": "redis-cli -h host ping",
+      "output": "redis-cli -h host ping"
+    },
+    {
+      "input": "\u006epm_config_registry=https://r.test npm i",
+      "output": "\u006epm_config_registry=https://r.test npm i"
+    },
+    {
+      "input": "git push origin HEAD:refs/heads/main",
+      "output": "git push origin HEAD:refs/heads/main"
+    },
+    {
+      "input": "npx vitest run -t 'heredoc: 3 lines'",
+      "output": "npx vitest run -t 'heredoc: 3 lines'"
+    },
+    {
+      "input": "sofar find docs/SPEC.md",
+      "output": "sofar find docs/SPEC.md"
+    },
+    {
+      "input": "gtimeout -k 30s 600s npx vitest run --project unit packages/engine/test/control-chars.test.ts",
+      "output": "gtimeout -k 30s 600s npx vitest run --project unit packages/engine/test/control-chars.test.ts"
+    },
+    {
+      "input": "echo \"session_id: 01M1E74Y0000000000000000010\"",
+      "output": "echo \"session_id: 01M1E74Y0000000000000000010\""
+    },
+    {
+      "input": "echo 'ttl: 86400000'",
+      "output": "echo 'ttl: 86400000'"
+    },
+    {
+      "input": "cargo test -p sofar-core --lib -q log::",
+      "output": "cargo test -p sofar-core --lib -q log::"
+    },
+    {
+      "input": "git commit -m \"3.3: symlink-safe writes\"",
+      "output": "git commit -m \"3.3: symlink-safe writes\""
+    },
+    {
+      "input": "cat > f <<'EOF'\nsecret body\nEOF",
+      "output": "cat > f <<'EOF'\n[heredoc: 1 line, sha256:007eb37ae200]\nEOF"
+    },
+    {
+      "input": "cat <<-X\n\tbody line\n\tX\necho after",
+      "output": "cat <<-X\n[heredoc: 1 line, sha256:3249a6453842]\n\tX\necho after"
+    },
+    {
+      "input": "paste <<A <<\"B\"\na1\nA\nb1\nb2\nB",
+      "output": "paste <<A <<\"B\"\n[heredoc: 1 line, sha256:f55ff16f66f4]\nA\n[heredoc: 2 lines, sha256:a5139e3095cb]\nB"
+    },
+    {
+      "input": "cat <<EOF\nno terminator here",
+      "output": "cat <<EOF\nno terminator here"
+    },
+    {
+      "input": "cat <<EOF\nEOF",
+      "output": "cat <<EOF\nEOF"
+    },
+    {
+      "input": "cat <<\\END\n$HOME stays literal\nEND",
+      "output": "cat <<\\END\n[heredoc: 1 line, sha256:d53574097aa5]\nEND"
+    },
+    {
+      "input": "cat <<< \"here string\" && echo $((1<<2))",
+      "output": "cat <<< \"here string\" && echo $((1<<2))"
+    },
+    {
+      "input": "x <<A <<A\n1\nA\n2\nA\n3",
+      "output": "x <<A <<A\n[heredoc: 1 line, sha256:6b86b273ff34]\nA\n[heredoc: 1 line, sha256:d4735e3a265e]\nA\n3"
+    },
+    {
+      "input": "😀 export TOKEN_X=v; echo \"😀password: Zq8xW2rT5yU9\"",
+      "output": "😀 export TOKEN_X=[redacted] echo \"😀password: [redacted]\""
+    },
+    {
+      "input": "curl -u 😀:Zq8xW2rT5yU9pL3k https://x.test",
+      "output": "curl -u 😀:[redacted] https://x.test"
+    },
+    {
+      "input": "echo \"-----BEGIN EC PRIVATE KEY-----\nAAA\n-----END EC PRIVATE KEY-----\" -----BEGIN RSA PRIVATE KEY----- tail",
+      "output": "echo \"[redacted]\" -----BEGIN RSA PRIVATE KEY----- tail"
+    },
+    {
+      "input": "-----BEGIN PUBLIC KEY-----\nMIIB\n-----END PUBLIC KEY-----",
+      "output": "-----BEGIN PUBLIC KEY-----\nMIIB\n-----END PUBLIC KEY-----"
+    },
+    {
+      "input": "-----BEGIN PRIVATE KEY-----\nA\n-----END PUBLIC KEY-----\n-----END PRIVATE KEY----- after",
+      "output": "[redacted] after"
+    },
+    {
+      "input": "a || b | c && echo pw123456789 | docker login --password-stdin",
+      "output": "a || b | c && echo [redacted] | docker login --password-stdin"
+    },
+    {
+      "input": "echo pw123456789 || docker login --password-stdin",
+      "output": "echo pw123456789 || docker login --password-stdin"
+    },
+    {
+      "input": "sudo -kS cmd",
+      "output": "sudo -kS cmd"
+    },
+    {
+      "input": "echo \"x\" | sudo -S -u root id",
+      "output": "echo [redacted] | sudo -S -u root id"
+    },
+    {
+      "input": "curl -u \"a:b c\" x; curl -u 'u:p\\'q' y; curl --user= z",
+      "output": "curl -u \"a:[redacted]\" x; curl -u 'u:[redacted]"
+    },
+    {
+      "input": "mysql -p \"pw with space\" -pAbc123",
+      "output": "mysql -p \"pw with space\" -p[redacted]"
+    },
+    {
+      "input": "openssl x -passin \"pass:Zq8xW2rT5yU9\" -passout env:VAR",
+      "output": "openssl x -passin \"pass:[redacted]\" -passout env:VAR"
+    },
+    {
+      "input": "https://abcdefghijklmnopqrst1@h x://short1@h _https://abcdefghijklmnopqrs12@h",
+      "output": "https://[redacted]@h x://short1@h _https://abcdefghijklmnopqrs12@h"
+    },
+    {
+      "input": "git clone https://abcdefghijklmnopqrstu@h (no digit)",
+      "output": "git clone https://abcdefghijklmnopqrstu@h (no digit)"
+    },
+    {
+      "input": "--db-pass Zq8xW2rT5yU9 -key Zq8xW2rT5yU9 key: Zq8xW2rT5yU9 pass: Zq8xW2rT5yU9",
+      "output": "--db-pass [redacted] -key [redacted] key: Zq8xW2rT5yU9 pass: [redacted]"
+    },
+    {
+      "input": "\"api-key\" : \"Zq8xW2rT5yU9\" 'secret'='Zq8xW2rT5yU9' \"token\":\"has space\"",
+      "output": "\"api-key\" : \"[redacted]\" 'secret'='[redacted]' \"token\":\"has space\""
+    },
+    {
+      "input": "a-a-a-password: Zq8xW2rT5yU9 x--token=Zq8xW2rT5yU9",
+      "output": "a-a-a-password: [redacted] x--token=[redacted]"
+    },
+    {
+      "input": "PASSWORD: $DB_PASSWORD; TOKEN: ${X}; secret: ./path/x; password: [redacted]x1234",
+      "output": "PASSWORD: $DB_PASSWORD; TOKEN: ${X}; secret: ./path/x; password: [redacted]x1234"
+    },
+    {
+      "input": "secret: AbcDefGhi secret: Abc_Def-Ghi() secret: abcdefg1",
+      "output": "secret: AbcDefGhi secret: Abc_Def-Ghi() secret: [redacted]"
+    },
+    {
+      "input": "token: Zq8xW2rT5yU9,next password=Zq8xW2rT5yU9;x \"client_secret\":\"Zq8x\\\"W2rT5yU9\"",
+      "output": "token: [redacted],next password=[redacted] \"client_secret\":\"[redacted]\""
+    },
+    {
+      "input": "echo \\\"a b\\\" | docker login --password-stdin; echo -n Zq8xW2rT5yU9 | podman login --password-stdin",
+      "output": "echo [redacted] [redacted] | docker login --password-stdin; echo -n [redacted] | podman login --password-stdin"
+    },
+    {
+      "input": "env FOO=1 /usr/bin/redis-cli -a Zq8xW2rT5yU9; nohup time sshpass -pZq8xW2rT5yU9 x",
+      "output": "env FOO=1 /usr/bin/redis-cli -a [redacted]; nohup time sshpass -p[redacted] x"
+    },
+    {
+      "input": "helm repo add x --password Zq8xW2rT5yU9; docker run -p 80:80 x; docker login -p",
+      "output": "helm repo add x --password [redacted] docker run -p 80:80 x; docker login -p"
+    },
+    {
+      "input": "xpassword: Zq8xW2rT5yU9 y token: Zq8xW2rT5yU9",
+      "output": "xpassword: [redacted] y token: [redacted]"
+    },
+    {
+      "input": "\u0041SIAABCDEFGHIJ234567 \u0041SIAABC \u0053G.short \u0073k_live_short \u006epm_config_x \u0067lpat-abcdefghijklmnopq",
+      "output": "[redacted] \u0041SIAABC \u0053G.short \u0073k_live_short \u006epm_config_x [redacted]"
     }
   ]
 }

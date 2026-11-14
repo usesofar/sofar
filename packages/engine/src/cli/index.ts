@@ -32,6 +32,8 @@ import {
   runDriveStop,
   runKeepAwakeSetting,
   terminalPrompt,
+  drivenRefusal,
+  runApproveCommands,
 } from './drive'
 import { runRelated, runWhy } from './graph'
 import { runCheck } from './check'
@@ -60,6 +62,17 @@ import { emit, fail, ok, readAllStdin, readInput } from './shared'
 import { laneOf, recordRoot, servedRoot } from '../core/git'
 
 const program = new Command()
+
+// A driven session never runs what reaches past the record (security-audit
+// D3, SA-04): another run, the install, a server, a sync, the check gate.
+program.hook('preAction', (_root, action) => {
+  const top = action.parent === null || action.parent === program ? action : action.parent
+  const why = drivenRefusal(top.name(), top === action ? action.opts() : { ...top.opts(), ...action.opts() }, process.env)
+  if (why !== null) {
+    process.stderr.write(`sofar: ${why}\n`)
+    process.exit(1)
+  }
+})
 
 /** This bundle's own path — where an npx run is told apart from an install (npx-install.ts). */
 const SELF_PATH = fileURLToPath(import.meta.url)
@@ -773,6 +786,11 @@ program
     '--verify-quick <cmd>',
     'tiered verify (drive-lanes 2.6): run this after each task instead of --verify, {files} replaced by the paths the task changed; --verify then runs once at each phase end and at the run end, a failure bisected to its task. Default with --verify when vitest is installed: `npx vitest related --run --passWithNoTests {files}`; `none` runs --verify per task',
   )
+  .option(
+    '--security <preset>',
+    'how a verify or check the operator did not type is cleared (security-audit D3): strict runs only approved ones; standard (default) also runs a plain command the allow rules cover, without a shell; trusted is the pre-0.34.2 behaviour. Default from drive.security in ~/.config/sofar/config.json',
+  )
+  .option('--accept-recorded', "resume a run whose recorded --verify and allow rules this clone did not start, instead of refusing")
   .option('--verify-timeout <seconds>', 'kill an acceptance command that has not ended in this long (default 600); it runs once more when the load clears, and a second timeout stops the run')
   .option('--max-verify-attempts <n>', 'stop the run once one task has failed verification this many times (default 3)')
   .option(
@@ -820,6 +838,10 @@ program
     "start the run as a process that outlives this shell — how an agent session starts one; returns once the run is certain to start",
   )
   .option(
+    '--approve-commands',
+    "read and approve, on your terminal, each command a run would execute that an agent or a merged record wrote — open tasks' plan verifies and decision checks; starts nothing (security-audit D3)",
+  )
+  .option(
     '--stop',
     "ask the latest unstopped run's driver to end it (a second --stop kills its session outright) — how a detached run is stopped",
   )
@@ -856,6 +878,9 @@ program
         resume?: boolean
         verify?: string
         verifyQuick?: string
+        security?: string
+        acceptRecorded?: boolean
+        approveCommands?: boolean
         verifyTimeout?: string
         maxVerifyAttempts?: string
         lanes?: string
@@ -890,6 +915,27 @@ program
         emit(runKeepAwakeSetting(opts.keepAwakeSetting))
         return
       }
+      if (opts.approveCommands === true) {
+        const extra = Object.keys(opts).filter((k) => k !== 'approveCommands' && k !== 'root')
+        if (extra.length > 0) {
+          emit(fail('sofar drive --approve-commands takes no other flag but --root — it approves commands and starts nothing'))
+          return
+        }
+        const terminal = process.stdin.isTTY === true && process.stderr.isTTY === true && process.env.CI === undefined
+        const confirm = terminal
+          ? async (question: string): Promise<boolean> => {
+              const { createInterface } = await import('node:readline/promises')
+              const rl = createInterface({ input: process.stdin, output: process.stderr })
+              try {
+                return /^y(es)?$/i.test((await rl.question(question)).trim())
+              } finally {
+                rl.close()
+              }
+            }
+          : null
+        emit(await runApproveCommands(rootOf(opts), slug, { confirm }))
+        return
+      }
       // --stop, --await and --follow name a run, not a way to run one: a flag
       // beside any of them would read as honoured and be ignored.
       const only = opts.stop === true ? 'stop' : opts.await === true ? 'await' : opts.follow === true ? 'follow' : undefined
@@ -914,6 +960,7 @@ program
             where: opts.hosted,
             argv: process.argv.slice(2),
             ...(opts.bin !== undefined ? { bin: opts.bin } : {}),
+            ...(opts.security !== undefined ? { security: opts.security } : {}),
             onProgress: (line) => process.stderr.write(`${line}\n`),
           }),
         )
@@ -946,6 +993,8 @@ program
           ...(opts.resume === true ? { resume: true } : {}),
           ...(opts.verify !== undefined ? { verify: opts.verify } : {}),
           ...(opts.verifyQuick !== undefined ? { verifyQuick: opts.verifyQuick } : {}),
+          ...(opts.security !== undefined ? { security: opts.security } : {}),
+          ...(opts.acceptRecorded === true ? { acceptRecorded: true } : {}),
           ...(opts.verifyTimeout !== undefined ? { verifyTimeout: opts.verifyTimeout } : {}),
           ...(opts.maxVerifyAttempts !== undefined ? { maxVerifyAttempts: opts.maxVerifyAttempts } : {}),
           ...(opts.lanes !== undefined ? { lanes: opts.lanes } : {}),

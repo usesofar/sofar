@@ -143,6 +143,24 @@ pub fn one_line(s: &str) -> String {
     js_trim(&collapse_ws(s)).to_owned()
 }
 
+/// `printable` (`core/hidden-chars.ts`): C0/C1 controls escaped JSON-style
+/// (`\u001b`), so a terminal shows them instead of acting on them
+/// (security-audit SA-07).
+#[must_use]
+pub fn printable(s: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        let cp = c as u32;
+        if cp <= 0x1f || (0x7f..=0x9f).contains(&cp) {
+            let _ = write!(out, "\\u{cp:04x}");
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// `text.slice(0, 10)` for an ISO timestamp — the date part, or the whole
 /// string when shorter (timestamps are ASCII, so units are bytes).
 #[must_use]
@@ -161,6 +179,12 @@ mod prefix_tests {
         assert_eq!(utf16_prefix("a\u{1F600}b", 2), "a\u{FFFD}");
         assert_eq!(utf16_prefix("a\u{1F600}b", 3), "a\u{1F600}");
         assert_eq!(utf16_prefix("a\u{1F600}b", 0), "");
+    }
+
+    #[test]
+    fn printable_escapes_c0_del_and_c1_only() {
+        assert_eq!(printable("a\u{1b}[2Kb\tc\u{7f}\u{85}é"), "a\\u001b[2Kb\\u0009c\\u007f\\u0085é");
+        assert_eq!(printable("plain"), "plain");
     }
 
     #[test]

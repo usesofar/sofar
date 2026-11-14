@@ -144,6 +144,20 @@ Session ids are NOT slugs — they come from the agent tool in whatever shape
 it uses — so they are sanitized into a filename instead (`[^A-Za-z0-9._-]`
 → `_`) and never constrained.
 
+**Symlinks in the record (security-audit 3.3).** That lexical check cannot
+see a symlink: the record is committed, and a clone can carry an
+`events.jsonl` linked to a shell rc or an `initiatives/<slug>` linked to a
+directory outside the repo. Every write into `<clone>/.sofar/` — the log
+append, every atomic projection and index write, the projection mkdirs — is
+refused, with nothing written, when the realpath of its deepest existing
+directory lies outside the clone, or when the target itself is a symlink
+leading out or dangling; the append opens with `O_NOFOLLOW`. A link that
+resolves inside the clone keeps working. `sofar init` holds every write it
+makes inside the clone (`.claude/`, `.cursor/`, `.codex/`, `.mcp.json`, the
+protocol files) to the same rule, and refuses a hook shim or git hook that is
+a symlink at all, since it chmods them. The check runs before any mkdir and
+costs a few syscalls per write, nothing per read. Both engines enforce it.
+
 ## Event envelope (v1 — stable; payloads evolve, envelope does not)
 One JSON object per line in events.jsonl:
 ```json
@@ -276,7 +290,8 @@ run_started (run, adapter, policy: task|threshold, threshold_pct? and
 context_window? — BOTH REQUIRED for `threshold`, max_sessions?, surface?,
 verify? — the run's default acceptance command, r1-fixes 3.1 D19 — verify_quick? —
 the per-task tier of a tiered run, needs verify, drive-lanes 2.6 — lanes? —
-an integer ≥2, absent on a serial run, drive-lanes 2.2) · handoff (run, session_id, reason:
+an integer ≥2, absent on a serial run, drive-lanes 2.2 — security? —
+strict|standard|trusted, security-audit D3) · handoff (run, session_id, reason:
 task_done|threshold|stall|needs_user|verify_failed|merge_conflict, task?, tokens?, detail? — how the
 process ended, on stalls and unclean exits, r1-fixes D9; `verify_failed`
 since r1-fixes 3.1; `merge_conflict` since drive-lanes 2.4) · verification_recorded (run, task, attempt, command, cwd, checked {head, tree}, validator, result: pass|fail|timeout|error|refused, exit_code?, signal?, duration_ms, timeout_ms, diagnostics? ≤1,024 chars — the driver ran a task's acceptance command before accepting it, r1-fixes 3.1 D19 — decision? `<slug> D<n>` when it ran that decision's check, memory-lead D9) · run_stopped (run,
@@ -722,8 +737,18 @@ outside every permission prompt the host has. A check runs only when:
   `~/.local/state/sofar`, key = cloneKey of the COMMON git dir, so worktrees
   of one clone share it; never inside the clone, never committed or synced).
   A changed command is a new command;
-- or, under `sofar drive` only, the run's recorded permission surface covers
-  it (commandAllowed, r1-fixes D19's rule for agent-written commands).
+- or, under `sofar drive` only, the run's `drive.security` preset lets it
+  run unapproved — see **Drive security presets (security-audit D3)** below.
+WHAT THE OPERATOR READS IS WHAT RUNS (security-audit 3.4). Approval hashes
+every byte of `cmd`, so every byte must be visible. A decision_logged or
+check_bound whose `rule`, `check.cmd` or `check.hint` holds a C0 control
+other than TAB, DEL or a C1 control is refused at WRITE time (append, any
+writer), never by `validatePayload`: an event already in a log keeps
+folding. Every surface that prints that text (the approval prompt,
+`--list`, the unapproved, unmerged and failure lines) prints each such
+character escaped as `\u00XX`; the approval prompt, `--list` and the
+unapproved and unmerged lines also show hidden format characters as
+`⟦U+XXXX⟧`.
 An applicable unapproved check is named, never run: `sofar: N decision
 check(s) bear on this work but are not approved on this clone, so none ran:
 [<slug> D<n>] \`<cmd>\`, … — the operator approves one with \`sofar check
@@ -2251,7 +2276,7 @@ fourth asks it to end, all on envelope session `cli` — a run is not a session
 and never registers as one, so it can never read as a misrouted session:
 
 - `run_started` (run, adapter, policy, threshold_pct?, context_window?,
-  max_sessions?, surface?, verify?, verify_quick?, lanes?) — the run id is a ulid the driver
+  max_sessions?, surface?, verify?, verify_quick?, lanes?, security?) — the run id is a ulid the driver
   mints; every handoff and the stop cite it.
 - `handoff` (run, session_id, reason, task?, tokens?) — one session
   boundary: which session ended and why the driver moved on.
@@ -2340,11 +2365,54 @@ full replace), else the run's `--verify <cmd>` default, recorded in
 wins, as its surface does). No built-in table (D8). PERMISSION: the command
 runs in the DRIVER's process with the operator's permissions, so it runs
 only when the operator approved it — `--verify` is that approval; a
-plan-level command, which an agent can write, runs only if the run's
-recorded surface would have let the agent run it (a `Bash(<prefix>:*)` rule
-the command starts with at a word boundary, or an exact `Bash(<cmd>)`),
-else the result is `refused` and nothing executes. Never wider than the
-launched agent's surface. RECORD: `verification_recorded` (writer: driver;
+plan-level command, which an agent can write, runs only as the run's
+`drive.security` preset allows (below), else the result is `refused` and
+nothing executes. A plan-level `cwd` that resolves outside the launch
+directory is refused under every preset. Never wider than the launched
+agent's surface.
+
+**Drive security presets (security-audit D3).** Every command a run executes
+that the operator did not type — a plan-level verify, a decision check —
+arrives through the record, which merges and syncs. `drive.security` says
+how much of it a run trusts:
+- `strict`: only a command approved on this clone runs.
+- `standard` (the default): an approved command runs with a shell; an
+  unapproved one runs only when it is ONE plain command — words of
+  `[A-Za-z0-9_./:=@+,-]` split on spaces, no quotes, no shell syntax —
+  whose argv starts with a `Bash(<prefix>:*)` rule's words or equals an
+  exact `Bash(<cmd>)` rule, and then it runs as that argv with no shell.
+  Anything else is `refused` and waits for approval.
+- `trusted`: the pre-0.34.2 rule — a command the recorded surface's
+  prefix covers runs with a shell.
+An operator-typed `--verify`/`--verify-quick` runs with a shell under every
+preset. The preset comes from `drive.security` in the user config
+(`~/.config/sofar/config.json`) or `--security <preset>`, never from the
+repo or the record; it is recorded as `run_started.security` and printed on
+the run's opening line. Approval is the trust file `sofar check --approve`
+writes (sha256 of the exact command, per clone); `sofar drive
+--approve-commands [slug]` walks every unapproved verify of an open task and
+every unapproved check in force, on a terminal only, and approves each on a
+yes. A hosted run's landed tasks are re-verified locally only when their
+verify is approved or the preset is `trusted`; the rest are named.
+
+**Resuming a run this clone did not start (security-audit D3).** `--resume`
+adopts the run's recorded surface and verify, and the record can carry a
+`run_started` this clone never wrote. A driver pins every run it starts or
+adopts in `<state>/drive-pins/<cloneKey>.json` — run id → sha256 of
+[surface, verify, verify_quick], newest 64 kept, never inside the clone. A
+resume whose recorded settings match its pin, or whose flags restate them,
+is silent; any other, under `standard` or `strict`, is refused with the
+recorded surface and verify shown (control characters escaped) until the
+operator passes `--accept-recorded`. `sofar event append` refuses every
+event type whose writer is the driver, so no shell can file a run.
+
+**What a driven session may not run (security-audit D3).** A driven
+session cannot widen its own gate: `sofar drive`, `init`, `uninit`,
+`upgrade`, `serve`, `login`, `link`, `push`, `pull`, and `sofar check` with
+`--approve`, `--block-commits` or `--strict-tests` are refused when the
+driver's nudge variable (`SOFAR_DRIVE_NUDGE`) is set, and the Claude Code
+adapter also puts them as deny rules in the launch settings file, ahead of
+the surface's own. They are not part of the recorded surface. RECORD: `verification_recorded` (writer: driver;
 the same misroute rule as a handoff — one for a run that never started is
 skipped) carries run, task, attempt (1-based per task per run), command,
 cwd (relative to the launch dir, `.` for it), `checked` {head: the commit;
@@ -7210,7 +7278,24 @@ carries an in-band write-back; any other `--host` is exit 64.
   TOKEN/SECRET/PASSWORD/API_KEY/…, `--flag value` of the same names,
   Authorization headers, `user:pw@host` in a URL, and recognizable standalone
   token shapes — becomes `[redacted]`, keeping the surrounding structure so
-  the command still reads. The log is append-only and committed, and pushed
+  the command still reads. Since security-audit 3.5 the same pass also
+  covers: a HERE-DOCUMENT BODY, replaced whole by one line `[heredoc: N
+  lines, sha256:<12 hex>]` while the operator line and the terminator stay (a
+  delimiter with no terminator elides nothing); PEM private key blocks;
+  `name: value`, `"name": "value"` and `--name value` where the name ENDS in
+  a credential word (`GH_TOKEN`, `authToken`, `client_secret`, `api-key`) or
+  in `_KEY`/`_PASS`/`_PWD`/`_DSN` — so `input_tokens`, `token_count` and
+  `password_hash` stay, and so do values under 8 characters, values starting
+  `$ < { % / ~ .` and digit-free identifiers; credentials an argv position
+  alone marks, scoped to the program so `date -u` stays (`curl -u user:pw`,
+  `mysql -pPW`, `docker login -p`, `sshpass -p`, `redis-cli -a`, `openssl
+  -passin pass:PW`, `zip -P`, `7z -pPW`, `ldapsearch -w`, and an `echo PW |`
+  feeding `--password-stdin` or `sudo -S`); further vendor token prefixes,
+  each needing 16 token characters after it; and a token-only URL user
+  (`https://<20+ token chars with a digit>@host`). Every pass is a linear
+  scan, mirrored by the core's redact.rs and proved by one shared fixture. A
+  bare positional secret nothing on the line marks (`htpasswd -b f user PW`)
+  is the known residue. The log is append-only and committed, and pushed
   once the repo is linked, so a credential that reaches it cannot be edited
   out — only rewritten out of history by everyone who ever cloned. The
   self-recording exemption scan runs on the RAW text, so redaction can never
@@ -7259,7 +7344,10 @@ carries an in-band write-back; any other `--host` is exit 64.
   exemption exists to keep the tree settleable and a read appends nothing, so
   `cmd:*git push*`-shaped rules become enforceable for the first time. The
   guard matches the REDACTED command text — what the record holds — so the
-  hook and the fold can never disagree about whether a rule fired.
+  hook and the fold agree about whether a rule fired, with one exception:
+  the hook matches here-document bodies the record elides, so a guarded
+  command inside a heredoc still draws its notice live, and doctor's
+  retrospective guard audit, reading the record, does not list it.
   COST, and the reason Tier 1 is two files on two cursors: the DECLARED half
   (`guards.json`) is sized by the repo's guarded decisions and is refreshed on
   every edit (0.5/1.5/4.4ms at 30/300/1000 initiatives, matching Tier 0); the
@@ -8555,7 +8643,11 @@ It is journaled as a `session-start` wiring line. It adds no hook entry and
 never touches the protocol block, so `sofar init --refresh` still owns those.
 
 Egress: the refresh child runs `npm view sofar.sh version` against the
-user's configured registry. This is the same query `sofar upgrade --check`
+user's configured registry. Every npm child sofar starts (the refresh, the
+view, the auto and interactive installs) runs from the user's home
+directory, never the repo, so a repo's `.npmrc` cannot pick the registry or
+proxy. A resolved version is cached, shown or installed only when it is
+strict semver; `sofar upgrade <target>` takes a version or a dist-tag. This is the same query `sofar upgrade --check`
 has always made and carries no record content — the ban on model calls in
 §Architectural invariants and the "nothing else ever leaves the machine"
 rule are about USER CONTENT, and a dist-tag lookup sends none.

@@ -147,15 +147,61 @@ export function resolveVerify(
   return undefined
 }
 
+/** Recorded text shown back to the operator, control characters made visible rather than obeyed. */
+export { printable } from '../core/hidden-chars'
+
+const PLAIN_TOKEN = /^[A-Za-z0-9_./:=@+,-]+$/
+
+/**
+ * A command with no shell syntax, split into its argv; null for anything else
+ * (security-audit SA-02). Every token is drawn from a set that no shell —
+ * /bin/sh or cmd.exe — reads as an operator, an expansion, a redirection, a
+ * quote or a glob, and tokens are separated by single spaces only. So the
+ * argv IS the command: nothing a shell would do differently is left to hide.
+ */
+export function plainArgv(cmd: string): string[] | null {
+  const tokens = cmd.trim().split(/ +/)
+  if (tokens[0] === undefined || tokens[0].length === 0) return null
+  return tokens.every((t) => PLAIN_TOKEN.test(t)) ? tokens : null
+}
+
+/** The rule body's tokens, when it is a `Bash(...)` rule; `prefix` marks `Bash(<x>:*)`. */
+function bashRule(rule: string): { tokens: string[]; prefix: boolean } | null {
+  const m = /^Bash\((.*)\)$/.exec(rule.trim())
+  if (m === null) return null
+  const body = m[1]!
+  const prefix = body.endsWith(':*')
+  const text = (prefix ? body.slice(0, -2) : body).trim()
+  return text.length === 0 ? null : { tokens: text.split(/ +/), prefix }
+}
+
 /**
  * Whether the run's surface would have let the AGENT run this command: a
- * `Bash(<prefix>:*)` rule whose prefix the command starts with (at a word
- * boundary), or a `Bash(<exact>)` rule equal to it. The same shapes Claude
- * Code's own allow rules take, and the only ones a driven session is
- * launched under (permissions.ts) — so a command the agent could not have
- * run is one the driver will not run for it either.
+ * plain command (`plainArgv`) whose leading argv equals a `Bash(<prefix>:*)`
+ * rule's words, or whose whole argv equals a `Bash(<exact>)` rule. The same
+ * shapes Claude Code's own allow rules take, and the only ones a driven
+ * session is launched under (permissions.ts). A command with any shell
+ * syntax matches nothing: Claude Code refuses a compound command under a
+ * prefix rule, so the driver does too (SA-02).
  */
 export function commandAllowed(cmd: string, surface: PermissionSurface | undefined): boolean {
+  if (surface === undefined) return false
+  const argv = plainArgv(cmd)
+  if (argv === null) return false
+  for (const rule of surface.allow) {
+    const r = bashRule(rule)
+    if (r === null || r.tokens.length > argv.length) continue
+    if (!r.prefix && r.tokens.length !== argv.length) continue
+    if (r.tokens.every((t, i) => t === argv[i])) return true
+  }
+  return false
+}
+
+/**
+ * The pre-0.38 matcher, a string prefix at a word boundary with no look at
+ * shell syntax. Only the `trusted` preset uses it (security-audit D3).
+ */
+function prefixAllowed(cmd: string, surface: PermissionSurface | undefined): boolean {
   if (surface === undefined) return false
   const command = cmd.trim()
   for (const rule of surface.allow) {
@@ -170,6 +216,44 @@ export function commandAllowed(cmd: string, surface: PermissionSurface | undefin
     }
   }
   return false
+}
+
+/** `drive.security` (security-audit D3): how far the driver trusts a command it did not get from the operator. */
+export const DRIVE_SECURITY = ['strict', 'standard', 'trusted'] as const
+export type DriveSecurity = (typeof DRIVE_SECURITY)[number]
+export const DEFAULT_DRIVE_SECURITY: DriveSecurity = 'standard'
+
+export function isDriveSecurity(value: unknown): value is DriveSecurity {
+  return typeof value === 'string' && (DRIVE_SECURITY as readonly string[]).includes(value)
+}
+
+/** How the driver may run one command: under a shell, as a bare argv, or not at all. */
+export type Clearance = { run: 'shell' } | { run: 'argv'; argv: string[] } | { run: 'refused'; why: string }
+
+/**
+ * Whether, and how, the driver runs a command (security-audit D3).
+ *
+ * - `operator`: the operator typed it (`--verify`, `--verify-quick`) on this
+ *   run, so it keeps its shell under every preset.
+ * - `approved`: its exact digest is approved on this clone (`sofar check
+ *   --approve`, `sofar drive --approve-commands`), so it keeps its shell too.
+ * - Otherwise the agent or the record wrote it. `standard` runs it only as a
+ *   plain argv inside the run's allow rules, spawned with no shell; `strict`
+ *   runs nothing unapproved; `trusted` is the old prefix match under a shell.
+ */
+export function clearCommand(
+  cmd: string,
+  opts: { operator: boolean; approved: boolean; surface: PermissionSurface | undefined; security: DriveSecurity },
+): Clearance {
+  if (opts.operator || opts.approved) return { run: 'shell' }
+  if (opts.security === 'trusted') {
+    return prefixAllowed(cmd, opts.surface) ? { run: 'shell' } : { run: 'refused', why: "not covered by the run's allow rules" }
+  }
+  if (opts.security === 'strict') return { run: 'refused', why: 'not approved on this clone (drive.security strict)' }
+  const argv = plainArgv(cmd)
+  if (argv === null) return { run: 'refused', why: 'not approved on this clone, and it uses shell syntax' }
+  if (!commandAllowed(cmd, opts.surface)) return { run: 'refused', why: "not approved on this clone, nor covered by the run's allow rules" }
+  return { run: 'argv', argv }
 }
 
 /** A recorded pass still holds: same command, same tree. */
@@ -198,14 +282,17 @@ export interface VerificationOutcome {
  * Synchronous, for `sofar check` and the Stop hook's checks, which bound
  * their own budgets. The driver runs `startVerification` instead.
  */
-export function runVerification(cmd: string, cwd: string, timeoutMs: number): VerificationOutcome {
+export function runVerification(cmd: string, cwd: string, timeoutMs: number, argv?: readonly string[]): VerificationOutcome {
   if (!existsSync(cwd)) {
     return { result: 'error', duration_ms: 0, diagnostics: `verification cwd does not exist: ${cwd}` }
   }
   const t0 = Date.now()
-  const r = spawnSync(cmd, {
+  // A cleared argv runs with no shell on POSIX; cmd.exe needs one to find a
+  // `.cmd` shim, and a plain argv holds nothing cmd.exe expands (plainArgv).
+  const bare = argv !== undefined && process.platform !== 'win32'
+  const r = spawnSync(bare ? argv[0]! : cmd, bare ? argv.slice(1) : [], {
     cwd,
-    shell: true,
+    shell: !bare,
     encoding: 'utf8',
     timeout: timeoutMs,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -267,7 +354,7 @@ export function startVerification(
   cmd: string,
   cwd: string,
   timeoutMs: number,
-  options: { lowPriority?: boolean; killGraceMs?: number } = {},
+  options: { lowPriority?: boolean; killGraceMs?: number; argv?: readonly string[] } = {},
 ): VerificationProcess {
   if (!existsSync(cwd)) {
     return {
@@ -277,7 +364,10 @@ export function startVerification(
   }
   const t0 = Date.now()
   const posix = process.platform !== 'win32'
-  const [bin, args] = posix ? (options.lowPriority === true ? lowPriority('/bin/sh', ['-c', cmd], { cwd }) : ['/bin/sh', ['-c', cmd]]) : [cmd, []]
+  // A cleared argv (clearCommand) runs as itself, with no shell between it
+  // and the kernel; anything else goes through /bin/sh as before.
+  const [head, rest]: [string, readonly string[]] = options.argv !== undefined && posix ? [options.argv[0]!, options.argv.slice(1)] : ['/bin/sh', ['-c', cmd]]
+  const [bin, args] = posix ? (options.lowPriority === true ? lowPriority(head, rest, { cwd }) : [head, rest]) : [cmd, []]
   let child: ChildProcess
   try {
     child = spawn(bin, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: posix, shell: !posix })

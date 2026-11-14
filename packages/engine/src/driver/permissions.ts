@@ -96,6 +96,32 @@ export const DEFAULT_ALLOW: readonly string[] = [
 ]
 
 /**
+ * What no driven session may run, whatever its surface allows (security-audit
+ * D3, SA-04). `Bash(sofar:*)` in the floor is for the record half; these are
+ * the sofar subcommands that reach past it — start another run, rewire or
+ * replace the install, open a server, move the record off the machine, or
+ * loosen this clone's check gate. Written into every launch's settings file
+ * beside the surface's own deny rules, never into the surface itself, so a
+ * recorded surface reads exactly as it did and every run gets them. The CLI
+ * refuses the same set inside a driven session (cli/drive.ts
+ * drivenRefusal), which covers the adapters that take no settings file.
+ */
+export const DRIVEN_DENY: readonly string[] = [
+  'Bash(sofar drive:*)',
+  'Bash(sofar init:*)',
+  'Bash(sofar uninit:*)',
+  'Bash(sofar upgrade:*)',
+  'Bash(sofar serve:*)',
+  'Bash(sofar login:*)',
+  'Bash(sofar link:*)',
+  'Bash(sofar push:*)',
+  'Bash(sofar pull:*)',
+  'Bash(sofar check --approve:*)',
+  'Bash(sofar check --block-commits:*)',
+  'Bash(sofar check --strict-tests:*)',
+]
+
+/**
  * What the run pinned. Structurally IDENTICAL to the schema's `RunSurface`,
  * deliberately: the surface is written to the event and read back from the
  * fold on resume, and a second spelling would mean a conversion in both

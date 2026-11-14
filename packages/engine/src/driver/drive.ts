@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, resolve, sep } from 'node:path'
+import { isRunPinned, pinRun, runPinDigest } from './run-pins'
 import { ulid } from 'ulid'
 import {
   isClosedInitiativeStatus,
@@ -59,7 +60,11 @@ import {
   expandFiles,
   failuresSoFar,
   gateWindow,
-  commandAllowed,
+  clearCommand,
+  DEFAULT_DRIVE_SECURITY,
+  printable,
+  type Clearance,
+  type DriveSecurity,
   DEFAULT_MAX_VERIFY_ATTEMPTS,
   DEFAULT_VERIFY_TIMEOUT_MS,
   defaultVerifyQuick,
@@ -476,6 +481,17 @@ export interface DriveOptions {
   lowPriority?: boolean
   verifySlot?: boolean
   /**
+   * `drive.security` (security-audit D3): how a verify or check the operator
+   * did not type is cleared. The CLI reads it from user config or
+   * `--security`, never from the repo. Default `standard`.
+   */
+  security?: DriveSecurity
+  /**
+   * `--accept-recorded`: resume a run whose recorded verify and surface this
+   * clone did not start and the operator did not re-type (security-audit D3).
+   */
+  acceptRecorded?: boolean
+  /**
    * The wait before that re-run (drive-lanes 2.7): until the machine's load
    * clears (load.ts waitForLoad), bounded by the command's own timeout. The
    * CLI passes `{}`; absent, the re-run starts at once.
@@ -865,6 +881,7 @@ async function driveHolding(
   // driver's flags for a fresh run, taken from the record for a resumed one.
   let surface = options.surface
   let verify = options.verify
+  const security: DriveSecurity = options.security ?? DEFAULT_DRIVE_SECURITY
   // `--verify-quick none` states no quick tier (8.2): kept apart from unstated, which may default.
   let verifyQuick = options.verifyQuick === QUICK_TIER_NONE ? undefined : options.verifyQuick
 
@@ -918,6 +935,27 @@ async function driveHolding(
           : `sofar drive: run ${last.id} on "${initiative}" has no stop — either a driver is still running it or one died mid-run, and the record cannot tell which. Re-run with --resume to pick it up.`,
       )
     }
+    // What the resume adopts from the RECORD — the surface the sessions launch
+    // under and the verify that runs with the operator's shell — must be what
+    // this clone started, what the operator just re-typed, or what they accept
+    // by name (security-audit D3, SA-03): a merged branch can carry a
+    // run_started nobody here wrote.
+    const recordedDigest = runPinDigest(last)
+    const nothingRecorded = last.surface === undefined && last.verify === undefined && last.verify_quick === undefined
+    const restated =
+      options.verify === last.verify && options.verifyQuick === last.verify_quick && sameSurface(last.surface, options.surface)
+    if (security !== 'trusted' && !nothingRecorded && !restated && options.acceptRecorded !== true && !isRunPinned(rootDir, last.id, recordedDigest)) {
+      const shown = [
+        `surface ${last.surface === undefined ? 'none pinned' : printable(describeSurface(last.surface))}`,
+        ...(last.verify !== undefined ? [`verify \`${printable(last.verify)}\``] : []),
+        ...(last.verify_quick !== undefined ? [`verify-quick \`${printable(last.verify_quick)}\``] : []),
+      ]
+      throw new ToolError(
+        'invalid_input',
+        `sofar drive: run ${last.id} on "${initiative}" was not started on this clone, and resuming it adopts its recorded ${shown.join(', ')} — read them, then re-run with --accept-recorded, or start a new run with your own flags`,
+      )
+    }
+    pinRun(rootDir, last.id, recordedDigest)
     priorSessions = last.handoffs.length
     if (last.max_sessions !== undefined) maxSessions = last.max_sessions
     // The resumed run's own numbers win over this driver's flags: the run is
@@ -1190,11 +1228,14 @@ async function driveHolding(
         ...(verify !== undefined ? { verify } : {}),
         ...(verifyQuick !== undefined ? { verify_quick: verifyQuick } : {}),
         ...(lanes > 1 ? { lanes } : {}),
+        security,
       },
       { session: 'cli', source: 'cli', actor: 'human' },
     )
+    pinRun(rootDir, runId, runPinDigest({ ...(surface !== undefined ? { surface } : {}), ...(verify !== undefined ? { verify } : {}), ...(verifyQuick !== undefined ? { verify_quick: verifyQuick } : {}) }))
     mine = { id: started.id, epoch: 1 }
   }
+  opening.push(securityLine(security))
   for (const line of opening) progress(line)
   awake?.start(progress)
 
@@ -1280,7 +1321,7 @@ async function driveHolding(
   const liveVerifies = new Set<{ waiting: AbortController; process?: VerificationProcess }>()
   let slotWarned = false
   // `heavy`: whether the command takes the verify slot — every gate but a tiered run's quick check (8.3, D65).
-  const runGated = async (cmd: string, dir: string, timeoutMs: number, rerun = false, heavy = true): Promise<VerificationOutcome | undefined> => {
+  const runGated = async (cmd: string, dir: string, timeoutMs: number, rerun = false, heavy = true, argv?: readonly string[]): Promise<VerificationOutcome | undefined> => {
     const watchFrom = existsSync(eventsPath) ? statSync(eventsPath).size : 0
     const look = (): void => {
       const folded = ctx.foldState(initiative)
@@ -1332,7 +1373,7 @@ async function driveHolding(
         }
       }
       if (fenced !== undefined || interrupted) return undefined
-      const running = startVerification(cmd, dir, timeoutMs, { lowPriority: options.lowPriority === true })
+      const running = startVerification(cmd, dir, timeoutMs, { lowPriority: options.lowPriority === true, ...(argv !== undefined ? { argv } : {}) })
       liveVerify.process = running
       const outcome = await running.done
       return fenced !== undefined || interrupted ? undefined : outcome
@@ -1359,14 +1400,15 @@ async function driveHolding(
     attempt: number,
     record: (outcome: VerificationOutcome, attempt: number) => void,
     heavy = true,
+    argv?: readonly string[],
   ): Promise<{ outcome: VerificationOutcome; attempt: number; failed: number } | undefined> => {
     const charged = (o: VerificationOutcome): number => (o.result === 'pass' || o.result === 'timeout' ? 0 : 1)
-    const first = await runGated(cmd, dir, timeoutMs, false, heavy)
+    const first = await runGated(cmd, dir, timeoutMs, false, heavy, argv)
     if (first === undefined) return undefined
     record(first, attempt)
     if (first.result !== 'timeout') return { outcome: first, attempt, failed: charged(first) }
     progress(`  ${describeVerification(cmd, attempt, first)} — not charged; re-running once the load clears (attempt ${attempt + 1}), never a new session`)
-    const second = await runGated(cmd, dir, timeoutMs, true, heavy)
+    const second = await runGated(cmd, dir, timeoutMs, true, heavy, argv)
     if (second === undefined) return undefined
     record(second, attempt + 1)
     return { outcome: second, attempt: attempt + 1, failed: charged(second) }
@@ -1436,7 +1478,14 @@ async function driveHolding(
     if (verificationCovers(task.verification, which.cmd, fingerprint)) {
       return { applies: true, passed: true, attempt: task.verification!.attempt, line: '' }
     }
-    const approved = which.source === 'run' || commandAllowed(which.cmd, surface)
+    // The operator typed a run's --verify; a plan's was written by an agent
+    // or a merged record, so it runs only as security-audit D3 clears it, and
+    // only inside the launch directory.
+    const escapes = which.source === 'plan' && (dirs.relative === '..' || dirs.relative.startsWith(`..${sep}`) || isAbsolute(dirs.relative))
+    const clearance: Clearance = escapes
+      ? { run: 'refused', why: `its cwd (${which.cwd}) is outside the launch directory` }
+      : clearCommand(which.cmd, { operator: which.source === 'run', approved: isApproved(rootDir, which.cmd), surface, security })
+    const approved = clearance.run !== 'refused'
     const record = (outcome: VerificationOutcome, attempt: number): void => {
       ctx.appendAndProject(
         initiative,
@@ -1462,14 +1511,14 @@ async function driveHolding(
       )
     }
     const first = attemptsSoFar(run, taskId) + 1
-    progress(`  verifying ${taskId} (attempt ${first}): ${which.cmd}${approved ? '' : ' — refused, outside the run\'s permission surface'}`)
+    progress(`  verifying ${taskId} (attempt ${first}): ${which.cmd}${clearance.run === 'refused' ? ` — refused, ${clearance.why}; \`sofar drive --approve-commands ${initiative}\` approves it` : ''}`)
     let ran: { outcome: VerificationOutcome; attempt: number; failed: number }
-    if (approved) {
-      const recorded = await runRecorded(which.cmd, dirs.absolute, which.timeout_ms, first, record, !quick)
+    if (clearance.run !== 'refused') {
+      const recorded = await runRecorded(which.cmd, dirs.absolute, which.timeout_ms, first, record, !quick, clearance.run === 'argv' ? clearance.argv : undefined)
       if (recorded === undefined) return { applies: false }
       ran = recorded
     } else {
-      const outcome: VerificationOutcome = { result: 'refused', duration_ms: 0, diagnostics: 'plan-level verify command is not covered by the run\'s allow rules; nothing was run' }
+      const outcome: VerificationOutcome = { result: 'refused', duration_ms: 0, diagnostics: `plan-level verify command is ${clearance.why}; nothing was run` }
       record(outcome, first)
       ran = { outcome, attempt: first, failed: 1 }
     }
@@ -1518,9 +1567,10 @@ async function driveHolding(
       // A pass on this tree, for this exact command, still covers (D19).
       if (verificationCovers(task.checks?.find((v) => v.decision === c.handle), c.check.cmd, fingerprint)) continue
       attempt += 1
-      const approved = isApproved(rootDir, c.check.cmd) || commandAllowed(c.check.cmd, surface)
+      const clearance = clearCommand(c.check.cmd, { operator: false, approved: isApproved(rootDir, c.check.cmd), surface, security })
+      const approved = clearance.run !== 'refused'
       const timeoutMs = c.check.timeout_ms ?? verifyTimeoutMs
-      progress(`  checking ${task.id} against [${c.shown}]: ${c.check.cmd}${approved ? '' : ' — refused, neither approved on this clone nor inside the run\'s permission surface'}`)
+      progress(`  checking ${task.id} against [${c.shown}]: ${c.check.cmd}${clearance.run === 'refused' ? ` — refused, ${clearance.why}; \`sofar check --approve\` approves it` : ''}`)
       const record = (outcome: VerificationOutcome, n: number): void => {
         ctx.appendAndProject(
           initiative,
@@ -1546,7 +1596,7 @@ async function driveHolding(
       }
       let outcome: VerificationOutcome
       if (approved) {
-        const ran = await runRecorded(c.check.cmd, dir, timeoutMs, attempt, record)
+        const ran = await runRecorded(c.check.cmd, dir, timeoutMs, attempt, record, true, clearance.run === 'argv' ? clearance.argv : undefined)
         if (ran === undefined) return { applies: false }
         ;({ outcome, attempt } = ran)
         // Every fail recorded here; a timeout is never one (2.7).
@@ -1557,7 +1607,7 @@ async function driveHolding(
           return { applies: true, passed: false, attempt, line, timedOut: timedOutStop(`${task.id}'s check against [${c.shown}]`, line) }
         }
       } else {
-        outcome = { result: 'refused', duration_ms: 0, diagnostics: 'decision check is neither approved on this clone nor covered by the run\'s allow rules; nothing was run' }
+        outcome = { result: 'refused', duration_ms: 0, diagnostics: `decision check is ${clearance.run === 'refused' ? clearance.why : 'refused'}; nothing was run` }
         record(outcome, attempt)
       }
       // Refused never blocks: nothing ran, and nothing an agent controls
@@ -3213,3 +3263,16 @@ function warnOnForeignBinding(cwd: string, initiative: string, progress: (line: 
     `warning: ${cwd} binds to ${bound ?? 'no initiative'}, not "${initiative}" — driven sessions will be injected with that record's digest and must re-home; the prompt still pins their writes`,
   )
 }
+
+/** The opening line naming the run's preset (security-audit D3), so a run never clears commands silently. */
+export function securityLine(security: DriveSecurity): string {
+  switch (security) {
+    case 'strict':
+      return 'security: strict — a verify or check the operator did not type runs only when approved (`sofar drive --approve-commands`)'
+    case 'standard':
+      return 'security: standard — an agent-written verify or check runs when approved, or as a plain command the allow rules cover, without a shell'
+    case 'trusted':
+      return 'security: trusted — every verify and check the allow rules cover by prefix runs with a shell (the pre-0.34.2 behaviour)'
+  }
+}
+

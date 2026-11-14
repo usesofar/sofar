@@ -9,6 +9,7 @@ import { makeEvent } from '../src/core/envelope'
 import { appendEvent } from '../src/core/log'
 import { drive, renderPrompt } from '../src/driver/drive'
 import { buildSurface } from '../src/driver/permissions'
+import { pinRun, runPinDigest } from '../src/driver/run-pins'
 import {
   commandAllowed,
   fingerprintTree,
@@ -244,12 +245,26 @@ describe('the gate in a driven run (D19)', () => {
     expect(task(root, '1.1').verification).toMatchObject({ result: 'refused' })
     expect(() => readFileSync(join(root, 'ran.txt'))).toThrow()
 
-    const allowed = repo(PLAN({ cmd: 'touch ran.txt && exit 0' }))
+    // A plain command the allow rules cover runs — without a shell (security-audit D3, standard).
+    const allowed = repo(PLAN({ cmd: 'touch ran.txt' }))
     const adapter2 = new FakeAdapter(worker(allowed, 'w'))
     const out2 = await drive(allowed, 'demo', { adapter: adapter2, surface: buildSurface({ allow: ['Bash(touch:*)'] }), maxSessions: 1 })
     expect(out2.handoffs[0]!.reason).toBe('task_done')
     expect(readFileSync(join(allowed, 'ran.txt'), 'utf8')).toBe('')
     expect(task(allowed, '1.1').verification).toMatchObject({ result: 'pass' })
+
+    // A prefix rule no longer covers what a shell would chain after it (SA-02)...
+    const chained = repo(PLAN({ cmd: 'touch ran.txt && exit 0' }))
+    const out3 = await drive(chained, 'demo', { adapter: new FakeAdapter(worker(chained, 'w')), surface: buildSurface({ allow: ['Bash(touch:*)'] }), maxSessions: 1, maxVerifyAttempts: 1 })
+    expect(out3.handoffs[0]!.reason).toBe('verify_failed')
+    expect(task(chained, '1.1').verification).toMatchObject({ result: 'refused' })
+    expect(() => readFileSync(join(chained, 'ran.txt'))).toThrow()
+
+    // ...except under `trusted`, the pre-preset behaviour, kept for the operator who chooses it.
+    const trusted = repo(PLAN({ cmd: 'touch ran.txt && exit 0' }))
+    const out4 = await drive(trusted, 'demo', { adapter: new FakeAdapter(worker(trusted, 'w')), surface: buildSurface({ allow: ['Bash(touch:*)'] }), maxSessions: 1, security: 'trusted' })
+    expect(out4.handoffs[0]!.reason).toBe('task_done')
+    expect(readFileSync(join(trusted, 'ran.txt'), 'utf8')).toBe('')
   })
 
   it('a dropped task is never verified and never counted as verified', async () => {
@@ -277,6 +292,8 @@ describe('the gate in a driven run (D19)', () => {
       appendEvent(logPath(root), makeEvent({ initiative: 'demo', session, type, payload, source: 'cli', actor: session === 'cli' ? 'human' : 'agent' }))
     }
     put('cli', 'run_started', { run: run1, adapter: 'fake', policy: 'task', verify: 'test -f README.md' })
+    // The crashed driver pinned its run on this clone, so the resume is silent (security-audit D3).
+    pinRun(root, run1, runPinDigest({ verify: 'test -f README.md' }))
     put('w1', 'session_started', { tool: 'fake' })
     put('w1', 'task_status_changed', { id: '1.1', status: 'done' })
     put('w1', 'session_ended', { summary: 's', next_action: 'n' })

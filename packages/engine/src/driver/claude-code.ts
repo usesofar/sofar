@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { NUDGE_ENV, writeNudge, type NudgeDetail } from './nudge'
-import { writeVerifiedSettings, type PermissionSurface } from './permissions'
+import { DRIVEN_DENY, writeVerifiedSettings, type PermissionSurface } from './permissions'
 import type {
   Adapter,
   AdapterCapabilities,
@@ -80,6 +80,22 @@ export interface ClaudeCodeOptions {
  * So this file only ever WIDENS the operator's own configuration — which is
  * why the record calls it what the driver pinned, never what the session can do.
  */
+/**
+ * A launch's settings file: the driven floor (7.1), the surface's rules with
+ * DRIVEN_DENY ahead of its own deny rules (security-audit D3), and a lane's
+ * lease hook. Deny outranks allow in Claude Code, so `Bash(sofar:*)` stays the
+ * record half and nothing more.
+ */
+export function launchSettings(surface: PermissionSurface | undefined, leaseHook?: string): Record<string, unknown> {
+  const rules = surface !== undefined ? (settingsFor(surface).permissions as Record<string, unknown>) : {}
+  const deny = [...DRIVEN_DENY, ...(surface?.deny ?? []).filter((r) => !DRIVEN_DENY.includes(r))]
+  return {
+    ...DRIVEN_SETTINGS,
+    permissions: { ...rules, deny },
+    ...(leaseHook !== undefined ? leaseHookSettings(leaseHook) : {}),
+  }
+}
+
 export function settingsFor(surface: PermissionSurface): Record<string, unknown> {
   return {
     permissions: {
@@ -273,11 +289,7 @@ export class ClaudeCodeSession implements AgentSession {
     // A lane's lease hook (3.1) rides the same file, and every launch has one:
     // a driven session refuses cross-session messages, surface or none (7.1).
     this.settingsPath = join(sessionDir, SETTINGS_FILE)
-    writeVerifiedSettings(this.settingsPath, {
-      ...DRIVEN_SETTINGS,
-      ...(request.surface !== undefined ? settingsFor(request.surface) : {}),
-      ...(request.leaseHook !== undefined ? leaseHookSettings(request.leaseHook) : {}),
-    })
+    writeVerifiedSettings(this.settingsPath, launchSettings(request.surface, request.leaseHook))
 
     // stdin is closed at once: with it open, print mode waits three seconds
     // for piped input before proceeding without it. Detached makes the child

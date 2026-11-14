@@ -877,6 +877,10 @@
         "lanes": {
           "type": "integer",
           "description": "Lane worktrees the run drives tasks in (drive-lanes 2.2, D19/D20), each task on its own branch; absent on a serial run, which launches every session in one directory. The count only: a lane's path is this machine's, and the record is shared. A resumed run keeps it."
+        },
+        "security": {
+          "$ref": "#/definitions/RunSecurity",
+          "description": "The run's `drive.security` preset (security-audit D3): how a verify or check the operator did not type was cleared. Read from the operator's user config or `--security`, never from the repo. Absent on a run that predates presets, which behaved as `trusted`."
         }
       },
       "required": [
@@ -922,6 +926,14 @@
         "allow"
       ],
       "description": "What `run_started.surface` carries; the driver's own type is engine-side."
+    },
+    "RunSecurity": {
+      "type": "string",
+      "enum": [
+        "strict",
+        "standard",
+        "trusted"
+      ]
     },
     "HandoffPayload": {
       "type": "object",

@@ -109,7 +109,7 @@ import { awaitRun, stillRunning, AWAIT_HOOK_DEADLINE_MS, type AwaitOptions } fro
 import { handleLease } from './lease-hook'
 import { describeRun, taskProgress } from '../projections/templates/shared'
 import { planPhaseAdd, resolvePhaseOrThrow } from '../mcp/update-phase'
-import { redactCommand } from '../core/redact'
+import { redactCommand, redactCommandText } from '../core/redact'
 import { beginWrite, cacheChanges, cachedChanges, heldKey, inWindow, markHeld, markLossAsked, markWrote, pathspecKey, peerWindows, peerWroteIt, readLossAsked, readWindows, readWrote, wasHeld, writeKey, type WriteWindow } from '../core/wrote'
 import { readGateEnabled, rewriteRawRead, rewriteRawReadSegments } from '../core/read-rewrite'
 import { cappedRecallBlock, RECALL_TOLD_KEY, recallBlock, recallEnabled, recallV034 } from '../core/recall'
@@ -1278,6 +1278,10 @@ function classifyToolCall(hook: Obj, rootDir?: string): ClassifiedCall[] {
     // The exemption scan reads the raw text — redaction must not change which
     // commands are considered self-recording.
     const redacted = redactCommand(cmd)
+    // The record elides here-document bodies; the live match does not
+    // (security-audit 3.5), so a guard or a shell write inside a heredoc is
+    // seen exactly as before.
+    const live = cmd.includes('<<') ? redactCommandText(cmd) : redacted
     const head = cmd.trimStart().split(/\s+/, 1)[0] ?? ''
     // A run that cd-s out of the worktree first is no run of this one's suite
     // (r4-fixes H15, self-improve D28): the record says so, and the Stop gate
@@ -1289,9 +1293,9 @@ function classifyToolCall(hook: Obj, rootDir?: string): ClassifiedCall[] {
         type: 'command_run',
         payload: { cmd: redacted, ...(elsewhere ? { elsewhere: true } : {}) },
         domain: 'cmd',
-        // The guard matches what the record HOLDS, not what was typed, so the
-        // hook and the fold can never disagree about whether a rule fired.
-        subject: redacted,
+        // The guard matches the REDACTED text, never what was typed; only a
+        // match inside an elided heredoc body is the hook's alone.
+        subject: live,
         exempt: isSelfRecordingCommand(cmd, strField(hook, 'cwd') ?? undefined),
         ...(head.length > 0 ? { head: head.slice(0, DIAGNOSTIC_HEAD_CLIP) } : {}),
       },
@@ -3717,6 +3721,12 @@ export function runAppend(rootDir: string, args: AppendArgs): HookResult {
     // (toSource) — and the tool's own name survives in session_started's
     // `tool`, which is where every reader already looks for it.
     const source: Source = toSource(args.source)
+    // A driver event from the CLI is a run nobody started (security-audit D3,
+    // SA-03): a forged run_started is what a later `--resume` would adopt as
+    // the operator's own surface and verify. Only `sofar drive` writes these.
+    if (isKnownEventType(args.type) && EVENT_TYPE_REFERENCE[args.type].writer === 'driver') {
+      throw new ToolError('invalid_input', `${args.type} is written by \`sofar drive\` alone — \`sofar event append\` refuses it; nothing was filed`)
+    }
     if (!(ACTORS as readonly string[]).includes(args.actor)) {
       throw new ToolError('invalid_input', `--actor must be one of: ${ACTORS.join('|')}`)
     }

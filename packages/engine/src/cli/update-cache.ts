@@ -49,6 +49,29 @@ function nonEmpty(value: string | undefined): string | undefined {
 }
 
 /**
+ * A strict semver string, the only shape the cache, the notice and an install
+ * target ever accept for a resolved version (security-audit SA-01). Anything
+ * else — a dist-tag, an `npm:` alias, a terminal escape — is dropped, so a
+ * poisoned cache can neither steer `npm install sofar.sh@<x>` nor print bytes.
+ */
+export const STRICT_SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
+
+export function strictVersion(value: unknown): string | null {
+  return typeof value === 'string' && STRICT_SEMVER.test(value) ? value : null
+}
+
+/**
+ * The cwd every npm child runs in (security-audit SA-01). npm reads a
+ * project `.npmrc` from the cwd's package root, so an npm spawned inside a
+ * hostile clone takes that repo's `registry=`/`proxy=` and sends the user's
+ * auth token to it. The home directory holds only the user's own config, so
+ * a corporate registry or proxy set in `~/.npmrc` keeps working.
+ */
+export function npmCwd(): string {
+  return homedir()
+}
+
+/**
  * The cache, or null when absent/unreadable/corrupt. NEVER throws: this is
  * read from the statusline and from init's tail, where a malformed cache file
  * must degrade to "no notice", never to a failed command.
@@ -60,11 +83,11 @@ export function readUpdateCache(env: Env = process.env): UpdateCache | null {
     const decoded = JSON.parse(readFileSync(path, 'utf8')) as Partial<UpdateCache> | null
     if (typeof decoded !== 'object' || decoded === null) return null
     if (typeof decoded.checked_at !== 'string' || decoded.checked_at.length === 0) return null
-    const latest = typeof decoded.latest === 'string' && decoded.latest.length > 0 ? decoded.latest : null
+    const latest = strictVersion(decoded.latest)
     const installed =
       typeof decoded.installed === 'object' &&
       decoded.installed !== null &&
-      typeof decoded.installed.version === 'string' &&
+      strictVersion(decoded.installed.version) !== null &&
       typeof decoded.installed.at === 'string'
         ? decoded.installed
         : undefined
@@ -187,10 +210,15 @@ export function refreshEntry(selfPath: string): string {
   return join(dirname(selfPath), 'cli.js')
 }
 
-/** Detached, unref'd, output discarded — the parent exits without waiting. */
+/**
+ * Detached, unref'd, output discarded — the parent exits without waiting.
+ * Runs from the home directory, never the repo the surface rendered in: every
+ * npm child it starts inherits that cwd (SA-01).
+ */
 export function defaultSpawnRefresh(selfPath: string): void {
   try {
     const child = spawn(process.execPath, [refreshEntry(selfPath), 'update-check', '--refresh'], {
+      cwd: npmCwd(),
       detached: true,
       stdio: 'ignore',
     })

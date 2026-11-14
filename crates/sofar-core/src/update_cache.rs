@@ -48,11 +48,15 @@ pub fn read_update_cache() -> Option<UpdateCache> {
     let checked_at = o.get("checked_at")?.as_nonempty_str()?.to_owned();
     let latest = o
         .get("latest")
-        .and_then(Json::as_nonempty_str)
+        .and_then(Json::as_str)
+        .filter(|v| is_strict_version(v))
         .map(str::to_owned);
     let installed = o.get("installed").and_then(Json::as_obj).and_then(|i| {
         Some((
-            i.get("version")?.as_str()?.to_owned(),
+            i.get("version")?
+                .as_str()
+                .filter(|v| is_strict_version(v))?
+                .to_owned(),
             i.get("at")?.as_str()?.to_owned(),
         ))
     });
@@ -61,6 +65,32 @@ pub fn read_update_cache() -> Option<UpdateCache> {
         checked_at,
         installed,
     })
+}
+
+/// `strictVersion` (security-audit SA-01): `^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`,
+/// untrimmed and with no `v`. A cached version that is anything else is dropped
+/// on read, the same as the TypeScript reader.
+#[must_use]
+pub fn is_strict_version(value: &str) -> bool {
+    let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'.' || b == b'-';
+    let (head, build) = match value.split_once('+') {
+        Some((h, b)) => (h, Some(b)),
+        None => (value, None),
+    };
+    let (core, pre) = match head.split_once('-') {
+        Some((c, p)) => (c, Some(p)),
+        None => (head, None),
+    };
+    let mut n = 0;
+    for part in core.split('.') {
+        if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+        n += 1;
+    }
+    n == 3
+        && pre.is_none_or(|p| !p.is_empty() && p.bytes().all(ident))
+        && build.is_none_or(|b| !b.is_empty() && b.bytes().all(ident))
 }
 
 struct Version {
@@ -247,6 +277,28 @@ pub fn refresh_due(now_ms: f64) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_strict_semver_is_a_cached_version() {
+        for ok in ["0.38.0", "0.39.0-rc.2", "1.2.3-rc-1+b.7", "10.0.0+sha"] {
+            assert!(is_strict_version(ok), "{ok}");
+        }
+        for bad in [
+            "npm:evil@1.0.0",
+            "\u{1b}[2J99.0.0",
+            "latest",
+            "1.2",
+            "v1.2.3",
+            " 1.2.3",
+            "1.2.3-",
+            "1.2.3+",
+            "1.2.3 && id",
+            "1.2.3.4",
+            "",
+        ] {
+            assert!(!is_strict_version(bad), "{bad:?}");
+        }
+    }
 
     #[test]
     fn notice_lines_follow_the_engine() {

@@ -34,18 +34,19 @@ pub fn append_events(log_path: &Path, events: &[Envelope]) -> io::Result<()> {
                 error_detail(&errors)
             )));
         }
+        let hidden = crate::payload::control_char_errors(&event.event_type, &event.payload);
+        if !hidden.is_empty() {
+            return Err(io::Error::other(format!("refusing to append invalid event — {}", hidden.join("; "))));
+        }
     }
+    // A committed symlink must not carry the append out of the clone
+    // (security-audit SA-05): checked before the mkdir, which would otherwise
+    // create directories wherever an escaping link points.
+    crate::contain::assert_record_path(log_path)?;
     if let Some(dir) = log_path.parent() {
         fs::create_dir_all(dir)?;
     }
-    let mut options = fs::OpenOptions::new();
-    options.append(true).create(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt as _;
-        options.mode(0o644);
-    }
-    let mut file = options.open(log_path)?;
+    let mut file = open_append(log_path)?;
     for event in events {
         let mut line = serialize_event(event);
         line.push('\n');
@@ -59,6 +60,28 @@ pub fn append_events(log_path: &Path, events: &[Envelope]) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// `O_NOFOLLOW`: the descriptor is the file the check saw. A link the check
+/// already found inside the clone opens at its resolved target.
+fn open_append(log_path: &Path) -> io::Result<fs::File> {
+    let open = |path: &Path| {
+        let mut options = fs::OpenOptions::new();
+        options.append(true).create(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o644).custom_flags(crate::contain::O_NOFOLLOW);
+        }
+        options.open(path)
+    };
+    match open(log_path) {
+        // The errno differs by platform (ELOOP, EMLINK on FreeBSD): ask the path.
+        Err(_) if crate::contain::O_NOFOLLOW != 0 && log_path.symlink_metadata().is_ok_and(|m| m.file_type().is_symlink()) => {
+            open(&log_path.canonicalize()?)
+        }
+        other => other,
+    }
 }
 
 /// A line that decoded to a valid envelope.
@@ -198,6 +221,73 @@ mod tests {
         assert_eq!(decoded.parsed[0].event, a);
         assert_eq!(decoded.parsed[1].line_no, 2);
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn refuses_a_decision_whose_check_hides_control_characters() {
+        // security-audit SA-07: write time only — the fold never sees this rule.
+        let dir = crate::testing::scratch_dir("log-ctl");
+        let path = dir.join("events.jsonl");
+        let decision = |cmd: &str, rule: &str| {
+            let mut check = Object::new();
+            check.insert("cmd", Json::Str(cmd.to_owned()));
+            let mut payload = Object::new();
+            for (k, v) in [("chose", "a"), ("over", "b"), ("because", "c"), ("rule", rule)] {
+                payload.insert(k, Json::Str(v.to_owned()));
+            }
+            payload.insert("check", Json::Obj(check));
+            make_event_at(
+                MakeEventInput {
+                    initiative: "x".into(),
+                    session: "s".into(),
+                    source: "hook",
+                    actor: "agent",
+                    event_type: "decision_logged".into(),
+                    payload,
+                },
+                SystemTime::now(),
+                None,
+            )
+            .expect("a valid envelope")
+        };
+        let err = append_event(&path, &decision("npm test\u{1b}[2K", "r")).unwrap_err();
+        assert!(err.to_string().contains("check.cmd: must not contain control characters"), "{err}");
+        assert!(append_event(&path, &decision("npm test", "a\u{9b}b")).is_err());
+        assert!(!path.exists());
+        append_event(&path, &decision("npm test", "tabs\tare fine")).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn never_appends_through_a_symlink_out_of_the_clone() {
+        // security-audit SA-05: a committed events.jsonl linked to a shell rc.
+        use std::os::unix::fs::symlink;
+        let base = crate::testing::scratch_dir("log-symlink");
+        let clone = base.join("clone");
+        let rec = clone.join(".sofar").join("initiatives").join("x");
+        fs::create_dir_all(&rec).unwrap();
+        fs::write(base.join("rc"), "keep\n").unwrap();
+        let path = rec.join("events.jsonl");
+        symlink(base.join("rc"), &path).unwrap();
+        let err = append_event(&path, &note("cli", "one")).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "{err}");
+        assert_eq!(fs::read_to_string(base.join("rc")).unwrap(), "keep\n");
+
+        // A directory link out is refused before any mkdir reaches through it.
+        symlink(&base, clone.join(".sofar").join("initiatives").join("y")).unwrap();
+        let through = clone.join(".sofar/initiatives/y/sub/events.jsonl");
+        assert!(append_event(&through, &note("cli", "two")).is_err());
+        assert!(!base.join("sub").exists());
+
+        // A link that stays inside the clone still appends, at its target.
+        fs::remove_file(&path).unwrap();
+        fs::write(clone.join("real.jsonl"), "").unwrap();
+        symlink(clone.join("real.jsonl"), &path).unwrap();
+        let ev = note("cli", "three");
+        append_event(&path, &ev).unwrap();
+        assert_eq!(fs::read_to_string(clone.join("real.jsonl")).unwrap(), format!("{}\n", serialize_event(&ev)));
+        fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]

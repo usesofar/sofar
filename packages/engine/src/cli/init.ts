@@ -13,6 +13,7 @@ import {
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { assertContained, assertNotSymlink, UnsafePathError } from '../core/contain'
 import { effectiveHooksDir } from '../core/attribution'
 import { commonGitDir, gitToplevel } from '../core/git'
 import { writebackMode, writebackModeFor, type WritebackMode } from '../core/inline-block'
@@ -2433,7 +2434,8 @@ export function installStatusline(
   }
 
   settings.statusLine = STATUSLINE_SETTINGS_ENTRY
-  mkdirSync(dirname(path), { recursive: true })
+  guardIn(rootDir, path)
+  ensureDir(dirname(path), rootDir)
   writeFileSync(path, stableJSON(rootDir, path, settings))
   return { status: 'wired', path }
 }
@@ -2462,6 +2464,7 @@ export function uninstallStatusline(
   }
 
   delete settings.statusLine
+  guardIn(rootDir, path)
   writeFileSync(path, stableJSON(rootDir, path, settings))
   return { status: 'removed', path }
 }
@@ -2754,9 +2757,32 @@ class InitAbort extends Error {}
  */
 let runWrites: WiringFile[] | null = null
 
+/** The clone this init run writes into; null outside a run (security-audit SA-05/06). */
+let runRoot: string | null = null
+
+/**
+ * Refuse a write into `root` whose path leaves it through a symlink — a
+ * committed `.claude` linked to `~/.claude`, a settings file linked to a shell
+ * rc. Targets outside `root` (the user-global files sofar picks itself) are
+ * not checked here.
+ */
+function guardIn(root: string | null, path: string): void {
+  if (root === null) return
+  const rel = relative(resolve(root), resolve(path))
+  if (rel.startsWith('..') || isAbsolute(rel)) return
+  assertContained(root, path)
+}
+
+/** mkdir -p, after the containment check: a recursive mkdir through an escaping link creates directories where it points. */
+function ensureDir(dir: string, root: string | null = runRoot): void {
+  guardIn(root, dir)
+  mkdirSync(dir, { recursive: true })
+}
+
 function put(path: string, content: string): void {
   // r4-fixes A11: a write that brings a file into being is marked, so
   // `uninit --agent` may delete it again when reversing leaves it empty.
+  guardIn(runRoot, path)
   const created = runWrites !== null && !existsSync(path)
   writeFileSync(path, content, 'utf8')
   runWrites?.push({ path, op: 'write', sha256: sha256Hex(content), ...(created ? { created: true as const } : {}) })
@@ -2825,7 +2851,7 @@ function stableJSON(rootDir: string, path: string, value: unknown): string {
 
 function initSofarDir(rootDir: string, report: string[]): void {
   const sofarDir = join(rootDir, '.sofar')
-  mkdirSync(join(sofarDir, 'initiatives'), { recursive: true })
+  ensureDir(join(sofarDir, 'initiatives'))
   // repo.md is HAND-WRITTEN (SPEC §Record layout) — create only, never touch.
   report.push(`${createIfMissing(join(sofarDir, 'repo.md'), REPO_MD_STUB)} .sofar/repo.md`)
   report.push(
@@ -2933,12 +2959,14 @@ function installOneGitHook(rootDir: string, hook: GitHookSpec, report: string[])
       return
     }
     // Ours from an older version: keep it current, same as the .claude shims.
+    assertNotSymlink(path)
     put(path, hook.shim)
     chmodSync(path, 0o755)
     report.push(`updated .git/hooks/${hook.name}`)
     return
   }
   mkdirSync(join(dir, 'hooks'), { recursive: true })
+  assertNotSymlink(path)
   put(path, hook.shim)
   chmodSync(path, 0o755)
   report.push(`created .git/hooks/${hook.name}`)
@@ -2946,10 +2974,11 @@ function installOneGitHook(rootDir: string, hook: GitHookSpec, report: string[])
 
 function installShims(rootDir: string, dir: string, shims: readonly ShimSpec[], report: string[]): Change[] {
   const hooksDir = join(rootDir, dir)
-  mkdirSync(hooksDir, { recursive: true })
+  ensureDir(hooksDir, rootDir)
   const changes: Change[] = []
   for (const shim of shims) {
     const path = join(hooksDir, shim.file)
+    assertNotSymlink(path) // sofar-owned: chmod below must never reach through a link
     const change = writeIfChanged(path, shim.text) // shims are sofar-owned: kept current
     if ((statSync(path).mode & 0o777) !== 0o755) chmodSync(path, 0o755)
     report.push(`${change} ${dir}/${shim.file}`)
@@ -3098,7 +3127,7 @@ function mergeMcpJson(rootDir: string, rel: string, report: string[]): Change {
   }
   servers.sofar = mcpRegistration().mcpServers.sofar
   config.mcpServers = servers
-  mkdirSync(dirname(path), { recursive: true })
+  ensureDir(dirname(path))
   const change = writeIfChanged(path, stableJSON(rootDir, path, config))
   report.push(`${change} ${rel}`)
   return change
@@ -3191,7 +3220,7 @@ function mergeCursorHooks(rootDir: string, home: ShimHome, add: boolean, report:
   }
   if (config.version === undefined) config.version = 1 // Cursor requires it; first key in a new file
   config.hooks = hooks
-  mkdirSync(dirname(path), { recursive: true })
+  ensureDir(dirname(path))
   const note = moved > 0 ? ` (hooks repointed to ${SHIM_HOMES.claude.dir}/)` : ''
   report.push(`${writeIfChanged(path, stableJSON(rootDir, path, config))} ${rel}${note}`)
 }
@@ -3245,7 +3274,7 @@ function mergeCodexHooks(rootDir: string, report: string[]): Change {
     return 'unchanged'
   }
   config.hooks = hooks
-  mkdirSync(dirname(path), { recursive: true })
+  ensureDir(dirname(path))
   const change = writeIfChanged(path, stableJSON(rootDir, path, config))
   report.push(`${change} ${rel}`)
   return change
@@ -3283,7 +3312,7 @@ function mergeCodexMcp(
     return { change: 'unchanged', userStep: false }
   }
   if (state === 'absent') {
-    mkdirSync(dirname(path), { recursive: true })
+    ensureDir(dirname(path))
     const { text: next, skipped } = directMerged(withSofarServer(text, table))
     put(path, next)
     const change = exists ? 'updated' : 'created'
@@ -3431,7 +3460,7 @@ export function classifyProtocolBlock(
 function installWriteSkill(rootDir: string, rel: string, report: string[]): void {
   const path = join(rootDir, rel)
   if (!existsSync(path)) {
-    mkdirSync(dirname(path), { recursive: true })
+    ensureDir(dirname(path))
     put(path, WRITE_SKILL)
     report.push(`created ${rel}`)
     return
@@ -3552,6 +3581,7 @@ export function runInit(
   const consentBefore: Consent | null = options.journal === undefined ? null : readConsent(rootDir, options.journal.env)
   const wiredBefore = consentBefore === null ? [] : wiredAgents(rootDir)
   runWrites = []
+  runRoot = rootDir
   let aborted = false
   try {
     initSofarDir(rootDir, report)
@@ -3604,11 +3634,12 @@ export function runInit(
     }
   } catch (err) {
     aborted = true
-    if (err instanceof InitAbort) return fail(renderFailure(`sofar init: ${err.message}`, errCaps))
+    if (err instanceof InitAbort || err instanceof UnsafePathError) return fail(renderFailure(`sofar init: ${err.message}`, errCaps))
     throw err
   } finally {
     const writes = runWrites ?? []
     runWrites = null
+    runRoot = null
     const j = options.journal
     const explicit = j?.selection === 'flag' || j?.selection === 'picker'
     const grants =

@@ -1561,7 +1561,7 @@ pub fn regenerate_projections_with(
     state: &InitiativeState,
     fingerprint: Option<&str>,
 ) -> io::Result<()> {
-    fs::create_dir_all(initiative_dir)?;
+    crate::contain::create_record_dir(initiative_dir)?;
     write_if_changed(&initiative_dir.join("plan.md"), &render_plan(state))?;
     write_if_changed(
         &initiative_dir.join("decisions.md"),
@@ -1575,17 +1575,17 @@ pub fn regenerate_projections_with(
     }
     let shards = render_shards(state);
     if !state.decisions.is_empty() {
-        fs::create_dir_all(initiative_dir.join("decisions"))?;
+        crate::contain::create_record_dir(initiative_dir.join("decisions"))?;
     }
     if !state.memories.is_empty() {
-        fs::create_dir_all(initiative_dir.join("memory"))?;
+        crate::contain::create_record_dir(initiative_dir.join("memory"))?;
     }
     if shards.iter().any(|(name, _)| name.starts_with("phases/")) {
-        fs::create_dir_all(initiative_dir.join("phases"))?;
+        crate::contain::create_record_dir(initiative_dir.join("phases"))?;
     }
     let sessions_dir = initiative_dir.join("sessions");
     if !state.sessions.is_empty() {
-        fs::create_dir_all(&sessions_dir)?;
+        crate::contain::create_record_dir(&sessions_dir)?;
     }
     match fingerprint {
         None => {

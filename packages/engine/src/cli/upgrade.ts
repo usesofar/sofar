@@ -35,8 +35,11 @@ export interface UpgradeOptions {
 
 // The plan is derived in update-cache.ts (the boot stub needs it for the
 // refresh gate, rust-core 3.1); re-exported so callers keep their path.
-import { planUpgrade, type UpgradePlan } from './update-cache'
+import { npmCwd, planUpgrade, strictVersion, type UpgradePlan } from './update-cache'
 export { planUpgrade, type UpgradePlan }
+
+/** An npm dist-tag as `sofar upgrade <tag>` accepts it: `latest`, `next`. */
+const DIST_TAG = /^[a-z][a-z0-9-]{0,63}$/
 
 /** npm argv that installs the target into the resolved prefix. */
 export function npmInstallArgs(prefix: string, target: string): string[] {
@@ -48,16 +51,20 @@ function commandLine(prefix: string, target: string): string {
   return `npm ${npmInstallArgs(prefix, target).join(' ')}`
 }
 
-/** Query the registry for the `latest` dist-tag; null on any failure. */
+/**
+ * Query the registry for the `latest` dist-tag; null on any failure or on an
+ * answer that is not strict semver. Runs from the home directory so a repo's
+ * `.npmrc` cannot pick the registry or proxy (SA-01).
+ */
 export function fetchLatestVersion(): string | null {
   try {
     const out = execFileSync('npm', ['view', PACKAGE_NAME, 'version'], {
+      cwd: npmCwd(),
       encoding: 'utf8',
       timeout: 15_000,
       stdio: ['ignore', 'pipe', 'ignore'],
     })
-    const trimmed = out.trim()
-    return trimmed.length > 0 ? trimmed : null
+    return strictVersion(out.trim())
   } catch {
     return null
   }
@@ -104,6 +111,14 @@ function renderCheck(
  */
 export function resolveUpgrade(opts: UpgradeOptions, ctx: UpgradeContext): UpgradeDecision {
   const { plan, currentVersion, latestVersion } = ctx
+  // A named target is a version or a dist-tag, nothing npm reads as a spec of
+  // its own (`npm:pkg@1`, a URL, a path): `sofar.sh@<it>` must stay sofar.sh.
+  if (opts.version !== undefined && strictVersion(opts.version.replace(/^v/, '')) === null && !DIST_TAG.test(opts.version)) {
+    return {
+      action: 'report',
+      result: fail(`sofar upgrade: ${JSON.stringify(opts.version)} is not a version (1.2.3) or a dist-tag (latest, next).\n`),
+    }
+  }
   const target = opts.version ?? latestVersion ?? 'latest'
 
   // --check reports and exits for ANY install shape, global or not.
@@ -164,7 +179,7 @@ function resolveSelfPath(): string {
 /** Spawn `npm install`, streaming npm's own output; resolves with the exit code. */
 function defaultSpawnInstall(prefix: string, target: string): Promise<number> {
   return new Promise((resolve, reject) => {
-    const child = spawn('npm', npmInstallArgs(prefix, target), { stdio: 'inherit' })
+    const child = spawn('npm', npmInstallArgs(prefix, target), { cwd: npmCwd(), stdio: 'inherit' })
     child.on('error', reject)
     child.on('close', (code) => resolve(code ?? 1))
   })
@@ -201,7 +216,7 @@ export async function runUpgrade(
   // the target / no-op guard when the user didn't pin a version.
   const needLatest = opts.check === true || opts.version === undefined
   const fetchLatest = deps.fetchLatest ?? fetchLatestVersion
-  const latestVersion = needLatest ? fetchLatest() : null
+  const latestVersion = needLatest ? strictVersion(fetchLatest()) : null
 
   const decision = resolveUpgrade(opts, { plan, currentVersion: CURRENT_VERSION, latestVersion })
   if (decision.action === 'report') return decision.result

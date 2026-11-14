@@ -655,6 +655,61 @@ impl ::std::convert::TryFrom<::std::string::String> for RunPolicy {
         value.parse()
     }
 }
+#[doc = "`RunSecurity`"]
+#[derive(
+    :: serde :: Deserialize,
+    :: serde :: Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum RunSecurity {
+    #[serde(rename = "strict")]
+    Strict,
+    #[serde(rename = "standard")]
+    Standard,
+    #[serde(rename = "trusted")]
+    Trusted,
+}
+impl ::std::fmt::Display for RunSecurity {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Strict => f.write_str("strict"),
+            Self::Standard => f.write_str("standard"),
+            Self::Trusted => f.write_str("trusted"),
+        }
+    }
+}
+impl ::std::str::FromStr for RunSecurity {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "strict" => Ok(Self::Strict),
+            "standard" => Ok(Self::Standard),
+            "trusted" => Ok(Self::Trusted),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for RunSecurity {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for RunSecurity {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 #[doc = "`RunStartedPayload`"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct RunStartedPayload {
@@ -671,6 +726,9 @@ pub struct RunStartedPayload {
     pub policy: RunPolicy,
     #[doc = "Run id minted by the driver (a ulid) — the key every handoff and the stop cite."]
     pub run: ::std::string::String,
+    #[doc = "The run's `drive.security` preset (security-audit D3): how a verify or check the operator did not type was cleared. Read from the operator's user config or `--security`, never from the repo. Absent on a run that predates presets, which behaved as `trusted`."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub security: ::std::option::Option<RunSecurity>,
     #[doc = "The permission surface every session in the run was launched under (session-driver 2.4, D8) — what the driver PINNED, never what the session could ultimately do: the agent's settings file is one source among the operator's own and allow rules union across them. Absent on a run whose adapter pins nothing. `model`/`effort` are recorded here so a reader can tell a run that pinned them from one that left them to whatever the operator's mutable config said that day."]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub surface: ::std::option::Option<RunSurface>,

@@ -17,10 +17,14 @@ import { ClaudeCloudAdapter } from '../driver/claude-cloud'
 import { cloudDriveArgs, driveHosted } from '../driver/hosted'
 import { appendedBytesScan, drive, STOP_POLL_MS, type DriveOptions } from '../driver/drive'
 import { buildSurface, SurfaceError } from '../driver/permissions'
+import { DEFAULT_DRIVE_SECURITY, DRIVE_SECURITY, isDriveSecurity, printable, type DriveSecurity } from '../driver/verify'
+import { approveCommand, checksInForce, isApproved } from '../core/checks'
+import { refreshGuards } from '../core/index-tier1'
 import { launchEnv, type Adapter } from '../driver/adapter'
+import { NUDGE_ENV } from '../driver/nudge'
 import { errMessage, fail, ok, type CmdResult } from './shared'
 import { stderrCaps } from './ui'
-import { readKeepAwake, userConfigPath, writeKeepAwake } from './user-config'
+import { readDriveSecurity, readKeepAwake, userConfigPath, writeKeepAwake } from './user-config'
 
 /**
  * `sofar drive <initiative>` (session-driver 2.2) — the CLI skin on the loop
@@ -55,6 +59,10 @@ export interface DriveCliOptions {
   verify?: string
   /** The per-task tier of a tiered run (drive-lanes 2.6); --verify is then the full gate. */
   verifyQuick?: string
+  /** `strict`, `standard` or `trusted` (security-audit D3); outranks `drive.security` in user config. */
+  security?: string
+  /** Resume a run whose recorded verify/surface this clone did not start (security-audit D3). */
+  acceptRecorded?: boolean
   /** Seconds one acceptance command may run (default 600). */
   verifyTimeout?: string
   /** Failed verifications on one task before the run stops (default 3). */
@@ -379,7 +387,10 @@ export async function runDrive(
     const { adapter, agents } = buildAgents(options)
     const env = options.env ?? process.env
     const launchedBy = launchingSession(env)
+    const security = resolveDriveSecurity(options.security, env)
     driveOptions = {
+      security,
+      ...(options.acceptRecorded === true ? { acceptRecorded: true } : {}),
       adapter,
       agents,
       keepAwake: {
@@ -464,6 +475,91 @@ export async function runDrive(
   }
   const stdout = `${lines.join('\n')}\n`
   return outcome.stop.reason === 'error' ? { exitCode: 1, stdout, stderr: '' } : ok(stdout)
+}
+
+/**
+ * The run's `drive.security` preset (security-audit D3): `--security` first,
+ * then the operator's own user config, then `standard`. A misspelt flag is a
+ * refusal; a misspelt config value is the default — the config is not this
+ * run's to break.
+ */
+export function resolveDriveSecurity(flag: string | undefined, env: NodeJS.ProcessEnv): DriveSecurity {
+  if (flag !== undefined) {
+    if (!isDriveSecurity(flag)) throw new SurfaceError(`--security must be one of ${DRIVE_SECURITY.join(', ')}, got "${flag}"`)
+    return flag
+  }
+  const set = readDriveSecurity(env)
+  return isDriveSecurity(set) ? set : DEFAULT_DRIVE_SECURITY
+}
+
+/**
+ * `sofar drive --approve-commands <slug>` (security-audit D3): the operator
+ * reads, on their own terminal, every command a run of <slug> would execute
+ * that an agent or a merged record wrote — each open task's plan verify, each
+ * decision check in force — and approves the ones they will let run. Approved
+ * by exact text on this clone, as `sofar check --approve` does: a changed
+ * command is a new one.
+ */
+export async function runApproveCommands(
+  rootDir: string,
+  slug: string | undefined,
+  io: { confirm: ((question: string) => Promise<boolean>) | null; now?: () => string; env?: NodeJS.ProcessEnv },
+): Promise<CmdResult> {
+  const env = io.env ?? process.env
+  const ctx = createToolContext(rootDir)
+  let initiative: string
+  try {
+    initiative = ctx.resolveInitiative(slug)
+  } catch (err) {
+    return fail(`sofar drive --approve-commands: ${errMessage(err)}`)
+  }
+  const pending = new Map<string, { handle: string; where: string }>()
+  for (const phase of ctx.foldState(initiative).phases) {
+    for (const task of phase.tasks) {
+      if (task.status === 'done' || task.status === 'dropped' || task.verify === undefined) continue
+      const cmd = task.verify.cmd
+      if (pending.has(cmd) || isApproved(rootDir, cmd, env)) continue
+      pending.set(cmd, { handle: `${initiative} ${task.id}`, where: `task ${task.id}'s verify${task.verify.cwd !== undefined ? ` (cwd ${printable(task.verify.cwd)})` : ''}` })
+    }
+  }
+  for (const c of checksInForce(refreshGuards(join(rootDir, '.sofar')))) {
+    if (pending.has(c.check.cmd) || isApproved(rootDir, c.check.cmd, env)) continue
+    pending.set(c.check.cmd, { handle: c.handle, where: `check [${c.shown}]` })
+  }
+  if (pending.size === 0) return ok(`sofar drive: every command a run of "${initiative}" would run is approved on this clone, or typed by you\n`)
+  if (io.confirm === null) {
+    return fail(`sofar drive --approve-commands: ${pending.size} command(s) await approval, and approving needs a terminal — the operator runs it themselves; an agent cannot approve its own command`)
+  }
+  const now = io.now ?? (() => new Date().toISOString())
+  let approved = 0
+  for (const [cmd, { handle, where }] of pending) {
+    const yes = await io.confirm(`${where}\n  command: ${printable(cmd)}\nApprove this exact command on this clone? [y/N] `)
+    if (!yes) continue
+    approveCommand(rootDir, cmd, handle, now(), env)
+    approved += 1
+  }
+  return ok(`sofar drive: approved ${approved} of ${pending.size} command(s) on this clone — a changed command needs approving again\n`)
+}
+
+/** The top-level subcommands a driven session may not run (security-audit D3, SA-04; driver/permissions.ts DRIVEN_DENY). */
+const DRIVEN_REFUSED = new Set(['drive', 'init', 'uninit', 'upgrade', 'serve', 'login', 'link', 'push', 'pull'])
+/** `sofar check` options that loosen or widen this clone's gate. */
+const DRIVEN_REFUSED_CHECK = ['approve', 'blockCommits', 'strictTests'] as const
+
+/**
+ * Why `sofar <command>` is refused here, or null. A driven session carries
+ * the nudge path its driver handed it (driver/nudge.ts NUDGE_ENV); every
+ * adapter sets it, so this holds where a settings file's deny rules cannot.
+ */
+export function drivenRefusal(command: string, opts: Record<string, unknown>, env: NodeJS.ProcessEnv): string | null {
+  const nudge = env[NUDGE_ENV]
+  if (nudge === undefined || nudge.length === 0) return null
+  const refused =
+    DRIVEN_REFUSED.has(command) ||
+    (command === 'check' && DRIVEN_REFUSED_CHECK.some((o) => opts[o] !== undefined))
+  if (!refused) return null
+  const what = command === 'check' ? 'sofar check --approve/--block-commits/--strict-tests' : `sofar ${command}`
+  return `${what} is refused inside a driven session — it is the operator's to run, from their own terminal (security-audit D3)`
 }
 
 /** How long `--stop` watches for the driver's `run_stopped` before reporting none came. */
@@ -1063,7 +1159,7 @@ export async function runDriveDetached(
 export async function runDriveHosted(
   rootDir: string,
   slug: string | undefined,
-  options: { where: string; argv: string[]; bin?: string; onProgress?: (line: string) => void },
+  options: { where: string; argv: string[]; bin?: string; security?: string; env?: NodeJS.ProcessEnv; onProgress?: (line: string) => void },
 ): Promise<CmdResult> {
   if (options.where !== 'cloud') return fail(`sofar drive --hosted: the only host is \`cloud\` (a Claude Code cloud session), got "${options.where}"`)
   let initiative: string
@@ -1084,8 +1180,15 @@ export async function runDriveHosted(
       options.onProgress?.(`lanes: auto — ${auto.why}, so ${auto.lanes} lanes in the cloud (--lanes 1 for a serial run)`)
     }
   }
+  let security: DriveSecurity
+  try {
+    security = resolveDriveSecurity(options.security, options.env ?? process.env)
+  } catch (err) {
+    return fail(`sofar drive --hosted: ${errMessage(err)}`)
+  }
   const outcome = await driveHosted(rootDir, initiative, {
     driveArgs,
+    security,
     ...(options.bin !== undefined ? { bin: options.bin } : {}),
     ...(options.onProgress !== undefined ? { onProgress: options.onProgress } : {}),
   })

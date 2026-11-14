@@ -1030,6 +1030,7 @@ describe('the permission surface (2.4, D8) — a run property, a session artifac
     await drive(root, 'demo', {
       adapter,
       resume: true,
+      acceptRecorded: true,
       surface: widened,
       maxSessions: 1,
       onProgress: (line) => progress.push(line),
@@ -1038,6 +1039,32 @@ describe('the permission surface (2.4, D8) — a run property, a session artifac
     // The run's sessions all ran under one surface, and it is the recorded one.
     expect(adapter.sessions[0]?.request.surface).toEqual(SURFACE)
     expect(progress.some((l) => l.includes("keeping run") && l.includes('acceptEdits'))).toBe(true)
+  })
+
+  it('refuses to resume a run this clone did not start until the operator accepts its recorded settings (security-audit D3)', async () => {
+    const root = repo('surface-resume-foreign')
+    const open = '01JZ8B3V0N5B4W8XK2M9QF7TSG'
+    appendEvent(
+      logPath(root),
+      makeEvent({
+        initiative: 'demo',
+        session: 'cli',
+        type: 'run_started',
+        payload: { run: open, adapter: 'fake', policy: 'task', surface: SURFACE, verify: 'npm test\u001b[2K' },
+        source: 'cli',
+        actor: 'human',
+      }),
+    )
+    const refused = drive(root, 'demo', { adapter: new FakeAdapter([worker(root, 'S1')]), resume: true, maxSessions: 1 })
+    await expect(refused).rejects.toThrow(/was not started on this clone[\s\S]*--accept-recorded/)
+    await expect(refused).rejects.toThrow(/npm test\\u001b\[2K/)
+
+    // --accept-recorded adopts them, and pins the run: its next resume is silent.
+    const adapter = new FakeAdapter([worker(root, 'S1'), worker(root, 'S2')])
+    await drive(root, 'demo', { adapter, resume: true, acceptRecorded: true, maxSessions: 1 })
+    expect(adapter.sessions[0]?.request.surface).toEqual(SURFACE)
+    await drive(root, 'demo', { adapter, resume: true, maxSessions: 1 })
+    expect(adapter.sessions).toHaveLength(2)
   })
 
   it('a resumed run whose surface left model and effort open launches with neither, not the new flags', async () => {
@@ -1060,6 +1087,7 @@ describe('the permission surface (2.4, D8) — a run property, a session artifac
     await drive(root, 'demo', {
       adapter,
       resume: true,
+      acceptRecorded: true,
       model: 'flag-model',
       effort: 'low',
       surface: { ...SURFACE, model: 'flag-model', effort: 'low' },

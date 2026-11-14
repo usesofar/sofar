@@ -53,6 +53,18 @@ export function writeKeepAwake(on: boolean, env: Env = process.env): void {
   }, env)
 }
 
+/**
+ * `drive.security` (security-audit D3): a value the operator set in THEIR
+ * config, never one a repo ships — a clone cannot lower its own preset.
+ * Undefined while unset or unrecognised; the driver then uses `standard`.
+ */
+export function readDriveSecurity(env: Env = process.env): string | undefined {
+  const drive = readConfig(env)?.drive
+  if (typeof drive !== 'object' || drive === null) return undefined
+  const value = (drive as { security?: unknown }).security
+  return typeof value === 'string' ? value : undefined
+}
+
 function readConfig(env: Env): Record<string, unknown> | undefined {
   const path = userConfigPath(env)
   if (!existsSync(path)) return undefined

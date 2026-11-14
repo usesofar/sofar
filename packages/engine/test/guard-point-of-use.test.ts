@@ -343,6 +343,16 @@ describe('3.2 commands', () => {
     rule(f.root, 'security', { rule: 'R', guard: 'cmd:*[redacted]*' })
     expect(context(bash(f.root, 'S', 'deploy --api-key sk-live-abcdefghijklmnop'))).toContain(MARK)
   })
+
+  it('still fires inside a here-document body the record elides (security-audit 3.5)', () => {
+    const f = fx()
+    rule(f.root, 'security', { rule: 'R', guard: 'cmd:*npm publish*' })
+    const cmd = "cat > stage.sh <<'EOF'\nnpm publish -w sofar.sh\nEOF\nsh stage.sh"
+    expect(context(bash(f.root, 'S', cmd))).toContain(MARK)
+    const recorded = logLines(f.root, 'demo').map((l) => (JSON.parse(l) as { payload: { cmd?: string } }).payload.cmd ?? '')
+    expect(recorded.some((c) => c.startsWith("cat > stage.sh"))).toBe(true)
+    expect(recorded.join('\n')).not.toContain('npm publish')
+  })
 })
 
 describe('3.2 more rules than the line can carry', () => {

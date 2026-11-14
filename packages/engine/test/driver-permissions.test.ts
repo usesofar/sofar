@@ -6,6 +6,7 @@ import {
   buildSurface,
   DEFAULT_ALLOW,
   DEFAULT_PERMISSION_MODE,
+  DRIVEN_DENY,
   describeSurface,
   sameSurface,
   SurfaceError,
@@ -166,7 +167,11 @@ exit 0
     })
     expect(session.settingsPath).toBeDefined()
     expect(session.settingsPath!.endsWith(SETTINGS_FILE)).toBe(true)
-    expect(JSON.parse(readFileSync(session.settingsPath, 'utf8'))).toEqual({ ...DRIVEN_SETTINGS, ...settingsFor(surface) })
+    // The surface's own rules, with the driven floor's deny rules ahead of any it names (security-audit D3).
+    expect(JSON.parse(readFileSync(session.settingsPath, 'utf8'))).toEqual({
+      ...DRIVEN_SETTINGS,
+      permissions: { allow: surface.allow, deny: [...DRIVEN_DENY] },
+    })
     await session.wait()
     const argv = readFileSync(join(c.out, 'argv'), 'utf8').split('\n')
     expect(argv[argv.indexOf('--permission-mode') + 1]).toBe('acceptEdits')
@@ -183,7 +188,7 @@ exit 0
     await Promise.all([a.wait(), b.wait()])
   })
 
-  it('pins no permissions when the run pinned no surface — the file then only refuses peers', async () => {
+  it('pins no surface when the run pinned none — the file then only refuses peers and the escalating sofar subcommands', async () => {
     const c = cell('no-surface')
     const session = new ClaudeCodeAdapter().launch({
       cwd: c.cwd,
@@ -191,7 +196,7 @@ exit 0
       prompt: 'go',
       env: c.env,
     })
-    expect(JSON.parse(readFileSync(session.settingsPath, 'utf8'))).toEqual({ crossSessionInbound: 'refuse' })
+    expect(JSON.parse(readFileSync(session.settingsPath, 'utf8'))).toEqual({ crossSessionInbound: 'refuse', permissions: { deny: [...DRIVEN_DENY] } })
     await session.wait()
     const argv = readFileSync(join(c.out, 'argv'), 'utf8').split('\n')
     expect(argv[argv.indexOf('--settings') + 1]).toBe(session.settingsPath)

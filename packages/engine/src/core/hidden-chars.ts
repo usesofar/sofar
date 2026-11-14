@@ -144,3 +144,14 @@ export function revealHidden(text: string): string {
   for (const hit of hits) cps[hit.at] = `⟦U+${hit.codePoint.toString(16).toUpperCase().padStart(4, '0')}⟧`
   return cps.join('')
 }
+
+/** C0/C1 controls (tab, newline and ESC included) escaped JSON-style, so a terminal shows them instead of acting on them (security-audit SA-07). */
+export function printable(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\u0000-\u001f\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
+}
+
+/** What an approval surface prints for record-authored text: hidden characters revealed, controls escaped (security-audit SA-07). */
+export function ttySafe(text: string): string {
+  return printable(revealHidden(text))
+}

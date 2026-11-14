@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, statSync } from 'node:fs'
+import { assertRecordPath } from '../core/contain'
 import { basename, dirname, join } from 'node:path'
 import { writeFileAtomic } from '../core/atomic'
 import type { InitiativeState, SessionState } from '../core/fold'
@@ -59,6 +60,12 @@ function sessionFileName(id: string): string {
  * is correct, and if it wrote different bytes it folded a state at least as new
  * as ours. Truth is events.jsonl regardless (BD5).
  */
+/** mkdir -p inside a record, refused when a committed symlink would carry it out of the clone (security-audit SA-05). */
+function mkdirRecord(dir: string): void {
+  assertRecordPath(dir)
+  mkdirSync(dir, { recursive: true })
+}
+
 function writeFileAtomicIfChanged(path: string, content: string): void {
   try {
     if (readFileSync(path, 'utf8') === content) return
@@ -78,7 +85,7 @@ export interface RegenerateOptions {
 }
 
 export function regenerateProjections(initiativeDir: string, state: InitiativeState, options?: RegenerateOptions): void {
-  mkdirSync(initiativeDir, { recursive: true })
+  mkdirRecord(initiativeDir)
   writeFileAtomicIfChanged(join(initiativeDir, 'plan.md'), renderPlan(state))
   writeFileAtomicIfChanged(join(initiativeDir, 'decisions.md'), renderDecisions(state))
   if (state.memories.length > 0) {
@@ -89,11 +96,11 @@ export function regenerateProjections(initiativeDir: string, state: InitiativeSt
   }
 
   const shards = renderShards(state)
-  if (state.decisions.length > 0) mkdirSync(join(initiativeDir, 'decisions'), { recursive: true })
-  if (state.memories.length > 0) mkdirSync(join(initiativeDir, 'memory'), { recursive: true })
-  if (shards.some((s) => s.name.startsWith('phases/'))) mkdirSync(join(initiativeDir, 'phases'), { recursive: true })
+  if (state.decisions.length > 0) mkdirRecord(join(initiativeDir, 'decisions'))
+  if (state.memories.length > 0) mkdirRecord(join(initiativeDir, 'memory'))
+  if (shards.some((s) => s.name.startsWith('phases/'))) mkdirRecord(join(initiativeDir, 'phases'))
   const sessionsDir = join(initiativeDir, 'sessions')
-  if (state.sessions.length > 0) mkdirSync(sessionsDir, { recursive: true })
+  if (state.sessions.length > 0) mkdirRecord(sessionsDir)
   const fingerprint = options?.fingerprint !== undefined ? options.fingerprint : BUILD_FINGERPRINT
   if (fingerprint === null) {
     for (const shard of shards) writeFileAtomicIfChanged(join(initiativeDir, shard.name), shard.content)
@@ -228,7 +235,7 @@ function regenerateDirty(
   }
   if (!changed && Object.keys(entries).length === Object.keys(prior).length) return
   try {
-    mkdirSync(dirname(path), { recursive: true })
+    mkdirRecord(dirname(path))
     const manifest: Manifest = { v: PROJECTION_MANIFEST_VERSION, engine, schema, fingerprint, entries: { ...entries } }
     writeFileAtomic(path, `${JSON.stringify(manifest)}\n`)
   } catch {

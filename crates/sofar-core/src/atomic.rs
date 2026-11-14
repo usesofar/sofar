@@ -9,6 +9,10 @@ use std::path::Path;
 
 /// Write `content` to `path` atomically.
 pub fn write_file_atomic(path: &Path, content: &[u8]) -> io::Result<()> {
+    // A rename replaces a symlinked target rather than following it; a
+    // symlinked DIRECTORY on the path would still carry the write out of the
+    // clone, so a record path is checked first (security-audit SA-05).
+    crate::contain::assert_record_path(path)?;
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
     let base = path
         .file_name()

@@ -23,7 +23,7 @@ use crate::json::{self, Json, Object};
 use crate::layout::Layout;
 use crate::nudge::{nudge_line, read_nudge};
 use crate::projections::retire_enabled;
-use crate::redact::redact_command;
+use crate::redact::{redact_command, redact_command_text};
 use crate::resolve::posix_relative;
 use crate::rule_fidelity::quote_clause;
 use crate::session_pointer::write_session_pointer;
@@ -191,6 +191,9 @@ pub fn classify_tool_call_in(hook: &Object, root: Option<&Path>) -> Vec<Classifi
                 return Vec::new();
             };
             let redacted = redact_command(cmd);
+            // The record elides here-document bodies; the live match does not
+            // (event.ts), so a guard inside a heredoc is seen exactly as before.
+            let live = if cmd.contains("<<") { redact_command_text(cmd) } else { redacted.clone() };
             let head = cmd
                 .trim_start_matches(is_js_whitespace)
                 .split(is_js_whitespace)
@@ -216,7 +219,7 @@ pub fn classify_tool_call_in(hook: &Object, root: Option<&Path>) -> Vec<Classifi
                 event_type: "command_run",
                 payload,
                 domain: GuardDomain::Cmd,
-                subject: redacted,
+                subject: live,
                 exempt: is_self_recording_command(cmd, str_field(hook, "cwd")),
                 head: (!head.is_empty()).then(|| utf16_prefix(head, DIAGNOSTIC_HEAD_CLIP)),
             }]

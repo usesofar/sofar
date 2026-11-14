@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { printable, ttySafe } from './hidden-chars'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join } from 'node:path'
@@ -231,7 +232,7 @@ export function checkCommandsIn(logs: ReadonlyMap<string, string>): Set<string> 
 /** The checks a pull request check did not run because they are not yet merged into its base (r4-fixes E4). */
 export function unmergedLine(checks: readonly InForceCheck[], base: string): string | null {
   if (checks.length === 0) return null
-  const named = checks.slice(0, 3).map((c) => `[${c.shown}] \`${c.check.cmd}\``).join(', ')
+  const named = checks.slice(0, 3).map((c) => `[${c.shown}] \`${ttySafe(c.check.cmd)}\``).join(', ')
   const more = checks.length > 3 ? `, +${checks.length - 3} more` : ''
   return `sofar: ${checks.length} decision check(s) bear on this work but are new or changed since ${base}, so none ran: ${named}${more} — each runs here once it is merged; review it in \`sofar diff ${base}..HEAD\``
 }
@@ -297,10 +298,19 @@ export function isApproved(rootDir: string, cmd: string, env: StateEnv = process
 
 /** Record the operator's approval of one check's command. Throws when there is no state dir to hold it. */
 export function approveCheck(rootDir: string, check: InForceCheck, now: string, env: StateEnv = process.env): void {
+  approveCommand(rootDir, check.check.cmd, check.handle, now, env)
+}
+
+/**
+ * Record the operator's approval of one exact command — a check's, or a plan
+ * task's verify (`sofar drive --approve-commands`, security-audit D3). One
+ * store: a command approved either way is approved for both.
+ */
+export function approveCommand(rootDir: string, cmd: string, handle: string, now: string, env: StateEnv = process.env): void {
   const path = trustPath(rootDir, env)
-  if (path === null) throw new Error('the sofar state dir resolves inside this clone — set XDG_STATE_HOME elsewhere to approve checks')
+  if (path === null) throw new Error('the sofar state dir resolves inside this clone — set XDG_STATE_HOME elsewhere to approve commands')
   const trust = readTrust(path)
-  trust.approved[checkDigest(check.check.cmd)] = { handle: check.handle, cmd: check.check.cmd, ts: now }
+  trust.approved[checkDigest(cmd)] = { handle, cmd, ts: now }
   writeTrust(path, trust)
 }
 
@@ -376,7 +386,8 @@ function lastLine(text: string | undefined): string | undefined {
     .pop()
 }
 
-const flat = (text: string): string => text.replace(/\s+/g, ' ').trim()
+/** One line, controls escaped (security-audit SA-07): record text a terminal prints. Mirrored by the core's `flat`. */
+const flat = (text: string): string => printable(text.replace(/\s+/g, ' ').trim())
 
 /**
  * The failure line every surface prints (D9): which decision, how it ended,
@@ -395,7 +406,7 @@ export function checkFailureLine(check: InForceCheck, outcome: CheckOutcome): st
 /** The line naming checks that bear on the work but that nothing approved (D9). */
 export function unapprovedLine(checks: readonly InForceCheck[]): string | null {
   if (checks.length === 0) return null
-  const named = checks.slice(0, 3).map((c) => `[${c.shown}] \`${c.check.cmd}\``).join(', ')
+  const named = checks.slice(0, 3).map((c) => `[${c.shown}] \`${ttySafe(c.check.cmd)}\``).join(', ')
   const more = checks.length > 3 ? `, +${checks.length - 3} more` : ''
   return `sofar: ${checks.length} decision check(s) bear on this work but are not approved on this clone, so none ran: ${named}${more} — the operator approves one with \`sofar check --approve "<handle>"\``
 }

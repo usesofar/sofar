@@ -32,6 +32,8 @@ pub const INITIATIVE_STATUSES: [&str; 4] = ["active", "done", "dropped", "supers
 pub const REVIEW_VERDICTS: [&str; 3] = ["pass", "findings", "blocked"];
 pub const REVIEW_SCOPES: [&str; 2] = ["phase", "final"];
 pub const RUN_POLICIES: [&str; 2] = ["task", "threshold"];
+/// `run_started.security` (security-audit D3), mirroring the TS `RUN_SECURITY`.
+pub const RUN_SECURITY: [&str; 3] = ["strict", "standard", "trusted"];
 pub const HANDOFF_REASONS: [&str; 6] = [
     "task_done",
     "threshold",
@@ -251,6 +253,36 @@ pub fn is_judgement_about(s: &str) -> bool {
     first != '/'
         && !crate::text::is_js_whitespace(first)
         && !chars.any(|c| matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}'))
+}
+
+/// `controlCharErrors` — write-time only (security-audit SA-07): a check's
+/// `cmd` and `hint` and a rule's text are shown to the operator for approval
+/// and run by the shell, so a C0/C1 control character (tab aside) is refused
+/// when the event is WRITTEN. Never part of `validate_payload`: an event
+/// already in a log keeps folding, and is only displayed escaped.
+#[must_use]
+pub fn control_char_errors(event_type: &str, payload: &Object) -> Vec<String> {
+    let mut e = Vec::new();
+    if event_type != "decision_logged" && event_type != "check_bound" {
+        return e;
+    }
+    let hidden = |v: Option<&Json>| {
+        v.and_then(Json::as_str)
+            .is_some_and(|s| s.chars().any(|c| matches!(c as u32, 0x00..=0x08 | 0x0a..=0x1f | 0x7f..=0x9f)))
+    };
+    let mut field = |name: &str, v: Option<&Json>| {
+        if hidden(v) {
+            e.push(format!(
+                "{name}: must not contain control characters (tab aside) — they can hide text from the operator who approves it"
+            ));
+        }
+    };
+    field("rule", payload.get("rule"));
+    if let Some(check) = payload.get("check").and_then(Json::as_obj) {
+        field("check.cmd", check.get("cmd"));
+        field("check.hint", check.get("hint"));
+    }
+    e
 }
 
 /// Validate `payload` against its type's rules. Unknown types are rejected
@@ -1089,6 +1121,9 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
             } else if p.contains_key("verify_quick") && !p.contains_key("verify") {
                 e.push("verify_quick: needs verify, the full gate it tiers".to_owned());
             }
+            if p.contains_key("security") && !one_of(p.get("security"), &RUN_SECURITY) {
+                e.push(format!("security: must be one of {} when present", RUN_SECURITY.join("|")));
+            }
             if !one_of(p.get("policy"), &RUN_POLICIES) {
                 e.push(format!("policy: must be one of {}", RUN_POLICIES.join("|")));
             }
@@ -1407,6 +1442,21 @@ mod tests {
                     "lanes: must be an integer of at least 2 when present — a serial run records none"
                 ],
                 "{lanes}"
+            );
+        }
+    }
+
+    #[test]
+    fn run_started_security_is_a_preset_when_present() {
+        let base = "\"run\":\"R\",\"adapter\":\"fake\",\"policy\":\"task\"";
+        for preset in RUN_SECURITY {
+            assert!(check("run_started", &format!("{{{base},\"security\":\"{preset}\"}}")).is_empty());
+        }
+        for bad in ["\"yolo\"", "1", "null"] {
+            assert_eq!(
+                check("run_started", &format!("{{{base},\"security\":{bad}}}")),
+                ["security: must be one of strict|standard|trusted when present"],
+                "{bad}"
             );
         }
     }

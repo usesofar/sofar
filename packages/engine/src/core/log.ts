@@ -1,5 +1,7 @@
-import { closeSync, mkdirSync, openSync, writeSync } from 'node:fs'
+import { closeSync, constants, mkdirSync, openSync, realpathSync, writeSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { assertRecordPath, O_NOFOLLOW } from './contain'
+import { controlCharErrors } from '@sofar/schema'
 import { validateEnvelope, type EventEnvelope } from './envelope'
 
 /**
@@ -110,6 +112,21 @@ export function compareCodePoints(a: string, b: string): number {
   }
 }
 
+const APPEND_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND
+
+/**
+ * O_NOFOLLOW: the fd is the file the check saw, not whatever a link names. A
+ * link the check already found inside the clone opens at its resolved target.
+ */
+function openAppend(logPath: string): number {
+  try {
+    return openSync(logPath, APPEND_FLAGS | O_NOFOLLOW, 0o644)
+  } catch (err) {
+    if (O_NOFOLLOW === 0 || (err as NodeJS.ErrnoException).code !== 'ELOOP') throw err
+    return openSync(realpathSync.native(logPath), APPEND_FLAGS | O_NOFOLLOW, 0o644)
+  }
+}
+
 export function appendEvent(logPath: string, event: EventEnvelope): void {
   appendEvents(logPath, [event])
 }
@@ -126,10 +143,16 @@ export function appendEvents(logPath: string, events: readonly EventEnvelope[]):
       const detail = check.errors.map((e) => `${e.field}: ${e.message}`).join('; ')
       throw new Error(`refusing to append invalid event — ${detail}`)
     }
+    const hidden = controlCharErrors(event.type, event.payload)
+    if (hidden.length > 0) throw new Error(`refusing to append invalid event — ${hidden.join('; ')}`)
   }
 
+  // A committed symlink must not carry the append out of the clone
+  // (security-audit SA-05): checked before the mkdir, which would otherwise
+  // create directories wherever an escaping link points.
+  assertRecordPath(logPath)
   mkdirSync(dirname(logPath), { recursive: true })
-  const fd = openSync(logPath, 'a', 0o644) // O_WRONLY | O_CREAT | O_APPEND
+  const fd = openAppend(logPath)
   try {
     for (const event of events) {
       const line = Buffer.from(serializeEvent(event) + '\n', 'utf8')

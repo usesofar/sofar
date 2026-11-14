@@ -625,7 +625,18 @@ export interface RunStartedPayload {
    * @asType integer
    */
   lanes?: number
+  /**
+   * The run's `drive.security` preset (security-audit D3): how a verify or
+   * check the operator did not type was cleared. Read from the operator's
+   * user config or `--security`, never from the repo. Absent on a run that
+   * predates presets, which behaved as `trusted`.
+   */
+  security?: RunSecurity
 }
+
+/** `run_started.security`: strict runs only approved commands, standard also a plain allowed one without a shell, trusted is the pre-preset behaviour. */
+export const RUN_SECURITY = ['strict', 'standard', 'trusted'] as const
+export type RunSecurity = (typeof RUN_SECURITY)[number]
 
 /** What `run_started.surface` carries; the driver's own type is engine-side. */
 export interface RunSurface {
@@ -1294,6 +1305,9 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
     if (!optNonEmptyStr(p.verify)) e.push('verify: must be a non-empty string when present')
     if (!optNonEmptyStr(p.verify_quick)) e.push('verify_quick: must be a non-empty string when present')
     else if (p.verify_quick !== undefined && p.verify === undefined) e.push('verify_quick: needs verify, the full gate it tiers')
+    if (p.security !== undefined && !(RUN_SECURITY as readonly unknown[]).includes(p.security)) {
+      e.push(`security: must be one of ${RUN_SECURITY.join('|')} when present`)
+    }
     if (!(RUN_POLICIES as readonly unknown[]).includes(p.policy)) {
       e.push(`policy: must be one of ${RUN_POLICIES.join('|')}`)
     }
@@ -1758,6 +1772,33 @@ export function schemaFingerprint(): string {
  * rejected here; the fold treats them as skip-with-warning, and the MCP
  * tools treat them as typed errors.
  */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHAR = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f]/
+
+/**
+ * Write-time only (security-audit SA-07): a check's `cmd` and `hint` and a
+ * rule's text are shown to the operator for approval and run by the shell, so
+ * a C0/C1 control character (tab aside) — an ESC that conceals a tail, a CR
+ * that overprints it — is refused when the event is WRITTEN. Never part of
+ * `validatePayload`: an event already in a log keeps folding, and is only
+ * ever displayed escaped.
+ */
+export function controlCharErrors(type: string, payload: unknown): string[] {
+  if (!isObj(payload)) return []
+  const e: string[] = []
+  const field = (name: string, v: unknown): void => {
+    if (typeof v === 'string' && CONTROL_CHAR.test(v)) e.push(`${name}: must not contain control characters (tab aside) — they can hide text from the operator who approves it`)
+  }
+  if (type === 'decision_logged' || type === 'check_bound') {
+    field('rule', payload.rule)
+    if (isObj(payload.check)) {
+      field('check.cmd', payload.check.cmd)
+      field('check.hint', payload.check.hint)
+    }
+  }
+  return e
+}
+
 export function validatePayload(type: string, payload: unknown): PayloadValidation {
   if (!isKnownEventType(type)) {
     return { ok: false, errors: [`unknown event type: ${type}`] }

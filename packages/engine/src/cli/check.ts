@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { ttySafe } from '../core/hidden-chars'
 import { join } from 'node:path'
 import { QUALIFIED_DECISION_HANDLE_RE } from '@sofar/schema'
 import {
@@ -170,8 +171,10 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
       }
       const yes = await io.confirm(
         [
-          `[${found.shown}] rule: "${found.rule}"`,
-          `  command: ${found.check.cmd}`,
+          // Escaped, never raw (security-audit SA-07): the operator approves the
+          // digest of every byte, so every byte must be what they read.
+          `[${found.shown}] rule: "${ttySafe(found.rule)}"`,
+          `  command: ${ttySafe(found.check.cmd)}`,
           '  It runs from the repo root whenever this check applies: at Stop, at pre-commit, under sofar check and sofar drive.',
           'Approve this exact command on this clone? [y/N] ',
         ].join('\n'),
@@ -185,7 +188,7 @@ export async function runCheck(rootDir: string, opts: CheckOptions = {}, io: Che
       if (checks.length === 0) return ok('sofar check: no decision carries a check\n')
       const lines = checks.map(
         (c) =>
-          `[${c.shown}] ${isApproved(rootDir, c.check.cmd, env) ? 'approved' : 'NOT approved'} — \`${c.check.cmd}\` — ${c.guard !== undefined && c.guard.startsWith('path:') ? `applies to ${c.guard}` : 'applies to any change'}`,
+          `[${c.shown}] ${isApproved(rootDir, c.check.cmd, env) ? 'approved' : 'NOT approved'} — \`${ttySafe(c.check.cmd)}\` — ${c.guard !== undefined && c.guard.startsWith('path:') ? `applies to ${c.guard}` : 'applies to any change'}`,
       )
       return ok(`${lines.join('\n')}\n${blocksCommits(rootDir, env) ? 'pre-commit: blocks on a failure\n' : 'pre-commit: warns only\n'}`)
     }

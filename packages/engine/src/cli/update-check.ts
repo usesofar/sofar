@@ -6,7 +6,9 @@ import { createStyle, stderrCaps, symbolsFor } from './ui'
 import {
   claimRefresh,
   planUpgrade,
+  npmCwd,
   readUpdateCache,
+  strictVersion,
   updateCachePath,
   writeUpdateCache,
   type Env,
@@ -223,7 +225,7 @@ export function runRefresh(deps: UpdateCheckRunDeps = {}): CmdResult {
   const selfPath = deps.selfPath ?? currentSelfPath()
   const plan = planUpgrade(selfPath)
   const previous = readUpdateCache(env)
-  const latest = (deps.fetchLatest ?? fetchLatestVersion)()
+  const latest = strictVersion((deps.fetchLatest ?? fetchLatestVersion)())
 
   const cache: UpdateCache = {
     version: 1,
@@ -260,7 +262,7 @@ export function runRefresh(deps: UpdateCheckRunDeps = {}): CmdResult {
 
 function defaultInstall(prefix: string, target: string): number {
   try {
-    execFileSync('npm', npmInstallArgs(prefix, target), { stdio: 'ignore', timeout: 300_000 })
+    execFileSync('npm', npmInstallArgs(prefix, target), { cwd: npmCwd(), stdio: 'ignore', timeout: 300_000 })
     return 0
   } catch (err) {
     const code = (err as { status?: number }).status

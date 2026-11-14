@@ -20,7 +20,13 @@ use crate::fold::TimedTestOutcome;
 use crate::guards::{GuardDomain, guard_matches, parse_guard};
 use crate::index_tier1::{GuardIndex, ScopedDecision, scope_hits_for_subject};
 use crate::json::{self, Json};
-use crate::text::{cmp_utf16, is_js_whitespace, js_trim, one_line, utf16_len, utf16_prefix};
+use crate::text::{cmp_utf16, is_js_whitespace, js_trim, one_line, printable, utf16_len, utf16_prefix};
+
+/// `flat`: one line, controls escaped (security-audit SA-07) — record text a
+/// terminal prints.
+fn flat(text: &str) -> String {
+    printable(&one_line(text))
+}
 
 /// `DEFAULT_CHECK_TIMEOUT_MS`: a check's bound when its decision sets none.
 pub const DEFAULT_CHECK_TIMEOUT_MS: f64 = 120_000.0;
@@ -244,13 +250,13 @@ fn last_line(text: Option<&str>) -> Option<String> {
 pub fn check_failure_line(check: &InForceCheck, outcome: &CheckOutcome) -> String {
     let last = last_line(outcome.diagnostics.as_deref());
     let fix = match &check.hint {
-        Some(hint) => one_line(hint),
+        Some(hint) => flat(hint),
         None => format!(
             "make the work hold the rule{}, or log a decision that supersedes {}",
             check
                 .quote
                 .as_deref()
-                .map(|q| format!(" (the operator: \"{}\")", one_line(q)))
+                .map(|q| format!(" (the operator: \"{}\")", flat(q)))
                 .unwrap_or_default(),
             check.shown
         ),
@@ -260,7 +266,7 @@ pub fn check_failure_line(check: &InForceCheck, outcome: &CheckOutcome) -> Strin
         check.shown,
         describe_outcome(outcome),
         last.map(|l| format!(": {l}")).unwrap_or_default(),
-        one_line(&check.rule)
+        flat(&check.rule)
     )
 }
 
@@ -1513,7 +1519,7 @@ pub struct StopGate {
 
 /// `flatClip`: one line, clipped to `max` UTF-16 units with an ellipsis.
 fn flat_clip(text: &str, max: usize) -> String {
-    let f = one_line(text);
+    let f = flat(text);
     if utf16_len(&f) > max {
         format!("{}…", utf16_prefix(&f, max - 1))
     } else {
@@ -1700,7 +1706,7 @@ fn group_lines(
         }
         let fix = rules.iter().find_map(|r| r.hint.as_deref()).map_or_else(
             || "make the work hold the rule, or log a decision that supersedes it".to_owned(),
-            one_line,
+            flat,
         );
         lines.push(match group.failed {
             None => format!(

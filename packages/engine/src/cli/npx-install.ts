@@ -320,7 +320,7 @@ function isDirectory(path: string): boolean {
 /** npm's global prefix, or null when npm cannot name one that exists. */
 export function npmGlobalPrefix(): string | null {
   try {
-    const out = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8', timeout: 15_000, stdio: ['ignore', 'pipe', 'ignore'] })
+    const out = execFileSync('npm', ['prefix', '-g'], { cwd: homedir(), encoding: 'utf8', timeout: 15_000, stdio: ['ignore', 'pipe', 'ignore'] })
     return prefixFromNpmOutput(out, isDirectory)
   } catch {
     return null
@@ -346,7 +346,9 @@ export function liveNpxInstallDeps(prompt: NpxPrompt): NpxInstallDeps {
     write: (line) => process.stderr.write(`${line}\n`),
     globalPrefix: npmGlobalPrefix,
     writable: canCreate,
-    runNpm: (args) => inherit('npm', args),
+    // npm runs from home, never the clone: a repo `.npmrc` must not pick the
+    // registry the global install comes from (security-audit SA-01).
+    runNpm: (args) => inherit('npm', args, homedir()),
     runInit: (sofar, cwd) => inherit(sofar, ['init'], cwd),
     append: (file, text) => appendFileSync(file, text),
     read: (file) => {

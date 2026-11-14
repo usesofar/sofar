@@ -400,6 +400,15 @@ function codex(name: string, fields: Record<string, unknown> = {}): Record<strin
   return { ...entry.payload, cwd: '<ROOT>', ...moved, ...fields }
 }
 
+/** Lines the driver itself writes into `drv`'s log, as `sofar drive` would (event append refuses them). */
+function seedDriverLines(root: string, lines: { id: string; ts: string; session: string; type: string; payload: Record<string, unknown> }[]): void {
+  const log = join(root, '.sofar', 'initiatives', 'drv', 'events.jsonl')
+  const text = lines
+    .map((l) => JSON.stringify({ v: 1, id: l.id, ts: l.ts, initiative: 'drv', session: l.session, source: l.session === 'cli' ? 'cli' : 'hook', actor: 'agent', type: l.type, payload: l.payload }))
+    .join('\n')
+  writeFileSync(log, `${readFileSync(log, 'utf8')}${text}\n`)
+}
+
 const s = (title: string, argv: string[], stdin?: Step['stdin'], rest: Partial<Step> = {}): Step => ({
   title,
   argv,
@@ -1528,10 +1537,20 @@ export const CASES: ConformanceCase[] = [
       s('prompt: only the liveness moved, no line', ['event', 'user-prompt'], prompt({ session_id: 'sess-d' })),
       s('statusline: drive gone', ['statusline'], statusline({ session_id: 'sess-d' })),
       s('statusline --no-color: drive gone', ['statusline', '--no-color'], statusline({ session_id: 'sess-d' })),
-      s('a handoff lands', ['event', 'append', '--type', 'handoff', '--session', 'sess-run-2', '--payload', '{"run":"01K0DRV0000000000000000RUN","session_id":"sess-run-2","reason":"task_done","task":"1.2"}']),
+      // security-audit D3: the driver writes its own events; `event append` refuses one, files nothing.
+      s('a handoff lands (the driver writes it; event append refuses one)', ['event', 'append', '--type', 'handoff', '--session', 'sess-run-2', '--payload', '{"run":"01K0DRV0000000000000000RUN","session_id":"sess-run-2","reason":"task_done","task":"1.2"}'], undefined, {
+        before: (m) =>
+          seedDriverLines(m.root, [
+            { id: '01M1E74Y000000000000000010', ts: '2026-09-01T10:10:00.000Z', session: 'sess-run-2', type: 'session_started', payload: { tool: 'claude-code' } },
+            { id: '01M1E74Y000000000000000011', ts: '2026-09-01T10:10:01.000Z', session: 'sess-run-2', type: 'handoff', payload: { run: '01K0DRV0000000000000000RUN', session_id: 'sess-run-2', reason: 'task_done', task: '1.2' } },
+          ]),
+      }),
       s('task 1.2 done', ['event', 'append', '--type', 'task_status_changed', '--payload', '{"id":"1.2","status":"done"}']),
       s('prompt: the run moved', ['event', 'user-prompt'], prompt({ session_id: 'sess-d' })),
-      s('the run stops', ['event', 'append', '--type', 'run_stopped', '--payload', '{"run":"01K0DRV0000000000000000RUN","reason":"closed"}']),
+      s('the run stops (the driver writes it; event append refuses one)', ['event', 'append', '--type', 'run_stopped', '--payload', '{"run":"01K0DRV0000000000000000RUN","reason":"closed"}'], undefined, {
+        before: (m) =>
+          seedDriverLines(m.root, [{ id: '01M1E74Y000000000000000012', ts: '2026-09-01T10:11:00.000Z', session: 'cli', type: 'run_stopped', payload: { run: '01K0DRV0000000000000000RUN', reason: 'closed' } }]),
+      }),
       s('a driven session gets no line, news or not', ['event', 'user-prompt'], prompt({ session_id: 'sess-d' }), {
         env: { SOFAR_DRIVE_NUDGE: '/nonexistent/sofar-nudge.json' },
       }),

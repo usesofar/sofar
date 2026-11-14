@@ -6,7 +6,8 @@ import { join } from 'node:path'
 import { version as localVersion } from '../../package.json'
 import { launchEnv } from './adapter'
 import { createToolContext } from '../mcp/context'
-import { resolveVerify, runVerification, verifyDirs } from './verify'
+import { isApproved } from '../core/checks'
+import { DEFAULT_DRIVE_SECURITY, resolveVerify, runVerification, verifyDirs, type DriveSecurity } from './verify'
 import { cloudSessionId, pollCloud, run, scriptArgv, shellWord, DEFAULT_POLL_MS, type CloudTranscript } from './claude-cloud'
 
 /**
@@ -40,6 +41,8 @@ export interface HostedOptions {
   /** Gives up waiting after this long; default 6 hours. */
   timeoutMs?: number
   onProgress?: (line: string) => void
+  /** `drive.security` (security-audit D3) for re-running landed tasks' verifies here. */
+  security?: DriveSecurity
 }
 
 export interface HostedOutcome {
@@ -314,6 +317,7 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
     // The cloud's gate passed them there; this tree is the one the operator
     // keeps, so each landed task's verify runs again here (6.1).
     const red: string[] = []
+    const unapproved: string[] = []
     let checked = 0
     if (ndjson !== null) {
       const state = createToolContext(rootDir).foldState(slug)
@@ -322,6 +326,14 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
         const task = tasks.get(id)
         const verify = task !== undefined ? resolveVerify(task, {}) : undefined
         if (verify === undefined) continue
+        // A plan verify arrives in the cloud run's events, written by its
+        // agent: it runs on this machine only when the operator approved its
+        // exact text here, or under `trusted` (security-audit D3). There is no
+        // local permission surface to clear a plain command against.
+        if ((options.security ?? DEFAULT_DRIVE_SECURITY) !== 'trusted' && !isApproved(rootDir, verify.cmd)) {
+          unapproved.push(`${id}: \`${verify.cmd}\``)
+          continue
+        }
         checked += 1
         const outcome = runVerification(verify.cmd, verifyDirs(rootDir, verify.cwd).absolute, verify.timeout_ms)
         if (outcome.result !== 'pass') red.push(`${id}: \`${verify.cmd}\` ${outcome.result}${outcome.diagnostics !== undefined ? ` — ${outcome.diagnostics.split('\n').slice(-2).join(' ')}` : ''}`)
@@ -329,6 +341,9 @@ export async function driveHosted(rootDir: string, slug: string, options: Hosted
     }
     if (red.length > 0) return fail(`sofar drive --hosted: ${red.length} of ${checked} landed task(s) fail their verify on this tree:\n${red.join('\n')}`, { cloudId, commits, events })
     if (checked > 0) say(`hosted: ${checked} landed task(s) re-verified here, all pass`)
+    if (unapproved.length > 0) {
+      say(`hosted: ${unapproved.length} landed task(s) NOT re-verified here — their verify is not approved on this clone (\`sofar drive --approve-commands ${slug}\`): ${unapproved.join('; ')}`)
+    }
     // The cloud driver's own cost line, passed through as the local driver prints it (its sessions' cost; the host's is not in it).
     const cost = seen.outputs.map((o) => /cost reported by the adapter: \$[0-9.]+/.exec(o)?.[0]).filter((c): c is string => c !== undefined).pop()
     if (cost !== undefined) say(cost)

@@ -1,5 +1,15 @@
 # Golden manifest (rust-core D11)
 
+RE-RECORDED for **security-audit 3.2** (`syn.driven` only) from the
+TypeScript reference. `sofar event append` now refuses every event type
+whose writer is the driver, so steps 9 and 12 record that refusal (exit 1,
+nothing filed) and a `before` hook seeds the lines `sofar drive` itself
+writes. Every hook, statusline and status output after them is
+byte-identical; only those two steps, the seeded lines in the record delta
+and `sessions/sess-run-2.md` (registered by its own hook, not by the CLI)
+moved. The Rust core delegates `event append` to the reference, so it
+reproduces the refusal unchanged.
+
 RE-RECORDED for **unverified-since-edit** (quick lane, main, 2026-11-13) from
 the TypeScript reference; the Rust core (release build) reproduces them. A
 session's derived activity line reads `tests_since_edit`, not `last_test`: a

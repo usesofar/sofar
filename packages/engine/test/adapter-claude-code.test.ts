@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { CLAUDE_CODE_CAPABILITIES, ClaudeCodeAdapter, claudeArgs, DRIVEN_TOOLS, LEASE_HOOK_MATCHER, LEASE_HOOK_TIMEOUT_S, pinLine, pinPrompt, surfaceTools } from '../src/driver/claude-code'
 import { LOW_NICE } from '../src/driver/load'
+import { DRIVEN_DENY } from '../src/driver/permissions'
 import { NUDGE_ENV, readNudge } from '../src/driver/nudge'
 import type { LaunchRequest } from '../src/driver/adapter'
 
@@ -344,7 +345,7 @@ describe('nudge', () => {
     const settings = JSON.parse(readFileSync(session.settingsPath!, 'utf8')) as Record<string, unknown>
     expect(settings).toEqual({
       crossSessionInbound: 'refuse',
-      permissions: { allow: ['mcp__sofar'] },
+      permissions: { allow: ['mcp__sofar'], deny: [...DRIVEN_DENY] },
       hooks: {
         PreToolUse: [{ matcher: LEASE_HOOK_MATCHER, hooks: [{ type: 'command', command: "'/x y/node' /cli.js event lease", timeout: LEASE_HOOK_TIMEOUT_S }] }],
       },
@@ -352,12 +353,12 @@ describe('nudge', () => {
     const argv = readFileSync(join(c.out, 'argv'), 'utf8').split('\n')
     expect(argv[argv.indexOf('--settings') + 1]).toBe(session.settingsPath)
     await session.wait()
-    // Without a surface the hook still gets a file; without either, the file only refuses peers (7.1).
+    // Without a surface the hook still gets a file; without either, the file refuses peers (7.1) and keeps the driven deny floor (security-audit D3).
     const bare = new ClaudeCodeAdapter().launch(c.request({ leaseHook: 'h' }))
-    expect(Object.keys(JSON.parse(readFileSync(bare.settingsPath, 'utf8')) as object)).toEqual(['crossSessionInbound', 'hooks'])
+    expect(Object.keys(JSON.parse(readFileSync(bare.settingsPath, 'utf8')) as object)).toEqual(['crossSessionInbound', 'permissions', 'hooks'])
     await bare.wait()
     const none = new ClaudeCodeAdapter().launch(c.request())
-    expect(JSON.parse(readFileSync(none.settingsPath, 'utf8'))).toEqual({ crossSessionInbound: 'refuse' })
+    expect(JSON.parse(readFileSync(none.settingsPath, 'utf8'))).toEqual({ crossSessionInbound: 'refuse', permissions: { deny: [...DRIVEN_DENY] } })
     await none.wait()
   })
 
