@@ -7,7 +7,9 @@
 //! must own it; its options are parsed by [`crate::fold_cli`]) and plain
 //! `status [slug]` (rust-core D14: the core owns the uncapped agent-readable
 //! bytes; a styled TTY render is still the TypeScript CLI's, decided by the
-//! colour ladder at run time, not here). Anything
+//! colour ladder at run time, not here) and plain `find <seed> [--hops N]
+//! [--initiative S]` (rust-core D49, 4.5: the reach index read; `--compose`
+//! and the rest of `find`'s options stay commander's). Anything
 //! else is "not ours" and the dispatcher hands it to the TypeScript CLI
 //! unchanged, so the command surface and every error message stay where they
 //! are (speed-2 T1: the fast path is an optimisation, never a second
@@ -115,6 +117,18 @@ pub enum Owned {
     CheckStaged {
         root: Option<PathBuf>,
     },
+    /// `find <seed> [--hops N] [--initiative S] [--root D] [--no-color]
+    /// [--color]` (rust-core D49): plain output only. `--hops` must be a
+    /// run of digits here, `--compose` and its options, a second positional
+    /// or anything else is commander's.
+    Find {
+        seed: String,
+        /// The digits as given; `Number()` of them is the caller's.
+        hops: Option<String>,
+        initiative: Option<String>,
+        root: Option<PathBuf>,
+        color: Color,
+    },
 }
 
 /// Argv as a shape: owned here, or handed to the full TypeScript CLI.
@@ -204,8 +218,66 @@ where
             }
             Dispatch::Owned(Owned::Status { slug, root, color })
         }
+        Some("find") => parse_find(rest).map_or(Dispatch::NotOurs, Dispatch::Owned),
         _ => Dispatch::NotOurs,
     }
+}
+
+/// `find`'s argv (rust-core D49). `None` = commander's: a value-less or
+/// dash-led option value, a `--hops` that is not all digits (its error text
+/// is commander's or `runFind`'s, both TypeScript), any other option.
+fn parse_find(rest: Vec<OsString>) -> Option<Owned> {
+    let (root, extra) = parse_root(rest)?;
+    let mut seed: Option<String> = None;
+    let mut hops: Option<String> = None;
+    let mut initiative: Option<String> = None;
+    let mut color = Color::Auto;
+    let mut it = extra.into_iter();
+    while let Some(arg) = it.next() {
+        let arg = arg.into_string().ok()?;
+        let mut value_of = |name: &str| -> Option<Option<String>> {
+            if arg == name {
+                let v = it.next()?.into_string().ok()?;
+                return (!v.starts_with('-')).then_some(Some(v));
+            }
+            Some(
+                arg.strip_prefix(name)
+                    .and_then(|r| r.strip_prefix('='))
+                    .map(str::to_owned),
+            )
+        };
+        if let Some(v) = value_of("--hops")? {
+            if v.is_empty() || !v.bytes().all(|b| b.is_ascii_digit()) {
+                return None;
+            }
+            hops = Some(v);
+            continue;
+        }
+        if let Some(v) = value_of("--initiative")? {
+            if v.is_empty() || v.starts_with('-') {
+                return None;
+            }
+            initiative = Some(v);
+            continue;
+        }
+        match arg.as_str() {
+            "--no-color" => color = Color::Off,
+            "--color" => {
+                if color == Color::Auto {
+                    color = Color::Forced;
+                }
+            }
+            text if !text.starts_with('-') && seed.is_none() => seed = Some(arg),
+            _ => return None,
+        }
+    }
+    Some(Owned::Find {
+        seed: seed?,
+        hops,
+        initiative,
+        root,
+        color,
+    })
 }
 
 /// `--root <dir>` / `--root=<dir>`, the only option the shims may pass. `None`
@@ -389,6 +461,69 @@ mod tests {
             })
         );
         assert_eq!(d(&["fold"]), Dispatch::Owned(Owned::Fold { args: vec![] }));
+    }
+
+    #[test]
+    fn plain_find_is_owned_and_compose_is_not() {
+        let find =
+            |seed: &str, hops: Option<&str>, initiative: Option<&str>, root: Option<&str>| {
+                Dispatch::Owned(Owned::Find {
+                    seed: seed.into(),
+                    hops: hops.map(Into::into),
+                    initiative: initiative.map(Into::into),
+                    root: root.map(Into::into),
+                    color: Color::Auto,
+                })
+            };
+        assert_eq!(
+            d(&["find", "record-index D2"]),
+            find("record-index D2", None, None, None)
+        );
+        assert_eq!(
+            d(&[
+                "find",
+                "--hops",
+                "1",
+                "D5",
+                "--initiative=rust-core",
+                "--root",
+                "/r"
+            ]),
+            find("D5", Some("1"), Some("rust-core"), Some("/r"))
+        );
+        assert_eq!(
+            d(&["find", "x", "--hops=3", "--hops", "2"]),
+            find("x", Some("2"), None, None)
+        );
+        assert_eq!(d(&["find", ""]), find("", None, None, None));
+        assert_eq!(
+            d(&["find", "x", "--no-color"]),
+            Dispatch::Owned(Owned::Find {
+                seed: "x".into(),
+                hops: None,
+                initiative: None,
+                root: None,
+                color: Color::Off
+            })
+        );
+        for argv in [
+            &["find"][..],
+            &["find", "a", "b"],
+            &["find", "x", "--compose"],
+            &["find", "x", "--budget", "9"],
+            &["find", "x", "--since=01J"],
+            &["find", "x", "--hops"],
+            &["find", "x", "--hops", "-1"],
+            &["find", "x", "--hops", "1.5"],
+            &["find", "x", "--hops="],
+            &["find", "x", "--hopsy"],
+            &["find", "x", "--initiative", "-y"],
+            &["find", "x", "--initiative="],
+            &["find", "--help"],
+            &["find", "--", "x"],
+        ] {
+            assert_eq!(d(argv), Dispatch::NotOurs, "{argv:?}");
+        }
     }
 
     #[test]

@@ -257,6 +257,25 @@ function measures(cell: Cell): Measure[] {
   ]
 }
 
+/**
+ * Plain `find` on the real record (rust-core 4.5, D49): the measured binary
+ * owns it now, so these run on the build under test, unlike the team cells'
+ * pinned index-build measure. Warm: the reach pair is built once outside the
+ * timed window (the cold session-start measure drops `.index/`).
+ */
+function findMeasures(cell: Cell): Measure[] {
+  const warm = (c: Cell) => {
+    if (existsSync(join(c.m.root, '.sofar', '.index', 'reach.json'))) return
+    const r = spawnTimed(c, ['find', 'rust-core D2'], undefined)
+    expect(r.exit, r.stderr).toBe(0)
+  }
+  return [
+    { name: 'find <handle> (warm, plain)', argv: ['find', 'rust-core D2'], stdin: () => undefined, expectedExit: 0, before: warm },
+    { name: 'find <path> (warm, plain)', argv: ['find', 'packages/engine/src/core/fold.ts'], stdin: () => undefined, expectedExit: 0, before: warm },
+    { name: 'find <text> (warm, plain)', argv: ['find', 'native core hot path conformance'], stdin: () => undefined, expectedExit: 0, before: warm },
+  ]
+}
+
 // ---------------------------------------------------------------------------
 // Spawning.
 // ---------------------------------------------------------------------------
@@ -666,6 +685,7 @@ describe.skipIf(!PERF || REFUSED !== undefined)(TITLE, () => {
         matrix.push({ name: 'find <slug> (graph + index build, TypeScript)', argv: ['find', cell.slug], stdin: () => undefined, expectedExit: 0, before: dropIndex, command: reference().command })
         result.corpus = (cell as Cell & { corpus: CorpusSummary }).corpus
       }
+      if (spec.name === 'repo') matrix.push(...findMeasures(cell))
       for (const m of matrix) {
         const r = measure(cell, m)
         result.measures[m.name] = r.stat

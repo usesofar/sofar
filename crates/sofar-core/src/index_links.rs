@@ -136,7 +136,7 @@ pub fn scan_citations(text: &str) -> Vec<Scan> {
 
 /// `bindHandle`: (slug, handle) of a citation, or None when it is not one —
 /// a bare `<n>.<n>` or `M<n>` binds nothing.
-fn bind_handle(
+pub(crate) fn bind_handle(
     word: &str,
     handle: &str,
     home: &str,
@@ -157,7 +157,7 @@ fn bind_handle(
 }
 
 /// `titleKey`.
-fn title_key(title: &str) -> String {
+pub(crate) fn title_key(title: &str) -> String {
     let line = one_line(title);
     if utf16_len(&line) <= TITLE_KEY_PROSE {
         line

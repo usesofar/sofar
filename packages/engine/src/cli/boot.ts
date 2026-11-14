@@ -13,11 +13,12 @@
  *    hook over. Measured ~17% off every spawn.
  *
  * 2. Dispatch the hot path to the native core when one is present (rust-core
- *    3.1). `sofar-core` owns the six hook shapes, `statusline` and plain
- *    `status` (docs/HOTPATH.md §Entry points and dispatch); every `event`,
- *    `statusline` and `status` argv is handed to it with stdio inherited, and
- *    exit 64 — the binary's "not mine" — means run the TypeScript CLI
- *    instead: `event append`, a styled `status`, `--help`, an unknown flag.
+ *    3.1). `sofar-core` owns the six hook shapes, `statusline`, plain
+ *    `status` and plain `find` (docs/HOTPATH.md §Entry points and dispatch);
+ *    every `event`, `statusline`, `status` and `find` argv is handed to it
+ *    with stdio inherited, and exit 64 — the binary's "not mine" — means run
+ *    the TypeScript CLI instead: `event append`, a styled `status` or `find`,
+ *    `find --compose`, `--help`, an unknown flag.
  *    The binary reads no stdin before deciding, so the fallback sees it whole.
  *    Which binary: `SOFAR_CORE=<path>` names one (debugging, the conformance
  *    run), `SOFAR_CORE=0` forbids one, otherwise the platform package the
@@ -65,7 +66,7 @@ const FAST = './fast.js'
 const FULL = './full.js'
 
 /** The shapes the native core may own; anything else never spawns it. */
-const CORE_COMMANDS: ReadonlySet<string | undefined> = new Set(['event', 'statusline', 'status'])
+const CORE_COMMANDS: ReadonlySet<string | undefined> = new Set(['event', 'statusline', 'status', 'find'])
 
 /** The core's "not a shape I own" — EX_USAGE, the only exit the stub interprets. */
 const NOT_OURS = 64

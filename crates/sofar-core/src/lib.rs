@@ -22,7 +22,9 @@
 //! trunk mirrors since main 72146d9: the run lock's probe (drive-visibility
 //! 2.3: [`run_lock`]); the progress file and launch index's read side
 //! (drive-reach 1.3: [`run_progress`]); hot paths with no node in front
-//! (felt-latency L5b: [`drive_await`], the pre-commit worker [`git_hooks`]).
+//! (felt-latency L5b: [`drive_await`], the pre-commit worker [`git_hooks`]);
+//! plain `sofar find` over the reach index (4.5, D49: [`index_reach`],
+//! [`find_cli`]).
 
 pub mod append;
 pub mod atomic;
@@ -47,6 +49,7 @@ pub mod elsewhere;
 pub mod entropy;
 pub mod envelope;
 pub mod file_mentions;
+pub mod find_cli;
 pub mod fold;
 pub mod fold_checkpoint;
 pub mod fold_cli;
@@ -62,6 +65,7 @@ pub mod index_lexicon;
 pub mod index_links;
 pub mod index_mentions;
 pub mod index_pass;
+pub mod index_reach;
 pub mod index_relevance;
 pub mod index_store;
 pub mod index_tail;

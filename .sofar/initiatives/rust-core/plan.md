@@ -4,47 +4,28 @@
 
 Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
 
-Progress: 19/26 tasks done (73%)
+Progress: 20/27 tasks done (74%)
 
-## Phase 1 — Contract [done] — 7/7 done
+## Phase 1 — Contract [done] — 7/7 done — its tasks in phases/P1.md
 
 > Contract, conformance, perf baseline, RC re-pins (rc.1 in 1.4; rc.2 on 2026-09-21), order independence (1.6) and team scale (1.5) all landed.
 
-- [x] 1.1 Inventory the hot-path surface from docs/SPEC.md and engine code: every hook's stdin/stdout/exit behaviour, CLI commands in scope (event append, status, statusline), env vars, files written, event envelope and projection outputs. List every SPEC gap found.
-- [x] 1.2 Black-box conformance suite in the TS repo: runs an implementation binary against golden fixtures (real records including this repo's 9.7 MB log, calib and smoke cells, corrupt and unknown lines, concurrent appends) and compares stdout, exit codes and record bytes. Green on TypeScript first.
-- [x] 1.3 Perf baseline harness: hook p50/p95 cold start and fold/digest latency at 10, 100 and 1,000 initiatives and 1–10 MB records, TypeScript numbers recorded as the target to beat
-- [x] 1.4 Re-pin both parity targets to the RC: re-record the conformance goldens and the perf baseline against r1-fixes 179b8fd (sofar.sh 0.33.0-rc.1, schema 0.10.0) with a reason per changed golden, keeping the 0.32.0 as-shipped and a45ea21 sets alongside (D11); regenerate crates/sofar-schema from the RC's packages/schema/src (task_added/plan verify, run_started verify, handoff detail, memory_promoted supersedes, verification_recorded)
-- [x] 1.5 team100 scale corpus and perf cell: a PARAMETERISED, exported synthetic-record generator (named writer profiles `agent` 14.3 ev/session 593 B/ev file_touched-heavy and `human` 21 ev/session 798 B/ev with a 1–4 KB session_ended tail, blend ratio, initiatives, writers, events per stream, heavy-tail size distribution) shaped like 100 users on one repo (~20 initiatives, ~500k events, largest log ≥50 MB, 100 session ids); report cold process and warm fold separately, the fold-cost curve vs events and vs bytes (name the log size crossing 100 ms and the full-refold ≥250 ms point), session-start digest, user-prompt, statusline, find/index build, memory high-water, digest and statusline cost as sessions[] grows to 100 writers; interleaved per D12; record the growth budget (MB and events per user per week) and every non-linear turn as an idea with a predicted gain, never built here
-- [x] 1.6 Order-independence and merge conformance: a property test that the same event SET folds to an identical state under any arrival order (shuffle N times; duplicate ids, out-of-order session_started/ended, corrections; proptest shapes fine), and a union-merge test where N branches append to the SAME initiative's events.jsonl (merge=union .gitattributes path) plus across-initiative merges, asserting the merged fold equals the fold of the union and measuring merged-log fold time
-- [x] 1.7 Catch up with trunk (rust-core D29): merge main and mirror every hot-path change since rc.2 with conformance, fold and render parity on the trunk commit merged
-
-## Phase 2 — Rust core [done] — 7/7 done
+## Phase 2 — Rust core [done] — 7/7 done — its tasks in phases/P2.md
 
 > All six tasks landed and proved by the 3.1–3.3 black-box runs.
 
-- [x] 2.1 Cargo workspace crates/sofar-core; schema codegen from packages/schema/src (no hand-written payload types); dependency list per D1
-- [x] 2.2 Event envelope and atomic O_APPEND append; unknown and corrupt lines skipped with a warning, never fatal, never rewritten
-- [x] 2.3 Fold to initiative state with conformance parity
-- [x] 2.4 Digest/status render byte-identical to the projection templates (golden tests), including the 10k char cap behaviour
-- [x] 2.5 Hook handlers (session-start, user-prompt-submit, post-tool-use, stop, session-end) with conformance parity, including r1-fixes wave 1–2 behaviour
-- [x] 2.6 Statusline command parity
-- [x] 2.11 Mirror memory-lead 3.1 (memory-lead 3.4): the BM25 lexicon tier (lexicon.json, lexicon-p00..31.json FNV-1a/5-bit shards, lexicon-h.json, one gen) and its prompt line, plus index-pass SlugReducer.relevant / PassResult.stateChanged, with conformance parity incl. a score-at-threshold case (memory-lead D15; notes 01M352R1, 01M352S1). TS reference 3ee5e98 is unverified until its D18 read-path bench passes — plan against it, do not build on it as settled
-
-## Phase 3 — Integration and distribution [done] — 3/3 done
+## Phase 3 — Integration and distribution [done] — 3/3 done — its tasks in phases/P3.md
 
 > 3.1 stub dispatch (D31), 3.2 platform packages and shims (D32), 3.3 gate green (D33). CI matrix verified green on the pushed branch (run 35589110811, 2026-09-21); nothing published.
 
-- [x] 3.1 TS entry points and hook shims dispatch to sofar-core when present, with TypeScript fallback and an explicit override for debugging
-- [x] 3.2 Prebuilt binaries per platform (darwin arm64/x64, linux x64/arm64, win32 x64) via npm optionalDependencies, plus a CI build matrix
-- [x] 3.3 Gate green: 100% conformance on both implementations and perf targets beaten
-
-## Phase 4 — Prove and switch [pending] — 1/5 done
+## Phase 4 — Prove and switch [pending] — 2/6 done
 
 - [ ] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin
 - [ ] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
 - [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
 - [x] 4.4 memory-lead 3.2 (reassigned to this lane 2026-09-22): read-time hook under 20 ms at 50+ initiatives and team100 scale, proven with npm run perf on a quiet host (D5, D12)
-- [ ] 4.5 Rust reader for the sharded reach index and sofar find, byte parity with TS on find goldens. Waits on linked-context 8.3 (shard format frozen); predict from linked-context 8.1's baseline before building
+- [x] 4.5 Rust reader for the sharded reach index and sofar find, byte parity with TS on find goldens. Waits on linked-context 8.3 (shard format frozen); predict from linked-context 8.1's baseline before building
+- [ ] 4.6 Prove 4.5's find perf prediction: npm run perf repo cell (find handle/path/text warm measures) in three arms on AC power
 
 ## Phase 5 — Bindings (carried over from engine-core) [pending] — 1/4 done
 
@@ -53,5 +34,5 @@ Progress: 19/26 tasks done (73%)
 - [ ] 5.3 wasm build of the fold for the sofar-cloud webapp and the Bun API, replacing the browser-aliased TypeScript fold (engine-core 3.2). A separate crate, so the hook binary's crate set (D9) is unchanged
 - [x] 5.4 The TypeScript CLI wraps the core with foldLines keeping its signature (engine-core 3.3): confirm that 3.1's dispatch with TypeScript fallback covers it, then close
 
-Next action: Native-core publishing as a Phase 4 decision (operator's call); also confirm origin CI on rust-core 80b801c2 is green.
+Next action: Run 4.6 on AC power: SOFAR_PERF=1 SOFAR_PERF_CELLS=repo npx vitest run --project perf, three arms (TS, SOFAR_CONFORMANCE_BIN=core, SOFAR_CORE=core); compare the find rows to the 4.5 prediction note.
 Blocked on: task 5.1: Gate built and green: the sofar leg is in CI (core-conformance, run 35748230717, every branch), and sofar-cloud is green locally (20 logs, private mode). Blocked on the operator for the sofar-cloud CI leg. sofar-cloud (usesofar/sofar-app) is private and this repo's Actions logs are public, so the job belongs in sofar-cloud's own CI. See the 5.1 note for the steps. It needs no token, since sofar is public.

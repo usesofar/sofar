@@ -45,10 +45,10 @@ OUT: `init`, `doctor`, `new`, `switch`, `close`, `list`, `next`, `why`,
 ## Entry points and dispatch
 
 `dist/cli.js` (`cli/boot.ts`) is a stub. With a native core present
-(rust-core 3.1) it hands every `event`, `statusline` and `status` argv to
+(rust-core 3.1) it hands every `event`, `statusline`, `status` and `find` argv to
 `sofar-core` with stdio inherited and `SOFAR_CORE_DISPATCHED=1` in the
 environment; the core's exit 64 (`EX_USAGE`, "not a shape I own" — `event
-append`, a styled `status`, `--help`, an unknown flag; the core reads no
+append`, a styled `status` or `find`, `find --compose`, `--help`, an unknown flag; the core reads no
 stdin before deciding, and says nothing on stderr when dispatched) means the
 TypeScript CLI runs the same argv instead, and every other exit code is
 mirrored. The core is `SOFAR_CORE=<path>` when set (`0` or empty: no core),
@@ -81,6 +81,7 @@ CLI reports the error:
 | `statusline [--root D] [--no-color] [--color]` | runStatusline |
 | `fold --events F [--take N] [--snapshot S --since N] [--write-snapshot W]` | runFold (hidden conformance shape — the incremental fold under SPEC §Library surface (library-surface, L1/L2 — added for sofar-cloud + D11); owned by `sofar-core` directly under rust-core D15, never routed by the shim) |
 | `status [slug] [--root D] [--no-color] [--color]` | runStatus, PLAIN only (rust-core D14, 2.4); an UNBOUND branch with no slug (r1-fixes L10, D28: the orientation line, the most recently active initiative and the listing at exit 0) is the TypeScript CLI's — the core exits 64 for it and the stub falls back (rust-core D31, memory-lead 1.4): `sofar-core` owns this shape and applies the stdout colour ladder of `cli/ui/caps.ts` itself — `NO_COLOR` > `--no-color` > `FORCE_COLOR` > `--color` > (TTY and `TERM` ≠ dumb); a render that would be styled exits 64 for the TypeScript CLI. `--watch`, a second positional or any other option is commander's (exit 64). The stderr update notice (`withUpdateNotice`) is rendered from the cache with the stderr caps ladder (rust-core 3.1: `status_cli::with_update_notice`); the refresh claim is the stub's. |
+| `find <seed> [--hops N] [--initiative S] [--root D] [--no-color] [--color]` | runFind, PLAIN only (rust-core D49, 4.5): owned by `sofar-core` directly, never by `runFast`. The core reads the reach index pair exactly as `core/index-reach.ts` does — lazily, a tail of at most 500 events caught up in memory and nothing written, a rebuild or a longer tail persisting `reach.json`, `reach-terms.json` and `meta-reach.json` byte-identically — and applies the stdout colour ladder as `status` does (a styled render exits 64). `--hops` must be a run of digits (anything else, so commander's and `runFind`'s error text, exits 64); `--compose`, `--budget`, `--since`, a second positional or any other option is commander's (exit 64). |
 
 `event append …` is full-CLI only (commander: `--type` and `--payload`
 required; `--session` default `cli`; `--source` default `cli`; `--actor`

@@ -44,6 +44,10 @@ pub struct PassResult<S> {
     /// keyed by them names exactly the bytes it was derived from (the links
     /// tier, linked-context 4.1).
     pub meta: IndexMeta,
+    /// Events read across every log (`applied`), voided ones included.
+    pub applied: usize,
+    /// True when any slug started from empty state (`rebuilt`).
+    pub rebuilt: bool,
 }
 
 fn voided_ref(event: &IndexedEvent) -> Option<&str> {
@@ -80,27 +84,38 @@ fn max_id_of(events: &[IndexedEvent], prior: Option<&str>) -> Option<String> {
 }
 
 /// `passOverRecord`.
-#[allow(clippy::too_many_lines, reason = "one loop, ported as written")]
 pub fn pass_over_record<R: SlugReducer>(
     layout: &Layout,
     meta_file: &str,
     prior: Option<&[(String, R::State)]>,
     reducer: &R,
 ) -> PassResult<R::State> {
+    pass_over_owned(layout, meta_file, prior.map(<[_]>::to_vec), reducer, true)
+}
+
+/// `passOverRecord` over a prior it may consume, with `{ persist }`: false
+/// writes nothing, not even the cursor file, and leaves persisting the pair to
+/// the caller (linked-context 8.2, D26). A quiet slug's state moves through
+/// untouched rather than copied — the TypeScript pass carries it by reference.
+#[allow(clippy::too_many_lines, reason = "one loop, ported as written")]
+pub fn pass_over_owned<R: SlugReducer>(
+    layout: &Layout,
+    meta_file: &str,
+    prior: Option<Vec<(String, R::State)>>,
+    reducer: &R,
+    persist: bool,
+) -> PassResult<R::State> {
     let mut meta = read_index_meta(layout, meta_file).unwrap_or_default();
     let mut states: Vec<(String, R::State)> = Vec::new();
     let mut changed = prior.is_none();
     let mut state_changed = prior.is_none();
-    // Slug → position, built once (r4-fixes B19): a linear find per slug made
-    // each tier's pass O(n²) — at 1,000 records most of a quiet pass.
-    let prior_at: HashMap<&str, usize> = prior
-        .map(|p| {
-            p.iter()
-                .enumerate()
-                .map(|(i, (s, _))| (s.as_str(), i))
-                .collect()
-        })
-        .unwrap_or_default();
+    let mut applied = 0usize;
+    let mut any_rebuilt = prior.is_none();
+    let had_prior = prior.is_some();
+    // Slug → state, built once (r4-fixes B19): a linear find per slug made
+    // each tier's pass O(n²) — at 1,000 records most of a quiet pass. What is
+    // left in it after the loop is a slug that vanished.
+    let mut prior_at: HashMap<String, R::State> = prior.unwrap_or_default().into_iter().collect();
     let mut meta_at: HashMap<String, usize> = meta
         .cursors
         .iter()
@@ -110,9 +125,7 @@ pub fn pass_over_record<R: SlugReducer>(
 
     for slug in initiative_slugs(layout) {
         let log = layout.events_path(&slug);
-        let prior_state = prior
-            .zip(prior_at.get(slug.as_str()))
-            .map(|(p, &i)| &p[i].1);
+        let prior_state = prior_at.remove(&slug);
         let cursor: Option<Cursor> = if prior_state.is_none() {
             None
         } else {
@@ -138,6 +151,9 @@ pub fn pass_over_record<R: SlugReducer>(
         }
 
         let rebuilt = read.full || prior_state.is_none();
+        if rebuilt {
+            any_rebuilt = true;
+        }
         if read.full {
             voided.clear();
         }
@@ -148,10 +164,10 @@ pub fn pass_over_record<R: SlugReducer>(
 
         // A batch nothing in which can move this state is quiet (`relevant`).
         let quiet = events.is_empty() || !events.iter().any(|e| reducer.relevant(e));
-        let mut state = if rebuilt {
-            reducer.empty()
-        } else {
-            prior_state.expect("not rebuilt").clone()
+        let had_state = prior_state.is_some();
+        let mut state = match prior_state {
+            Some(state) if !rebuilt => state,
+            _ => reducer.empty(),
         };
         for event in &events {
             if let Some(r) = voided_ref(event)
@@ -171,8 +187,9 @@ pub fn pass_over_record<R: SlugReducer>(
         if rebuilt || !quiet {
             state_changed = true;
         }
+        applied += events.len();
 
-        if !events.is_empty() || prior_state.is_none() || (read.full && read.cursor.is_some()) {
+        if !events.is_empty() || !had_state || (read.full && read.cursor.is_some()) {
             changed = true;
         }
         // Lines this tier skips (or cannot use) still move the cursor, and a
@@ -230,13 +247,11 @@ pub fn pass_over_record<R: SlugReducer>(
         meta.remove(&slug);
         changed = true;
     }
-    if let Some(prior) = prior
-        && prior.iter().any(|(s, _)| !present.contains(s.as_str()))
-    {
+    if had_prior && !prior_at.is_empty() {
         changed = true;
         state_changed = true;
     }
-    if changed {
+    if changed && persist {
         write_index_meta(layout, &meta, meta_file);
     }
     PassResult {
@@ -244,6 +259,8 @@ pub fn pass_over_record<R: SlugReducer>(
         changed,
         state_changed,
         meta,
+        applied,
+        rebuilt: any_rebuilt,
     }
 }
 

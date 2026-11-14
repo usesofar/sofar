@@ -181,6 +181,13 @@ impl Object {
         Some(self.entries.remove(idx).1)
     }
 
+    /// Entries in insertion order, owned — for a reader that converts a large
+    /// parsed file without copying every string in it.
+    #[must_use]
+    pub fn into_entries(self) -> Vec<(String, Json)> {
+        self.entries
+    }
+
     /// Entries in insertion order.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Json)> {
         self.entries.iter().map(|(k, v)| (k.as_str(), v))
@@ -249,7 +256,7 @@ pub fn usize_to_f64(n: usize) -> f64 {
     n as f64
 }
 
-fn array_index(key: &str) -> Option<u32> {
+pub(crate) fn array_index(key: &str) -> Option<u32> {
     let bytes = key.as_bytes();
     if bytes.is_empty() || bytes.len() > 10 || !bytes.iter().all(u8::is_ascii_digit) {
         return None;

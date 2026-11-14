@@ -1,6 +1,7 @@
 //! `sofar-core` — the native hook binary. Parses the shim argv grammar and
 //! dispatches: the six hooks (2.5), the hidden `fold` conformance command
-//! (2.3, D15), plain `status` (2.4, D14), the statusline (2.6), and the
+//! (2.3, D15), plain `status` (2.4, D14), plain `find` (4.5, D49), the
+//! statusline (2.6), and the
 //! drive-await hook and the pre-commit worker (felt-latency L5b). A shape
 //! the TypeScript CLI owns exits 64 (`EX_USAGE`) so no caller can mistake it
 //! for a handled hook; the `sofar` boot stub (rust-core 3.1, `cli/boot.ts`)
@@ -146,6 +147,27 @@ fn main() -> ExitCode {
                 result,
                 stream_color(color, std::io::stderr().is_terminal()),
                 unicode_supported(),
+            ))
+        }
+        Dispatch::Owned(Owned::Find {
+            seed,
+            hops,
+            initiative,
+            root,
+            color,
+        }) => {
+            if stream_color(color, std::io::stdout().is_terminal()) {
+                // Styled find is the TypeScript layout grammar's, as status is.
+                return not_ours(
+                    "styled `find` is rendered by the `sofar` CLI — pipe it or pass --no-color",
+                );
+            }
+            mirror(&sofar_core::find_cli::run_find(
+                &resolve_root(root.as_deref()),
+                &seed,
+                // `Number(digits)`: a run too long for f64 is Infinity, as in JS.
+                hops.map(|h| h.parse::<f64>().unwrap_or(f64::INFINITY)),
+                initiative.as_deref(),
             ))
         }
         Dispatch::Owned(Owned::Event {

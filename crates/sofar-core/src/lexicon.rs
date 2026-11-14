@@ -192,11 +192,21 @@ fn term_count(doc: &LexicalDoc, term: &str) -> Option<f64> {
 /// `rankLexical`: BM25, ties by newest then id.
 #[must_use]
 pub fn rank_lexical(docs: &[LexicalDoc], query: &str, limit: usize) -> Vec<LexicalMatch> {
+    rank_lexical_counted(docs, query, limit).0
+}
+
+/// `rankLexical` with its `total`: every doc that matched, before `limit`.
+#[must_use]
+pub fn rank_lexical_counted(
+    docs: &[LexicalDoc],
+    query: &str,
+    limit: usize,
+) -> (Vec<LexicalMatch>, usize) {
     let asked = query_terms(query);
     let mut wanted: Vec<&str> = asked.iter().map(|(t, _)| t.as_str()).collect();
     wanted.sort_by(|a, b| cmp_utf16(a, b));
     if wanted.is_empty() || docs.is_empty() {
-        return Vec::new();
+        return (Vec::new(), 0);
     }
     let mut tokens = 0.0;
     let mut df: Vec<(&str, f64)> = Vec::new();
@@ -221,7 +231,9 @@ pub fn rank_lexical(docs: &[LexicalDoc], query: &str, limit: usize) -> Vec<Lexic
             })
     };
     let average = tokens / n;
-    let mut scored: Vec<LexicalMatch> = Vec::new();
+    // Each match keeps its doc's ts (`tsOf`, the first doc with that id), so
+    // the comparator never scans the corpus.
+    let mut scored: Vec<(LexicalMatch, &str)> = Vec::new();
     for doc in docs {
         let damp = K1 * (1.0 - B + (B * doc.tokens) / average);
         let mut hit: Vec<(&str, f64)> = Vec::new();
@@ -242,45 +254,52 @@ pub fn rank_lexical(docs: &[LexicalDoc], query: &str, limit: usize) -> Vec<Lexic
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| cmp_utf16(a.0, b.0))
         });
-        scored.push(LexicalMatch {
-            id: doc.id.clone(),
-            score: sum,
-            terms: hit
-                .iter()
-                .map(|(t, _)| {
-                    asked
-                        .iter()
-                        .find(|(f, _)| f == t)
-                        .map_or_else(|| (*t).to_owned(), |(_, w)| w.clone())
-                })
-                .collect(),
-        });
+        scored.push((
+            LexicalMatch {
+                id: doc.id.clone(),
+                score: sum,
+                terms: hit
+                    .iter()
+                    .map(|(t, _)| {
+                        asked
+                            .iter()
+                            .find(|(f, _)| f == t)
+                            .map_or_else(|| (*t).to_owned(), |(_, w)| w.clone())
+                    })
+                    .collect(),
+            },
+            "",
+        ));
     }
-    let ts_of = |id: &str| {
-        docs.iter()
-            .find(|d| d.id == id)
-            .map_or("", |d| d.ts.as_str())
-    };
+    // `tsOf` is the FIRST doc carrying the id; ids are unique in practice.
+    let mut first_ts: std::collections::HashMap<&str, &str> =
+        std::collections::HashMap::with_capacity(scored.len());
+    for doc in docs {
+        first_ts.entry(doc.id.as_str()).or_insert(doc.ts.as_str());
+    }
+    for (m, ts) in &mut scored {
+        *ts = first_ts.get(m.id.as_str()).copied().unwrap_or("");
+    }
     #[allow(
         clippy::float_cmp,
         reason = "a tie is exactly a tie, as in the TypeScript comparator"
     )]
-    scored.sort_by(|a, b| {
+    scored.sort_by(|(a, at), (b, bt)| {
         if a.score != b.score {
             return b
                 .score
                 .partial_cmp(&a.score)
                 .unwrap_or(std::cmp::Ordering::Equal);
         }
-        let (at, bt) = (ts_of(&a.id), ts_of(&b.id));
         if at == bt {
             cmp_utf16(&a.id, &b.id)
         } else {
             cmp_utf16(bt, at)
         }
     });
+    let total = scored.len();
     scored.truncate(limit);
-    scored
+    (scored.into_iter().map(|(m, _)| m).collect(), total)
 }
 
 #[cfg(test)]

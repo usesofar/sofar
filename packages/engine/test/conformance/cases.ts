@@ -494,6 +494,58 @@ function cutoffRecord(m: Materialized): void {
   writeFileSync(join(dir, 'events.jsonl'), `${lines.join('\n')}\n`)
 }
 
+// ---------------------------------------------------------------------------
+// The reach index (linked-context 8.x; rust-core 4.5, D49).
+// ---------------------------------------------------------------------------
+
+/**
+ * The reach pair's bytes, compactly: `reach.json` and `reach-terms.json` as a
+ * sha256 prefix and a size, `meta-reach.json` with each cursor's `mtimeMs`
+ * masked (a copy's mtimes are the materializer's, not the record's). Like the
+ * lexicon tier, `.index/` is outside the record delta, but both
+ * implementations read and extend the pair, so its bytes are a contract.
+ */
+function reachDigest(m: Materialized): string {
+  const dir = join(m.root, '.sofar', '.index')
+  const lines = ['reach.json', 'reach-terms.json', 'meta-reach.json'].map((f) => {
+    const path = join(dir, f)
+    if (!existsSync(path)) return `${f} absent`
+    const text = readFileSync(path, 'utf8').replace(/"mtimeMs":[0-9.e+-]+/g, '"mtimeMs":0')
+    return `${f} ${createHash('sha256').update(text).digest('hex').slice(0, 16)} ${Buffer.byteLength(text)}`
+  })
+  return `${lines.join('\n')}\n`
+}
+
+/**
+ * `count` notes appended to rust-core's log after every id the fixture holds,
+ * the first `marked` of them carrying a phrase no other event does — a tail
+ * the reach index has not seen. At most REACH_LAZY_TAIL (500) is caught up in
+ * memory and nothing is written; past it, the pair is persisted.
+ */
+function reachTail(count: number, marked: number, from: number): (m: Materialized) => void {
+  return (m) => {
+    const log = join(m.root, '.sofar', 'initiatives', 'rust-core', 'events.jsonl')
+    const lines: string[] = []
+    for (let i = 0; i < count; i++) {
+      const n = from + i
+      lines.push(
+        JSON.stringify({
+          v: 1,
+          id: `01M2ZZ${n.toString().padStart(20, '0')}`,
+          ts: `2026-09-16T${String(Math.floor(n / 3600) % 24).padStart(2, '0')}:${String(Math.floor(n / 60) % 60).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}.000Z`,
+          initiative: 'rust-core',
+          session: 'cli',
+          source: 'cli',
+          actor: 'agent',
+          type: 'note_added',
+          payload: { text: i < marked ? `quokka zanzibar tail note ${n} cites rust-core D2` : `filler tail note ${n}` },
+        }),
+      )
+    }
+    writeFileSync(log, `${readFileSync(log, 'utf8')}${lines.join('\n')}\n`)
+  }
+}
+
 export const CASES: ConformanceCase[] = [
   // ---- this repo's record ------------------------------------------------
   {
@@ -539,6 +591,45 @@ export const CASES: ConformanceCase[] = [
       s('--root form', ['status', '--root', '<ROOT>', 'felt-cost']),
       s('unknown slug', ['status', 'no-such-record']),
       s('slug escaping the tree', ['status', '../rust-core']),
+    ],
+  },
+  {
+    // rust-core 4.5 (D49): plain `find` over the real record — the cold build
+    // writes the reach pair, warm reads it, a short tail is caught up in
+    // memory (nothing written), a long one is persisted, and a missing terms
+    // file is rebuilt for a text seed. Every seed kind, hops and the errors.
+    name: 'repo.find',
+    fixture: REPO,
+    steps: [
+      s('cold: a decision handle builds the reach pair', ['find', 'rust-core D2'], undefined, { artifact: reachDigest }),
+      s('warm: the same seed, nothing written', ['find', 'rust-core D2'], undefined, { artifact: reachDigest }),
+      s('--hops 1', ['find', 'rust-core D2', '--hops', '1']),
+      s('--hops=3', ['find', 'rust-core D2', '--hops=3']),
+      s('--hops 7 is clamped to 3', ['find', 'rust-core D2', '--hops', '7']),
+      s('--hops 0 is refused', ['find', 'rust-core D2', '--hops', '0']),
+      s('a bare handle with --initiative', ['find', 'D2', '--initiative', 'rust-core']),
+      s('a bare handle alone: the text path', ['find', 'D2']),
+      s('a recorded path', ['find', 'packages/engine/src/core/fold.ts']),
+      s('a basename naming several paths', ['find', 'fold.ts']),
+      s('file: prefix', ['find', 'file:index.ts']),
+      s('an initiative', ['find', 'speed']),
+      s('a session', ['find', RUST_CORE_SESSION]),
+      s('a text query', ['find', 'native core hot path conformance']),
+      s('a miss', ['find', 'zzqx vrrbl']),
+      s('--root form', ['find', '--root', '<ROOT>', 'rust-core D1']),
+      s('--no-color is the same bytes', ['find', '--no-color', 'rust-core D1']),
+      s('a 40-event tail: caught up in memory, nothing written', ['find', 'quokka zanzibar'], undefined, {
+        before: reachTail(40, 3, 1),
+        artifact: reachDigest,
+      }),
+      s('a 600-event tail: persisted', ['find', 'quokka zanzibar'], undefined, {
+        before: reachTail(600, 2, 41),
+        artifact: reachDigest,
+      }),
+      s('the terms file gone: rebuilt for a text seed', ['find', 'quokka zanzibar'], undefined, {
+        before: (m) => rmSync(join(m.root, '.sofar', '.index', 'reach-terms.json'), { force: true }),
+        artifact: reachDigest,
+      }),
     ],
   },
   {
