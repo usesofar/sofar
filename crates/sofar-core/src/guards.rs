@@ -20,8 +20,6 @@
 //! path pattern is anchored `(?:^|/)…$`; a cmd pattern is an unanchored
 //! substring search. A trailing `/` on a path glob reads as `/**`.
 
-use std::collections::HashSet;
-
 use crate::payload::guard_spec_errors;
 use crate::text::js_trim;
 
@@ -163,119 +161,125 @@ pub fn guard_matches(guard: &CompiledGuard, subject: &str) -> bool {
     hit
 }
 
-/// `pattern.re.test(subject)`.
+/// `pattern.re.test(subject)`, as one forward pass of the pattern's Thompson
+/// NFA: the set of live token positions advances a code unit at a time, so a
+/// test costs tokens × units bit operations however the stars are placed.
+/// (The memoised backtracker it replaces hashed every (token, unit) state; a
+/// `*KEY=*` cmd guard over 1.4 MB of commands took 8 s to fold, rust-core 5.2.)
 fn pattern_tests(pattern: &GuardPattern, domain: GuardDomain, subject: &[u16]) -> bool {
+    let tokens = &pattern.tokens;
     let slash = u16::from(b'/');
-    let mut failed = HashSet::new();
-    match domain {
-        GuardDomain::Path => {
-            // `(?:^|/)body$`: the body starts at 0 or just after a `/`, and must reach the end.
-            let starts = std::iter::once(0).chain(
-                subject
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, c)| **c == slash)
-                    .map(|(i, _)| i + 1),
-            );
-            for start in starts {
-                if matches_at(&pattern.tokens, subject, 0, start, true, &mut failed) {
-                    return true;
-                }
-            }
-            false
+    let mut nfa = Nfa::new(tokens);
+    for si in 0..=subject.len() {
+        // Path: `(?:^|/)body$` — a match starts at 0 or just after a `/` and
+        // must reach the end. Cmd: unanchored at both ends.
+        let starts_here = match domain {
+            GuardDomain::Path => si == 0 || subject[si - 1] == slash,
+            GuardDomain::Cmd => true,
+        };
+        if starts_here {
+            nfa.enter(0);
         }
-        GuardDomain::Cmd => {
-            // Unanchored: the body may start and end anywhere.
-            (0..=subject.len())
-                .any(|start| matches_at(&pattern.tokens, subject, 0, start, false, &mut failed))
+        if nfa.accepts() && (domain == GuardDomain::Cmd || si == subject.len()) {
+            return true;
         }
+        let Some(&c) = subject.get(si) else { break };
+        nfa.step(c);
     }
+    false
 }
 
 fn is_line_terminator(c: u16) -> bool {
     matches!(c, 0x000A | 0x000D | 0x2028 | 0x2029)
 }
 
-/// Backtracking match of `tokens[ti..]` against `subject[si..]`; `failed`
-/// memoizes states that cannot complete, so the search is bounded by
-/// tokens × units even for a hostile pattern.
-fn matches_at(
-    tokens: &[Token],
-    subject: &[u16],
-    ti: usize,
-    si: usize,
-    must_end: bool,
-    failed: &mut HashSet<(usize, usize)>,
-) -> bool {
-    if ti == tokens.len() {
-        return !must_end || si == subject.len();
+/// State `ti` in `0..=n` is "about to match `tokens[ti]`" (`n` accepts);
+/// state `n + 1 + ti` is "inside `OptDirs` `ti`'s `.*`, owing a `/`".
+struct Nfa<'a> {
+    tokens: &'a [Token],
+    cur: Vec<u64>,
+    next: Vec<u64>,
+}
+
+impl<'a> Nfa<'a> {
+    fn new(tokens: &'a [Token]) -> Self {
+        let words = (2 * (tokens.len() + 1)).div_ceil(64);
+        Self {
+            tokens,
+            cur: vec![0; words],
+            next: vec![0; words],
+        }
     }
-    if failed.contains(&(ti, si)) {
-        return false;
+
+    fn has(set: &[u64], s: usize) -> bool {
+        set[s / 64] & (1 << (s % 64)) != 0
     }
-    let slash = u16::from(b'/');
-    let ok = match tokens[ti] {
-        Token::Lit(c) => {
-            subject.get(si) == Some(&c)
-                && matches_at(tokens, subject, ti + 1, si + 1, must_end, failed)
-        }
-        Token::OneInSegment => {
-            subject.get(si).is_some_and(|&c| c != slash)
-                && matches_at(tokens, subject, ti + 1, si + 1, must_end, failed)
-        }
-        Token::One => {
-            subject.get(si).is_some_and(|&c| !is_line_terminator(c))
-                && matches_at(tokens, subject, ti + 1, si + 1, must_end, failed)
-        }
-        Token::Segment => {
-            let mut end = si;
-            loop {
-                if matches_at(tokens, subject, ti + 1, end, must_end, failed) {
-                    break true;
+
+    fn set(set: &mut [u64], s: usize) {
+        set[s / 64] |= 1 << (s % 64);
+    }
+
+    /// Add `ti` and everything reachable from it without consuming a unit.
+    fn close(tokens: &[Token], set: &mut [u64], mut ti: usize) {
+        let n = tokens.len();
+        while !Self::has(set, ti) {
+            Self::set(set, ti);
+            match tokens.get(ti) {
+                Some(Token::Segment | Token::Any) => ti += 1,
+                Some(Token::OptDirs) => {
+                    Self::set(set, n + 1 + ti);
+                    ti += 1;
                 }
-                match subject.get(end) {
-                    Some(&c) if c != slash => end += 1,
-                    _ => break false,
-                }
+                _ => break,
             }
         }
-        Token::Any => {
-            let mut end = si;
-            loop {
-                if matches_at(tokens, subject, ti + 1, end, must_end, failed) {
-                    break true;
-                }
-                match subject.get(end) {
-                    Some(&c) if !is_line_terminator(c) => end += 1,
-                    _ => break false,
-                }
-            }
-        }
-        Token::OptDirs => {
-            // Zero directories, or `.*` (no line terminators) up to a `/`.
-            if matches_at(tokens, subject, ti + 1, si, must_end, failed) {
-                true
-            } else {
-                let mut end = si;
-                loop {
-                    match subject.get(end) {
-                        Some(&c) if c == slash => {
-                            if matches_at(tokens, subject, ti + 1, end + 1, must_end, failed) {
-                                break true;
-                            }
-                            end += 1;
-                        }
-                        Some(&c) if !is_line_terminator(c) => end += 1,
-                        _ => break false,
+    }
+
+    fn enter(&mut self, ti: usize) {
+        Self::close(self.tokens, &mut self.cur, ti);
+    }
+
+    fn accepts(&self) -> bool {
+        Self::has(&self.cur, self.tokens.len())
+    }
+
+    fn step(&mut self, c: u16) {
+        let tokens = self.tokens;
+        let n = tokens.len();
+        let slash = u16::from(b'/');
+        let dot = !is_line_terminator(c);
+        self.next.fill(0);
+        for (w, &word) in self.cur.iter().enumerate() {
+            let mut bits = word;
+            while bits != 0 {
+                let s = w * 64 + bits.trailing_zeros() as usize;
+                bits &= bits - 1;
+                if s > n {
+                    // Inside OptDirs `s - n - 1`: `.` stays, a `/` may also leave.
+                    let ti = s - n - 1;
+                    if dot {
+                        Self::set(&mut self.next, s);
                     }
+                    if c == slash {
+                        Self::close(tokens, &mut self.next, ti + 1);
+                    }
+                    continue;
+                }
+                let target = match tokens.get(s) {
+                    Some(Token::Lit(x)) if *x == c => Some(s + 1),
+                    Some(Token::OneInSegment) if c != slash => Some(s + 1),
+                    Some(Token::One) if dot => Some(s + 1),
+                    Some(Token::Segment) if c != slash => Some(s),
+                    Some(Token::Any) if dot => Some(s),
+                    _ => None,
+                };
+                if let Some(t) = target {
+                    Self::close(tokens, &mut self.next, t);
                 }
             }
         }
-    };
-    if !ok {
-        failed.insert((ti, si));
+        std::mem::swap(&mut self.cur, &mut self.next);
     }
-    ok
 }
 
 #[cfg(test)]
@@ -366,5 +370,130 @@ mod tests {
         let spec = format!("cmd:{}z", "*a".repeat(30));
         let subject = "a".repeat(400);
         assert!(!fires(&spec, &subject));
+    }
+
+    /// The memoised backtracker the NFA replaced (rust-core 5.2), kept as the
+    /// reference: it was the parity-proven `re.test` port.
+    fn reference_tests(tokens: &[Token], domain: GuardDomain, subject: &[u16]) -> bool {
+        use std::collections::HashSet;
+        fn at(
+            t: &[Token],
+            s: &[u16],
+            ti: usize,
+            si: usize,
+            end: bool,
+            failed: &mut HashSet<(usize, usize)>,
+        ) -> bool {
+            if ti == t.len() {
+                return !end || si == s.len();
+            }
+            if failed.contains(&(ti, si)) {
+                return false;
+            }
+            let slash = u16::from(b'/');
+            let dot = |c: u16| !is_line_terminator(c);
+            let ok = match t[ti] {
+                Token::Lit(c) => s.get(si) == Some(&c) && at(t, s, ti + 1, si + 1, end, failed),
+                Token::OneInSegment => {
+                    s.get(si).is_some_and(|&c| c != slash) && at(t, s, ti + 1, si + 1, end, failed)
+                }
+                Token::One => {
+                    s.get(si).is_some_and(|&c| dot(c)) && at(t, s, ti + 1, si + 1, end, failed)
+                }
+                Token::Segment | Token::Any => {
+                    let seg = matches!(t[ti], Token::Segment);
+                    let mut e = si;
+                    loop {
+                        if at(t, s, ti + 1, e, end, failed) {
+                            break true;
+                        }
+                        match s.get(e) {
+                            Some(&c) if (seg && c != slash) || (!seg && dot(c)) => e += 1,
+                            _ => break false,
+                        }
+                    }
+                }
+                Token::OptDirs => {
+                    at(t, s, ti + 1, si, end, failed) || {
+                        let mut e = si;
+                        loop {
+                            match s.get(e) {
+                                Some(&c) if c == slash => {
+                                    if at(t, s, ti + 1, e + 1, end, failed) {
+                                        break true;
+                                    }
+                                    e += 1;
+                                }
+                                Some(&c) if dot(c) => e += 1,
+                                _ => break false,
+                            }
+                        }
+                    }
+                }
+            };
+            if !ok {
+                failed.insert((ti, si));
+            }
+            ok
+        }
+        let mut failed = HashSet::new();
+        match domain {
+            GuardDomain::Path => std::iter::once(0)
+                .chain(
+                    subject
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, c)| **c == u16::from(b'/'))
+                        .map(|(i, _)| i + 1),
+                )
+                .any(|st| at(tokens, subject, 0, st, true, &mut failed)),
+            GuardDomain::Cmd => {
+                (0..=subject.len()).any(|st| at(tokens, subject, 0, st, false, &mut failed))
+            }
+        }
+    }
+
+    #[test]
+    fn the_nfa_agrees_with_the_backtracker_it_replaced() {
+        // xorshift: deterministic, no dependency.
+        let mut x: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut rnd = |n: usize| {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            usize::try_from(x % n as u64).unwrap()
+        };
+        let glob_alpha = ["a", "b", "/", "*", "**", "**/", "?", "."];
+        let subj_alpha = ['a', 'b', '/', '.', '\n'];
+        let (mut fired, mut cases) = (0, 0);
+        for _ in 0..40_000 {
+            let glob: String = (0..=rnd(7))
+                .map(|_| glob_alpha[rnd(glob_alpha.len())])
+                .collect();
+            let subject: String = (0..rnd(12))
+                .map(|_| subj_alpha[rnd(subj_alpha.len())])
+                .collect();
+            let units: Vec<u16> = subject.encode_utf16().collect();
+            for domain in [GuardDomain::Path, GuardDomain::Cmd] {
+                let pattern = GuardPattern {
+                    negated: false,
+                    source: glob.clone(),
+                    tokens: compile(&glob, domain),
+                };
+                let want = reference_tests(&pattern.tokens, domain, &units);
+                assert_eq!(
+                    pattern_tests(&pattern, domain, &units),
+                    want,
+                    "{domain:?} {glob:?} on {subject:?}"
+                );
+                fired += usize::from(want);
+                cases += 1;
+            }
+        }
+        // Both outcomes are well represented, or the comparison proves little.
+        assert!(
+            fired > cases / 10 && fired < cases * 9 / 10,
+            "{fired} of {cases} fired"
+        );
     }
 }
