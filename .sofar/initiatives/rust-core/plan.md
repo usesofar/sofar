@@ -4,7 +4,7 @@
 
 Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
 
-Progress: 23 done, 1 dropped, 4 remaining
+Progress: 24 done, 1 dropped, 3 remaining
 
 ## Phase 1 — Contract [done] — 7/7 done — its tasks in phases/P1.md
 
@@ -18,15 +18,7 @@ Progress: 23 done, 1 dropped, 4 remaining
 
 > 3.1 stub dispatch (D31), 3.2 platform packages and shims (D32), 3.3 gate green (D33). CI matrix verified green on the pushed branch (run 35589110811, 2026-09-21); nothing published.
 
-## Phase 4 — Prove and switch [pending] — 5/7 (1 dropped) done
-
-- [-] 4.1 Benchmark arm sofar-rust-core vs sofar-ts under a frozen addendum; must shrink no D19 lead margin (dropped)
-- [x] 4.2 Release after benchmark evidence (never before, per bench-refresh D20)
-- [ ] 4.3 Switch the rule: new hot-path features are Rust-only; decide whether to port the remaining TypeScript surfaces
-- [x] 4.4 memory-lead 3.2 (reassigned to this lane 2026-09-22): read-time hook under 20 ms at 50+ initiatives and team100 scale, proven with npm run perf on a quiet host (D5, D12)
-- [x] 4.5 Rust reader for the sharded reach index and sofar find, byte parity with TS on find goldens. Waits on linked-context 8.3 (shard format frozen); predict from linked-context 8.1's baseline before building
-- [x] 4.6 Prove 4.5's find perf prediction: npm run perf repo cell (find handle/path/text warm measures) in three arms on AC power
-- [x] 4.7 Fix the repo.append conformance flake: a minted handle suffix colliding with an existing decision's
+## Phase 4 — Prove and switch [done] — 6/7 (1 dropped) done — its tasks in phases/P4.md
 
 ## Phase 5 — Bindings (carried over from engine-core) [pending] — 1/4 done
 
@@ -35,5 +27,5 @@ Progress: 23 done, 1 dropped, 4 remaining
 - [ ] 5.3 wasm build of the fold for the sofar-cloud webapp and the Bun API, replacing the browser-aliased TypeScript fold (engine-core 3.2). A separate crate, so the hook binary's crate set (D9) is unchanged
 - [x] 5.4 The TypeScript CLI wraps the core with foldLines keeping its signature (engine-core 3.3): confirm that 3.1's dispatch with TypeScript fallback covers it, then close
 
-Next action: 4.3: the operator rules whether new hot-path features are Rust-only and which TS surfaces to port
+Next action: Phase 5 waits on the operator: add the sofar-cloud CI leg for 5.1 (steps in the 5.1 note)
 Blocked on: task 5.1: Gate built and green: the sofar leg is in CI (core-conformance, run 35748230717, every branch), and sofar-cloud is green locally (20 logs, private mode). Blocked on the operator for the sofar-cloud CI leg. sofar-cloud (usesofar/sofar-app) is private and this repo's Actions logs are public, so the job belongs in sofar-cloud's own CI. See the 5.1 note for the steps. It needs no token, since sofar is public.
