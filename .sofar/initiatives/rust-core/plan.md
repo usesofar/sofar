@@ -4,7 +4,7 @@
 
 Goal: Move sofar's hot path to a native Rust core incrementally (rust-core D1): contract first, then sofar-core in Rust behind the same CLI and hook contract, integrated with TypeScript fallback, shipped as prebuilt binaries, and proven as its own benchmark arm that shrinks no held-out lead margin (bench-refresh D19). After parity, new hot-path code is Rust-only.
 
-Progress: 25 done, 1 dropped, 2 remaining
+Progress: 26 done, 1 dropped, 2 remaining
 
 ## Phase 1 — Contract [done] — 7/7 done — its tasks in phases/P1.md
 
@@ -20,11 +20,12 @@ Progress: 25 done, 1 dropped, 2 remaining
 
 ## Phase 4 — Prove and switch [done] — 6/7 (1 dropped) done — its tasks in phases/P4.md
 
-## Phase 5 — Bindings (carried over from engine-core) [pending] — 2/4 done
+## Phase 5 — Bindings (carried over from engine-core) [pending] — 3/5 done
 
 - [x] 5.1 Real-log parity gate: the Rust fold deep-equals the TypeScript fold on EVERY real events.jsonl in this repo and in sofar-cloud, run in CI. No surface in 5.2–5.4 switches until it is green, and the TypeScript fold retires last (engine-core 1.1, 4.1)
-- [ ] 5.2 UniFFI bindings to a Swift package consumed by sofar-cloud desktop-v2 (engine-core 3.1; engine-core D1: the Swift app folds through the Rust core from its first record window, with the sofar CLI bridge only as a fallback behind desktop-v2's RecordSource protocol while 5.1 is not green). A separate crate, so the hook binary's crate set (D9) is unchanged
+- [ ] 5.2 UniFFI bindings to a Swift package consumed by sofar-cloud desktop-v2 (engine-core 3.1; engine-core D1: the Swift app folds through the Rust core from its first record window, with the sofar CLI bridge only as a fallback behind desktop-v2's RecordSource protocol while 5.1 is not green). A separate crate, so the hook binary's crate set (D9) is unchanged (active)
 - [ ] 5.3 wasm build of the fold for the sofar-cloud webapp and the Bun API, replacing the browser-aliased TypeScript fold (engine-core 3.2). A separate crate, so the hook binary's crate set (D9) is unchanged
 - [x] 5.4 The TypeScript CLI wraps the core with foldLines keeping its signature (engine-core 3.3): confirm that 3.1's dispatch with TypeScript fallback covers it, then close
+- [x] 5.5 Linear-time guard matcher: replace guards.rs's hashed backtracker with a bitset NFA (found by 5.2)
 
-Next action: Pick 5.2 (UniFFI Swift package for desktop-v2) or 5.3 (wasm fold for webapp and Bun API); each is a separate crate, so the hook binary's crate set (D9) is unchanged
+Next action: Ship SofarCore to desktop-v2: choose distribution (release-asset xcframework zip + binaryTarget url/checksum, vs a path dependency), then write desktop-v2's CoreFFI RecordSource and add a macOS CI leg for build-apple.sh --test

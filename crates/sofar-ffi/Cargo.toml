@@ -1,0 +1,38 @@
+[package]
+name = "sofar-ffi"
+description = "sofar's Rust fold for Swift through UniFFI (rust-core 5.2, D53): the bodies of `sofar serve`'s /state routes, folded in-process"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+# Generates the Swift glue from the built library: `cargo xtask swift` runs it.
+# Behind a feature so the library itself never compiles uniffi's CLI.
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+bindgen = ["uniffi/cli"]
+
+[dependencies]
+sofar-core = { path = "../sofar-core" }
+uniffi = "0.32.2"
+
+# Not the workspace table (D53): UniFFI's scaffolding exports extern "C"
+# functions, which `unsafe_code = "forbid"` rejects and no inner allow can
+# lift. Everything else matches the workspace.
+[lints.rust]
+missing_debug_implementations = "warn"
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

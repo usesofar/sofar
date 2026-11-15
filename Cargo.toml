@@ -1,11 +1,12 @@
 # sofar's native hot-path core (rust-core D1). Layout:
 #   crates/sofar-schema  payload types GENERATED from packages/schema/src (never hand-written)
 #   crates/sofar-core    the engine core + the `sofar-core` hook binary
+#   crates/sofar-ffi     the fold for Swift through UniFFI (D53; not in the hook binary)
 #   xtask                developer commands: `cargo xtask schema [--check]`
 # Runtime crates are exactly serde, serde_json, ulid, lexopt (D9); adding one needs a Decision.
 [workspace]
 resolver = "3"
-members = ["crates/sofar-schema", "crates/sofar-core", "xtask"]
+members = ["crates/sofar-schema", "crates/sofar-core", "crates/sofar-ffi", "xtask"]
 
 [workspace.package]
 version = "0.0.1"
@@ -51,3 +52,11 @@ split-debuginfo = "packed"
 # assertions and overflow checks stay on.
 [profile.test]
 opt-level = 1
+
+# sofar-ffi's Apple libraries (D53): an app process outlives a panic, so it
+# unwinds (UniFFI turns a panic into a Swift error) instead of aborting, and
+# the app's own link step strips, so symbols stay for its crash reports.
+[profile.ffi]
+inherits = "release"
+panic = "unwind"
+strip = "none"

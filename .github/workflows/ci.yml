@@ -98,7 +98,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --target ${{ matrix.target }} -- -D warnings
-      - run: cargo test -p sofar-core --target ${{ matrix.target }}
+      - run: cargo test -p sofar-core -p sofar-ffi --target ${{ matrix.target }}
       # The owned logarithm (rust-core D33): js_log against the TypeScript
       # fdlibmLog, bit for bit, on every target the core is built for.
       - uses: actions/setup-node@v4
