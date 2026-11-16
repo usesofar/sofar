@@ -52,16 +52,19 @@ jobs:
   # The engine suite on the supported floor AND the current runtime (rust-core
   # D37): package.json declares node >=18, and the conformance goldens are
   # runtime-neutral (the harness masks V8's JSON.parse position suffix), so
-  # both must stay green. Four shards a runtime (ci-speed 2.1).
+  # both must stay green. Eight parts a runtime (ci-speed 2.1): vitest deals
+  # files to shards by path hash, not duration, and the first run dealt the two
+  # slowest files (links-tier 92 s, conformance 82 s on a runner) to one shard
+  # for 150 s. Each gets a runner of its own; the rest split six ways.
   test:
     needs: changes
     if: needs.changes.outputs.ts == 'true'
-    name: test (${{ matrix.node }}, ${{ matrix.shard }}/4)
+    name: test (${{ matrix.node }}, ${{ matrix.part }})
     strategy:
       fail-fast: false
       matrix:
         node: [20, 24]
-        shard: [1, 2, 3, 4]
+        part: [links-tier, conformance, 1/6, 2/6, 3/6, 4/6, 5/6, 6/6]
     runs-on: ubuntu-latest
     # The suite runs in minutes. A sync loop no vitest timeout can interrupt
     # (the /proc mkdir hang, 2026-09-21) otherwise holds the job to GitHub's 6 h cap.
@@ -78,9 +81,18 @@ jobs:
       # the machine it runs on, and the push path runs nothing timing-sensitive
       # (the header's ruling) — a hosted runner's SessionStart floor sits above
       # the 100 ms budget. `npm test` locally still runs it; perf needs SOFAR_PERF.
-      - run: npx vitest run --project unit --shard=${{ matrix.shard }}/4
+      - name: vitest (${{ matrix.part }})
+        env:
+          PART: ${{ matrix.part }}
+          HEAVY: packages/engine/test/links-tier.test.ts,packages/engine/test/conformance/conformance.test.ts
+        run: |
+          case "$PART" in
+            links-tier) npx vitest run --project unit packages/engine/test/links-tier.test.ts ;;
+            conformance) npx vitest run --project unit packages/engine/test/conformance/conformance.test.ts ;;
+            *) SOFAR_TEST_EXCLUDE="$HEAVY" npx vitest run --project unit --shard="$PART" ;;
+          esac
       - run: npm run typecheck
-        if: matrix.shard == 1
+        if: matrix.part == '1/6'
 
   # Release invariants (r4-fixes 0.1, U2): sofar.sh's version is >= the
   # newest v* tag, and every optionalDependency is @sofar.sh/core-*. v0.34.0

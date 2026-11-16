@@ -26,4 +26,4 @@ Progress: 5/8 tasks done (62%)
 - [ ] 3.1 Measure the wall clock per change class (record-only, TypeScript, Rust, workflow) on warm caches; every class is under 120s or the gap is logged with its cause
 
 Active phase: Phase 1 — Measure and scope
-Next action: Rebalance the vitest shards (task 2.1). The largest shard is 163s against 58s for the smallest: raise the count to 6–8 per runtime or split the heaviest files. Then push one record-only, one TypeScript and one Rust commit, and time each against 120s on warm caches (task 3.1).
+Next action: Push (the operator says push), then time the run. links-tier alone should take about 100s, so if it is still over 120s, split that file. Then push a record-only, a TypeScript and a Rust commit and time each on a warm cache (task 3.1).

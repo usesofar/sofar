@@ -95,6 +95,10 @@ export default defineConfig({
             // A fixture that times out on purpose, run only by hermetic.test.ts
             // in a nested vitest of its own.
             ...(process.env.SOFAR_HERMETIC_FIXTURE === '1' ? [] : ['packages/engine/test/hermetic-fixtures/**']),
+            // CI's sharded suite (ci-speed 2.1): the files that get a runner of
+            // their own, comma-separated, left out of the hashed shards. The
+            // CLI's --exclude does not reach a project's own list.
+            ...(process.env.SOFAR_TEST_EXCLUDE?.split(',').filter(Boolean) ?? []),
           ],
         },
       },
