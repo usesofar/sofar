@@ -6,24 +6,24 @@ Goal: Every push to sofar's CI finishes in under 2 minutes of wall clock, measur
 
 Brief: the operator's words, 652 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 0/8 tasks done (0%)
+Progress: 5/8 tasks done (62%)
 
-## Phase 1 — Measure and scope [active] — 0/3 done
+## Phase 1 — Measure and scope [active] — 2/3 done
 
 - [ ] 1.1 A `changes` job classifies each push or PR by path (record, ts, rust, ffi, workflow). Every other job gates on it; workflow edits and PRs and tags run everything. (active)
-- [ ] 1.2 Drop the unused release build and artifact upload from the push core job; release.yml builds its own cores (r4-fixes M16) (active)
-- [ ] 1.3 Fold the js_log crosscheck into the one cargo test invocation, so its 30–169s second pass goes (active)
+- [x] 1.2 Drop the unused release build and artifact upload from the push core job; release.yml builds its own cores (r4-fixes M16)
+- [x] 1.3 Fold the js_log crosscheck into the one cargo test invocation, so its 30–169s second pass goes
 
-## Phase 2 — Parallelise [pending] — 0/4 done
+## Phase 2 — Parallelise [pending] — 3/4 done
 
 - [ ] 2.1 Split the vitest unit suite across parallel runners per Node version (vitest --shard) (active)
-- [ ] 2.2 Shard parity:real (213–298s) and real-logs across runners by record (active)
-- [ ] 2.3 Intel Mac: cross-build x86_64-apple-darwin on the arm runner and run its tests under Rosetta (active)
-- [ ] 2.4 apple job: test the host slice on push; the full 4-slice xcframework only on PRs and tags (active)
+- [x] 2.2 Shard parity:real (213–298s) and real-logs across runners by record
+- [x] 2.3 Intel Mac: cross-build x86_64-apple-darwin on the arm runner and run its tests under Rosetta
+- [x] 2.4 apple job: test the host slice on push; the full 4-slice xcframework only on PRs and tags
 
 ## Phase 3 — Prove [pending] — 0/1 done
 
 - [ ] 3.1 Measure the wall clock per change class (record-only, TypeScript, Rust, workflow) on warm caches; every class is under 120s or the gap is logged with its cause
 
 Active phase: Phase 1 — Measure and scope
-Next action: Push ci-speed's commit (the operator says push). Then measure the run per job (task 3.1). Then make record-only, TypeScript and Rust pushes and check each class's wall clock against 120s, fixing whichever job is over.
+Next action: Rebalance the vitest shards (task 2.1). The largest shard is 163s against 58s for the smallest: raise the count to 6–8 per runtime or split the heaviest files. Then push one record-only, one TypeScript and one Rust commit, and time each against 120s on warm caches (task 3.1).
