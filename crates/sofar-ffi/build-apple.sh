@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build SofarCore, the Swift package over sofar's Rust fold (rust-core 5.2, D53).
 #
-#   crates/sofar-ffi/build-apple.sh [--test] [--dist <url-base>]
+#   crates/sofar-ffi/build-apple.sh [--test] [--host | --dist <url-base>]
 #
 # Output: target/apple/SofarCore/ — Package.swift, Sources/SofarCore (UniFFI's
 # generated Swift), sofar_ffiFFI.xcframework (macOS arm64+x86_64, iOS device,
@@ -16,6 +16,9 @@
 #   sofar_ffi.swift               the generated glue; it must match that binary
 #   Package.swift                 binaryTarget(url: <url-base>/<zip>, checksum:)
 # --test then runs against the stripped libraries, the ones that ship.
+#
+# --host builds the macOS arm64 slice alone: what ci.yml's push leg needs to
+# run the Swift tests (ci-speed 2.4). Pull requests and release tags build all four.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -28,15 +31,19 @@ LIB=libsofar_ffi.a
 ZIP=sofar_ffiFFI.xcframework.zip
 TARGETS=(aarch64-apple-darwin x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim)
 
-TEST=0 URL_BASE=""
+TEST=0 URL_BASE="" HOST=0
 while (($#)); do
   case "$1" in
     --test) TEST=1 ;;
+    --host) HOST=1 ;;
     --dist) URL_BASE="${2:?--dist needs the release download URL base}"; shift ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
   shift
 done
+
+if ((HOST)) && [[ -n "$URL_BASE" ]]; then echo "--host builds no release: drop --dist" >&2; exit 2; fi
+((HOST)) && TARGETS=(aarch64-apple-darwin)
 
 cd "$ROOT"
 export MACOSX_DEPLOYMENT_TARGET=26.0 IPHONEOS_DEPLOYMENT_TARGET=26.0
@@ -69,12 +76,16 @@ cp "$OUT/gen/sofar_ffiFFI.h" "$HEADERS/"
 cp "$OUT/gen/sofar_ffiFFI.modulemap" "$HEADERS/module.modulemap"
 
 mkdir -p "$OUT/macos"
-lipo -create "$OUT/libs/aarch64-apple-darwin.a" "$OUT/libs/x86_64-apple-darwin.a" -output "$OUT/macos/$LIB"
-xcodebuild -create-xcframework \
-  -library "$OUT/macos/$LIB" -headers "$HEADERS" \
-  -library "$OUT/libs/aarch64-apple-ios.a" -headers "$HEADERS" \
-  -library "$OUT/libs/aarch64-apple-ios-sim.a" -headers "$HEADERS" \
-  -output "$PKG/sofar_ffiFFI.xcframework" >/dev/null
+if ((HOST)); then
+  cp "$OUT/libs/aarch64-apple-darwin.a" "$OUT/macos/$LIB"
+  slices=(-library "$OUT/macos/$LIB" -headers "$HEADERS")
+else
+  lipo -create "$OUT/libs/aarch64-apple-darwin.a" "$OUT/libs/x86_64-apple-darwin.a" -output "$OUT/macos/$LIB"
+  slices=(-library "$OUT/macos/$LIB" -headers "$HEADERS"
+    -library "$OUT/libs/aarch64-apple-ios.a" -headers "$HEADERS"
+    -library "$OUT/libs/aarch64-apple-ios-sim.a" -headers "$HEADERS")
+fi
+xcodebuild -create-xcframework "${slices[@]}" -output "$PKG/sofar_ffiFFI.xcframework" >/dev/null
 
 cp "$OUT/gen/sofar_ffi.swift" "$PKG/Sources/SofarCore/"
 cp "$CRATE/apple/Package.swift" "$PKG/"

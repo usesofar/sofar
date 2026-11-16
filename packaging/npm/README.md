@@ -74,8 +74,11 @@ publishes nothing.
 ### By hand (the fallback)
 
 1. Bump `packages/engine/package.json` and run `node packaging/npm/emit.mjs`.
-2. Download the five `sofar-core-<target>` artifacts from the `core` CI job
-   into one directory (`gh run download -p 'sofar-core-*' -D DIR`), rename each
+2. Download the five `sofar-core-<target>` artifacts of the bumped commit into
+   one directory (`gh run download <run> -p 'sofar-core-*' -D DIR`): the tag's
+   release.yml run uploads them from its `core` job, and
+   `gh workflow run ci.yml --ref <branch> -f baseline=<prev>` builds them when
+   it has none (a push's CI run uploads none, ci-speed 1.2). Rename each
    `DIR/sofar-core-<target>` to `DIR/<target>`, then
    `node packaging/npm/emit.mjs --binaries DIR`. Staging also writes
    `core-digests.json` (each binary's sha256 and size, keyed by this version;

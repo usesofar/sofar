@@ -53,6 +53,14 @@ split-debuginfo = "packed"
 [profile.test]
 opt-level = 1
 
+# CI's conformance and record checks (ci-speed 1.2): the release profile's
+# code without fat LTO and one codegen unit, which cost 3.5× the build time
+# (46 s → 13 s here). Releases still ship `release`.
+[profile.ci]
+inherits = "release"
+lto = false
+codegen-units = 16
+
 # sofar-ffi's Apple libraries (D53): an app process outlives a panic, so it
 # unwinds (UniFFI turns a panic into a Swift error) instead of aborting, and
 # the app's own link step strips, so symbols stay for its crash reports. The

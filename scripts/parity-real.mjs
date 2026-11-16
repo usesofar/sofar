@@ -55,6 +55,10 @@
  *   --exclude <a,b>    never copy or read these slugs (always: chain-m-author)
  *   --strict           FLAKY fails the gate too
  *   --jobs <n>         records in parallel (default: cores / 2)
+ *   --shard <i>/<n>    only shard i (1-based) of n (ci-speed 2.2): records are
+ *                      dealt by log size, largest first, to the lightest shard,
+ *                      so every shard computes the same split and n shards
+ *                      together check every record exactly once
  *   --private          name records by hash and print no bytes of a difference
  *   --json <file>      write the full result as JSON
  *   --keep             leave the scratch directory on disk
@@ -81,6 +85,7 @@ import {
   realpathSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { availableParallelism, homedir, tmpdir } from 'node:os'
@@ -105,7 +110,7 @@ const ATTEMPTS = 3
 // ---------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const o = { full: false, ts: null, core: null, roots: [], only: null, exclude: new Set(HELD_OUT), jobs: null, private: false, strict: false, json: null, keep: false }
+  const o = { full: false, ts: null, core: null, roots: [], only: null, exclude: new Set(HELD_OUT), jobs: null, shard: null, private: false, strict: false, json: null, keep: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const val = () => {
@@ -121,6 +126,11 @@ function parseArgs(argv) {
     else if (a === '--only') o.only = new Set(val().split(',').filter(Boolean))
     else if (a === '--exclude') for (const x of val().split(',').filter(Boolean)) o.exclude.add(x)
     else if (a === '--jobs') o.jobs = Number(val())
+    else if (a === '--shard') {
+      const m = /^([1-9][0-9]*)\/([1-9][0-9]*)$/.exec(val())
+      if (m === null || Number(m[1]) > Number(m[2])) usage('--shard wants <i>/<n> with 1 <= i <= n')
+      o.shard = { i: Number(m[1]), n: Number(m[2]) }
+    }
     else if (a === '--strict') o.strict = true
     else if (a === '--private') o.private = true
     else if (a === '--json') o.json = resolve(val())
@@ -627,6 +637,28 @@ function describeDiff(d) {
   return d.tsContext === undefined ? head : `${head}\n      ts:   ${d.tsContext}\n      core: ${d.coreContext}`
 }
 
+/**
+ * Shard i of n (1-based): deal the records, largest log first, each to the
+ * shard with the least work so far (ties to the lowest shard), weighing a
+ * record as its log's bytes plus a fixed 1 MB for the per-record spawns and
+ * copies every record pays. A pure function of the work list, so every shard
+ * agrees on the split and the n shards cover it exactly once.
+ */
+function shardOf(work, { i, n }) {
+  const FIXED = 1 << 20
+  const sized = work.map((w, k) => ({ w, k, bytes: statSync(join(w.snapshot, 'initiatives', w.slug, 'events.jsonl')).size + FIXED }))
+  sized.sort((a, b) => b.bytes - a.bytes || a.k - b.k)
+  const load = new Array(n).fill(0)
+  const mine = []
+  for (const s of sized) {
+    let best = 0
+    for (let j = 1; j < n; j++) if (load[j] < load[best]) best = j
+    load[best] += s.bytes
+    if (best === i - 1) mine.push(s)
+  }
+  return mine.sort((a, b) => a.k - b.k).map((s) => s.w)
+}
+
 async function main() {
   const o = parseArgs(process.argv.slice(2))
   const canaryBefore = canaryMode() === 'off' ? null : canarySnapshot()
@@ -652,7 +684,8 @@ async function main() {
       work.push({ r, snapshot, slug })
     }
   })
-  const records = await pool(work, o.jobs, async (w) => {
+  const mine = o.shard === null ? work : shardOf(work, o.shard)
+  const records = await pool(mine, o.jobs, async (w) => {
     const res = await checkRecord(o, scratch, w.r, w.snapshot, w.slug)
     process.stdout.write(`${res.verdict.padEnd(5)} ${res.name}${res.verdict === 'PASS' ? '' : `\n${res.diffs.map((d) => `    ${describeDiff(d)}`).join('\n')}`}\n`)
     return res
