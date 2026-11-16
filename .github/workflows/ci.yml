@@ -118,6 +118,21 @@ jobs:
             target/${{ matrix.target }}/release/sofar-core.exe
           if-no-files-found: error
 
+  # SofarCore (rust-core 5.2, D53): the xcframework every Apple slice builds
+  # into, and its Swift tests folding this checkout's own record through it.
+  # Xcode 26 (swift-tools 6.2, the iOS 26 SDK) is macos-26's.
+  apple:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
+          targets: aarch64-apple-darwin, x86_64-apple-darwin, aarch64-apple-ios, aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+      - run: crates/sofar-ffi/build-apple.sh --test
+
   # The mixed install (rust-core 3.1, D31): the shipped boot stub dispatching
   # to the core it just built, every conformance case, no tag skipped; plus
   # the schema and packaging generators kept in lockstep with their sources.

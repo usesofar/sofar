@@ -28,4 +28,4 @@ Progress: 26 done, 1 dropped, 2 remaining
 - [x] 5.4 The TypeScript CLI wraps the core with foldLines keeping its signature (engine-core 3.3): confirm that 3.1's dispatch with TypeScript fallback covers it, then close
 - [x] 5.5 Linear-time guard matcher: replace guards.rs's hashed backtracker with a bitset NFA (found by 5.2)
 
-Next action: Ship SofarCore to desktop-v2: choose distribution (release-asset xcframework zip + binaryTarget url/checksum, vs a path dependency), then write desktop-v2's CoreFFI RecordSource and add a macOS CI leg for build-apple.sh --test
+Next action: After the push, confirm ci.yml's new `apple` job is green on macos-26. The next v* tag then publishes SofarCore on its GitHub release. desktop-v2 then vendors that release's Package.swift and sofar_ffi.swift and writes its CoreFFI RecordSource (desktop-v2's record).

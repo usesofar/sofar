@@ -55,7 +55,8 @@ opt-level = 1
 
 # sofar-ffi's Apple libraries (D53): an app process outlives a panic, so it
 # unwinds (UniFFI turns a panic into a Swift error) instead of aborting, and
-# the app's own link step strips, so symbols stay for its crash reports.
+# the app's own link step strips, so symbols stay for its crash reports. The
+# released xcframework drops only debug info (build-apple.sh --dist, strip -S).
 [profile.ffi]
 inherits = "release"
 panic = "unwind"

@@ -2,7 +2,8 @@
 # them, and STAGES all six packages on npm through trusted publishing (OIDC).
 # Nothing is installable until the operator approves each staged package with
 # 2FA (`node packaging/npm/stage-approve.mjs <version>`), so the release stays
-# the operator's hand and no npm token lives in this repository.
+# the operator's hand and no npm token lives in this repository. The tag's
+# GitHub release, with SofarCore for the Apple apps, is the `apple` job's.
 #
 # One-time setup, by the operator: `node packaging/npm/trust.mjs` registers this
 # workflow, in the `npm` environment, as each package's stage-only trusted
@@ -102,6 +103,52 @@ jobs:
             target/${{ matrix.target }}/release/sofar-core
             target/${{ matrix.target }}/release/sofar-core.exe
           if-no-files-found: error
+
+  # SofarCore for the Apple apps (rust-core 5.2, D55): the stripped
+  # xcframework, its generated Swift and a Package.swift pinning the zip by
+  # URL and checksum, attached to this tag's GitHub release, which this job
+  # creates. Independent of npm: an Apple failure stages nothing less, and the
+  # assets are public the moment the job ends, approval or not. Never replaced
+  # on a rerun: a rebuild's checksum differs from the one apps already pin.
+  apple:
+    needs: verify
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.verify.outputs.version }}
+      DIST_TAG: ${{ needs.verify.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
+          targets: aarch64-apple-darwin, x86_64-apple-darwin, aarch64-apple-ios, aarch64-apple-ios-sim
+      - run: crates/sofar-ffi/build-apple.sh --test --dist "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG"
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: target/apple/dist/sofar_ffiFFI.xcframework.zip
+      # `next` is a pre-release; a patch to an older line never takes `latest`.
+      - name: Attach to the GitHub release
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists; its assets stay as apps pinned them" >&2
+            exit 1
+          fi
+          flags=()
+          case "$DIST_TAG" in
+            next) flags+=(--prerelease --latest=false) ;;
+            latest) ;;
+            *) flags+=(--latest=false) ;;
+          esac
+          gh release create "$TAG" --verify-tag --title "sofar $VERSION" "${flags[@]}" \
+            --notes "SofarCore $VERSION: sofar's Rust fold as a Swift package (macOS and iOS 26). Vendor \`Package.swift\` with \`sofar_ffi.swift\` under \`Sources/SofarCore/\`; the manifest pins the xcframework zip by URL and checksum." \
+            target/apple/dist/sofar_ffiFFI.xcframework.zip target/apple/dist/sofar_ffi.swift target/apple/dist/Package.swift
 
   # Stage the five platform packages, then sofar.sh, which pins them. Trusted
   # publishing needs npm >= 11.5.1 and staging >= 11.15.0; provenance is
