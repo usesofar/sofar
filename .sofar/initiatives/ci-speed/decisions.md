@@ -7,3 +7,4 @@ One line per decision, in log order. Its full text — chose, over, because, the
 - D1·7y8n 2026-11-16 — rule: A push runs only the CI jobs its paths touch; pull requests run everything.
 - D2·0ktd 2026-11-16 — rule: Every Rust push tests all five platforms.
 - D3·57m5 2026-11-16 — chose CI's conformance, record and parity jobs fold through a `ci` cargo profile (rel…
+- D4·9hqv 2026-11-17 — rule: Rust pushes build incrementally from cache; anything that ships builds clean.

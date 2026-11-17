@@ -115,9 +115,18 @@ jobs:
   # cores at the tag (release.yml, r4-fixes E2, M16), so only a dispatch
   # builds and uploads them (ci-speed 1.2). x86_64-apple-darwin builds on the arm runner and its
   # tests run under Rosetta (ci-speed 2.3): the Intel runner took 7–17 min.
+  #
+  # A push builds incrementally on the last green push's target/ (ci-speed 3.2):
+  # compiling sofar-core took 80–130 s a runner and rust-cache never keeps
+  # workspace crates, so every push paid it in full; rustc's incremental cache
+  # recompiles only what changed (20 s → 2 s here). A pull request, a dispatch
+  # and release.yml build from clean, so a stale incremental artifact cannot
+  # pass anything that ships. The cache saves only from a job that passed.
   core:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
+    env:
+      CARGO_INCREMENTAL: ${{ github.event_name == 'push' && '1' || '0' }}
     strategy:
       fail-fast: false
       matrix:
@@ -136,7 +145,18 @@ jobs:
           toolchain: 1.98.1
           components: clippy, rustfmt
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
+      - if: github.event_name == 'push'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: inc-${{ matrix.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: inc-${{ matrix.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
+      - if: github.event_name != 'push'
+        uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
       - if: matrix.target == 'x86_64-apple-darwin'
@@ -173,20 +193,34 @@ jobs:
   # this checkout's own record through it. A push builds the macOS arm64 slice
   # without LTO (ci-speed 2.4); a pull request builds all four as released.
   # Xcode 26 (swift-tools 6.2, the iOS 26 SDK) is macos-26's.
+  # A push builds incrementally, as the core job does (ci-speed 3.2).
   apple:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: macos-26
     timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: ${{ github.event_name == 'push' && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.1
           targets: aarch64-apple-darwin, x86_64-apple-darwin, aarch64-apple-ios, aarch64-apple-ios-sim
-      - uses: Swatinem/rust-cache@v2
+      - if: github.event_name == 'push'
+        uses: actions/cache@v4
         with:
-          key: ${{ github.event_name == 'push' && 'host' || 'all' }}
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: inc-apple-host-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: inc-apple-host-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
+      - if: github.event_name != 'push'
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: all
       - if: github.event_name == 'push'
         env:
           CARGO_PROFILE_FFI_LTO: 'false'
