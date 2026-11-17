@@ -26,4 +26,4 @@ Progress: 7/8 tasks done (87%)
 - [ ] 3.1 Measure the wall clock per change class (record-only, TypeScript, Rust, workflow) on warm caches; every class is under 120s or the gap is logged with its cause (active)
 
 Active phase: Phase 1 — Measure and scope
-Next action: Push, then confirm the apple job drops by about 4 minutes. Then ask the operator how to close the Rust gap: (a) cache the workspace target dir with CARGO_INCREMENTAL=1, keyed per target, so a Rust push recompiles only the code units it changed; (b) accept a Rust push at about 2.5–4 min, with record and TypeScript pushes under 2; (c) larger paid runners.
+Next action: Ask the operator to choose how to close the Rust gap: (a) cache the workspace target dir incrementally (recommended), (b) accept 2.5–4 min Rust pushes, or (c) paid larger runners. Then do it and time a Rust-only push. Also suggest requiring status checks on main, which currently has no branch protection, so CI only advises.
