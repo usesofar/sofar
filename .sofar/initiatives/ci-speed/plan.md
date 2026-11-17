@@ -2,29 +2,21 @@
 
 # Plan: ci-speed
 
-Goal: Every push to sofar's CI finishes in under 2 minutes of wall clock, measured from push to the last job's end on a warm cache. CI runs only what a change touches. Every PR into main and every release tag run everything. All 5 Rust platforms stay on Rust pushes, made faster.
+Goal: Every push to sofar's CI runs every check from a clean build and finishes in about 4 minutes of wall clock, with no money spent: standard runners only, at most 20 concurrent jobs (the free org's limit, 5 macOS). What cannot fit (the four Apple slices under fat LTO, the release-profile cores) runs nightly on main, on PRs and at release tags. All 5 Rust platforms are tested on every push.
 
-Brief: the operator's words, 652 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
+Brief: the operator's words, 965 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 7/9 tasks done (77%)
+Progress: 8 done, 1 dropped, 1 remaining
 
-## Phase 1 — Measure and scope [active] — 3/3 done
+## Phase 1 — Measure and scope [done] — 3/3 done — its tasks in phases/P1.md
 
-- [x] 1.1 A `changes` job classifies each push or PR by path (record, ts, rust, ffi, workflow). Every other job gates on it; workflow edits and PRs and tags run everything.
-- [x] 1.2 Drop the unused release build and artifact upload from the push core job; release.yml builds its own cores (r4-fixes M16)
-- [x] 1.3 Fold the js_log crosscheck into the one cargo test invocation, so its 30–169s second pass goes
+## Phase 2 — Parallelise [done] — 4/4 done — its tasks in phases/P2.md
 
-## Phase 2 — Parallelise [pending] — 4/4 done
+## Phase 3 — Prove [active] — 1/3 (1 dropped) done
 
-- [x] 2.1 Split the vitest unit suite across parallel runners per Node version (vitest --shard)
-- [x] 2.2 Shard parity:real (213–298s) and real-logs across runners by record
-- [x] 2.3 Intel Mac: cross-build x86_64-apple-darwin on the arm runner and run its tests under Rosetta
-- [x] 2.4 apple job: test the host slice on push; the full 4-slice xcframework only on PRs and tags
+- [ ] 3.1 Measure the wall clock of a full push run on warm rust-cache/npm caches; under ~4 minutes, and no job waits for a runner, or the gap is logged with its cause (active)
+- [-] 3.2 Incremental Rust builds on push: cache target/ with CARGO_INCREMENTAL=1; clean builds on PRs and tags (dropped)
+- [x] 3.3 Everything on every push in ≤20 jobs: drop path gating and the incremental cache, merge release-guard/records into conformance and render into core, vitest 4 parts a runtime, parity-real 4 shards; nightly full run
 
-## Phase 3 — Prove [pending] — 0/2 done
-
-- [ ] 3.1 Measure the wall clock per change class (record-only, TypeScript, Rust, workflow) on warm caches; every class is under 120s or the gap is logged with its cause (active)
-- [ ] 3.2 Incremental Rust builds on push: cache target/ with CARGO_INCREMENTAL=1; clean builds on PRs and tags (active)
-
-Active phase: Phase 1 — Measure and scope
-Next action: Check that run's cache saves. Then push a Rust-only change and confirm the core and apple jobs are under 120s, including the cache restore and save time. If saving 300+ MB per job eats the gain, save only when target/ changed, or only from main.
+Active phase: Phase 3 — Prove
+Next action: Once the operator says push: push, then time the run (wall clock under ~4 min, no job queued). Also confirm the first nightly run passes, then unbind main from ci-speed in .sofar/bindings.json.

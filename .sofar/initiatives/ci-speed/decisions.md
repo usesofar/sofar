@@ -4,7 +4,9 @@
 
 One line per decision, in log order. Its full text — chose, over, because, the operator's words — is in decisions/D<n>.md, or `sofar show D<n>`.
 
-- D1·7y8n 2026-11-16 — rule: A push runs only the CI jobs its paths touch; pull requests run everything.
+- D1·7y8n — superseded by D5·rrqb
 - D2·0ktd 2026-11-16 — rule: Every Rust push tests all five platforms.
 - D3·57m5 2026-11-16 — chose CI's conformance, record and parity jobs fold through a `ci` cargo profile (rel…
-- D4·9hqv 2026-11-17 — rule: Rust pushes build incrementally from cache; anything that ships builds clean.
+- D4·9hqv — superseded by D6·b1wb
+- D5·rrqb 2026-11-17 — (supersedes D1·7y8n) rule: Make the CI efficient and working well without spending any extra money: every push runs every check, in about four minutes.
+- D6·b1wb 2026-11-17 — (supersedes D4·9hqv) rule: Every push builds from clean; no incremental target/ cache.

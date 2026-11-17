@@ -18,7 +18,8 @@
 # --test then runs against the stripped libraries, the ones that ship.
 #
 # --host builds the macOS arm64 slice alone: what ci.yml's push leg needs to
-# run the Swift tests (ci-speed 2.4). Pull requests and release tags build all four.
+# run the Swift tests (ci-speed 2.4). The nightly run, pull requests and release
+# tags build all four.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

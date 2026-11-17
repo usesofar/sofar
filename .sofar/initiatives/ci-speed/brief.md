@@ -11,3 +11,11 @@ Operator rulings (2026-11-16): "Run what a change touches (Recommended)" — rec
 --- Operator, 2026-11-16 ---
 
 Are our CI jobs taking more time? Because we have to optimize it we have to make it under 2 minutes. for the whole sofar.
+
+--- Operator, 2026-11-17 ---
+
+so the free repo have no limit in CI actions right ? in that case we can accept that up to 4 mins run time ? then there wont be any tradeofss ?
+
+--- Operator, 2026-11-17 ---
+
+yeah go with the recommendations and naje the CI efficient and works well without spending any extra money

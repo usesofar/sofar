@@ -3,10 +3,13 @@
 # manual job below, so no push pays an npm install of the pinned baseline,
 # and the SPEC keeps that tripwire as the first RC checklist step regardless.
 #
-# Under two minutes a push (ci-speed; operator rulings 2026-11-16): a push runs
-# only what its paths touch (.github/ci-changes.sh), and pull requests run
-# everything. Every push runs the conformance and record checks; slow steps are
-# split across parallel runners, which cost nothing on a public repository.
+# Every push runs every check from a clean build, in about four minutes
+# (ci-speed D5, operator ruling 2026-11-17: efficient, and no money spent).
+# Standard runners cost nothing on a public repository, but a free
+# organisation runs at most 20 jobs at once (5 on macOS), so a push starts 19
+# and none queues. What does not fit four minutes — SofarCore's four slices
+# under fat LTO and the release-profile cores — runs nightly, on pull
+# requests, and at every release tag (release.yml).
 name: ci
 
 on:
@@ -17,6 +20,9 @@ on:
     # until the merge.
     branches: [main, rust-core]
   pull_request:
+  schedule:
+    # Nightly on main (ci-speed 3.3): the full Apple build and the release cores.
+    - cron: '17 3 * * *'
   workflow_dispatch:
     inputs:
       baseline:
@@ -25,46 +31,27 @@ on:
         default: '0.34.1'
 
 # Many sessions push record-only commits to main; a newer push supersedes the
-# run of an older one instead of queueing behind it.
+# run of an older one instead of queueing behind it. Keyed by event too, so a
+# push never cancels the nightly run.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
-  # What this push touched (ci-speed 1.1). A record-only push sets none of
-  # the flags; a pull request, a dispatch, an unknown base or a .github/ edit
-  # sets all of them.
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      all: ${{ steps.c.outputs.all }}
-      ts: ${{ steps.c.outputs.ts }}
-      rust: ${{ steps.c.outputs.rust }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: c
-        env:
-          EVENT: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
-          SHA: ${{ github.sha }}
-        run: .github/ci-changes.sh
-
   # The engine suite on the supported floor AND the current runtime (rust-core
   # D37): package.json declares node >=18, and the conformance goldens are
   # runtime-neutral (the harness masks V8's JSON.parse position suffix), so
-  # both must stay green. Eight parts a runtime (ci-speed 2.1): vitest deals
-  # files to shards by path hash, not duration, and the first run dealt the two
-  # slowest files (links-tier 92 s, conformance 82 s on a runner) to one shard
-  # for 150 s. Each gets a runner of its own; the rest split six ways.
+  # both must stay green. Four parts a runtime (ci-speed 2.1): vitest deals
+  # files to shards by path hash, not duration, so the two slowest files
+  # (links-tier, conformance: 55–115 s each on a runner) share a part of their
+  # own, and the rest split three ways.
   test:
-    needs: changes
-    if: needs.changes.outputs.ts == 'true'
     name: test (${{ matrix.node }}, ${{ matrix.part }})
     strategy:
       fail-fast: false
       matrix:
         node: [20, 24]
-        part: [links-tier, conformance, 1/6, 2/6, 3/6, 4/6, 5/6, 6/6]
+        part: [heavy, 1/3, 2/3, 3/3]
     runs-on: ubuntu-latest
     # The suite runs in minutes. A sync loop no vitest timeout can interrupt
     # (the /proc mkdir hang, 2026-09-21) otherwise holds the job to GitHub's 6 h cap.
@@ -86,47 +73,22 @@ jobs:
           PART: ${{ matrix.part }}
           HEAVY: packages/engine/test/links-tier.test.ts,packages/engine/test/conformance/conformance.test.ts
         run: |
-          case "$PART" in
-            links-tier) npx vitest run --project unit packages/engine/test/links-tier.test.ts ;;
-            conformance) npx vitest run --project unit packages/engine/test/conformance/conformance.test.ts ;;
-            *) SOFAR_TEST_EXCLUDE="$HEAVY" npx vitest run --project unit --shard="$PART" ;;
-          esac
+          if [ "$PART" = heavy ]; then
+            npx vitest run --project unit ${HEAVY//,/ }
+          else
+            SOFAR_TEST_EXCLUDE="$HEAVY" npx vitest run --project unit --shard="$PART"
+          fi
       - run: npm run typecheck
-        if: matrix.part == '1/6'
-
-  # Release invariants (r4-fixes 0.1, U2): sofar.sh's version is >= the
-  # newest v* tag, and every optionalDependency is @sofar.sh/core-*. v0.34.0
-  # and v0.34.1 were cut on branches main never merged, which left main behind
-  # both with the unscoped cores. Full history so `git tag` sees every tag; the
-  # script is node builtins only, so no install.
-  release-guard:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - run: node packaging/npm/release-guard.mjs
+        if: matrix.part == '1/3'
 
   # The native core (rust-core 3.2): every platform sofar.sh ships a core for,
-  # tested where the runner can run it. A release builds and attests its own
-  # cores at the tag (release.yml, r4-fixes E2, M16), so only a dispatch
-  # builds and uploads them (ci-speed 1.2). x86_64-apple-darwin builds on the arm runner and its
-  # tests run under Rosetta (ci-speed 2.3): the Intel runner took 7–17 min.
-  #
-  # A push builds incrementally on the last green push's target/ (ci-speed 3.2):
-  # compiling sofar-core took 80–130 s a runner and rust-cache never keeps
-  # workspace crates, so every push paid it in full; rustc's incremental cache
-  # recompiles only what changed (20 s → 2 s here). A pull request, a dispatch
-  # and release.yml build from clean, so a stale incremental artifact cannot
-  # pass anything that ships. The cache saves only from a job that passed.
+  # tested where the runner can run it. x86_64-apple-darwin builds on the arm
+  # runner and its tests run under Rosetta (ci-speed 2.3): the Intel runner
+  # took 7–17 min. A release builds and attests its own cores at the tag
+  # (release.yml, r4-fixes E2, M16); the nightly run proves the release profile
+  # still builds, and a dispatch uploads it for the by-hand fallback
+  # (packaging/npm/README.md).
   core:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    env:
-      CARGO_INCREMENTAL: ${{ github.event_name == 'push' && '1' || '0' }}
     strategy:
       fail-fast: false
       matrix:
@@ -137,6 +99,7 @@ jobs:
           - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
           - { os: windows-2022, target: x86_64-pc-windows-msvc }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -145,27 +108,21 @@ jobs:
           toolchain: 1.98.1
           components: clippy, rustfmt
           targets: ${{ matrix.target }}
-      - if: github.event_name == 'push'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: inc-${{ matrix.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
-          restore-keys: inc-${{ matrix.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
-      - if: github.event_name != 'push'
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
       - if: matrix.target == 'x86_64-apple-darwin'
         run: arch -x86_64 /usr/bin/true 2>/dev/null || sudo softwareupdate --install-rosetta --agree-to-license
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --target ${{ matrix.target }} -- -D warnings
+      # The schema generator in lockstep with packages/schema/src: platform-
+      # independent, so one row runs it.
+      - if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo xtask schema --check
       # The owned logarithm (rust-core D33): js_log against the TypeScript
       # fdlibmLog, bit for bit. Same packages as the suite, so the second
       # cargo call reuses its build instead of compiling again (ci-speed 1.3).
+      # The suite includes render_parity: the Rust render of every real log.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -176,9 +133,7 @@ jobs:
         run: |
           cargo test -p sofar-core -p sofar-ffi --target ${{ matrix.target }}
           SOFAR_JS_LOG_PAIRS="$RUNNER_TEMP/js-log-pairs.txt" cargo test -p sofar-core -p sofar-ffi --target ${{ matrix.target }} --test js_log_crosscheck -- --ignored
-      # The by-hand release fallback's binaries (packaging/npm/README.md), on
-      # dispatch only: a push or a pull request never uses them.
-      - if: github.event_name == 'workflow_dispatch'
+      - if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: cargo build --release -p sofar-core --target ${{ matrix.target }}
       - if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
@@ -191,36 +146,21 @@ jobs:
 
   # SofarCore (rust-core 5.2, D53): the xcframework and its Swift tests folding
   # this checkout's own record through it. A push builds the macOS arm64 slice
-  # without LTO (ci-speed 2.4); a pull request builds all four as released.
-  # Xcode 26 (swift-tools 6.2, the iOS 26 SDK) is macos-26's.
-  # A push builds incrementally, as the core job does (ci-speed 3.2).
+  # without LTO (ci-speed 2.4); the nightly run, a pull request and a dispatch
+  # build all four as released. Xcode 26 (swift-tools 6.2, the iOS 26 SDK) is
+  # macos-26's.
   apple:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
     runs-on: macos-26
     timeout-minutes: 45
-    env:
-      CARGO_INCREMENTAL: ${{ github.event_name == 'push' && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.1
           targets: aarch64-apple-darwin, x86_64-apple-darwin, aarch64-apple-ios, aarch64-apple-ios-sim
-      - if: github.event_name == 'push'
-        uses: actions/cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: inc-apple-host-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
-          restore-keys: inc-apple-host-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
-      - if: github.event_name != 'push'
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: all
+          key: ${{ github.event_name == 'push' && 'host' || 'all' }}
       - if: github.event_name == 'push'
         env:
           CARGO_PROFILE_FFI_LTO: 'false'
@@ -229,18 +169,29 @@ jobs:
       - if: github.event_name != 'push'
         run: crates/sofar-ffi/build-apple.sh --test
 
-  # The mixed install (rust-core 3.1, D31): the shipped boot stub dispatching
-  # to the core it built, every conformance case, no tag skipped; plus the
-  # packaging generator kept in lockstep with its sources. Every push runs it,
-  # and its core is the `ci` profile's: release without LTO (ci-speed 1.2).
+  # The mixed install and the record (one runner, ci-speed 3.4):
+  # - release invariants (r4-fixes 0.1, U2): sofar.sh's version is >= the
+  #   newest v* tag, and every optionalDependency is @sofar.sh/core-*;
+  # - the packaging generator in lockstep with its sources;
+  # - (rust-core 3.1, D31) the shipped boot stub dispatching to the core it
+  #   built, every conformance case, no tag skipped;
+  # - (rust-core 5.1) the core's fold deep-equal to TypeScript's on every real
+  #   events.jsonl of this repository, every branch tip included — so full
+  #   history, every branch as origin/*. sofar-cloud's logs are private, so
+  #   they are proved in its own CI.
+  # Its core is the `ci` profile's: release without fat LTO (ci-speed 1.2).
   conformance:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+      - run: node packaging/npm/release-guard.mjs
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.1
@@ -252,58 +203,20 @@ jobs:
       - run: node packaging/npm/emit.mjs --check
       - run: cargo build --profile ci -p sofar-core
       - run: SOFAR_CORE=$PWD/target/ci/sofar-core npx vitest run --project unit packages/engine/test/conformance/conformance.test.ts
-      - run: SOFAR_CONFORMANCE_BIN=$PWD/target/ci/sofar-core npx vitest run --project unit packages/engine/test/conformance/fold-parity
-
-  # The schema generator in lockstep with its sources, and the Rust render of
-  # every real log (render_parity): a record-only push is gated by this, the
-  # records job and parity-real alone.
-  render:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo xtask schema --check
-      - run: cargo test -p sofar-core --test render_parity
-
-  # rust-core 5.1: the core's fold deep-equal to TypeScript's on every real
-  # events.jsonl of this repository, every branch tip included — so every
-  # branch as origin/*. sofar-cloud's logs are private, so they are proved in
-  # its own CI.
-  records:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: conformance
-      - run: npm ci
-      - run: npm run build
-      - run: cargo build --profile ci -p sofar-core
-      - run: SOFAR_CONFORMANCE_BIN=$PWD/target/ci/sofar-core npx vitest run --project unit packages/engine/test/conformance/real-logs
+      - run: SOFAR_CONFORMANCE_BIN=$PWD/target/ci/sofar-core npx vitest run --project unit packages/engine/test/conformance/fold-parity packages/engine/test/conformance/real-logs
 
   # r3-fixes 4.0: every record of this repository through BOTH engines — fold,
   # every hook's stdout/stderr/exit, status, statusline and the bytes written —
-  # compared byte for byte (scripts/parity-real.mjs), dealt across eight
+  # compared byte for byte (scripts/parity-real.mjs), dealt across four
   # runners by log size (ci-speed 2.2).
   parity-real:
-    name: parity-real (${{ matrix.shard }}/8)
+    name: parity-real (${{ matrix.shard }}/4)
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -320,7 +233,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: cargo build --profile ci -p sofar-core
-      - run: npm run parity:real -- --core target/ci/sofar-core --shard ${{ matrix.shard }}/8 --jobs 4
+      - run: npm run parity:real -- --core target/ci/sofar-core --shard ${{ matrix.shard }}/4 --jobs 4
 
   # Loose read-path tripwire (r1-fixes D18): a gross regression cannot reach
   # an RC unnoticed. Wide budget on purpose — hosted noise cannot hide a 2×
