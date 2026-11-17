@@ -6,17 +6,12 @@ Goal: Every push to sofar's CI runs every check from a clean build and finishes 
 
 Brief: the operator's words, 965 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 8 done, 1 dropped, 1 remaining
+Progress: 9 done, 1 dropped, 0 remaining
 
 ## Phase 1 — Measure and scope [done] — 3/3 done — its tasks in phases/P1.md
 
 ## Phase 2 — Parallelise [done] — 4/4 done — its tasks in phases/P2.md
 
-## Phase 3 — Prove [active] — 1/3 (1 dropped) done
+## Phase 3 — Prove [done] — 2/3 (1 dropped) done — its tasks in phases/P3.md
 
-- [ ] 3.1 Measure the wall clock of a full push run on warm rust-cache/npm caches; under ~4 minutes, and no job waits for a runner, or the gap is logged with its cause (active)
-- [-] 3.2 Incremental Rust builds on push: cache target/ with CARGO_INCREMENTAL=1; clean builds on PRs and tags (dropped)
-- [x] 3.3 Everything on every push in ≤20 jobs: drop path gating and the incremental cache, merge release-guard/records into conformance and render into core, vitest 4 parts a runtime, parity-real 4 shards; nightly full run
-
-Active phase: Phase 3 — Prove
-Next action: Once the operator says push: push, then time the run (wall clock under ~4 min, no job queued). Also confirm the first nightly run passes, then unbind main from ci-speed in .sofar/bindings.json.
+Next action: Check that the first nightly run (03:17 UTC) passes the full four-slice Apple build and the release cores. Then close ci-speed and unbind main from it in .sofar/bindings.json.
