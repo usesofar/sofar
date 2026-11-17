@@ -53,11 +53,16 @@ done
 built() { echo "$ROOT/target/$1/$PROFILE/$LIB"; }
 
 # The Swift glue, generated from the host library's embedded metadata (read
-# before any stripping).
-cargo build -p sofar-ffi --bin uniffi-bindgen --features bindgen --release
+# before any stripping). The generator is a dev build: what it writes does not
+# depend on how it was optimised, and `--release` recompiled the workspace
+# under fat LTO, 4 of CI's 6 minutes (ci-speed 2.4). Its `uniffi/cli` feature
+# changes shared dependencies' features, so no profile reuses the libraries'
+# sofar-core; dev compiles it fastest (6 s vs 11 s, non-incremental, here).
+HOST_TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+cargo build -p sofar-ffi --bin uniffi-bindgen --features bindgen --target "$HOST_TRIPLE"
 rm -rf "${OUT:?}/gen" "${OUT:?}/libs" "${PKG:?}"
 mkdir -p "$OUT/gen" "$OUT/libs" "$PKG/Sources/SofarCore"
-"$ROOT/target/release/uniffi-bindgen" generate --library "$(built aarch64-apple-darwin)" \
+"$ROOT/target/$HOST_TRIPLE/debug/uniffi-bindgen" generate --library "$(built aarch64-apple-darwin)" \
   --language swift --out-dir "$OUT/gen"
 
 # The libraries the xcframework takes: as built, or without debug info for --dist.

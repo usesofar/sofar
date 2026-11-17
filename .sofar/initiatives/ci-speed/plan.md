@@ -6,24 +6,24 @@ Goal: Every push to sofar's CI finishes in under 2 minutes of wall clock, measur
 
 Brief: the operator's words, 652 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 5/8 tasks done (62%)
+Progress: 7/8 tasks done (87%)
 
-## Phase 1 — Measure and scope [active] — 2/3 done
+## Phase 1 — Measure and scope [active] — 3/3 done
 
-- [ ] 1.1 A `changes` job classifies each push or PR by path (record, ts, rust, ffi, workflow). Every other job gates on it; workflow edits and PRs and tags run everything. (active)
+- [x] 1.1 A `changes` job classifies each push or PR by path (record, ts, rust, ffi, workflow). Every other job gates on it; workflow edits and PRs and tags run everything.
 - [x] 1.2 Drop the unused release build and artifact upload from the push core job; release.yml builds its own cores (r4-fixes M16)
 - [x] 1.3 Fold the js_log crosscheck into the one cargo test invocation, so its 30–169s second pass goes
 
-## Phase 2 — Parallelise [pending] — 3/4 done
+## Phase 2 — Parallelise [pending] — 4/4 done
 
-- [ ] 2.1 Split the vitest unit suite across parallel runners per Node version (vitest --shard) (active)
+- [x] 2.1 Split the vitest unit suite across parallel runners per Node version (vitest --shard)
 - [x] 2.2 Shard parity:real (213–298s) and real-logs across runners by record
 - [x] 2.3 Intel Mac: cross-build x86_64-apple-darwin on the arm runner and run its tests under Rosetta
 - [x] 2.4 apple job: test the host slice on push; the full 4-slice xcframework only on PRs and tags
 
 ## Phase 3 — Prove [pending] — 0/1 done
 
-- [ ] 3.1 Measure the wall clock per change class (record-only, TypeScript, Rust, workflow) on warm caches; every class is under 120s or the gap is logged with its cause
+- [ ] 3.1 Measure the wall clock per change class (record-only, TypeScript, Rust, workflow) on warm caches; every class is under 120s or the gap is logged with its cause (active)
 
 Active phase: Phase 1 — Measure and scope
-Next action: Push (the operator says push), then time the run. links-tier alone should take about 100s, so if it is still over 120s, split that file. Then push a record-only, a TypeScript and a Rust commit and time each on a warm cache (task 3.1).
+Next action: Push, then confirm the apple job drops by about 4 minutes. Then ask the operator how to close the Rust gap: (a) cache the workspace target dir with CARGO_INCREMENTAL=1, keyed per target, so a Rust push recompiles only the code units it changed; (b) accept a Rust push at about 2.5–4 min, with record and TypeScript pushes under 2; (c) larger paid runners.

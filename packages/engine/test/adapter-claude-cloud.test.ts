@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { ClaudeCloudAdapter, cloudPrompt, cloudSessionId, readCloudTranscript, scriptArgv } from '../src/driver/claude-cloud'
+import { ClaudeCloudAdapter, cloudPrompt, cloudSessionId, readCloudTranscript, run, scriptArgv } from '../src/driver/claude-cloud'
 
 const dirs: string[] = []
 const tmp = (): string => {
@@ -24,6 +24,19 @@ const row = (type: string, content: unknown, extra: Record<string, unknown> = {}
   JSON.stringify({ type, ...(type === 'system' ? { subtype: 'stop_hook_summary' } : { message: { content } }), ...extra })
 
 const BLOCK = '```sofar\n{"summary":"did it","next_action":"next","tasks":[{"task_id":"1.1","status":"done"}]}\n```'
+
+describe('run', () => {
+  // security-audit M6: a child that exits before reading its input broke the
+  // pipe, and the EPIPE escaped as an uncaught throw that failed CI with every
+  // test passing. Vitest fails a run on an unhandled error, so this proves it.
+  it('a child that exits without reading its input resolves with its exit code, the EPIPE swallowed', async () => {
+    const big = 'x'.repeat(4 * 1024 * 1024)
+    for (let i = 0; i < 5; i++) {
+      const r = await run(process.execPath, ['-e', 'process.exit(3)'], tmpdir(), process.env, big)
+      expect(r.code).toBe(3)
+    }
+  })
+})
 
 describe('the cloud transcript (D51)', () => {
   it('reads a finished session: its last reply and the patch its last command printed', () => {

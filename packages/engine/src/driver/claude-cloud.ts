@@ -262,7 +262,10 @@ export function run(bin: string, args: string[], cwd: string, env: NodeJS.Proces
     child.stderr!.setEncoding('utf8').on('data', (c: string) => (stderr += c))
     child.on('error', (err) => resolve({ code: 127, stdout, stderr, error: err.message }))
     child.on('close', (code) => resolve({ code, stdout, stderr }))
-    if (input !== undefined) child.stdin!.end(input)
+    // A child that exits before reading its input breaks the pipe: the EPIPE
+    // is that child's business, which `close` reports, never an uncaught
+    // throw in the driver (security-audit M6, a flake that failed CI).
+    if (input !== undefined) child.stdin!.on('error', () => {}).end(input)
   })
 }
 
