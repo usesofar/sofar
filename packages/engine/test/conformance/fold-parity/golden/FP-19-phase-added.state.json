@@ -45,6 +45,7 @@
         "status": "active",
         "tasks": [
           {
+            "found": true,
             "id": "1b.1",
             "status": "pending",
             "title": "C"

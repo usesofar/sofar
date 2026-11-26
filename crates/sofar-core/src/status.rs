@@ -17,8 +17,8 @@ use crate::projections::{
     RunLiveness, alias_mark, aliases_of, clip, clip_block_detect, clip_detect, describe_activity,
     describe_freshness, describe_run, handle_at, phase_fraction, plural, progress_text,
     rank_by_relevance, relevance_score, relog_aliases, repo_rule_lines, retired_ordinals,
-    run_detail_lines, standing_constraint_lines, suffixed_handle, supersedes_handle, task_progress,
-    test_outcome_line,
+    run_detail_lines, scope_text, standing_constraint_lines, suffixed_handle, supersedes_handle,
+    task_progress, test_outcome_line,
 };
 use crate::text::{
     cmp_utf16, date_part, is_js_whitespace, js_trim, one_line, utf16_len, utf16_prefix,
@@ -1508,9 +1508,11 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
                 DONE_PHASES_LINE_BUDGET,
             ));
         }
+        let progress = task_progress(&state.phases);
         lines.push(format!(
-            "Progress: {} across {} phase(s)",
-            progress_text(task_progress(&state.phases)),
+            "Progress: {}{} across {} phase(s)",
+            progress_text(progress),
+            scope_text(progress),
             state.phases.len()
         ));
         lines.push(String::new());
@@ -1978,9 +1980,11 @@ pub fn render_full_status(
         lines.extend(standing);
     }
 
+    let progress = task_progress(&state.phases);
     lines.push(format!(
-        "Progress: {} across {} phase(s)",
-        progress_text(task_progress(&state.phases)),
+        "Progress: {}{} across {} phase(s)",
+        progress_text(progress),
+        scope_text(progress),
         state.phases.len()
     ));
     // Other copies of the record hold events this checkout lacks

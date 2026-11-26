@@ -19,7 +19,8 @@ import {
   type StatuslineUninstall,
 } from './init'
 import {
-  phaseFraction,
+  statusFraction,
+  statusGauge,
   type TaskProgress,
 } from '../projections/templates/shared'
 import { emit, errMessage, fail, ok, readAllStdin, type CmdResult } from './shared'
@@ -31,7 +32,7 @@ import { updateNotice, type UpdateCheckDeps, type UpdateNotice } from './update-
  * D7/D8) — the rent-meter. Wired as Claude Code's statusLine command, it
  * reads the statusline JSON from stdin and prints ONE line:
  *
- *   <model> · <dir> · <branch> · <pie> <slug> <done>/<total>
+ *   <model> · <dir> · <branch> · <pie> <slug> <done>/<planned>[ (<N> left)]
  *     · ctx <N>K · cache <warm%>[⚠|✓]
  *
  * Icons are text glyphs in the house vocabulary (cli-ui 1.3), never emoji
@@ -496,22 +497,21 @@ export function runStatusline(
     // and carries its terminal word. Nothing else changes, so an OPEN record
     // — every record before this existed — renders byte-identically.
     const slug = closed ? style.dim(record.slug) : style.accent(record.slug)
-    const { done, dropped, total } = record.progress
-    // The pie gauges what is RESOLVED, so a record with nothing outstanding
-    // reads full whether or not every task was built.
-    const resolved = done + dropped
+    // The gauge measures the PLAN (scope-baseline 1.2): found work never moves
+    // the pie or the fraction, it shows as one open count — `(N left)` — and
+    // only while some is open. Drops leave the denominator, so a stage whose
+    // planned work is all resolved reads full.
+    const gauge = statusGauge(record.progress)
     // Task-progress pie (D9), colored by the next.ts convention: done →
     // success, in progress → warn, untouched → dim. Glyph mode only.
-    const pie = icons ? pieFor(resolved, total, sym) : ''
+    const pie = icons ? pieFor(gauge.done, gauge.of, sym) : ''
     const pieCell =
       pie === ''
         ? ''
         : `${
-            resolved === total ? style.success(pie) : resolved > 0 ? style.warn(pie) : style.dim(pie)
+            gauge.done === gauge.of ? style.success(pie) : gauge.done > 0 ? style.warn(pie) : style.dim(pie)
           } `
-    // phaseFraction keeps the bare `9/10` when nothing was dropped, so the
-    // common statusline stays exactly as wide as it always was.
-    const body = total > 0 ? `${pieCell}${slug} ${phaseFraction(record.progress)}` : slug
+    const body = record.progress.total > 0 ? `${pieCell}${slug} ${statusFraction(gauge)}` : slug
     segments.push(closed ? `${body} ${style.dim(record.status)}` : body)
     if (record.drive !== null) segments.push(driveText(record.drive, style))
   }

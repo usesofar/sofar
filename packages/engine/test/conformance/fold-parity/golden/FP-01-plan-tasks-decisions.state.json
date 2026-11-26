@@ -63,6 +63,7 @@
             "title": "task 3"
           },
           {
+            "found": true,
             "id": "1.4",
             "status": "pending",
             "title": "added",

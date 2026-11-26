@@ -723,13 +723,18 @@ pub fn clip_block_detect(text: &str, budget: usize, marker: &str) -> (String, bo
     (format!("{}{suffix}", js_trim_end(&head)), true)
 }
 
-/// `taskProgress` (task-drop-state D1): drops are their own term.
+/// `taskProgress` (task-drop-state D1): drops are their own term. The `plan_*`
+/// terms count planned tasks only — every task not marked `found`
+/// (scope-baseline 1.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TaskProgress {
     pub done: u64,
     pub dropped: u64,
     pub total: u64,
     pub remaining: u64,
+    pub plan_done: u64,
+    pub plan_dropped: u64,
+    pub plan_total: u64,
 }
 
 #[must_use]
@@ -739,19 +744,83 @@ pub fn task_progress<'a>(phases: impl IntoIterator<Item = &'a PhaseState>) -> Ta
         dropped: 0,
         total: 0,
         remaining: 0,
+        plan_done: 0,
+        plan_dropped: 0,
+        plan_total: 0,
     };
     for phase in phases {
         for task in &phase.tasks {
+            let planned = !task.found;
             p.total += 1;
+            p.plan_total += u64::from(planned);
             if task.status == "done" {
                 p.done += 1;
+                p.plan_done += u64::from(planned);
             } else if task.status == "dropped" {
                 p.dropped += 1;
+                p.plan_dropped += u64::from(planned);
             }
         }
     }
     p.remaining = p.total - p.done - p.dropped;
     p
+}
+
+/// `scopeText` (scope-baseline 1.3): the plan's done figure and the open
+/// found work after a Progress line; empty when nothing was found.
+#[must_use]
+pub fn scope_text(p: TaskProgress) -> String {
+    let found_total = p.total - p.plan_total;
+    if found_total == 0 {
+        return String::new();
+    }
+    let found_open = found_total - (p.done - p.plan_done) - (p.dropped - p.plan_dropped);
+    format!(
+        " (plan: {}/{} done; found: {found_open} open of {found_total})",
+        p.plan_done,
+        p.plan_total - p.plan_dropped
+    )
+}
+
+/// `statusGauge` (scope-baseline 1.2): progress against the plan, drops out
+/// of the denominator, every open task as `left` only while found work is
+/// open. A plan with nothing left in it gauges all tasks instead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StatusGauge {
+    pub done: u64,
+    pub of: u64,
+    pub left: Option<u64>,
+}
+
+#[must_use]
+pub fn status_gauge(p: TaskProgress) -> StatusGauge {
+    let plan_of = p.plan_total - p.plan_dropped;
+    let planned = plan_of > 0;
+    let done = if planned { p.plan_done } else { p.done };
+    let of = if planned {
+        plan_of
+    } else {
+        p.total - p.dropped
+    };
+    let plan_open = if planned {
+        plan_of - p.plan_done
+    } else {
+        p.remaining
+    };
+    StatusGauge {
+        done,
+        of,
+        left: (p.remaining > plan_open).then_some(p.remaining),
+    }
+}
+
+/// `statusFraction`.
+#[must_use]
+pub fn status_fraction(g: StatusGauge) -> String {
+    match g.left {
+        None => format!("{}/{}", g.done, g.of),
+        Some(left) => format!("{}/{} ({left} left)", g.done, g.of),
+    }
 }
 
 /// `progressText`: the headline sentence, byte-identical without drops.
@@ -906,9 +975,11 @@ pub fn render_plan(state: &InitiativeState) -> String {
         ));
         lines.push(String::new());
     }
+    let progress = task_progress(&state.phases);
     lines.push(format!(
-        "Progress: {}",
-        progress_text(task_progress(&state.phases))
+        "Progress: {}{}",
+        progress_text(progress),
+        scope_text(progress)
     ));
     lines.push(String::new());
     if state.phases.is_empty() {
@@ -1870,6 +1941,9 @@ mod tests {
             dropped: 0,
             total: 10,
             remaining: 1,
+            plan_done: 9,
+            plan_dropped: 0,
+            plan_total: 10,
         };
         assert_eq!(progress_text(p), "9/10 tasks done (90%)");
         let q = TaskProgress {
@@ -1877,9 +1951,39 @@ mod tests {
             dropped: 1,
             total: 10,
             remaining: 1,
+            plan_done: 8,
+            plan_dropped: 1,
+            plan_total: 10,
         };
         assert_eq!(progress_text(q), "8 done, 1 dropped, 1 remaining");
         assert_eq!(phase_fraction(q), "8/10 (1 dropped)");
+    }
+
+    #[test]
+    fn status_gauge_measures_the_plan_and_counts_found_work_as_left() {
+        let gauge = |done, dropped, total, plan_done, plan_dropped, plan_total| {
+            status_fraction(status_gauge(TaskProgress {
+                done,
+                dropped,
+                total,
+                remaining: total - done - dropped,
+                plan_done,
+                plan_dropped,
+                plan_total,
+            }))
+        };
+        // Nothing found: exactly the old fraction.
+        assert_eq!(gauge(9, 0, 10, 9, 0, 10), "9/10");
+        // A planned drop leaves the denominator.
+        assert_eq!(gauge(8, 1, 10, 8, 1, 10), "8/9");
+        // stage-3-alpha's shape: plan 3/13, 98 open in all.
+        assert_eq!(gauge(237, 11, 346, 3, 1, 14), "3/13 (98 left)");
+        // Found work all done: the plan alone.
+        assert_eq!(gauge(7, 0, 8, 4, 0, 5), "4/5");
+        // Plan resolved, found work open.
+        assert_eq!(gauge(5, 0, 7, 5, 0, 5), "5/5 (2 left)");
+        // No plan left to gauge: all tasks, no `left`.
+        assert_eq!(gauge(1, 1, 3, 0, 1, 1), "1/2");
     }
 
     #[test]

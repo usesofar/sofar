@@ -87,7 +87,7 @@ function withDrop(): EventEnvelope[] {
 describe('D1 — dropped is a third term, folded into neither side', () => {
   it('counts drops apart from done, and keeps them in the denominator', () => {
     const p = taskProgress(foldOf(withDrop()).phases)
-    expect(p).toEqual({ done: 2, dropped: 1, total: 4, remaining: 1 })
+    expect(p).toEqual({ done: 2, dropped: 1, total: 4, remaining: 1, plan_done: 2, plan_dropped: 1, plan_total: 4 })
   })
 
   it('never inflates the done numerator with drops', () => {

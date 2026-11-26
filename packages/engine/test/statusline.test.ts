@@ -339,17 +339,39 @@ describe('sofar statusline — rent-meter (felt-cost 3.2, D4)', () => {
     return fixture
   }
 
-  it('names the drop count instead of silently shrinking the fraction', () => {
+  it('a planned drop leaves the denominator rather than taking room on the line (scope-baseline 1.2)', () => {
     const fixture = droppedFixture()
-    expect(runStatusline(fixture.root, statusJson())).toContain(`${fixture.slug} 2/3 (1 dropped)`)
+    const line = runStatusline(fixture.root, statusJson())
+    expect(line).toContain(`${fixture.slug} 2/2 ·`)
+    expect(line).not.toContain('dropped')
   })
 
   it('styled: a record with nothing outstanding reads full, drops included', () => {
     const fixture = droppedFixture()
     const line = runStatusline(fixture.root, statusJson(), STATUSLINE_FORCED_CAPS)
-    // Resolved === total, so the pie is full and success-green even though
-    // one task was never built.
-    expect(line).toContain(`\x1b[32m●\x1b[39m \x1b[35m${fixture.slug}\x1b[39m 2/3 (1 dropped)`)
+    // Every planned task is resolved, so the pie is full and success-green
+    // even though one task was never built.
+    expect(line).toContain(`\x1b[32m●\x1b[39m \x1b[35m${fixture.slug}\x1b[39m 2/2`)
+  })
+
+  it('found work never moves the plan gauge; open work shows as one count (scope-baseline 1.2)', () => {
+    const fixture = planned() // 1.1 done, 1.2 active, 1.3 pending
+    const add = (id: string, status: 'pending' | 'done') =>
+      makeEvent({
+        initiative: fixture.slug,
+        session: 'cli',
+        source: 'cli',
+        actor: 'agent',
+        type: 'task_added',
+        payload: { phase: 'Build', id, title: `found ${id}`, status },
+      })
+    // Two found tasks done: the plan alone, exactly as before.
+    appendEvents(fixture.eventsPath, [add('f1', 'done'), add('f2', 'done')])
+    expect(runStatusline(fixture.root, statusJson())).toContain(`${fixture.slug} 1/3 ·`)
+    // Three found tasks open: the plan still reads 1/3, and every open
+    // task — 2 planned + 3 found — is the one number shown.
+    appendEvents(fixture.eventsPath, [add('f3', 'pending'), add('f4', 'pending'), add('f5', 'pending')])
+    expect(runStatusline(fixture.root, statusJson())).toContain(`${fixture.slug} 1/3 (5 left) ·`)
   })
 
   it('leaves a drop-free record byte-identical', () => {

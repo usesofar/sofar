@@ -21,7 +21,8 @@ use crate::snapshot::current_version;
 use crate::status::latest_run;
 
 const FACTS_DIR: &str = "statusline";
-pub const STATUSLINE_FACTS_VERSION: f64 = 1.0;
+/// 2: progress gained the plan terms (scope-baseline 1.2).
+pub const STATUSLINE_FACTS_VERSION: f64 = 2.0;
 
 /// The latest run, only what `driveSegmentOf` reads.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,11 +56,14 @@ impl StatuslineFacts {
             Json::Num(n as f64)
         };
         let opt = |s: &Option<String>| s.clone().map_or(Json::Null, Json::Str);
-        let mut progress = Object::with_capacity(4);
+        let mut progress = Object::with_capacity(7);
         progress.insert("done", count(self.progress.done));
         progress.insert("dropped", count(self.progress.dropped));
         progress.insert("total", count(self.progress.total));
         progress.insert("remaining", count(self.progress.remaining));
+        progress.insert("plan_done", count(self.progress.plan_done));
+        progress.insert("plan_dropped", count(self.progress.plan_dropped));
+        progress.insert("plan_total", count(self.progress.plan_total));
         let run = self.run.as_ref().map_or(Json::Null, |r| {
             let mut o = Object::with_capacity(3);
             o.insert("id", Json::Str(r.id.clone()));
@@ -94,6 +98,9 @@ impl StatuslineFacts {
             dropped: count("dropped")?,
             total: count("total")?,
             remaining: count("remaining")?,
+            plan_done: count("plan_done")?,
+            plan_dropped: count("plan_dropped")?,
+            plan_total: count("plan_total")?,
         };
         let status = o.get("status")?.as_str()?.to_owned();
         let str_or_null = |v: Option<&Json>| -> Option<Option<String>> {
@@ -253,6 +260,9 @@ mod tests {
                 dropped: 1,
                 total: 3,
                 remaining: 1,
+                plan_done: 1,
+                plan_dropped: 0,
+                plan_total: 2,
             },
             status: "active".into(),
             run: Some(FactsRun {
@@ -271,7 +281,7 @@ mod tests {
         let text = json::stringify(&facts.to_json());
         assert_eq!(
             text,
-            r#"{"progress":{"done":1,"dropped":1,"total":3,"remaining":1},"status":"active","run":{"id":"r1","stopped":null,"stop_reason":null},"next_task":"1.3","started":{"s-1":"2026-09-23T00:00:00.000Z","__proto__":"2026-09-23T00:00:01.000Z"}}"#
+            r#"{"progress":{"done":1,"dropped":1,"total":3,"remaining":1,"plan_done":1,"plan_dropped":0,"plan_total":2},"status":"active","run":{"id":"r1","stopped":null,"stop_reason":null},"next_task":"1.3","started":{"s-1":"2026-09-23T00:00:00.000Z","__proto__":"2026-09-23T00:00:01.000Z"}}"#
         );
         let back = StatuslineFacts::from_json(&json::parse(&text).unwrap()).unwrap();
         assert_eq!(back, facts);

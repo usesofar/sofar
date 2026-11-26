@@ -30,8 +30,9 @@ const FOLDS_DIR = 'folds'
 /**
  * 2: ActivityAcc gained testsSinceEdit (r3-fixes D10), so a v1 file would resume without it.
  * 3: and recentTests (felt-latency L2).
+ * 4: tasks gained `found` (scope-baseline 1.1).
  */
-export const FOLD_CHECKPOINT_VERSION = 3
+export const FOLD_CHECKPOINT_VERSION = 4
 /** How much of the log's head a resumed log must still match (as the registration cache). */
 const HEAD_BYTES = 4096
 /**

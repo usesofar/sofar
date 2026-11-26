@@ -768,6 +768,10 @@ fn here_text(p: &RecordProvenance) -> String {
             dropped: p.dropped as u64,
             total: p.total as u64,
             remaining: (p.total - p.done - p.dropped) as u64,
+            // progress_text reads no plan term.
+            plan_done: p.done as u64,
+            plan_dropped: p.dropped as u64,
+            plan_total: p.total as u64,
         })
     )
 }

@@ -27,7 +27,8 @@ import { currentVersion } from './snapshot'
  */
 
 const FACTS_DIR = 'statusline'
-export const STATUSLINE_FACTS_VERSION = 1
+/** 2: progress gained the plan terms (scope-baseline 1.2). */
+export const STATUSLINE_FACTS_VERSION = 2
 
 export interface StatuslineFacts {
   progress: TaskProgress
@@ -83,6 +84,7 @@ function isFacts(v: unknown): v is StatuslineFacts {
   if (!isRecord(v) || !isRecord(v.progress) || typeof v.status !== 'string') return false
   const p = v.progress
   if (!isCount(p.done) || !isCount(p.dropped) || !isCount(p.total) || !isCount(p.remaining)) return false
+  if (!isCount(p.plan_done) || !isCount(p.plan_dropped) || !isCount(p.plan_total)) return false
   if (!isStrOrNull(v.next_task) || !isRecord(v.started)) return false
   if (!Object.values(v.started).every((s) => typeof s === 'string')) return false
   if (v.run === null) return true

@@ -1831,6 +1831,39 @@ identity across every log — the very property the cross-initiative join rests
 on — and `overlappingWritebacks` needs write-back prose for a `next_action`
 that is per-initiative by construction (BD9).
 
+## Planned and found scope (scope-baseline — counts a person can trust)
+
+A stage is judged against what it set out to do, so the fold tells PLANNED
+work from FOUND work and every count surface measures the plan.
+
+- FOUND — a `task_added` that lands once any task in the record has left
+  `pending` (work has begun). The fold marks it `found: true` on the task;
+  the key is ABSENT on a planned task, so a plan-only record folds
+  byte-identically to before. Derived from the log alone: no event carries
+  it, so every existing record reads correctly unchanged.
+- PLANNED — every other task: one in a `plan_updated`, or added before
+  work began. A `plan_updated` keeps a found task found by id, as it keeps
+  `waits_on`; an id new to a restated plan is planned (restating the plan
+  is the operator's act of adopting it).
+- Fold checkpoints are version 4 and the statusline facts cache version 2
+  (both gained the terms), so an older cache is a miss, never a misread.
+
+**Status-line gauge.** The record segment reads `<pie> <slug>
+<done>/<planned>[ (<N> left)]`. `<planned>` is the planned tasks not
+dropped (a drop leaves the denominator, so no dropped count is shown),
+`<done>` the planned tasks done, and the pie is quantized from that pair.
+` (<N> left)` — every open task, planned and found — appears ONLY while
+found work is open, so a plan-only record reads as a bare fraction. When no
+planned task is left to gauge (none planned, or all dropped), it gauges
+every task and shows no `left`. Found work, however much of it, never moves
+the fraction.
+
+**Progress breakdown.** `Progress: …` in `sofar status`, the digest and
+plan.md stays the whole-record figure, followed — only when the record has
+found work — by ` (plan: <done>/<planned> done; found: <open> open of
+<total>)`. The styled status and portfolio headers append the same clause
+and draw their pie from the plan gauge.
+
 ## Links (linked-context — declared waits_on, derived cites)
 Records relate to each other ONLY through links at task grain. There is no
 parent/child initiative and no sub-initiative (linked-context D5): a
@@ -8417,8 +8450,9 @@ deletes it with the worktree's gitdir.
 - `sofar statusline` (felt-cost 3.1/3.2, D4; identity segments D6; styling
   D7/D8) — the rent-meter, wired as Claude Code's statusLine command. Reads
   statusline JSON from stdin, prints ONE line: `<model> · <dir> ·
-  <branch> · <pie> <slug> <done>/<total>[ · drive <…>] · ctx <N>K ·
-  cache <warm%>[⚠|✓][ · ↑<version>]`, the drive segment as
+  <branch> · <pie> <slug> <done>/<planned>[ (<N> left)][ · drive <…>] · ctx <N>K ·
+  cache <warm%>[⚠|✓][ · ↑<version>]`, the record segment as
+  §Planned and found scope, the drive segment as
   §Driver, watching a run, says, and the ctx segment as §Context ceiling
   says. The trailing update segment
   (auto-update 2.1) appears ONLY when the cached check knows of a newer
@@ -8832,7 +8866,8 @@ Flag/env contract:
 argv directly, so registration is acceptance-only.
 
 Progress pies (4.2): initiative headers on the styled status/list/next
-surfaces carry a pie glyph quantized from tasks done/total — ○ ◔ ◕ ●
+surfaces carry a pie glyph quantized from the plan gauge's done/planned
+(§Planned and found scope) — ○ ◔ ◕ ●
 with honest endpoints (● only at 100%, ○ only at 0) and ties rounding DOWN
 (exactly half → ◔) — colored on the checkbox ramp (green complete, yellow
 in progress, dim untouched). The ramp EXCLUDES ◑ (U+25D1) by felt-cost

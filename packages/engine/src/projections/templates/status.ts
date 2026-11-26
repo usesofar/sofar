@@ -33,7 +33,7 @@ import {
   repoRuleLines,
   runDetailLines,
   standingConstraintLines,
-  taskProgress, testOutcomeLine, nativeOriginMark } from './shared'
+  scopeText, taskProgress, testOutcomeLine, nativeOriginMark } from './shared'
 import { lexicalCounts } from '../../core/lexicon'
 import { repoMemoryHandles, ruleHandles, TRAVEL_BUDGET, travelEntries, travelLines, travelSeeds, type TravelInput } from './travel'
 import { ELSEWHERE_BUDGET, elsewhereLines, elsewhereRows } from './elsewhere'
@@ -291,7 +291,7 @@ export function renderFullStatus(
   }
 
   lines.push(
-    `Progress: ${progressText(taskProgress(state.phases))} across ${state.phases.length} phase(s)`,
+    `Progress: ${progressText(taskProgress(state.phases))}${scopeText(taskProgress(state.phases))} across ${state.phases.length} phase(s)`,
   )
   // Other copies of the record hold events this checkout lacks
   // (branch-visibility D1): say what the figure above is made of.
@@ -843,7 +843,7 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
       const p = taskProgress(droppedPhases)
       lines.push(clip(`- dropped: ${droppedPhases.map((ph) => ph.name.split(' — ')[0]!).join(', ')} (${p.total} tasks)`, DONE_PHASES_LINE_BUDGET))
     }
-    lines.push(`Progress: ${progressText(taskProgress(state.phases))} across ${state.phases.length} phase(s)`, '')
+    lines.push(`Progress: ${progressText(taskProgress(state.phases))}${scopeText(taskProgress(state.phases))} across ${state.phases.length} phase(s)`, '')
     fixed(lines)
   }
 

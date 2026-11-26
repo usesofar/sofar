@@ -98,8 +98,12 @@ describe('statusline facts cache (rust-core 4.4, D34)', () => {
     const f = fx()
     appendEvents(f.eventsPath, [plan(['done', 'pending'])])
     runStatusline(f.root, input)
-    const good = JSON.parse(readFileSync(cacheFile(f), 'utf8')) as { facts: { progress: { done: number } } }
+    const good = JSON.parse(readFileSync(cacheFile(f), 'utf8')) as {
+      facts: { progress: { done: number; plan_done: number; remaining: number } }
+    }
     good.facts.progress.done = 2
+    good.facts.progress.plan_done = 2
+    good.facts.progress.remaining = 0
     writeFileSync(cacheFile(f), JSON.stringify(good))
     expect(runStatusline(f.root, input)).toBe(`${f.slug} 2/2 · ctx 10%`)
   })

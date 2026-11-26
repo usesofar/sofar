@@ -377,22 +377,51 @@ export interface TaskProgress {
   total: number
   /** Genuinely outstanding: total − done − dropped. */
   remaining: number
+  /**
+   * The same three terms over PLANNED tasks only — every task not marked
+   * `found` (scope-baseline 1.1). The gauge a stage is judged by: found work
+   * grows `total`, never these.
+   */
+  plan_done: number
+  plan_dropped: number
+  plan_total: number
 }
 
+/** The four whole-record terms, which the text renders read alone. */
+export type ProgressCounts = Pick<TaskProgress, 'done' | 'dropped' | 'total' | 'remaining'>
+
 export function taskProgress(
-  phases: ReadonlyArray<{ tasks: ReadonlyArray<{ status: string }> }>,
+  phases: ReadonlyArray<{ tasks: ReadonlyArray<{ status: string; found?: true }> }>,
 ): TaskProgress {
   let done = 0
   let dropped = 0
   let total = 0
+  let planDone = 0
+  let planDropped = 0
+  let planTotal = 0
   for (const phase of phases) {
     for (const task of phase.tasks) {
+      const planned = task.found !== true
       total += 1
-      if (task.status === 'done') done += 1
-      else if (task.status === 'dropped') dropped += 1
+      if (planned) planTotal += 1
+      if (task.status === 'done') {
+        done += 1
+        if (planned) planDone += 1
+      } else if (task.status === 'dropped') {
+        dropped += 1
+        if (planned) planDropped += 1
+      }
     }
   }
-  return { done, dropped, total, remaining: total - done - dropped }
+  return {
+    done,
+    dropped,
+    total,
+    remaining: total - done - dropped,
+    plan_done: planDone,
+    plan_dropped: planDropped,
+    plan_total: planTotal,
+  }
 }
 
 /**
@@ -402,7 +431,7 @@ export function taskProgress(
  * form, where "0 remaining" is the completion signal that `N/T done` can
  * no longer give honestly.
  */
-export function progressText(p: TaskProgress): string {
+export function progressText(p: ProgressCounts): string {
   if (p.dropped === 0) return `${p.done}/${p.total} tasks done (${pct(p.done, p.total)})`
   return `${p.done} done, ${p.dropped} dropped, ${p.remaining} remaining`
 }
@@ -412,13 +441,53 @@ export function progressText(p: TaskProgress): string {
  * or `9/10 tasks, 1 dropped (100%)`. The percentage counts drops as
  * resolved, so it agrees with the pie beside it.
  */
-export function progressCompact(p: TaskProgress): string {
+export function progressCompact(p: ProgressCounts): string {
   const drops = p.dropped === 0 ? '' : `, ${p.dropped} dropped`
   return `${p.done}/${p.total} tasks${drops} (${pct(p.done, p.total, p.dropped)})`
 }
 
 /** Compact per-phase fraction: `1/2`, or `1/3 (1 dropped)` when any was. */
-export function phaseFraction(p: TaskProgress): string {
+/**
+ * The scope clause after a Progress line (scope-baseline 1.3): what the plan
+ * has done and how much found work is open, so the whole-record figure can
+ * be read against the stage's own goal. Empty when nothing was found — a
+ * plan-only record renders byte-identically.
+ */
+export function scopeText(p: TaskProgress): string {
+  const foundTotal = p.total - p.plan_total
+  if (foundTotal === 0) return ''
+  const foundOpen = foundTotal - (p.done - p.plan_done) - (p.dropped - p.plan_dropped)
+  return ` (plan: ${p.plan_done}/${p.plan_total - p.plan_dropped} done; found: ${foundOpen} open of ${foundTotal})`
+}
+
+/**
+ * The status line's gauge (scope-baseline 1.2): progress against the PLAN,
+ * drops out of the denominator, and every open task as one number — shown
+ * only when found work is open, so a record whose plan is all it holds reads
+ * `done/total` as it always did. A plan with nothing left in it (every
+ * planned task dropped, or none planned) gauges all tasks instead.
+ */
+export interface StatusGauge {
+  done: number
+  of: number
+  /** Every open task, found work included; null when only planned work is open. */
+  left: number | null
+}
+
+export function statusGauge(p: TaskProgress): StatusGauge {
+  const planOf = p.plan_total - p.plan_dropped
+  const planned = planOf > 0
+  const done = planned ? p.plan_done : p.done
+  const of = planned ? planOf : p.total - p.dropped
+  const planOpen = planned ? planOf - p.plan_done : p.remaining
+  return { done, of, left: p.remaining > planOpen ? p.remaining : null }
+}
+
+export function statusFraction(g: StatusGauge): string {
+  return g.left === null ? `${g.done}/${g.of}` : `${g.done}/${g.of} (${g.left} left)`
+}
+
+export function phaseFraction(p: ProgressCounts): string {
   const base = `${p.done}/${p.total}`
   return p.dropped === 0 ? base : `${base} (${p.dropped} dropped)`
 }

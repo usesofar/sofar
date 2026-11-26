@@ -57,6 +57,11 @@ pub struct TaskState {
     /// apart from `verification` so a decision's check never displaces the
     /// task's own pass. Absent until the first check.
     pub checks: Option<Vec<CheckVerification>>,
+    /// Scope found during the work, not planned (scope-baseline 1.1): set by a
+    /// `task_added` landing after any task left `pending`, kept by id across a
+    /// plan replace. On the wire only when true.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub found: bool,
 }
 
 /// A decision's check as the driver ran it for one task (D9).
@@ -933,9 +938,14 @@ fn apply_event(
             // task omits it (SPEC §Links: absent leaves the set unchanged,
             // linked-context D10) — matched by id, first task wins.
             let mut prior_waits: HashMap<String, Vec<String>> = HashMap::new();
+            // Found is kept by id the same way (scope-baseline 1.1).
+            let mut prior_found: HashSet<String> = HashSet::new();
             for task in state.phases.iter().flat_map(|ph| &ph.tasks) {
                 if !task.waits_on.is_empty() && !prior_waits.contains_key(&task.id) {
                     prior_waits.insert(task.id.clone(), task.waits_on.clone());
+                }
+                if task.found {
+                    prior_found.insert(task.id.clone());
                 }
             }
             let phases = plan.get("phases").and_then(Json::as_arr).unwrap_or(&[]);
@@ -957,6 +967,7 @@ fn apply_event(
                                 Some(w) => waits_on_of(w),
                                 None => prior_waits.get(&id).cloned().unwrap_or_default(),
                             };
+                            let found = prior_found.contains(&id);
                             TaskState {
                                 id,
                                 title: req_str(task, "title"),
@@ -966,6 +977,7 @@ fn apply_event(
                                 waits_on,
                                 verification: None,
                                 checks: None,
+                                found,
                             }
                         })
                         .collect(),
@@ -1027,6 +1039,12 @@ fn apply_event(
                 ));
                 return;
             }
+            // Work has begun once any task has left `pending`; a task added
+            // after that is found scope, not planned (scope-baseline 1.1).
+            let found = state
+                .phases
+                .iter()
+                .any(|ph| ph.tasks.iter().any(|t| t.status != "pending"));
             let task = TaskState {
                 id,
                 title: req_str(p, "title"),
@@ -1036,6 +1054,7 @@ fn apply_event(
                 waits_on: p.get("waits_on").map(waits_on_of).unwrap_or_default(),
                 verification: None,
                 checks: None,
+                found,
             };
             let name = req_str(p, "phase");
             find_or_create_phase(state, &name, warnings, line_no)
@@ -2205,6 +2224,9 @@ impl TaskState {
                 Json::Arr(checks.iter().map(CheckVerification::to_json).collect()),
             );
         }
+        if self.found {
+            o.insert("found", Json::Bool(true));
+        }
         Json::Obj(o)
     }
 }
@@ -2797,6 +2819,7 @@ impl TaskState {
                         .collect::<Option<_>>()?,
                 ),
             },
+            found: o.get("found").is_some_and(Json::is_true),
         })
     }
 }

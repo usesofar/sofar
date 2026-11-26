@@ -14,6 +14,8 @@ import {
   describeRun,
   phaseFraction,
   progressCompact,
+  scopeText,
+  statusGauge,
   runDetailLines,
   taskProgress,
 } from '../../projections/templates/shared'
@@ -89,9 +91,11 @@ function fullZoom(state: InitiativeState, options: LayoutOptions): string[] {
   const { style: s, symbols: sym } = options
   const lines: string[] = []
   const p = taskProgress(state.phases)
+  // The pie gauges the plan, as the status line does (scope-baseline 1.2).
+  const gauge = statusGauge(p)
   const phaseCount = state.phases.length
   lines.push(
-    `${pieCell(p.done + p.dropped, p.total, s, sym)}${s.bold(oneLine(state.slug) || '(unnamed initiative)')}  ${progressCompact(p)}` +
+    `${pieCell(gauge.done, gauge.of, s, sym)}${s.bold(oneLine(state.slug) || '(unnamed initiative)')}  ${progressCompact(p)}${scopeText(p)}` +
       s.dim(` · ${phaseCount} phase${phaseCount === 1 ? '' : 's'}`),
   )
   lines.push(s.muted(oneLine(state.goal) || '(none recorded)'))
@@ -272,8 +276,9 @@ function portfolioZoom(
   const lines: string[] = []
   const p = taskProgress(state.phases)
   const slug = oneLine(state.slug) || '(unnamed initiative)'
-  const progress = progressCompact(p)
-  const pie = pieCell(p.done + p.dropped, p.total, s, sym)
+  const progress = `${progressCompact(p)}${scopeText(p)}`
+  const gauge = statusGauge(p)
+  const pie = pieCell(gauge.done, gauge.of, s, sym)
   const pieWidth = visibleWidth(pie)
 
   const head = `${slug}  ${progress}`

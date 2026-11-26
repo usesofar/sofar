@@ -13,7 +13,7 @@ use crate::home::{ResolvedVia, resolve_session_first};
 use crate::hook::parse_hook;
 use crate::json::{Json, Object, number_to_string};
 use crate::layout::{Layout, initiative_slugs};
-use crate::projections::{RunLiveness, TaskProgress, phase_fraction};
+use crate::projections::{RunLiveness, TaskProgress, status_fraction, status_gauge};
 use crate::status::{QUICK_LANE, is_closed_initiative_status};
 use crate::statusline_facts::{FactsRun, statusline_facts};
 use crate::text::{cmp_utf16, is_js_whitespace, js_trim};
@@ -553,15 +553,17 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
             } else {
                 style.accent(&slug)
             };
-            let resolved = progress.done + progress.dropped;
+            // The gauge measures the PLAN (scope-baseline 1.2); found work
+            // shows only as the `(N left)` open count.
+            let gauge = status_gauge(progress);
             #[allow(clippy::cast_precision_loss, reason = "task counts are small")]
-            let pie = pie_for(resolved as f64, progress.total as f64, icons);
+            let pie = pie_for(gauge.done as f64, gauge.of as f64, icons);
             let pie_cell = if pie.is_empty() {
                 String::new()
             } else {
-                let toned = if resolved == progress.total {
+                let toned = if gauge.done == gauge.of {
                     style.success(pie)
-                } else if resolved > 0 {
+                } else if gauge.done > 0 {
                     style.warn(pie)
                 } else {
                     style.dim(pie)
@@ -569,7 +571,7 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
                 format!("{toned} ")
             };
             let body = if progress.total > 0 {
-                format!("{pie_cell}{slug} {}", phase_fraction(progress))
+                format!("{pie_cell}{slug} {}", status_fraction(gauge))
             } else {
                 slug
             };

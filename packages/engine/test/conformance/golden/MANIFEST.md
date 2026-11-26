@@ -800,3 +800,18 @@ Not exercised by any fixture: `post-tool-failure` itself (no step fails a
 tool), `ok:false` / `exit` / `failed` / `last_test` on a failure, the
 diagnostics store (outside `.sofar/`, never compared), `suggestion_*`
 events, the fold-parity cases (their own goldens under `fold-parity/`).
+
+## Re-record: planned vs found scope (scope-baseline 1.1–1.3)
+
+The fold marks a task added after work began `found: true`; the status
+gauge measures the plan, and a `Progress:` line gains a breakdown clause
+only when the record has found work (docs/SPEC.md §Planned and found scope).
+Every other byte is unchanged; both TypeScript and the Rust core
+(`SOFAR_CORE=target/release/sofar-core`) pass the re-recorded set.
+
+| golden | reason |
+| --- | --- |
+| fold-parity FP-01, FP-03, FP-18, FP-19 (state.json) | one task gains `"found": true` |
+| render-parity FP-01, FP-03, FP-18, FP-19, repo.harness-build, repo.task-drop-state, synthetic.corrupt | `Progress:` gains ` (plan: <d>/<p> done; found: <o> open of <t>)`; byte counts move with it |
+| syn.corrupt | the same clause on status, plan.md and the digests |
+| syn.lifecycle | step 3 `finished 0/2 (1 dropped) done` → `finished 0/1 done`: a planned drop leaves the denominator |

@@ -106,6 +106,13 @@ export interface TaskState {
    * `verification` so a decision's check never displaces the task's own pass.
    */
   checks?: CheckVerification[]
+  /**
+   * Scope found during the work, not planned (scope-baseline 1.1): set by a
+   * task_added that lands after any task left `pending`. A plan replace keeps
+   * it by id, so restating a plan never turns found work into planned work;
+   * an id new to the plan is planned. Absent means planned.
+   */
+  found?: true
 }
 
 /** A decision's check as the driver ran it for one task (D9). */
@@ -1684,9 +1691,13 @@ function applyEvent(
       // omits it (SPEC §Links: absent leaves the set unchanged, linked-context
       // D10) — matched by id, first task wins like findTask.
       const priorWaits = new Map<string, string[]>()
+      // Found is kept by id the same way (scope-baseline 1.1): a restated plan
+      // re-plans the scope, it does not re-label work already found.
+      const priorFound = new Set<string>()
       for (const phase of state.phases) {
         for (const task of phase.tasks) {
           if (!priorWaits.has(task.id) && task.waits_on !== undefined) priorWaits.set(task.id, task.waits_on)
+          if (task.found === true) priorFound.add(task.id)
         }
       }
       state.phases = p.plan.phases.map((phase) => ({
@@ -1699,6 +1710,7 @@ function applyEvent(
           ...(task.route !== undefined ? { route: task.route } : {}),
           ...(task.verify !== undefined ? { verify: task.verify } : {}),
           ...waitsOn(task.waits_on ?? priorWaits.get(task.id)),
+          ...(priorFound.has(task.id) ? { found: true as const } : {}),
         })),
       }))
       break
@@ -1742,6 +1754,9 @@ function applyEvent(
         warnings.push(`line ${lineNo}: task "${p.id}" already exists — task_added skipped`)
         break
       }
+      // Work has begun once any task has left `pending`; a task added after
+      // that is found scope, not planned (scope-baseline 1.1).
+      const found = state.phases.some((ph) => ph.tasks.some((t) => t.status !== 'pending'))
       const phase = findOrCreatePhase(state, p.phase, warnings, lineNo)
       phase.tasks.push({
         id: p.id,
@@ -1749,6 +1764,7 @@ function applyEvent(
         status: p.status ?? 'pending',
         ...(p.verify !== undefined ? { verify: p.verify } : {}),
         ...waitsOn(p.waits_on),
+        ...(found ? { found: true as const } : {}),
       })
       break
     }
