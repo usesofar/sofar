@@ -6,19 +6,12 @@ Goal: Task counts a person can trust at a glance: progress measured against the 
 
 Brief: the operator's words, 595 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 7/8 tasks done (87%)
+Progress: 8/8 tasks done (100%)
 
 ## Honest count [done] — 4/4 done — its tasks in phases/P1.md
 
-## Stop the inflation [active] — 3/3 done
+## Stop the inflation [done] — 3/3 done — its tasks in phases/P2.md
 
-- [x] 2.1 Optional parent on task_added: a follow-up names the task it came from and renders under it, not as a top-level task (schema change, decision first)
-- [x] 2.2 Write-back wording: a follow-up names its parent; a ruling the operator must make is a decision, not a task
-- [x] 2.3 Rulings surface as 'needs your call' rather than counting as tasks
+## Stages that finish [done] — 1/1 done — its tasks in phases/P3.md
 
-## Stages that finish [pending] — 0/1 done
-
-- [ ] 3.1 When the planned scope is all resolved, sofar says so and offers to close the stage, carrying open follow-ups into the next record
-
-Active phase: Stop the inflation
-Next action: 3.1: when every planned task is resolved, offer to close the stage and carry open follow-ups into the next record.
+Next action: Approve v0.40.0 once its release run stages: node packaging/npm/stage-approve.mjs 0.40.0 (2FA), then close scope-baseline.
