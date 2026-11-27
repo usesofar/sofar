@@ -1848,6 +1848,17 @@ work from FOUND work and every count surface measures the plan.
 - Fold checkpoints are version 4 and the statusline facts cache version 2
   (both gained the terms), so an older cache is a miss, never a misread.
 
+**Follow-ups name their parent (scope-baseline 2.1, D2).** `task_added`
+takes an optional `parent`: the id of the task this one was found doing.
+`sofar_update_task` and the write-back's `tasks` entries accept it only when
+ADDING a task (a held task refuses it). The parent must be a task in the
+record, and the child joins the parent's phase unless `phase` says otherwise.
+The fold carries `parent` on the task and keeps it by id across a plan
+replace, as it keeps `found`. A self-parent is an invalid line. plan.md (and
+each phase shard) renders a child indented two spaces per depth directly
+under its parent. A parent outside the phase, or unknown, leaves the task
+top-level in plan order, and so does a cycle, so every task renders once.
+
 **Status-line gauge.** The record segment reads `<pie> <slug>
 <done>/<planned>[ (<N> left)]`. `<planned>` is the planned tasks not
 dropped (a drop leaves the denominator, so no dropped count is shown),

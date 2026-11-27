@@ -89,15 +89,29 @@ export function planTaskChange(
         errors: [`already in the plan as "${heldTitle}" — omit \`title\` to change its status, or pick an unused id to add a new task`],
       }
     }
+    if (change.parent !== undefined) {
+      return { ok: false, errors: ['`parent` is set only when adding a task — this one is already in the plan'] }
+    }
     appends.push({ ...statusChange, payload: { ...statusChange.payload, ...waits } })
   } else {
     if (title === undefined) return { ok: false, errors: ['not in the plan — give it a `title` (and `phase`) to add it'] }
+    // A follow-up names the task it was found doing (scope-baseline 2.1, D2):
+    // that task must exist, and its phase is the default home for the child.
+    const parent = change.parent
+    if (parent !== undefined && !held.has(parent)) {
+      return { ok: false, errors: [`parent "${parent}" is not a task in this record — name the task this follow-up came from`] }
+    }
+    const parentPhase =
+      parent !== undefined ? state.phases.find((p) => p.tasks.some((t) => t.id === parent)) : undefined
     const phase =
       change.phase !== undefined
         ? resolvePhaseOrThrow(state.phases, change.phase, slug)
-        : state.phases.find((p) => p.name === state.current.active_phase)
+        : (parentPhase ?? state.phases.find((p) => p.name === state.current.active_phase))
     if (phase === undefined) return { ok: false, errors: ['no active phase — name the `phase` to add it to'] }
-    appends.push({ type: 'task_added', payload: { phase: phase.name, id: change.task_id, title, status: change.status, ...waits } })
+    appends.push({
+      type: 'task_added',
+      payload: { phase: phase.name, id: change.task_id, title, status: change.status, ...waits, ...(parent !== undefined ? { parent } : {}) },
+    })
     if (change.note !== undefined) appends.push(statusChange)
   }
 

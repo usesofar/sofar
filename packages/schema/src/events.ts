@@ -232,7 +232,12 @@ export interface PhaseAddedPayload { phase: string; status?: PhaseStatus; after?
  * (WAITS_ON_HANDLE_RE) — write surfaces qualify a bare `D<n>`, `T<n>` or
  * `<n>.<n>` to the home slug before the append, so the log never holds one.
  */
-export interface TaskAddedPayload { phase: string; id: string; title: string; status?: TaskStatus; verify?: TaskVerify; waits_on?: string[] }
+/**
+ * `parent` (scope-baseline 2.1, D2): the id of the task this one was found
+ * while doing — a follow-up renders under it rather than as stage scope.
+ * Same record only; a parent the fold cannot find renders the task top-level.
+ */
+export interface TaskAddedPayload { phase: string; id: string; title: string; status?: TaskStatus; verify?: TaskVerify; waits_on?: string[]; parent?: string }
 export interface TaskStatusChangedPayload { id: string; status: TaskStatus; note?: string; waits_on?: string[] }
 /**
  * `rule` (drift-hardening D1): optional standing-constraint clause — one short
@@ -1118,6 +1123,8 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
     if (!optTaskStatus(p.status)) e.push(`status: must be one of ${TASK_STATUSES.join('|')}`)
     validateVerify(p.verify, 'verify', e)
     validateWaitsOn(p.waits_on, 'waits_on', e)
+    if (p.parent !== undefined && !str(p.parent)) e.push('parent: must be a non-empty task id')
+    if (p.parent !== undefined && p.parent === p.id) e.push('parent: a task cannot be its own parent')
   },
   task_status_changed(p, e) {
     if (!str(p.id)) e.push('id: must be a non-empty string')
@@ -1563,7 +1570,7 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   task_added: {
     writer: 'agent',
     summary: 'one task appended to an existing phase, without resending the plan',
-    fields: `phase, id, title, status?: ${TASK_STATUSES.join('|')}, verify?: {cmd, cwd?, timeout_ms?} (the acceptance command sofar drive runs before accepting the task), waits_on? (qualified handles this task waits on; replaces the set, [] clears)`,
+    fields: `phase, id, title, status?: ${TASK_STATUSES.join('|')}, verify?: {cmd, cwd?, timeout_ms?} (the acceptance command sofar drive runs before accepting the task), waits_on? (qualified handles this task waits on; replaces the set, [] clears), parent? (id of the task this follow-up was found doing)`,
     example: { phase: 'Phase 1 — Data model', id: '1.3', title: 'Seed data', status: 'pending' },
   },
   task_status_changed: {

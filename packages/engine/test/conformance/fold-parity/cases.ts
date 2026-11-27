@@ -577,6 +577,25 @@ export function buildCases(): FoldParityCase[] {
     l.ev('lane_assigned', { run: RUN, lane: 1 }, cli) // freed: its launch became no session
     cases.push({ id: 'FP-26-lane-assignments', lines: l.lines, sidecar: { tail_at: 5, seeds: [77, 78, 79], order_independence: true, note: 'drive-lanes 2.3 (D22): run.assignments holds one task per lane and one lane per task, lane order, present only when non-empty; an assignment replaces both holds, a handoff for the task ends it, a lane_assigned with no task frees the lane; one for a run that never started is skipped with a warning, lane 0 is an invalid line; never drift. The tail starts at the move' } })
   }
+  {
+    // scope-baseline 1.1 / 2.1 (D1, D2): a task added once work has begun is
+    // found; `parent` names the task it was found doing. A plan restate keeps
+    // both by id; a self-parent is an invalid line; a parent in another phase
+    // or unknown is carried as written (the render keeps it top-level).
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('plan_updated', { plan: { phases: [{ name: 'Phase 1', status: 'active', tasks: [{ id: '1.1', title: 'A' }, { id: '1.2', title: 'B' }] }, { name: 'Phase 2', tasks: [{ id: '2.1', title: 'C' }] }] } }, { session: 'A' })
+    l.ev('task_added', { phase: 'Phase 1', id: '1.0', title: 'planned add' }, { session: 'A' }) // before work: planned
+    l.ev('task_status_changed', { id: '1.1', status: 'active' }, { session: 'A' })
+    l.ev('task_added', { phase: 'Phase 1', id: '1.1.a', title: 'follow-up', parent: '1.1' }, { session: 'A' }) // found, child
+    l.ev('task_added', { phase: 'Phase 1', id: '1.1.b', title: 'grandchild', status: 'done', parent: '1.1.a' }, { session: 'A' })
+    l.ev('task_added', { phase: 'Phase 2', id: '2.2', title: 'cross-phase', parent: '1.1' }, { session: 'A' }) // other phase
+    l.ev('task_added', { phase: 'Phase 1', id: '1.9', title: 'orphan', parent: '9.9' }, { session: 'A' }) // unknown parent
+    l.ev('task_added', { phase: 'Phase 1', id: '1.8', title: 'self', parent: '1.8' }, { session: 'A' }) // invalid: self
+    l.ev('plan_updated', { plan: { phases: [{ name: 'Phase 1', status: 'active', tasks: [{ id: '1.1', title: 'A', status: 'active' }, { id: '1.2', title: 'B' }, { id: '1.1.a', title: 'follow-up' }, { id: '1.3', title: 'new in restate' }] }, { name: 'Phase 2', tasks: [{ id: '2.1', title: 'C' }, { id: '2.2', title: 'cross-phase' }] }] } }, { session: 'A' }) // keeps found + parent by id
+    l.ev('task_added', { phase: 'Phase 1', id: '1.2.a', title: 'late', parent: '1.2' }, { session: 'A' })
+    cases.push({ id: 'FP-27-found-and-parent', lines: l.lines, sidecar: { tail_at: 4, seeds: [80, 81, 82], order_independence: true, note: 'scope-baseline 1.1/2.1 (D1, D2): a task_added after any task left pending is found; parent names the task it was found doing and is carried verbatim; a plan restate keeps found and parent by id and an id new to it is planned; a self-parent is an invalid line. The tail starts at the first status change' } })
+  }
   return cases
 }
 

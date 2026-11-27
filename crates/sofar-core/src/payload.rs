@@ -821,6 +821,13 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
             }
             validate_verify(p.get("verify"), "verify", e);
             validate_waits_on(p.get("waits_on"), "waits_on", e);
+            if let Some(parent) = p.get("parent") {
+                if !str(Some(parent)) {
+                    e.push("parent: must be a non-empty task id".to_owned());
+                } else if parent.as_str() == p.get("id").and_then(Json::as_str) {
+                    e.push("parent: a task cannot be its own parent".to_owned());
+                }
+            }
         }
         "task_status_changed" => {
             must(e, str(p.get("id")), "id: must be a non-empty string");

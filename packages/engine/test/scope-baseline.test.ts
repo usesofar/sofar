@@ -3,6 +3,8 @@ import { makeEvent, type EventEnvelope } from '../src/core/envelope'
 import { foldLines, type InitiativeState } from '../src/core/fold'
 import { serializeEvent } from '../src/core/log'
 import { scopeText, statusFraction, statusGauge, taskProgress } from '../src/projections/templates/shared'
+import { phaseBody } from '../src/projections/templates/plan'
+import { heldTasks, planTaskChange } from '../src/mcp/task-plan'
 
 /**
  * scope-baseline 1.1/1.2: a task added once work has begun is FOUND scope,
@@ -71,5 +73,41 @@ describe('scope-baseline — planned vs found', () => {
     const s = fold([plan([{ id: '1' }, { id: '2' }, { id: '3' }]), move('1', 'done'), move('3', 'dropped'), add('f1', 'done'), add('f2')])
     expect(scopeText(taskProgress(s.phases))).toBe(' (plan: 1/2 done; found: 1 open of 2)')
     expect(scopeText(taskProgress(fold([plan([{ id: '1' }]), move('1', 'done')]).phases))).toBe('')
+  })
+})
+
+describe('scope-baseline 2.1 — a follow-up names its parent', () => {
+  const addKid = (id: string, parent: string, status = 'pending') =>
+    ev('task_added', { phase: 'P', id, title: id, status, parent })
+
+  it('the fold carries parent, and a plan restate keeps it by id', () => {
+    const s = fold([plan([{ id: '1' }]), move('1', 'active'), addKid('1a', '1'), plan([{ id: '1', status: 'active' }, { id: '1a' }])])
+    expect(s.phases[0]?.tasks.find((t) => t.id === '1a')).toMatchObject({ parent: '1', found: true })
+  })
+
+  it('plan.md renders a follow-up indented under its parent; an unknown parent stays top-level', () => {
+    const s = fold([plan([{ id: '1' }, { id: '2' }]), move('1', 'active'), addKid('1a', '1'), addKid('1b', '1a', 'done'), addKid('9', 'nope')])
+    expect(phaseBody(s.phases[0]!)).toEqual([
+      '- [ ] 1 1 (active)',
+      '  - [ ] 1a 1a',
+      '    - [x] 1b 1b',
+      '- [ ] 2 2',
+      '- [ ] 9 9',
+      '',
+    ])
+  })
+
+  it('the planner adds a child into its parent\'s phase and refuses an unknown parent or a parent on a held task', () => {
+    const s = fold([
+      ev('plan_updated', { plan: { phases: [{ name: 'P', status: 'done', tasks: [{ id: '1', title: '1', status: 'done' }] }, { name: 'Q', status: 'active', tasks: [] }] } }),
+    ])
+    s.current.active_phase = 'Q'
+    const held = heldTasks(s)
+    const ok = planTaskChange(s, 'demo', { task_id: '1a', status: 'pending', title: 'follow-up', parent: '1' }, held)
+    expect(ok).toEqual({ ok: true, appends: [{ type: 'task_added', payload: { phase: 'P', id: '1a', title: 'follow-up', status: 'pending', parent: '1' } }] })
+    const unknown = planTaskChange(s, 'demo', { task_id: '1b', status: 'pending', title: 'x', parent: '7' }, held)
+    expect(unknown.ok).toBe(false)
+    const onHeld = planTaskChange(s, 'demo', { task_id: '1', status: 'done', parent: '1' }, held)
+    expect(onHeld.ok).toBe(false)
   })
 })

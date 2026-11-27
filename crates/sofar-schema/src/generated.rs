@@ -897,10 +897,12 @@ pub struct SuggestionTrust {
     #[doc = "Event id of the decision carrying the verdict."]
     pub verdict: ::std::string::String,
 }
-#[doc = "`waits_on` (linked-context 2.1, SPEC §Links) is the task's DECLARED link set, additive and optional like command_run's `ok`/`exit`: an old reader ignores it. Absent leaves the set unchanged, present replaces it, `[]` clears it. Stored entries are always canonical qualified handles (WAITS_ON_HANDLE_RE) — write surfaces qualify a bare `D<n>`, `T<n>` or `<n>.<n>` to the home slug before the append, so the log never holds one."]
+#[doc = "`parent` (scope-baseline 2.1, D2): the id of the task this one was found while doing — a follow-up renders under it rather than as stage scope. Same record only; a parent the fold cannot find renders the task top-level."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct TaskAddedPayload {
     pub id: ::std::string::String,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub parent: ::std::option::Option<::std::string::String>,
     pub phase: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub status: ::std::option::Option<TaskStatus>,

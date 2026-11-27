@@ -60,15 +60,46 @@ export function phaseBody(phase: PhaseState): string[] {
   // The reason a phase was blocked or dropped, where its status is read
   // (phase-lifecycle 2.1) — a note nothing renders is a note that dies.
   if (phase.note !== undefined) lines.push(`> ${phase.note}`, '')
-  for (const task of phase.tasks) {
+  for (const { task, depth } of taskTree(phase.tasks)) {
     // A dropped task is resolved but was never built, so it gets neither
     // the done checkmark nor an empty box that would read as still queued.
     const box = task.status === 'done' ? 'x' : task.status === 'dropped' ? '-' : ' '
     const suffix = task.status === 'active' || task.status === 'blocked' || task.status === 'dropped' ? ` (${task.status})` : ''
-    lines.push(`- [${box}] ${task.id} ${task.title}${suffix}${routeSuffix(task)}${verifySuffix(task)}`)
+    lines.push(`${'  '.repeat(depth)}- [${box}] ${task.id} ${task.title}${suffix}${routeSuffix(task)}${verifySuffix(task)}`)
   }
   lines.push('')
   return lines
+}
+
+/**
+ * A phase's tasks in render order (scope-baseline 2.1, D2): each follow-up
+ * directly under the task it names as `parent`, one depth deeper. A task
+ * whose parent is not in this phase (another phase, or none the fold holds)
+ * stays top-level in plan order; so does any task a cycle would hide, so
+ * every task renders exactly once.
+ */
+export function taskTree(tasks: readonly TaskState[]): Array<{ task: TaskState; depth: number }> {
+  const ids = new Set(tasks.map((t) => t.id))
+  const children = new Map<string, TaskState[]>()
+  const roots: TaskState[] = []
+  for (const t of tasks) {
+    if (t.parent !== undefined && t.parent !== t.id && ids.has(t.parent)) {
+      const list = children.get(t.parent)
+      if (list === undefined) children.set(t.parent, [t])
+      else list.push(t)
+    } else roots.push(t)
+  }
+  const out: Array<{ task: TaskState; depth: number }> = []
+  const seen = new Set<TaskState>()
+  const walk = (t: TaskState, depth: number): void => {
+    if (seen.has(t)) return
+    seen.add(t)
+    out.push({ task: t, depth })
+    for (const c of children.get(t.id) ?? []) walk(c, depth + 1)
+  }
+  for (const t of roots) walk(t, 0)
+  for (const t of tasks) walk(t, 0)
+  return out
 }
 
 /**

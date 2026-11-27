@@ -1,0 +1,10 @@
+{
+  "tail_at": 4,
+  "seeds": [
+    80,
+    81,
+    82
+  ],
+  "order_independence": true,
+  "note": "scope-baseline 1.1/2.1 (D1, D2): a task_added after any task left pending is found; parent names the task it was found doing and is carried verbatim; a plan restate keeps found and parent by id and an id new to it is planned; a self-parent is an invalid line. The tail starts at the first status change"
+}

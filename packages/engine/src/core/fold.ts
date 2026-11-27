@@ -113,6 +113,12 @@ export interface TaskState {
    * an id new to the plan is planned. Absent means planned.
    */
   found?: true
+  /**
+   * The task this follow-up was found doing (scope-baseline 2.1, D2), from
+   * task_added's `parent`. A plan replace keeps it by id, as it keeps `found`.
+   * plan.md renders the task under it when both share a phase.
+   */
+  parent?: string
 }
 
 /** A decision's check as the driver ran it for one task (D9). */
@@ -1694,10 +1700,12 @@ function applyEvent(
       // Found is kept by id the same way (scope-baseline 1.1): a restated plan
       // re-plans the scope, it does not re-label work already found.
       const priorFound = new Set<string>()
+      const priorParent = new Map<string, string>()
       for (const phase of state.phases) {
         for (const task of phase.tasks) {
           if (!priorWaits.has(task.id) && task.waits_on !== undefined) priorWaits.set(task.id, task.waits_on)
           if (task.found === true) priorFound.add(task.id)
+          if (task.parent !== undefined && !priorParent.has(task.id)) priorParent.set(task.id, task.parent)
         }
       }
       state.phases = p.plan.phases.map((phase) => ({
@@ -1711,6 +1719,7 @@ function applyEvent(
           ...(task.verify !== undefined ? { verify: task.verify } : {}),
           ...waitsOn(task.waits_on ?? priorWaits.get(task.id)),
           ...(priorFound.has(task.id) ? { found: true as const } : {}),
+          ...(priorParent.has(task.id) ? { parent: priorParent.get(task.id)! } : {}),
         })),
       }))
       break
@@ -1765,6 +1774,7 @@ function applyEvent(
         ...(p.verify !== undefined ? { verify: p.verify } : {}),
         ...waitsOn(p.waits_on),
         ...(found ? { found: true as const } : {}),
+        ...(typeof p.parent === 'string' && p.parent.length > 0 ? { parent: p.parent } : {}),
       })
       break
     }

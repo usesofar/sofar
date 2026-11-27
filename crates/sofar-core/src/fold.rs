@@ -62,6 +62,10 @@ pub struct TaskState {
     /// plan replace. On the wire only when true.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub found: bool,
+    /// The task this follow-up was found doing (scope-baseline 2.1, D2),
+    /// from `task_added`'s `parent`; kept by id across a plan replace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
 }
 
 /// A decision's check as the driver ran it for one task (D9).
@@ -940,12 +944,18 @@ fn apply_event(
             let mut prior_waits: HashMap<String, Vec<String>> = HashMap::new();
             // Found is kept by id the same way (scope-baseline 1.1).
             let mut prior_found: HashSet<String> = HashSet::new();
+            let mut prior_parent: HashMap<String, String> = HashMap::new();
             for task in state.phases.iter().flat_map(|ph| &ph.tasks) {
                 if !task.waits_on.is_empty() && !prior_waits.contains_key(&task.id) {
                     prior_waits.insert(task.id.clone(), task.waits_on.clone());
                 }
                 if task.found {
                     prior_found.insert(task.id.clone());
+                }
+                if let Some(parent) = &task.parent {
+                    prior_parent
+                        .entry(task.id.clone())
+                        .or_insert_with(|| parent.clone());
                 }
             }
             let phases = plan.get("phases").and_then(Json::as_arr).unwrap_or(&[]);
@@ -968,6 +978,7 @@ fn apply_event(
                                 None => prior_waits.get(&id).cloned().unwrap_or_default(),
                             };
                             let found = prior_found.contains(&id);
+                            let parent = prior_parent.get(&id).cloned();
                             TaskState {
                                 id,
                                 title: req_str(task, "title"),
@@ -978,6 +989,7 @@ fn apply_event(
                                 verification: None,
                                 checks: None,
                                 found,
+                                parent,
                             }
                         })
                         .collect(),
@@ -1055,6 +1067,11 @@ fn apply_event(
                 verification: None,
                 checks: None,
                 found,
+                parent: p
+                    .get("parent")
+                    .and_then(Json::as_str)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned),
             };
             let name = req_str(p, "phase");
             find_or_create_phase(state, &name, warnings, line_no)
@@ -2227,6 +2244,9 @@ impl TaskState {
         if self.found {
             o.insert("found", Json::Bool(true));
         }
+        if let Some(parent) = &self.parent {
+            o.insert("parent", Json::Str(parent.clone()));
+        }
         Json::Obj(o)
     }
 }
@@ -2820,6 +2840,7 @@ impl TaskState {
                 ),
             },
             found: o.get("found").is_some_and(Json::is_true),
+            parent: o.get("parent").and_then(Json::as_str).map(str::to_owned),
         })
     }
 }

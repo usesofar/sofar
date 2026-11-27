@@ -166,6 +166,11 @@ export interface EndSessionTaskChange {
   phase?: string
   /** Declared links (linked-context 2.3): WAITS_ON_INPUT_GRAMMAR entries; present replaces, [] clears. */
   waits_on?: string[]
+  /**
+   * Only when ADDING (scope-baseline 2.1): the id of the task this follow-up
+   * was found doing. It joins that task's phase unless `phase` says otherwise.
+   */
+  parent?: string
 }
 export interface EndSessionPhaseChange {
   phase: string
@@ -199,6 +204,11 @@ export interface UpdateTaskArgs {
   phase?: string
   /** Declared links (linked-context 2.3): WAITS_ON_INPUT_GRAMMAR entries; present replaces, [] clears. */
   waits_on?: string[]
+  /**
+   * Only when ADDING (scope-baseline 2.1): the id of the task this follow-up
+   * was found doing. It joins that task's phase unless `phase` says otherwise.
+   */
+  parent?: string
 }
 /**
  * Phases are addressed by their NAME — plan_updated carries no phase ids, so
@@ -554,7 +564,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
       },
       tasks: {
         type: 'array',
-        description: 'Task changes, in order; with title, a task the plan lacks is added (phase: default active).',
+        description: 'Task changes, in order; with title, a task the plan lacks is added; work found doing a task names it as parent.',
         items: {
           type: 'object',
           properties: {
@@ -564,6 +574,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
             title: { type: 'string' },
             phase: { type: 'string' },
             waits_on: waitsOnProp,
+            parent: { type: 'string' },
           },
           required: ['task_id', 'status'],
           additionalProperties: false,
@@ -616,6 +627,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
       title: { type: 'string', description: 'Adds the task if the plan lacks it.' },
       phase: { type: 'string', description: 'Its phase; default active.' },
       waits_on: { ...waitsOnProp, description: '`<slug>` or `<slug> D<n>|T<n>|<n>.<n>|M<n>`; bare = this record. Replaces; [] clears.' },
+      parent: { type: 'string', description: 'With title: the task it came from.' },
     },
     required: ['task_id', 'status'],
     additionalProperties: false,
@@ -830,7 +842,7 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
       if (ids.some((id) => id.length === 0)) e.push('task_id: an empty id between commas')
       else if (new Set(ids).size < ids.length) e.push('task_id: an id is listed twice')
       else if (ids.length > 1) {
-        for (const key of ['title', 'phase', 'waits_on'] as const) {
+        for (const key of ['title', 'phase', 'waits_on', 'parent'] as const) {
           if (a[key] !== undefined) e.push(`${key}: takes one task_id, not ${ids.length}`)
         }
       }
@@ -841,6 +853,7 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
     if (!optStr(a.note)) e.push('note: must be a string')
     if (!optStr(a.title)) e.push('title: must be a string')
     if (!optStr(a.phase)) e.push('phase: must be a string')
+    if (a.parent !== undefined && !str(a.parent)) e.push('parent: must be a non-empty task id')
     validateWaitsOnInput(a.waits_on, 'waits_on', e)
     // A drop is the one status that closes a task without delivering it
     // (task-drop-state D3). Unexplained, it is indistinguishable from work

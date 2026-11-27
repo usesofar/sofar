@@ -1,0 +1,99 @@
+{
+  "state": {
+    "brief": "",
+    "current": {
+      "active_phase": "Phase 1",
+      "next_action": null
+    },
+    "cursor": "01KDVDNMQRY50ZJ9M36D87THWB",
+    "decisions": [],
+    "drop_notes": {},
+    "files_touched": [],
+    "freshness": {
+      "events_since_writeback": {
+        "commands": 0,
+        "decisions": 0,
+        "files": 0,
+        "memories": 0,
+        "notes": 0,
+        "phases": 0,
+        "reviews": 0,
+        "tasks": 1
+      },
+      "last_writeback_ts": null,
+      "notes": [],
+      "unattributed_mutations": 1
+    },
+    "goal": "g",
+    "guard_violations": [],
+    "memories": [],
+    "phases": [
+      {
+        "name": "Phase 1",
+        "status": "active",
+        "tasks": [
+          {
+            "id": "1.1",
+            "status": "active",
+            "title": "A"
+          },
+          {
+            "id": "1.2",
+            "status": "pending",
+            "title": "B"
+          },
+          {
+            "found": true,
+            "id": "1.1.a",
+            "parent": "1.1",
+            "status": "pending",
+            "title": "follow-up"
+          },
+          {
+            "id": "1.3",
+            "status": "pending",
+            "title": "new in restate"
+          },
+          {
+            "found": true,
+            "id": "1.2.a",
+            "parent": "1.2",
+            "status": "pending",
+            "title": "late"
+          }
+        ]
+      },
+      {
+        "name": "Phase 2",
+        "status": "pending",
+        "tasks": [
+          {
+            "id": "2.1",
+            "status": "pending",
+            "title": "C"
+          },
+          {
+            "found": true,
+            "id": "2.2",
+            "parent": "1.1",
+            "status": "pending",
+            "title": "cross-phase"
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "runs": [],
+    "sessions": [],
+    "slug": "demo",
+    "status": "active",
+    "status_note": null,
+    "status_overrides": [],
+    "status_ts": null,
+    "successor": null,
+    "task_files": {}
+  },
+  "warnings": [
+    "line 9: invalid task_added payload (parent: a task cannot be its own parent) — skipped"
+  ]
+}

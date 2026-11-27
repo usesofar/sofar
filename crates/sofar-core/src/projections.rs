@@ -10,6 +10,8 @@ use std::io;
 use std::path::Path;
 
 use crate::atomic::write_file_atomic;
+use std::collections::{HashMap, HashSet};
+
 use crate::fold::{
     DecisionState, FreshnessCounts, InitiativeState, PhaseState, RunState, SessionActivity,
     SessionState, TaskState, TestOutcome,
@@ -1046,7 +1048,7 @@ pub fn phase_body(phase: &PhaseState) -> Vec<String> {
         lines.push(format!("> {note}"));
         lines.push(String::new());
     }
-    for task in &phase.tasks {
+    for (task, depth) in task_tree(&phase.tasks) {
         let bx = match task.status.as_str() {
             "done" => 'x',
             "dropped" => '-',
@@ -1057,7 +1059,8 @@ pub fn phase_body(phase: &PhaseState) -> Vec<String> {
             _ => String::new(),
         };
         lines.push(format!(
-            "- [{bx}] {} {}{suffix}{}{}",
+            "{}- [{bx}] {} {}{suffix}{}{}",
+            "  ".repeat(depth),
             task.id,
             task.title,
             route_suffix(task),
@@ -1066,6 +1069,50 @@ pub fn phase_body(phase: &PhaseState) -> Vec<String> {
     }
     lines.push(String::new());
     lines
+}
+
+/// `taskTree` (scope-baseline 2.1, D2): a phase's tasks in render order,
+/// each follow-up under the task it names as `parent`, one depth deeper. A
+/// parent outside the phase leaves the task top-level in plan order, and so
+/// does a cycle, so every task renders exactly once.
+#[must_use]
+pub fn task_tree(tasks: &[TaskState]) -> Vec<(&TaskState, usize)> {
+    fn walk<'a>(
+        i: usize,
+        depth: usize,
+        tasks: &'a [TaskState],
+        children: &HashMap<&str, Vec<usize>>,
+        seen: &mut [bool],
+        out: &mut Vec<(&'a TaskState, usize)>,
+    ) {
+        if seen[i] {
+            return;
+        }
+        seen[i] = true;
+        out.push((&tasks[i], depth));
+        if let Some(kids) = children.get(tasks[i].id.as_str()) {
+            for &k in kids {
+                walk(k, depth + 1, tasks, children, seen, out);
+            }
+        }
+    }
+    let ids: HashSet<&str> = tasks.iter().map(|t| t.id.as_str()).collect();
+    let mut children: HashMap<&str, Vec<usize>> = HashMap::new();
+    let mut roots = Vec::new();
+    for (i, t) in tasks.iter().enumerate() {
+        match t.parent.as_deref() {
+            Some(parent) if parent != t.id && ids.contains(parent) => {
+                children.entry(parent).or_default().push(i);
+            }
+            _ => roots.push(i),
+        }
+    }
+    let mut seen = vec![false; tasks.len()];
+    let mut out = Vec::with_capacity(tasks.len());
+    for i in roots.into_iter().chain(0..tasks.len()) {
+        walk(i, 0, tasks, &children, &mut seen, &mut out);
+    }
+    out
 }
 
 /// `clip` of the index templates: UTF-16 units, an ellipsis in the last one.
@@ -1957,6 +2004,48 @@ mod tests {
         };
         assert_eq!(progress_text(q), "8 done, 1 dropped, 1 remaining");
         assert_eq!(phase_fraction(q), "8/10 (1 dropped)");
+    }
+
+    #[test]
+    fn task_tree_nests_follow_ups_under_their_parent_and_keeps_orphans_top_level() {
+        let t = |id: &str, parent: Option<&str>| crate::fold::TaskState {
+            id: id.to_owned(),
+            title: id.to_owned(),
+            status: "pending".to_owned(),
+            route: None,
+            verify: None,
+            waits_on: Vec::new(),
+            verification: None,
+            checks: None,
+            found: parent.is_some(),
+            parent: parent.map(str::to_owned),
+        };
+        // b before its parent a, an unknown parent, and a two-task cycle.
+        let tasks = [
+            t("1", None),
+            t("b", Some("a")),
+            t("a", Some("1")),
+            t("2", None),
+            t("o", Some("nope")),
+            t("x", Some("y")),
+            t("y", Some("x")),
+        ];
+        let got: Vec<(&str, usize)> = task_tree(&tasks)
+            .into_iter()
+            .map(|(task, d)| (task.id.as_str(), d))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("1", 0),
+                ("a", 1),
+                ("b", 2),
+                ("2", 0),
+                ("o", 0),
+                ("x", 0),
+                ("y", 1)
+            ]
+        );
     }
 
     #[test]

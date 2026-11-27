@@ -815,3 +815,19 @@ Every other byte is unchanged; both TypeScript and the Rust core
 | render-parity FP-01, FP-03, FP-18, FP-19, repo.harness-build, repo.task-drop-state, synthetic.corrupt | `Progress:` gains ` (plan: <d>/<p> done; found: <o> open of <t>)`; byte counts move with it |
 | syn.corrupt | the same clause on status, plan.md and the digests |
 | syn.lifecycle | step 3 `finished 0/2 (1 dropped) done` → `finished 0/1 done`: a planned drop leaves the denominator |
+
+## Add: a follow-up names its parent (scope-baseline 2.1, D2)
+
+`task_added` takes an optional `parent`; the fold carries it and keeps it
+across a plan replace, and plan.md indents a child under its parent
+(docs/SPEC.md §Planned and found scope). A new fold-parity case covers a
+grandchild, a cross-phase and an unknown parent, an invalid self-parent and a
+restate. No existing golden moved; TypeScript, the Rust core
+(`SOFAR_CORE=target/release/sofar-core`) and the black-box binary
+(`SOFAR_CONFORMANCE_BIN`) pass it.
+
+| golden | reason |
+| --- | --- |
+| fold-parity/cases/FP-27-found-and-parent.{json,jsonl} | new case |
+| fold-parity/golden/FP-27-found-and-parent.state.json | new case |
+| render-parity/golden/fold-parity.cases.FP-27-found-and-parent.txt | new case |

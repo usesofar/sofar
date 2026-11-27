@@ -29,7 +29,7 @@ describe('tool contract surface', () => {
     expect(TOOL_DEFS.map((t) => t.name)).toEqual([...TOOL_NAMES])
   })
 
-  it('the serialized tool definitions stay ≤8,450 chars (r1-fixes 2.4, D13; phase-lifecycle D10; r3-fixes D14)', () => {
+  it('the serialized tool definitions stay ≤8,600 chars (r1-fixes 2.4, D13; phase-lifecycle D10; r3-fixes D14; scope-baseline D3)', () => {
     // What a host without deferred tools carries in EVERY turn: name,
     // description and inputSchema of every tool, as the MCP list returns them.
     const total = TOOL_DEFS.reduce(
@@ -39,7 +39,8 @@ describe('tool contract surface', () => {
     )
     // 8,000 until phase-lifecycle D10 spent ~200 on adding a phase mid-plan;
     // 8,200 until r3-fixes D14 spent ~220 on brief_append (2.9).
-    expect(total).toBeLessThanOrEqual(8_450)
+    // 8,450 until scope-baseline D3 spent ~110 on a follow-up's parent (2.1).
+    expect(total).toBeLessThanOrEqual(8_600)
     // The three CLI-first operations are not tools.
     for (const gone of ['sofar_review', 'sofar_close_initiative', 'sofar_find']) {
       expect(isToolName(gone)).toBe(false)
