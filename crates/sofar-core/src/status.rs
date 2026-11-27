@@ -1090,6 +1090,17 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         fixed(&mut blocks, lines);
     }
 
+    // (1d) A resolved stage (scope-baseline 3.1), fixed: every planned task is
+    // done or dropped on a live record, so the session offers the close.
+    if !lane && state.status == "active" {
+        let progress = task_progress(&state.phases);
+        if crate::projections::stage_resolved(progress) {
+            let mut lines = crate::projections::close_offer_lines(&state.slug, progress);
+            lines.push(String::new());
+            fixed(&mut blocks, lines);
+        }
+    }
+
     // (2) The next task's spec.
     if let Some((task, phase)) = focus {
         let label = if task.status == "active" {

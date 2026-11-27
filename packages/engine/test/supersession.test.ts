@@ -268,6 +268,43 @@ describe('sofar new --supersedes (2.3)', () => {
     })
   })
 
+  it('--carry moves open tasks into the new plan and drops them in the predecessor with a note (scope-baseline 3.1)', () => {
+    const root = repoWith('a')
+    const log = join(root, '.sofar', 'initiatives', 'a', 'events.jsonl')
+    const put = (type: string, payload: Record<string, unknown>): void => {
+      appendEvent(log, makeEvent({ initiative: 'a', session: 's', source: 'cli', actor: 'human', type, payload }))
+    }
+    put('plan_updated', { plan: { phases: [{ name: 'P', status: 'active', tasks: [{ id: '1', title: 'one', status: 'done' }] }] } })
+    put('task_added', { phase: 'P', id: '1a', title: 'follow-up', status: 'pending', parent: '1' })
+    put('task_added', { phase: 'P', id: '1b', title: 'nested', status: 'blocked', parent: '1a' })
+    put('task_added', { phase: 'P', id: '2', title: 'finished', status: 'done' })
+
+    const res = runNew(root, 'b', { supersedes: ['a'], carry: true }, PLAIN, PLAIN)
+    expect(res.exitCode).toBe(0)
+    expect(res.stdout).toMatch(/carried 2 open tasks from a/)
+    const b = stateOf(root, 'b')
+    expect(b.phases).toMatchObject([
+      {
+        name: 'Carried from a',
+        tasks: [
+          { id: '1a', title: 'follow-up', status: 'pending' },
+          { id: '1b', status: 'blocked', parent: '1a' },
+        ],
+      },
+    ])
+    // Carried work is the new stage's PLAN, not found work.
+    expect(b.phases[0]?.tasks.some((t) => t.found === true)).toBe(false)
+    const a = stateOf(root, 'a')
+    expect(a.status).toBe('superseded')
+    expect(a.phases[0]?.tasks.filter((t) => t.status === 'dropped').map((t) => t.id)).toEqual(['1a', '1b'])
+    // Nothing open was left behind, so no finding says work was not carried.
+    expect(res.stdout).not.toMatch(/not carried|pending/)
+
+    const refused = runNew(root, 'c', { carry: true }, PLAIN, PLAIN)
+    expect(refused.exitCode).not.toBe(0)
+    expect(existsSync(join(root, '.sofar', 'initiatives', 'c'))).toBe(false)
+  })
+
   it('refuses before creating anything when a predecessor is missing or is the slug itself', () => {
     const root = repoWith('a')
     const missing = runNew(root, 'c', { supersedes: ['a', 'ghost'] }, PLAIN, PLAIN)

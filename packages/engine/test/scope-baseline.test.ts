@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeEvent, type EventEnvelope } from '../src/core/envelope'
 import { foldLines, type InitiativeState } from '../src/core/fold'
 import { serializeEvent } from '../src/core/log'
-import { callsText, openRulings, scopeText, statusFraction, statusGauge, taskProgress } from '../src/projections/templates/shared'
+import { callsText, closeOffer, openRulings, stageResolved, scopeText, statusFraction, statusGauge, taskProgress } from '../src/projections/templates/shared'
 import { phaseBody, renderPlan } from '../src/projections/templates/plan'
 import { renderStatus } from '../src/projections/templates/status'
 import { heldTasks, planTaskChange } from '../src/mcp/task-plan'
@@ -137,5 +137,27 @@ describe('scope-baseline 2.3 — rulings need your call, never count as tasks', 
     expect(renderPlan(s)).toContain('Needs your call (1):\n- R1 A or B? (task 1)\n')
     expect(renderStatus(s)).toContain('1 needs your call — ask the operator; a decision with "answers":"R<n>" settles one:\n- R1 A or B? (task 1)\n')
     expect(callsText(2)).toBe('2 need your call')
+  })
+})
+
+describe('scope-baseline 3.1 — a resolved stage offers the close', () => {
+  it('resolved means every planned task done or dropped; found work does not hold it open', () => {
+    const s = fold([plan([{ id: '1' }, { id: '2' }]), move('1', 'done'), move('2', 'dropped'), add('f1'), add('f2', 'blocked')])
+    const p = taskProgress(s.phases)
+    expect(stageResolved(p)).toBe(true)
+    expect(closeOffer(p)).toBe('close? (2 follow-ups)')
+    expect(stageResolved(taskProgress(fold([plan([{ id: '1' }, { id: '2' }]), move('1', 'done')]).phases))).toBe(false)
+    expect(stageResolved(taskProgress(fold([plan([{ id: '1', status: 'active' }]), move('1', 'dropped'), add('f1', 'done')]).phases))).toBe(false)
+  })
+
+  it('the digest offers the close, and the carry only when follow-ups are open', () => {
+    const named = ev('initiative_created', { slug: 'demo', goal: 'g' })
+    const done = fold([named, plan([{ id: '1' }]), move('1', 'done')])
+    expect(renderStatus(done)).toContain('Planned scope resolved (1/1) — offer the operator to close it: `sofar close demo`\n')
+    const open = fold([named, plan([{ id: '1' }]), move('1', 'done'), add('f1')])
+    expect(renderStatus(open)).toContain(
+      'Planned scope resolved (1/1); 1 follow-up open — offer the operator to close it,\ncarrying them into the next record: `sofar new <next> --supersedes demo --carry`\n',
+    )
+    expect(renderStatus(fold([plan([{ id: '1' }])]))).not.toContain('Planned scope resolved')
   })
 })

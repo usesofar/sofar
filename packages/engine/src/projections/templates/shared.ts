@@ -488,6 +488,37 @@ export function statusFraction(g: StatusGauge): string {
   return g.left === null ? `${g.done}/${g.of}` : `${g.done}/${g.of} (${g.left} left)`
 }
 
+/**
+ * Every planned task is done or dropped, and something was planned
+ * (scope-baseline 3.1): the stage is finished, so sofar offers to close it.
+ */
+export function stageResolved(p: TaskProgress): boolean {
+  const planOf = p.plan_total - p.plan_dropped
+  return planOf > 0 && p.plan_done === planOf
+}
+
+/** Open follow-ups once the plan is resolved — every open task is found work then. */
+export function followUpsText(open: number): string {
+  return `${open} follow-up${open === 1 ? '' : 's'}`
+}
+
+/** The status-line offer on a resolved stage: `close?` or `close? (5 follow-ups)`. */
+export function closeOffer(p: TaskProgress): string {
+  return p.remaining === 0 ? 'close?' : `close? (${followUpsText(p.remaining)})`
+}
+
+/** The digest's offer on a resolved stage: offer the close, and the carry when follow-ups are open. */
+export function closeOfferLines(slug: string, p: TaskProgress): string[] {
+  const g = statusGauge(p)
+  if (p.remaining === 0) {
+    return [`Planned scope resolved (${g.done}/${g.of}) — offer the operator to close it: \`sofar close ${slug}\``]
+  }
+  return [
+    `Planned scope resolved (${g.done}/${g.of}); ${followUpsText(p.remaining)} open — offer the operator to close it,`,
+    `carrying them into the next record: \`sofar new <next> --supersedes ${slug} --carry\``,
+  ]
+}
+
 /** The rulings no decision has answered yet, with their `R<n>` (scope-baseline 2.3, D4). */
 export function openRulings(rulings: readonly RulingState[] | undefined): Array<{ n: number; ruling: RulingState }> {
   return (rulings ?? []).flatMap((ruling, i) => (ruling.answered_by === undefined ? [{ n: i + 1, ruling }] : []))

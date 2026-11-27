@@ -21,6 +21,8 @@ import {
 import {
   statusFraction,
   callsText,
+  closeOffer,
+  stageResolved,
   statusGauge,
   type TaskProgress,
 } from '../projections/templates/shared'
@@ -513,8 +515,13 @@ export function runStatusline(
         : `${
             gauge.done === gauge.of ? style.success(pie) : gauge.done > 0 ? style.warn(pie) : style.dim(pie)
           } `
-    const body = record.progress.total > 0 ? `${pieCell}${slug} ${statusFraction(gauge)}` : slug
+    // A resolved stage on a live record (scope-baseline 3.1): the fraction
+    // reads full, and the open follow-ups move into the offer to close it.
+    const offer = !closed && stageResolved(record.progress)
+    const fraction = statusFraction(offer ? { ...gauge, left: null } : gauge)
+    const body = record.progress.total > 0 ? `${pieCell}${slug} ${fraction}` : slug
     segments.push(closed ? `${body} ${style.dim(record.status)}` : body)
+    if (offer) segments.push(style.info(closeOffer(record.progress)))
     // Calls only the operator can make (scope-baseline 2.3, D4): their own
     // segment, never folded into the task count, and only while one is open.
     if (!closed && record.calls > 0) segments.push(style.warn(callsText(record.calls)))

@@ -1889,6 +1889,22 @@ planned task is left to gauge (none planned, or all dropped), it gauges
 every task and shows no `left`. Found work, however much of it, never moves
 the fraction.
 
+**A resolved stage (scope-baseline 3.1, D6).** When every planned task is
+done or dropped on an `active` record, the stage is finished and sofar offers
+to close it. The status line reads `<pie> <slug> <done>/<planned> · close?`,
+with ` (<N> follow-ups)` when found work is still open — the open count moves
+from `(<N> left)` into the offer, since every open task is a follow-up then.
+The digest carries a fixed line before the next task: `Planned scope resolved
+(<done>/<planned>) — offer the operator to close it: \`sofar close <slug>\``,
+or with follow-ups open, the carry: `sofar new <next> --supersedes <slug>
+--carry`. `--carry` (only with `--supersedes`) makes each predecessor's open
+tasks the new record's plan — a `Carried from <slug>` phase, then one
+`task_added` per task so `parent` survives; nothing has begun there, so they
+fold as PLANNED — and drops each in the predecessor with the note `carried
+into <new>[ as <id>]` before its close, so neither record counts them twice
+and the audit names nothing as left behind. An id that would collide takes a
+`~<n>` suffix. A closed record never shows the offer.
+
 **Progress breakdown.** `Progress: …` in `sofar status`, the digest and
 plan.md stays the whole-record figure, followed — only when the record has
 found work — by ` (plan: <done>/<planned> done; found: <open> open of

@@ -58,6 +58,53 @@ export interface NewOptions {
    * shape SPEC §Links names. Checked before anything is created.
    */
   waitsOn?: string[]
+  /**
+   * --carry (scope-baseline 3.1, D6): with --supersedes, each predecessor's
+   * open tasks become this record's plan, one `Carried from <slug>` phase
+   * each, and are dropped in the predecessor with a note naming where they
+   * went — so neither record counts them twice and the close audit is clean.
+   */
+  carry?: boolean
+}
+
+/** One predecessor task moving into the new record under `id`. */
+interface CarriedTask {
+  from: string
+  oldId: string
+  id: string
+  title: string
+  status: 'pending' | 'blocked'
+  parent?: string
+}
+
+/** Open tasks of each predecessor, renamed only where an id would collide. */
+function carriedTasks(ctx: ToolContext, predecessors: readonly string[], taken: Set<string>): CarriedTask[] {
+  const out: CarriedTask[] = []
+  for (const from of predecessors) {
+    const renamed = new Map<string, string>()
+    const open = ctx
+      .foldState(from)
+      .phases.flatMap((phase) => phase.tasks)
+      .filter((t) => t.status === 'pending' || t.status === 'active' || t.status === 'blocked')
+    for (const t of open) {
+      let id = t.id
+      for (let n = 2; taken.has(id); n++) id = `${t.id}~${n}`
+      taken.add(id)
+      renamed.set(t.id, id)
+    }
+    for (const t of open) {
+      const parent = t.parent !== undefined ? renamed.get(t.parent) : undefined
+      out.push({
+        from,
+        oldId: t.id,
+        id: renamed.get(t.id)!,
+        title: t.title,
+        status: t.status === 'blocked' ? 'blocked' : 'pending',
+        ...(parent !== undefined ? { parent } : {}),
+      })
+    }
+  }
+  return out
 }
 
 /** The phase and task `--waits-on` seeds (D11). */
@@ -154,6 +201,10 @@ export function runNew(
     }
   }
 
+  if (options.carry === true && supersedes.length === 0) {
+    return fail(renderFailure('sofar new: --carry moves open tasks out of the records this one supersedes — pass --supersedes <slugs>', errCaps))
+  }
+
   // Same rule for declared links: an unknown slug refuses the whole command.
   let waits: { handles: string[]; warnings: string[] } | undefined
   if (options.waitsOn !== undefined) {
@@ -196,11 +247,29 @@ export function runNew(
       actor: 'human',
     })
     report.push(`created .sofar/initiatives/${slug}/ (goal: ${goal})`)
+    // One plan_updated carries the seed and the carried tasks: a plan replaces
+    // the whole plan, so two would leave only the second.
+    const phases: Array<Record<string, unknown>> = []
     if (waits !== undefined) {
       const task = { id: WAITS_ON_SEED_TASK, title: `Wait on ${waits.handles.join(', ')}`, waits_on: waits.handles }
-      ctx.appendAndProject(slug, 'plan_updated', { plan: { phases: [{ name: WAITS_ON_SEED_PHASE, tasks: [task] }] } }, CLI_ACTOR)
+      phases.push({ name: WAITS_ON_SEED_PHASE, tasks: [task] })
       report.push(`task ${task.id} waits on ${waits.handles.join(', ')}`)
       for (const warning of waits.warnings) report.push(`warning: ${warning}`)
+    }
+    const carried = options.carry === true ? carriedTasks(ctx, supersedes, new Set(waits !== undefined ? [WAITS_ON_SEED_TASK] : [])) : []
+    for (const from of supersedes) {
+      const tasks = carried.filter((t) => t.from === from)
+      if (tasks.length === 0) continue
+      phases.push({ name: `Carried from ${from}`, status: 'pending', tasks: [] })
+      report.push(`carried ${tasks.length} open task${tasks.length === 1 ? '' : 's'} from ${from}`)
+    }
+    if (options.carry === true && carried.length === 0) report.push('nothing open to carry')
+    if (phases.length > 0) ctx.appendAndProject(slug, 'plan_updated', { plan: { phases } }, CLI_ACTOR)
+    // One task_added each, because only task_added names a parent; nothing
+    // in the new record has begun, so every one of them folds as PLANNED.
+    for (const { from, id, title, status, parent } of carried) {
+      const payload = { phase: `Carried from ${from}`, id, title, status, ...(parent !== undefined ? { parent } : {}) }
+      ctx.appendAndProject(slug, 'task_added', payload, CLI_ACTOR)
     }
     for (const line of similarRecords(ctx, slug, goal, supersedes)) report.push(line)
     if (bind && branch !== null) {
@@ -215,6 +284,12 @@ export function runNew(
     // predecessor (initiative-lifecycle D1), and this branch has already
     // moved to the new record, so the order leaves it pointing at live work.
     for (const predecessor of supersedes) {
+      // The carried tasks leave the predecessor before it closes, each with
+      // the note naming where it went, so the audit has nothing to override.
+      for (const t of carried.filter((c) => c.from === predecessor)) {
+        const where = t.id === t.oldId ? slug : `${slug} as ${t.id}`
+        ctx.appendAndProject(predecessor, 'task_status_changed', { id: t.oldId, status: 'dropped', note: `carried into ${where}` }, CLI_ACTOR)
+      }
       const { unbound, overrides } = applyClose(ctx, predecessor, 'superseded', undefined, slug, CLI_ACTOR)
       report.push(
         `closed ${predecessor} as superseded by ${slug}` +

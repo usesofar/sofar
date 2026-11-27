@@ -33,7 +33,7 @@ import {
   repoRuleLines,
   runDetailLines,
   standingConstraintLines,
-  scopeText, taskProgress, testOutcomeLine, nativeOriginMark, callsText, openRulings, rulingLine, rulingsBlock } from './shared'
+  scopeText, taskProgress, testOutcomeLine, nativeOriginMark, callsText, openRulings, rulingLine, rulingsBlock, closeOfferLines, stageResolved } from './shared'
 import { lexicalCounts } from '../../core/lexicon'
 import { repoMemoryHandles, ruleHandles, TRAVEL_BUDGET, travelEntries, travelLines, travelSeeds, type TravelInput } from './travel'
 import { ELSEWHERE_BUDGET, elsewhereLines, elsewhereRows } from './elsewhere'
@@ -660,6 +660,14 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
       ...(calls.length > MAX_RULINGS ? [`- …and ${calls.length - MAX_RULINGS} more (plan.md)`] : []),
       '',
     ])
+  }
+
+  // (1d) A resolved stage (scope-baseline 3.1), fixed: every planned task is
+  // done or dropped on a live record, so the session offers the close instead
+  // of reaching for found work as if the stage went on forever.
+  if (!lane && state.status === 'active') {
+    const progress = taskProgress(state.phases)
+    if (stageResolved(progress)) fixed([...closeOfferLines(state.slug, progress), ''])
   }
 
   // (2) The next task's spec. Plan tasks carry their spec in the title, so the

@@ -782,6 +782,53 @@ pub fn open_rulings(
         .collect()
 }
 
+/// `stageResolved`: every planned task is done or dropped, and something was
+/// planned (scope-baseline 3.1) — the stage is finished.
+#[must_use]
+pub fn stage_resolved(p: TaskProgress) -> bool {
+    let plan_of = p.plan_total - p.plan_dropped;
+    plan_of > 0 && p.plan_done == plan_of
+}
+
+/// `followUpsText`: `1 follow-up` / `5 follow-ups`.
+#[must_use]
+pub fn follow_ups_text(open: u64) -> String {
+    format!("{open} follow-up{}", if open == 1 { "" } else { "s" })
+}
+
+/// `closeOffer`: `close?` or `close? (5 follow-ups)`.
+#[must_use]
+pub fn close_offer(p: TaskProgress) -> String {
+    if p.remaining == 0 {
+        "close?".to_owned()
+    } else {
+        format!("close? ({})", follow_ups_text(p.remaining))
+    }
+}
+
+/// `closeOfferLines`: the digest's offer on a resolved stage.
+#[must_use]
+pub fn close_offer_lines(slug: &str, p: TaskProgress) -> Vec<String> {
+    let g = status_gauge(p);
+    if p.remaining == 0 {
+        return vec![format!(
+            "Planned scope resolved ({}/{}) — offer the operator to close it: `sofar close {slug}`",
+            g.done, g.of
+        )];
+    }
+    vec![
+        format!(
+            "Planned scope resolved ({}/{}); {} open — offer the operator to close it,",
+            g.done,
+            g.of,
+            follow_ups_text(p.remaining)
+        ),
+        format!(
+            "carrying them into the next record: `sofar new <next> --supersedes {slug} --carry`"
+        ),
+    ]
+}
+
 /// `callsText`: `1 needs your call` / `3 need your call`.
 #[must_use]
 pub fn calls_text(open: usize) -> String {

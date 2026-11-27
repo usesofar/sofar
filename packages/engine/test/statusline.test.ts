@@ -518,7 +518,7 @@ describe('sofar statusline — drive segment (drive-visibility 3.3)', () => {
       expect(runStatusline(fixture.root, statusJson())).toBe(`${fixture.slug} 1/3 · drive 1.2 · ctx 20K · cache 72% ✓`)
       event(fixture, 'task_status_changed', { id: '1.2', status: 'done' })
       event(fixture, 'task_status_changed', { id: '1.3', status: 'done' })
-      expect(runStatusline(fixture.root, statusJson())).toContain(`${fixture.slug} 3/3 · drive running · ctx`)
+      expect(runStatusline(fixture.root, statusJson())).toContain(`${fixture.slug} 3/3 · close? · drive running · ctx`)
     } finally {
       if (claim.kind === 'claimed') claim.lock.release()
     }

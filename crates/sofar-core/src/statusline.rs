@@ -573,8 +573,19 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
                 };
                 format!("{toned} ")
             };
+            // A resolved stage on a live record (scope-baseline 3.1): the
+            // fraction reads full, and open follow-ups move into the offer.
+            let offer = !closed && crate::projections::stage_resolved(progress);
+            let fraction = status_fraction(if offer {
+                crate::projections::StatusGauge {
+                    left: None,
+                    ..gauge
+                }
+            } else {
+                gauge
+            });
             let body = if progress.total > 0 {
-                format!("{pie_cell}{slug} {}", status_fraction(gauge))
+                format!("{pie_cell}{slug} {fraction}")
             } else {
                 slug
             };
@@ -583,6 +594,9 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
             } else {
                 body
             });
+            if offer {
+                segments.push(style.info(&crate::projections::close_offer(progress)));
+            }
             // Calls only the operator can make (scope-baseline 2.3, D4): their
             // own segment, never folded into the task count.
             if !closed && calls > 0 {

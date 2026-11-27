@@ -850,3 +850,19 @@ black-box binary pass it.
 | fold-parity/cases/FP-28-rulings.{json,jsonl} | new case |
 | fold-parity/golden/FP-28-rulings.state.json | new case |
 | render-parity/golden/fold-parity.cases.FP-28-rulings.txt | new case |
+
+## Move: a resolved stage offers the close (scope-baseline 3.1, D6)
+
+When every planned task on an active record is done or dropped, the digest
+gains a fixed `Planned scope resolved (<d>/<p>) — offer the operator to close
+it: …` line before the next task, and the status line gains a ` · close?`
+segment (docs/SPEC.md §Status-line gauge, "A resolved stage"). Every moved
+golden is a finished-but-open record; nothing else in them moved. The
+unfiltered `SOFAR_CONFORMANCE_BIN` candidate run fails the same 27 goldens
+on 7d894c0 as after this change — it predates 3.1.
+
+| golden | reason |
+| --- | --- |
+| render-parity: 38 `records.repo.*`, `synthetic.many.*` and FP-17 goldens | the digest line; `digest:*` byte counts move with it |
+| conformance repo.session-start, repo.drive-reach, repo.branch-elsewhere, cell.round-1-sofar, cell.smoke-4-drive, syn.many, syn.lineage | the digest line in the SessionStart hook output |
+| conformance repo.statusline, cell.* statusline steps | ` · close?` after the fraction |
