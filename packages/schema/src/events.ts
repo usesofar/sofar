@@ -202,6 +202,17 @@ export interface CheckBoundPayload { decision: string; decision_id: string; chec
  */
 export interface BriefAppendedPayload { text: string }
 /**
+ * A call only the operator can make (scope-baseline 2.3, D4): a question, not
+ * work. It never enters the plan, so it never moves a task count; open ones
+ * surface as "N need your call". Its handle is `R<n>`, 1-based in log order
+ * like `D<n>`; a decision_logged naming it in `answers` settles it. `task` is
+ * the task waiting on the answer, when one is.
+ */
+export interface RulingRequestedPayload {
+  question: string
+  task?: string
+}
+/**
  * One row of the private prompt buffer (r3-fixes 2.9, D6) — NOT an event. The
  * prompt hook appends the operator's prompt here verbatim, outside the repo
  * (`$XDG_STATE_HOME/sofar/prompts/<clone key>/<session>.jsonl`), and nothing
@@ -321,6 +332,12 @@ export interface DecisionLoggedPayload {
    * constraint never ages out. An id the plan never names never retires.
    */
   until?: string
+  /**
+   * `answers` (scope-baseline 2.3, D4): the handle `R<n>` of the open ruling
+   * this decision settles. The fold marks that ruling answered by this
+   * decision; a handle it cannot resolve, or one already answered, is inert.
+   */
+  answers?: string
   /**
    * `check` (memory-lead 2.3, D9): the executable half of the SAME clause — a
    * shell command whose exit 0 means the decision holds. Valid only alongside
@@ -815,6 +832,7 @@ export interface KnownEventPayloads {
   initiative_status_changed: InitiativeStatusChangedPayload
   plan_updated: PlanUpdatedPayload
   brief_appended: BriefAppendedPayload
+  ruling_requested: RulingRequestedPayload
   phase_status_changed: PhaseStatusChangedPayload
   phase_added: PhaseAddedPayload
   task_added: TaskAddedPayload
@@ -853,13 +871,14 @@ export type KnownEventType = keyof KnownEventPayloads
  * a test pins it to package.json. Part of a fold snapshot's version hash —
  * bump it with any payload-shape change.
  */
-export const SCHEMA_VERSION = '0.15.0'
+export const SCHEMA_VERSION = '0.16.0'
 
 export const EVENT_TYPES = [
   'initiative_created',
   'initiative_status_changed',
   'plan_updated',
   'brief_appended',
+  'ruling_requested',
   'phase_status_changed',
   'phase_added',
   'task_added',
@@ -1105,6 +1124,10 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
   brief_appended(p, e) {
     if (!str(p.text)) e.push('text: must be a non-empty string')
   },
+  ruling_requested(p, e) {
+    if (!str(p.question)) e.push('question: must be a non-empty string')
+    if (p.task !== undefined && !str(p.task)) e.push('task: must be a non-empty task id when present')
+  },
   phase_status_changed(p, e) {
     if (!str(p.phase)) e.push('phase: must be a non-empty string')
     if (!phaseStatus(p.status)) e.push(`status: must be one of ${PHASE_STATUSES.join('|')}`)
@@ -1167,6 +1190,9 @@ const validators: Record<KnownEventType, (p: Obj, errors: string[]) => void> = {
       // A standing constraint never ages out — replace it with a new rule
       // that names it (`supersedes`) instead of scheduling its expiry.
       if (str(p.rule)) e.push('until: not allowed with `rule` — a standing constraint never ages out; supersede it with a new rule instead')
+    }
+    if (p.answers !== undefined && !(str(p.answers) && /^R[1-9][0-9]*$/.test(p.answers as string))) {
+      e.push('answers: must be the handle `R<n>` of an open ruling in this record when present')
     }
     if (p.check !== undefined) {
       // The executable half of a rule (memory-lead D9), as `guard` is the
@@ -1555,6 +1581,12 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
     fields: 'text (verbatim); the CLI also takes {"prompt":"P<n>"} instead: a prompt this session\'s hooks captured, copied verbatim',
     example: { text: '--- Operator, 2026-10-04 ---\n\nNext: refunds. A refund never exceeds what was paid.' },
   },
+  ruling_requested: {
+    writer: 'agent',
+    summary: 'a call only the operator can make — a question, never a task; it shows as "needs your call" until a decision answers it',
+    fields: 'question, task? (id of the task waiting on the answer)',
+    example: { question: 'Show related memories as a chain, or keep the never-show-linking rule?', task: '2.4' },
+  },
   phase_status_changed: {
     writer: 'agent',
     summary: 'one phase changed status (name it exactly as in the plan)',
@@ -1582,7 +1614,7 @@ export const EVENT_TYPE_REFERENCE: Record<KnownEventType, EventTypeReference> = 
   decision_logged: {
     writer: 'agent',
     summary: 'a design decision: what was chosen, over what, and why',
-    fields: 'chose, over, because, rule? (one imperative every later session must obey), quote? (the operator\'s exact words the rule came from; only with rule), guard? (path:<globs> or cmd:<globs>; only with rule), supersedes? (D<n> of the earlier decision this one replaces), supersedes_id? (that decision\'s event id; stamped by the writer, never passed), link_candidates? (ids of the rules it may replace; stamped by the writer, never passed), supersedes_held? (the D<n> a held link named; stamped by the writer, never passed), until? (task id — in force until it resolves; never with rule), check? ({cmd, hint?, timeout_ms?}: a command whose exit 0 means the rule holds; only with rule)',
+    fields: 'chose, over, because, rule? (one imperative every later session must obey), quote? (the operator\'s exact words the rule came from; only with rule), guard? (path:<globs> or cmd:<globs>; only with rule), supersedes? (D<n> of the earlier decision this one replaces), supersedes_id? (that decision\'s event id; stamped by the writer, never passed), link_candidates? (ids of the rules it may replace; stamped by the writer, never passed), supersedes_held? (the D<n> a held link named; stamped by the writer, never passed), until? (task id — in force until it resolves; never with rule), answers? (R<n> of the ruling this settles), check? ({cmd, hint?, timeout_ms?}: a command whose exit 0 means the rule holds; only with rule)',
     // The condition rides `via` (printed as `note:`), not `fields`: fields is
     // hashed into the schema fingerprint both implementations embed (D22).
     via: 'add rule when the operator states the choice for the whole project — every later session sees it as a standing constraint, whichever record it works in; omit it for a one-off choice. Word the rule as the operator did (no status code, path or value they did not state) and put their exact words in quote. A decision that reverses a standing one in ANY record is refused unless supersedes names it or because cites it (a narrower exception); another record\'s is cited as `<slug> D<n>` and replaced from its own record (--initiative <slug>, supersedes D<n>). A rule that replaces nothing says "supersedes":"none"; one that says neither is filed with its link pending (`sofar link`)',

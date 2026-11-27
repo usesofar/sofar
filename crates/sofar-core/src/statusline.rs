@@ -146,6 +146,7 @@ enum RecordSegment {
         root: String,
         progress: TaskProgress,
         status: String,
+        calls: u64,
         drive: Option<DriveSegment>,
     },
     Lane,
@@ -369,6 +370,7 @@ fn record_segment(root: &Path, hook: &Object) -> Option<RecordSegment> {
                 root: candidate,
                 progress: facts.progress,
                 status: facts.status.clone(),
+                calls: facts.calls,
                 drive,
             });
         }
@@ -544,6 +546,7 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
             slug,
             progress,
             status,
+            calls,
             drive,
             ..
         }) => {
@@ -580,6 +583,12 @@ pub fn run_statusline(root: &Path, input: &str, styled: bool) -> String {
             } else {
                 body
             });
+            // Calls only the operator can make (scope-baseline 2.3, D4): their
+            // own segment, never folded into the task count.
+            if !closed && calls > 0 {
+                #[allow(clippy::cast_possible_truncation, reason = "ruling counts are small")]
+                segments.push(style.warn(&crate::projections::calls_text(calls as usize)));
+            }
             if let Some(drive) = &drive {
                 segments.push(drive_text(drive, style));
             }

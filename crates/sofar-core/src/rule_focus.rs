@@ -82,6 +82,7 @@ mod tests {
             guard: guard.map(str::to_owned),
             supersedes: None,
             until: None,
+            answers: None,
             check: None,
             superseded_by,
             link_pending: None,

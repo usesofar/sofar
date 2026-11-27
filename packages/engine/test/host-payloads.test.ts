@@ -135,7 +135,7 @@ describe('the MCP surface (A2, O10)', () => {
 })
 
 /** sha256 prefix of tools/list as `sofar mcp` serves it — update deliberately. */
-const TOOLS_LIST_HASH = 'a94c00d61c9c35a5' // scope-baseline D3: a follow-up's parent on update_task and the write-back's tasks
+const TOOLS_LIST_HASH = '597b5080d4bbb8be' // scope-baseline D5: rulings on the write-back, answers on log_decision
 
 describe('per-host digest budgets (A2)', () => {
   it('Claude Code keeps 6,000; Codex 4,000; Cursor 3,000; SOFAR_PAYLOAD=v034 gives every host 6,000', () => {

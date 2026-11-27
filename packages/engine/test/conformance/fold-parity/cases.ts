@@ -596,6 +596,23 @@ export function buildCases(): FoldParityCase[] {
     l.ev('task_added', { phase: 'Phase 1', id: '1.2.a', title: 'late', parent: '1.2' }, { session: 'A' })
     cases.push({ id: 'FP-27-found-and-parent', lines: l.lines, sidecar: { tail_at: 4, seeds: [80, 81, 82], order_independence: true, note: 'scope-baseline 1.1/2.1 (D1, D2): a task_added after any task left pending is found; parent names the task it was found doing and is carried verbatim; a plan restate keeps found and parent by id and an id new to it is planned; a self-parent is an invalid line. The tail starts at the first status change' } })
   }
+  {
+    // scope-baseline 2.3 (D4): a ruling is a call only the operator can make.
+    // A decision naming `R<n>` settles it; the first answer stands, an answer
+    // to a ruling never asked is inert, and a malformed handle is an invalid line.
+    const l = new Log('demo')
+    l.ev('initiative_created', { slug: 'demo', goal: 'g' })
+    l.ev('plan_updated', { plan: { phases: [{ name: 'Phase 1', status: 'active', tasks: [{ id: '1.1', title: 'A' }] }] } }, { session: 'A' })
+    l.ev('ruling_requested', { question: 'Ship X or Y?', task: '1.1' }, { session: 'A' })
+    l.ev('ruling_requested', { question: 'Keep Z?' }, { session: 'A' })
+    l.ev('ruling_requested', { question: '' }, { session: 'A' }) // invalid: empty question
+    l.ev('decision_logged', { chose: 'X', over: 'Y', because: 'operator', answers: 'R1' }, { session: 'A' })
+    l.ev('decision_logged', { chose: 'Y', over: 'X', because: 'late', answers: 'R1' }, { session: 'A' }) // first answer stands
+    l.ev('decision_logged', { chose: 'Q', over: 'P', because: 'none', answers: 'R7' }, { session: 'A' }) // never asked: inert
+    l.ev('decision_logged', { chose: 'Q', over: 'P', because: 'bad', answers: 'R0' }, { session: 'A' }) // invalid handle
+    l.ev('ruling_requested', { question: 'Rename W?', task: '1.1' }, { session: 'A' })
+    cases.push({ id: 'FP-28-rulings', lines: l.lines, sidecar: { tail_at: 5, seeds: [83, 84, 85], order_independence: true, note: 'scope-baseline 2.3 (D4): ruling_requested folds an open ruling (rulings present only when non-empty); a decision_logged naming R<n> settles it, the first answer stands, one never asked is inert; an empty question and a malformed handle are invalid lines; both count as decision drift. The tail starts at the first answer' } })
+  }
   return cases
 }
 

@@ -138,6 +138,7 @@ const ENTRY_TOOL = {
   memories: 'sofar_remember',
   notes: 'sofar_add_note',
   brief_append: 'sofar_end_session brief_append',
+  rulings: 'sofar_end_session rulings',
 } as const
 
 /** A write-back entry left out, by its array and index (`decisions[2]`). */
@@ -195,6 +196,8 @@ function crossInitiative(home: string, sessionId: string, where: string, initiat
  *    this session captured is copied from the prompt buffer; one it never
  *    captured is a warning and files nothing (2.8) — the agent still holds
  *    the words and can append them.
+ *  - rulings (scope-baseline 2.3, D4): one ruling_requested each, after the
+ *    brief — a call only the operator can make, never a task.
  */
 function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, sessionId: string, fromBlock = false): PlannedBatch {
   crossInitiative(slug, sessionId, 'initiative', args.initiative)
@@ -407,6 +410,9 @@ function planBatch(ctx: ToolContext, slug: string, args: EndSessionArgs, session
     const text = briefEntryText(ctx.rootDir, sessionId, item)
     if (text === null) warnings.push(uncapturedWarning(`brief_append[${i}]`, item))
     else entry(`brief_append[${i}]`, 'brief_append', () => check('brief_appended', { text }))
+  })
+  ;(args.rulings ?? []).forEach((question, i) => {
+    entry(`rulings[${i}]`, 'rulings', () => check('ruling_requested', { question }))
   })
 
   return {

@@ -128,7 +128,7 @@ function fileFinal(ctx: ToolContext, slug: string, sessionId: string, body: stri
 /** The arguments with every left-out entry removed and kept as a note instead. */
 function withoutLeftOut(args: EndSessionArgs, leftOut: readonly LeftOut[], notes: string[]): EndSessionArgs {
   const out: Record<string, unknown> = { ...args }
-  for (const kind of ['phases', 'tasks', 'decisions', 'memories', 'notes', 'brief_append'] as const) {
+  for (const kind of ['phases', 'tasks', 'decisions', 'memories', 'notes', 'brief_append', 'rulings'] as const) {
     const items = args[kind] as unknown[] | undefined
     if (items === undefined) continue
     const gone = new Set(leftOut.filter((l) => l.kind === kind).map((l) => l.index))

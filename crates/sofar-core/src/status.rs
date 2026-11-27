@@ -37,6 +37,9 @@ const BRIEF_HEADER: &str = "Brief — the operator's words, verbatim; the plan i
 const NEXT_TASK_TITLE_BUDGET: usize = 1_000;
 const SIBLING_TITLE_BUDGET: usize = 80;
 const MAX_SIBLINGS: usize = 6;
+/// Open rulings the digest lists before `…and N more` (scope-baseline 2.3, D4).
+const MAX_RULINGS: usize = 5;
+const RULING_BUDGET: usize = 200;
 const NEXT_ACTION_BUDGET: usize = 500;
 const BLOCKED_BUDGET: usize = 500;
 const PHASE_LINE_BUDGET: usize = 100;
@@ -1059,6 +1062,34 @@ pub fn render_status(state: &InitiativeState, options: &StatusOptions) -> String
         fixed(&mut blocks, lines);
     }
 
+    // (1c) Calls only the operator can make (scope-baseline 2.3, D4), fixed
+    // and before the work: a session that cannot proceed without one asks first.
+    let calls = if lane {
+        Vec::new()
+    } else {
+        crate::projections::open_rulings(&state.rulings)
+    };
+    if !calls.is_empty() {
+        let mut lines = vec![format!(
+            "{} — ask the operator; a decision with \"answers\":\"R<n>\" settles one:",
+            crate::projections::calls_text(calls.len())
+        )];
+        lines.extend(calls.iter().take(MAX_RULINGS).map(|(n, r)| {
+            format!(
+                "- {}",
+                clip(&crate::projections::ruling_line(*n, r), RULING_BUDGET)
+            )
+        }));
+        if calls.len() > MAX_RULINGS {
+            lines.push(format!(
+                "- …and {} more (plan.md)",
+                calls.len() - MAX_RULINGS
+            ));
+        }
+        lines.push(String::new());
+        fixed(&mut blocks, lines);
+    }
+
     // (2) The next task's spec.
     if let Some((task, phase)) = focus {
         let label = if task.status == "active" {
@@ -1996,6 +2027,7 @@ pub fn render_full_status(
         ));
     }
     lines.push(String::new());
+    lines.extend(crate::projections::rulings_block(&state.rulings));
 
     let stale_phases = stale_active_phases(state);
     let stale_names: Vec<&str> = stale_phases.iter().map(|p| p.name.as_str()).collect();

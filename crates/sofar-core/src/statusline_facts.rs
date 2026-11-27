@@ -22,7 +22,7 @@ use crate::status::latest_run;
 
 const FACTS_DIR: &str = "statusline";
 /// 2: progress gained the plan terms (scope-baseline 1.2).
-pub const STATUSLINE_FACTS_VERSION: f64 = 2.0;
+pub const STATUSLINE_FACTS_VERSION: f64 = 3.0;
 
 /// The latest run, only what `driveSegmentOf` reads.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +36,8 @@ pub struct FactsRun {
 pub struct StatuslineFacts {
     pub progress: TaskProgress,
     pub status: String,
+    /// Open rulings — calls only the operator can make (scope-baseline 2.3, D4).
+    pub calls: u64,
     pub run: Option<FactsRun>,
     /// On a lanes run, what its lanes hold (drive-lanes D22).
     pub next_task: Option<String>,
@@ -71,9 +73,10 @@ impl StatuslineFacts {
             o.insert("stop_reason", opt(&r.stop_reason));
             Json::Obj(o)
         });
-        let mut o = Object::with_capacity(5);
+        let mut o = Object::with_capacity(6);
         o.insert("progress", Json::Obj(progress));
         o.insert("status", Json::Str(self.status.clone()));
+        o.insert("calls", count(self.calls));
         o.insert("run", run);
         o.insert("next_task", opt(&self.next_task));
         o.insert("started", Json::Obj(self.started.clone()));
@@ -103,6 +106,15 @@ impl StatuslineFacts {
             plan_total: count("plan_total")?,
         };
         let status = o.get("status")?.as_str()?.to_owned();
+        let calls = {
+            let n = o.get("calls")?.as_f64()?;
+            #[allow(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "checked a non-negative integer first"
+            )]
+            (n.is_finite() && n >= 0.0 && n.fract() == 0.0).then_some(n as u64)?
+        };
         let str_or_null = |v: Option<&Json>| -> Option<Option<String>> {
             match v? {
                 Json::Null => Some(None),
@@ -127,6 +139,7 @@ impl StatuslineFacts {
         Some(Self {
             progress,
             status,
+            calls,
             run,
             next_task,
             started: started.clone(),
@@ -147,6 +160,7 @@ pub fn facts_of(state: &InitiativeState) -> StatuslineFacts {
     StatuslineFacts {
         progress: task_progress(&state.phases),
         status: state.status.clone(),
+        calls: crate::projections::open_rulings(&state.rulings).len() as u64,
         run: latest_run(state).map(|r| FactsRun {
             id: r.id.clone(),
             stopped: r.stopped.clone(),
@@ -265,6 +279,7 @@ mod tests {
                 plan_total: 2,
             },
             status: "active".into(),
+            calls: 2,
             run: Some(FactsRun {
                 id: "r1".into(),
                 stopped: None,
@@ -281,7 +296,7 @@ mod tests {
         let text = json::stringify(&facts.to_json());
         assert_eq!(
             text,
-            r#"{"progress":{"done":1,"dropped":1,"total":3,"remaining":1,"plan_done":1,"plan_dropped":0,"plan_total":2},"status":"active","run":{"id":"r1","stopped":null,"stop_reason":null},"next_task":"1.3","started":{"s-1":"2026-09-23T00:00:00.000Z","__proto__":"2026-09-23T00:00:01.000Z"}}"#
+            r#"{"progress":{"done":1,"dropped":1,"total":3,"remaining":1,"plan_done":1,"plan_dropped":0,"plan_total":2},"status":"active","calls":2,"run":{"id":"r1","stopped":null,"stop_reason":null},"next_task":"1.3","started":{"s-1":"2026-09-23T00:00:00.000Z","__proto__":"2026-09-23T00:00:01.000Z"}}"#
         );
         let back = StatuslineFacts::from_json(&json::parse(&text).unwrap()).unwrap();
         assert_eq!(back, facts);

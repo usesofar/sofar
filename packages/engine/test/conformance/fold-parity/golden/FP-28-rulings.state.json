@@ -1,0 +1,103 @@
+{
+  "state": {
+    "brief": "",
+    "current": {
+      "active_phase": "Phase 1",
+      "next_action": null
+    },
+    "cursor": "01KDVDNKRG1CVY50ZJ9M36D87T",
+    "decisions": [
+      {
+        "answers": "R1",
+        "because": "operator",
+        "chose": "X",
+        "id": "01KDVDNFVGD87THWBENGF2S4KP",
+        "over": "Y",
+        "ts": "2026-01-01T00:00:06.000Z"
+      },
+      {
+        "answers": "R1",
+        "because": "late",
+        "chose": "Y",
+        "id": "01KDVDNGTRA1CVY50ZJ9M36D87",
+        "over": "X",
+        "ts": "2026-01-01T00:00:07.000Z"
+      },
+      {
+        "answers": "R7",
+        "because": "none",
+        "chose": "Q",
+        "id": "01KDVDNHT07THWBENGF2S4KPXR",
+        "over": "P",
+        "ts": "2026-01-01T00:00:08.000Z"
+      }
+    ],
+    "drop_notes": {},
+    "files_touched": [],
+    "freshness": {
+      "events_since_writeback": {
+        "commands": 0,
+        "decisions": 6,
+        "files": 0,
+        "memories": 0,
+        "notes": 0,
+        "phases": 0,
+        "reviews": 0,
+        "tasks": 0
+      },
+      "last_writeback_ts": null,
+      "notes": [],
+      "unattributed_mutations": 6
+    },
+    "goal": "g",
+    "guard_violations": [],
+    "memories": [],
+    "phases": [
+      {
+        "name": "Phase 1",
+        "status": "active",
+        "tasks": [
+          {
+            "id": "1.1",
+            "status": "pending",
+            "title": "A"
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "rulings": [
+      {
+        "answered_by": 1,
+        "id": "01KDVDNCXRPXRQA1CVY50ZJ9M3",
+        "question": "Ship X or Y?",
+        "task": "1.1",
+        "ts": "2026-01-01T00:00:03.000Z"
+      },
+      {
+        "id": "01KDVDNDX0KPXRQA1CVY50ZJ9M",
+        "question": "Keep Z?",
+        "ts": "2026-01-01T00:00:04.000Z"
+      },
+      {
+        "id": "01KDVDNKRG1CVY50ZJ9M36D87T",
+        "question": "Rename W?",
+        "task": "1.1",
+        "ts": "2026-01-01T00:00:10.000Z"
+      }
+    ],
+    "runs": [],
+    "sessions": [],
+    "slug": "demo",
+    "status": "active",
+    "status_note": null,
+    "status_overrides": [],
+    "status_ts": null,
+    "successor": null,
+    "task_files": {}
+  },
+  "warnings": [
+    "line 5: invalid ruling_requested payload (question: must be a non-empty string) — skipped",
+    "line 9: invalid decision_logged payload (answers: must be the handle `R<n>` of an open ruling in this record when present) — skipped"
+  ]
+}

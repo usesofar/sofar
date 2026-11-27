@@ -46,6 +46,7 @@ import {
   type NoteAddedPayload,
   type PhaseStatus,
   type BriefAppendedPayload,
+  type RulingRequestedPayload,
   type CheckBoundPayload,
   type DecisionLinkedPayload,
   type PhaseAddedPayload,
@@ -157,6 +158,20 @@ export interface PhaseState {
   note?: string
 }
 
+/**
+ * A call only the operator can make (scope-baseline 2.3, D4). `R<n>` is its
+ * 1-based position here. `answered_by` is the ordinal (`D<n>`) of the
+ * decision that settled it; while absent the ruling is open and shows as
+ * "needs your call". It is never a task, so it never moves a task count.
+ */
+export interface RulingState {
+  id: string
+  ts: string
+  question: string
+  task?: string
+  answered_by?: number
+}
+
 export interface DecisionState {
   id: string
   ts: string
@@ -184,6 +199,8 @@ export interface DecisionState {
   supersedes?: string
   /** Task id this decision is in force until, as recorded (D25); never present with `rule`. */
   until?: string
+  /** `R<n>` of the ruling this decision settles (scope-baseline 2.3, D4). */
+  answers?: string
   /** The executable half of `rule` (memory-lead 2.3, D9), as recorded; only alongside `rule`. */
   check?: DecisionCheck
   /**
@@ -651,6 +668,8 @@ export interface InitiativeState {
   successor: string | null
   phases: PhaseState[]
   decisions: DecisionState[]
+  /** Calls only the operator can make (scope-baseline 2.3, D4); absent until one is asked. */
+  rulings?: RulingState[]
   /**
    * Facts promoted to repo memory, log order — `M<n>` is index + 1, the same
    * way `D<n>` indexes decisions. Uncapped here (promotions are hand-written
@@ -1261,6 +1280,11 @@ function recordFreshness(state: InitiativeState, event: EventEnvelope): void {
       })
       break
     case 'decision_logged':
+    case 'ruling_requested':
+      // A ruling is counted with decisions (commit-attribution D18 requires
+      // the class decided here): it is a decision the operator owes, filed by
+      // the write-back that found it, and it changes what the next session
+      // must surface first.
       mutation(() => (counts.decisions += 1))
       break
     case 'memory_promoted':
@@ -1732,6 +1756,16 @@ function applyEvent(
       else delete phase.note
       break
     }
+    case 'ruling_requested': {
+      const p = event.payload as unknown as RulingRequestedPayload
+      ;(state.rulings ??= []).push({
+        id: event.id,
+        ts: event.ts,
+        question: p.question,
+        ...(typeof p.task === 'string' && p.task.length > 0 ? { task: p.task } : {}),
+      })
+      break
+    }
     case 'brief_appended': {
       // r3-fixes 2.9 (D6): the brief grows by delta, after a blank line — the
       // separator the L36 resends used, so a brief built either way reads alike.
@@ -1826,8 +1860,17 @@ function applyEvent(
         ...(p.guard !== undefined ? { guard: p.guard } : {}),
         ...(p.supersedes !== undefined ? { supersedes: p.supersedes } : {}),
         ...(p.until !== undefined ? { until: p.until } : {}),
+        ...(p.answers !== undefined ? { answers: p.answers } : {}),
         ...(p.check !== undefined ? { check: decisionCheck(p.check) } : {}),
       })
+      // A ruling settled (scope-baseline 2.3, D4): `R<n>` resolves against
+      // the rulings already folded. One never asked, or already answered, is
+      // inert — the first answer stands.
+      if (p.answers !== undefined) {
+        const m = /^R([1-9][0-9]*)$/.exec(p.answers)
+        const ruling = m === null ? undefined : state.rulings?.[Number.parseInt(m[1]!, 10) - 1]
+        if (ruling !== undefined && ruling.answered_by === undefined) ruling.answered_by = state.decisions.length
+      }
       // Supersession (r1-fixes 3.2, D25): resolve against the decisions
       // already folded — the log alone, no clock, no env. Inert when it
       // points forward or at itself (nothing to retire yet; a decision

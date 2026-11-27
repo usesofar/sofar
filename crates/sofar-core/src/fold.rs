@@ -104,6 +104,19 @@ pub struct PhaseState {
     pub note: Option<String>,
 }
 
+/// A call only the operator can make (scope-baseline 2.3, D4): open until a
+/// decision names it in `answers`, shown as "needs your call". Never a task,
+/// so it never moves a task count.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RulingState {
+    pub id: String,
+    pub ts: String,
+    pub question: String,
+    pub task: Option<String>,
+    /// 1-based ordinal of the decision that answered it; the first answer stands.
+    pub answered_by: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DecisionState {
     pub id: String,
@@ -119,6 +132,8 @@ pub struct DecisionState {
     pub supersedes: Option<String>,
     /// Task id this decision is in force until, as recorded (D25); never with `rule`.
     pub until: Option<String>,
+    /// `R<n>` of the ruling this settles, as recorded (scope-baseline 2.3, D4).
+    pub answers: Option<String>,
     /// The executable half of `rule` (memory-lead 2.3, D9), as recorded, known
     /// keys only (`decisionCheck`); only alongside `rule`.
     pub check: Option<Json>,
@@ -384,6 +399,9 @@ pub struct InitiativeState {
     pub successor: Option<String>,
     pub phases: Vec<PhaseState>,
     pub decisions: Vec<DecisionState>,
+    /// Rulings asked of the operator (scope-baseline 2.3, D4); written only
+    /// when non-empty, so a record that never asked folds as it always did.
+    pub rulings: Vec<RulingState>,
     pub memories: Vec<MemoryState>,
     pub sessions: Vec<SessionState>,
     pub files_touched: Vec<String>,
@@ -426,6 +444,7 @@ pub fn empty_state() -> InitiativeState {
         successor: None,
         phases: Vec::new(),
         decisions: Vec::new(),
+        rulings: Vec::new(),
         memories: Vec::new(),
         sessions: Vec::new(),
         files_touched: Vec::new(),
@@ -1004,6 +1023,15 @@ fn apply_event(
             phase.status = req_str(p, "status");
             phase.note = note;
         }
+        "ruling_requested" => {
+            state.rulings.push(RulingState {
+                id: event.id.clone(),
+                ts: event.ts.clone(),
+                question: req_str(p, "question"),
+                task: opt_str(p, "task").filter(|t| !t.is_empty()),
+                answered_by: None,
+            });
+        }
         "brief_appended" => {
             // r3-fixes 2.9 (D6): the brief grows by delta, after a blank line.
             let text = req_str(p, "text");
@@ -1127,10 +1155,23 @@ fn apply_event(
                 guard: opt_str(p, "guard"),
                 supersedes: supersedes.clone(),
                 until: opt_str(p, "until"),
+                answers: opt_str(p, "answers"),
                 check: p.get("check").and_then(Json::as_obj).map(decision_check),
                 superseded_by: None,
                 link_pending: None,
             });
+            // A ruling settled (scope-baseline 2.3, D4): `R<n>` resolves
+            // against the rulings already folded. One never asked, or already
+            // answered, is inert — the first answer stands.
+            let ordinal = state.decisions.len() as u64;
+            if let Some(n) = opt_str(p, "answers")
+                .and_then(|h| h.strip_prefix('R').and_then(|d| d.parse::<usize>().ok()))
+                .filter(|&n| n >= 1)
+                && let Some(ruling) = state.rulings.get_mut(n - 1)
+                && ruling.answered_by.is_none()
+            {
+                ruling.answered_by = Some(ordinal);
+            }
             // Supersession (r1-fixes 3.2, D25): resolve against the decisions
             // already folded — the log alone, no clock, no env. Inert when it
             // points forward or at itself, or when a rule-less decision names
@@ -2071,7 +2112,10 @@ fn record_freshness(
                 text: req_str(&event.payload, "text"),
             });
         }
-        "decision_logged" => mutation(state, |c| c.decisions += 1),
+        // A ruling asked (scope-baseline 2.3) is drift like a decision
+        // (commit-attribution D18): an open question changes what the next
+        // session must do first.
+        "decision_logged" | "ruling_requested" => mutation(state, |c| c.decisions += 1),
         "memory_promoted" => mutation(state, |c| c.memories += 1),
         "review_recorded" => mutation(state, |c| c.reviews += 1),
         _ => {}
@@ -2315,6 +2359,7 @@ impl DecisionState {
         put_opt(&mut o, "guard", self.guard.as_deref());
         put_opt(&mut o, "supersedes", self.supersedes.as_deref());
         put_opt(&mut o, "until", self.until.as_deref());
+        put_opt(&mut o, "answers", self.answers.as_deref());
         if let Some(check) = &self.check {
             o.insert("check", check.clone());
         }
@@ -2636,6 +2681,12 @@ impl InitiativeState {
             "decisions",
             Json::Arr(self.decisions.iter().map(DecisionState::to_json).collect()),
         );
+        if !self.rulings.is_empty() {
+            o.insert(
+                "rulings",
+                Json::Arr(self.rulings.iter().map(RulingState::to_json).collect()),
+            );
+        }
         o.insert(
             "memories",
             Json::Arr(self.memories.iter().map(MemoryState::to_json).collect()),
@@ -2883,6 +2934,46 @@ impl PhaseState {
     }
 }
 
+impl RulingState {
+    #[must_use]
+    pub fn to_json(&self) -> Json {
+        let mut o = Object::with_capacity(5);
+        put(&mut o, "id", &self.id);
+        put(&mut o, "ts", &self.ts);
+        put(&mut o, "question", &self.question);
+        put_opt(&mut o, "task", self.task.as_deref());
+        if let Some(by) = self.answered_by {
+            put_count(&mut o, "answered_by", by);
+        }
+        Json::Obj(o)
+    }
+
+    /// The state's `rulings`, absent when none was ever asked.
+    fn list_from_json(o: &Object) -> Option<Vec<Self>> {
+        match o.get("rulings") {
+            None => Some(Vec::new()),
+            Some(_) => objs(o, "rulings")?
+                .into_iter()
+                .map(Self::from_json)
+                .collect(),
+        }
+    }
+
+    #[must_use]
+    pub fn from_json(o: &Object) -> Option<Self> {
+        Some(RulingState {
+            id: rs(o, "id")?,
+            ts: rs(o, "ts")?,
+            question: rs(o, "question")?,
+            task: os(o, "task")?,
+            answered_by: match o.get("answered_by") {
+                None => None,
+                Some(_) => Some(count(o, "answered_by")?),
+            },
+        })
+    }
+}
+
 impl DecisionState {
     #[must_use]
     pub fn from_json(o: &Object) -> Option<Self> {
@@ -2897,6 +2988,7 @@ impl DecisionState {
             guard: os(o, "guard")?,
             supersedes: os(o, "supersedes")?,
             until: os(o, "until")?,
+            answers: os(o, "answers")?,
             check: o.get("check").cloned(),
             superseded_by: match o.get("superseded_by") {
                 None => None,
@@ -3206,6 +3298,7 @@ impl InitiativeState {
                 .into_iter()
                 .map(DecisionState::from_json)
                 .collect::<Option<_>>()?,
+            rulings: RulingState::list_from_json(o)?,
             memories: objs(o, "memories")?
                 .into_iter()
                 .map(MemoryState::from_json)

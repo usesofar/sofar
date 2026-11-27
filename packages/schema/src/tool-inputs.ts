@@ -151,6 +151,11 @@ export interface EndSessionArgs {
    * verbatim, secrets scrubbed; any other entry is the words themselves.
    */
   brief_append?: string[]
+  /**
+   * Calls only the operator can make (scope-baseline 2.3, D4), each filed as
+   * one ruling_requested — a question, never a task, so it moves no count.
+   */
+  rulings?: string[]
 }
 export interface EndSessionTaskChange {
   task_id: string
@@ -245,6 +250,8 @@ export interface LogDecisionArgs {
   supersedes?: string
   /** Task id this decision is in force until; never with `rule` (r1-fixes 3.2, D25). */
   until?: string
+  /** `R<n>` of the open ruling this decision settles (scope-baseline 2.3, D4). */
+  answers?: string
   /** Executable half of `rule` (memory-lead 2.3, D9): a command whose exit 0 means it holds. */
   check?: DecisionCheck
 }
@@ -564,7 +571,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
       },
       tasks: {
         type: 'array',
-        description: 'Task changes, in order; with title, a task the plan lacks is added; work found doing a task names it as parent.',
+        description: 'Task changes, in order; with title, a task the plan lacks is added (parent: what it came from).',
         items: {
           type: 'object',
           properties: {
@@ -607,6 +614,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
       memories: { type: 'array', description: 'Facts to promote (sofar_remember).', items: { type: 'string' } },
       notes: { type: 'array', items: { type: 'string' } },
       brief_append: { type: 'array', description: 'Operator roadmap/spec words for the brief: a captured prompt id (P1, copied verbatim) or the words.', items: { type: 'string' } },
+      rulings: { type: 'array', description: 'Operator-only calls; never tasks.', items: { type: 'string' } },
     },
     required: ['summary', 'next_action'],
     additionalProperties: false,
@@ -680,6 +688,7 @@ export const TOOL_INPUT_SCHEMAS: Record<ToolName, ToolInputSchema> = {
       // terse because the whole tool surface is budgeted (2.4, D13).
       supersedes: { type: 'string', description: 'Earlier decision this replaces (`D<n>`); a rule only by a rule.' },
       until: { type: 'string', description: 'Task id this holds until it resolves; never with `rule`.' },
+      answers: { type: 'string', description: 'R<n> it settles.' },
       // Shape is the payload validator's (D9), like guard's; the surface is budgeted.
       check: { type: 'object', description: 'Command proving `rule` holds (needs rule): {cmd, hint?}; hint = the fix.' },
     },
@@ -828,7 +837,7 @@ const toolValidators: Record<ToolName, (a: Obj, e: string[]) => void> = {
         e.push(`${key}: must be an array of objects`)
       }
     }
-    for (const key of ['memories', 'notes', 'brief_append'] as const) {
+    for (const key of ['memories', 'notes', 'brief_append', 'rulings'] as const) {
       if (a[key] !== undefined && !(Array.isArray(a[key]) && (a[key] as unknown[]).every(str))) {
         e.push(`${key}: must be an array of non-empty strings`)
       }

@@ -33,7 +33,7 @@ import {
   repoRuleLines,
   runDetailLines,
   standingConstraintLines,
-  scopeText, taskProgress, testOutcomeLine, nativeOriginMark } from './shared'
+  scopeText, taskProgress, testOutcomeLine, nativeOriginMark, callsText, openRulings, rulingLine, rulingsBlock } from './shared'
 import { lexicalCounts } from '../../core/lexicon'
 import { repoMemoryHandles, ruleHandles, TRAVEL_BUDGET, travelEntries, travelLines, travelSeeds, type TravelInput } from './travel'
 import { ELSEWHERE_BUDGET, elsewhereLines, elsewhereRows } from './elsewhere'
@@ -77,6 +77,9 @@ export const briefTruncationMarker = (slug: string): string =>
 const NEXT_TASK_TITLE_BUDGET = 1_000
 const SIBLING_TITLE_BUDGET = 80
 const MAX_SIBLINGS = 6
+/** Open rulings the digest lists before `…and N more` (scope-baseline 2.3, D4). */
+const MAX_RULINGS = 5
+const RULING_BUDGET = 200
 const NEXT_ACTION_BUDGET = 500
 const BLOCKED_BUDGET = 500
 const PHASE_LINE_BUDGET = 100
@@ -297,6 +300,7 @@ export function renderFullStatus(
   // (branch-visibility D1): say what the figure above is made of.
   if (provenance != null) lines.push(...renderProvenanceBlock(provenance, home))
   lines.push('')
+  lines.push(...rulingsBlock(state.rulings))
 
   const stalePhases = staleActivePhases(state)
   const staleNames = new Set(stalePhases.map((p) => p.name))
@@ -645,6 +649,18 @@ export function renderStatus(state: InitiativeState, options?: StatusOptions): s
   // (1b) The plan's brief (r1-fixes 4.6, L36), fixed: never rendered before
   // one was recorded, so every earlier digest is byte-identical.
   if (state.brief.length > 0 && !lane) fixed([...briefLines(state, scaledBudget(BRIEF_BUDGET, limit)), ''])
+
+  // (1c) Calls only the operator can make (scope-baseline 2.3, D4), fixed and
+  // before the work: a session that cannot proceed without one asks first.
+  const calls = lane ? [] : openRulings(state.rulings)
+  if (calls.length > 0) {
+    fixed([
+      `${callsText(calls.length)} — ask the operator; a decision with "answers":"R<n>" settles one:`,
+      ...calls.slice(0, MAX_RULINGS).map(({ n, ruling }) => `- ${clip(rulingLine(n, ruling), RULING_BUDGET)}`),
+      ...(calls.length > MAX_RULINGS ? [`- …and ${calls.length - MAX_RULINGS} more (plan.md)`] : []),
+      '',
+    ])
+  }
 
   // (2) The next task's spec. Plan tasks carry their spec in the title, so the
   // title renders whole up to its budget — round 1's S9 opened plan.md for a

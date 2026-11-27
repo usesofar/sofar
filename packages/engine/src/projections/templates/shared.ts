@@ -3,6 +3,7 @@ import {
   stopRequestsInForce,
   type DecisionState,
   type FreshnessState,
+  type RulingState,
   type RunState,
   type SessionActivity,
 } from '../../core/fold'
@@ -485,6 +486,28 @@ export function statusGauge(p: TaskProgress): StatusGauge {
 
 export function statusFraction(g: StatusGauge): string {
   return g.left === null ? `${g.done}/${g.of}` : `${g.done}/${g.of} (${g.left} left)`
+}
+
+/** The rulings no decision has answered yet, with their `R<n>` (scope-baseline 2.3, D4). */
+export function openRulings(rulings: readonly RulingState[] | undefined): Array<{ n: number; ruling: RulingState }> {
+  return (rulings ?? []).flatMap((ruling, i) => (ruling.answered_by === undefined ? [{ n: i + 1, ruling }] : []))
+}
+
+/** `1 needs your call` / `3 need your call` — the one count of open rulings. */
+export function callsText(open: number): string {
+  return `${open} ${open === 1 ? 'needs' : 'need'} your call`
+}
+
+/** One open ruling: its handle, the question, and the task waiting on it. */
+export function rulingLine(n: number, ruling: RulingState): string {
+  return `R${n} ${ruling.question}${ruling.task !== undefined ? ` (task ${ruling.task})` : ''}`
+}
+
+/** The uncapped block plan.md and `sofar status` render; empty with nothing open. */
+export function rulingsBlock(rulings: readonly RulingState[] | undefined): string[] {
+  const open = openRulings(rulings)
+  if (open.length === 0) return []
+  return [`Needs your call (${open.length}):`, ...open.map(({ n, ruling }) => `- ${rulingLine(n, ruling)}`), '']
 }
 
 export function phaseFraction(p: ProgressCounts): string {

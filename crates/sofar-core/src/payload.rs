@@ -54,11 +54,12 @@ pub const RUN_STOP_REASONS: [&str; 7] = [
 pub const VERIFICATION_RESULTS: [&str; 5] = ["pass", "fail", "timeout", "error", "refused"];
 
 /// `EVENT_TYPES`, in the schema's order.
-pub const EVENT_TYPES: [&str; 32] = [
+pub const EVENT_TYPES: [&str; 33] = [
     "initiative_created",
     "initiative_status_changed",
     "plan_updated",
     "brief_appended",
+    "ruling_requested",
     "phase_status_changed",
     "phase_added",
     "task_added",
@@ -172,6 +173,13 @@ pub fn is_initiative_slug(s: &str) -> bool {
     !s.is_empty()
         && s.bytes()
             .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-'))
+}
+
+/// `R<n>`, n ≥ 1 with no leading zero (scope-baseline 2.3, D4).
+fn is_ruling_handle(h: &str) -> bool {
+    h.strip_prefix('R').is_some_and(|d| {
+        !d.is_empty() && !d.starts_with('0') && d.bytes().all(|b| b.is_ascii_digit())
+    })
 }
 
 /// `DECISION_HANDLE_RE`: `/^D([1-9][0-9]*)$/` (r1-fixes 3.2, D25).
@@ -906,6 +914,13 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
             }
             // The executable half of a rule (memory-lead D9), as `guard` is
             // the matchable half: a failure has to name the clause it enforces.
+            if let Some(answers) = p.get("answers") {
+                must(
+                    e,
+                    answers.as_str().is_some_and(is_ruling_handle),
+                    "answers: must be the handle `R<n>` of an open ruling in this record when present",
+                );
+            }
             if let Some(check) = p.get("check") {
                 must(
                     e,
@@ -1058,6 +1073,21 @@ fn validate_known(event_type: &str, p: &Object, e: &mut Vec<String>) {
                 opt_bool(p.get("elsewhere")),
                 "elsewhere: must be a boolean",
             );
+        }
+        // scope-baseline 2.3 (D4): a call only the operator can make.
+        "ruling_requested" => {
+            must(
+                e,
+                str(p.get("question")),
+                "question: must be a non-empty string",
+            );
+            if let Some(task) = p.get("task") {
+                must(
+                    e,
+                    str(Some(task)),
+                    "task: must be a non-empty task id when present",
+                );
+            }
         }
         // brief_appended (r3-fixes 2.9) shares note_added's one rule.
         "note_added" | "brief_appended" => {

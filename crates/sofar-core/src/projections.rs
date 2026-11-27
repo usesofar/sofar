@@ -768,6 +768,55 @@ pub fn task_progress<'a>(phases: impl IntoIterator<Item = &'a PhaseState>) -> Ta
     p
 }
 
+/// `openRulings` (scope-baseline 2.3, D4): the rulings no decision has
+/// answered yet, with their 1-based `R<n>`.
+#[must_use]
+pub fn open_rulings(
+    rulings: &[crate::fold::RulingState],
+) -> Vec<(usize, &crate::fold::RulingState)> {
+    rulings
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.answered_by.is_none())
+        .map(|(i, r)| (i + 1, r))
+        .collect()
+}
+
+/// `callsText`: `1 needs your call` / `3 need your call`.
+#[must_use]
+pub fn calls_text(open: usize) -> String {
+    format!(
+        "{open} {} your call",
+        if open == 1 { "needs" } else { "need" }
+    )
+}
+
+/// `rulingLine`: one open ruling — handle, question, the task waiting on it.
+#[must_use]
+pub fn ruling_line(n: usize, ruling: &crate::fold::RulingState) -> String {
+    match &ruling.task {
+        Some(t) => format!("R{n} {} (task {t})", ruling.question),
+        None => format!("R{n} {}", ruling.question),
+    }
+}
+
+/// `rulingsBlock`: the uncapped block plan.md and `sofar status` render;
+/// empty with nothing open.
+#[must_use]
+pub fn rulings_block(rulings: &[crate::fold::RulingState]) -> Vec<String> {
+    let open = open_rulings(rulings);
+    if open.is_empty() {
+        return Vec::new();
+    }
+    let mut lines = vec![format!("Needs your call ({}):", open.len())];
+    lines.extend(
+        open.iter()
+            .map(|(n, r)| format!("- {}", ruling_line(*n, r))),
+    );
+    lines.push(String::new());
+    lines
+}
+
 /// `scopeText` (scope-baseline 1.3): the plan's done figure and the open
 /// found work after a Progress line; empty when nothing was found.
 #[must_use]
@@ -984,6 +1033,8 @@ pub fn render_plan(state: &InitiativeState) -> String {
         scope_text(progress)
     ));
     lines.push(String::new());
+    // Calls only the operator can make (scope-baseline 2.3, D4): never tasks.
+    lines.extend(rulings_block(&state.rulings));
     if state.phases.is_empty() {
         lines.push("(no plan recorded yet — call sofar_update_plan)".to_owned());
         lines.push(String::new());
@@ -1877,6 +1928,7 @@ mod tests {
             guard: None,
             supersedes: None,
             until: None,
+            answers: None,
             check: None,
             superseded_by: by,
             link_pending: None,

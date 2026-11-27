@@ -1,0 +1,10 @@
+{
+  "tail_at": 5,
+  "seeds": [
+    83,
+    84,
+    85
+  ],
+  "order_independence": true,
+  "note": "scope-baseline 2.3 (D4): ruling_requested folds an open ruling (rulings present only when non-empty); a decision_logged naming R<n> settles it, the first answer stands, one never asked is inert; an empty question and a malformed handle are invalid lines; both count as decision drift. The tail starts at the first answer"
+}

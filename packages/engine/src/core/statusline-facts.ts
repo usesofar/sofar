@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { InitiativeStatus, RunStopReason } from '@sofar/schema'
-import { taskProgress, type TaskProgress } from '../projections/templates/shared'
+import { openRulings, taskProgress, type TaskProgress } from '../projections/templates/shared'
 import { writeFileAtomic } from './atomic'
 import { taskInFlight } from './drive-queue'
 import { latestRun, type InitiativeState } from './fold'
@@ -28,11 +28,13 @@ import { currentVersion } from './snapshot'
 
 const FACTS_DIR = 'statusline'
 /** 2: progress gained the plan terms (scope-baseline 1.2). */
-export const STATUSLINE_FACTS_VERSION = 2
+export const STATUSLINE_FACTS_VERSION = 3
 
 export interface StatuslineFacts {
   progress: TaskProgress
   status: InitiativeStatus
+  /** Open rulings — calls only the operator can make (scope-baseline 2.3, D4). */
+  calls: number
   /** The latest run, only what driveSegmentOf reads; null when none ran. */
   run: { id: string; stopped: string | null; stop_reason: RunStopReason | null } | null
   /** The driver's next task id — on a lanes run what its lanes hold (drive-lanes D22) — read only while a run is open. */
@@ -59,6 +61,7 @@ export function factsOf(state: InitiativeState): StatuslineFacts {
   return {
     progress: taskProgress(state.phases),
     status: state.status,
+    calls: openRulings(state.rulings).length,
     run:
       run === undefined
         ? null
@@ -85,7 +88,7 @@ function isFacts(v: unknown): v is StatuslineFacts {
   const p = v.progress
   if (!isCount(p.done) || !isCount(p.dropped) || !isCount(p.total) || !isCount(p.remaining)) return false
   if (!isCount(p.plan_done) || !isCount(p.plan_dropped) || !isCount(p.plan_total)) return false
-  if (!isStrOrNull(v.next_task) || !isRecord(v.started)) return false
+  if (!isCount(v.calls) || !isStrOrNull(v.next_task) || !isRecord(v.started)) return false
   if (!Object.values(v.started).every((s) => typeof s === 'string')) return false
   if (v.run === null) return true
   return isRecord(v.run) && typeof v.run.id === 'string' && isStrOrNull(v.run.stopped) && isStrOrNull(v.run.stop_reason)

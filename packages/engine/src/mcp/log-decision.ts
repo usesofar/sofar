@@ -84,6 +84,7 @@ function logDecisionLogged(
     ...(args.guard !== undefined ? { guard: args.guard } : {}),
     ...(args.supersedes !== undefined ? { supersedes: args.supersedes } : {}),
     ...(args.until !== undefined ? { until: args.until } : {}),
+    ...(args.answers !== undefined ? { answers: args.answers } : {}),
     ...(args.check !== undefined ? { check: args.check } : {}),
   })
   // What the rule adds to the operator's words (memory-lead 1.2, D2) — after

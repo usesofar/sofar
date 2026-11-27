@@ -226,6 +226,7 @@ fn cut_decision(
         },
         supersedes: d.supersedes.clone(),
         until: d.until.clone(),
+        answers: None,
         check: None,
         superseded_by: d.superseded_by,
         // The digest names a pending link's candidates (r3-fixes 2.5), never its session.

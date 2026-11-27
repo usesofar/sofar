@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { makeEvent, type EventEnvelope } from '../src/core/envelope'
 import { foldLines, type InitiativeState } from '../src/core/fold'
 import { serializeEvent } from '../src/core/log'
-import { scopeText, statusFraction, statusGauge, taskProgress } from '../src/projections/templates/shared'
-import { phaseBody } from '../src/projections/templates/plan'
+import { callsText, openRulings, scopeText, statusFraction, statusGauge, taskProgress } from '../src/projections/templates/shared'
+import { phaseBody, renderPlan } from '../src/projections/templates/plan'
+import { renderStatus } from '../src/projections/templates/status'
 import { heldTasks, planTaskChange } from '../src/mcp/task-plan'
 
 /**
@@ -109,5 +110,32 @@ describe('scope-baseline 2.1 — a follow-up names its parent', () => {
     expect(unknown.ok).toBe(false)
     const onHeld = planTaskChange(s, 'demo', { task_id: '1', status: 'done', parent: '1' }, held)
     expect(onHeld.ok).toBe(false)
+  })
+})
+
+describe('scope-baseline 2.3 — rulings need your call, never count as tasks', () => {
+  const ask = (question: string, task?: string) => ev('ruling_requested', { question, ...(task !== undefined ? { task } : {}) })
+  const answer = (handle: string) => ev('decision_logged', { chose: 'a', over: 'b', because: 'c', answers: handle })
+
+  it('a ruling folds open, moves no task count, and the first answer settles it', () => {
+    const s = fold([plan([{ id: '1' }]), ask('A or B?', '1'), ask('C or D?'), answer('R1'), answer('R1'), answer('R9')])
+    expect(s.rulings).toEqual([
+      expect.objectContaining({ question: 'A or B?', task: '1', answered_by: 1 }),
+      expect.objectContaining({ question: 'C or D?' }),
+    ])
+    expect(s.rulings?.[1]).not.toHaveProperty('answered_by')
+    expect(taskProgress(s.phases).total).toBe(1)
+    expect(openRulings(s.rulings).map((r) => r.n)).toEqual([2])
+  })
+
+  it('a record that never asked carries no rulings key', () => {
+    expect(fold([plan([{ id: '1' }])])).not.toHaveProperty('rulings')
+  })
+
+  it('plan.md and the digest list open rulings; the count reads as one phrase', () => {
+    const s = fold([plan([{ id: '1' }]), ask('A or B?', '1')])
+    expect(renderPlan(s)).toContain('Needs your call (1):\n- R1 A or B? (task 1)\n')
+    expect(renderStatus(s)).toContain('1 needs your call — ask the operator; a decision with "answers":"R<n>" settles one:\n- R1 A or B? (task 1)\n')
+    expect(callsText(2)).toBe('2 need your call')
   })
 })

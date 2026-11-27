@@ -1,5 +1,5 @@
 import type { InitiativeState, PhaseState, TaskState } from '../../core/fold'
-import { GENERATED_HEADER, doc, phaseFraction, progressText, scopeText, taskProgress } from './shared'
+import { GENERATED_HEADER, doc, phaseFraction, progressText, rulingsBlock, scopeText, taskProgress } from './shared'
 
 /**
  * plan.md template (task 3.6, extends the BD14 v0 seam in place): goal,
@@ -20,6 +20,8 @@ export function renderPlan(state: InitiativeState): string {
 
   const progress = taskProgress(state.phases)
   lines.push(`Progress: ${progressText(progress)}${scopeText(progress)}`, '')
+  // Calls only the operator can make (scope-baseline 2.3, D4): never tasks.
+  lines.push(...rulingsBlock(state.rulings))
 
   if (state.phases.length === 0) {
     lines.push('(no plan recorded yet — call sofar_update_plan)', '')

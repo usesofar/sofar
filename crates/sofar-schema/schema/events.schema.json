@@ -17,6 +17,9 @@
         "brief_appended": {
           "$ref": "#/definitions/BriefAppendedPayload"
         },
+        "ruling_requested": {
+          "$ref": "#/definitions/RulingRequestedPayload"
+        },
         "phase_status_changed": {
           "$ref": "#/definitions/PhaseStatusChangedPayload"
         },
@@ -107,6 +110,7 @@
         "initiative_status_changed",
         "plan_updated",
         "brief_appended",
+        "ruling_requested",
         "phase_status_changed",
         "phase_added",
         "task_added",
@@ -337,6 +341,21 @@
       ],
       "description": "Words added to the plan's brief without resending it (r3-fixes 2.9, D6). The L36 fix keeps every session's operator words in the brief, so a plan_updated that restated it grew with the chain: round 3 resent 0.70–0.81M chars of brief a chain, 50–60% of events.jsonl. The fold appends `text` to the brief after a blank line; plan_updated's `brief` stays the full restatement. A write path that keeps a captured prompt by id fills `text` with the prompt, verbatim and scrubbed — the event itself carries words only."
     },
+    "RulingRequestedPayload": {
+      "type": "object",
+      "properties": {
+        "question": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "question"
+      ],
+      "description": "A call only the operator can make (scope-baseline 2.3, D4): a question, not work. It never enters the plan, so it never moves a task count; open ones surface as \"N need your call\". Its handle is `R<n>`, 1-based in log order like `D<n>`; a decision_logged naming it in `answers` settles it. `task` is the task waiting on the answer, when one is."
+    },
     "PhaseStatusChangedPayload": {
       "type": "object",
       "properties": {
@@ -481,6 +500,10 @@
         "until": {
           "type": "string",
           "description": "`until` (r1-fixes 3.2, D25): the id of a task in this record. The decision is in force until that task RESOLVES (done or dropped, as replayed) and then leaves the digest — validity derives from recorded events, never from a clock. REJECTED alongside `rule`: a standing constraint never ages out. An id the plan never names never retires."
+        },
+        "answers": {
+          "type": "string",
+          "description": "`answers` (scope-baseline 2.3, D4): the handle `R<n>` of the open ruling this decision settles. The fold marks that ruling answered by this decision; a handle it cannot resolve, or one already answered, is inert."
         },
         "check": {
           "$ref": "#/definitions/DecisionCheck",

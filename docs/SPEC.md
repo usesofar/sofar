@@ -216,6 +216,10 @@ later replace omits it, like `goal`; r1-fixes 4.6, L36) ·
 brief_appended (text — words added to the brief without resending it: the
 fold appends them after a blank line; never counted as drift, like
 plan_updated; r3-fixes 2.9, D6) ·
+ruling_requested (question, task? — a call only the operator can make,
+never a task; it stays open, as `R<n>` by order, until a decision_logged
+names it in `answers`; counted as drift like a decision; see §Rulings,
+scope-baseline 2.3, D4) ·
 phase_status_changed (phase, status: pending|active|done|blocked|dropped,
 note? — REQUIRED for `dropped`; the note explains the CURRENT status and is
 cleared by any later event that omits it; phase-lifecycle 2.1) ·
@@ -246,7 +250,9 @@ HELD link named, stamped by the writer and never passed (refused); valid
 ONLY with `link_candidates`, whose first id is that target, and never with
 `supersedes` (§Supersede-target integrity); r3-fixes 2.6, D18 — until? —
 a task id this decision is in force until; never with `rule`; r1-fixes
-3.2, D25) ·
+3.2, D25 — answers? — the handle `R<n>` of the ruling this settles; the
+first answer stands, one naming a ruling never asked is inert;
+scope-baseline 2.3, D4) ·
 decision_linked (decision — `D<n>`, decision_id — its event id,
 supersedes? — `D<m>` it replaces, absent = "replaces nothing",
 supersedes_id? — that decision's event id, required with `supersedes`; both
@@ -1858,6 +1864,20 @@ replace, as it keeps `found`. A self-parent is an invalid line. plan.md (and
 each phase shard) renders a child indented two spaces per depth directly
 under its parent. A parent outside the phase, or unknown, leaves the task
 top-level in plan order, and so does a cycle, so every task renders once.
+
+**Rulings.** A call only the operator can make — a choice between
+designs, a scope cut, a trade-off — is never a task: a task-shaped
+question inflates the count a stage is judged by and reads as work an
+agent could do. The write-back's `rulings` (strings) appends one
+ruling_requested each; the fold keeps them in `rulings` (present only when
+non-empty), numbered `R<n>` by order. A decision_logged with `answers`
+settles one (`answered_by` = its decision ordinal); the first answer
+stands. Open rulings render as `Needs your call (<K>):` with one
+`- R<n> <question>[ (task <id>)]` line each, after Progress in plan.md
+and `sofar status`, and as a fixed digest block before the next task
+(capped at 5, `…and N more`). The status line adds a separate
+`<K> need(s) your call` segment after the record segment while any is
+open and the record is not closed; the task fraction never counts them.
 
 **Status-line gauge.** The record segment reads `<pie> <slug>
 <done>/<planned>[ (<N> left)]`. `<planned>` is the planned tasks not

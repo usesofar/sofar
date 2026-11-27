@@ -5,6 +5,7 @@ const validPayloads: Record<string, Record<string, unknown>> = {
   initiative_created: { slug: 'sofar-build', goal: 'Build the v1 engine' },
   initiative_status_changed: { status: 'done', note: 'v1 engine shipped' },
   brief_appended: { text: 'Next: refunds, never more than was paid.' },
+  ruling_requested: { question: 'Ship refunds before invoices?', task: '2.1' },
   decision_linked: { decision: 'D4', decision_id: '01K0000000000000000000000D', supersedes: 'D2', supersedes_id: '01K0000000000000000000000B' },
   check_bound: { decision: 'D4', decision_id: '01K0000000000000000000000D', check: { cmd: 'npm test -- test/store.test.ts', hint: 'restore it', timeout_ms: 30000 } },
   plan_updated: {
@@ -224,5 +225,19 @@ describe('validatePayload', () => {
         rule: 'Never emit `@source not` when the installed tailwindcss is below 4.1.',
       }),
     ).toEqual({ ok: true })
+  })
+})
+
+describe('rulings (scope-baseline 2.3, D4)', () => {
+  it('a ruling needs a question; task, when present, is a non-empty id', () => {
+    expect(validatePayload('ruling_requested', { question: 'A or B?' })).toEqual({ ok: true })
+    expect(validatePayload('ruling_requested', { question: '' }).ok).toBe(false)
+    expect(validatePayload('ruling_requested', { question: 'A?', task: '' }).ok).toBe(false)
+  })
+
+  it('a decision answers a ruling by its bare handle R<n> only', () => {
+    const d = { chose: 'a', over: 'b', because: 'c' }
+    expect(validatePayload('decision_logged', { ...d, answers: 'R12' })).toEqual({ ok: true })
+    for (const answers of ['R0', 'r1', 'R01', 'D1', '', 3]) expect(validatePayload('decision_logged', { ...d, answers }).ok).toBe(false)
   })
 })

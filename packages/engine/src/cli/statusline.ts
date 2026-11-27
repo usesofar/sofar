@@ -20,6 +20,7 @@ import {
 } from './init'
 import {
   statusFraction,
+  callsText,
   statusGauge,
   type TaskProgress,
 } from '../projections/templates/shared'
@@ -190,7 +191,7 @@ function dirSegment(hook: Obj): { name: string; branch: string | null } | null {
  * repos: they render exactly as they always have, with no segment.
  */
 type RecordSegment =
-  | { kind: 'record'; slug: string; root: string; progress: TaskProgress; status: InitiativeStatus; drive: DriveSegment | null }
+  | { kind: 'record'; slug: string; root: string; progress: TaskProgress; status: InitiativeStatus; calls: number; drive: DriveSegment | null }
   | { kind: 'lane' }
   | { kind: 'unbound' }
   | null
@@ -339,6 +340,7 @@ function recordSegment(rootDir: string, hook: Obj): RecordSegment {
           root,
           progress: facts.progress,
           status: facts.status,
+          calls: facts.calls,
           drive: driveSegmentFrom(
             facts.run,
             () => facts.next_task,
@@ -513,6 +515,9 @@ export function runStatusline(
           } `
     const body = record.progress.total > 0 ? `${pieCell}${slug} ${statusFraction(gauge)}` : slug
     segments.push(closed ? `${body} ${style.dim(record.status)}` : body)
+    // Calls only the operator can make (scope-baseline 2.3, D4): their own
+    // segment, never folded into the task count, and only while one is open.
+    if (!closed && record.calls > 0) segments.push(style.warn(callsText(record.calls)))
     if (record.drive !== null) segments.push(driveText(record.drive, style))
   }
   const launched = launchedSegmentOf(

@@ -831,3 +831,22 @@ restate. No existing golden moved; TypeScript, the Rust core
 | fold-parity/cases/FP-27-found-and-parent.{json,jsonl} | new case |
 | fold-parity/golden/FP-27-found-and-parent.state.json | new case |
 | render-parity/golden/fold-parity.cases.FP-27-found-and-parent.txt | new case |
+
+## Add: rulings need your call (scope-baseline 2.3, D4)
+
+`ruling_requested` {question, task?} folds an open ruling into `rulings`
+(present only when non-empty); a decision_logged naming it in `answers`
+(`R<n>`) settles it, and the first answer stands (docs/SPEC.md §Rulings).
+Open rulings render as `Needs your call (<K>):` in plan.md and status, and
+as a fixed digest block. A new fold-parity case covers an answer, a late
+second answer, an answer to a ruling never asked, an empty question and a
+malformed handle. The fold-parity count assertion in
+`crates/sofar-core/tests/fold_parity.rs` moves 26 → 28, which also catches
+up FP-27. No existing golden moved; TypeScript, the Rust core and the
+black-box binary pass it.
+
+| golden | reason |
+| --- | --- |
+| fold-parity/cases/FP-28-rulings.{json,jsonl} | new case |
+| fold-parity/golden/FP-28-rulings.state.json | new case |
+| render-parity/golden/fold-parity.cases.FP-28-rulings.txt | new case |

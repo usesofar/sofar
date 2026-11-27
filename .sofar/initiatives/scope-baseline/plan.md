@@ -6,19 +6,19 @@ Goal: Task counts a person can trust at a glance: progress measured against the 
 
 Brief: the operator's words, 595 chars, verbatim in brief.md; `sofar show brief¶<k>` prints one paragraph.
 
-Progress: 5/8 tasks done (62%)
+Progress: 7/8 tasks done (87%)
 
 ## Honest count [done] — 4/4 done — its tasks in phases/P1.md
 
-## Stop the inflation [active] — 1/3 done
+## Stop the inflation [active] — 3/3 done
 
 - [x] 2.1 Optional parent on task_added: a follow-up names the task it came from and renders under it, not as a top-level task (schema change, decision first)
-- [ ] 2.2 Write-back wording: a follow-up names its parent; a ruling the operator must make is a decision, not a task (active)
-- [ ] 2.3 Rulings surface as 'needs your call' rather than counting as tasks
+- [x] 2.2 Write-back wording: a follow-up names its parent; a ruling the operator must make is a decision, not a task
+- [x] 2.3 Rulings surface as 'needs your call' rather than counting as tasks
 
 ## Stages that finish [pending] — 0/1 done
 
 - [ ] 3.1 When the planned scope is all resolved, sofar says so and offers to close the stage, carrying open follow-ups into the next record
 
 Active phase: Stop the inflation
-Next action: 2.3: operator picks how a pending ruling is held (blocked task waiting on the operator vs a new ruling event), then finish 2.2's ruling wording.
+Next action: 3.1: when every planned task is resolved, offer to close the stage and carry open follow-ups into the next record.

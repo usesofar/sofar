@@ -58,6 +58,9 @@ pub struct DecisionLinkedPayload {
 #[doc = "`rule` (drift-hardening D1): optional standing-constraint clause — one short imperative every future session must obey. Its presence is what makes a decision a standing constraint; there is no separate flag. Render contract: verbatim on every surface, never clipped, never aged out — the C-abl ablation showed decisions are the load-bearing resume field, and clipped normative text is how dead ends recur."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
 pub struct DecisionLoggedPayload {
+    #[doc = "`answers` (scope-baseline 2.3, D4): the handle `R<n>` of the open ruling this decision settles. The fold marks that ruling answered by this decision; a handle it cannot resolve, or one already answered, is inert."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub answers: ::std::option::Option<::std::string::String>,
     pub because: ::std::string::String,
     #[doc = "`check` (memory-lead 2.3, D9): the executable half of the SAME clause — a shell command whose exit 0 means the decision holds. Valid only alongside `rule`, like `guard`: a failure has to cite the clause it enforces. It is text an agent wrote into a shared record, so nothing runs it until the operator approved that exact command on their clone, or, under `sofar drive`, the run's permission surface covers it. It WARNS everywhere, and blocks only at drive's task acceptance and, opted in, at pre-commit."]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -315,6 +318,7 @@ pub struct KnownEventPayloads {
     pub phase_status_changed: PhaseStatusChangedPayload,
     pub plan_updated: PlanUpdatedPayload,
     pub review_recorded: ReviewRecordedPayload,
+    pub ruling_requested: RulingRequestedPayload,
     pub run_adopted: RunAdoptedPayload,
     pub run_started: RunStartedPayload,
     pub run_stop_requested: RunStopRequestedPayload,
@@ -597,6 +601,13 @@ impl ::std::convert::TryFrom<::std::string::String> for ReviewVerdict {
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
+}
+#[doc = "A call only the operator can make (scope-baseline 2.3, D4): a question, not work. It never enters the plan, so it never moves a task count; open ones surface as \"N need your call\". Its handle is `R<n>`, 1-based in log order like `D<n>`; a decision_logged naming it in `answers` settles it. `task` is the task waiting on the answer, when one is."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
+pub struct RulingRequestedPayload {
+    pub question: ::std::string::String,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub task: ::std::option::Option<::std::string::String>,
 }
 #[doc = "A driver took over a run that has no stop (drive-visibility 2.2): `sofar drive --resume` appends one before its first launch, at one more than the run's highest epoch — `run_started` is epoch 1, so an adoption is never below 2. The fencing token for a record that syncs: the fold's owner is the highest epoch (the first-sorting id on a tie), and a driver that finds it is no longer the owner steps down. One event per takeover, never a heartbeat."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
